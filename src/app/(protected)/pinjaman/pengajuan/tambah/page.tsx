@@ -1,0 +1,414 @@
+"use client";
+
+import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import { Loader2, Save, Search, Calculator } from "lucide-react";
+import { formatCurrency, INTEREST_METHODS } from "@/lib/constants";
+
+// Mock members
+const MOCK_MEMBERS = [
+    { id: 1, member_no: "A-001", name: "Budi Santoso", savings_balance: 5000000 },
+    { id: 2, member_no: "A-002", name: "Siti Aminah", savings_balance: 3500000 },
+    { id: 3, member_no: "A-003", name: "Joko Widodo", savings_balance: 2200000 },
+];
+
+// Mock loan products
+const MOCK_PRODUCTS = [
+    { id: 1, code: "PJM-REG", name: "Pinjaman Reguler", interest_method: "flat", interest_rate: 1.5, min_amount: 1000000, max_amount: 50000000, min_tenor: 3, max_tenor: 24, admin_fee_type: "percent", admin_fee_value: 1 },
+    { id: 2, code: "PJM-USAHA", name: "Pinjaman Usaha", interest_method: "annuity", interest_rate: 1.2, min_amount: 5000000, max_amount: 100000000, min_tenor: 6, max_tenor: 36, admin_fee_type: "percent", admin_fee_value: 1 },
+    { id: 3, code: "PJM-DARURAT", name: "Pinjaman Darurat", interest_method: "flat", interest_rate: 2.0, min_amount: 500000, max_amount: 10000000, min_tenor: 1, max_tenor: 12, admin_fee_type: "fixed", admin_fee_value: 50000 },
+];
+
+export default function TambahPengajuanPage() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [selectedMember, setSelectedMember] = React.useState<typeof MOCK_MEMBERS[0] | null>(null);
+    const [selectedProduct, setSelectedProduct] = React.useState<typeof MOCK_PRODUCTS[0] | null>(null);
+
+    // Form state
+    const [formData, setFormData] = React.useState({
+        product_id: "",
+        amount: "",
+        tenor_months: "",
+        purpose: "",
+    });
+
+    // Calculation state
+    const [calculation, setCalculation] = React.useState<{
+        principal: number;
+        interest: number;
+        total: number;
+        admin_fee: number;
+        disbursed: number;
+        monthly: number;
+    } | null>(null);
+
+    // Auto-select member from URL params
+    React.useEffect(() => {
+        const memberId = searchParams.get("member_id");
+        if (memberId) {
+            const member = MOCK_MEMBERS.find((m) => m.id === parseInt(memberId));
+            if (member) setSelectedMember(member);
+        }
+    }, [searchParams]);
+
+    // Update selected product when product_id changes
+    React.useEffect(() => {
+        const product = MOCK_PRODUCTS.find((p) => p.id.toString() === formData.product_id);
+        setSelectedProduct(product || null);
+    }, [formData.product_id]);
+
+    // Calculate loan details
+    React.useEffect(() => {
+        if (!selectedProduct || !formData.amount || !formData.tenor_months) {
+            setCalculation(null);
+            return;
+        }
+
+        const principal = parseFloat(formData.amount);
+        const tenor = parseInt(formData.tenor_months);
+        const rate = selectedProduct.interest_rate / 100;
+
+        let interest = 0;
+        let monthly = 0;
+
+        if (selectedProduct.interest_method === "flat") {
+            // Flat: Interest = Principal * Rate * Tenor
+            interest = principal * rate * tenor;
+            monthly = (principal + interest) / tenor;
+        } else if (selectedProduct.interest_method === "annuity") {
+            // Annuity: Fixed monthly payment
+            monthly = (principal * rate * Math.pow(1 + rate, tenor)) / (Math.pow(1 + rate, tenor) - 1);
+            interest = (monthly * tenor) - principal;
+        } else {
+            // Declining: Interest calculated on remaining principal
+            interest = 0;
+            for (let i = 0; i < tenor; i++) {
+                interest += (principal - (principal * i / tenor)) * rate;
+            }
+            monthly = (principal + interest) / tenor;
+        }
+
+        const total = principal + interest;
+        const admin_fee = selectedProduct.admin_fee_type === "percent"
+            ? principal * (selectedProduct.admin_fee_value / 100)
+            : selectedProduct.admin_fee_value;
+        const disbursed = principal - admin_fee;
+
+        setCalculation({
+            principal,
+            interest: Math.round(interest),
+            total: Math.round(total),
+            admin_fee: Math.round(admin_fee),
+            disbursed: Math.round(disbursed),
+            monthly: Math.round(monthly),
+        });
+    }, [selectedProduct, formData.amount, formData.tenor_months]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleSelectChange = (name: string, value: string) => {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleMemberSearch = () => {
+        const member = MOCK_MEMBERS.find(
+            (m) => m.member_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                m.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        if (member) {
+            setSelectedMember(member);
+        } else {
+            toast.error("Anggota tidak ditemukan");
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!selectedMember) {
+            toast.error("Pilih anggota terlebih dahulu");
+            return;
+        }
+
+        if (!formData.product_id || !formData.amount || !formData.tenor_months) {
+            toast.error("Lengkapi semua field yang wajib");
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            toast.success("Pengajuan pinjaman berhasil dibuat");
+            router.push("/pinjaman");
+        } catch (error) {
+            toast.error("Gagal membuat pengajuan");
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                title="Pengajuan Pinjaman Baru"
+                description="Buat pengajuan pinjaman untuk anggota"
+                backHref="/pinjaman"
+            />
+
+            <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Left Column - Form */}
+                    <div className="space-y-6">
+                        {/* Member Selection */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Anggota</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {!selectedMember ? (
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Cari nama atau no. anggota..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleMemberSearch())}
+                                                className="pl-9"
+                                            />
+                                        </div>
+                                        <Button type="button" onClick={handleMemberSearch}>Cari</Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold">
+                                                {selectedMember.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{selectedMember.name}</p>
+                                                <p className="text-sm text-muted-foreground">{selectedMember.member_no}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm text-muted-foreground">Simpanan</p>
+                                            <p className="font-bold text-emerald-600 tabular-nums">
+                                                {formatCurrency(selectedMember.savings_balance)}
+                                            </p>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedMember(null)}>
+                                            Ganti
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Loan Details */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Detail Pinjaman</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <Label htmlFor="product_id">Produk Pinjaman *</Label>
+                                    <Select
+                                        value={formData.product_id}
+                                        onValueChange={(value) => handleSelectChange("product_id", value)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih produk" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {MOCK_PRODUCTS.map((product) => (
+                                                <SelectItem key={product.id} value={product.id.toString()}>
+                                                    <div className="flex flex-col">
+                                                        <span>{product.name}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {product.interest_rate}%/bln - {INTEREST_METHODS[product.interest_method as keyof typeof INTEREST_METHODS].label}
+                                                        </span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedProduct && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Min: {formatCurrency(selectedProduct.min_amount)} - Max: {formatCurrency(selectedProduct.max_amount)} | Tenor: {selectedProduct.min_tenor}-{selectedProduct.max_tenor} bulan
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="amount">Jumlah Pinjaman *</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
+                                        <Input
+                                            id="amount"
+                                            name="amount"
+                                            type="number"
+                                            value={formData.amount}
+                                            onChange={handleChange}
+                                            placeholder="0"
+                                            min={selectedProduct?.min_amount || 0}
+                                            max={selectedProduct?.max_amount}
+                                            className="pl-10"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="tenor_months">Tenor (Bulan) *</Label>
+                                    <Select
+                                        value={formData.tenor_months}
+                                        onValueChange={(value) => handleSelectChange("tenor_months", value)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih tenor" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {selectedProduct ? (
+                                                Array.from(
+                                                    { length: selectedProduct.max_tenor - selectedProduct.min_tenor + 1 },
+                                                    (_, i) => selectedProduct.min_tenor + i
+                                                ).map((tenor) => (
+                                                    <SelectItem key={tenor} value={tenor.toString()}>
+                                                        {tenor} bulan
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                [3, 6, 12, 18, 24, 36].map((tenor) => (
+                                                    <SelectItem key={tenor} value={tenor.toString()}>
+                                                        {tenor} bulan
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="purpose">Tujuan Pinjaman</Label>
+                                    <Textarea
+                                        id="purpose"
+                                        name="purpose"
+                                        value={formData.purpose}
+                                        onChange={handleChange}
+                                        placeholder="Jelaskan tujuan penggunaan pinjaman..."
+                                        rows={3}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Right Column - Calculation */}
+                    <div>
+                        <Card className="sticky top-20">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Calculator className="h-5 w-5" />
+                                    Simulasi Pinjaman
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {calculation ? (
+                                    <div className="space-y-4">
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Pokok Pinjaman</span>
+                                                <span className="font-medium tabular-nums">{formatCurrency(calculation.principal)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Total Bunga ({selectedProduct?.interest_rate}%)</span>
+                                                <span className="font-medium tabular-nums">{formatCurrency(calculation.interest)}</span>
+                                            </div>
+                                            <Separator />
+                                            <div className="flex justify-between">
+                                                <span className="font-semibold">Total Pinjaman</span>
+                                                <span className="text-lg font-bold tabular-nums">{formatCurrency(calculation.total)}</span>
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Biaya Admin</span>
+                                                <span className="font-medium tabular-nums text-red-600">- {formatCurrency(calculation.admin_fee)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="font-semibold">Dana Cair</span>
+                                                <span className="text-lg font-bold text-emerald-600 tabular-nums">{formatCurrency(calculation.disbursed)}</span>
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="rounded-lg bg-primary/10 p-4 text-center">
+                                            <p className="text-sm text-muted-foreground">Angsuran per Bulan</p>
+                                            <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(calculation.monthly)}</p>
+                                            <p className="text-xs text-muted-foreground">x {formData.tenor_months} bulan</p>
+                                        </div>
+
+                                        <p className="text-xs text-muted-foreground text-center">
+                                            Metode: {selectedProduct && INTEREST_METHODS[selectedProduct.interest_method as keyof typeof INTEREST_METHODS].description}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Calculator className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                        <p>Pilih produk, jumlah, dan tenor untuk melihat simulasi</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-4 pt-4">
+                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
+                        Batal
+                    </Button>
+                    <Button type="submit" disabled={isLoading || !selectedMember || !calculation}>
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Menyimpan...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="mr-2 h-4 w-4" />
+                                Ajukan Pinjaman
+                            </>
+                        )}
+                    </Button>
+                </div>
+            </form>
+        </div>
+    );
+}
