@@ -102,35 +102,35 @@
 
 ---
 
-## 🔄 Phase 5: Additional Modules
+## ✅ Phase 5: Additional Modules
 
-**Started:** 2026-01-24
+**Completed:** 2026-01-24
 
-### Kas & Bank
+### Kas & Bank ✅
 - [x] Main page with accounts/transactions (`/kas-bank`)
 - [x] Transaction form (`/kas-bank/transaksi/tambah`)
-- [ ] Transfer form (`/kas-bank/transfer`)
+- [x] Transfer form (`/kas-bank/transfer`)
 
-### Approval Workflow
+### Approval Workflow ✅
 - [x] Approval inbox with pending/history (`/approval`)
 - [x] Approve/reject dialogs with notes
 
-### Master Data
+### Master Data ✅
 - [x] Index page with categories (`/master`)
 - [x] Branch CRUD (`/master/cabang`)
 - [x] Savings products (`/master/produk-simpanan`)
 - [x] Loan products (`/master/produk-pinjaman`)
-- [ ] Chart of Accounts (`/master/coa`)
-- [ ] User management (`/master/users`)
+- [x] Chart of Accounts (`/master/coa`)
+- [x] User management (`/master/users`)
 
-### Laporan (Reports)
+### Laporan (Reports) ✅
 - [x] Index page with report grid (`/laporan`)
 - [x] Neraca/Balance Sheet (`/laporan/neraca`)
 - [x] Laba Rugi/Income Statement (`/laporan/laba-rugi`)
-- [ ] SHU Report (`/laporan/shu`)
-- [ ] Rekap Anggota (`/laporan/rekap-anggota`)
-- [ ] Rekap Simpanan (`/laporan/rekap-simpanan`)
-- [ ] Rekap Pinjaman (`/laporan/rekap-pinjaman`)
+- [x] SHU Report (`/laporan/shu`)
+- [x] Rekap Anggota (`/laporan/rekap-anggota`)
+- [x] Rekap Simpanan (`/laporan/rekap-simpanan`)
+- [x] Rekap Pinjaman (`/laporan/rekap-pinjaman`)
 
 ---
 
