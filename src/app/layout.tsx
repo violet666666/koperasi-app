@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { SessionProvider } from "@/components/providers/session-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -54,8 +55,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        {children}
-        <Toaster position="top-right" richColors />
+        <SessionProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </SessionProvider>
       </body>
     </html>
   );

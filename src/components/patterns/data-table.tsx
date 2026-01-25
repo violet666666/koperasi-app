@@ -125,7 +125,7 @@ export function DataTable<TData, TValue>({
                         }}
                         className="pl-9 pr-9"
                     />
-                    {(globalFilter || (searchColumn && table.getColumn(searchColumn)?.getFilterValue())) && (
+                    {(globalFilter || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (
                         <button
                             onClick={() => {
                                 if (searchColumn) {

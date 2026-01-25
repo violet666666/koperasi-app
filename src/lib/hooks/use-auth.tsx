@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signIn, signOut } from "next-auth/react";
 import type { User, Branch } from "@/types";
 
 // Auth context type
@@ -20,112 +21,84 @@ interface AuthContextType {
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-// Mock data for development (replace with actual API calls)
-const MOCK_USER: User = {
-    id: 1,
-    name: "Admin Pusat",
-    email: "admin@koperasi.com",
-    role: {
-        id: 1,
-        name: "super_admin",
-        display_name: "Super Admin",
-        permissions: ["manage_all", "view_all_branches"],
-    },
-    branch_id: null,
-    branch: null,
-    permissions: [
-        "manage_all",
-        "view_all_branches",
-        "manage_anggota",
-        "manage_simpanan",
-        "manage_pinjaman",
-        "approve_transactions",
-        "master_data",
-        "user_management",
-        "tutup_buku",
-        "alokasi_shu",
-        "view_laporan",
-    ],
-    is_active: true,
-    created_at: "2025-01-01T00:00:00Z",
-    updated_at: "2025-01-01T00:00:00Z",
-};
-
+// MOCK BRANCHES for now, until we have a real branch API hook
 const MOCK_BRANCHES: Branch[] = [
-    { id: 1, code: "PST", name: "Kantor Pusat", is_head_office: true, is_active: true },
-    { id: 2, code: "JKT", name: "Cabang Jakarta", is_head_office: false, is_active: true },
+    { id: 1, code: "HO", name: "Kantor Pusat", is_head_office: true, is_active: true },
+    { id: 2, code: "JKT", name: "Cabang Jakarta Selatan", is_head_office: false, is_active: true },
     { id: 3, code: "SBY", name: "Cabang Surabaya", is_head_office: false, is_active: true },
-    { id: 4, code: "BDG", name: "Cabang Bandung", is_head_office: false, is_active: true },
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
-    const [user, setUser] = React.useState<User | null>(null);
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [branches, setBranches] = React.useState<Branch[]>([]);
+    const { data: session, status } = useSession();
+    const [branches, setBranches] = React.useState<Branch[]>(MOCK_BRANCHES);
     const [currentBranchId, setCurrentBranchId] = React.useState<number | null>(null);
 
-    // Check authentication on mount
-    const checkAuth = React.useCallback(async () => {
-        try {
-            setIsLoading(true);
-            // In production, this would call authApi.me()
-            // For now, we'll check if there's a mock session
-            const hasSession = localStorage.getItem("koperasi_session");
+    // Map NextAuth session to our User type
+    const user: User | null = React.useMemo(() => {
+        if (!session?.user) return null;
 
-            if (hasSession) {
-                setUser(MOCK_USER);
-                setBranches(MOCK_BRANCHES);
-            } else {
-                setUser(null);
-            }
-        } catch (error) {
-            console.error("Auth check failed:", error);
-            setUser(null);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+        return {
+            id: Number(session.user.id),
+            name: session.user.name || "",
+            email: session.user.email || "",
+            role: {
+                id: 0, // Not available in session directly, would need API call or session augmentation
+                name: session.user.role || "user",
+                display_name: session.user.roleDisplayName || "User",
+                permissions: session.user.permissions || [],
+            },
+            branch_id: session.user.branchId || null,
+            branch: session.user.branchName
+                ? {
+                    id: session.user.branchId as number,
+                    name: session.user.branchName,
+                    code: "",
+                    is_head_office: false,
+                    is_active: true
+                }
+                : null,
+            permissions: session.user.permissions || [],
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+    }, [session]);
 
+    const isLoading = status === "loading";
+    const isAuthenticated = status === "authenticated";
+
+    // Set initial branch based on user
     React.useEffect(() => {
-        checkAuth();
-    }, [checkAuth]);
+        if (user?.branch_id && currentBranchId === null) {
+            setCurrentBranchId(user.branch_id);
+        }
+    }, [user, currentBranchId]);
+
+    // Check authentication on mount - passed directly from useSession
+    const checkAuth = React.useCallback(async () => {
+        // No-op as useSession handles this
+    }, []);
 
     // Login function
     const login = React.useCallback(async (email: string, password: string) => {
-        setIsLoading(true);
-        try {
-            // In production, this would call authApi.login()
-            // Simulate API delay
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+        const result = await signIn("credentials", {
+            email,
+            password,
+            redirect: false,
+        });
 
-            // Mock validation
-            if (email === "admin@koperasi.com" && password === "password") {
-                localStorage.setItem("koperasi_session", "mock_token");
-                setUser(MOCK_USER);
-                setBranches(MOCK_BRANCHES);
-                router.push("/dashboard");
-            } else {
-                throw new Error("Email atau password salah");
-            }
-        } finally {
-            setIsLoading(false);
+        if (result?.error) {
+            throw new Error("Email atau password salah");
         }
+
+        router.push("/dashboard");
     }, [router]);
 
     // Logout function
     const logout = React.useCallback(async () => {
-        setIsLoading(true);
-        try {
-            // In production, this would call authApi.logout()
-            localStorage.removeItem("koperasi_session");
-            setUser(null);
-            setBranches([]);
-            setCurrentBranchId(null);
-            router.push("/login");
-        } finally {
-            setIsLoading(false);
-        }
+        await signOut({ redirect: false });
+        router.push("/login");
     }, [router]);
 
     // Set current branch
