@@ -59,7 +59,7 @@ export interface SavingsTransaction {
 }
 
 export const savingsApi = {
-    transactions: (params?: { page?: number; memberId?: number; type?: string }) =>
+    transactions: (params?: { page?: number; perPage?: number; memberId?: number; type?: string }) =>
         api.get<PaginatedResponse<SavingsTransaction>>("/savings/transactions", { params }),
 
     deposit: (data: { accountId: number; memberId: number; amount: number; description?: string }) =>
@@ -112,7 +112,7 @@ export const loansApi = {
     reject: (id: number, reason: string) =>
         api.post<{ data: LoanApplication }>(`/loans/applications/${id}/reject`, { reason }),
 
-    list: (params?: { page?: number; status?: string }) =>
+    list: (params?: { page?: number; perPage?: number; status?: string }) =>
         api.get<PaginatedResponse<Loan>>("/loans", { params }),
 
     get: (id: number) => api.get<{ data: Loan }>(`/loans/${id}`),

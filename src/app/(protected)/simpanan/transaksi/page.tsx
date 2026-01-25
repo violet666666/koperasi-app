@@ -2,13 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Select,
     SelectContent,
@@ -17,93 +15,29 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
-import type { SavingsTransaction } from "@/types";
 import { formatCurrency, SAVINGS_TRANSACTION_TYPES } from "@/lib/constants";
+import { savingsApi, masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_TRANSACTIONS: SavingsTransaction[] = [
-    {
-        id: 1,
-        transaction_no: "SIM-2025-00001",
-        account_id: 1,
-        member_id: 1,
-        member: { member_no: "A-001", name: "Budi Santoso" },
-        product_id: 2,
-        product: { code: "SIM-WAJIB", name: "Simpanan Wajib" },
-        branch_id: 1,
-        type: "deposit",
-        amount: 100000,
-        balance_before: 1100000,
-        balance_after: 1200000,
-        payment_method: "cash",
-        transaction_date: "2025-01-24",
-        status: "completed",
-        created_by: { id: 1, name: "Teller 1" },
-        created_at: "2025-01-24T09:00:00Z",
-    },
-    {
-        id: 2,
-        transaction_no: "SIM-2025-00002",
-        account_id: 2,
-        member_id: 2,
-        member: { member_no: "A-002", name: "Siti Aminah" },
-        product_id: 3,
-        product: { code: "SIM-SUK", name: "Simpanan Sukarela" },
-        branch_id: 1,
-        type: "deposit",
-        amount: 500000,
-        balance_before: 2000000,
-        balance_after: 2500000,
-        payment_method: "bank_transfer",
-        transaction_date: "2025-01-24",
-        status: "completed",
-        created_by: { id: 1, name: "Teller 1" },
-        created_at: "2025-01-24T09:30:00Z",
-    },
-    {
-        id: 3,
-        transaction_no: "SIM-2025-00003",
-        account_id: 3,
-        member_id: 3,
-        member: { member_no: "A-003", name: "Joko Widodo" },
-        product_id: 3,
-        product: { code: "SIM-SUK", name: "Simpanan Sukarela" },
-        branch_id: 2,
-        type: "withdrawal",
-        amount: 200000,
-        balance_before: 1500000,
-        balance_after: 1300000,
-        payment_method: "cash",
-        transaction_date: "2025-01-23",
-        status: "completed",
-        created_by: { id: 2, name: "Teller 2" },
-        created_at: "2025-01-23T14:00:00Z",
-    },
-    {
-        id: 4,
-        transaction_no: "SIM-2025-00004",
-        account_id: 1,
-        member_id: 1,
-        member: { member_no: "A-001", name: "Budi Santoso" },
-        product_id: 3,
-        product: { code: "SIM-SUK", name: "Simpanan Sukarela" },
-        branch_id: 1,
-        type: "deposit",
-        amount: 1000000,
-        balance_before: 2700000,
-        balance_after: 3700000,
-        payment_method: "cash",
-        transaction_date: "2025-01-22",
-        status: "completed",
-        created_by: { id: 1, name: "Teller 1" },
-        created_at: "2025-01-22T11:00:00Z",
-    },
-];
+// Transaction type from API
+interface Transaction {
+    id: number;
+    transactionNo: string;
+    accountId: number;
+    memberId: number;
+    member?: { id: number; memberNo: string; name: string };
+    productId?: number;
+    product?: { code: string; name: string };
+    type: "deposit" | "withdrawal";
+    amount: number;
+    balanceBefore?: number;
+    balanceAfter?: number;
+    transactionDate: string;
+}
 
 // Type badge component
-function TypeBadge({ type }: { type: keyof typeof SAVINGS_TRANSACTION_TYPES }) {
+function TypeBadge({ type }: { type: "deposit" | "withdrawal" }) {
     const config = SAVINGS_TRANSACTION_TYPES[type];
-    const isDeposit = type === "deposit" || type === "interest";
+    const isDeposit = type === "deposit";
 
     return (
         <div className="flex items-center gap-2">
@@ -120,12 +54,12 @@ function TypeBadge({ type }: { type: keyof typeof SAVINGS_TRANSACTION_TYPES }) {
 }
 
 // Table columns
-const columns: ColumnDef<SavingsTransaction>[] = [
+const columns: ColumnDef<Transaction>[] = [
     {
-        accessorKey: "transaction_no",
+        accessorKey: "transactionNo",
         header: "No. Transaksi",
         cell: ({ row }) => (
-            <span className="font-mono text-sm">{row.getValue("transaction_no")}</span>
+            <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
         ),
     },
     {
@@ -134,21 +68,16 @@ const columns: ColumnDef<SavingsTransaction>[] = [
         cell: ({ row }) => (
             <div>
                 <Link
-                    href={`/anggota/${row.original.member_id}`}
+                    href={`/anggota/${row.original.memberId}`}
                     className="font-medium text-primary hover:underline"
                 >
-                    {row.original.member?.name}
+                    {row.original.member?.name || "-"}
                 </Link>
                 <div className="text-sm text-muted-foreground">
-                    {row.original.member?.member_no}
+                    {row.original.member?.memberNo}
                 </div>
             </div>
         ),
-    },
-    {
-        accessorKey: "product",
-        header: "Produk",
-        cell: ({ row }) => row.original.product?.name || "-",
     },
     {
         accessorKey: "type",
@@ -161,7 +90,7 @@ const columns: ColumnDef<SavingsTransaction>[] = [
         cell: ({ row }) => {
             const amount = row.getValue("amount") as number;
             const type = row.original.type;
-            const isDeposit = type === "deposit" || type === "interest";
+            const isDeposit = type === "deposit";
             return (
                 <span className={`font-medium tabular-nums ${isDeposit ? "text-emerald-600" : "text-amber-600"}`}>
                     {isDeposit ? "+" : "-"}{formatCurrency(amount)}
@@ -170,19 +99,21 @@ const columns: ColumnDef<SavingsTransaction>[] = [
         },
     },
     {
-        accessorKey: "balance_after",
+        accessorKey: "balanceAfter",
         header: "Saldo Akhir",
         cell: ({ row }) => (
             <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("balance_after"))}
+                {row.original.balanceAfter ? formatCurrency(row.original.balanceAfter) : "-"}
             </span>
         ),
     },
     {
-        accessorKey: "transaction_date",
+        accessorKey: "transactionDate",
         header: "Tanggal",
         cell: ({ row }) => {
-            const date = new Date(row.getValue("transaction_date"));
+            const dateValue = row.getValue("transactionDate");
+            if (!dateValue) return "-";
+            const date = new Date(dateValue as string);
             return date.toLocaleDateString("id-ID", {
                 day: "numeric",
                 month: "short",
@@ -193,16 +124,14 @@ const columns: ColumnDef<SavingsTransaction>[] = [
 ];
 
 export default function SimpananTransaksiPage() {
-    const router = useRouter();
     const [typeFilter, setTypeFilter] = React.useState("all");
-    const [productFilter, setProductFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
-    const [transactions, setTransactions] = React.useState<SavingsTransaction[]>([]);
+    const [transactions, setTransactions] = React.useState<Transaction[]>([]);
 
     // Calculate summary stats
     const stats = React.useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
-        const todayTrx = transactions.filter((t) => t.transaction_date === today);
+        const todayTrx = transactions.filter((t) => t.transactionDate?.startsWith(today));
 
         const totalDeposit = todayTrx
             .filter((t) => t.type === "deposit")
@@ -219,23 +148,29 @@ export default function SimpananTransaksiPage() {
         };
     }, [transactions]);
 
-    // Simulate data loading
+    // Fetch data from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setTransactions(MOCK_TRANSACTIONS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await savingsApi.transactions({ perPage: 50 });
+                setTransactions(response.data as unknown as Transaction[]);
+            } catch (error) {
+                console.error("Failed to fetch transactions:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // Filter data
     const filteredTransactions = React.useMemo(() => {
         return transactions.filter((trx) => {
-            const typeMatch = typeFilter === "all" || trx.type === typeFilter;
-            const productMatch = productFilter === "all" || trx.product_id.toString() === productFilter;
-            return typeMatch && productMatch;
+            return typeFilter === "all" || trx.type === typeFilter;
         });
-    }, [transactions, typeFilter, productFilter]);
+    }, [transactions, typeFilter]);
 
     return (
         <div className="space-y-6">
@@ -307,19 +242,6 @@ export default function SimpananTransaksiPage() {
                         <SelectItem value="all">Semua Jenis</SelectItem>
                         <SelectItem value="deposit">Setoran</SelectItem>
                         <SelectItem value="withdrawal">Penarikan</SelectItem>
-                        <SelectItem value="correction">Koreksi</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Select value={productFilter} onValueChange={setProductFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Produk" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Produk</SelectItem>
-                        <SelectItem value="1">Simpanan Pokok</SelectItem>
-                        <SelectItem value="2">Simpanan Wajib</SelectItem>
-                        <SelectItem value="3">Simpanan Sukarela</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

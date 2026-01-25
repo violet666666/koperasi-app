@@ -1,28 +1,64 @@
-import NextAuth from "next-auth";
-import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default auth((req) => {
-    const isLoggedIn = !!req.auth;
-    const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard") ||
-        req.nextUrl.pathname.startsWith("/laporan") ||
-        req.nextUrl.pathname.startsWith("/master") ||
-        req.nextUrl.pathname.startsWith("/transaksi");
+// Protected routes that require authentication
+const protectedRoutes = [
+    "/dashboard",
+    "/anggota",
+    "/simpanan",
+    "/pinjaman",
+    "/kas-bank",
+    "/laporan",
+    "/master",
+    "/approval",
+];
 
-    const isAuthPage = req.nextUrl.pathname.startsWith("/login");
+// Auth routes that should redirect to dashboard if logged in
+const authRoutes = ["/login"];
 
-    if (isOnDashboard) {
-        if (isLoggedIn) return; // Allow access
-        return Response.redirect(new URL("/login", req.nextUrl));
+export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // Check if route is protected
+    const isProtectedRoute = protectedRoutes.some((route) =>
+        pathname.startsWith(route)
+    );
+    const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+
+    // Get JWT token (lightweight, no Prisma)
+    const token = await getToken({
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    const isLoggedIn = !!token;
+
+    // Redirect unauthenticated users from protected routes to login
+    if (isProtectedRoute && !isLoggedIn) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(loginUrl);
     }
 
-    if (isAuthPage) {
-        if (isLoggedIn) {
-            return Response.redirect(new URL("/dashboard", req.nextUrl));
-        }
-        return; // Allow access to login page
+    // Redirect authenticated users from auth routes to dashboard
+    if (isAuthRoute && isLoggedIn) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-});
+
+    return NextResponse.next();
+}
 
 export const config = {
-    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+    matcher: [
+        /*
+         * Match all request paths except for:
+         * - api (API routes)
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         * - public folder
+         */
+        "/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)",
+    ],
 };

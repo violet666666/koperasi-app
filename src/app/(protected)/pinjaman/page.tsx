@@ -35,113 +35,28 @@ import {
     AlertTriangle,
     CheckCircle,
 } from "lucide-react";
-import type { Loan } from "@/types";
 import { formatCurrency, LOAN_STATUS } from "@/lib/constants";
+import { loansApi } from "@/lib/api";
 
-// Mock data
-const MOCK_LOANS: Loan[] = [
-    {
-        id: 1,
-        loan_no: "PJM-2024-00001",
-        application_id: 1,
-        member_id: 1,
-        member: { member_no: "A-001", name: "Budi Santoso" },
-        branch_id: 1,
-        product_snapshot: {
-            product_id: 1,
-            code: "PJM-REG",
-            name: "Pinjaman Reguler",
-            interest_method: "flat",
-            interest_rate: 1.5,
-        },
-        principal_amount: 10000000,
-        interest_amount: 1800000,
-        total_amount: 11800000,
-        admin_fee: 100000,
-        disbursed_amount: 9900000,
-        tenor_months: 12,
-        monthly_installment: 983333,
-        principal_paid: 2500000,
-        interest_paid: 450000,
-        late_fee_paid: 0,
-        principal_outstanding: 7500000,
-        interest_outstanding: 1350000,
-        disbursement_date: "2024-06-15",
-        first_due_date: "2024-07-15",
-        last_due_date: "2025-06-15",
-        status: "active",
-        created_at: "2024-06-15T10:00:00Z",
-    },
-    {
-        id: 2,
-        loan_no: "PJM-2024-00002",
-        application_id: 2,
-        member_id: 3,
-        member: { member_no: "A-003", name: "Joko Widodo" },
-        branch_id: 2,
-        product_snapshot: {
-            product_id: 2,
-            code: "PJM-USAHA",
-            name: "Pinjaman Usaha",
-            interest_method: "annuity",
-            interest_rate: 1.2,
-        },
-        principal_amount: 25000000,
-        interest_amount: 3600000,
-        total_amount: 28600000,
-        admin_fee: 250000,
-        disbursed_amount: 24750000,
-        tenor_months: 12,
-        monthly_installment: 2383333,
-        principal_paid: 10000000,
-        interest_paid: 1800000,
-        late_fee_paid: 50000,
-        principal_outstanding: 15000000,
-        interest_outstanding: 1800000,
-        disbursement_date: "2024-04-20",
-        first_due_date: "2024-05-20",
-        last_due_date: "2025-04-20",
-        status: "active",
-        created_at: "2024-04-20T14:00:00Z",
-    },
-    {
-        id: 3,
-        loan_no: "PJM-2024-00003",
-        application_id: 3,
-        member_id: 2,
-        member: { member_no: "A-002", name: "Siti Aminah" },
-        branch_id: 1,
-        product_snapshot: {
-            product_id: 1,
-            code: "PJM-REG",
-            name: "Pinjaman Reguler",
-            interest_method: "flat",
-            interest_rate: 1.5,
-        },
-        principal_amount: 5000000,
-        interest_amount: 450000,
-        total_amount: 5450000,
-        admin_fee: 50000,
-        disbursed_amount: 4950000,
-        tenor_months: 6,
-        monthly_installment: 908333,
-        principal_paid: 5000000,
-        interest_paid: 450000,
-        late_fee_paid: 0,
-        principal_outstanding: 0,
-        interest_outstanding: 0,
-        disbursement_date: "2024-03-10",
-        first_due_date: "2024-04-10",
-        last_due_date: "2024-09-10",
-        paid_off_date: "2024-09-08",
-        status: "paid_off",
-        created_at: "2024-03-10T09:00:00Z",
-    },
-];
+// Loan type from API
+interface Loan {
+    id: number;
+    loanNo: string;
+    memberId: number;
+    member?: { id: number; memberNo: string; name: string };
+    principalAmount: number;
+    principalOutstanding: number;
+    principalPaid?: number;
+    interestPaid?: number;
+    interestOutstanding?: number;
+    totalAmount?: number;
+    tenorMonths?: number;
+    status: string;
+}
 
 // Status badge component
-function StatusBadge({ status }: { status: keyof typeof LOAN_STATUS }) {
-    const config = LOAN_STATUS[status];
+function StatusBadge({ status }: { status: string }) {
+    const config = LOAN_STATUS[status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
         success: "default",
         primary: "default",
@@ -159,8 +74,9 @@ function StatusBadge({ status }: { status: keyof typeof LOAN_STATUS }) {
 
 // Progress component for loan repayment
 function RepaymentProgress({ loan }: { loan: Loan }) {
-    const totalPaid = loan.principal_paid + loan.interest_paid;
-    const percentage = Math.round((totalPaid / loan.total_amount) * 100);
+    const totalPaid = (loan.principalPaid || 0) + (loan.interestPaid || 0);
+    const totalAmount = loan.totalAmount || loan.principalAmount;
+    const percentage = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
 
     return (
         <div className="w-24">
@@ -173,14 +89,14 @@ function RepaymentProgress({ loan }: { loan: Loan }) {
 // Table columns
 const columns: ColumnDef<Loan>[] = [
     {
-        accessorKey: "loan_no",
+        accessorKey: "loanNo",
         header: "No. Pinjaman",
         cell: ({ row }) => (
             <Link
                 href={`/pinjaman/${row.original.id}`}
                 className="font-mono text-sm text-primary hover:underline"
             >
-                {row.getValue("loan_no")}
+                {row.getValue("loanNo")}
             </Link>
         ),
     },
@@ -190,37 +106,32 @@ const columns: ColumnDef<Loan>[] = [
         cell: ({ row }) => (
             <div>
                 <Link
-                    href={`/anggota/${row.original.member_id}`}
+                    href={`/anggota/${row.original.memberId}`}
                     className="font-medium hover:underline"
                 >
-                    {row.original.member?.name}
+                    {row.original.member?.name || "-"}
                 </Link>
                 <div className="text-sm text-muted-foreground">
-                    {row.original.member?.member_no}
+                    {row.original.member?.memberNo}
                 </div>
             </div>
         ),
     },
     {
-        accessorKey: "product_snapshot",
-        header: "Produk",
-        cell: ({ row }) => row.original.product_snapshot.name,
-    },
-    {
-        accessorKey: "principal_amount",
+        accessorKey: "principalAmount",
         header: "Pokok",
         cell: ({ row }) => (
             <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("principal_amount"))}
+                {formatCurrency(row.getValue("principalAmount"))}
             </span>
         ),
     },
     {
-        accessorKey: "principal_outstanding",
+        accessorKey: "principalOutstanding",
         header: "Sisa Pokok",
         cell: ({ row }) => (
             <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("principal_outstanding"))}
+                {formatCurrency(row.getValue("principalOutstanding"))}
             </span>
         ),
     },
@@ -228,11 +139,6 @@ const columns: ColumnDef<Loan>[] = [
         id: "progress",
         header: "Progress",
         cell: ({ row }) => <RepaymentProgress loan={row.original} />,
-    },
-    {
-        accessorKey: "tenor_months",
-        header: "Tenor",
-        cell: ({ row }) => `${row.getValue("tenor_months")} bulan`,
     },
     {
         accessorKey: "status",
@@ -290,26 +196,32 @@ export default function PinjamanListPage() {
     const stats = React.useMemo(() => {
         const active = loans.filter((l) => l.status === "active");
         const totalOutstanding = active.reduce(
-            (sum, l) => sum + l.principal_outstanding + l.interest_outstanding,
+            (sum, l) => sum + (l.principalOutstanding || 0) + (l.interestOutstanding || 0),
             0
         );
-        const totalPrincipal = active.reduce((sum, l) => sum + l.principal_amount, 0);
 
         return {
             activeCount: active.length,
             totalOutstanding,
-            totalPrincipal,
             paidOffThisMonth: loans.filter((l) => l.status === "paid_off").length,
         };
     }, [loans]);
 
-    // Simulate data loading
+    // Fetch data from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setLoans(MOCK_LOANS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await loansApi.list({ perPage: 50 });
+                setLoans(response.data as unknown as Loan[]);
+            } catch (error) {
+                console.error("Failed to fetch loans:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // Filter data

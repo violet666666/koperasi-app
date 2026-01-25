@@ -139,7 +139,7 @@
 
 | Issue | Module | Status |
 |-------|--------|--------|
-| Login page SSR issue with useSearchParams | Auth | 🔴 Open |
+| ~~Login page SSR issue with useSearchParams~~ | Auth | ✅ Fixed |
 
 ---
 
@@ -155,52 +155,55 @@ src/
 │   │   ├── layout.tsx
 │   │   ├── dashboard/page.tsx
 │   │   ├── anggota/
-│   │   │   ├── page.tsx
-│   │   │   ├── tambah/page.tsx
-│   │   │   └── [id]/page.tsx
 │   │   ├── simpanan/
-│   │   │   ├── page.tsx
-│   │   │   └── transaksi/
-│   │   │       ├── page.tsx
-│   │   │       └── tambah/page.tsx
-│   │   └── pinjaman/
-│   │       └── page.tsx
+│   │   ├── pinjaman/
+│   │   ├── kas-bank/
+│   │   ├── laporan/
+│   │   ├── master/
+│   │   └── approval/
+│   ├── api/                    # 29 API routes
+│   │   ├── auth/[...nextauth]/
+│   │   ├── members/
+│   │   ├── savings/
+│   │   ├── loans/
+│   │   ├── cash-bank/
+│   │   ├── master/
+│   │   ├── reports/
+│   │   └── approvals/
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components/
 │   ├── layout/
-│   │   ├── app-shell.tsx
-│   │   ├── sidebar.tsx
-│   │   ├── topbar.tsx
-│   │   ├── bottom-nav.tsx
-│   │   └── index.ts
 │   ├── patterns/
-│   │   ├── data-table.tsx
-│   │   ├── page-header.tsx
-│   │   └── index.ts
 │   └── ui/
-│       └── (shadcn components)
 ├── lib/
 │   ├── api/
 │   │   ├── client.ts
 │   │   ├── auth.ts
-│   │   └── index.ts
-│   ├── constants/
-│   │   ├── navigation.ts
-│   │   └── index.ts
-│   ├── hooks/
-│   │   ├── use-auth.tsx
-│   │   └── index.ts
-│   └── utils.ts
+│   │   └── services.ts         # API service functions
+│   ├── auth.ts                 # NextAuth config
+│   ├── prisma.ts
+│   └── constants/
+├── middleware.ts               # Lightweight auth (getToken)
 └── types/
-    └── index.ts
 ```
 
 ---
 
 ## 📝 Changelog
 
-### 2026-01-25
+### 2026-01-25 (Evening)
+- **Frontend-Backend Integration Phase**:
+  - Created API services layer (`src/lib/api/services.ts`)
+  - Dashboard connected to real member count & approvals API
+  - Anggota List connected to `/api/members` with dynamic branch filter
+  - Simpanan Transaksi connected to `/api/savings/transactions`
+  - Pinjaman List connected to `/api/loans`
+- **Deployment Fix**:
+  - Rewrote middleware to use lightweight `getToken` (Edge < 1MB)
+  - Fixed `NEXTAUTH_SECRET` environment variable reference
+
+### 2026-01-25 (Afternoon)
 - **Backend Complete**: Implemented all 6 backend phases
   - Phase 1: Prisma schema (24 models), PostgreSQL setup, seed data
   - Phase 2: NextAuth.js v5 authentication, middleware, session provider
@@ -219,3 +222,4 @@ src/
 - Implemented Simpanan module (transactions, deposit form)
 - Implemented Pinjaman module (loan list)
 - Implemented Kas & Bank, Approval, Master Data, and Reports modules
+
