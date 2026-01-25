@@ -82,19 +82,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Login function
     const login = React.useCallback(async (email: string, password: string) => {
+        console.log("[Login] Starting login for:", email);
+
         const result = await signIn("credentials", {
             email,
             password,
             redirect: false,
         });
 
+        console.log("[Login] SignIn result:", JSON.stringify(result));
+
         if (result?.error) {
+            console.log("[Login] Error:", result.error);
+            alert(`Login Error: ${result.error}`);
             throw new Error("Email atau password salah");
         }
 
-        // Use window.location for full page reload to ensure JWT cookie is set
-        // router.push() can cause race condition where cookie isn't available yet
-        window.location.href = "/dashboard";
+        if (result?.ok) {
+            console.log("[Login] Success! Redirecting to dashboard...");
+            alert("Login berhasil! Redirecting to dashboard...");
+
+            // Use window.location for full page reload to ensure JWT cookie is set
+            window.location.href = "/dashboard";
+        } else {
+            console.log("[Login] Unexpected result:", result);
+            alert(`Unexpected result: ${JSON.stringify(result)}`);
+        }
     }, []);
 
     // Logout function

@@ -17,6 +17,9 @@ const protectedRoutes = [
 // Auth routes that should redirect to dashboard if logged in
 const authRoutes = ["/login"];
 
+// Get the secret - NextAuth v5 uses AUTH_SECRET, v4 uses NEXTAUTH_SECRET
+const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -26,13 +29,32 @@ export async function middleware(request: NextRequest) {
     );
     const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
+    // Skip if not a protected or auth route
+    if (!isProtectedRoute && !isAuthRoute) {
+        return NextResponse.next();
+    }
+
     // Get JWT token (lightweight, no Prisma)
-    const token = await getToken({
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET,
-    });
+    let token = null;
+    try {
+        token = await getToken({
+            req: request,
+            secret: secret,
+        });
+    } catch (error) {
+        console.error("[Middleware] Error getting token:", error);
+    }
 
     const isLoggedIn = !!token;
+
+    // Log for debugging (remove in production later)
+    console.log("[Middleware]", {
+        pathname,
+        isProtectedRoute,
+        isAuthRoute,
+        isLoggedIn,
+        hasSecret: !!secret,
+    });
 
     // Redirect unauthenticated users from protected routes to login
     if (isProtectedRoute && !isLoggedIn) {
