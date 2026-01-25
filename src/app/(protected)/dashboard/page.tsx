@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Users,
     Wallet,
@@ -12,6 +16,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
+import { membersApi, loansApi, approvalsApi } from "@/lib/api";
+
+interface DashboardStats {
+    totalAnggota: number;
+    totalSimpanan: number;
+    totalPinjaman: number;
+    tunggakan: number;
+    simpananHariIni: number;
+    pencairanHariIni: number;
+    angsuranHariIni: number;
+    pendingApproval: number;
+}
+
+interface PendingApproval {
+    id: number;
+    type: string;
+    title: string;
+    amount: number;
+    date: string;
+}
 
 // Stats Card Component
 function StatsCard({
@@ -22,6 +46,7 @@ function StatsCard({
     trend,
     trendLabel,
     color = "primary",
+    isLoading = false,
 }: {
     title: string;
     value: string;
@@ -30,6 +55,7 @@ function StatsCard({
     trend?: number;
     trendLabel?: string;
     color?: "primary" | "success" | "warning" | "danger";
+    isLoading?: boolean;
 }) {
     const colorClasses = {
         primary: "bg-primary/10 text-primary",
@@ -44,11 +70,15 @@ function StatsCard({
                 <div className="flex items-start justify-between">
                     <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                        <p className="text-2xl font-bold tabular-nums">{value}</p>
+                        {isLoading ? (
+                            <Skeleton className="h-8 w-24" />
+                        ) : (
+                            <p className="text-2xl font-bold tabular-nums">{value}</p>
+                        )}
                         {subtitle && (
                             <p className="text-xs text-muted-foreground">{subtitle}</p>
                         )}
-                        {trend !== undefined && (
+                        {trend !== undefined && !isLoading && (
                             <div className="flex items-center gap-1 text-xs">
                                 {trend >= 0 ? (
                                     <TrendingUp className="h-3 w-3 text-emerald-500" />
@@ -143,23 +173,76 @@ function ApprovalItem({
 }
 
 export default function DashboardPage() {
-    // Mock data - in production, this would come from API
-    const stats = {
-        totalAnggota: 1250,
-        totalSimpanan: 2500000000,
-        totalPinjaman: 1800000000,
-        tunggakan: 45000000,
-        simpananHariIni: 15000000,
-        pencairanHariIni: 50000000,
-        angsuranHariIni: 25000000,
-        pendingApproval: 5,
-    };
+    const [isLoading, setIsLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats>({
+        totalAnggota: 0,
+        totalSimpanan: 0,
+        totalPinjaman: 0,
+        tunggakan: 0,
+        simpananHariIni: 0,
+        pencairanHariIni: 0,
+        angsuranHariIni: 0,
+        pendingApproval: 0,
+    });
+    const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
 
-    const pendingApprovals = [
-        { type: "Pinjaman", title: "Budi Santoso - Pinjaman Reguler", amount: 10000000, date: "24 Jan 2025" },
-        { type: "Koreksi", title: "Koreksi Simpanan - Siti Aminah", amount: 500000, date: "24 Jan 2025" },
-        { type: "Pinjaman", title: "Joko Widodo - Pinjaman Reguler", amount: 25000000, date: "23 Jan 2025" },
-    ];
+    useEffect(() => {
+        async function fetchDashboardData() {
+            try {
+                setIsLoading(true);
+
+                // Fetch data in parallel
+                const [membersRes, approvalsRes] = await Promise.allSettled([
+                    membersApi.list({ perPage: 1 }),
+                    approvalsApi.list("pending"),
+                ]);
+
+                // Process members count
+                let totalMembers = 0;
+                if (membersRes.status === "fulfilled") {
+                    totalMembers = membersRes.value.meta.total;
+                }
+
+                // Process pending approvals
+                let approvals: PendingApproval[] = [];
+                let pendingCount = 0;
+                if (approvalsRes.status === "fulfilled") {
+                    const data = approvalsRes.value.data as any[];
+                    pendingCount = data.length;
+                    approvals = data.slice(0, 3).map((item: any) => ({
+                        id: item.id,
+                        type: item.type === "loan_application" ? "Pinjaman" : "Lainnya",
+                        title: item.title || item.description,
+                        amount: item.amount || 0,
+                        date: item.submittedAt
+                            ? new Date(item.submittedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                            : "-",
+                    }));
+                }
+
+                // For now, use sample data for financial stats
+                // In production, these would come from dedicated report endpoints
+                setStats({
+                    totalAnggota: totalMembers,
+                    totalSimpanan: 2500000000,
+                    totalPinjaman: 1800000000,
+                    tunggakan: 45000000,
+                    simpananHariIni: 15000000,
+                    pencairanHariIni: 50000000,
+                    angsuranHariIni: 25000000,
+                    pendingApproval: pendingCount,
+                });
+
+                setPendingApprovals(approvals);
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchDashboardData();
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -181,6 +264,7 @@ export default function DashboardPage() {
                     trend={5.2}
                     trendLabel="vs bulan lalu"
                     color="primary"
+                    isLoading={isLoading}
                 />
                 <StatsCard
                     title="Total Simpanan"
@@ -189,6 +273,7 @@ export default function DashboardPage() {
                     trend={8.1}
                     trendLabel="vs bulan lalu"
                     color="success"
+                    isLoading={isLoading}
                 />
                 <StatsCard
                     title="Total Pinjaman Aktif"
@@ -197,6 +282,7 @@ export default function DashboardPage() {
                     trend={3.4}
                     trendLabel="vs bulan lalu"
                     color="primary"
+                    isLoading={isLoading}
                 />
                 <StatsCard
                     title="Tunggakan"
@@ -204,6 +290,7 @@ export default function DashboardPage() {
                     subtitle="perlu perhatian"
                     icon={AlertCircle}
                     color="danger"
+                    isLoading={isLoading}
                 />
             </div>
 
@@ -214,9 +301,13 @@ export default function DashboardPage() {
                         <CardTitle className="text-base">Simpanan Hari Ini</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-emerald-600">
-                            {formatCurrency(stats.simpananHariIni)}
-                        </p>
+                        {isLoading ? (
+                            <Skeleton className="h-8 w-32" />
+                        ) : (
+                            <p className="text-2xl font-bold text-emerald-600">
+                                {formatCurrency(stats.simpananHariIni)}
+                            </p>
+                        )}
                         <p className="text-sm text-muted-foreground">12 transaksi</p>
                     </CardContent>
                 </Card>
@@ -225,9 +316,13 @@ export default function DashboardPage() {
                         <CardTitle className="text-base">Pencairan Hari Ini</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-blue-600">
-                            {formatCurrency(stats.pencairanHariIni)}
-                        </p>
+                        {isLoading ? (
+                            <Skeleton className="h-8 w-32" />
+                        ) : (
+                            <p className="text-2xl font-bold text-blue-600">
+                                {formatCurrency(stats.pencairanHariIni)}
+                            </p>
+                        )}
                         <p className="text-sm text-muted-foreground">3 pencairan</p>
                     </CardContent>
                 </Card>
@@ -236,9 +331,13 @@ export default function DashboardPage() {
                         <CardTitle className="text-base">Angsuran Hari Ini</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-amber-600">
-                            {formatCurrency(stats.angsuranHariIni)}
-                        </p>
+                        {isLoading ? (
+                            <Skeleton className="h-8 w-32" />
+                        ) : (
+                            <p className="text-2xl font-bold text-amber-600">
+                                {formatCurrency(stats.angsuranHariIni)}
+                            </p>
+                        )}
                         <p className="text-sm text-muted-foreground">8 pembayaran</p>
                     </CardContent>
                 </Card>
@@ -279,19 +378,26 @@ export default function DashboardPage() {
                         <CardTitle className="flex items-center gap-2">
                             <CheckSquare className="h-5 w-5" />
                             Menunggu Persetujuan
-                            <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-xs text-destructive-foreground">
-                                {stats.pendingApproval}
-                            </span>
+                            {stats.pendingApproval > 0 && (
+                                <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-xs text-destructive-foreground">
+                                    {stats.pendingApproval}
+                                </span>
+                            )}
                         </CardTitle>
                         <Button variant="ghost" size="sm" asChild>
                             <Link href="/approval">Lihat Semua</Link>
                         </Button>
                     </CardHeader>
                     <CardContent>
-                        {pendingApprovals.length > 0 ? (
+                        {isLoading ? (
+                            <div className="space-y-3">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </div>
+                        ) : pendingApprovals.length > 0 ? (
                             <div className="space-y-1">
-                                {pendingApprovals.map((item, index) => (
-                                    <ApprovalItem key={index} {...item} />
+                                {pendingApprovals.map((item) => (
+                                    <ApprovalItem key={item.id} {...item} />
                                 ))}
                             </div>
                         ) : (

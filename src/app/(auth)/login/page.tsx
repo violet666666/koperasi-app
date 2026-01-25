@@ -153,7 +153,7 @@ export default function LoginPage() {
                             Email: <code className="bg-background px-1 rounded">admin@koperasi.com</code>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                            Password: <code className="bg-background px-1 rounded">password</code>
+                            Password: <code className="bg-background px-1 rounded">admin123</code>
                         </p>
                     </div>
                 </CardContent>

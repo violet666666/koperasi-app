@@ -24,102 +24,22 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, MoreHorizontal, Eye, Pencil, Trash2, CreditCard } from "lucide-react";
-import type { Member } from "@/types";
 import { MEMBER_STATUS } from "@/lib/constants";
+import { membersApi, masterApi, type Member as ApiMember } from "@/lib/api";
 
-// Mock data for development
-const MOCK_MEMBERS: Member[] = [
-    {
-        id: 1,
-        member_no: "A-001",
-        branch_id: 1,
-        branch: { id: 1, code: "PST", name: "Kantor Pusat", is_head_office: true, is_active: true },
-        name: "Budi Santoso",
-        nik: "3201234567890001",
-        gender: "male",
-        phone: "08123456789",
-        email: "budi@email.com",
-        address: "Jl. Mawar No. 10, Jakarta",
-        city: "Jakarta Pusat",
-        province: "DKI Jakarta",
-        join_date: "2024-01-15",
-        status: "active",
-        created_at: "2024-01-15T10:00:00Z",
-        updated_at: "2024-06-20T14:30:00Z",
-    },
-    {
-        id: 2,
-        member_no: "A-002",
-        branch_id: 1,
-        branch: { id: 1, code: "PST", name: "Kantor Pusat", is_head_office: true, is_active: true },
-        name: "Siti Aminah",
-        nik: "3201234567890002",
-        gender: "female",
-        phone: "08234567890",
-        email: "siti@email.com",
-        address: "Jl. Melati No. 20, Jakarta",
-        city: "Jakarta Selatan",
-        province: "DKI Jakarta",
-        join_date: "2024-02-20",
-        status: "active",
-        created_at: "2024-02-20T09:00:00Z",
-        updated_at: "2024-02-20T09:00:00Z",
-    },
-    {
-        id: 3,
-        member_no: "A-003",
-        branch_id: 2,
-        branch: { id: 2, code: "JKT", name: "Cabang Jakarta", is_head_office: false, is_active: true },
-        name: "Joko Widodo",
-        nik: "3201234567890003",
-        gender: "male",
-        phone: "08345678901",
-        email: "joko@email.com",
-        address: "Jl. Kenanga No. 30, Bekasi",
-        city: "Bekasi",
-        province: "Jawa Barat",
-        join_date: "2024-03-10",
-        status: "active",
-        created_at: "2024-03-10T11:00:00Z",
-        updated_at: "2024-03-10T11:00:00Z",
-    },
-    {
-        id: 4,
-        member_no: "A-004",
-        branch_id: 2,
-        branch: { id: 2, code: "JKT", name: "Cabang Jakarta", is_head_office: false, is_active: true },
-        name: "Dewi Lestari",
-        nik: "3201234567890004",
-        gender: "female",
-        phone: "08456789012",
-        email: "dewi@email.com",
-        address: "Jl. Anggrek No. 40, Depok",
-        city: "Depok",
-        province: "Jawa Barat",
-        join_date: "2024-04-05",
-        status: "inactive",
-        created_at: "2024-04-05T08:00:00Z",
-        updated_at: "2024-08-15T16:00:00Z",
-    },
-    {
-        id: 5,
-        member_no: "A-005",
-        branch_id: 3,
-        branch: { id: 3, code: "SBY", name: "Cabang Surabaya", is_head_office: false, is_active: true },
-        name: "Ahmad Ridwan",
-        nik: "3201234567890005",
-        gender: "male",
-        phone: "08567890123",
-        email: "ahmad@email.com",
-        address: "Jl. Dahlia No. 50, Surabaya",
-        city: "Surabaya",
-        province: "Jawa Timur",
-        join_date: "2024-05-12",
-        status: "active",
-        created_at: "2024-05-12T10:30:00Z",
-        updated_at: "2024-05-12T10:30:00Z",
-    },
-];
+// Map API response to internal Member type
+interface Member {
+    id: number;
+    member_no: string;
+    branch_id?: number;
+    branch?: { id: number; code?: string; name: string; is_head_office?: boolean; is_active?: boolean };
+    name: string;
+    phone?: string;
+    email?: string;
+    city?: string;
+    join_date: string;
+    status: "active" | "inactive" | "resigned";
+}
 
 // Status badge component
 function StatusBadge({ status }: { status: keyof typeof MEMBER_STATUS }) {
@@ -215,7 +135,9 @@ const columns: ColumnDef<Member>[] = [
         accessorKey: "join_date",
         header: "Tgl Bergabung",
         cell: ({ row }) => {
-            const date = new Date(row.getValue("join_date"));
+            const dateValue = row.getValue("join_date");
+            if (!dateValue) return "-";
+            const date = new Date(dateValue as string);
             return date.toLocaleDateString("id-ID", {
                 day: "numeric",
                 month: "short",
@@ -237,20 +159,58 @@ const columns: ColumnDef<Member>[] = [
     },
 ];
 
+// Map API member to internal format
+function mapApiMember(apiMember: ApiMember): Member {
+    return {
+        id: apiMember.id,
+        member_no: apiMember.memberNo,
+        branch_id: apiMember.branchId,
+        branch: apiMember.branch,
+        name: apiMember.name,
+        phone: apiMember.phone,
+        email: apiMember.email,
+        city: undefined,
+        join_date: apiMember.joinDate,
+        status: (apiMember.status as "active" | "inactive" | "resigned") || "active",
+    };
+}
+
 export default function AnggotaListPage() {
     const router = useRouter();
     const [statusFilter, setStatusFilter] = React.useState("all");
     const [branchFilter, setBranchFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<Member[]>([]);
+    const [branches, setBranches] = React.useState<Array<{ id: number; name: string }>>([]);
 
-    // Simulate data loading
+    // Fetch members from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setMembers(MOCK_MEMBERS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+
+                // Fetch members and branches in parallel
+                const [membersRes, branchesRes] = await Promise.allSettled([
+                    membersApi.list({ perPage: 100 }),
+                    masterApi.branches.list(),
+                ]);
+
+                if (membersRes.status === "fulfilled") {
+                    const mappedMembers = membersRes.value.data.map(mapApiMember);
+                    setMembers(mappedMembers);
+                }
+
+                if (branchesRes.status === "fulfilled") {
+                    setBranches(branchesRes.value.data.map((b) => ({ id: b.id, name: b.name })));
+                }
+            } catch (error) {
+                console.error("Failed to fetch members:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // Filter data
@@ -297,9 +257,11 @@ export default function AnggotaListPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Semua Cabang</SelectItem>
-                        <SelectItem value="1">Kantor Pusat</SelectItem>
-                        <SelectItem value="2">Cabang Jakarta</SelectItem>
-                        <SelectItem value="3">Cabang Surabaya</SelectItem>
+                        {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={String(branch.id)}>
+                                {branch.name}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>
