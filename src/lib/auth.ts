@@ -21,49 +21,66 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    return null;
-                }
+                try {
+                    console.log("[Auth] Attempting login for:", credentials?.email);
 
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email as string },
-                    include: {
-                        role: {
-                            include: {
-                                permissions: {
-                                    include: {
-                                        permission: true,
+                    if (!credentials?.email || !credentials?.password) {
+                        console.log("[Auth] Missing email or password");
+                        return null;
+                    }
+
+                    const user = await prisma.user.findUnique({
+                        where: { email: credentials.email as string },
+                        include: {
+                            role: {
+                                include: {
+                                    permissions: {
+                                        include: {
+                                            permission: true,
+                                        },
                                     },
                                 },
                             },
+                            branch: true,
                         },
-                        branch: true,
-                    },
-                });
+                    });
 
-                if (!user || !user.isActive) {
+                    if (!user) {
+                        console.log("[Auth] User not found:", credentials.email);
+                        return null;
+                    }
+
+                    if (!user.isActive) {
+                        console.log("[Auth] User is inactive:", credentials.email);
+                        return null;
+                    }
+
+                    const passwordMatch = await bcrypt.compare(
+                        credentials.password as string,
+                        user.password
+                    );
+
+                    if (!passwordMatch) {
+                        console.log("[Auth] Password mismatch for:", credentials.email);
+                        return null;
+                    }
+
+                    console.log("[Auth] Login successful for:", credentials.email);
+
+                    return {
+                        id: String(user.id),
+                        name: user.name,
+                        email: user.email,
+                        role: user.role.name,
+                        roleDisplayName: user.role.displayName,
+                        branchId: user.branchId,
+                        branchName: user.branch?.name || null,
+                        permissions: user.role.permissions.map((rp: { permission: { name: string } }) => rp.permission.name),
+                    };
+                } catch (error) {
+                    console.error("[Auth] Error during authentication:", error);
                     return null;
                 }
-
-                const passwordMatch = await bcrypt.compare(
-                    credentials.password as string,
-                    user.password
-                );
-
-                if (!passwordMatch) {
-                    return null;
-                }
-
-                return {
-                    id: String(user.id),
-                    name: user.name,
-                    email: user.email,
-                    role: user.role.name,
-                    roleDisplayName: user.role.displayName,
-                    branchId: user.branchId,
-                    branchName: user.branch?.name || null,
-                    permissions: user.role.permissions.map((rp: { permission: { name: string } }) => rp.permission.name),
-                };
             },
         }),
     ],

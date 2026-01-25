@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { BottomNav } from "./bottom-nav";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import type { User, Branch } from "@/types";
 
 interface AppShellProps {
@@ -41,7 +42,10 @@ export function AppShell({
 
             {/* Mobile Sidebar (Sheet) */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetContent side="left" className="w-64 p-0">
+                <SheetContent side="left" className="w-64 p-0" aria-describedby={undefined}>
+                    <VisuallyHidden>
+                        <SheetTitle>Menu Navigasi</SheetTitle>
+                    </VisuallyHidden>
                     <Sidebar isCollapsed={false} />
                 </SheetContent>
             </Sheet>
