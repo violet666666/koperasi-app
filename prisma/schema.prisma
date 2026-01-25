@@ -1,0 +1,612 @@
+// This file is intentionally empty, will be populated by prisma init
+// Prisma schema location: prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =================================================================
+// AUTHENTICATION & USERS
+// =================================================================
+
+model User {
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  password        String
+  roleId          Int       @map("role_id")
+  branchId        Int?      @map("branch_id")
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  role   Role    @relation(fields: [roleId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  // Relations
+  createdMembers          Member[]              @relation("MemberCreatedBy")
+  savingsTransactions     SavingsTransaction[]  @relation("SavingsCreatedBy")
+  loanApplicationsCreated LoanApplication[]     @relation("LoanAppCreatedBy")
+  loanApplicationsApproved LoanApplication[]    @relation("LoanAppApprovedBy")
+  loanPayments            LoanPayment[]         @relation("PaymentCreatedBy")
+  cashBankTransactions    CashBankTransaction[] @relation("CashBankCreatedBy")
+  approvalRequests        ApprovalRequest[]     @relation("ApprovalRequestedBy")
+  approvedRequests        ApprovalRequest[]     @relation("ApprovalApprovedBy")
+  journals                Journal[]             @relation("JournalCreatedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  displayName String   @map("display_name")
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  displayName String   @map("display_name")
+  module      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// =================================================================
+// MASTER DATA
+// =================================================================
+
+model Branch {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique
+  name         String
+  address      String?
+  phone        String?
+  email        String?
+  isHeadOffice Boolean   @default(false) @map("is_head_office")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  users               User[]
+  members             Member[]
+  savingsAccounts     SavingsAccount[]
+  savingsTransactions SavingsTransaction[]
+  loanApplications    LoanApplication[]
+  loans               Loan[]
+  cashBankAccounts    CashBankAccount[]
+  cashBankTransactions CashBankTransaction[]
+  journals            Journal[]
+  approvalRequests    ApprovalRequest[]
+
+  @@map("branches")
+}
+
+model SavingsProduct {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  name          String
+  type          String    // pokok, wajib, sukarela, lainnya
+  isMandatory   Boolean   @default(false) @map("is_mandatory")
+  depositPeriod String?   @map("deposit_period") // once, monthly, optional
+  minimumAmount Decimal   @default(0) @map("minimum_amount") @db.Decimal(15, 2)
+  canWithdraw   Boolean   @default(true) @map("can_withdraw")
+  glAccountId   Int?      @map("gl_account_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  glAccount       Account?         @relation(fields: [glAccountId], references: [id])
+  savingsAccounts SavingsAccount[]
+
+  @@map("savings_products")
+}
+
+model LoanProduct {
+  id                    Int       @id @default(autoincrement())
+  code                  String
+  name                  String
+  version               Int       @default(1)
+  interestMethod        String    @map("interest_method") // flat, effective, annuity
+  interestRate          Decimal   @map("interest_rate") @db.Decimal(5, 2)
+  interestCalculation   String?   @map("interest_calculation") // monthly, daily
+  minTenorMonths        Int?      @map("min_tenor_months")
+  maxTenorMonths        Int?      @map("max_tenor_months")
+  minAmount             Decimal?  @map("min_amount") @db.Decimal(15, 2)
+  maxAmount             Decimal?  @map("max_amount") @db.Decimal(15, 2)
+  adminFeeType          String?   @map("admin_fee_type") // percent, fixed
+  adminFeeValue         Decimal?  @map("admin_fee_value") @db.Decimal(15, 2)
+  lateFeeType           String?   @map("late_fee_type")
+  lateFeeValue          Decimal?  @map("late_fee_value") @db.Decimal(15, 2)
+  gracePeriodDays       Int       @default(0) @map("grace_period_days")
+  requiresCollateral    Boolean   @default(false) @map("requires_collateral")
+  maxLoanToSavingsRatio Decimal?  @map("max_loan_to_savings_ratio") @db.Decimal(5, 2)
+  effectiveDate         DateTime  @map("effective_date") @db.Date
+  isCurrent             Boolean   @default(true) @map("is_current")
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  loanApplications LoanApplication[]
+
+  @@unique([code, version])
+  @@map("loan_products")
+}
+
+model Account {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  name          String
+  type          String    // asset, liability, equity, income, expense
+  category      String?
+  parentId      Int?      @map("parent_id")
+  level         Int
+  isDetail      Boolean   @default(true) @map("is_detail")
+  normalBalance String    @map("normal_balance") // debit, credit
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  parent           Account?         @relation("AccountParent", fields: [parentId], references: [id])
+  children         Account[]        @relation("AccountParent")
+  savingsProducts  SavingsProduct[]
+  cashBankAccounts CashBankAccount[]
+  journalLines     JournalLine[]
+
+  @@map("accounts")
+}
+
+// =================================================================
+// MEMBERS
+// =================================================================
+
+model Member {
+  id                Int       @id @default(autoincrement())
+  memberNo          String    @unique @map("member_no")
+  branchId          Int       @map("branch_id")
+  name              String
+  nik               String?   @unique
+  gender            String?
+  birthDate         DateTime? @map("birth_date") @db.Date
+  birthPlace        String?   @map("birth_place")
+  maritalStatus     String?   @map("marital_status")
+  religion          String?
+  education         String?
+  occupation        String?
+  phone             String?
+  email             String?
+  address           String?
+  rt                String?
+  rw                String?
+  village           String?
+  district          String?
+  city              String?
+  province          String?
+  postalCode        String?   @map("postal_code")
+  joinDate          DateTime  @map("join_date") @db.Date
+  status            String    @default("active") // active, inactive, resigned
+  resignedDate      DateTime? @map("resigned_date") @db.Date
+  resignationReason String?   @map("resignation_reason")
+  photoPath         String?   @map("photo_path")
+  idCardPath        String?   @map("id_card_path")
+  createdById       Int?      @map("created_by_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  branch              Branch               @relation(fields: [branchId], references: [id])
+  createdBy           User?                @relation("MemberCreatedBy", fields: [createdById], references: [id])
+  savingsAccounts     SavingsAccount[]
+  savingsTransactions SavingsTransaction[]
+  loanApplications    LoanApplication[]
+  loans               Loan[]
+  loanPayments        LoanPayment[]
+
+  @@map("members")
+}
+
+// =================================================================
+// SAVINGS
+// =================================================================
+
+model SavingsAccount {
+  id         Int       @id @default(autoincrement())
+  accountNo  String    @unique @map("account_no")
+  memberId   Int       @map("member_id")
+  productId  Int       @map("product_id")
+  branchId   Int       @map("branch_id")
+  balance    Decimal   @default(0) @db.Decimal(15, 2)
+  status     String    @default("active") // active, closed
+  openedDate DateTime  @map("opened_date") @db.Date
+  closedDate DateTime? @map("closed_date") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  member       Member               @relation(fields: [memberId], references: [id])
+  product      SavingsProduct       @relation(fields: [productId], references: [id])
+  branch       Branch               @relation(fields: [branchId], references: [id])
+  transactions SavingsTransaction[]
+
+  @@unique([memberId, productId])
+  @@map("savings_accounts")
+}
+
+model SavingsTransaction {
+  id                Int       @id @default(autoincrement())
+  transactionNo     String    @unique @map("transaction_no")
+  accountId         Int       @map("account_id")
+  memberId          Int       @map("member_id")
+  productId         Int       @map("product_id")
+  branchId          Int       @map("branch_id")
+  type              String    // deposit, withdrawal, correction, interest
+  amount            Decimal   @db.Decimal(15, 2)
+  balanceBefore     Decimal   @map("balance_before") @db.Decimal(15, 2)
+  balanceAfter      Decimal   @map("balance_after") @db.Decimal(15, 2)
+  paymentMethod     String?   @map("payment_method") // cash, bank_transfer
+  cashBankAccountId Int?      @map("cash_bank_account_id")
+  referenceNo       String?   @map("reference_no")
+  notes             String?
+  transactionDate   DateTime  @map("transaction_date") @db.Date
+  journalId         Int?      @map("journal_id")
+  periodId          Int?      @map("period_id")
+  status            String    @default("completed") // completed, voided
+  voidedAt          DateTime? @map("voided_at")
+  voidedById        Int?      @map("voided_by_id")
+  voidReason        String?   @map("void_reason")
+  createdById       Int       @map("created_by_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  account         SavingsAccount   @relation(fields: [accountId], references: [id])
+  member          Member           @relation(fields: [memberId], references: [id])
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  cashBankAccount CashBankAccount? @relation(fields: [cashBankAccountId], references: [id])
+  journal         Journal?         @relation(fields: [journalId], references: [id])
+  period          FiscalPeriod?    @relation(fields: [periodId], references: [id])
+  createdBy       User             @relation("SavingsCreatedBy", fields: [createdById], references: [id])
+
+  @@map("savings_transactions")
+}
+
+// =================================================================
+// LOANS
+// =================================================================
+
+model LoanApplication {
+  id                    Int       @id @default(autoincrement())
+  applicationNo         String    @unique @map("application_no")
+  memberId              Int       @map("member_id")
+  branchId              Int       @map("branch_id")
+  productId             Int       @map("product_id")
+  amount                Decimal   @db.Decimal(15, 2)
+  tenorMonths           Int       @map("tenor_months")
+  purpose               String?
+  collateralDescription String?   @map("collateral_description")
+  notes                 String?
+  status                String    @default("draft") // draft, submitted, approved, rejected, disbursed, cancelled
+  submittedAt           DateTime? @map("submitted_at")
+  approvedAt            DateTime? @map("approved_at")
+  approvedById          Int?      @map("approved_by_id")
+  rejectedAt            DateTime? @map("rejected_at")
+  rejectedById          Int?      @map("rejected_by_id")
+  rejectionReason       String?   @map("rejection_reason")
+  createdById           Int       @map("created_by_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  member     Member      @relation(fields: [memberId], references: [id])
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  product    LoanProduct @relation(fields: [productId], references: [id])
+  createdBy  User        @relation("LoanAppCreatedBy", fields: [createdById], references: [id])
+  approvedBy User?       @relation("LoanAppApprovedBy", fields: [approvedById], references: [id])
+  loan       Loan?
+
+  @@map("loan_applications")
+}
+
+model Loan {
+  id                     Int       @id @default(autoincrement())
+  loanNo                 String    @unique @map("loan_no")
+  applicationId          Int       @unique @map("application_id")
+  memberId               Int       @map("member_id")
+  branchId               Int       @map("branch_id")
+  productSnapshot        Json      @map("product_snapshot")
+  principalAmount        Decimal   @map("principal_amount") @db.Decimal(15, 2)
+  interestAmount         Decimal   @map("interest_amount") @db.Decimal(15, 2)
+  totalAmount            Decimal   @map("total_amount") @db.Decimal(15, 2)
+  adminFee               Decimal   @default(0) @map("admin_fee") @db.Decimal(15, 2)
+  disbursedAmount        Decimal   @map("disbursed_amount") @db.Decimal(15, 2)
+  tenorMonths            Int       @map("tenor_months")
+  interestRate           Decimal   @map("interest_rate") @db.Decimal(5, 2)
+  interestMethod         String    @map("interest_method")
+  monthlyInstallment     Decimal   @map("monthly_installment") @db.Decimal(15, 2)
+  principalPaid          Decimal   @default(0) @map("principal_paid") @db.Decimal(15, 2)
+  interestPaid           Decimal   @default(0) @map("interest_paid") @db.Decimal(15, 2)
+  lateFeePaid            Decimal   @default(0) @map("late_fee_paid") @db.Decimal(15, 2)
+  principalOutstanding   Decimal   @map("principal_outstanding") @db.Decimal(15, 2)
+  interestOutstanding    Decimal   @map("interest_outstanding") @db.Decimal(15, 2)
+  disbursementDate       DateTime  @map("disbursement_date") @db.Date
+  firstDueDate           DateTime  @map("first_due_date") @db.Date
+  lastDueDate            DateTime  @map("last_due_date") @db.Date
+  paidOffDate            DateTime? @map("paid_off_date") @db.Date
+  status                 String    @default("active") // active, paid_off, written_off
+  disbursementJournalId  Int?      @map("disbursement_journal_id")
+  disbursementCashBankId Int?      @map("disbursement_cash_bank_id")
+  disbursedById          Int?      @map("disbursed_by_id")
+  periodId               Int?      @map("period_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  application          LoanApplication  @relation(fields: [applicationId], references: [id])
+  member               Member           @relation(fields: [memberId], references: [id])
+  branch               Branch           @relation(fields: [branchId], references: [id])
+  disbursementJournal  Journal?         @relation(fields: [disbursementJournalId], references: [id])
+  disbursementCashBank CashBankAccount? @relation(fields: [disbursementCashBankId], references: [id])
+  period               FiscalPeriod?    @relation(fields: [periodId], references: [id])
+  schedules            LoanSchedule[]
+  payments             LoanPayment[]
+
+  @@map("loans")
+}
+
+model LoanSchedule {
+  id              Int       @id @default(autoincrement())
+  loanId          Int       @map("loan_id")
+  installmentNo   Int       @map("installment_no")
+  dueDate         DateTime  @map("due_date") @db.Date
+  principalAmount Decimal   @map("principal_amount") @db.Decimal(15, 2)
+  interestAmount  Decimal   @map("interest_amount") @db.Decimal(15, 2)
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(15, 2)
+  principalPaid   Decimal   @default(0) @map("principal_paid") @db.Decimal(15, 2)
+  interestPaid    Decimal   @default(0) @map("interest_paid") @db.Decimal(15, 2)
+  lateFee         Decimal   @default(0) @map("late_fee") @db.Decimal(15, 2)
+  lateFeePaid     Decimal   @default(0) @map("late_fee_paid") @db.Decimal(15, 2)
+  status          String    @default("pending") // pending, partial, paid, overdue
+  paidDate        DateTime? @map("paid_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  loan        Loan                      @relation(fields: [loanId], references: [id])
+  allocations LoanPaymentAllocation[]
+
+  @@unique([loanId, installmentNo])
+  @@map("loan_schedules")
+}
+
+model LoanPayment {
+  id                Int      @id @default(autoincrement())
+  paymentNo         String   @unique @map("payment_no")
+  loanId            Int      @map("loan_id")
+  memberId          Int      @map("member_id")
+  branchId          Int      @map("branch_id")
+  amount            Decimal  @db.Decimal(15, 2)
+  principalPortion  Decimal  @map("principal_portion") @db.Decimal(15, 2)
+  interestPortion   Decimal  @map("interest_portion") @db.Decimal(15, 2)
+  lateFeePortion    Decimal  @default(0) @map("late_fee_portion") @db.Decimal(15, 2)
+  paymentMethod     String?  @map("payment_method")
+  cashBankAccountId Int?     @map("cash_bank_account_id")
+  referenceNo       String?  @map("reference_no")
+  notes             String?
+  paymentDate       DateTime @map("payment_date") @db.Date
+  journalId         Int?     @map("journal_id")
+  periodId          Int?     @map("period_id")
+  createdById       Int      @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  loan            Loan                      @relation(fields: [loanId], references: [id])
+  member          Member                    @relation(fields: [memberId], references: [id])
+  cashBankAccount CashBankAccount?          @relation(fields: [cashBankAccountId], references: [id])
+  journal         Journal?                  @relation(fields: [journalId], references: [id])
+  period          FiscalPeriod?             @relation(fields: [periodId], references: [id])
+  createdBy       User                      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  allocations     LoanPaymentAllocation[]
+
+  @@map("loan_payments")
+}
+
+model LoanPaymentAllocation {
+  id              Int     @id @default(autoincrement())
+  paymentId       Int     @map("payment_id")
+  scheduleId      Int     @map("schedule_id")
+  principalAmount Decimal @map("principal_amount") @db.Decimal(15, 2)
+  interestAmount  Decimal @map("interest_amount") @db.Decimal(15, 2)
+  lateFeeAmount   Decimal @default(0) @map("late_fee_amount") @db.Decimal(15, 2)
+
+  payment  LoanPayment  @relation(fields: [paymentId], references: [id])
+  schedule LoanSchedule @relation(fields: [scheduleId], references: [id])
+
+  @@map("loan_payment_allocations")
+}
+
+// =================================================================
+// CASH & BANK
+// =================================================================
+
+model CashBankAccount {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  name           String
+  type           String    // cash, bank
+  bankName       String?   @map("bank_name")
+  accountNumber  String?   @map("account_number")
+  branchId       Int       @map("branch_id")
+  glAccountId    Int?      @map("gl_account_id")
+  currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  branch              Branch                @relation(fields: [branchId], references: [id])
+  glAccount           Account?              @relation(fields: [glAccountId], references: [id])
+  transactions        CashBankTransaction[]
+  savingsTransactions SavingsTransaction[]
+  loanDisbursements   Loan[]
+  loanPayments        LoanPayment[]
+
+  @@map("cash_bank_accounts")
+}
+
+model CashBankTransaction {
+  id            Int      @id @default(autoincrement())
+  transactionNo String   @unique @map("transaction_no")
+  accountId     Int      @map("account_id")
+  branchId      Int      @map("branch_id")
+  type          String   // in, out
+  category      String?  // operational, savings, loan, transfer, other
+  amount        Decimal  @db.Decimal(15, 2)
+  balanceBefore Decimal  @map("balance_before") @db.Decimal(15, 2)
+  balanceAfter  Decimal  @map("balance_after") @db.Decimal(15, 2)
+  referenceType String?  @map("reference_type")
+  referenceId   Int?     @map("reference_id")
+  description   String?
+  transactionDate DateTime @map("transaction_date") @db.Date
+  journalId     Int?     @map("journal_id")
+  periodId      Int?     @map("period_id")
+  createdById   Int      @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  account   CashBankAccount @relation(fields: [accountId], references: [id])
+  branch    Branch          @relation(fields: [branchId], references: [id])
+  journal   Journal?        @relation(fields: [journalId], references: [id])
+  period    FiscalPeriod?   @relation(fields: [periodId], references: [id])
+  createdBy User            @relation("CashBankCreatedBy", fields: [createdById], references: [id])
+
+  @@map("cash_bank_transactions")
+}
+
+// =================================================================
+// ACCOUNTING
+// =================================================================
+
+model FiscalPeriod {
+  id        Int       @id @default(autoincrement())
+  name      String
+  year      Int
+  month     Int
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime  @map("end_date") @db.Date
+  status    String    @default("open") // open, closed
+  closedAt  DateTime? @map("closed_at")
+  closedById Int?     @map("closed_by_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  journals              Journal[]
+  savingsTransactions   SavingsTransaction[]
+  loans                 Loan[]
+  loanPayments          LoanPayment[]
+  cashBankTransactions  CashBankTransaction[]
+
+  @@unique([year, month])
+  @@map("fiscal_periods")
+}
+
+model Journal {
+  id              Int      @id @default(autoincrement())
+  journalNo       String   @unique @map("journal_no")
+  branchId        Int      @map("branch_id")
+  transactionDate DateTime @map("transaction_date") @db.Date
+  description     String
+  sourceType      String?  @map("source_type")
+  sourceId        Int?     @map("source_id")
+  periodId        Int      @map("period_id")
+  isPosted        Boolean  @default(true) @map("is_posted")
+  isAdjustment    Boolean  @default(false) @map("is_adjustment")
+  isClosing       Boolean  @default(false) @map("is_closing")
+  approvalId      Int?     @map("approval_id")
+  createdById     Int      @map("created_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  branch              Branch               @relation(fields: [branchId], references: [id])
+  period              FiscalPeriod         @relation(fields: [periodId], references: [id])
+  createdBy           User                 @relation("JournalCreatedBy", fields: [createdById], references: [id])
+  lines               JournalLine[]
+  savingsTransactions SavingsTransaction[]
+  loanDisbursements   Loan[]
+  loanPayments        LoanPayment[]
+  cashBankTransactions CashBankTransaction[]
+
+  @@map("journals")
+}
+
+model JournalLine {
+  id          Int     @id @default(autoincrement())
+  journalId   Int     @map("journal_id")
+  accountId   Int     @map("account_id")
+  debit       Decimal @default(0) @db.Decimal(15, 2)
+  credit      Decimal @default(0) @db.Decimal(15, 2)
+  description String?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@map("journal_lines")
+}
+
+// =================================================================
+// APPROVAL
+// =================================================================
+
+model ApprovalRequest {
+  id             Int       @id @default(autoincrement())
+  requestNo      String    @unique @map("request_no")
+  type           String    // loan_application, savings_correction, etc
+  referenceType  String    @map("reference_type")
+  referenceId    Int       @map("reference_id")
+  branchId       Int       @map("branch_id")
+  amount         Decimal?  @db.Decimal(15, 2)
+  description    String
+  metadata       Json?
+  status         String    @default("pending") // pending, approved, rejected
+  requestedById  Int       @map("requested_by_id")
+  requestedAt    DateTime  @map("requested_at")
+  approvedById   Int?      @map("approved_by_id")
+  approvedAt     DateTime? @map("approved_at")
+  rejectedById   Int?      @map("rejected_by_id")
+  rejectedAt     DateTime? @map("rejected_at")
+  rejectionReason String?  @map("rejection_reason")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  branch      Branch @relation(fields: [branchId], references: [id])
+  requestedBy User   @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?  @relation("ApprovalApprovedBy", fields: [approvedById], references: [id])
+
+  @@map("approval_requests")
+}
