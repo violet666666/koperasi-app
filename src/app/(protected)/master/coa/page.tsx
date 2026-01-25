@@ -28,31 +28,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Pencil, ChevronRight, ChevronDown, Loader2, Save, BookOpen } from "lucide-react";
-import type { Account } from "@/types";
+import { masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_ACCOUNTS: Account[] = [
-    { id: 1, code: "1", name: "ASET", type: "asset", level: 1, is_detail: false, normal_balance: "debit", is_active: true },
-    { id: 2, code: "1.1", name: "Aset Lancar", type: "asset", parent_id: 1, level: 2, is_detail: false, normal_balance: "debit", is_active: true },
-    { id: 3, code: "1.1.01", name: "Kas", type: "asset", parent_id: 2, level: 3, is_detail: true, normal_balance: "debit", is_active: true },
-    { id: 4, code: "1.1.02", name: "Bank", type: "asset", parent_id: 2, level: 3, is_detail: true, normal_balance: "debit", is_active: true },
-    { id: 5, code: "1.1.03", name: "Piutang Anggota", type: "asset", parent_id: 2, level: 3, is_detail: true, normal_balance: "debit", is_active: true },
-    { id: 6, code: "1.2", name: "Aset Tetap", type: "asset", parent_id: 1, level: 2, is_detail: false, normal_balance: "debit", is_active: true },
-    { id: 7, code: "1.2.01", name: "Tanah", type: "asset", parent_id: 6, level: 3, is_detail: true, normal_balance: "debit", is_active: true },
-    { id: 8, code: "1.2.02", name: "Bangunan", type: "asset", parent_id: 6, level: 3, is_detail: true, normal_balance: "debit", is_active: true },
-    { id: 10, code: "2", name: "KEWAJIBAN", type: "liability", level: 1, is_detail: false, normal_balance: "credit", is_active: true },
-    { id: 11, code: "2.1", name: "Simpanan Anggota", type: "liability", parent_id: 10, level: 2, is_detail: false, normal_balance: "credit", is_active: true },
-    { id: 12, code: "2.1.01", name: "Simpanan Pokok", type: "liability", parent_id: 11, level: 3, is_detail: true, normal_balance: "credit", is_active: true },
-    { id: 13, code: "2.1.02", name: "Simpanan Wajib", type: "liability", parent_id: 11, level: 3, is_detail: true, normal_balance: "credit", is_active: true },
-    { id: 20, code: "3", name: "MODAL", type: "equity", level: 1, is_detail: false, normal_balance: "credit", is_active: true },
-    { id: 21, code: "3.1", name: "Modal Penyertaan", type: "equity", parent_id: 20, level: 2, is_detail: true, normal_balance: "credit", is_active: true },
-    { id: 30, code: "4", name: "PENDAPATAN", type: "income", level: 1, is_detail: false, normal_balance: "credit", is_active: true },
-    { id: 31, code: "4.1", name: "Pendapatan Bunga", type: "income", parent_id: 30, level: 2, is_detail: true, normal_balance: "credit", is_active: true },
-    { id: 40, code: "5", name: "BEBAN", type: "expense", level: 1, is_detail: false, normal_balance: "debit", is_active: true },
-    { id: 41, code: "5.1", name: "Beban Operasional", type: "expense", parent_id: 40, level: 2, is_detail: true, normal_balance: "debit", is_active: true },
-];
+// Account type
+interface Account {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
+    parentId?: number;
+    level: number;
+    isDetail: boolean;
+    normalBalance: "debit" | "credit";
+    isActive: boolean;
+}
 
 const ACCOUNT_TYPES = {
     asset: { label: "Aset", color: "blue" },
@@ -65,14 +57,14 @@ const ACCOUNT_TYPES = {
 // Account tree node component
 function AccountNode({ account, accounts, onEdit }: { account: Account; accounts: Account[]; onEdit: (a: Account) => void }) {
     const [isOpen, setIsOpen] = React.useState(account.level === 1);
-    const children = accounts.filter((a) => a.parent_id === account.id);
+    const children = accounts.filter((a) => a.parentId === account.id);
     const hasChildren = children.length > 0;
     const paddingLeft = (account.level - 1) * 24;
 
     return (
         <div>
             <div
-                className={`flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-lg ${!account.is_active ? "opacity-50" : ""}`}
+                className={`flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-lg ${!account.isActive ? "opacity-50" : ""}`}
                 style={{ paddingLeft }}
             >
                 {hasChildren ? (
@@ -85,14 +77,14 @@ function AccountNode({ account, accounts, onEdit }: { account: Account; accounts
                     <div className="w-6" />
                 )}
                 <span className="font-mono text-sm text-muted-foreground w-20">{account.code}</span>
-                <span className={`flex-1 ${account.level === 1 ? "font-bold" : account.is_detail ? "" : "font-medium"}`}>
+                <span className={`flex-1 ${account.level === 1 ? "font-bold" : account.isDetail ? "" : "font-medium"}`}>
                     {account.name}
                 </span>
-                {account.is_detail && (
+                {account.isDetail && (
                     <Badge variant="outline" className="text-xs">Detail</Badge>
                 )}
                 <Badge variant="secondary" className="text-xs">
-                    {account.normal_balance === "debit" ? "D" : "K"}
+                    {account.normalBalance === "debit" ? "D" : "K"}
                 </Badge>
                 <Button size="sm" variant="ghost" onClick={() => onEdit(account)}>
                     <Pencil className="h-3 w-3" />
@@ -126,13 +118,13 @@ function AccountForm({
         code: account?.code || "",
         name: account?.name || "",
         type: account?.type || "asset",
-        parent_id: account?.parent_id?.toString() || "",
-        is_detail: account?.is_detail ?? true,
-        normal_balance: account?.normal_balance || "debit",
-        is_active: account?.is_active ?? true,
+        parentId: account?.parentId?.toString() || "",
+        isDetail: account?.isDetail ?? true,
+        normalBalance: account?.normalBalance || "debit",
+        isActive: account?.isActive ?? true,
     });
 
-    const parentAccounts = accounts.filter((a) => !a.is_detail && a.type === formData.type);
+    const parentAccounts = accounts.filter((a) => !a.isDetail && a.type === formData.type);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,8 +132,8 @@ function AccountForm({
         try {
             await onSave({
                 ...formData,
-                parent_id: formData.parent_id ? parseInt(formData.parent_id) : undefined,
-                level: formData.parent_id ? (accounts.find((a) => a.id.toString() === formData.parent_id)?.level || 0) + 1 : 1,
+                parentId: formData.parentId ? parseInt(formData.parentId) : undefined,
+                level: formData.parentId ? (accounts.find((a) => a.id.toString() === formData.parentId)?.level || 0) + 1 : 1,
             } as Partial<Account>);
         } finally {
             setIsLoading(false);
@@ -175,7 +167,7 @@ function AccountForm({
                     <Label htmlFor="type">Tipe Akun *</Label>
                     <Select
                         value={formData.type}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, type: value as Account["type"], parent_id: "" }))}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, type: value, parentId: "" }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -190,8 +182,8 @@ function AccountForm({
                 <div>
                     <Label htmlFor="parent">Induk</Label>
                     <Select
-                        value={formData.parent_id}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, parent_id: value }))}
+                        value={formData.parentId}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, parentId: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Pilih akun induk" />
@@ -207,10 +199,10 @@ function AccountForm({
                     </Select>
                 </div>
                 <div>
-                    <Label htmlFor="normal_balance">Saldo Normal *</Label>
+                    <Label htmlFor="normalBalance">Saldo Normal *</Label>
                     <Select
-                        value={formData.normal_balance}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, normal_balance: value as "debit" | "credit" }))}
+                        value={formData.normalBalance}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, normalBalance: value as "debit" | "credit" }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -225,19 +217,19 @@ function AccountForm({
             <div className="flex flex-wrap gap-6">
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_detail"
-                        checked={formData.is_detail}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_detail: !!checked }))}
+                        id="isDetail"
+                        checked={formData.isDetail}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isDetail: !!checked }))}
                     />
-                    <Label htmlFor="is_detail" className="font-normal">Akun Detail (dapat diposting)</Label>
+                    <Label htmlFor="isDetail" className="font-normal">Akun Detail (dapat diposting)</Label>
                 </div>
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_active"
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_active: !!checked }))}
+                        id="isActive"
+                        checked={formData.isActive}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isActive: !!checked }))}
                     />
-                    <Label htmlFor="is_active" className="font-normal">Aktif</Label>
+                    <Label htmlFor="isActive" className="font-normal">Aktif</Label>
                 </div>
             </div>
             <DialogFooter>
@@ -254,24 +246,45 @@ function AccountForm({
 }
 
 export default function MasterCOAPage() {
-    const [accounts, setAccounts] = React.useState<Account[]>(MOCK_ACCOUNTS);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [accounts, setAccounts] = React.useState<Account[]>([]);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingAccount, setEditingAccount] = React.useState<Account | undefined>();
     const [searchQuery, setSearchQuery] = React.useState("");
 
-    const handleSave = async (data: Partial<Account>) => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (editingAccount) {
-            setAccounts((prev) => prev.map((a) => a.id === editingAccount.id ? { ...a, ...data } : a));
-            toast.success("Akun berhasil diperbarui");
-        } else {
-            const newAccount = { ...data, id: Date.now() } as Account;
-            setAccounts((prev) => [...prev, newAccount]);
-            toast.success("Akun berhasil ditambahkan");
+    // Fetch accounts from API
+    React.useEffect(() => {
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await masterApi.accounts.list("flat");
+                setAccounts(response.data as unknown as Account[]);
+            } catch (error) {
+                console.error("Failed to fetch accounts:", error);
+            } finally {
+                setIsLoading(false);
+            }
         }
-        setDialogOpen(false);
-        setEditingAccount(undefined);
+
+        fetchData();
+    }, []);
+
+    const handleSave = async (data: Partial<Account>) => {
+        try {
+            if (editingAccount) {
+                await masterApi.accounts.update(editingAccount.id, data as Record<string, unknown>);
+                setAccounts((prev) => prev.map((a) => a.id === editingAccount.id ? { ...a, ...data } as Account : a));
+                toast.success("Akun berhasil diperbarui");
+            } else {
+                const response = await masterApi.accounts.create(data as Record<string, unknown>);
+                setAccounts((prev) => [...prev, response.data as unknown as Account]);
+                toast.success("Akun berhasil ditambahkan");
+            }
+            setDialogOpen(false);
+            setEditingAccount(undefined);
+        } catch (error) {
+            toast.error("Gagal menyimpan akun");
+        }
     };
 
     const handleEdit = (account: Account) => {
@@ -286,6 +299,14 @@ export default function MasterCOAPage() {
 
     // Get root accounts by type
     const rootAccounts = accounts.filter((a) => a.level === 1);
+
+    // Filter based on search
+    const filteredRootAccounts = searchQuery
+        ? accounts.filter((a) =>
+            a.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            a.name.toLowerCase().includes(searchQuery.toLowerCase())
+        ).filter((a) => a.level === 1)
+        : rootAccounts;
 
     return (
         <div className="space-y-6">
@@ -336,9 +357,22 @@ export default function MasterCOAPage() {
                     <Badge variant="outline" className="ml-auto">{accounts.length} akun</Badge>
                 </div>
                 <div className="p-2">
-                    {rootAccounts.map((account) => (
-                        <AccountNode key={account.id} account={account} accounts={accounts} onEdit={handleEdit} />
-                    ))}
+                    {isLoading ? (
+                        <div className="space-y-2 p-4">
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                            <Skeleton className="h-8 w-full" />
+                        </div>
+                    ) : filteredRootAccounts.length > 0 ? (
+                        filteredRootAccounts.map((account) => (
+                            <AccountNode key={account.id} account={account} accounts={accounts} onEdit={handleEdit} />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                            Tidak ada data akun
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

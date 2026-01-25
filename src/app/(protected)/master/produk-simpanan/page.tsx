@@ -28,15 +28,21 @@ import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Wallet, Loader2, Save } from "lucide-react";
 import { formatCurrency, SAVINGS_PRODUCT_TYPES } from "@/lib/constants";
-import type { SavingsProduct } from "@/types";
+import { masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_PRODUCTS: SavingsProduct[] = [
-    { id: 1, code: "SP", name: "Simpanan Pokok", type: "pokok", is_mandatory: true, deposit_period: "once", minimum_amount: 100000, can_withdraw: false, is_active: true },
-    { id: 2, code: "SW", name: "Simpanan Wajib", type: "wajib", is_mandatory: true, deposit_period: "monthly", minimum_amount: 50000, can_withdraw: false, is_active: true },
-    { id: 3, code: "SS", name: "Simpanan Sukarela", type: "sukarela", is_mandatory: false, deposit_period: "optional", minimum_amount: 10000, can_withdraw: true, is_active: true },
-    { id: 4, code: "SB", name: "Simpanan Berjangka", type: "lainnya", is_mandatory: false, deposit_period: "optional", minimum_amount: 1000000, can_withdraw: true, is_active: true },
-];
+// Product type
+interface SavingsProduct {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
+    isMandatory?: boolean;
+    depositPeriod?: string;
+    minimumAmount?: number;
+    canWithdraw?: boolean;
+    interestRate?: number;
+    isActive: boolean;
+}
 
 // Table columns
 const columns: ColumnDef<SavingsProduct>[] = [
@@ -63,41 +69,33 @@ const columns: ColumnDef<SavingsProduct>[] = [
         accessorKey: "type",
         header: "Jenis",
         cell: ({ row }) => {
-            const type = row.getValue("type") as keyof typeof SAVINGS_PRODUCT_TYPES;
-            return <span>{SAVINGS_PRODUCT_TYPES[type]?.label || type}</span>;
+            const type = row.getValue("type") as string;
+            const config = SAVINGS_PRODUCT_TYPES[type as keyof typeof SAVINGS_PRODUCT_TYPES];
+            return <span>{config?.label || type}</span>;
         },
     },
     {
-        accessorKey: "minimum_amount",
+        accessorKey: "minimumAmount",
         header: "Min. Setoran",
-        cell: ({ row }) => (
-            <span className="tabular-nums">{formatCurrency(row.getValue("minimum_amount"))}</span>
-        ),
+        cell: ({ row }) => {
+            const amount = row.getValue("minimumAmount") as number | undefined;
+            return <span className="tabular-nums">{amount ? formatCurrency(amount) : "-"}</span>;
+        },
     },
     {
-        accessorKey: "is_mandatory",
-        header: "Wajib",
-        cell: ({ row }) => (
-            <Badge variant={row.getValue("is_mandatory") ? "default" : "secondary"}>
-                {row.getValue("is_mandatory") ? "Ya" : "Tidak"}
-            </Badge>
-        ),
+        accessorKey: "interestRate",
+        header: "Bunga (%)",
+        cell: ({ row }) => {
+            const rate = row.getValue("interestRate") as number | undefined;
+            return <span className="tabular-nums">{rate !== undefined ? `${rate}%` : "-"}</span>;
+        },
     },
     {
-        accessorKey: "can_withdraw",
-        header: "Bisa Ditarik",
-        cell: ({ row }) => (
-            <Badge variant={row.getValue("can_withdraw") ? "default" : "secondary"}>
-                {row.getValue("can_withdraw") ? "Ya" : "Tidak"}
-            </Badge>
-        ),
-    },
-    {
-        accessorKey: "is_active",
+        accessorKey: "isActive",
         header: "Status",
         cell: ({ row }) => (
-            <Badge variant={row.getValue("is_active") ? "default" : "secondary"}>
-                {row.getValue("is_active") ? "Aktif" : "Tidak Aktif"}
+            <Badge variant={row.getValue("isActive") ? "default" : "secondary"}>
+                {row.getValue("isActive") ? "Aktif" : "Tidak Aktif"}
             </Badge>
         ),
     },
@@ -118,11 +116,12 @@ function ProductForm({
         code: product?.code || "",
         name: product?.name || "",
         type: product?.type || "sukarela",
-        is_mandatory: product?.is_mandatory || false,
-        deposit_period: product?.deposit_period || "optional",
-        minimum_amount: product?.minimum_amount?.toString() || "10000",
-        can_withdraw: product?.can_withdraw ?? true,
-        is_active: product?.is_active ?? true,
+        isMandatory: product?.isMandatory || false,
+        depositPeriod: product?.depositPeriod || "optional",
+        minimumAmount: product?.minimumAmount?.toString() || "10000",
+        interestRate: product?.interestRate?.toString() || "0",
+        canWithdraw: product?.canWithdraw ?? true,
+        isActive: product?.isActive ?? true,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -131,7 +130,8 @@ function ProductForm({
         try {
             await onSave({
                 ...formData,
-                minimum_amount: parseFloat(formData.minimum_amount),
+                minimumAmount: parseFloat(formData.minimumAmount),
+                interestRate: parseFloat(formData.interestRate),
             } as Partial<SavingsProduct>);
         } finally {
             setIsLoading(false);
@@ -166,7 +166,7 @@ function ProductForm({
                     <Label htmlFor="type">Jenis *</Label>
                     <Select
                         value={formData.type}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, type: value as SavingsProduct["type"] }))}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, type: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -179,10 +179,10 @@ function ProductForm({
                     </Select>
                 </div>
                 <div>
-                    <Label htmlFor="deposit_period">Periode Setoran *</Label>
+                    <Label htmlFor="depositPeriod">Periode Setoran *</Label>
                     <Select
-                        value={formData.deposit_period}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, deposit_period: value as SavingsProduct["deposit_period"] }))}
+                        value={formData.depositPeriod}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, depositPeriod: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -194,46 +194,57 @@ function ProductForm({
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="sm:col-span-2">
-                    <Label htmlFor="minimum_amount">Minimal Setoran *</Label>
+                <div>
+                    <Label htmlFor="minimumAmount">Minimal Setoran *</Label>
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
                         <Input
-                            id="minimum_amount"
+                            id="minimumAmount"
                             type="number"
-                            value={formData.minimum_amount}
-                            onChange={(e) => setFormData((p) => ({ ...p, minimum_amount: e.target.value }))}
+                            value={formData.minimumAmount}
+                            onChange={(e) => setFormData((p) => ({ ...p, minimumAmount: e.target.value }))}
                             className="pl-10"
                             min="0"
                             required
                         />
                     </div>
                 </div>
+                <div>
+                    <Label htmlFor="interestRate">Bunga per Tahun (%)</Label>
+                    <Input
+                        id="interestRate"
+                        type="number"
+                        step="0.1"
+                        value={formData.interestRate}
+                        onChange={(e) => setFormData((p) => ({ ...p, interestRate: e.target.value }))}
+                        min="0"
+                    />
+                </div>
             </div>
             <div className="flex flex-wrap gap-6">
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_mandatory"
-                        checked={formData.is_mandatory}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_mandatory: !!checked }))}
+                        id="isMandatory"
+                        checked={formData.isMandatory}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isMandatory: !!checked }))}
                     />
-                    <Label htmlFor="is_mandatory" className="font-normal">Wajib untuk semua anggota</Label>
+                    <Label htmlFor="isMandatory" className="font-normal">Wajib untuk semua anggota</Label>
                 </div>
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="can_withdraw"
-                        checked={formData.can_withdraw}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, can_withdraw: !!checked }))}
+                        id="canWithdraw"
+                        checked={formData.canWithdraw}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, canWithdraw: !!checked }))}
                     />
-                    <Label htmlFor="can_withdraw" className="font-normal">Dapat ditarik</Label>
+                    <Label htmlFor="canWithdraw" className="font-normal">Dapat ditarik</Label>
                 </div>
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_active"
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_active: !!checked }))}
+                        id="isActive"
+                        checked={formData.isActive}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isActive: !!checked }))}
                     />
-                    <Label htmlFor="is_active" className="font-normal">Aktif</Label>
+                    <Label htmlFor="isActive" className="font-normal">Aktif</Label>
                 </div>
             </div>
             <DialogFooter>
@@ -255,28 +266,39 @@ export default function MasterProdukSimpananPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingProduct, setEditingProduct] = React.useState<SavingsProduct | undefined>();
 
-    // Simulate loading
+    // Fetch products from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setProducts(MOCK_PRODUCTS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await masterApi.savingsProducts.list();
+                setProducts(response.data as unknown as SavingsProduct[]);
+            } catch (error) {
+                console.error("Failed to fetch savings products:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     const handleSave = async (data: Partial<SavingsProduct>) => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (editingProduct) {
-            setProducts((prev) => prev.map((p) => p.id === editingProduct.id ? { ...p, ...data } : p));
-            toast.success("Produk berhasil diperbarui");
-        } else {
-            const newProduct = { ...data, id: Date.now() } as SavingsProduct;
-            setProducts((prev) => [...prev, newProduct]);
-            toast.success("Produk berhasil ditambahkan");
+        try {
+            if (editingProduct) {
+                await masterApi.savingsProducts.update(editingProduct.id, data);
+                setProducts((prev) => prev.map((p) => p.id === editingProduct.id ? { ...p, ...data } as SavingsProduct : p));
+                toast.success("Produk berhasil diperbarui");
+            } else {
+                const response = await masterApi.savingsProducts.create(data);
+                setProducts((prev) => [...prev, response.data as unknown as SavingsProduct]);
+                toast.success("Produk berhasil ditambahkan");
+            }
+            setDialogOpen(false);
+            setEditingProduct(undefined);
+        } catch (error) {
+            toast.error("Gagal menyimpan produk");
         }
-        setDialogOpen(false);
-        setEditingProduct(undefined);
     };
 
     const handleEdit = (product: SavingsProduct) => {

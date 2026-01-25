@@ -15,86 +15,78 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Download, CreditCard, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface LoanRecap {
-    product_code: string;
-    product_name: string;
-    interest_rate: number;
-    total_loans: number;
-    total_disbursed: number;
-    total_outstanding: number;
-    total_paid: number;
-    collectibility_ratio: number;
+    productCode: string;
+    productName: string;
+    interestRate: number;
+    totalLoans: number;
+    totalDisbursed: number;
+    totalOutstanding: number;
+    totalPaid: number;
+    collectibilityRatio: number;
 }
-
-// Mock data
-const MOCK_LOANS: LoanRecap[] = [
-    { product_code: "PR", product_name: "Pinjaman Reguler", interest_rate: 1.5, total_loans: 245, total_disbursed: 2450000000, total_outstanding: 1680000000, total_paid: 770000000, collectibility_ratio: 92 },
-    { product_code: "PU", product_name: "Pinjaman Usaha", interest_rate: 1.2, total_loans: 89, total_disbursed: 4500000000, total_outstanding: 3200000000, total_paid: 1300000000, collectibility_ratio: 88 },
-    { product_code: "PD", product_name: "Pinjaman Darurat", interest_rate: 2.0, total_loans: 156, total_disbursed: 780000000, total_outstanding: 420000000, total_paid: 360000000, collectibility_ratio: 95 },
-    { product_code: "PM", product_name: "Pinjaman Multiguna", interest_rate: 1.8, total_loans: 67, total_disbursed: 1850000000, total_outstanding: 1320000000, total_paid: 530000000, collectibility_ratio: 85 },
-];
 
 // Table columns
 const columns: ColumnDef<LoanRecap>[] = [
     {
-        accessorKey: "product_code",
+        accessorKey: "productCode",
         header: "Kode",
         cell: ({ row }) => (
             <Badge variant="outline" className="font-mono">
-                {row.getValue("product_code")}
+                {row.getValue("productCode")}
             </Badge>
         ),
     },
     {
-        accessorKey: "product_name",
+        accessorKey: "productName",
         header: "Produk Pinjaman",
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{row.getValue("product_name")}</span>
+                <span className="font-medium">{row.getValue("productName")}</span>
             </div>
         ),
     },
     {
-        accessorKey: "interest_rate",
+        accessorKey: "interestRate",
         header: "Bunga",
-        cell: ({ row }) => <span className="tabular-nums">{row.getValue("interest_rate")}%/bln</span>,
+        cell: ({ row }) => <span className="tabular-nums">{row.getValue("interestRate")}%/bln</span>,
     },
     {
-        accessorKey: "total_loans",
+        accessorKey: "totalLoans",
         header: "Jml Pinjaman",
-        cell: ({ row }) => <span className="tabular-nums">{formatNumber(row.getValue("total_loans"))}</span>,
+        cell: ({ row }) => <span className="tabular-nums">{formatNumber(row.getValue("totalLoans"))}</span>,
     },
     {
-        accessorKey: "total_disbursed",
+        accessorKey: "totalDisbursed",
         header: "Total Dicairkan",
         cell: ({ row }) => (
-            <span className="tabular-nums">{formatCurrency(row.getValue("total_disbursed"))}</span>
+            <span className="tabular-nums">{formatCurrency(row.getValue("totalDisbursed"))}</span>
         ),
     },
     {
-        accessorKey: "total_outstanding",
+        accessorKey: "totalOutstanding",
         header: "Outstanding",
         cell: ({ row }) => (
-            <span className="tabular-nums text-amber-600 font-medium">{formatCurrency(row.getValue("total_outstanding"))}</span>
+            <span className="tabular-nums text-amber-600 font-medium">{formatCurrency(row.getValue("totalOutstanding"))}</span>
         ),
     },
     {
-        accessorKey: "total_paid",
+        accessorKey: "totalPaid",
         header: "Sudah Dibayar",
         cell: ({ row }) => (
-            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("total_paid"))}</span>
+            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("totalPaid"))}</span>
         ),
     },
     {
-        accessorKey: "collectibility_ratio",
+        accessorKey: "collectibilityRatio",
         header: "Kolektibilitas",
         cell: ({ row }) => {
-            const ratio = row.getValue("collectibility_ratio") as number;
+            const ratio = row.getValue("collectibilityRatio") as number;
             return (
                 <div className="flex items-center gap-2 min-w-[100px]">
                     <Progress value={ratio} className="h-2 flex-1" />
@@ -110,18 +102,32 @@ const columns: ColumnDef<LoanRecap>[] = [
 export default function RekapPinjamanPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [period, setPeriod] = React.useState("2025-01");
+    const [data, setData] = React.useState<LoanRecap[]>([]);
 
+    // Fetch data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const response = await reportsApi.loansRecap();
+                const reportData = response.data as unknown as { products: LoanRecap[] };
+                setData(reportData.products || []);
+            } catch (error) {
+                console.error("Failed to fetch loans recap:", error);
+                setData([]);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [period]);
 
-    const totalDisbursed = MOCK_LOANS.reduce((sum, l) => sum + l.total_disbursed, 0);
-    const totalOutstanding = MOCK_LOANS.reduce((sum, l) => sum + l.total_outstanding, 0);
-    const totalPaid = MOCK_LOANS.reduce((sum, l) => sum + l.total_paid, 0);
-    const totalLoans = MOCK_LOANS.reduce((sum, l) => sum + l.total_loans, 0);
-    const avgCollectibility = Math.round(MOCK_LOANS.reduce((sum, l) => sum + l.collectibility_ratio, 0) / MOCK_LOANS.length);
+    const totalDisbursed = data.reduce((sum, l) => sum + l.totalDisbursed, 0);
+    const totalOutstanding = data.reduce((sum, l) => sum + l.totalOutstanding, 0);
+    const totalPaid = data.reduce((sum, l) => sum + l.totalPaid, 0);
+    const totalLoans = data.reduce((sum, l) => sum + l.totalLoans, 0);
+    const avgCollectibility = data.length > 0 ? Math.round(data.reduce((sum, l) => sum + l.collectibilityRatio, 0) / data.length) : 0;
 
     return (
         <div className="space-y-6">
@@ -202,16 +208,13 @@ export default function RekapPinjamanPage() {
                 </Select>
             </div>
 
-            {isLoading ? (
-                <Skeleton className="h-64" />
-            ) : (
-                <DataTable
-                    columns={columns}
-                    data={MOCK_LOANS}
-                    searchPlaceholder="Cari produk..."
-                    searchColumn="product_name"
-                />
-            )}
+            <DataTable
+                columns={columns}
+                data={data}
+                isLoading={isLoading}
+                searchPlaceholder="Cari produk..."
+                searchColumn="productName"
+            />
         </div>
     );
 }

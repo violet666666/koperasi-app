@@ -14,81 +14,73 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Wallet, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 import { formatCurrency, formatNumber, SAVINGS_PRODUCT_TYPES } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface SavingsRecap {
-    product_code: string;
-    product_name: string;
-    product_type: string;
-    total_members: number;
-    total_deposit: number;
-    total_withdrawal: number;
-    current_balance: number;
+    productCode: string;
+    productName: string;
+    productType: string;
+    totalMembers: number;
+    totalDeposit: number;
+    totalWithdrawal: number;
+    currentBalance: number;
 }
-
-// Mock data
-const MOCK_SAVINGS: SavingsRecap[] = [
-    { product_code: "SP", product_name: "Simpanan Pokok", product_type: "pokok", total_members: 856, total_deposit: 85600000, total_withdrawal: 0, current_balance: 85600000 },
-    { product_code: "SW", product_name: "Simpanan Wajib", product_type: "wajib", total_members: 856, total_deposit: 428000000, total_withdrawal: 0, current_balance: 428000000 },
-    { product_code: "SS", product_name: "Simpanan Sukarela", product_type: "sukarela", total_members: 654, total_deposit: 850000000, total_withdrawal: 320000000, current_balance: 530000000 },
-    { product_code: "SB", product_name: "Simpanan Berjangka", product_type: "lainnya", total_members: 124, total_deposit: 2500000000, total_withdrawal: 800000000, current_balance: 1700000000 },
-];
 
 // Table columns
 const columns: ColumnDef<SavingsRecap>[] = [
     {
-        accessorKey: "product_code",
+        accessorKey: "productCode",
         header: "Kode",
         cell: ({ row }) => (
             <Badge variant="outline" className="font-mono">
-                {row.getValue("product_code")}
+                {row.getValue("productCode")}
             </Badge>
         ),
     },
     {
-        accessorKey: "product_name",
+        accessorKey: "productName",
         header: "Produk Simpanan",
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{row.getValue("product_name")}</span>
+                <span className="font-medium">{row.getValue("productName")}</span>
             </div>
         ),
     },
     {
-        accessorKey: "product_type",
+        accessorKey: "productType",
         header: "Jenis",
         cell: ({ row }) => {
-            const type = row.getValue("product_type") as keyof typeof SAVINGS_PRODUCT_TYPES;
+            const type = row.getValue("productType") as keyof typeof SAVINGS_PRODUCT_TYPES;
             return <span>{SAVINGS_PRODUCT_TYPES[type]?.label || type}</span>;
         },
     },
     {
-        accessorKey: "total_members",
+        accessorKey: "totalMembers",
         header: "Jml Anggota",
-        cell: ({ row }) => <span className="tabular-nums">{formatNumber(row.getValue("total_members"))}</span>,
+        cell: ({ row }) => <span className="tabular-nums">{formatNumber(row.getValue("totalMembers"))}</span>,
     },
     {
-        accessorKey: "total_deposit",
+        accessorKey: "totalDeposit",
         header: "Total Setoran",
         cell: ({ row }) => (
-            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("total_deposit"))}</span>
+            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("totalDeposit"))}</span>
         ),
     },
     {
-        accessorKey: "total_withdrawal",
+        accessorKey: "totalWithdrawal",
         header: "Total Penarikan",
         cell: ({ row }) => (
-            <span className="tabular-nums text-amber-600">{formatCurrency(row.getValue("total_withdrawal"))}</span>
+            <span className="tabular-nums text-amber-600">{formatCurrency(row.getValue("totalWithdrawal"))}</span>
         ),
     },
     {
-        accessorKey: "current_balance",
+        accessorKey: "currentBalance",
         header: "Saldo Saat Ini",
         cell: ({ row }) => (
-            <span className="tabular-nums font-bold">{formatCurrency(row.getValue("current_balance"))}</span>
+            <span className="tabular-nums font-bold">{formatCurrency(row.getValue("currentBalance"))}</span>
         ),
     },
 ];
@@ -96,16 +88,30 @@ const columns: ColumnDef<SavingsRecap>[] = [
 export default function RekapSimpananPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [period, setPeriod] = React.useState("2025-01");
+    const [data, setData] = React.useState<SavingsRecap[]>([]);
 
+    // Fetch data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const response = await reportsApi.savingsRecap();
+                const reportData = response.data as unknown as { products: SavingsRecap[] };
+                setData(reportData.products || []);
+            } catch (error) {
+                console.error("Failed to fetch savings recap:", error);
+                setData([]);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [period]);
 
-    const totalDeposit = MOCK_SAVINGS.reduce((sum, s) => sum + s.total_deposit, 0);
-    const totalWithdrawal = MOCK_SAVINGS.reduce((sum, s) => sum + s.total_withdrawal, 0);
-    const totalBalance = MOCK_SAVINGS.reduce((sum, s) => sum + s.current_balance, 0);
+    const totalDeposit = data.reduce((sum, s) => sum + s.totalDeposit, 0);
+    const totalWithdrawal = data.reduce((sum, s) => sum + s.totalWithdrawal, 0);
+    const totalBalance = data.reduce((sum, s) => sum + s.currentBalance, 0);
 
     return (
         <div className="space-y-6">
@@ -156,7 +162,7 @@ export default function RekapSimpananPage() {
                         <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{MOCK_SAVINGS.length}</div>
+                        <div className="text-2xl font-bold">{data.length}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -175,16 +181,13 @@ export default function RekapSimpananPage() {
                 </Select>
             </div>
 
-            {isLoading ? (
-                <Skeleton className="h-64" />
-            ) : (
-                <DataTable
-                    columns={columns}
-                    data={MOCK_SAVINGS}
-                    searchPlaceholder="Cari produk..."
-                    searchColumn="product_name"
-                />
-            )}
+            <DataTable
+                columns={columns}
+                data={data}
+                isLoading={isLoading}
+                searchPlaceholder="Cari produk..."
+                searchColumn="productName"
+            />
         </div>
     );
 }

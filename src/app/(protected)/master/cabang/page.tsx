@@ -20,16 +20,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Building, Loader2, Save } from "lucide-react";
-import type { Branch } from "@/types";
+import { masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_BRANCHES: Branch[] = [
-    { id: 1, code: "PST", name: "Kantor Pusat", address: "Jl. Sudirman No. 1, Jakarta", phone: "021-1234567", is_head_office: true, is_active: true },
-    { id: 2, code: "JKT", name: "Cabang Jakarta Selatan", address: "Jl. Fatmawati No. 10, Jakarta Selatan", phone: "021-7654321", is_head_office: false, is_active: true },
-    { id: 3, code: "SBY", name: "Cabang Surabaya", address: "Jl. Basuki Rahmat No. 5, Surabaya", phone: "031-1234567", is_head_office: false, is_active: true },
-    { id: 4, code: "BDG", name: "Cabang Bandung", address: "Jl. Braga No. 20, Bandung", phone: "022-1234567", is_head_office: false, is_active: true },
-    { id: 5, code: "YGY", name: "Cabang Yogyakarta", address: "Jl. Malioboro No. 15, Yogyakarta", phone: "0274-123456", is_head_office: false, is_active: false },
-];
+// Branch type
+interface Branch {
+    id: number;
+    code: string;
+    name: string;
+    address?: string;
+    phone?: string;
+    isHeadOffice: boolean;
+    isActive: boolean;
+}
 
 // Table columns
 const columns: ColumnDef<Branch>[] = [
@@ -49,7 +51,7 @@ const columns: ColumnDef<Branch>[] = [
             <div className="flex items-center gap-2">
                 <Building className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">{row.getValue("name")}</span>
-                {row.original.is_head_office && (
+                {row.original.isHeadOffice && (
                     <Badge variant="default" className="text-xs">Pusat</Badge>
                 )}
             </div>
@@ -70,11 +72,11 @@ const columns: ColumnDef<Branch>[] = [
         cell: ({ row }) => row.getValue("phone") || "-",
     },
     {
-        accessorKey: "is_active",
+        accessorKey: "isActive",
         header: "Status",
         cell: ({ row }) => (
-            <Badge variant={row.getValue("is_active") ? "default" : "secondary"}>
-                {row.getValue("is_active") ? "Aktif" : "Tidak Aktif"}
+            <Badge variant={row.getValue("isActive") ? "default" : "secondary"}>
+                {row.getValue("isActive") ? "Aktif" : "Tidak Aktif"}
             </Badge>
         ),
     },
@@ -96,8 +98,8 @@ function BranchForm({
         name: branch?.name || "",
         address: branch?.address || "",
         phone: branch?.phone || "",
-        is_head_office: branch?.is_head_office || false,
-        is_active: branch?.is_active ?? true,
+        isHeadOffice: branch?.isHeadOffice || false,
+        isActive: branch?.isActive ?? true,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -156,19 +158,19 @@ function BranchForm({
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_head_office"
-                        checked={formData.is_head_office}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_head_office: !!checked }))}
+                        id="isHeadOffice"
+                        checked={formData.isHeadOffice}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isHeadOffice: !!checked }))}
                     />
-                    <Label htmlFor="is_head_office" className="font-normal">Kantor Pusat</Label>
+                    <Label htmlFor="isHeadOffice" className="font-normal">Kantor Pusat</Label>
                 </div>
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="is_active"
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_active: !!checked }))}
+                        id="isActive"
+                        checked={formData.isActive}
+                        onCheckedChange={(checked) => setFormData((p) => ({ ...p, isActive: !!checked }))}
                     />
-                    <Label htmlFor="is_active" className="font-normal">Aktif</Label>
+                    <Label htmlFor="isActive" className="font-normal">Aktif</Label>
                 </div>
             </div>
             <DialogFooter>
@@ -190,28 +192,39 @@ export default function MasterCabangPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingBranch, setEditingBranch] = React.useState<Branch | undefined>();
 
-    // Simulate loading
+    // Fetch branches from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setBranches(MOCK_BRANCHES);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await masterApi.branches.list();
+                setBranches(response.data as unknown as Branch[]);
+            } catch (error) {
+                console.error("Failed to fetch branches:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     const handleSave = async (data: Partial<Branch>) => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (editingBranch) {
-            setBranches((prev) => prev.map((b) => b.id === editingBranch.id ? { ...b, ...data } : b));
-            toast.success("Cabang berhasil diperbarui");
-        } else {
-            const newBranch = { ...data, id: Date.now() } as Branch;
-            setBranches((prev) => [...prev, newBranch]);
-            toast.success("Cabang berhasil ditambahkan");
+        try {
+            if (editingBranch) {
+                await masterApi.branches.update(editingBranch.id, data);
+                setBranches((prev) => prev.map((b) => b.id === editingBranch.id ? { ...b, ...data } as Branch : b));
+                toast.success("Cabang berhasil diperbarui");
+            } else {
+                const response = await masterApi.branches.create(data);
+                setBranches((prev) => [...prev, response.data as unknown as Branch]);
+                toast.success("Cabang berhasil ditambahkan");
+            }
+            setDialogOpen(false);
+            setEditingBranch(undefined);
+        } catch (error) {
+            toast.error("Gagal menyimpan cabang");
         }
-        setDialogOpen(false);
-        setEditingBranch(undefined);
     };
 
     const handleEdit = (branch: Branch) => {

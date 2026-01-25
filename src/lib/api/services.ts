@@ -172,10 +172,16 @@ export const masterApi = {
 
     loanProducts: {
         list: () => api.get<PaginatedResponse<LoanProduct>>("/master/loan-products"),
+        get: (id: number) => api.get<{ data: LoanProduct }>(`/master/loan-products/${id}`),
+        create: (data: Partial<LoanProduct>) => api.post<{ data: LoanProduct }>("/master/loan-products", data),
+        update: (id: number, data: Partial<LoanProduct>) => api.put<{ data: LoanProduct }>(`/master/loan-products/${id}`, data),
     },
 
     accounts: {
         list: (format?: "flat" | "tree") => api.get<{ data: unknown[] }>("/master/accounts", { params: { format } }),
+        get: (id: number) => api.get<{ data: unknown }>(`/master/accounts/${id}`),
+        create: (data: Record<string, unknown>) => api.post<{ data: unknown }>("/master/accounts", data),
+        update: (id: number, data: Record<string, unknown>) => api.put<{ data: unknown }>(`/master/accounts/${id}`, data),
     },
 };
 
@@ -236,4 +242,37 @@ export const reportsApi = {
 export const approvalsApi = {
     list: (status?: "pending" | "history") =>
         api.get<{ data: unknown[] }>("/approvals", { params: { status } }),
+};
+
+// ============================================================
+// Users API
+// ============================================================
+
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    roleId: number;
+    role?: { id: number; name: string; displayName: string };
+    branchId?: number;
+    branch?: { id: number; name: string };
+    isActive: boolean;
+    createdAt: string;
+}
+
+export const usersApi = {
+    list: (params?: { page?: number; branchId?: number }) =>
+        api.get<PaginatedResponse<User>>("/users", { params }),
+
+    get: (id: number) => api.get<{ data: User }>(`/users/${id}`),
+
+    create: (data: Partial<User> & { password?: string }) =>
+        api.post<{ data: User }>("/users", data),
+
+    update: (id: number, data: Partial<User>) =>
+        api.put<{ data: User }>(`/users/${id}`, data),
+
+    delete: (id: number) => api.delete(`/users/${id}`),
+
+    roles: () => api.get<{ data: unknown[] }>("/users/roles"),
 };

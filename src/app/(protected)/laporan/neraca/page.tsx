@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Download, Printer, FileSpreadsheet } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface BalanceSheetItem {
     code: string;
@@ -29,83 +30,6 @@ interface BalanceSheetItem {
     balance: number;
     children?: BalanceSheetItem[];
 }
-
-// Mock data
-const MOCK_ASSETS: BalanceSheetItem[] = [
-    {
-        code: "1",
-        name: "ASET",
-        balance: 850000000,
-        children: [
-            {
-                code: "1.1",
-                name: "Aset Lancar",
-                balance: 650000000,
-                children: [
-                    { code: "1.1.01", name: "Kas", balance: 30000000 },
-                    { code: "1.1.02", name: "Bank", balance: 235000000 },
-                    { code: "1.1.03", name: "Piutang Anggota - Simpanan", balance: 5000000 },
-                    { code: "1.1.04", name: "Piutang Anggota - Pinjaman", balance: 380000000 },
-                ],
-            },
-            {
-                code: "1.2",
-                name: "Aset Tetap",
-                balance: 200000000,
-                children: [
-                    { code: "1.2.01", name: "Tanah & Bangunan", balance: 150000000 },
-                    { code: "1.2.02", name: "Kendaraan", balance: 80000000 },
-                    { code: "1.2.03", name: "Inventaris Kantor", balance: 30000000 },
-                    { code: "1.2.04", name: "Akumulasi Penyusutan", balance: -60000000 },
-                ],
-            },
-        ],
-    },
-];
-
-const MOCK_LIABILITIES: BalanceSheetItem[] = [
-    {
-        code: "2",
-        name: "KEWAJIBAN",
-        balance: 450000000,
-        children: [
-            {
-                code: "2.1",
-                name: "Kewajiban Lancar",
-                balance: 50000000,
-                children: [
-                    { code: "2.1.01", name: "Hutang Usaha", balance: 20000000 },
-                    { code: "2.1.02", name: "Hutang Pajak", balance: 15000000 },
-                    { code: "2.1.03", name: "Beban yang Masih Harus Dibayar", balance: 15000000 },
-                ],
-            },
-            {
-                code: "2.2",
-                name: "Simpanan Anggota",
-                balance: 400000000,
-                children: [
-                    { code: "2.2.01", name: "Simpanan Pokok", balance: 50000000 },
-                    { code: "2.2.02", name: "Simpanan Wajib", balance: 150000000 },
-                    { code: "2.2.03", name: "Simpanan Sukarela", balance: 200000000 },
-                ],
-            },
-        ],
-    },
-];
-
-const MOCK_EQUITY: BalanceSheetItem[] = [
-    {
-        code: "3",
-        name: "MODAL",
-        balance: 400000000,
-        children: [
-            { code: "3.1.01", name: "Modal Penyertaan", balance: 100000000 },
-            { code: "3.1.02", name: "Cadangan Umum", balance: 200000000 },
-            { code: "3.1.03", name: "Cadangan Risiko", balance: 50000000 },
-            { code: "3.1.04", name: "SHU Tahun Berjalan", balance: 50000000 },
-        ],
-    },
-];
 
 // Recursive row component
 function BalanceSheetRow({ item, level = 0 }: { item: BalanceSheetItem; level?: number }) {
@@ -142,17 +66,49 @@ function BalanceSheetRow({ item, level = 0 }: { item: BalanceSheetItem; level?: 
 export default function NeracaPage() {
     const [period, setPeriod] = React.useState("2025-01");
     const [isLoading, setIsLoading] = React.useState(true);
+    const [data, setData] = React.useState<{
+        assets: BalanceSheetItem[];
+        liabilities: BalanceSheetItem[];
+        equity: BalanceSheetItem[];
+    }>({ assets: [], liabilities: [], equity: [] });
 
-    // Simulate loading
+    // Fetch report data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const [year, month] = period.split("-");
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                const asOfDate = `${period}-${lastDay.toString().padStart(2, "0")}`;
+
+                const response = await reportsApi.neraca({ asOfDate });
+                const reportData = response.data as unknown as {
+                    assets?: BalanceSheetItem[];
+                    liabilities?: BalanceSheetItem[];
+                    equity?: BalanceSheetItem[];
+                };
+
+                setData({
+                    assets: reportData.assets || [],
+                    liabilities: reportData.liabilities || [],
+                    equity: reportData.equity || [],
+                });
+            } catch (error) {
+                console.error("Failed to fetch neraca:", error);
+                // Set empty data on error
+                setData({ assets: [], liabilities: [], equity: [] });
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [period]);
 
-    const totalAssets = MOCK_ASSETS[0].balance;
-    const totalLiabilities = MOCK_LIABILITIES[0].balance;
-    const totalEquity = MOCK_EQUITY[0].balance;
+    // Calculate totals
+    const totalAssets = data.assets.reduce((sum, item) => sum + item.balance, 0);
+    const totalLiabilities = data.liabilities.reduce((sum, item) => sum + item.balance, 0);
+    const totalEquity = data.equity.reduce((sum, item) => sum + item.balance, 0);
     const isBalanced = totalAssets === totalLiabilities + totalEquity;
 
     return (
@@ -189,7 +145,7 @@ export default function NeracaPage() {
                     </SelectContent>
                 </Select>
                 <span className="text-sm text-muted-foreground">
-                    Per tanggal: {new Date(period + "-31").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                    Per tanggal: {new Date(period + "-28").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
                 </span>
             </div>
 
@@ -218,9 +174,17 @@ export default function NeracaPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {MOCK_ASSETS.map((item) => (
-                                            <BalanceSheetRow key={item.code} item={item} />
-                                        ))}
+                                        {data.assets.length > 0 ? (
+                                            data.assets.map((item) => (
+                                                <BalanceSheetRow key={item.code} item={item} />
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                    Tidak ada data
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -252,9 +216,17 @@ export default function NeracaPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {MOCK_LIABILITIES.map((item) => (
-                                                <BalanceSheetRow key={item.code} item={item} />
-                                            ))}
+                                            {data.liabilities.length > 0 ? (
+                                                data.liabilities.map((item) => (
+                                                    <BalanceSheetRow key={item.code} item={item} />
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                        Tidak ada data
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -284,9 +256,17 @@ export default function NeracaPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {MOCK_EQUITY.map((item) => (
-                                                <BalanceSheetRow key={item.code} item={item} />
-                                            ))}
+                                            {data.equity.length > 0 ? (
+                                                data.equity.map((item) => (
+                                                    <BalanceSheetRow key={item.code} item={item} />
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                        Tidak ada data
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -298,7 +278,7 @@ export default function NeracaPage() {
                         </Card>
 
                         {/* Total Liabilities + Equity */}
-                        <div className={`flex justify-between items-center p-4 rounded-lg ${isBalanced ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
+                        <div className={`flex justify-between items-center p-4 rounded-lg ${isBalanced || (totalAssets === 0 && totalLiabilities === 0) ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
                             <span className="font-bold">TOTAL KEWAJIBAN + MODAL</span>
                             <span className="text-xl font-bold tabular-nums">{formatCurrency(totalLiabilities + totalEquity)}</span>
                         </div>
@@ -307,7 +287,7 @@ export default function NeracaPage() {
             )}
 
             {/* Balance Check */}
-            {!isLoading && (
+            {!isLoading && totalAssets > 0 && (
                 <Card className={isBalanced ? "border-emerald-500" : "border-red-500"}>
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between">

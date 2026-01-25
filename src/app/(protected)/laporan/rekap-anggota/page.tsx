@@ -5,7 +5,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Select,
@@ -15,40 +15,37 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Users, UserCheck, UserX, UserPlus } from "lucide-react";
-import { formatCurrency, formatNumber, MEMBER_STATUS } from "@/lib/constants";
+import { formatCurrency } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface MemberSummary {
     id: number;
-    member_no: string;
+    memberNo: string;
     name: string;
     phone: string;
     branch: string;
-    status: "active" | "inactive" | "pending";
-    join_date: string;
-    total_savings: number;
-    total_loans: number;
+    status: string;
+    joinDate: string;
+    totalSavings: number;
+    totalLoans: number;
 }
 
-// Mock data
-const MOCK_MEMBERS: MemberSummary[] = [
-    { id: 1, member_no: "A-001", name: "Budi Santoso", phone: "081234567890", branch: "Pusat", status: "active", join_date: "2020-01-15", total_savings: 15000000, total_loans: 0 },
-    { id: 2, member_no: "A-002", name: "Siti Aminah", phone: "081234567891", branch: "Jakarta", status: "active", join_date: "2020-03-20", total_savings: 25000000, total_loans: 10000000 },
-    { id: 3, member_no: "A-003", name: "Joko Widodo", phone: "081234567892", branch: "Surabaya", status: "active", join_date: "2021-06-10", total_savings: 8000000, total_loans: 5000000 },
-    { id: 4, member_no: "A-004", name: "Dewi Lestari", phone: "081234567893", branch: "Pusat", status: "inactive", join_date: "2019-08-05", total_savings: 5000000, total_loans: 0 },
-    { id: 5, member_no: "A-005", name: "Ahmad Ridwan", phone: "081234567894", branch: "Jakarta", status: "active", join_date: "2022-01-01", total_savings: 30000000, total_loans: 20000000 },
-    { id: 6, member_no: "A-006", name: "Rina Wati", phone: "081234567895", branch: "Surabaya", status: "pending", join_date: "2024-11-15", total_savings: 150000, total_loans: 0 },
-];
+interface RecapStats {
+    total: number;
+    active: number;
+    inactive: number;
+    pending: number;
+}
 
 // Table columns
 const columns: ColumnDef<MemberSummary>[] = [
     {
-        accessorKey: "member_no",
+        accessorKey: "memberNo",
         header: "No. Anggota",
         cell: ({ row }) => (
             <Link href={`/anggota/${row.original.id}`} className="font-mono text-primary hover:underline">
-                {row.getValue("member_no")}
+                {row.getValue("memberNo")}
             </Link>
         ),
     },
@@ -79,22 +76,25 @@ const columns: ColumnDef<MemberSummary>[] = [
         },
     },
     {
-        accessorKey: "join_date",
+        accessorKey: "joinDate",
         header: "Tgl Bergabung",
-        cell: ({ row }) => new Date(row.getValue("join_date")).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
+        cell: ({ row }) => {
+            const date = row.getValue("joinDate") as string;
+            return date ? new Date(date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-";
+        },
     },
     {
-        accessorKey: "total_savings",
+        accessorKey: "totalSavings",
         header: "Total Simpanan",
         cell: ({ row }) => (
-            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("total_savings"))}</span>
+            <span className="tabular-nums text-emerald-600">{formatCurrency(row.getValue("totalSavings"))}</span>
         ),
     },
     {
-        accessorKey: "total_loans",
+        accessorKey: "totalLoans",
         header: "Sisa Pinjaman",
         cell: ({ row }) => {
-            const loans = row.getValue("total_loans") as number;
+            const loans = row.getValue("totalLoans") as number;
             return loans > 0 ? (
                 <span className="tabular-nums text-amber-600">{formatCurrency(loans)}</span>
             ) : (
@@ -104,32 +104,70 @@ const columns: ColumnDef<MemberSummary>[] = [
     },
 ];
 
+function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
+    const colorClasses: Record<string, string> = {
+        primary: "bg-primary/10 text-primary",
+        emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+        amber: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+        blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+    };
+
+    return (
+        <Card>
+            <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                    <div className={`rounded-lg p-3 ${colorClasses[color]}`}>
+                        <Icon className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">{label}</p>
+                        <p className="text-2xl font-bold tabular-nums">{value}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function RekapAnggotaPage() {
+    const [branchFilter, setBranchFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
-    const [branch, setBranch] = React.useState("all");
-    const [status, setStatus] = React.useState("all");
+    const [members, setMembers] = React.useState<MemberSummary[]>([]);
+    const [stats, setStats] = React.useState<RecapStats>({ total: 0, active: 0, inactive: 0, pending: 0 });
 
+    // Fetch data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
-    }, [branch, status]);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const params = branchFilter !== "all" ? { branchId: parseInt(branchFilter) } : {};
+                const response = await reportsApi.membersRecap(params);
+                const data = response.data as unknown as { members: MemberSummary[]; stats: RecapStats };
 
-    const filteredMembers = MOCK_MEMBERS.filter((m) => {
-        if (branch !== "all" && m.branch !== branch) return false;
-        if (status !== "all" && m.status !== status) return false;
-        return true;
-    });
+                if (data.members) {
+                    setMembers(data.members);
+                    setStats(data.stats || { total: data.members.length, active: 0, inactive: 0, pending: 0 });
+                } else {
+                    setMembers([]);
+                    setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
+                }
+            } catch (error) {
+                console.error("Failed to fetch members recap:", error);
+                setMembers([]);
+                setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
+            } finally {
+                setIsLoading(false);
+            }
+        }
 
-    const activeCount = MOCK_MEMBERS.filter((m) => m.status === "active").length;
-    const inactiveCount = MOCK_MEMBERS.filter((m) => m.status === "inactive").length;
-    const pendingCount = MOCK_MEMBERS.filter((m) => m.status === "pending").length;
+        fetchData();
+    }, [branchFilter]);
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Rekap Anggota"
-                description="Rekapitulasi data anggota koperasi"
+                description="Rangkuman data seluruh anggota koperasi"
                 backHref="/laporan"
                 actions={
                     <Button variant="outline" size="sm">
@@ -139,82 +177,37 @@ export default function RekapAnggotaPage() {
                 }
             />
 
-            {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Anggota</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatNumber(MOCK_MEMBERS.length)}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Anggota Aktif</CardTitle>
-                        <UserCheck className="h-4 w-4 text-emerald-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600">{formatNumber(activeCount)}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Anggota Keluar</CardTitle>
-                        <UserX className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatNumber(inactiveCount)}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Calon Anggota</CardTitle>
-                        <UserPlus className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">{formatNumber(pendingCount)}</div>
-                    </CardContent>
-                </Card>
-            </div>
-
             {/* Filters */}
-            <div className="flex flex-wrap gap-4">
-                <Select value={branch} onValueChange={setBranch}>
+            <div className="flex items-center gap-4">
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Semua Cabang" />
+                        <SelectValue placeholder="Semua cabang" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Semua Cabang</SelectItem>
-                        <SelectItem value="Pusat">Kantor Pusat</SelectItem>
-                        <SelectItem value="Jakarta">Cabang Jakarta</SelectItem>
-                        <SelectItem value="Surabaya">Cabang Surabaya</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={status} onValueChange={setStatus}>
-                    <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Semua Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Status</SelectItem>
-                        <SelectItem value="active">Aktif</SelectItem>
-                        <SelectItem value="inactive">Tidak Aktif</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="1">Kantor Pusat</SelectItem>
+                        <SelectItem value="2">Cabang Jakarta</SelectItem>
+                        <SelectItem value="3">Cabang Surabaya</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
-            {isLoading ? (
-                <Skeleton className="h-64" />
-            ) : (
-                <DataTable
-                    columns={columns}
-                    data={filteredMembers}
-                    searchPlaceholder="Cari anggota..."
-                    searchColumn="name"
-                />
-            )}
+            {/* Stats */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard icon={Users} label="Total Anggota" value={stats.total} color="primary" />
+                <StatCard icon={UserCheck} label="Aktif" value={stats.active} color="emerald" />
+                <StatCard icon={UserX} label="Non-Aktif" value={stats.inactive} color="amber" />
+                <StatCard icon={UserPlus} label="Pending" value={stats.pending} color="blue" />
+            </div>
+
+            {/* Data Table */}
+            <DataTable
+                columns={columns}
+                data={members}
+                isLoading={isLoading}
+                searchPlaceholder="Cari anggota..."
+                searchColumn="name"
+            />
         </div>
     );
 }

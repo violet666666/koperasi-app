@@ -22,7 +22,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Download, Printer, PieChart, Users, Percent } from "lucide-react";
-import { formatCurrency, formatNumber } from "@/lib/constants";
+import { formatCurrency } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface SHUAllocation {
     category: string;
@@ -32,47 +33,48 @@ interface SHUAllocation {
 }
 
 interface MemberSHU {
-    member_no: string;
+    memberNo: string;
     name: string;
-    savings_contribution: number;
-    loan_contribution: number;
-    total_contribution: number;
-    shu_share: number;
+    savingsContribution: number;
+    loanContribution: number;
+    totalContribution: number;
+    shuShare: number;
 }
 
-// Mock data
-const MOCK_SHU_DATA = {
-    total_shu: 50000000,
-    period: "2024",
-    allocations: [
-        { category: "Cadangan Umum", percentage: 40, amount: 20000000, description: "Untuk penguatan modal koperasi" },
-        { category: "Jasa Anggota", percentage: 30, amount: 15000000, description: "Dibagikan ke anggota berdasarkan kontribusi" },
-        { category: "Dana Pengurus", percentage: 10, amount: 5000000, description: "Untuk pengurus koperasi" },
-        { category: "Dana Pengawas", percentage: 5, amount: 2500000, description: "Untuk pengawas koperasi" },
-        { category: "Dana Pendidikan", percentage: 5, amount: 2500000, description: "Untuk pelatihan anggota" },
-        { category: "Dana Sosial", percentage: 5, amount: 2500000, description: "Untuk kegiatan sosial" },
-        { category: "Dana Pembangunan", percentage: 5, amount: 2500000, description: "Untuk pengembangan koperasi" },
-    ] as SHUAllocation[],
-    member_shu: [
-        { member_no: "A-001", name: "Budi Santoso", savings_contribution: 5000000, loan_contribution: 2000000, total_contribution: 7000000, shu_share: 1050000 },
-        { member_no: "A-002", name: "Siti Aminah", savings_contribution: 8000000, loan_contribution: 5000000, total_contribution: 13000000, shu_share: 1950000 },
-        { member_no: "A-003", name: "Joko Widodo", savings_contribution: 3000000, loan_contribution: 1000000, total_contribution: 4000000, shu_share: 600000 },
-        { member_no: "A-004", name: "Dewi Lestari", savings_contribution: 6000000, loan_contribution: 3000000, total_contribution: 9000000, shu_share: 1350000 },
-        { member_no: "A-005", name: "Ahmad Ridwan", savings_contribution: 10000000, loan_contribution: 8000000, total_contribution: 18000000, shu_share: 2700000 },
-    ] as MemberSHU[],
-};
+interface SHUData {
+    totalShu: number;
+    period: string;
+    allocations: SHUAllocation[];
+    memberShu: MemberSHU[];
+    memberSharePercent: number;
+}
 
 export default function LaporanSHUPage() {
     const [period, setPeriod] = React.useState("2024");
     const [isLoading, setIsLoading] = React.useState(true);
+    const [data, setData] = React.useState<SHUData | null>(null);
 
+    // Fetch SHU data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const response = await reportsApi.shu({ year: parseInt(period) });
+                const reportData = response.data as unknown as SHUData;
+                setData(reportData);
+            } catch (error) {
+                console.error("Failed to fetch SHU data:", error);
+                setData(null);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [period]);
 
-    const totalMemberContribution = MOCK_SHU_DATA.member_shu.reduce((sum, m) => sum + m.total_contribution, 0);
+    const totalMemberContribution = data?.memberShu?.reduce((sum, m) => sum + m.totalContribution, 0) || 0;
+    const totalMemberShuShare = data?.memberShu?.reduce((sum, m) => sum + m.shuShare, 0) || 0;
 
     return (
         <div className="space-y-6">
@@ -113,7 +115,7 @@ export default function LaporanSHUPage() {
                     <Skeleton className="h-32" />
                     <Skeleton className="h-64" />
                 </div>
-            ) : (
+            ) : data ? (
                 <div className="space-y-6">
                     {/* SHU Summary */}
                     <Card>
@@ -125,16 +127,16 @@ export default function LaporanSHUPage() {
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Total SHU Tahun {period}</p>
-                                        <p className="text-3xl font-bold tabular-nums">{formatCurrency(MOCK_SHU_DATA.total_shu)}</p>
+                                        <p className="text-3xl font-bold tabular-nums">{formatCurrency(data.totalShu)}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-6">
                                     <div className="text-center">
-                                        <p className="text-2xl font-bold text-primary">{MOCK_SHU_DATA.member_shu.length}</p>
+                                        <p className="text-2xl font-bold text-primary">{data.memberShu?.length || 0}</p>
                                         <p className="text-sm text-muted-foreground">Anggota</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-2xl font-bold text-emerald-600">30%</p>
+                                        <p className="text-2xl font-bold text-emerald-600">{data.memberSharePercent || 30}%</p>
                                         <p className="text-sm text-muted-foreground">Untuk Anggota</p>
                                     </div>
                                 </div>
@@ -162,23 +164,31 @@ export default function LaporanSHUPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {MOCK_SHU_DATA.allocations.map((alloc) => (
-                                            <TableRow key={alloc.category}>
-                                                <TableCell className="font-medium">{alloc.category}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Progress value={alloc.percentage} className="h-2 w-16" />
-                                                        <span className="text-sm tabular-nums">{alloc.percentage}%</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums font-medium">
-                                                    {formatCurrency(alloc.amount)}
-                                                </TableCell>
-                                                <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                                                    {alloc.description}
+                                        {data.allocations?.length > 0 ? (
+                                            data.allocations.map((alloc) => (
+                                                <TableRow key={alloc.category}>
+                                                    <TableCell className="font-medium">{alloc.category}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Progress value={alloc.percentage} className="h-2 w-16" />
+                                                            <span className="text-sm tabular-nums">{alloc.percentage}%</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums font-medium">
+                                                        {formatCurrency(alloc.amount)}
+                                                    </TableCell>
+                                                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                                                        {alloc.description}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                                    Tidak ada data alokasi
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -195,7 +205,7 @@ export default function LaporanSHUPage() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground mb-4">
-                                Jasa anggota sebesar {formatCurrency(15000000)} dibagikan berdasarkan kontribusi simpanan dan pinjaman.
+                                Jasa anggota sebesar {formatCurrency(totalMemberShuShare)} dibagikan berdasarkan kontribusi simpanan dan pinjaman.
                             </p>
                             <div className="rounded-md border">
                                 <Table>
@@ -210,30 +220,44 @@ export default function LaporanSHUPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {MOCK_SHU_DATA.member_shu.map((member) => (
-                                            <TableRow key={member.member_no}>
-                                                <TableCell className="font-mono">{member.member_no}</TableCell>
-                                                <TableCell className="font-medium">{member.name}</TableCell>
-                                                <TableCell className="text-right tabular-nums">{formatCurrency(member.savings_contribution)}</TableCell>
-                                                <TableCell className="text-right tabular-nums">{formatCurrency(member.loan_contribution)}</TableCell>
-                                                <TableCell className="text-right tabular-nums">{formatCurrency(member.total_contribution)}</TableCell>
-                                                <TableCell className="text-right tabular-nums font-bold text-emerald-600">
-                                                    {formatCurrency(member.shu_share)}
+                                        {data.memberShu?.length > 0 ? (
+                                            <>
+                                                {data.memberShu.map((member) => (
+                                                    <TableRow key={member.memberNo}>
+                                                        <TableCell className="font-mono">{member.memberNo}</TableCell>
+                                                        <TableCell className="font-medium">{member.name}</TableCell>
+                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.savingsContribution)}</TableCell>
+                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.loanContribution)}</TableCell>
+                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.totalContribution)}</TableCell>
+                                                        <TableCell className="text-right tabular-nums font-bold text-emerald-600">
+                                                            {formatCurrency(member.shuShare)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="bg-muted/50">
+                                                    <TableCell colSpan={4} className="font-bold">TOTAL</TableCell>
+                                                    <TableCell className="text-right tabular-nums font-bold">{formatCurrency(totalMemberContribution)}</TableCell>
+                                                    <TableCell className="text-right tabular-nums font-bold text-emerald-600">
+                                                        {formatCurrency(totalMemberShuShare)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            </>
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                                    Tidak ada data SHU anggota
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
-                                        <TableRow className="bg-muted/50">
-                                            <TableCell colSpan={4} className="font-bold">TOTAL</TableCell>
-                                            <TableCell className="text-right tabular-nums font-bold">{formatCurrency(totalMemberContribution)}</TableCell>
-                                            <TableCell className="text-right tabular-nums font-bold text-emerald-600">
-                                                {formatCurrency(MOCK_SHU_DATA.member_shu.reduce((sum, m) => sum + m.shu_share, 0))}
-                                            </TableCell>
-                                        </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
                         </CardContent>
                     </Card>
+                </div>
+            ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                    Tidak ada data SHU untuk periode ini
                 </div>
             )}
         </div>

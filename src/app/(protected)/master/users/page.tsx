@@ -26,41 +26,33 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Pencil, Users, Loader2, Save, Shield, Mail } from "lucide-react";
-import type { User, Branch, Role } from "@/types";
+import { Plus, Pencil, Loader2, Save, Shield, Mail } from "lucide-react";
+import { usersApi, masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_ROLES: Role[] = [
-    { id: 1, name: "admin", display_name: "Administrator", permissions: ["*"] },
-    { id: 2, name: "manager", display_name: "Manajer Cabang", permissions: ["view_all", "approve"] },
-    { id: 3, name: "teller", display_name: "Teller", permissions: ["manage_transactions"] },
-    { id: 4, name: "accounting", display_name: "Akuntansi", permissions: ["view_journals", "manage_journals"] },
-];
-
-const MOCK_BRANCHES: Branch[] = [
-    { id: 1, code: "PST", name: "Kantor Pusat", is_head_office: true, is_active: true },
-    { id: 2, code: "JKT", name: "Cabang Jakarta", is_head_office: false, is_active: true },
-    { id: 3, code: "SBY", name: "Cabang Surabaya", is_head_office: false, is_active: true },
-];
-
+// User type
 interface UserData {
     id: number;
     name: string;
     email: string;
-    role: Role;
-    branch_id: number | null;
-    branch: Branch | null;
-    is_active: boolean;
-    created_at: string;
+    roleId: number;
+    role?: { id: number; name: string; displayName: string };
+    branchId?: number;
+    branch?: { id: number; name: string };
+    isActive: boolean;
+    createdAt: string;
 }
 
-const MOCK_USERS: UserData[] = [
-    { id: 1, name: "Admin Pusat", email: "admin@koperasi.id", role: MOCK_ROLES[0], branch_id: 1, branch: MOCK_BRANCHES[0], is_active: true, created_at: "2024-01-01" },
-    { id: 2, name: "Manajer Jakarta", email: "manager.jkt@koperasi.id", role: MOCK_ROLES[1], branch_id: 2, branch: MOCK_BRANCHES[1], is_active: true, created_at: "2024-02-15" },
-    { id: 3, name: "Teller 1", email: "teller1@koperasi.id", role: MOCK_ROLES[2], branch_id: 2, branch: MOCK_BRANCHES[1], is_active: true, created_at: "2024-03-01" },
-    { id: 4, name: "Akuntan", email: "accounting@koperasi.id", role: MOCK_ROLES[3], branch_id: 1, branch: MOCK_BRANCHES[0], is_active: true, created_at: "2024-03-15" },
-    { id: 5, name: "Teller Surabaya", email: "teller.sby@koperasi.id", role: MOCK_ROLES[2], branch_id: 3, branch: MOCK_BRANCHES[2], is_active: false, created_at: "2024-04-01" },
-];
+interface Role {
+    id: number;
+    name: string;
+    displayName: string;
+}
+
+interface Branch {
+    id: number;
+    code: string;
+    name: string;
+}
 
 // Table columns
 const columns: ColumnDef<UserData>[] = [
@@ -87,39 +79,46 @@ const columns: ColumnDef<UserData>[] = [
         cell: ({ row }) => (
             <Badge variant="outline" className="gap-1">
                 <Shield className="h-3 w-3" />
-                {row.original.role.display_name}
+                {row.original.role?.displayName || row.original.role?.name || "-"}
             </Badge>
         ),
     },
     {
         accessorKey: "branch",
         header: "Cabang",
-        cell: ({ row }) => row.original.branch?.name || "-",
+        cell: ({ row }) => row.original.branch?.name || "Semua Cabang",
     },
     {
-        accessorKey: "is_active",
+        accessorKey: "isActive",
         header: "Status",
         cell: ({ row }) => (
-            <Badge variant={row.getValue("is_active") ? "default" : "secondary"}>
-                {row.getValue("is_active") ? "Aktif" : "Tidak Aktif"}
+            <Badge variant={row.getValue("isActive") ? "default" : "secondary"}>
+                {row.getValue("isActive") ? "Aktif" : "Tidak Aktif"}
             </Badge>
         ),
     },
     {
-        accessorKey: "created_at",
+        accessorKey: "createdAt",
         header: "Bergabung",
-        cell: ({ row }) => new Date(row.getValue("created_at")).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
+        cell: ({ row }) => {
+            const date = row.getValue("createdAt") as string;
+            return date ? new Date(date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-";
+        },
     },
 ];
 
 // User form
 function UserForm({
     user,
+    roles,
+    branches,
     onSave,
     onCancel
 }: {
     user?: UserData;
-    onSave: (data: Partial<UserData>) => Promise<void>;
+    roles: Role[];
+    branches: Branch[];
+    onSave: (data: Partial<UserData> & { password?: string }) => Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = React.useState(false);
@@ -127,25 +126,23 @@ function UserForm({
         name: user?.name || "",
         email: user?.email || "",
         password: "",
-        role_id: user?.role.id.toString() || "",
-        branch_id: user?.branch_id?.toString() || "",
-        is_active: user?.is_active ?? true,
+        roleId: user?.roleId?.toString() || user?.role?.id?.toString() || "",
+        branchId: user?.branchId?.toString() || user?.branch?.id?.toString() || "",
+        isActive: user?.isActive ?? true,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const role = MOCK_ROLES.find((r) => r.id.toString() === formData.role_id);
-            const branch = MOCK_BRANCHES.find((b) => b.id.toString() === formData.branch_id);
             await onSave({
                 name: formData.name,
                 email: formData.email,
-                role: role,
-                branch_id: formData.branch_id ? parseInt(formData.branch_id) : null,
-                branch: branch || null,
-                is_active: formData.is_active,
-            } as Partial<UserData>);
+                password: formData.password || undefined,
+                roleId: parseInt(formData.roleId),
+                branchId: formData.branchId ? parseInt(formData.branchId) : undefined,
+                isActive: formData.isActive,
+            });
         } finally {
             setIsLoading(false);
         }
@@ -196,16 +193,16 @@ function UserForm({
                 <div>
                     <Label htmlFor="role">Role *</Label>
                     <Select
-                        value={formData.role_id}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, role_id: value }))}
+                        value={formData.roleId}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, roleId: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Pilih role" />
                         </SelectTrigger>
                         <SelectContent>
-                            {MOCK_ROLES.map((role) => (
+                            {roles.map((role) => (
                                 <SelectItem key={role.id} value={role.id.toString()}>
-                                    {role.display_name}
+                                    {role.displayName || role.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -214,15 +211,15 @@ function UserForm({
                 <div>
                     <Label htmlFor="branch">Cabang</Label>
                     <Select
-                        value={formData.branch_id}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, branch_id: value }))}
+                        value={formData.branchId}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, branchId: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Semua cabang" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="">Semua Cabang</SelectItem>
-                            {MOCK_BRANCHES.map((branch) => (
+                            {branches.map((branch) => (
                                 <SelectItem key={branch.id} value={branch.id.toString()}>
                                     {branch.name}
                                 </SelectItem>
@@ -233,11 +230,11 @@ function UserForm({
             </div>
             <div className="flex items-center gap-2">
                 <Checkbox
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_active: !!checked }))}
+                    id="isActive"
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => setFormData((p) => ({ ...p, isActive: !!checked }))}
                 />
-                <Label htmlFor="is_active" className="font-normal">Pengguna Aktif</Label>
+                <Label htmlFor="isActive" className="font-normal">Pengguna Aktif</Label>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
@@ -255,30 +252,50 @@ function UserForm({
 export default function MasterUsersPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [users, setUsers] = React.useState<UserData[]>([]);
+    const [roles, setRoles] = React.useState<Role[]>([]);
+    const [branches, setBranches] = React.useState<Branch[]>([]);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingUser, setEditingUser] = React.useState<UserData | undefined>();
 
+    // Fetch data from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setUsers(MOCK_USERS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const [usersRes, rolesRes, branchesRes] = await Promise.all([
+                    usersApi.list(),
+                    usersApi.roles(),
+                    masterApi.branches.list(),
+                ]);
+                setUsers(usersRes.data as unknown as UserData[]);
+                setRoles(rolesRes.data as unknown as Role[]);
+                setBranches(branchesRes.data as unknown as Branch[]);
+            } catch (error) {
+                console.error("Failed to fetch data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
-    const handleSave = async (data: Partial<UserData>) => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (editingUser) {
-            setUsers((prev) => prev.map((u) => u.id === editingUser.id ? { ...u, ...data } : u));
-            toast.success("Pengguna berhasil diperbarui");
-        } else {
-            const newUser = { ...data, id: Date.now(), created_at: new Date().toISOString() } as UserData;
-            setUsers((prev) => [...prev, newUser]);
-            toast.success("Pengguna berhasil ditambahkan");
+    const handleSave = async (data: Partial<UserData> & { password?: string }) => {
+        try {
+            if (editingUser) {
+                await usersApi.update(editingUser.id, data);
+                setUsers((prev) => prev.map((u) => u.id === editingUser.id ? { ...u, ...data } as UserData : u));
+                toast.success("Pengguna berhasil diperbarui");
+            } else {
+                const response = await usersApi.create(data);
+                setUsers((prev) => [...prev, response.data as unknown as UserData]);
+                toast.success("Pengguna berhasil ditambahkan");
+            }
+            setDialogOpen(false);
+            setEditingUser(undefined);
+        } catch (error) {
+            toast.error("Gagal menyimpan pengguna");
         }
-        setDialogOpen(false);
-        setEditingUser(undefined);
     };
 
     const handleEdit = (user: UserData) => {
@@ -326,6 +343,8 @@ export default function MasterUsersPage() {
                             </DialogHeader>
                             <UserForm
                                 user={editingUser}
+                                roles={roles}
+                                branches={branches}
                                 onSave={handleSave}
                                 onCancel={() => setDialogOpen(false)}
                             />

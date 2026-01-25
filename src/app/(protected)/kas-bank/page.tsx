@@ -5,7 +5,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -25,6 +25,7 @@ import {
     ArrowLeftRight,
 } from "lucide-react";
 import { formatCurrency, CASH_BANK_TRANSACTION_TYPES } from "@/lib/constants";
+import { cashBankApi } from "@/lib/api";
 
 // Types
 interface CashBankAccount {
@@ -32,81 +33,25 @@ interface CashBankAccount {
     code: string;
     name: string;
     type: "cash" | "bank";
-    bank_name?: string;
-    account_number?: string;
-    balance: number;
-    is_active: boolean;
+    bankName?: string;
+    accountNumber?: string;
+    currentBalance: number;
+    isActive: boolean;
 }
 
 interface CashBankTransaction {
     id: number;
-    transaction_no: string;
-    account_id: number;
-    account: { code: string; name: string };
+    transactionNo: string;
+    accountId: number;
+    account?: { code: string; name: string };
     type: "in" | "out";
     amount: number;
-    balance_before: number;
-    balance_after: number;
+    balanceBefore: number;
+    balanceAfter: number;
     description: string;
-    reference_no?: string;
-    transaction_date: string;
-    created_by: { id: number; name: string };
-    created_at: string;
+    referenceNo?: string;
+    transactionDate: string;
 }
-
-// Mock data
-const MOCK_ACCOUNTS: CashBankAccount[] = [
-    { id: 1, code: "K-001", name: "Kas Besar", type: "cash", balance: 25000000, is_active: true },
-    { id: 2, code: "K-002", name: "Kas Kecil", type: "cash", balance: 5000000, is_active: true },
-    { id: 3, code: "B-001", name: "Bank BCA", type: "bank", bank_name: "BCA", account_number: "1234567890", balance: 150000000, is_active: true },
-    { id: 4, code: "B-002", name: "Bank Mandiri", type: "bank", bank_name: "Mandiri", account_number: "0987654321", balance: 85000000, is_active: true },
-];
-
-const MOCK_TRANSACTIONS: CashBankTransaction[] = [
-    {
-        id: 1,
-        transaction_no: "CB-2025-00001",
-        account_id: 1,
-        account: { code: "K-001", name: "Kas Besar" },
-        type: "in",
-        amount: 5000000,
-        balance_before: 20000000,
-        balance_after: 25000000,
-        description: "Setoran tunai dari anggota",
-        transaction_date: "2025-01-24",
-        created_by: { id: 1, name: "Teller 1" },
-        created_at: "2025-01-24T09:00:00Z",
-    },
-    {
-        id: 2,
-        transaction_no: "CB-2025-00002",
-        account_id: 3,
-        account: { code: "B-001", name: "Bank BCA" },
-        type: "in",
-        amount: 10000000,
-        balance_before: 140000000,
-        balance_after: 150000000,
-        description: "Transfer masuk dari cabang",
-        reference_no: "TRF-123456",
-        transaction_date: "2025-01-24",
-        created_by: { id: 1, name: "Teller 1" },
-        created_at: "2025-01-24T10:00:00Z",
-    },
-    {
-        id: 3,
-        transaction_no: "CB-2025-00003",
-        account_id: 1,
-        account: { code: "K-001", name: "Kas Besar" },
-        type: "out",
-        amount: 2000000,
-        balance_before: 27000000,
-        balance_after: 25000000,
-        description: "Pencairan pinjaman A-005",
-        transaction_date: "2025-01-23",
-        created_by: { id: 2, name: "Kasir" },
-        created_at: "2025-01-23T14:00:00Z",
-    },
-];
 
 // Account card component
 function AccountCard({ account }: { account: CashBankAccount }) {
@@ -124,13 +69,13 @@ function AccountCard({ account }: { account: CashBankAccount }) {
                     </div>
                     {account.type === "bank" && (
                         <p className="text-sm text-muted-foreground">
-                            {account.bank_name} - {account.account_number}
+                            {account.bankName} - {account.accountNumber}
                         </p>
                     )}
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-muted-foreground">Saldo</p>
-                    <p className="text-lg font-bold tabular-nums">{formatCurrency(account.balance)}</p>
+                    <p className="text-lg font-bold tabular-nums">{formatCurrency(account.currentBalance)}</p>
                 </div>
             </CardContent>
         </Card>
@@ -140,17 +85,17 @@ function AccountCard({ account }: { account: CashBankAccount }) {
 // Transaction columns
 const transactionColumns: ColumnDef<CashBankTransaction>[] = [
     {
-        accessorKey: "transaction_no",
+        accessorKey: "transactionNo",
         header: "No. Transaksi",
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("transaction_no")}</span>,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>,
     },
     {
         accessorKey: "account",
         header: "Akun",
         cell: ({ row }) => (
             <div>
-                <p className="font-medium">{row.original.account.name}</p>
-                <p className="text-xs text-muted-foreground">{row.original.account.code}</p>
+                <p className="font-medium">{row.original.account?.name || "-"}</p>
+                <p className="text-xs text-muted-foreground">{row.original.account?.code}</p>
             </div>
         ),
     },
@@ -192,14 +137,18 @@ const transactionColumns: ColumnDef<CashBankTransaction>[] = [
         header: "Keterangan",
         cell: ({ row }) => (
             <div className="max-w-[200px] truncate" title={row.getValue("description")}>
-                {row.getValue("description")}
+                {row.getValue("description") || "-"}
             </div>
         ),
     },
     {
-        accessorKey: "transaction_date",
+        accessorKey: "transactionDate",
         header: "Tanggal",
-        cell: ({ row }) => new Date(row.getValue("transaction_date")).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
+        cell: ({ row }) => {
+            const dateValue = row.getValue("transactionDate");
+            if (!dateValue) return "-";
+            return new Date(dateValue as string).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+        },
     },
 ];
 
@@ -212,25 +161,42 @@ export default function KasBankPage() {
 
     // Calculate totals
     const totals = React.useMemo(() => {
-        const cashTotal = accounts.filter((a) => a.type === "cash").reduce((sum, a) => sum + a.balance, 0);
-        const bankTotal = accounts.filter((a) => a.type === "bank").reduce((sum, a) => sum + a.balance, 0);
+        const cashTotal = accounts.filter((a) => a.type === "cash").reduce((sum, a) => sum + a.currentBalance, 0);
+        const bankTotal = accounts.filter((a) => a.type === "bank").reduce((sum, a) => sum + a.currentBalance, 0);
         return { cash: cashTotal, bank: bankTotal, total: cashTotal + bankTotal };
     }, [accounts]);
 
-    // Simulate loading
+    // Fetch data from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setAccounts(MOCK_ACCOUNTS);
-            setTransactions(MOCK_TRANSACTIONS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const [accountsRes, transactionsRes] = await Promise.allSettled([
+                    cashBankApi.accounts(),
+                    cashBankApi.transactions(),
+                ]);
+
+                if (accountsRes.status === "fulfilled") {
+                    setAccounts(accountsRes.value.data as unknown as CashBankAccount[]);
+                }
+
+                if (transactionsRes.status === "fulfilled") {
+                    setTransactions(transactionsRes.value.data as unknown as CashBankTransaction[]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch cash bank data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // Filter transactions
     const filteredTransactions = React.useMemo(() => {
         return transactions.filter((trx) => {
-            const accountMatch = accountFilter === "all" || trx.account_id.toString() === accountFilter;
+            const accountMatch = accountFilter === "all" || trx.accountId.toString() === accountFilter;
             const typeMatch = typeFilter === "all" || trx.type === typeFilter;
             return accountMatch && typeMatch;
         });
@@ -313,6 +279,9 @@ export default function KasBankPage() {
                             {accounts.filter((a) => a.type === "cash").map((account) => (
                                 <AccountCard key={account.id} account={account} />
                             ))}
+                            {accounts.filter((a) => a.type === "cash").length === 0 && !isLoading && (
+                                <p className="text-muted-foreground text-sm">Tidak ada akun kas</p>
+                            )}
                         </div>
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -321,6 +290,9 @@ export default function KasBankPage() {
                             {accounts.filter((a) => a.type === "bank").map((account) => (
                                 <AccountCard key={account.id} account={account} />
                             ))}
+                            {accounts.filter((a) => a.type === "bank").length === 0 && !isLoading && (
+                                <p className="text-muted-foreground text-sm">Tidak ada akun bank</p>
+                            )}
                         </div>
                     </div>
                 </TabsContent>

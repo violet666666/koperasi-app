@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Download, Printer, TrendingUp, TrendingDown } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { reportsApi } from "@/lib/api";
 
 interface IncomeStatementItem {
     code: string;
@@ -29,85 +30,6 @@ interface IncomeStatementItem {
     amount: number;
     children?: IncomeStatementItem[];
 }
-
-// Mock data
-const MOCK_INCOME: IncomeStatementItem[] = [
-    {
-        code: "4",
-        name: "PENDAPATAN",
-        amount: 125000000,
-        children: [
-            {
-                code: "4.1",
-                name: "Pendapatan Bunga",
-                amount: 95000000,
-                children: [
-                    { code: "4.1.01", name: "Bunga Pinjaman Anggota", amount: 85000000 },
-                    { code: "4.1.02", name: "Bunga Deposito Bank", amount: 10000000 },
-                ],
-            },
-            {
-                code: "4.2",
-                name: "Pendapatan Administrasi",
-                amount: 20000000,
-                children: [
-                    { code: "4.2.01", name: "Biaya Admin Pinjaman", amount: 15000000 },
-                    { code: "4.2.02", name: "Biaya Admin Simpanan", amount: 5000000 },
-                ],
-            },
-            {
-                code: "4.3",
-                name: "Pendapatan Lain-lain",
-                amount: 10000000,
-                children: [
-                    { code: "4.3.01", name: "Denda Keterlambatan", amount: 3000000 },
-                    { code: "4.3.02", name: "Pendapatan Non-SP", amount: 7000000 },
-                ],
-            },
-        ],
-    },
-];
-
-const MOCK_EXPENSES: IncomeStatementItem[] = [
-    {
-        code: "5",
-        name: "BEBAN",
-        amount: 75000000,
-        children: [
-            {
-                code: "5.1",
-                name: "Beban Bunga",
-                amount: 25000000,
-                children: [
-                    { code: "5.1.01", name: "Bunga Simpanan Sukarela", amount: 20000000 },
-                    { code: "5.1.02", name: "Bunga Simpanan Berjangka", amount: 5000000 },
-                ],
-            },
-            {
-                code: "5.2",
-                name: "Beban Operasional",
-                amount: 40000000,
-                children: [
-                    { code: "5.2.01", name: "Gaji & Tunjangan", amount: 25000000 },
-                    { code: "5.2.02", name: "Sewa Gedung", amount: 8000000 },
-                    { code: "5.2.03", name: "Listrik & Air", amount: 3000000 },
-                    { code: "5.2.04", name: "Perlengkapan Kantor", amount: 2000000 },
-                    { code: "5.2.05", name: "Telepon & Internet", amount: 2000000 },
-                ],
-            },
-            {
-                code: "5.3",
-                name: "Beban Penyusutan",
-                amount: 10000000,
-                children: [
-                    { code: "5.3.01", name: "Penyusutan Bangunan", amount: 5000000 },
-                    { code: "5.3.02", name: "Penyusutan Kendaraan", amount: 3000000 },
-                    { code: "5.3.03", name: "Penyusutan Inventaris", amount: 2000000 },
-                ],
-            },
-        ],
-    },
-];
 
 // Recursive row component
 function IncomeStatementRow({ item, level = 0, type }: { item: IncomeStatementItem; level?: number; type: "income" | "expense" }) {
@@ -140,16 +62,45 @@ function IncomeStatementRow({ item, level = 0, type }: { item: IncomeStatementIt
 export default function LabaRugiPage() {
     const [period, setPeriod] = React.useState("2025-01");
     const [isLoading, setIsLoading] = React.useState(true);
+    const [data, setData] = React.useState<{
+        income: IncomeStatementItem[];
+        expenses: IncomeStatementItem[];
+    }>({ income: [], expenses: [] });
 
-    // Simulate loading
+    // Fetch report data from API
     React.useEffect(() => {
-        setIsLoading(true);
-        const timer = setTimeout(() => setIsLoading(false), 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                const [year, month] = period.split("-");
+                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+                const periodFrom = `${period}-01`;
+                const periodTo = `${period}-${lastDay.toString().padStart(2, "0")}`;
+
+                const response = await reportsApi.labaRugi({ periodFrom, periodTo });
+                const reportData = response.data as unknown as {
+                    income?: IncomeStatementItem[];
+                    expenses?: IncomeStatementItem[];
+                };
+
+                setData({
+                    income: reportData.income || [],
+                    expenses: reportData.expenses || [],
+                });
+            } catch (error) {
+                console.error("Failed to fetch laba rugi:", error);
+                setData({ income: [], expenses: [] });
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [period]);
 
-    const totalIncome = MOCK_INCOME[0].amount;
-    const totalExpenses = MOCK_EXPENSES[0].amount;
+    // Calculate totals
+    const totalIncome = data.income.reduce((sum, item) => sum + item.amount, 0);
+    const totalExpenses = data.expenses.reduce((sum, item) => sum + item.amount, 0);
     const netIncome = totalIncome - totalExpenses;
     const isProfit = netIncome >= 0;
 
@@ -217,9 +168,17 @@ export default function LabaRugiPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {MOCK_INCOME.map((item) => (
-                                            <IncomeStatementRow key={item.code} item={item} type="income" />
-                                        ))}
+                                        {data.income.length > 0 ? (
+                                            data.income.map((item) => (
+                                                <IncomeStatementRow key={item.code} item={item} type="income" />
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                    Tidak ada data pendapatan
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -251,9 +210,17 @@ export default function LabaRugiPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {MOCK_EXPENSES.map((item) => (
-                                            <IncomeStatementRow key={item.code} item={item} type="expense" />
-                                        ))}
+                                        {data.expenses.length > 0 ? (
+                                            data.expenses.map((item) => (
+                                                <IncomeStatementRow key={item.code} item={item} type="expense" />
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                                    Tidak ada data beban
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -267,7 +234,7 @@ export default function LabaRugiPage() {
                     </Card>
 
                     {/* Net Income */}
-                    <Card className={isProfit ? "border-emerald-500" : "border-red-500"}>
+                    <Card className={totalIncome > 0 ? (isProfit ? "border-emerald-500" : "border-red-500") : ""}>
                         <CardContent className="p-6">
                             <div className="flex justify-between items-center">
                                 <div>
@@ -291,27 +258,29 @@ export default function LabaRugiPage() {
                     </Card>
 
                     {/* Summary Card */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Ringkasan</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-4 sm:grid-cols-3">
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">Total Pendapatan</p>
-                                <p className="text-xl font-bold tabular-nums text-emerald-600">{formatCurrency(totalIncome)}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">Total Beban</p>
-                                <p className="text-xl font-bold tabular-nums text-amber-600">{formatCurrency(totalExpenses)}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">Margin</p>
-                                <p className={`text-xl font-bold tabular-nums ${isProfit ? "text-emerald-600" : "text-red-600"}`}>
-                                    {((netIncome / totalIncome) * 100).toFixed(1)}%
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {totalIncome > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Ringkasan</CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid gap-4 sm:grid-cols-3">
+                                <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Total Pendapatan</p>
+                                    <p className="text-xl font-bold tabular-nums text-emerald-600">{formatCurrency(totalIncome)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Total Beban</p>
+                                    <p className="text-xl font-bold tabular-nums text-amber-600">{formatCurrency(totalExpenses)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Margin</p>
+                                    <p className={`text-xl font-bold tabular-nums ${isProfit ? "text-emerald-600" : "text-red-600"}`}>
+                                        {totalIncome > 0 ? ((netIncome / totalIncome) * 100).toFixed(1) : 0}%
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
         </div>

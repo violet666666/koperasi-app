@@ -28,15 +28,23 @@ import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, CreditCard, Loader2, Save } from "lucide-react";
 import { formatCurrency, INTEREST_METHODS } from "@/lib/constants";
-import type { LoanProduct } from "@/types";
+import { masterApi } from "@/lib/api";
 
-// Mock data
-const MOCK_PRODUCTS: LoanProduct[] = [
-    { id: 1, code: "PR", name: "Pinjaman Reguler", interest_method: "flat", interest_rate: 1.5, min_tenor_months: 3, max_tenor_months: 24, min_amount: 1000000, max_amount: 50000000, admin_fee_type: "percent", admin_fee_value: 1, is_active: true },
-    { id: 2, code: "PU", name: "Pinjaman Usaha", interest_method: "annuity", interest_rate: 1.2, min_tenor_months: 6, max_tenor_months: 60, min_amount: 5000000, max_amount: 200000000, admin_fee_type: "percent", admin_fee_value: 0.5, is_active: true },
-    { id: 3, code: "PD", name: "Pinjaman Darurat", interest_method: "flat", interest_rate: 2, min_tenor_months: 1, max_tenor_months: 12, min_amount: 500000, max_amount: 10000000, admin_fee_type: "fixed", admin_fee_value: 50000, is_active: true },
-    { id: 4, code: "PM", name: "Pinjaman Multiguna", interest_method: "effective", interest_rate: 1.8, min_tenor_months: 3, max_tenor_months: 36, min_amount: 2000000, max_amount: 100000000, admin_fee_type: "percent", admin_fee_value: 1.5, is_active: false },
-];
+// Product type
+interface LoanProduct {
+    id: number;
+    code: string;
+    name: string;
+    interestMethod: string;
+    interestRate: number;
+    minTenorMonths: number;
+    maxTenorMonths: number;
+    minAmount: number;
+    maxAmount: number;
+    adminFeeType?: string;
+    adminFeeValue?: number;
+    isActive: boolean;
+}
 
 // Table columns
 const columns: ColumnDef<LoanProduct>[] = [
@@ -60,40 +68,41 @@ const columns: ColumnDef<LoanProduct>[] = [
         ),
     },
     {
-        accessorKey: "interest_method",
+        accessorKey: "interestMethod",
         header: "Metode Bunga",
         cell: ({ row }) => {
-            const method = row.getValue("interest_method") as keyof typeof INTEREST_METHODS;
-            return <Badge variant="secondary">{INTEREST_METHODS[method]?.label || method}</Badge>;
+            const method = row.getValue("interestMethod") as string;
+            const config = INTEREST_METHODS[method as keyof typeof INTEREST_METHODS];
+            return <Badge variant="secondary">{config?.label || method}</Badge>;
         },
     },
     {
-        accessorKey: "interest_rate",
+        accessorKey: "interestRate",
         header: "Bunga",
-        cell: ({ row }) => <span className="tabular-nums">{row.getValue("interest_rate")}%/bln</span>,
+        cell: ({ row }) => <span className="tabular-nums">{row.getValue("interestRate")}%/bln</span>,
     },
     {
         id: "tenor",
         header: "Tenor",
         cell: ({ row }) => (
-            <span className="tabular-nums">{row.original.min_tenor_months}-{row.original.max_tenor_months} bln</span>
+            <span className="tabular-nums">{row.original.minTenorMonths}-{row.original.maxTenorMonths} bln</span>
         ),
     },
     {
-        id: "amount_range",
+        id: "amountRange",
         header: "Range Pinjaman",
         cell: ({ row }) => (
             <span className="text-sm tabular-nums">
-                {formatCurrency(row.original.min_amount)} - {formatCurrency(row.original.max_amount)}
+                {formatCurrency(row.original.minAmount)} - {formatCurrency(row.original.maxAmount)}
             </span>
         ),
     },
     {
-        accessorKey: "is_active",
+        accessorKey: "isActive",
         header: "Status",
         cell: ({ row }) => (
-            <Badge variant={row.getValue("is_active") ? "default" : "secondary"}>
-                {row.getValue("is_active") ? "Aktif" : "Tidak Aktif"}
+            <Badge variant={row.getValue("isActive") ? "default" : "secondary"}>
+                {row.getValue("isActive") ? "Aktif" : "Tidak Aktif"}
             </Badge>
         ),
     },
@@ -113,15 +122,15 @@ function ProductForm({
     const [formData, setFormData] = React.useState({
         code: product?.code || "",
         name: product?.name || "",
-        interest_method: product?.interest_method || "flat",
-        interest_rate: product?.interest_rate?.toString() || "1.5",
-        min_tenor_months: product?.min_tenor_months?.toString() || "3",
-        max_tenor_months: product?.max_tenor_months?.toString() || "24",
-        min_amount: product?.min_amount?.toString() || "1000000",
-        max_amount: product?.max_amount?.toString() || "50000000",
-        admin_fee_type: product?.admin_fee_type || "percent",
-        admin_fee_value: product?.admin_fee_value?.toString() || "1",
-        is_active: product?.is_active ?? true,
+        interestMethod: product?.interestMethod || "flat",
+        interestRate: product?.interestRate?.toString() || "1.5",
+        minTenorMonths: product?.minTenorMonths?.toString() || "3",
+        maxTenorMonths: product?.maxTenorMonths?.toString() || "24",
+        minAmount: product?.minAmount?.toString() || "1000000",
+        maxAmount: product?.maxAmount?.toString() || "50000000",
+        adminFeeType: product?.adminFeeType || "percent",
+        adminFeeValue: product?.adminFeeValue?.toString() || "1",
+        isActive: product?.isActive ?? true,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -130,12 +139,12 @@ function ProductForm({
         try {
             await onSave({
                 ...formData,
-                interest_rate: parseFloat(formData.interest_rate),
-                min_tenor_months: parseInt(formData.min_tenor_months),
-                max_tenor_months: parseInt(formData.max_tenor_months),
-                min_amount: parseFloat(formData.min_amount),
-                max_amount: parseFloat(formData.max_amount),
-                admin_fee_value: parseFloat(formData.admin_fee_value),
+                interestRate: parseFloat(formData.interestRate),
+                minTenorMonths: parseInt(formData.minTenorMonths),
+                maxTenorMonths: parseInt(formData.maxTenorMonths),
+                minAmount: parseFloat(formData.minAmount),
+                maxAmount: parseFloat(formData.maxAmount),
+                adminFeeValue: parseFloat(formData.adminFeeValue),
             } as Partial<LoanProduct>);
         } finally {
             setIsLoading(false);
@@ -167,10 +176,10 @@ function ProductForm({
                     />
                 </div>
                 <div>
-                    <Label htmlFor="interest_method">Metode Bunga *</Label>
+                    <Label htmlFor="interestMethod">Metode Bunga *</Label>
                     <Select
-                        value={formData.interest_method}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, interest_method: value as LoanProduct["interest_method"] }))}
+                        value={formData.interestMethod}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, interestMethod: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -188,48 +197,48 @@ function ProductForm({
                     </Select>
                 </div>
                 <div>
-                    <Label htmlFor="interest_rate">Bunga per Bulan (%)</Label>
+                    <Label htmlFor="interestRate">Bunga per Bulan (%)</Label>
                     <Input
-                        id="interest_rate"
+                        id="interestRate"
                         type="number"
                         step="0.1"
-                        value={formData.interest_rate}
-                        onChange={(e) => setFormData((p) => ({ ...p, interest_rate: e.target.value }))}
+                        value={formData.interestRate}
+                        onChange={(e) => setFormData((p) => ({ ...p, interestRate: e.target.value }))}
                         min="0"
                         required
                     />
                 </div>
                 <div>
-                    <Label htmlFor="min_tenor_months">Tenor Min (bulan)</Label>
+                    <Label htmlFor="minTenorMonths">Tenor Min (bulan)</Label>
                     <Input
-                        id="min_tenor_months"
+                        id="minTenorMonths"
                         type="number"
-                        value={formData.min_tenor_months}
-                        onChange={(e) => setFormData((p) => ({ ...p, min_tenor_months: e.target.value }))}
+                        value={formData.minTenorMonths}
+                        onChange={(e) => setFormData((p) => ({ ...p, minTenorMonths: e.target.value }))}
                         min="1"
                         required
                     />
                 </div>
                 <div>
-                    <Label htmlFor="max_tenor_months">Tenor Max (bulan)</Label>
+                    <Label htmlFor="maxTenorMonths">Tenor Max (bulan)</Label>
                     <Input
-                        id="max_tenor_months"
+                        id="maxTenorMonths"
                         type="number"
-                        value={formData.max_tenor_months}
-                        onChange={(e) => setFormData((p) => ({ ...p, max_tenor_months: e.target.value }))}
+                        value={formData.maxTenorMonths}
+                        onChange={(e) => setFormData((p) => ({ ...p, maxTenorMonths: e.target.value }))}
                         min="1"
                         required
                     />
                 </div>
                 <div>
-                    <Label htmlFor="min_amount">Pinjaman Min</Label>
+                    <Label htmlFor="minAmount">Pinjaman Min</Label>
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
                         <Input
-                            id="min_amount"
+                            id="minAmount"
                             type="number"
-                            value={formData.min_amount}
-                            onChange={(e) => setFormData((p) => ({ ...p, min_amount: e.target.value }))}
+                            value={formData.minAmount}
+                            onChange={(e) => setFormData((p) => ({ ...p, minAmount: e.target.value }))}
                             className="pl-10"
                             min="0"
                             required
@@ -237,14 +246,14 @@ function ProductForm({
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="max_amount">Pinjaman Max</Label>
+                    <Label htmlFor="maxAmount">Pinjaman Max</Label>
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
                         <Input
-                            id="max_amount"
+                            id="maxAmount"
                             type="number"
-                            value={formData.max_amount}
-                            onChange={(e) => setFormData((p) => ({ ...p, max_amount: e.target.value }))}
+                            value={formData.maxAmount}
+                            onChange={(e) => setFormData((p) => ({ ...p, maxAmount: e.target.value }))}
                             className="pl-10"
                             min="0"
                             required
@@ -252,10 +261,10 @@ function ProductForm({
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="admin_fee_type">Tipe Biaya Admin</Label>
+                    <Label htmlFor="adminFeeType">Tipe Biaya Admin</Label>
                     <Select
-                        value={formData.admin_fee_type}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, admin_fee_type: value as LoanProduct["admin_fee_type"] }))}
+                        value={formData.adminFeeType}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, adminFeeType: value }))}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -267,15 +276,15 @@ function ProductForm({
                     </Select>
                 </div>
                 <div>
-                    <Label htmlFor="admin_fee_value">
-                        Nilai Biaya Admin {formData.admin_fee_type === "percent" ? "(%)" : "(Rp)"}
+                    <Label htmlFor="adminFeeValue">
+                        Nilai Biaya Admin {formData.adminFeeType === "percent" ? "(%)" : "(Rp)"}
                     </Label>
                     <Input
-                        id="admin_fee_value"
+                        id="adminFeeValue"
                         type="number"
                         step="0.1"
-                        value={formData.admin_fee_value}
-                        onChange={(e) => setFormData((p) => ({ ...p, admin_fee_value: e.target.value }))}
+                        value={formData.adminFeeValue}
+                        onChange={(e) => setFormData((p) => ({ ...p, adminFeeValue: e.target.value }))}
                         min="0"
                         required
                     />
@@ -283,11 +292,11 @@ function ProductForm({
             </div>
             <div className="flex items-center gap-2">
                 <Checkbox
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_active: !!checked }))}
+                    id="isActive"
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => setFormData((p) => ({ ...p, isActive: !!checked }))}
                 />
-                <Label htmlFor="is_active" className="font-normal">Produk Aktif</Label>
+                <Label htmlFor="isActive" className="font-normal">Produk Aktif</Label>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
@@ -308,28 +317,39 @@ export default function MasterProdukPinjamanPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingProduct, setEditingProduct] = React.useState<LoanProduct | undefined>();
 
-    // Simulate loading
+    // Fetch products from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setProducts(MOCK_PRODUCTS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await masterApi.loanProducts.list();
+                setProducts(response.data as unknown as LoanProduct[]);
+            } catch (error) {
+                console.error("Failed to fetch loan products:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     const handleSave = async (data: Partial<LoanProduct>) => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (editingProduct) {
-            setProducts((prev) => prev.map((p) => p.id === editingProduct.id ? { ...p, ...data } : p));
-            toast.success("Produk berhasil diperbarui");
-        } else {
-            const newProduct = { ...data, id: Date.now() } as LoanProduct;
-            setProducts((prev) => [...prev, newProduct]);
-            toast.success("Produk berhasil ditambahkan");
+        try {
+            if (editingProduct) {
+                await masterApi.loanProducts.update(editingProduct.id, data);
+                setProducts((prev) => prev.map((p) => p.id === editingProduct.id ? { ...p, ...data } as LoanProduct : p));
+                toast.success("Produk berhasil diperbarui");
+            } else {
+                const response = await masterApi.loanProducts.create(data);
+                setProducts((prev) => [...prev, response.data as unknown as LoanProduct]);
+                toast.success("Produk berhasil ditambahkan");
+            }
+            setDialogOpen(false);
+            setEditingProduct(undefined);
+        } catch (error) {
+            toast.error("Gagal menyimpan produk");
         }
-        setDialogOpen(false);
-        setEditingProduct(undefined);
     };
 
     const handleEdit = (product: LoanProduct) => {

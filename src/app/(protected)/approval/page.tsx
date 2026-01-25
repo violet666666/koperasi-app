@@ -1,12 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -28,99 +26,30 @@ import {
     FileText,
     CreditCard,
     Wallet,
-    Eye,
     Loader2,
 } from "lucide-react";
 import { formatCurrency, APPROVAL_STATUS } from "@/lib/constants";
+import { approvalsApi, loansApi } from "@/lib/api";
 
-// Local type for approval data (simplified for this page)
+// Approval item type
 interface ApprovalItem {
     id: number;
-    request_type: string;
-    reference_id: number;
-    reference_no: string;
+    requestType: string;
+    referenceId: number;
+    referenceNo: string;
     description: string;
     amount?: number;
-    branch_id: number;
+    branchId: number;
     status: "pending" | "approved" | "rejected";
-    requested_by: { id: number; name: string };
-    requested_at: string;
-    processed_by?: { id: number; name: string };
-    processed_at?: string;
+    requestedBy?: { id: number; name: string };
+    requestedAt: string;
+    processedBy?: { id: number; name: string };
+    processedAt?: string;
     notes?: string;
 }
 
-// Mock data
-const MOCK_APPROVALS: ApprovalItem[] = [
-    {
-        id: 1,
-        request_type: "loan_application",
-        reference_id: 5,
-        reference_no: "PLJ-2025-00005",
-        description: "Pengajuan Pinjaman Reguler - Ahmad Ridwan (A-005)",
-        amount: 15000000,
-        branch_id: 1,
-        status: "pending",
-        requested_by: { id: 3, name: "Teller 1" },
-        requested_at: "2025-01-24T10:00:00Z",
-    },
-    {
-        id: 2,
-        request_type: "loan_disbursement",
-        reference_id: 4,
-        reference_no: "PJM-2025-00004",
-        description: "Pencairan Pinjaman - Dewi Lestari (A-004)",
-        amount: 8000000,
-        branch_id: 2,
-        status: "pending",
-        requested_by: { id: 4, name: "Supervisor Cabang" },
-        requested_at: "2025-01-24T09:30:00Z",
-    },
-    {
-        id: 3,
-        request_type: "savings_withdrawal",
-        reference_id: 10,
-        reference_no: "SIM-2025-00010",
-        description: "Penarikan Simpanan Sukarela > 5jt - Budi Santoso (A-001)",
-        amount: 7500000,
-        branch_id: 1,
-        status: "pending",
-        requested_by: { id: 3, name: "Teller 1" },
-        requested_at: "2025-01-24T08:45:00Z",
-    },
-    {
-        id: 4,
-        request_type: "loan_application",
-        reference_id: 3,
-        reference_no: "PLJ-2025-00003",
-        description: "Pengajuan Pinjaman Usaha - Siti Aminah (A-002)",
-        amount: 50000000,
-        branch_id: 1,
-        status: "approved",
-        requested_by: { id: 3, name: "Teller 1" },
-        requested_at: "2025-01-23T14:00:00Z",
-        processed_by: { id: 1, name: "Admin Pusat" },
-        processed_at: "2025-01-23T15:30:00Z",
-    },
-    {
-        id: 5,
-        request_type: "loan_application",
-        reference_id: 2,
-        reference_no: "PLJ-2025-00002",
-        description: "Pengajuan Pinjaman Darurat - Joko Widodo (A-003)",
-        amount: 3000000,
-        branch_id: 2,
-        status: "rejected",
-        requested_by: { id: 4, name: "Supervisor Cabang" },
-        requested_at: "2025-01-22T11:00:00Z",
-        processed_by: { id: 1, name: "Admin Pusat" },
-        processed_at: "2025-01-22T14:00:00Z",
-        notes: "Masih memiliki tunggakan pinjaman aktif",
-    },
-];
-
 // Request type icons and labels
-const REQUEST_TYPES = {
+const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
     loan_application: { label: "Pengajuan Pinjaman", icon: FileText, color: "blue" },
     loan_disbursement: { label: "Pencairan Pinjaman", icon: CreditCard, color: "purple" },
     savings_withdrawal: { label: "Penarikan Simpanan", icon: Wallet, color: "amber" },
@@ -153,16 +82,16 @@ function StatusBadge({ status }: { status: keyof typeof APPROVAL_STATUS }) {
 // Table columns
 const columns: ColumnDef<ApprovalItem>[] = [
     {
-        accessorKey: "reference_no",
+        accessorKey: "referenceNo",
         header: "No. Referensi",
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("reference_no")}</span>,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("referenceNo")}</span>,
     },
     {
-        accessorKey: "request_type",
+        accessorKey: "requestType",
         header: "Jenis",
         cell: ({ row }) => {
-            const type = row.getValue("request_type") as keyof typeof REQUEST_TYPES;
-            const config = REQUEST_TYPES[type];
+            const type = row.getValue("requestType") as string;
+            const config = REQUEST_TYPES[type] || { label: type, icon: FileText };
             const Icon = config.icon;
             return (
                 <div className="flex items-center gap-2">
@@ -177,7 +106,7 @@ const columns: ColumnDef<ApprovalItem>[] = [
         header: "Keterangan",
         cell: ({ row }) => (
             <div className="max-w-[250px] truncate" title={row.getValue("description")}>
-                {row.getValue("description")}
+                {row.getValue("description") || "-"}
             </div>
         ),
     },
@@ -192,14 +121,16 @@ const columns: ColumnDef<ApprovalItem>[] = [
         },
     },
     {
-        accessorKey: "requested_at",
+        accessorKey: "requestedAt",
         header: "Diajukan",
         cell: ({ row }) => {
-            const date = new Date(row.getValue("requested_at"));
+            const dateValue = row.getValue("requestedAt");
+            if (!dateValue) return "-";
+            const date = new Date(dateValue as string);
             return (
                 <div>
                     <p>{date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</p>
-                    <p className="text-xs text-muted-foreground">{row.original.requested_by?.name}</p>
+                    <p className="text-xs text-muted-foreground">{row.original.requestedBy?.name}</p>
                 </div>
             );
         },
@@ -212,7 +143,6 @@ const columns: ColumnDef<ApprovalItem>[] = [
 ];
 
 export default function ApprovalPage() {
-    const router = useRouter();
     const [isLoading, setIsLoading] = React.useState(true);
     const [approvals, setApprovals] = React.useState<ApprovalItem[]>([]);
     const [selectedApproval, setSelectedApproval] = React.useState<ApprovalItem | null>(null);
@@ -228,13 +158,21 @@ export default function ApprovalPage() {
         rejected: approvals.filter((a) => a.status === "rejected").length,
     }), [approvals]);
 
-    // Simulate loading
+    // Fetch approvals from API
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setApprovals(MOCK_APPROVALS);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        async function fetchData() {
+            try {
+                setIsLoading(true);
+                const response = await approvalsApi.list();
+                setApprovals(response.data as unknown as ApprovalItem[]);
+            } catch (error) {
+                console.error("Failed to fetch approvals:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, []);
 
     // Handle action click
@@ -251,8 +189,14 @@ export default function ApprovalPage() {
 
         setProcessing(true);
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // Call the appropriate API based on request type
+            if (selectedApproval.requestType === "loan_application") {
+                if (dialogAction === "approve") {
+                    await loansApi.approve(selectedApproval.referenceId, notes);
+                } else {
+                    await loansApi.reject(selectedApproval.referenceId, notes);
+                }
+            }
 
             // Update local state
             setApprovals((prev) =>
