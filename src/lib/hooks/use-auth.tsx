@@ -92,14 +92,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             throw new Error("Email atau password salah");
         }
 
-        router.push("/dashboard");
-    }, [router]);
+        // Use window.location for full page reload to ensure JWT cookie is set
+        // router.push() can cause race condition where cookie isn't available yet
+        window.location.href = "/dashboard";
+    }, []);
 
     // Logout function
     const logout = React.useCallback(async () => {
         await signOut({ redirect: false });
-        router.push("/login");
-    }, [router]);
+        // Use window.location for full page reload to ensure session is cleared
+        window.location.href = "/login";
+    }, []);
 
     // Set current branch
     const setCurrentBranch = React.useCallback((branchId: number | null) => {
