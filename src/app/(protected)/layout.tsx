@@ -2,6 +2,7 @@
 
 import { AuthProvider, useAuth } from "@/lib/hooks";
 import { AppShell } from "@/components/layout";
+import { ErrorBoundary } from "@/components/patterns/error-boundary";
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
     const { user, branches, currentBranchId, setCurrentBranch, logout, isLoading } = useAuth();
@@ -15,15 +16,17 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AppShell
-            user={user}
-            branches={branches}
-            currentBranchId={currentBranchId}
-            onBranchChange={setCurrentBranch}
-            onLogout={logout}
-        >
-            {children}
-        </AppShell>
+        <ErrorBoundary>
+            <AppShell
+                user={user}
+                branches={branches}
+                currentBranchId={currentBranchId}
+                onBranchChange={setCurrentBranch}
+                onLogout={logout}
+            >
+                {children}
+            </AppShell>
+        </ErrorBoundary>
     );
 }
 

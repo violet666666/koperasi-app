@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { PageHeader } from "@/components/patterns/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Select,
     SelectContent,
@@ -24,13 +23,13 @@ import { Input } from "@/components/ui/input";
 import {
     Wallet,
     Search,
-    Download,
     Users,
     PiggyBank,
     TrendingUp,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, masterApi } from "@/lib/api/services";
+import { ExportButton, formatCurrencyExport } from "@/components/patterns/export-button";
 
 interface MemberSavingsRecap {
     id: number;
@@ -110,16 +109,28 @@ export default function RekapSimpananPage() {
         fetchData();
     }, [branchFilter]);
 
+    const exportColumns = [
+        { key: "memberNo", header: "No. Anggota" },
+        { key: "name", header: "Nama" },
+        { key: "branchName", header: "Cabang" },
+        { key: "simpananPokok", header: "Simpanan Pokok", format: formatCurrencyExport },
+        { key: "simpananWajib", header: "Simpanan Wajib", format: formatCurrencyExport },
+        { key: "simpananSukarela", header: "Simpanan Sukarela", format: formatCurrencyExport },
+        { key: "total", header: "Total", format: formatCurrencyExport },
+    ];
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Rekap Simpanan"
                 description="Rekap simpanan per anggota"
                 actions={
-                    <Button variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Excel
-                    </Button>
+                    <ExportButton
+                        title="Rekap Simpanan Anggota"
+                        filename="rekap_simpanan"
+                        columns={exportColumns}
+                        data={filteredData}
+                    />
                 }
             />
 

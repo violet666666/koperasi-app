@@ -17,6 +17,10 @@ import {
     UserCog,
     Building2,
     Settings,
+    ShoppingBag,
+    Megaphone,
+    User,
+    Activity,
     type LucideIcon,
 } from "lucide-react";
 
@@ -136,10 +140,10 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 children: [
                     { title: "Neraca", href: "/laporan/neraca" },
                     { title: "Laba Rugi", href: "/laporan/laba-rugi" },
+                    { title: "Arus Kas", href: "/laporan/arus-kas" },
                     { title: "SHU", href: "/laporan/shu" },
                     { title: "Rekap Simpanan", href: "/laporan/rekap-simpanan" },
                     { title: "Rekap Pinjaman", href: "/laporan/rekap-pinjaman" },
-                    { title: "Penyusutan Aset", href: "/laporan/penyusutan" },
                 ],
             },
         ],
@@ -160,6 +164,41 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 href: "/shu",
                 icon: PieChart,
                 permission: "alokasi_shu",
+                children: [
+                    { title: "Perhitungan", href: "/periode/shu/perhitungan" },
+                    { title: "Distribusi", href: "/periode/shu/distribusi" },
+                ],
+            },
+        ],
+    },
+
+    // TOKO
+    {
+        title: "TOKO",
+        items: [
+            {
+                title: "Toko Koperasi",
+                href: "/toko",
+                icon: ShoppingBag,
+                permission: "manage_toko",
+                children: [
+                    { title: "Produk", href: "/toko/produk" },
+                    { title: "Kasir / POS", href: "/toko/kasir" },
+                    { title: "Persediaan", href: "/toko/persediaan" },
+                ],
+            },
+        ],
+    },
+
+    // KOMUNIKASI
+    {
+        title: "KOMUNIKASI",
+        items: [
+            {
+                title: "Pengumuman",
+                href: "/pengumuman",
+                icon: Megaphone,
+                permission: "manage_pengumuman",
             },
         ],
     },
@@ -174,6 +213,12 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 icon: CheckSquare,
                 permission: "approve_transactions",
                 badge: "pending_approval_count",
+            },
+            {
+                title: "Audit Log",
+                href: "/audit-log",
+                icon: Activity,
+                permission: "view_audit_log",
             },
         ],
     },
@@ -213,6 +258,11 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 title: "Pengaturan",
                 href: "/settings",
                 icon: Settings,
+            },
+            {
+                title: "Profil Saya",
+                href: "/profil",
+                icon: User,
             },
         ],
     },
