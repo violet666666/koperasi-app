@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
     Select,
     SelectContent,
@@ -11,7 +12,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
     TableBody,
@@ -20,290 +20,285 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Download, Printer, FileSpreadsheet } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { reportsApi } from "@/lib/api";
 
 interface BalanceSheetItem {
     code: string;
     name: string;
-    balance: number;
+    amount: number;
     children?: BalanceSheetItem[];
 }
 
-// Recursive row component
-function BalanceSheetRow({ item, level = 0 }: { item: BalanceSheetItem; level?: number }) {
-    const isParent = item.children && item.children.length > 0;
-    const paddingLeft = level * 20;
-
-    return (
-        <>
-            <TableRow className={isParent && level < 2 ? "bg-muted/50" : ""}>
-                <TableCell style={{ paddingLeft: paddingLeft + 16 }}>
-                    <span className={isParent ? "font-semibold" : ""}>
-                        {item.code}
-                    </span>
-                </TableCell>
-                <TableCell style={{ paddingLeft: paddingLeft }}>
-                    <span className={isParent ? "font-semibold" : ""}>
-                        {item.name}
-                    </span>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                    <span className={isParent ? "font-semibold" : ""}>
-                        {formatCurrency(Math.abs(item.balance))}
-                        {item.balance < 0 && <span className="text-muted-foreground"> (akum.)</span>}
-                    </span>
-                </TableCell>
-            </TableRow>
-            {item.children?.map((child) => (
-                <BalanceSheetRow key={child.code} item={child} level={level + 1} />
-            ))}
-        </>
-    );
+interface BalanceSheet {
+    period: string;
+    assets: {
+        current: BalanceSheetItem[];
+        fixed: BalanceSheetItem[];
+        totalAssets: number;
+    };
+    liabilities: {
+        shortTerm: BalanceSheetItem[];
+        longTerm: BalanceSheetItem[];
+        totalLiabilities: number;
+    };
+    equity: {
+        items: BalanceSheetItem[];
+        totalEquity: number;
+    };
 }
 
 export default function NeracaPage() {
-    const [period, setPeriod] = React.useState("2025-01");
+    const [selectedMonth, setSelectedMonth] = React.useState<string>("01");
+    const [selectedYear, setSelectedYear] = React.useState<string>("2026");
+    const [data, setData] = React.useState<BalanceSheet | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [data, setData] = React.useState<{
-        assets: BalanceSheetItem[];
-        liabilities: BalanceSheetItem[];
-        equity: BalanceSheetItem[];
-    }>({ assets: [], liabilities: [], equity: [] });
 
-    // Fetch report data from API
+    // Fetch data
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                const [year, month] = period.split("-");
-                const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-                const asOfDate = `${period}-${lastDay.toString().padStart(2, "0")}`;
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-                const response = await reportsApi.neraca({ asOfDate });
-                const reportData = response.data as unknown as {
-                    assets?: BalanceSheetItem[];
-                    liabilities?: BalanceSheetItem[];
-                    equity?: BalanceSheetItem[];
-                };
-
+                // Mock data
                 setData({
-                    assets: reportData.assets || [],
-                    liabilities: reportData.liabilities || [],
-                    equity: reportData.equity || [],
+                    period: `${selectedMonth}/${selectedYear}`,
+                    assets: {
+                        current: [
+                            { code: "1100", name: "Kas", amount: 125000000 },
+                            { code: "1110", name: "Bank", amount: 450000000 },
+                            { code: "1200", name: "Piutang Anggota", amount: 850000000 },
+                            { code: "1210", name: "Cadangan Kerugian Piutang", amount: -25000000 },
+                        ],
+                        fixed: [
+                            { code: "1300", name: "Tanah", amount: 500000000 },
+                            { code: "1310", name: "Gedung", amount: 500000000 },
+                            { code: "1311", name: "Akum. Penyusutan Gedung", amount: -125000000 },
+                            { code: "1320", name: "Kendaraan", amount: 200000000 },
+                            { code: "1321", name: "Akum. Penyusutan Kendaraan", amount: -50000000 },
+                            { code: "1330", name: "Peralatan", amount: 115000000 },
+                            { code: "1331", name: "Akum. Penyusutan Peralatan", amount: -28125000 },
+                        ],
+                        totalAssets: 2511875000,
+                    },
+                    liabilities: {
+                        shortTerm: [
+                            { code: "2100", name: "Simpanan Pokok", amount: 250000000 },
+                            { code: "2110", name: "Simpanan Wajib", amount: 750000000 },
+                            { code: "2120", name: "Simpanan Sukarela", amount: 450000000 },
+                            { code: "2130", name: "Tabungan Anggota", amount: 200000000 },
+                        ],
+                        longTerm: [
+                            { code: "2200", name: "Dana Cadangan", amount: 180000000 },
+                            { code: "2210", name: "Dana Pendidikan", amount: 35000000 },
+                        ],
+                        totalLiabilities: 1865000000,
+                    },
+                    equity: {
+                        items: [
+                            { code: "3100", name: "Modal Disetor", amount: 300000000 },
+                            { code: "3200", name: "SHU Tahun Lalu", amount: 186875000 },
+                            { code: "3300", name: "SHU Tahun Berjalan", amount: 160000000 },
+                        ],
+                        totalEquity: 646875000,
+                    },
                 });
             } catch (error) {
-                console.error("Failed to fetch neraca:", error);
-                // Set empty data on error
-                setData({ assets: [], liabilities: [], equity: [] });
+                console.error("Failed to fetch:", error);
             } finally {
                 setIsLoading(false);
             }
         }
-
         fetchData();
-    }, [period]);
+    }, [selectedMonth, selectedYear]);
 
-    // Calculate totals
-    const totalAssets = data.assets.reduce((sum, item) => sum + item.balance, 0);
-    const totalLiabilities = data.liabilities.reduce((sum, item) => sum + item.balance, 0);
-    const totalEquity = data.equity.reduce((sum, item) => sum + item.balance, 0);
-    const isBalanced = totalAssets === totalLiabilities + totalEquity;
+    const monthName = new Date(2000, Number(selectedMonth) - 1).toLocaleDateString("id-ID", { month: "long" });
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Neraca"
-                description="Laporan posisi keuangan koperasi"
-                backHref="/laporan"
+                title="Laporan Neraca"
+                description="Posisi keuangan per periode"
                 actions={
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                            <Printer className="mr-2 h-4 w-4" />
-                            Cetak
-                        </Button>
-                        <Button variant="outline" size="sm">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export Excel
-                        </Button>
-                    </div>
+                    <Button variant="outline">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export Excel
+                    </Button>
                 }
             />
 
             {/* Period Selector */}
-            <div className="flex items-center gap-4">
-                <Select value={period} onValueChange={setPeriod}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Pilih periode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="2025-01">Januari 2025</SelectItem>
-                        <SelectItem value="2024-12">Desember 2024</SelectItem>
-                        <SelectItem value="2024-11">November 2024</SelectItem>
-                        <SelectItem value="2024-10">Oktober 2024</SelectItem>
-                    </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">
-                    Per tanggal: {new Date(period + "-28").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-                </span>
-            </div>
+            <Card>
+                <CardContent className="p-4">
+                    <div className="flex flex-wrap gap-4 items-center">
+                        <span className="text-sm text-muted-foreground">Periode:</span>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"].map((m) => (
+                                    <SelectItem key={m} value={m}>
+                                        {new Date(2000, parseInt(m) - 1).toLocaleDateString("id-ID", { month: "long" })}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <SelectTrigger className="w-[100px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="2024">2024</SelectItem>
+                                <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2026">2026</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
+            </Card>
 
             {isLoading ? (
-                <div className="space-y-4">
-                    <Skeleton className="h-96" />
-                </div>
-            ) : (
+                <Card>
+                    <CardContent className="p-6">
+                        <Skeleton className="h-96 w-full" />
+                    </CardContent>
+                </Card>
+            ) : data ? (
                 <div className="grid gap-6 lg:grid-cols-2">
                     {/* Assets */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <FileSpreadsheet className="h-5 w-5" />
-                                ASET
+                                AKTIVA
                             </CardTitle>
+                            <CardDescription>Per {monthName} {selectedYear}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-20">Kode</TableHead>
-                                            <TableHead>Nama Akun</TableHead>
-                                            <TableHead className="text-right w-32">Saldo</TableHead>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Kode</TableHead>
+                                        <TableHead>Nama Akun</TableHead>
+                                        <TableHead className="text-right">Jumlah</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={3} className="font-semibold">
+                                            Aktiva Lancar
+                                        </TableCell>
+                                    </TableRow>
+                                    {data.assets.current.map((item) => (
+                                        <TableRow key={item.code}>
+                                            <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell className={`text-right tabular-nums ${item.amount < 0 ? "text-red-600" : ""}`}>
+                                                {item.amount < 0 ? `(${formatCurrency(Math.abs(item.amount))})` : formatCurrency(item.amount)}
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.assets.length > 0 ? (
-                                            data.assets.map((item) => (
-                                                <BalanceSheetRow key={item.code} item={item} />
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                                    Tidak ada data
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                            <div className="mt-4 flex justify-between items-center p-4 bg-primary/10 rounded-lg">
-                                <span className="font-bold">TOTAL ASET</span>
-                                <span className="text-xl font-bold tabular-nums">{formatCurrency(totalAssets)}</span>
-                            </div>
+                                    ))}
+                                    <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={3} className="font-semibold">
+                                            Aktiva Tetap
+                                        </TableCell>
+                                    </TableRow>
+                                    {data.assets.fixed.map((item) => (
+                                        <TableRow key={item.code}>
+                                            <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell className={`text-right tabular-nums ${item.amount < 0 ? "text-red-600" : ""}`}>
+                                                {item.amount < 0 ? `(${formatCurrency(Math.abs(item.amount))})` : formatCurrency(item.amount)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-primary/10 font-bold">
+                                        <TableCell colSpan={2}>TOTAL AKTIVA</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {formatCurrency(data.assets.totalAssets)}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </CardContent>
                     </Card>
 
                     {/* Liabilities & Equity */}
-                    <div className="space-y-6">
-                        {/* Liabilities */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <FileSpreadsheet className="h-5 w-5" />
-                                    KEWAJIBAN
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-20">Kode</TableHead>
-                                                <TableHead>Nama Akun</TableHead>
-                                                <TableHead className="text-right w-32">Saldo</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {data.liabilities.length > 0 ? (
-                                                data.liabilities.map((item) => (
-                                                    <BalanceSheetRow key={item.code} item={item} />
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                                        Tidak ada data
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                                <div className="mt-4 flex justify-between items-center p-3 bg-muted rounded-lg">
-                                    <span className="font-semibold">Total Kewajiban</span>
-                                    <span className="font-bold tabular-nums">{formatCurrency(totalLiabilities)}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Equity */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <FileSpreadsheet className="h-5 w-5" />
-                                    MODAL
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-20">Kode</TableHead>
-                                                <TableHead>Nama Akun</TableHead>
-                                                <TableHead className="text-right w-32">Saldo</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {data.equity.length > 0 ? (
-                                                data.equity.map((item) => (
-                                                    <BalanceSheetRow key={item.code} item={item} />
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                                        Tidak ada data
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                                <div className="mt-4 flex justify-between items-center p-3 bg-muted rounded-lg">
-                                    <span className="font-semibold">Total Modal</span>
-                                    <span className="font-bold tabular-nums">{formatCurrency(totalEquity)}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Total Liabilities + Equity */}
-                        <div className={`flex justify-between items-center p-4 rounded-lg ${isBalanced || (totalAssets === 0 && totalLiabilities === 0) ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
-                            <span className="font-bold">TOTAL KEWAJIBAN + MODAL</span>
-                            <span className="text-xl font-bold tabular-nums">{formatCurrency(totalLiabilities + totalEquity)}</span>
-                        </div>
-                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <FileSpreadsheet className="h-5 w-5" />
+                                PASIVA
+                            </CardTitle>
+                            <CardDescription>Per {monthName} {selectedYear}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Kode</TableHead>
+                                        <TableHead>Nama Akun</TableHead>
+                                        <TableHead className="text-right">Jumlah</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={3} className="font-semibold">
+                                            Kewajiban Jangka Pendek
+                                        </TableCell>
+                                    </TableRow>
+                                    {data.liabilities.shortTerm.map((item) => (
+                                        <TableRow key={item.code}>
+                                            <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {formatCurrency(item.amount)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={3} className="font-semibold">
+                                            Kewajiban Jangka Panjang
+                                        </TableCell>
+                                    </TableRow>
+                                    {data.liabilities.longTerm.map((item) => (
+                                        <TableRow key={item.code}>
+                                            <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {formatCurrency(item.amount)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={3} className="font-semibold">
+                                            Ekuitas
+                                        </TableCell>
+                                    </TableRow>
+                                    {data.equity.items.map((item) => (
+                                        <TableRow key={item.code}>
+                                            <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                                {formatCurrency(item.amount)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-primary/10 font-bold">
+                                        <TableCell colSpan={2}>TOTAL PASIVA</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {formatCurrency(data.liabilities.totalLiabilities + data.equity.totalEquity)}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
                 </div>
-            )}
-
-            {/* Balance Check */}
-            {!isLoading && totalAssets > 0 && (
-                <Card className={isBalanced ? "border-emerald-500" : "border-red-500"}>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <span className="font-medium">Status Neraca:</span>
-                            <span className={`font-bold ${isBalanced ? "text-emerald-600" : "text-red-600"}`}>
-                                {isBalanced ? "✓ BALANCE" : "✗ TIDAK BALANCE"}
-                            </span>
-                        </div>
-                        {!isBalanced && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                                Selisih: {formatCurrency(Math.abs(totalAssets - totalLiabilities - totalEquity))}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+            ) : null}
         </div>
     );
 }

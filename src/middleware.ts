@@ -47,15 +47,6 @@ export async function middleware(request: NextRequest) {
 
     const isLoggedIn = !!token;
 
-    // Log for debugging (remove in production later)
-    console.log("[Middleware]", {
-        pathname,
-        isProtectedRoute,
-        isAuthRoute,
-        isLoggedIn,
-        hasSecret: !!secret,
-    });
-
     // Redirect unauthenticated users from protected routes to login
     if (isProtectedRoute && !isLoggedIn) {
         const loginUrl = new URL("/login", request.url);

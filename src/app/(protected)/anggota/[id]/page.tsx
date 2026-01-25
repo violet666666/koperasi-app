@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Member, MemberSummary } from "@/types";
 import { formatCurrency, MEMBER_STATUS } from "@/lib/constants";
+import { membersApi } from "@/lib/api/services";
 
 // Mock data
 const MOCK_MEMBER: Member = {
@@ -144,14 +145,70 @@ export default function AnggotaDetailPage() {
     const [member, setMember] = React.useState<Member | null>(null);
     const [summary, setSummary] = React.useState<MemberSummary | null>(null);
 
-    // Simulate data loading
+    // Data loading
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setMember(MOCK_MEMBER);
-            setSummary(MOCK_SUMMARY);
-            setIsLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        if (!params.id) return;
+
+        async function fetchData() {
+            setIsLoading(true);
+            try {
+                // Fetch member detail
+                const response = await membersApi.get(Number(params.id));
+                const apiData = (response.data as any).data || response.data;
+
+                // Map API camelCase to frontend snake_case
+                const memberData: Member = {
+                    id: apiData.id,
+                    member_no: apiData.memberNo || apiData.member_no,
+                    branch_id: apiData.branchId || apiData.branch_id,
+                    branch: apiData.branch,
+                    name: apiData.name,
+                    nik: apiData.nik,
+                    gender: apiData.gender,
+                    birth_date: apiData.birthDate || apiData.birth_date,
+                    birth_place: apiData.birthPlace || apiData.birth_place,
+                    marital_status: apiData.maritalStatus || apiData.marital_status,
+                    phone: apiData.phone,
+                    email: apiData.email,
+                    address: apiData.address,
+                    city: apiData.city,
+                    province: apiData.province,
+                    join_date: apiData.joinDate || apiData.join_date,
+                    status: apiData.status,
+                    created_at: apiData.createdAt || apiData.created_at,
+                    updated_at: apiData.updatedAt || apiData.updated_at,
+                };
+                setMember(memberData);
+
+                // Construct summary object (placeholder until summary endpoint exists)
+                setSummary({
+                    member_id: memberData.id,
+                    member_no: memberData.member_no,
+                    name: memberData.name,
+                    savings: {
+                        total: 0,
+                        by_type: []
+                    },
+                    loans: {
+                        active_count: 0,
+                        total_outstanding: 0,
+                        total_principal_outstanding: 0,
+                        total_interest_outstanding: 0,
+                        overdue_amount: 0,
+                        overdue_days: 0
+                    },
+                    net_position: 0
+                });
+
+            } catch (error) {
+                console.error("Failed to fetch member:", error);
+                setMember(null);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
     }, [params.id]);
 
     if (isLoading) {

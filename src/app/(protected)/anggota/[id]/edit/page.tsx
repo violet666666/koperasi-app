@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,9 +19,11 @@ import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
 import { membersApi } from "@/lib/api/services";
 
-export default function TambahAnggotaPage() {
+export default function EditAnggotaPage() {
     const router = useRouter();
-    const [isLoading, setIsLoading] = React.useState(false);
+    const params = useParams();
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [isSaving, setIsSaving] = React.useState(false);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -38,8 +40,53 @@ export default function TambahAnggotaPage() {
         province: "",
         postal_code: "",
         branch_id: "",
-        join_date: new Date().toISOString().split("T")[0],
+        join_date: "",
+        status: "",
     });
+
+    // Fetch existing data
+    React.useEffect(() => {
+        if (!params.id) return;
+
+        async function fetchData() {
+            try {
+                const response = await membersApi.get(Number(params.id));
+                const member = (response.data as any).data || response.data;
+
+                // Format date for input field (YYYY-MM-DD)
+                const formatDate = (dateString?: string) => {
+                    if (!dateString) return "";
+                    return new Date(dateString).toISOString().split("T")[0];
+                };
+
+                setFormData({
+                    name: member.name || "",
+                    nik: member.nik || "",
+                    gender: member.gender || "",
+                    birth_place: member.birth_place || "",
+                    birth_date: formatDate(member.birth_date),
+                    marital_status: member.marital_status || "",
+                    phone: member.phone || "",
+                    email: member.email || "",
+                    address: member.address || "",
+                    city: member.city || "",
+                    province: member.province || "",
+                    postal_code: "", // Not in mock data/interface yet, strictly speaking
+                    branch_id: String(member.branch_id),
+                    join_date: formatDate(member.join_date),
+                    status: member.status,
+                });
+            } catch (error) {
+                console.error("Failed to fetch member:", error);
+                toast.error("Gagal mengambil data anggota");
+                router.push("/anggota");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
+    }, [params.id, router]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -54,28 +101,39 @@ export default function TambahAnggotaPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        setIsSaving(true);
 
         try {
-            // Call API to create member
-            await membersApi.create(formData);
+            await membersApi.update(Number(params.id), {
+                ...formData,
+                branch_id: Number(formData.branch_id),
+                // Ensure status is one of the valid types if needed
+            } as any);
 
-            toast.success("Anggota berhasil ditambahkan");
-            router.push("/anggota");
+            toast.success("Data anggota berhasil diperbarui");
+            router.push(`/anggota/${params.id}`);
         } catch (error) {
-            toast.error("Gagal menambahkan anggota");
+            toast.error("Gagal memperbarui data anggota");
             console.error(error);
         } finally {
-            setIsLoading(false);
+            setIsSaving(false);
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex min-h-[400px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Tambah Anggota Baru"
-                description="Daftarkan anggota baru ke sistem koperasi"
-                backHref="/anggota"
+                title="Edit Anggota"
+                description="Perbarui data anggota"
+                backHref={`/anggota/${params.id}`}
             />
 
             <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
@@ -290,6 +348,23 @@ export default function TambahAnggotaPage() {
                                 required
                             />
                         </div>
+
+                        <div>
+                            <Label htmlFor="status">Status</Label>
+                            <Select
+                                value={formData.status}
+                                onValueChange={(value) => handleSelectChange("status", value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Aktif</SelectItem>
+                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                    <SelectItem value="resigned">Keluar</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -299,12 +374,12 @@ export default function TambahAnggotaPage() {
                         type="button"
                         variant="outline"
                         onClick={() => router.back()}
-                        disabled={isLoading}
+                        disabled={isSaving}
                     >
                         Batal
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
-                        {isLoading ? (
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Menyimpan...
@@ -312,7 +387,7 @@ export default function TambahAnggotaPage() {
                         ) : (
                             <>
                                 <Save className="mr-2 h-4 w-4" />
-                                Simpan Anggota
+                                Simpan Perubahan
                             </>
                         )}
                     </Button>
