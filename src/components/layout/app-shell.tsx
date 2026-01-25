@@ -14,6 +14,7 @@ interface AppShellProps {
     branches?: Branch[];
     currentBranchId?: number | null;
     onBranchChange?: (branchId: number | null) => void;
+    onLogout?: () => void;
 }
 
 export function AppShell({
@@ -22,6 +23,7 @@ export function AppShell({
     branches = [],
     currentBranchId,
     onBranchChange,
+    onLogout,
 }: AppShellProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -59,6 +61,7 @@ export function AppShell({
                     currentBranchId={currentBranchId}
                     onBranchChange={onBranchChange}
                     onMenuClick={() => setMobileMenuOpen(true)}
+                    onLogout={onLogout}
                 />
 
                 {/* Page Content */}

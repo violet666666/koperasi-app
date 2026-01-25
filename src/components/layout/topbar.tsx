@@ -40,6 +40,7 @@ interface TopbarProps {
     currentBranchId?: number | null;
     onBranchChange?: (branchId: number | null) => void;
     onMenuClick?: () => void;
+    onLogout?: () => void;
     pendingApprovals?: number;
     className?: string;
 }
@@ -50,6 +51,7 @@ export function Topbar({
     currentBranchId,
     onBranchChange,
     onMenuClick,
+    onLogout,
     pendingApprovals = 0,
     className,
 }: TopbarProps) {
@@ -177,7 +179,10 @@ export function Topbar({
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive focus:text-destructive">
+                    <DropdownMenuItem
+                        className="text-destructive focus:text-destructive cursor-pointer"
+                        onClick={onLogout}
+                    >
                         <LogOut className="mr-2 h-4 w-4" />
                         Keluar
                     </DropdownMenuItem>

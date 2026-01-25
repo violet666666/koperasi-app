@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from "@/lib/hooks";
 import { AppShell } from "@/components/layout";
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
-    const { user, branches, currentBranchId, setCurrentBranch, isLoading } = useAuth();
+    const { user, branches, currentBranchId, setCurrentBranch, logout, isLoading } = useAuth();
 
     if (isLoading) {
         return (
@@ -20,6 +20,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
             branches={branches}
             currentBranchId={currentBranchId}
             onBranchChange={setCurrentBranch}
+            onLogout={logout}
         >
             {children}
         </AppShell>

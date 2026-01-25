@@ -52,7 +52,7 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+        <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground shadow-lg">
@@ -147,13 +147,13 @@ export default function LoginPage() {
                     </form>
 
                     {/* Demo Credentials */}
-                    <div className="mt-6 rounded-lg bg-muted p-4 text-sm">
-                        <p className="font-medium text-muted-foreground mb-2">Demo Credentials:</p>
-                        <p className="text-xs text-muted-foreground">
-                            Email: <code className="bg-background px-1 rounded">admin@koperasi.com</code>
+                    <div className="mt-6 rounded-lg bg-muted p-4 text-sm" role="note" aria-label="Demo credentials">
+                        <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
+                        <p className="text-sm text-foreground/80">
+                            Email: <code className="bg-background px-1 rounded font-mono">admin@koperasi.com</code>
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                            Password: <code className="bg-background px-1 rounded">admin123</code>
+                        <p className="text-sm text-foreground/80">
+                            Password: <code className="bg-background px-1 rounded font-mono">admin123</code>
                         </p>
                     </div>
                 </CardContent>
@@ -163,6 +163,6 @@ export default function LoginPage() {
             <p className="mt-8 text-center text-xs text-muted-foreground">
                 © 2025 Koperasi Digital. All rights reserved.
             </p>
-        </div>
+        </main>
     );
 }
