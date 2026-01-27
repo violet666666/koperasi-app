@@ -33,7 +33,13 @@ class ApiClient {
     }
 
     private buildUrl(endpoint: string, params?: Record<string, string | number | boolean | undefined>): string {
-        const url = new URL(`${this.baseUrl}${endpoint}`);
+        // Check if baseUrl is absolute
+        const isAbsolute = this.baseUrl.startsWith("http://") || this.baseUrl.startsWith("https://");
+        // Use a dummy base if relative, to allow URL object construction
+        const base = isAbsolute ? undefined : "http://koperasi-app.local";
+        const fullPath = `${this.baseUrl}${endpoint}`;
+
+        const url = new URL(fullPath, base);
 
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -43,7 +49,7 @@ class ApiClient {
             });
         }
 
-        return url.toString();
+        return isAbsolute ? url.toString() : `${url.pathname}${url.search}`;
     }
 
     private async handleResponse<T>(response: Response): Promise<T> {

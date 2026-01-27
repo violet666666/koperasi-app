@@ -16,8 +16,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, CalendarIcon } from "lucide-react";
 import { membersApi } from "@/lib/api/services";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
 
 export default function TambahAnggotaPage() {
     const router = useRouter();
@@ -29,7 +34,7 @@ export default function TambahAnggotaPage() {
         nik: "",
         gender: "",
         birth_place: "",
-        birth_date: "",
+        birth_date: "", // Initialized as empty string
         marital_status: "",
         phone: "",
         email: "",
@@ -50,6 +55,15 @@ export default function TambahAnggotaPage() {
 
     const handleSelectChange = (name: string, value: string) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleDateChange = (name: string, date: Date | undefined) => {
+        if (date) {
+            // Adjust for timezone offset to avoid previous day issue
+            const offset = date.getTimezoneOffset();
+            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+            setFormData((prev) => ({ ...prev, [name]: adjustedDate.toISOString().split("T")[0] }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -137,15 +151,37 @@ export default function TambahAnggotaPage() {
                             />
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-2">
                             <Label htmlFor="birth_date">Tanggal Lahir</Label>
-                            <Input
-                                id="birth_date"
-                                name="birth_date"
-                                type="date"
-                                value={formData.birth_date}
-                                onChange={handleChange}
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !formData.birth_date && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {formData.birth_date ? (
+                                            format(new Date(formData.birth_date), "PPP", { locale: id })
+                                        ) : (
+                                            <span>Pilih tanggal</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={formData.birth_date ? new Date(formData.birth_date) : undefined}
+                                        onSelect={(date) => handleDateChange("birth_date", date)}
+                                        disabled={(date) =>
+                                            date > new Date() || date < new Date("1900-01-01")
+                                        }
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         <div>
@@ -279,16 +315,34 @@ export default function TambahAnggotaPage() {
                             </Select>
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-2">
                             <Label htmlFor="join_date">Tanggal Bergabung *</Label>
-                            <Input
-                                id="join_date"
-                                name="join_date"
-                                type="date"
-                                value={formData.join_date}
-                                onChange={handleChange}
-                                required
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !formData.join_date && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {formData.join_date ? (
+                                            format(new Date(formData.join_date), "PPP", { locale: id })
+                                        ) : (
+                                            <span>Pilih tanggal</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={formData.join_date ? new Date(formData.join_date) : undefined}
+                                        onSelect={(date) => handleDateChange("join_date", date)}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </CardContent>
                 </Card>

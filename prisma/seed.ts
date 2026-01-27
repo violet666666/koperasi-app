@@ -253,13 +253,13 @@ async function main() {
     }
 
     // Create super admin user
-    console.log("Creating admin user...");
-    const superAdminRole = await prisma.role.findUnique({
-        where: { name: "super_admin" },
-    });
+    console.log("Creating admin users...");
+    const superAdminRole = await prisma.role.findUnique({ where: { name: "super_admin" } });
+    const branchAdminRole = await prisma.role.findUnique({ where: { name: "admin_cabang" } });
+
+    const hashedPassword = await bcrypt.hash("admin123", 12);
 
     if (superAdminRole) {
-        const hashedPassword = await bcrypt.hash("admin123", 12);
         await prisma.user.upsert({
             where: { email: "admin@koperasi.com" },
             update: {},
@@ -272,6 +272,25 @@ async function main() {
                 isActive: true,
             },
         });
+    }
+
+    // Create branch admin
+    if (branchAdminRole) {
+        const jakartaBranch = await prisma.branch.findUnique({ where: { code: "JKT" } });
+        if (jakartaBranch) {
+            await prisma.user.upsert({
+                where: { email: "admin.jkt@koperasi.com" },
+                update: {},
+                create: {
+                    name: "Admin Jakarta",
+                    email: "admin.jkt@koperasi.com",
+                    password: hashedPassword,
+                    roleId: branchAdminRole.id,
+                    branchId: jakartaBranch.id,
+                    isActive: true,
+                },
+            });
+        }
     }
 
     // Create savings products
@@ -300,7 +319,7 @@ async function main() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    await prisma.fiscalPeriod.upsert({
+    const period = await prisma.fiscalPeriod.upsert({
         where: { year_month: { year: now.getFullYear(), month: now.getMonth() + 1 } },
         update: {},
         create: {
@@ -313,11 +332,78 @@ async function main() {
         },
     });
 
+    // Create Memeber
+    console.log("Creating dummy member...");
+    const jakartaBranch = await prisma.branch.findUnique({ where: { code: "JKT" } });
+    if (jakartaBranch) {
+        const member = await prisma.member.upsert({
+            where: { memberNo: "MBR-20250001" },
+            update: {},
+            create: {
+                memberNo: "MBR-20250001",
+                name: "Budi Santoso",
+                nik: "3171010101900001",
+                gender: "male",
+                birthPlace: "Jakarta",
+                birthDate: new Date("1990-01-01"),
+                maritalStatus: "married",
+                address: "Jl. Tebet Raya No. 10",
+                city: "Jakarta Selatan",
+                phone: "081234567890",
+                email: "budi@example.com",
+                branchId: jakartaBranch.id,
+                joinDate: new Date(),
+                status: "active",
+            },
+        });
+
+        // Create Savings Account (Simpanan Pokok)
+        const spProduct = await prisma.savingsProduct.findUnique({ where: { code: "SP" } });
+        if (spProduct) {
+            const account = await prisma.savingsAccount.upsert({
+                where: { memberId_productId: { memberId: member.id, productId: spProduct.id } },
+                update: {},
+                create: {
+                    accountNo: `SP-${member.memberNo}`,
+                    memberId: member.id,
+                    productId: spProduct.id,
+                    branchId: jakartaBranch.id,
+                    balance: 100000,
+                    openedDate: new Date(),
+                    status: "active",
+                },
+            });
+
+            // Transaction: Setoran Awal
+            const adminUser = await prisma.user.findUnique({ where: { email: "admin@koperasi.com" } });
+            if (adminUser) {
+                await prisma.savingsTransaction.create({
+                    data: {
+                        transactionNo: `TRX-${Date.now()}`,
+                        accountId: account.id,
+                        memberId: member.id,
+                        productId: spProduct.id,
+                        branchId: jakartaBranch.id,
+                        type: "deposit",
+                        amount: 100000,
+                        balanceBefore: 0,
+                        balanceAfter: 100000,
+                        notes: "Setoran Awal Simpanan Pokok",
+                        transactionDate: new Date(),
+                        periodId: period.id,
+                        createdById: adminUser.id,
+                    },
+                });
+            }
+        }
+    }
+
     console.log("✅ Seed completed successfully!");
     console.log("");
-    console.log("Default admin credentials:");
-    console.log("  Email: admin@koperasi.com");
-    console.log("  Password: admin123");
+    console.log("Credentials:");
+    console.log("  Super Admin: admin@koperasi.com / admin123");
+    console.log("  Branch Admin: admin.jkt@koperasi.com / admin123");
+    console.log("  Member: Budi Santoso (MBR-20250001)");
 }
 
 main()
