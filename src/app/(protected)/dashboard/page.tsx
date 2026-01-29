@@ -191,24 +191,31 @@ export default function DashboardPage() {
             try {
                 setIsLoading(true);
 
-                // Fetch data in parallel
-                const [membersRes, approvalsRes] = await Promise.allSettled([
-                    membersApi.list({ perPage: 1 }),
+                // Fetch data in parallel - now including dashboard stats
+                const [statsRes, approvalsRes] = await Promise.allSettled([
+                    fetch("/api/dashboard-stats").then((res) => res.json()),
                     approvalsApi.list("pending"),
                 ]);
 
-                // Process members count
-                let totalMembers = 0;
-                if (membersRes.status === "fulfilled") {
-                    totalMembers = membersRes.value.meta.total;
+                // Process dashboard stats from new API
+                if (statsRes.status === "fulfilled" && statsRes.value.data) {
+                    const data = statsRes.value.data;
+                    setStats({
+                        totalAnggota: data.totalMembers || 0,
+                        totalSimpanan: data.totalSavings || 0,
+                        totalPinjaman: data.totalLoansOutstanding || 0,
+                        tunggakan: data.totalArrears || 0,
+                        simpananHariIni: data.todayDeposits || 0,
+                        pencairanHariIni: data.todayWithdrawals || 0,
+                        angsuranHariIni: data.todayPayments || 0,
+                        pendingApproval: data.pendingApprovals || 0,
+                    });
                 }
 
                 // Process pending approvals
                 let approvals: PendingApproval[] = [];
-                let pendingCount = 0;
                 if (approvalsRes.status === "fulfilled") {
                     const data = approvalsRes.value.data as any[];
-                    pendingCount = data.length;
                     approvals = data.slice(0, 3).map((item: any) => ({
                         id: item.id,
                         type: item.type === "loan_application" ? "Pinjaman" : "Lainnya",
@@ -219,19 +226,6 @@ export default function DashboardPage() {
                             : "-",
                     }));
                 }
-
-                // For now, use sample data for financial stats
-                // In production, these would come from dedicated report endpoints
-                setStats({
-                    totalAnggota: totalMembers,
-                    totalSimpanan: 2500000000,
-                    totalPinjaman: 1800000000,
-                    tunggakan: 45000000,
-                    simpananHariIni: 15000000,
-                    pencairanHariIni: 50000000,
-                    angsuranHariIni: 25000000,
-                    pendingApproval: pendingCount,
-                });
 
                 setPendingApprovals(approvals);
             } catch (error) {

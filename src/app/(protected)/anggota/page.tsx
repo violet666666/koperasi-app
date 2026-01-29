@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
+import { DeleteConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -57,8 +59,14 @@ function StatusBadge({ status }: { status: keyof typeof MEMBER_STATUS }) {
     );
 }
 
-// Actions dropdown component
-function ActionsDropdown({ member }: { member: Member }) {
+// Actions dropdown component with delete confirmation
+function ActionsDropdown({
+    member,
+    onDelete
+}: {
+    member: Member;
+    onDelete: (id: number, name: string) => void;
+}) {
     const router = useRouter();
 
     return (
@@ -85,7 +93,10 @@ function ActionsDropdown({ member }: { member: Member }) {
                     Buku Anggota
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => onDelete(member.id, member.name)}
+                >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Hapus
                 </DropdownMenuItem>
@@ -94,70 +105,7 @@ function ActionsDropdown({ member }: { member: Member }) {
     );
 }
 
-// Table columns definition
-const columns: ColumnDef<Member>[] = [
-    {
-        accessorKey: "member_no",
-        header: "No. Anggota",
-        cell: ({ row }) => (
-            <Link
-                href={`/anggota/${row.original.id}`}
-                className="font-medium text-primary hover:underline"
-            >
-                {row.getValue("member_no")}
-            </Link>
-        ),
-    },
-    {
-        accessorKey: "name",
-        header: "Nama",
-        cell: ({ row }) => (
-            <div>
-                <div className="font-medium">{row.getValue("name")}</div>
-                <div className="text-sm text-muted-foreground">{row.original.phone}</div>
-            </div>
-        ),
-    },
-    {
-        accessorKey: "branch",
-        header: "Cabang",
-        cell: ({ row }) => row.original.branch?.name || "-",
-        filterFn: (row, id, value) => {
-            return value === "all" || row.original.branch_id === parseInt(value);
-        },
-    },
-    {
-        accessorKey: "city",
-        header: "Kota",
-        cell: ({ row }) => row.getValue("city") || "-",
-    },
-    {
-        accessorKey: "join_date",
-        header: "Tgl Bergabung",
-        cell: ({ row }) => {
-            const dateValue = row.getValue("join_date");
-            if (!dateValue) return "-";
-            const date = new Date(dateValue as string);
-            return date.toLocaleDateString("id-ID", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-            });
-        },
-    },
-    {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
-        filterFn: (row, id, value) => {
-            return value === "all" || row.getValue(id) === value;
-        },
-    },
-    {
-        id: "actions",
-        cell: ({ row }) => <ActionsDropdown member={row.original} />,
-    },
-];
+
 
 // Map API member to internal format
 function mapApiMember(apiMember: ApiMember): Member {
@@ -182,6 +130,108 @@ export default function AnggotaListPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<Member[]>([]);
     const [branches, setBranches] = React.useState<Array<{ id: number; name: string }>>([]);
+
+    // Delete confirmation state
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+    const [memberToDelete, setMemberToDelete] = React.useState<{ id: number; name: string } | null>(null);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    // Handle delete click - opens confirmation dialog
+    const handleDeleteClick = (id: number, name: string) => {
+        setMemberToDelete({ id, name });
+        setDeleteDialogOpen(true);
+    };
+
+    // Handle confirmed delete
+    const handleConfirmDelete = async () => {
+        if (!memberToDelete) return;
+
+        try {
+            setIsDeleting(true);
+            await membersApi.delete(memberToDelete.id);
+
+            // Remove from local state
+            setMembers((prev) => prev.filter((m) => m.id !== memberToDelete.id));
+
+            toast.success(`Anggota ${memberToDelete.name} berhasil dihapus`);
+            setDeleteDialogOpen(false);
+        } catch (error) {
+            console.error("Failed to delete member:", error);
+            toast.error("Gagal menghapus anggota. Silakan coba lagi.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    // Dynamic columns with delete handler
+    const columns: ColumnDef<Member>[] = React.useMemo(() => [
+        {
+            accessorKey: "member_no",
+            header: "No. Anggota",
+            cell: ({ row }) => (
+                <Link
+                    href={`/anggota/${row.original.id}`}
+                    className="font-medium text-primary hover:underline"
+                >
+                    {row.getValue("member_no")}
+                </Link>
+            ),
+        },
+        {
+            accessorKey: "name",
+            header: "Nama",
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-medium">{row.getValue("name")}</div>
+                    <div className="text-sm text-muted-foreground">{row.original.phone}</div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: "branch",
+            header: "Cabang",
+            cell: ({ row }) => row.original.branch?.name || "-",
+            filterFn: (row, id, value) => {
+                return value === "all" || row.original.branch_id === parseInt(value);
+            },
+        },
+        {
+            accessorKey: "city",
+            header: "Kota",
+            cell: ({ row }) => row.getValue("city") || "-",
+        },
+        {
+            accessorKey: "join_date",
+            header: "Tgl Bergabung",
+            cell: ({ row }) => {
+                const dateValue = row.getValue("join_date");
+                if (!dateValue) return "-";
+                const date = new Date(dateValue as string);
+                return date.toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                });
+            },
+        },
+        {
+            accessorKey: "status",
+            header: "Status",
+            cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
+            filterFn: (row, id, value) => {
+                return value === "all" || row.getValue(id) === value;
+            },
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => (
+                <ActionsDropdown
+                    member={row.original}
+                    onDelete={handleDeleteClick}
+                />
+            ),
+        },
+    ], []);
 
     // Fetch members from API
     React.useEffect(() => {
@@ -273,6 +323,15 @@ export default function AnggotaListPage() {
                 isLoading={isLoading}
                 searchPlaceholder="Cari nama atau no. anggota..."
                 onRowClick={(row) => router.push(`/anggota/${row.id}`)}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            <DeleteConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                itemName={memberToDelete?.name || "anggota"}
+                onConfirm={handleConfirmDelete}
+                isLoading={isDeleting}
             />
         </div>
     );
