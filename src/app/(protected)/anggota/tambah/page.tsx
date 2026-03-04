@@ -31,6 +31,7 @@ export default function TambahAnggotaPage() {
     // Form state
     const [formData, setFormData] = React.useState({
         name: "",
+        nrp: "",
         nik: "",
         gender: "",
         birth_place: "",
@@ -107,6 +108,18 @@ export default function TambahAnggotaPage() {
                                 value={formData.name}
                                 onChange={handleChange}
                                 placeholder="Masukkan nama lengkap"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="nrp">NRP *</Label>
+                            <Input
+                                id="nrp"
+                                name="nrp"
+                                value={formData.nrp}
+                                onChange={handleChange}
+                                placeholder="Masukkan NRP / Nomor Anggota"
                                 required
                             />
                         </div>

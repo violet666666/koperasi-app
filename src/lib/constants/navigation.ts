@@ -104,6 +104,12 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Pengeluaran", href: "/non-sp/pengeluaran" },
                 ],
             },
+            {
+                title: "Transaksi Unit",
+                href: "/transaksi-unit",
+                icon: Wallet,
+                permission: "manage_unit_transactions",
+            },
         ],
     },
 

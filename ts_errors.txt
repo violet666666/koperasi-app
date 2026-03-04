@@ -1,0 +1,19 @@
+src/app/(portal)/dashboard/page.tsx(11,10): error TS2305: Module '"@/lib/utils"' has no exported member 'formatCurrency'.
+src/app/(portal)/pinjaman/page.tsx(6,10): error TS2305: Module '"@/lib/utils"' has no exported member 'formatCurrency'.
+src/app/(portal)/pinjaman/page.tsx(41,36): error TS18048: 'response.data.loans.activeCount' is possibly 'undefined'.
+src/app/(portal)/simpanan/page.tsx(6,10): error TS2305: Module '"@/lib/utils"' has no exported member 'formatCurrency'.
+src/app/(portal)/transaksi/page.tsx(8,10): error TS2305: Module '"@/lib/utils"' has no exported member 'formatCurrency'.
+src/app/(protected)/transaksi-unit/page.tsx(147,17): error TS2322: Type '{ title: string; description: string; action: { label: string; href: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; variant: string; }; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'action' does not exist on type 'IntrinsicAttributes & PageHeaderProps'. Did you mean 'actions'?
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(8,26): error TS2305: Module '"@/components/patterns/data-table"' has no exported member 'Column'.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(11,10): error TS2305: Module '"@/lib/utils"' has no exported member 'formatCurrency'.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(38,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(50,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(62,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(71,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(80,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(85,20): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(101,17): error TS2322: Type '{ title: string; description: string; action: { label: string; href: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; }; }' is not assignable to type 'IntrinsicAttributes & PageHeaderProps'.
+  Property 'action' does not exist on type 'IntrinsicAttributes & PageHeaderProps'. Did you mean 'actions'?
+src/app/(protected)/transaksi-unit/riwayat/page.tsx(111,17): error TS2322: Type '{ columns: Column<UnitTransaction>[]; data: UnitTransaction[]; pageCount: number; isLoading: boolean; onPageChange: Dispatch<SetStateAction<number>>; onPerPageChange: Dispatch<...>; }' is not assignable to type 'IntrinsicAttributes & DataTableProps<UnitTransaction, unknown>'.
+  Property 'pageCount' does not exist on type 'IntrinsicAttributes & DataTableProps<UnitTransaction, unknown>'.
