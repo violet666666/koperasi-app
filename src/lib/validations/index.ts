@@ -84,6 +84,7 @@ export const updateAccountSchema = createAccountSchema.partial();
 // Member validation schemas
 export const createMemberSchema = z.object({
     memberNo: z.string().min(1).max(20),
+    nrp: z.string().min(1).max(30).optional(),
     branchId: z.number().int().positive(),
     name: z.string().min(1).max(255),
     nik: z.string().length(16).optional(),
@@ -189,3 +190,16 @@ export type CreateLoanPaymentInput = z.infer<typeof createLoanPaymentSchema>;
 export type CreateCashBankTransactionInput = z.infer<typeof createCashBankTransactionSchema>;
 export type CreateTransferInput = z.infer<typeof createTransferSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
+
+// Unit Transaction validation schemas
+export const createUnitTransactionSchema = z.object({
+    nrp: z.string().min(1).max(30),
+    unitType: z.enum(["toko", "simpan_pinjam", "fotocopy", "cuci_mobil", "fitness"]),
+    description: z.string().min(1).max(500),
+    amount: z.number().positive(),
+    transactionDate: z.string().transform((s) => new Date(s)),
+    isPaid: z.boolean().default(false),
+    notes: z.string().optional(),
+});
+
+export type CreateUnitTransactionInput = z.infer<typeof createUnitTransactionSchema>;

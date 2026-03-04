@@ -27,6 +27,10 @@ const PERMISSIONS = [
     { name: "view_laporan", displayName: "Lihat Laporan", module: "laporan" },
     // Approvals
     { name: "approve_transactions", displayName: "Approve Transaksi", module: "approval" },
+    // Unit Transactions
+    { name: "manage_unit_transactions", displayName: "Kelola Transaksi Unit", module: "unit_transactions" },
+    // Member Portal (for anggota role)
+    { name: "view_own_data", displayName: "Lihat Data Sendiri", module: "portal" },
 ];
 
 const ROLES = [
@@ -35,7 +39,7 @@ const ROLES = [
         displayName: "Super Admin",
         description: "Full access to all features",
         isSystem: true,
-        permissions: PERMISSIONS.map((p) => p.name),
+        permissions: PERMISSIONS.filter(p => p.name !== "view_own_data").map((p) => p.name),
     },
     {
         name: "admin_cabang",
@@ -52,6 +56,7 @@ const ROLES = [
             "manage_kas_bank",
             "view_jurnal",
             "view_laporan",
+            "manage_unit_transactions",
         ],
     },
     {
@@ -84,6 +89,16 @@ const ROLES = [
             "view_jurnal",
             "view_laporan",
             "approve_transactions",
+            "manage_unit_transactions",
+        ],
+    },
+    {
+        name: "anggota",
+        displayName: "Anggota",
+        description: "Member with view-only access to own data",
+        isSystem: true,
+        permissions: [
+            "view_own_data",
         ],
     },
 ];
@@ -256,8 +271,10 @@ async function main() {
     console.log("Creating admin users...");
     const superAdminRole = await prisma.role.findUnique({ where: { name: "super_admin" } });
     const branchAdminRole = await prisma.role.findUnique({ where: { name: "admin_cabang" } });
+    const anggotaRole = await prisma.role.findUnique({ where: { name: "anggota" } });
 
     const hashedPassword = await bcrypt.hash("admin123", 12);
+    const memberPassword = await bcrypt.hash("anggota123", 12);
 
     if (superAdminRole) {
         await prisma.user.upsert({
@@ -332,15 +349,16 @@ async function main() {
         },
     });
 
-    // Create Memeber
+    // Create Member with NRP
     console.log("Creating dummy member...");
     const jakartaBranch = await prisma.branch.findUnique({ where: { code: "JKT" } });
     if (jakartaBranch) {
         const member = await prisma.member.upsert({
             where: { memberNo: "MBR-20250001" },
-            update: {},
+            update: { nrp: "12345678" },
             create: {
                 memberNo: "MBR-20250001",
+                nrp: "12345678",
                 name: "Budi Santoso",
                 nik: "3171010101900001",
                 gender: "male",
@@ -356,6 +374,23 @@ async function main() {
                 status: "active",
             },
         });
+
+        // Create user account for member (anggota login)
+        if (anggotaRole) {
+            await prisma.user.upsert({
+                where: { email: "12345678@koperasi.local" },
+                update: { memberId: member.id },
+                create: {
+                    name: member.name,
+                    email: "12345678@koperasi.local",
+                    password: memberPassword,
+                    roleId: anggotaRole.id,
+                    branchId: jakartaBranch.id,
+                    memberId: member.id,
+                    isActive: true,
+                },
+            });
+        }
 
         // Create Savings Account (Simpanan Pokok)
         const spProduct = await prisma.savingsProduct.findUnique({ where: { code: "SP" } });
@@ -394,6 +429,57 @@ async function main() {
                         createdById: adminUser.id,
                     },
                 });
+
+                // Create sample unit transactions
+                console.log("Creating sample unit transactions...");
+                const unitTransactions = [
+                    {
+                        transactionNo: `UT-${Date.now()}-001`,
+                        memberId: member.id,
+                        unitType: "toko",
+                        description: "Pembelian beras 5kg",
+                        amount: 75000,
+                        transactionDate: new Date(),
+                        isPaid: true,
+                        paidDate: new Date(),
+                        createdById: adminUser.id,
+                    },
+                    {
+                        transactionNo: `UT-${Date.now()}-002`,
+                        memberId: member.id,
+                        unitType: "fotocopy",
+                        description: "Fotocopy dokumen 50 lembar",
+                        amount: 25000,
+                        transactionDate: new Date(),
+                        isPaid: false,
+                        createdById: adminUser.id,
+                    },
+                    {
+                        transactionNo: `UT-${Date.now()}-003`,
+                        memberId: member.id,
+                        unitType: "cuci_mobil",
+                        description: "Cuci mobil + poles",
+                        amount: 150000,
+                        transactionDate: new Date(),
+                        isPaid: false,
+                        createdById: adminUser.id,
+                    },
+                    {
+                        transactionNo: `UT-${Date.now()}-004`,
+                        memberId: member.id,
+                        unitType: "fitness",
+                        description: "Membership bulanan fitness",
+                        amount: 200000,
+                        transactionDate: new Date(),
+                        isPaid: true,
+                        paidDate: new Date(),
+                        createdById: adminUser.id,
+                    },
+                ];
+
+                for (const tx of unitTransactions) {
+                    await prisma.unitTransaction.create({ data: tx });
+                }
             }
         }
     }
@@ -403,7 +489,8 @@ async function main() {
     console.log("Credentials:");
     console.log("  Super Admin: admin@koperasi.com / admin123");
     console.log("  Branch Admin: admin.jkt@koperasi.com / admin123");
-    console.log("  Member: Budi Santoso (MBR-20250001)");
+    console.log("  Anggota: 12345678@koperasi.local / anggota123 (NRP: 12345678)");
+    console.log("  Member: Budi Santoso (MBR-20250001, NRP: 12345678)");
 }
 
 main()

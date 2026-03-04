@@ -76,6 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         roleDisplayName: user.role.displayName,
                         branchId: user.branchId,
                         branchName: user.branch?.name || null,
+                        memberId: user.memberId || null,
                         permissions: user.role.permissions.map((rp: { permission: { name: string } }) => rp.permission.name),
                     };
                 } catch (error) {
@@ -93,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.roleDisplayName = user.roleDisplayName;
                 token.branchId = user.branchId;
                 token.branchName = user.branchName;
+                token.memberId = user.memberId;
                 token.permissions = user.permissions;
             }
             return token;
@@ -104,6 +106,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 session.user.roleDisplayName = token.roleDisplayName as string;
                 session.user.branchId = token.branchId as number | null;
                 session.user.branchName = token.branchName as string | null;
+                session.user.memberId = token.memberId as number | null;
                 session.user.permissions = token.permissions as string[];
             }
             return session;

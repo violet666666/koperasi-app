@@ -8,6 +8,7 @@ import { api } from "./client";
 export interface Member {
     id: number;
     memberNo: string;
+    nrp?: string;
     name: string;
     email?: string;
     phone?: string;
@@ -275,4 +276,57 @@ export const usersApi = {
     delete: (id: number) => api.delete(`/users/${id}`),
 
     roles: () => api.get<{ data: unknown[] }>("/users/roles"),
+};
+
+// ============================================================
+// Unit Transactions API
+// ============================================================
+
+export interface UnitTransaction {
+    id: number;
+    transactionNo: string;
+    memberId: number;
+    unitType: string;
+    description: string;
+    amount: number;
+    transactionDate: string;
+    isPaid: boolean;
+    paidDate?: string;
+    notes?: string;
+    member?: { id: number; memberNo: string; nrp: string; name: string };
+    createdBy?: { id: number; name: string };
+}
+
+export const unitTransactionsApi = {
+    list: (params?: { page?: number; perPage?: number; unitType?: string; isPaid?: string; memberId?: number }) =>
+        api.get<PaginatedResponse<UnitTransaction>>("/unit-transactions", { params }),
+
+    create: (data: {
+        nrp: string;
+        unitType: string;
+        description: string;
+        amount: number;
+        transactionDate: string;
+        isPaid?: boolean;
+        notes?: string;
+    }) => api.post<{ data: UnitTransaction }>("/unit-transactions", data),
+};
+
+// ============================================================
+// Member Portal API
+// ============================================================
+
+export const memberPortalApi = {
+    summary: () => api.get<{ data: unknown }>("/member-portal/summary"),
+
+    transactions: (params?: { type?: string; unitType?: string; isPaid?: string; page?: number }) =>
+        api.get<{ data: unknown }>("/member-portal/transactions", { params }),
+};
+
+// ============================================================
+// Member Lookup API
+// ============================================================
+
+export const memberLookupApi = {
+    byNrp: (nrp: string) => api.get<{ data: Member | null }>(`/members/lookup?nrp=${encodeURIComponent(nrp)}`),
 };

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Protected routes that require authentication
-const protectedRoutes = [
+// Protected routes that require authentication (admin routes)
+const adminRoutes = [
     "/dashboard",
     "/anggota",
     "/simpanan",
@@ -12,21 +12,32 @@ const protectedRoutes = [
     "/laporan",
     "/master",
     "/approval",
+    "/transaksi-unit",
 ];
 
-// Auth routes that should redirect to dashboard if logged in
+// Member portal routes
+const portalRoutes = ["/portal"];
+
+// All protected routes
+const protectedRoutes = [...adminRoutes, ...portalRoutes];
+
+// Auth routes that should redirect if logged in
 const authRoutes = ["/login"];
 
-// Get the secret - NextAuth v5 uses AUTH_SECRET, v4 uses NEXTAUTH_SECRET
+// Get the secret
 const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Check if route is protected
-    const isProtectedRoute = protectedRoutes.some((route) =>
+    // Check route types
+    const isAdminRoute = adminRoutes.some((route) =>
         pathname.startsWith(route)
     );
+    const isPortalRoute = portalRoutes.some((route) =>
+        pathname.startsWith(route)
+    );
+    const isProtectedRoute = isAdminRoute || isPortalRoute;
     const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
     // Skip if not a protected or auth route
@@ -46,6 +57,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const isLoggedIn = !!token;
+    const userRole = token?.role as string | undefined;
 
     // Redirect unauthenticated users from protected routes to login
     if (isProtectedRoute && !isLoggedIn) {
@@ -54,9 +66,26 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    // Redirect authenticated users from auth routes to dashboard
+    // Redirect authenticated users from auth routes
     if (isAuthRoute && isLoggedIn) {
+        // Anggota role goes to portal, others go to dashboard
+        if (userRole === "anggota") {
+            return NextResponse.redirect(new URL("/portal/dashboard", request.url));
+        }
         return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Role-based route protection
+    if (isLoggedIn) {
+        // Anggota trying to access admin routes → redirect to portal
+        if (isAdminRoute && userRole === "anggota") {
+            return NextResponse.redirect(new URL("/portal/dashboard", request.url));
+        }
+
+        // Admin/non-anggota trying to access portal routes → redirect to dashboard
+        if (isPortalRoute && userRole !== "anggota") {
+            return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
     }
 
     return NextResponse.next();
