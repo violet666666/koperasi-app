@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { AuthProvider, useAuth } from "@/lib/hooks";
 import { AppShell } from "@/components/layout";
 import { ErrorBoundary } from "@/components/patterns/error-boundary";
