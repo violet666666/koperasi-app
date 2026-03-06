@@ -50,5 +50,23 @@ Antarmuka layanan mandiri (Self-Service) khusus untuk Role Anggota dan didesain 
 - **Mutasi Kas**: Pemantauan histori arus kas masuk (Cash In) dan arus kas keluar (Cash Out) secara keseluruhan entitas koperasi.
 - **Laporan (Reporting)**: Layar Rekap dan generasi Laporan Anggota dan transaksi komprehensif (Masih dalam tahap perluasan fitur).
 
+## 8. Modul Akuntansi Penuh (Double-Entry)
+Sistem ini menggunakan standar akuntansi ganda (*double-entry bookkeeping*):
+- **Chart of Accounts (Bagan Akun)**: Hierarki akun mulai dari Aset (Kas/Bank, Piutang), Kewajiban (Simpanan), Ekuitas, Pendapatan, hingga Beban.
+- **Jurnal Umum Otomatis**: Setiap transaksi operasional (setoran, angsuran pinjaman, transaksi toko) langsung menciptakan dua jurnal (debit & kredit) secara otomatis di belakang layar.
+- **Input Jurnal Manual**: Kasir/Admin dapat membuat penyesuaian catatan keuangan (Jurnal Penyesuaian) dan transaksi non-operasional lainnya.
+- **Reporting Transparan**:
+  - Buku Besar (General Ledger).
+  - Neraca Saldo (Trial Balance).
+  - Neraca Keuangan (Balance Sheet).
+  - Laporan Laba Rugi (Income Statement).
+
+## 9. Mobile Responsive & PWA (Progressive Web App)
+- **Desain Mobile-First**: Semua layar tabel, portal anggota, dan antarmuka admin dioptimalkan untuk perangkat ponsel pintar, dengan dukungan penyesuaian *Safe Area Inset* (iPhone Notch) dan *Dynamic Viewport* (`100dvh`).
+- **Instalasi PWA**: Sistem dapat diunduh/digunakan langsung selayaknya aplikasi *native* dari Chrome Android atau Safari iOS, menampilkan App Icon Koperasi di *Home Screen*, dan mendukung mode *Offline Fallback*.
+
+## 10. Alat Pra-Demonstrasi
+- **Seed Generator**: Skrip untuk me-reset ulang *database* dan meng-generate 10 akun anggota dengan masing-masing Nomor Registrasi Pokok (NRP), puluhan riwayat mutasi tabungan/pinjaman, lengkap dengan jurnal akuntansinya, siap pakai untuk keperluan *demo live*.
+
 ---
-*Dokumen ini dibuat secara otomatis untuk memberikan gambaran fungsionalitas aplikasi Koperasi Digital.*
+*Dokumen ini diperbarui secara bertahap untuk merekam penambahan kapabilitas sistem Koperasi Digital.*
