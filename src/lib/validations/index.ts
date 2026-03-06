@@ -83,7 +83,7 @@ export const updateAccountSchema = createAccountSchema.partial();
 
 // Member validation schemas
 export const createMemberSchema = z.object({
-    memberNo: z.string().min(1).max(20),
+    memberNo: z.string().min(1).max(20).optional(),
     nrp: z.string().min(1).max(30).optional(),
     branchId: z.number().int().positive(),
     name: z.string().min(1).max(255),

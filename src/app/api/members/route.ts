@@ -68,6 +68,14 @@ export async function POST(request: Request) {
         const body = await request.json();
         const data = createMemberSchema.parse(body);
 
+        // Auto-generate memberNo if not provided
+        if (!data.memberNo) {
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const randomId = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+            // Provide the generated memberNo to the data payload so Prisma accepts it as required in Schema
+            data.memberNo = `MBR${dateStr}${randomId}`;
+        }
+
         // Check for duplicate member number
         const existingMemberNo = await prisma.member.findUnique({
             where: { memberNo: data.memberNo },
@@ -75,7 +83,7 @@ export async function POST(request: Request) {
 
         if (existingMemberNo) {
             return NextResponse.json(
-                { message: "Nomor anggota sudah digunakan" },
+                { message: "Nomor anggota sudah digunakan. Silakan coba simpan lagi." },
                 { status: 400 }
             );
         }
@@ -96,7 +104,8 @@ export async function POST(request: Request) {
         // Create member and user in transaction
         const result = await prisma.$transaction(async (tx) => {
             const member = await tx.member.create({
-                data,
+                // Force TS casting because schemas divergence between strict Prisma and optional Zod at this boundary
+                data: data as any,
                 include: {
                     branch: true,
                 },

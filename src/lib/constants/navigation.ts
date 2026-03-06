@@ -129,7 +129,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Jurnal",
-                href: "/jurnal",
+                href: "/jurnal/umum",
                 icon: BookOpen,
                 permission: "view_jurnal",
                 children: [
@@ -161,7 +161,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Tutup Buku",
-                href: "/tutup-buku",
+                href: "/periode/tutup-buku",
                 icon: Lock,
                 permission: "tutup_buku",
             },
@@ -250,7 +250,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "User Management",
-                href: "/users",
+                href: "/master/users",
                 icon: UserCog,
                 permission: "user_management",
             },

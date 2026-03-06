@@ -32,17 +32,8 @@ export default function TambahAnggotaPage() {
     const [formData, setFormData] = React.useState({
         name: "",
         nrp: "",
-        nik: "",
-        gender: "",
-        birth_place: "",
-        birth_date: "", // Initialized as empty string
-        marital_status: "",
         phone: "",
         email: "",
-        address: "",
-        city: "",
-        province: "",
-        postal_code: "",
         branch_id: "",
         join_date: new Date().toISOString().split("T")[0],
     });
@@ -72,13 +63,23 @@ export default function TambahAnggotaPage() {
         setIsLoading(true);
 
         try {
-            // Call API to create member
-            await membersApi.create(formData);
+            // Map form fields to API schema (camelCase)
+            const payload = {
+                name: formData.name,
+                nrp: formData.nrp || undefined,
+                phone: formData.phone || undefined,
+                email: formData.email || undefined,
+                branchId: parseInt(formData.branch_id),
+                joinDate: formData.join_date,
+            };
+
+            await membersApi.create(payload);
 
             toast.success("Anggota berhasil ditambahkan");
             router.push("/anggota");
-        } catch (error) {
-            toast.error("Gagal menambahkan anggota");
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || error?.message || "Gagal menambahkan anggota";
+            toast.error(msg);
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -123,97 +124,6 @@ export default function TambahAnggotaPage() {
                                 required
                             />
                         </div>
-
-                        <div>
-                            <Label htmlFor="nik">NIK</Label>
-                            <Input
-                                id="nik"
-                                name="nik"
-                                value={formData.nik}
-                                onChange={handleChange}
-                                placeholder="16 digit NIK"
-                                maxLength={16}
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="gender">Jenis Kelamin *</Label>
-                            <Select
-                                value={formData.gender}
-                                onValueChange={(value) => handleSelectChange("gender", value)}
-                                required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih jenis kelamin" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="male">Laki-laki</SelectItem>
-                                    <SelectItem value="female">Perempuan</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="birth_place">Tempat Lahir</Label>
-                            <Input
-                                id="birth_place"
-                                name="birth_place"
-                                value={formData.birth_place}
-                                onChange={handleChange}
-                                placeholder="Kota tempat lahir"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <Label htmlFor="birth_date">Tanggal Lahir</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full pl-3 text-left font-normal",
-                                            !formData.birth_date && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {formData.birth_date ? (
-                                            format(new Date(formData.birth_date), "PPP", { locale: id })
-                                        ) : (
-                                            <span>Pilih tanggal</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={formData.birth_date ? new Date(formData.birth_date) : undefined}
-                                        onSelect={(date) => handleDateChange("birth_date", date)}
-                                        disabled={(date) =>
-                                            date > new Date() || date < new Date("1900-01-01")
-                                        }
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="marital_status">Status Pernikahan</Label>
-                            <Select
-                                value={formData.marital_status}
-                                onValueChange={(value) => handleSelectChange("marital_status", value)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="single">Belum Menikah</SelectItem>
-                                    <SelectItem value="married">Menikah</SelectItem>
-                                    <SelectItem value="divorced">Cerai</SelectItem>
-                                    <SelectItem value="widowed">Janda/Duda</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </CardContent>
                 </Card>
 
@@ -244,60 +154,6 @@ export default function TambahAnggotaPage() {
                                 value={formData.email}
                                 onChange={handleChange}
                                 placeholder="email@example.com"
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Alamat */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Alamat</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-4 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                            <Label htmlFor="address">Alamat Lengkap</Label>
-                            <Textarea
-                                id="address"
-                                name="address"
-                                value={formData.address}
-                                onChange={handleChange}
-                                placeholder="Jl. xxx No. xx, RT/RW, Kelurahan"
-                                rows={3}
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="city">Kota/Kabupaten</Label>
-                            <Input
-                                id="city"
-                                name="city"
-                                value={formData.city}
-                                onChange={handleChange}
-                                placeholder="Nama kota"
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="province">Provinsi</Label>
-                            <Input
-                                id="province"
-                                name="province"
-                                value={formData.province}
-                                onChange={handleChange}
-                                placeholder="Nama provinsi"
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="postal_code">Kode Pos</Label>
-                            <Input
-                                id="postal_code"
-                                name="postal_code"
-                                value={formData.postal_code}
-                                onChange={handleChange}
-                                placeholder="12345"
-                                maxLength={5}
                             />
                         </div>
                     </CardContent>
