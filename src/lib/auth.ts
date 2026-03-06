@@ -30,8 +30,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         return null;
                     }
 
-                    const user = await prisma.user.findUnique({
-                        where: { email: credentials.email as string },
+                    const user = await prisma.user.findFirst({
+                        where: {
+                            OR: [
+                                { email: credentials.email as string },
+                                { member: { nrp: credentials.email as string } }
+                            ]
+                        },
                         include: {
                             role: {
                                 include: {

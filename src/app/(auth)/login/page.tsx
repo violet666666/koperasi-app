@@ -67,7 +67,7 @@ export default function LoginPage() {
                 <CardHeader className="space-y-1 text-center">
                     <CardTitle className="text-2xl">Masuk</CardTitle>
                     <CardDescription>
-                        Masukkan email dan password untuk melanjutkan
+                        Masukkan email/NRP dan password untuk melanjutkan
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -82,11 +82,11 @@ export default function LoginPage() {
 
                         {/* Email Field */}
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">Email / NRP</Label>
                             <Input
                                 id="email"
-                                type="email"
-                                placeholder="nama@koperasi.com"
+                                type="text"
+                                placeholder="email@koperasi.com atau NRP Anda"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required

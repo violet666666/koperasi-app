@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { paginationSchema, createMemberSchema } from "@/lib/validations";
+import bcrypt from "bcryptjs";
 
 // GET /api/members - List all members
 export async function GET(request: Request) {
@@ -92,14 +93,39 @@ export async function POST(request: Request) {
             }
         }
 
-        const member = await prisma.member.create({
-            data,
-            include: {
-                branch: true,
-            },
+        // Create member and user in transaction
+        const result = await prisma.$transaction(async (tx) => {
+            const member = await tx.member.create({
+                data,
+                include: {
+                    branch: true,
+                },
+            });
+
+            // Find role anggota
+            const anggotaRole = await tx.role.findUnique({
+                where: { name: 'anggota' }
+            });
+
+            if (anggotaRole && data.nrp) {
+                const hashedPassword = await bcrypt.hash("anggota123", 10);
+                await tx.user.create({
+                    data: {
+                        name: member.name,
+                        email: `${member.nrp}@koperasi.local`,
+                        password: hashedPassword,
+                        roleId: anggotaRole.id,
+                        branchId: member.branchId,
+                        memberId: member.id,
+                        isActive: true
+                    }
+                });
+            }
+
+            return member;
         });
 
-        return NextResponse.json({ data: member }, { status: 201 });
+        return NextResponse.json({ data: result }, { status: 201 });
     } catch (error) {
         console.error("POST /api/members error:", error);
         if (error instanceof Error && error.name === "ZodError") {
