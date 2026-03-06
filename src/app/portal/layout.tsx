@@ -44,7 +44,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
 
     if (isLoading || !isAuthenticated) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     <p className="text-muted-foreground font-medium">Memuat portal anggota...</p>
@@ -55,7 +55,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
 
     return (
         <AuthProvider>
-            <div className="flex min-h-screen flex-col bg-slate-50/50">
+            <div className="flex min-h-[100dvh] flex-col bg-slate-50/50">
                 {/* Top Navigation Bar */}
                 <header className="sticky top-0 z-40 w-full border-b bg-primary shadow-sm text-primary-foreground">
                     <div className="container flex h-16 items-center justify-between px-4 sm:px-6">

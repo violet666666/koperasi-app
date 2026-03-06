@@ -30,7 +30,7 @@ export function AppShell({
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
     return (
-        <div className="relative flex min-h-screen">
+        <div className="relative flex min-h-[100dvh]">
             {/* Desktop Sidebar */}
             <div className="hidden lg:block">
                 <Sidebar
