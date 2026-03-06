@@ -239,11 +239,13 @@
    UTILITY CLASSES
    ================================================================= */
 @layer utilities {
+
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -288,6 +290,7 @@
    COMPONENT OVERRIDES
    ================================================================= */
 @layer components {
+
   /* Sidebar item active state */
   .sidebar-item-active {
     @apply bg-sidebar-accent text-sidebar-accent-foreground;
@@ -312,29 +315,117 @@
   .stats-card {
     @apply rounded-xl border bg-card p-6 shadow-card transition-shadow hover:shadow-md;
   }
+
+  /* Mobile table container - horizontal scroll */
+  .mobile-table-container {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+}
+
+/* =================================================================
+   MOBILE OPTIMIZATIONS
+   ================================================================= */
+@layer utilities {
+
+  /* Touch-friendly minimum tap target */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area padding utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Ensure viewport supports safe-area on iOS */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile-first typography adjustments */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.5rem !important;
+    line-height: 2rem;
+  }
+
+  h2 {
+    font-size: 1.25rem !important;
+    line-height: 1.75rem;
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  .page-container,
+  main {
+    overflow-x: hidden;
+  }
+
+  /* Better mobile cards */
+  .stats-card {
+    padding: 1rem;
+  }
+
+  /* Responsive currency values */
+  .tabular-nums {
+    font-size: 0.875rem;
+  }
 }
 
 /* =================================================================
    ANIMATIONS
    ================================================================= */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInFromRight {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slideInFromBottom {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .animate-fade-in {

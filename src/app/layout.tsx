@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -43,6 +45,8 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -58,10 +62,13 @@ export default function RootLayout({
         <SessionProvider>
           <QueryProvider>
             {children}
+            <PwaInstallPrompt />
           </QueryProvider>
           <Toaster position="top-right" richColors />
         </SessionProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );
 }
+

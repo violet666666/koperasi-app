@@ -22,7 +22,7 @@ export function BottomNav() {
     const [isMoreOpen, setIsMoreOpen] = React.useState(false);
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background lg:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             <div className="flex h-16 items-center justify-around px-2">
                 {bottomNavigation.map((item) => {
                     const Icon = item.icon;

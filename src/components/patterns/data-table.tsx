@@ -172,62 +172,64 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Table */}
-            <div className="rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    );
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            // Loading skeleton
-                            Array.from({ length: pageSize }).map((_, index) => (
-                                <TableRow key={index}>
-                                    {columns.map((_, colIndex) => (
-                                        <TableCell key={colIndex}>
-                                            <Skeleton className="h-5 w-full" />
-                                        </TableCell>
-                                    ))}
+            <div className="rounded-lg border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => {
+                                        return (
+                                            <TableHead key={header.id}>
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                            </TableHead>
+                                        );
+                                    })}
                                 </TableRow>
-                            ))
-                        ) : table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                    className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                                    onClick={() => onRowClick?.(row.original)}
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </TableCell>
-                                    ))}
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                // Loading skeleton
+                                Array.from({ length: pageSize }).map((_, index) => (
+                                    <TableRow key={index}>
+                                        {columns.map((_, colIndex) => (
+                                            <TableCell key={colIndex}>
+                                                <Skeleton className="h-5 w-full" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                        className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                                        onClick={() => onRowClick?.(row.original)}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        Tidak ada data.
+                                    </TableCell>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Tidak ada data.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             {/* Pagination */}
@@ -240,9 +242,9 @@ export function DataTable<TData, TValue>({
                         )}{" "}
                         dari {table.getFilteredRowModel().rows.length} data
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         {/* Page Size */}
-                        <div className="flex items-center gap-2">
+                        <div className="hidden sm:flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">Tampilkan</span>
                             <Select
                                 value={`${table.getState().pagination.pageSize}`}

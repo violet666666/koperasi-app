@@ -69,7 +69,7 @@ export function AppShell({
                 />
 
                 {/* Page Content */}
-                <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
+                <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6" style={{ paddingBottom: 'max(5rem, calc(4rem + env(safe-area-inset-bottom, 0px)))' }}>{children}</main>
             </div>
 
             {/* Bottom Navigation (Mobile) */}
