@@ -42,11 +42,13 @@ export function AppShell({
 
             {/* Mobile Sidebar (Sheet) */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetContent side="left" className="w-64 p-0" aria-describedby={undefined}>
+                <SheetContent side="left" className="w-64 p-0 flex flex-col h-full overflow-hidden" aria-describedby={undefined}>
                     <VisuallyHidden>
                         <SheetTitle>Menu Navigasi</SheetTitle>
                     </VisuallyHidden>
-                    <Sidebar isCollapsed={false} />
+                    <div className="flex-1 overflow-hidden h-full">
+                        <Sidebar isCollapsed={false} />
+                    </div>
                 </SheetContent>
             </Sheet>
 

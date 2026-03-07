@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { bottomNavigation } from "@/lib/constants/navigation";
+import { bottomNavigation, filterNavigationByPermissions } from "@/lib/constants/navigation";
+import { useAuth } from "@/lib/hooks";
 import { MoreHorizontal } from "lucide-react";
 import {
     Sheet,
@@ -20,6 +21,9 @@ import { mainNavigation, isNavGroup } from "@/lib/constants/navigation";
 export function BottomNav() {
     const pathname = usePathname();
     const [isMoreOpen, setIsMoreOpen] = React.useState(false);
+    const { user } = useAuth();
+    const userPermissions = user?.permissions || [];
+    const filteredMainNav = filterNavigationByPermissions(mainNavigation, userPermissions);
 
     return (
         <>
@@ -65,7 +69,7 @@ export function BottomNav() {
                             </SheetHeader>
                             <ScrollArea className="h-full py-4">
                                 <div className="grid grid-cols-4 gap-4">
-                                    {mainNavigation.map((item, index) => {
+                                    {filteredMainNav.map((item, index) => {
                                         if (isNavGroup(item)) {
                                             return item.items.map((subItem, subIndex) => {
                                                 const Icon = subItem.icon;

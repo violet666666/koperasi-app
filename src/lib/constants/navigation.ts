@@ -327,3 +327,40 @@ export function getAllNavItems(
 
     return items;
 }
+
+// Filter navigation items based on user permissions
+export function filterNavigationByPermissions(
+    navigation: (NavItem | NavGroup)[],
+    permissions: string[]
+): (NavItem | NavGroup)[] {
+    // Super admin sees everything
+    if (permissions.includes("manage_all")) return navigation;
+
+    const hasAccess = (permission?: string) => {
+        if (!permission) return true; // No permission = public
+        return permissions.includes(permission);
+    };
+
+    const filterItems = (items: NavItem[]): NavItem[] => {
+        return items
+            .filter((item) => hasAccess(item.permission))
+            .map((item) => ({
+                ...item,
+                children: item.children
+                    ? item.children.filter((child) => hasAccess(child.permission))
+                    : undefined,
+            }));
+    };
+
+    return navigation
+        .map((item) => {
+            if (isNavGroup(item)) {
+                const filteredItems = filterItems(item.items);
+                if (filteredItems.length === 0) return null;
+                return { ...item, items: filteredItems };
+            }
+            return hasAccess(item.permission) ? item : null;
+        })
+        .filter(Boolean) as (NavItem | NavGroup)[];
+}
+

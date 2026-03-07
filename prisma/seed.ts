@@ -5,51 +5,57 @@ const prisma = new PrismaClient();
 
 // ======= PERMISSIONS =======
 const PERMISSIONS = [
+    // System
+    { name: "manage_all", displayName: "Akses Penuh", module: "system" },
     { name: "user_management", displayName: "Kelola Pengguna", module: "users" },
     { name: "master_data", displayName: "Master Data", module: "master" },
+    // Members
     { name: "manage_anggota", displayName: "Kelola Anggota", module: "members" },
     { name: "view_anggota", displayName: "Lihat Anggota", module: "members" },
+    // Savings
     { name: "manage_simpanan", displayName: "Kelola Simpanan", module: "savings" },
     { name: "view_simpanan", displayName: "Lihat Simpanan", module: "savings" },
+    // Loans
     { name: "manage_pinjaman", displayName: "Kelola Pinjaman", module: "loans" },
     { name: "view_pinjaman", displayName: "Lihat Pinjaman", module: "loans" },
     { name: "approve_pinjaman", displayName: "Approve Pinjaman", module: "loans" },
+    // Cash & Bank
     { name: "manage_kas_bank", displayName: "Kelola Kas & Bank", module: "cash_bank" },
+    // Accounting
     { name: "view_jurnal", displayName: "Lihat Jurnal", module: "accounting" },
     { name: "manage_jurnal", displayName: "Kelola Jurnal", module: "accounting" },
     { name: "view_laporan", displayName: "Lihat Laporan", module: "reports" },
     { name: "tutup_buku", displayName: "Tutup Buku", module: "period" },
     { name: "alokasi_shu", displayName: "Alokasi SHU", module: "shu" },
+    // Approval & Audit
     { name: "approve_transactions", displayName: "Approve Transaksi", module: "approval" },
     { name: "view_audit_log", displayName: "Lihat Audit Log", module: "audit" },
+    // Shop & Units
     { name: "manage_toko", displayName: "Kelola Toko", module: "shop" },
     { name: "manage_pengumuman", displayName: "Kelola Pengumuman", module: "communication" },
     { name: "edit_profil", displayName: "Edit Profil Koperasi", module: "settings" },
     { name: "manage_aset", displayName: "Kelola Aset", module: "assets" },
     { name: "manage_unit_transactions", displayName: "Kelola Transaksi Unit", module: "unit_transactions" },
+    // Portal
     { name: "view_own_data", displayName: "Lihat Data Sendiri", module: "portal" },
 ];
 
-// ======= ROLES =======
+// ======= ROLES (4-tier RBAC) =======
 const ROLES = [
     {
-        name: "super_admin", displayName: "Super Admin", description: "Full access to all features", isSystem: true,
-        permissions: PERMISSIONS.filter(p => p.name !== "view_own_data").map(p => p.name),
+        name: "operator", displayName: "Operator", description: "Super Admin – full access to all features and all units", isSystem: true,
+        permissions: ["manage_all"],
     },
     {
-        name: "admin_cabang", displayName: "Admin Cabang", description: "Branch admin with operational access", isSystem: true,
-        permissions: ["manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "manage_kas_bank", "view_jurnal", "view_laporan", "manage_unit_transactions", "manage_toko"],
+        name: "admin", displayName: "Admin", description: "Admin per unit – manages operations for their assigned unit", isSystem: true,
+        permissions: ["manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "approve_pinjaman", "manage_kas_bank", "view_jurnal", "view_laporan", "approve_transactions", "manage_toko", "manage_unit_transactions", "manage_pengumuman"],
     },
     {
-        name: "teller", displayName: "Teller", description: "Cashier for daily transactions", isSystem: true,
-        permissions: ["view_anggota", "manage_simpanan", "view_simpanan", "view_pinjaman", "manage_kas_bank"],
+        name: "kasir", displayName: "Kasir", description: "Cashier per unit – can only input transactions for their assigned unit", isSystem: true,
+        permissions: ["view_anggota", "manage_simpanan", "view_simpanan", "view_pinjaman", "manage_kas_bank", "manage_toko", "manage_unit_transactions"],
     },
     {
-        name: "manager", displayName: "Manager", description: "Branch manager with approval rights", isSystem: true,
-        permissions: ["manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "approve_pinjaman", "manage_kas_bank", "view_jurnal", "manage_jurnal", "view_laporan", "tutup_buku", "approve_transactions", "view_audit_log"],
-    },
-    {
-        name: "anggota", displayName: "Anggota", description: "Member with view-only access to own data", isSystem: true,
+        name: "anggota", displayName: "Anggota", description: "Member – portal access to view own data and submit loan applications", isSystem: true,
         permissions: ["view_own_data"],
     },
 ];
@@ -280,16 +286,68 @@ async function main() {
         periodMap[m] = created.id;
     }
 
-    // ----- Admin User -----
-    console.log("👨‍💼 Creating admin user...");
+    // ----- Admin User (Operator = Super Admin) -----
+    console.log("👨‍💼 Creating operator + demo staff accounts...");
     const hashedPassword = await bcrypt.hash("password123", 12);
     const adminUser = await prisma.user.create({
         data: {
-            name: "Super Admin",
+            name: "Operator (Super Admin)",
             email: "admin@koperasi.com",
             password: hashedPassword,
-            roleId: roleMap["super_admin"],
+            roleId: roleMap["operator"],
             branchId: branchMap["HO"],
+            isActive: true,
+        },
+    });
+
+    // Admin Simpan Pinjam
+    await prisma.user.create({
+        data: {
+            name: "Admin Simpan Pinjam",
+            email: "admin.sp@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["admin"],
+            branchId: branchMap["HO"],
+            unitType: "simpan_pinjam",
+            isActive: true,
+        },
+    });
+
+    // Admin Toko
+    await prisma.user.create({
+        data: {
+            name: "Admin Toko",
+            email: "admin.toko@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["admin"],
+            branchId: branchMap["HO"],
+            unitType: "toko",
+            isActive: true,
+        },
+    });
+
+    // Kasir Simpan Pinjam
+    await prisma.user.create({
+        data: {
+            name: "Kasir Simpan Pinjam",
+            email: "kasir.sp@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["kasir"],
+            branchId: branchMap["HO"],
+            unitType: "simpan_pinjam",
+            isActive: true,
+        },
+    });
+
+    // Kasir Toko
+    await prisma.user.create({
+        data: {
+            name: "Kasir Toko",
+            email: "kasir.toko@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["kasir"],
+            branchId: branchMap["HO"],
+            unitType: "toko",
             isActive: true,
         },
     });
@@ -305,6 +363,8 @@ async function main() {
         const memberNo = `MBR-2026${String(i + 1).padStart(4, "0")}`;
         const joinDate = new Date(2026, 0, 5 + i); // staggered join dates in January 2026
 
+        const salaries = [5500000, 4800000, 6200000, 4500000, 5000000, 5300000, 7000000, 4700000, 5800000, 5100000];
+
         const member = await prisma.member.create({
             data: {
                 memberNo, nrp: m.nrp, name: m.name, nik: m.nik, gender: m.gender,
@@ -312,7 +372,7 @@ async function main() {
                 maritalStatus: m.maritalStatus, religion: m.religion, education: m.education,
                 occupation: m.occupation, phone: m.phone, email: m.email,
                 address: m.address, city: m.city, province: m.province, postalCode: m.postalCode,
-                branchId, joinDate, status: "active", createdById: adminUser.id,
+                branchId, joinDate, status: "active", salary: salaries[i], createdById: adminUser.id,
             },
         });
         memberIds.push(member.id);

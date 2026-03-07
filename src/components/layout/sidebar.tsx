@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 import {
     mainNavigation,
     isNavGroup,
+    filterNavigationByPermissions,
     type NavItem,
     type NavGroup,
 } from "@/lib/constants/navigation";
+import { useAuth } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -33,6 +35,9 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
     const pathname = usePathname();
+    const { user } = useAuth();
+    const userPermissions = user?.permissions || [];
+    const filteredNavigation = filterNavigationByPermissions(mainNavigation, userPermissions);
 
     return (
         <aside
@@ -63,7 +68,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             {/* Navigation */}
             <ScrollArea className="flex-1 px-3 py-4">
                 <nav className="space-y-2">
-                    {mainNavigation.map((item, index) => {
+                    {filteredNavigation.map((item, index) => {
                         if (isNavGroup(item)) {
                             return (
                                 <NavGroupComponent

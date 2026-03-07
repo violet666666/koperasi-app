@@ -16,6 +16,7 @@ interface AuthContextType {
     logout: () => Promise<void>;
     setCurrentBranch: (branchId: number | null) => void;
     hasPermission: (permission: string) => boolean;
+    hasRole: (roleName: string) => boolean;
     checkAuth: () => Promise<void>;
 }
 
@@ -94,19 +95,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (result?.error) {
             console.log("[Login] Error:", result.error);
-            alert(`Login Error: ${result.error}`);
             throw new Error("Email atau password salah");
         }
 
         if (result?.ok) {
             console.log("[Login] Success! Redirecting to dashboard...");
-            alert("Login berhasil! Redirecting to dashboard...");
-
             // Use window.location for full page reload to ensure JWT cookie is set
             window.location.href = "/dashboard";
         } else {
             console.log("[Login] Unexpected result:", result);
-            alert(`Unexpected result: ${JSON.stringify(result)}`);
         }
     }, []);
 
@@ -133,6 +130,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [user]
     );
 
+    // Check if user has a specific role
+    const hasRole = React.useCallback(
+        (roleName: string) => {
+            if (!user) return false;
+            return user.role.name === roleName;
+        },
+        [user]
+    );
+
     const value = React.useMemo(
         () => ({
             user,
@@ -144,9 +150,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             logout,
             setCurrentBranch,
             hasPermission,
+            hasRole,
             checkAuth,
         }),
-        [user, isLoading, branches, currentBranchId, login, logout, setCurrentBranch, hasPermission, checkAuth]
+        [user, isLoading, branches, currentBranchId, login, logout, setCurrentBranch, hasPermission, hasRole, checkAuth]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

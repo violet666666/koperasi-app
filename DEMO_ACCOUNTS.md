@@ -1,18 +1,40 @@
 # Akun Demo Koperasi Digital
 
-Dokumen ini berisi daftar lengkap akun demonstrasi (dummy) yang dibuat saat menjalankan perintah `npx prisma db seed`. Akun-akun ini memiliki riwayat transaksi simpan pinjam dan akuntansi yang sangat ideal untuk sesi demonstrasi aplikasi.
-
-## 1. Akun Pengurus (Admin)
-Digunakan untuk mengakses dasbor utama, melakukan persetujuan, mengelola master data, serta melihat pelaporan akuntansi lengkap.
-
-| Peran | Nama | Email Login | Password |
-|-------|------|-------------|----------|
-| **Super Admin** | Super Admin | `admin@koperasi.com` | `password123` |
+Dokumen ini berisi daftar lengkap akun demonstrasi (dummy) yang dibuat saat menjalankan perintah `npx prisma db seed`. Semua akun menggunakan password yang sama: **`password123`**
 
 ---
 
-## 2. Akun Anggota (Portal Anggota)
-Digunakan untuk demonstrasi dari sisi anggota (PWA / Mobile Apps). Anggota dapat login menggunakan Nomor Registrasi Pokok (NRP) pada alamat email mereka.
+## 1. Akun Operator (Super Admin)
+Akses penuh ke **seluruh fitur** dan **seluruh unit** koperasi.
+
+| Peran | Nama | Email Login | Unit | Password |
+|-------|------|-------------|------|----------|
+| **Operator** | Operator (Super Admin) | `admin@koperasi.com` | Semua | `password123` |
+
+---
+
+## 2. Akun Admin (Per-Unit)
+Dapat mengelola fitur operasional **sesuai unit yang ditugaskan**.
+
+| Peran | Nama | Email Login | Unit | Password |
+|-------|------|-------------|------|----------|
+| **Admin** | Admin Simpan Pinjam | `admin.sp@koperasi.com` | Simpan Pinjam | `password123` |
+| **Admin** | Admin Toko | `admin.toko@koperasi.com` | Toko | `password123` |
+
+---
+
+## 3. Akun Kasir (Per-Unit)
+Hanya dapat **menginput transaksi** sesuai unit yang ditugaskan.
+
+| Peran | Nama | Email Login | Unit | Password |
+|-------|------|-------------|------|----------|
+| **Kasir** | Kasir Simpan Pinjam | `kasir.sp@koperasi.com` | Simpan Pinjam | `password123` |
+| **Kasir** | Kasir Toko | `kasir.toko@koperasi.com` | Toko | `password123` |
+
+---
+
+## 4. Akun Anggota (Portal Anggota)
+Akses ke Portal Anggota untuk **monitoring transaksi** dan **pengajuan pinjaman**.
 
 | NRP | Nama Lengkap | Cabang | Email Login | Password |
 |-----|-------------|--------|-------------|----------|
@@ -27,4 +49,10 @@ Digunakan untuk demonstrasi dari sisi anggota (PWA / Mobile Apps). Anggota dapat
 | **78120009** | Irfan Maulana | Malang | `78120009@koperasi.local` | `password123` |
 | **78120010** | Julia Puspita | Kediri | `78120010@koperasi.local` | `password123` |
 
-***Catatan untuk Demonstrasi**: Sangat disarankan untuk membuka `admin@koperasi.com` di browser normal, lalu membuka tipe akun salah satu Anggota di atas menggunakan Private Window (Mode Penyamaran) agar dapat mendemokan notifikasi PWA langsung untuk layar ukuran Handphone.*
+---
+
+## Cara Demo Multi-Role
+1. Buka browser normal → login sebagai **Operator** (`admin@koperasi.com`)
+2. Buka Private/Incognito Window → login sebagai **Admin SP** (`admin.sp@koperasi.com`) → perhatikan menu yang tampil lebih sedikit
+3. Buka browser lain / tab baru → login sebagai **Kasir Toko** (`kasir.toko@koperasi.com`) → perhatikan hanya menu kasir yang tampil
+4. Buka di HP / resize ke mode mobile → login sebagai **Anggota** (`78120001@koperasi.local`) → masuk ke Portal Anggota
