@@ -148,13 +148,29 @@ export default function LoginPage() {
 
                     {/* Demo Credentials */}
                     <div className="mt-6 rounded-lg bg-muted p-4 text-sm" role="note" aria-label="Demo credentials">
-                        <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
-                        <p className="text-sm text-foreground/80">
-                            Email: <code className="bg-background px-1 rounded font-mono">admin@koperasi.com</code>
-                        </p>
-                        <p className="text-sm text-foreground/80">
-                            Password: <code className="bg-background px-1 rounded font-mono">admin123</code>
-                        </p>
+                        <p className="font-semibold text-foreground border-b pb-2 mb-3">Akun Demo (Admin):</p>
+                        <div className="space-y-1 mb-4">
+                            <p className="text-xs text-foreground/80 flex items-center justify-between">
+                                <span>Email:</span>
+                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-primary font-medium">admin@koperasi.com</code>
+                            </p>
+                            <p className="text-xs text-foreground/80 flex items-center justify-between">
+                                <span>Password:</span>
+                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-primary font-medium">password123</code>
+                            </p>
+                        </div>
+
+                        <p className="font-semibold text-foreground border-b pb-2 mb-3">Akun Demo (Anggota):</p>
+                        <div className="space-y-1">
+                            <p className="text-xs text-foreground/80 flex items-center justify-between">
+                                <span>Email / NRP:</span>
+                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-emerald-600 font-medium">78120001@koperasi.local</code>
+                            </p>
+                            <p className="text-xs text-foreground/80 flex items-center justify-between">
+                                <span>Password:</span>
+                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-emerald-600 font-medium">password123</code>
+                            </p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
