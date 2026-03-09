@@ -93,6 +93,8 @@ export async function GET() {
                     memberNo: member.memberNo,
                     nrp: member.nrp,
                     name: member.name,
+                    category: member.category,
+                    salary: member.salary ? Number(member.salary) : null,
                     phone: member.phone,
                     email: member.email,
                     address: member.address,

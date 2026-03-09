@@ -7,6 +7,7 @@ import { id } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { memberPortalApi } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -19,7 +20,16 @@ import {
     Car,
     Dumbbell,
     Printer,
-    History
+    History,
+    DollarSign,
+    AlertTriangle,
+    Send,
+    CheckCircle2,
+    Shirt,
+    UtensilsCrossed,
+    Gamepad2,
+    Scissors,
+    Building,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -31,17 +41,27 @@ function getUnitIcon(unitType: string) {
         case "fotocopy": return <Printer className="h-5 w-5" />;
         case "cuci_mobil": return <Car className="h-5 w-5" />;
         case "fitness": return <Dumbbell className="h-5 w-5" />;
+        case "laundry": return <Shirt className="h-5 w-5" />;
+        case "resto_cafe": return <UtensilsCrossed className="h-5 w-5" />;
+        case "playstation": return <Gamepad2 className="h-5 w-5" />;
+        case "barbershop": return <Scissors className="h-5 w-5" />;
+        case "aset": return <Building className="h-5 w-5" />;
         default: return <Wallet className="h-5 w-5" />;
     }
 }
 
 function getUnitName(unitType: string) {
     const types: Record<string, string> = {
-        toko: "Toko Retail",
+        toko: "Toko",
         simpan_pinjam: "Simpan Pinjam",
-        fotocopy: "FotoCopy & ATK",
-        cuci_mobil: "Cuci Mobil",
-        fitness: "Fitness Center",
+        fotocopy: "Fotocopy",
+        cuci_mobil: "Cuci Mobil & Motor",
+        fitness: "Fitness",
+        laundry: "Laundry",
+        resto_cafe: "Resto & Cafe",
+        playstation: "Playstation",
+        barbershop: "Barbershop",
+        aset: "Aset",
     };
     return types[unitType] || unitType;
 }
@@ -49,7 +69,6 @@ function getUnitName(unitType: string) {
 export default function MemberDashboardPage() {
     const { user } = useAuth();
 
-    // Define the type we expect to match the API response
     type SummaryResponse = {
         data: {
             member: any;
@@ -70,63 +89,111 @@ export default function MemberDashboardPage() {
     });
 
     const data = response?.data;
+    const salary = data?.member?.salary || 0;
+    const totalLoanOutstanding = data?.loans?.totalOutstanding || 0;
+    const netAfterLoan = salary - totalLoanOutstanding;
+    const hasApprovedLoan = data?.loans?.list?.some((l: any) => l.status === "approved") || false;
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">Selamat Datang, {user?.name?.split(' ')[0]}!</h1>
-                <p className="text-muted-foreground">Ringkasan aktivitas dan layanan koperasi digital Anda hari ini.</p>
+                <p className="text-muted-foreground">Dashboard anggota koperasi Primkoppol</p>
             </div>
 
-            {/* Top Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* Loan Approved Notification */}
+            {hasApprovedLoan && (
+                <Alert className="border-emerald-300 bg-emerald-50">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <AlertTitle className="text-emerald-800 font-semibold">Pengajuan Pinjaman Disetujui!</AlertTitle>
+                    <AlertDescription className="text-emerald-700">
+                        Pengajuan pinjaman Anda telah disetujui. Silakan <strong>menghadap ke pihak yang berwenang</strong> untuk proses pencairan.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {/* 4 Main Stat Cards */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* 1. Gaji Bersih */}
                 <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Total Simpanan</CardTitle>
-                        <PiggyBank className="h-4 w-4 opacity-75" />
+                        <CardTitle className="text-sm font-medium opacity-90">Gaji Bersih</CardTitle>
+                        <DollarSign className="h-4 w-4 opacity-75" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.savings.totalBalance || 0)}
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
                         </div>
-                        <p className="text-xs opacity-80 mt-1">Saldo aktif dari {data?.savings.accounts.length || 0} rekening</p>
+                        <p className="text-xs opacity-80 mt-1">Gaji pokok per bulan</p>
                     </CardContent>
                 </Card>
 
+                {/* 2. Pinjaman Berlangsung */}
                 <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Sisa Pinjaman</CardTitle>
+                        <CardTitle className="text-sm font-medium opacity-90">Pinjaman Berlangsung</CardTitle>
                         <CreditCard className="h-4 w-4 opacity-75" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.loans.totalOutstanding || 0)}
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(totalLoanOutstanding)}
                         </div>
-                        <p className="text-xs opacity-80 mt-1">Dari {data?.loans.activeCount || 0} pinjaman aktif</p>
+                        <p className="text-xs opacity-80 mt-1">{data?.loans?.activeCount || 0} pinjaman aktif</p>
                     </CardContent>
                 </Card>
 
+                {/* 3. Pengajuan Pinjaman (Warning) */}
+                <Link href="/portal/pengajuan-pinjaman">
+                    <Card className={`border-0 shadow-md h-full transition-transform hover:scale-[1.02] ${netAfterLoan < 0 ? "bg-gradient-to-br from-red-500 to-red-700" : "bg-gradient-to-br from-amber-500 to-amber-700"} text-white`}>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium opacity-90">Pengajuan Pinjaman</CardTitle>
+                            <Send className="h-4 w-4 opacity-75" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(Math.max(0, netAfterLoan))}
+                            </div>
+                            <p className="text-xs opacity-80 mt-1">
+                                {netAfterLoan < 0 ? "⚠ Pinjaman melebihi gaji" : "Sisa setelah pinjaman"}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                {/* 4. Tagihan / Bill Payment */}
                 <Card className="bg-gradient-to-br from-red-500 to-red-700 text-white border-0 shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Tagihan Transaksi Unit</CardTitle>
+                        <CardTitle className="text-sm font-medium opacity-90">Tagihan Unit</CardTitle>
                         <Wallet className="h-4 w-4 opacity-75" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions.unpaidTotal || 0)}
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions?.unpaidTotal || 0)}
                         </div>
-                        <p className="text-xs opacity-80 mt-1">{data?.unitTransactions.unpaidCount || 0} transaksi belum lunas</p>
+                        <p className="text-xs opacity-80 mt-1">{data?.unitTransactions?.unpaidCount || 0} transaksi belum lunas</p>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Warning Alert for Loan vs Salary */}
+            {!isLoading && salary > 0 && netAfterLoan < 0 && (
+                <Alert className="border-red-300 bg-red-50">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertTitle className="text-red-800 font-semibold">Peringatan Akumulasi Pinjaman</AlertTitle>
+                    <AlertDescription className="text-red-700">
+                        Total pinjaman Anda ({formatCurrency(totalLoanOutstanding)}) telah melebihi gaji bersih ({formatCurrency(salary)}).
+                        Selisih: <strong>{formatCurrency(Math.abs(netAfterLoan))}</strong>. Pengajuan pinjaman baru mungkin tidak disetujui.
+                    </AlertDescription>
+                </Alert>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
                 {/* Riwayat Transaksi Terbaru */}
                 <Card className="md:col-span-2 lg:col-span-4 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
-                            <CardTitle>Transaksi Unit Terbaru</CardTitle>
-                            <CardDescription>Aktivitas Anda di berbagai unit layanan Koperasi</CardDescription>
+                            <CardTitle>History Transaksi / Bill Payment</CardTitle>
+                            <CardDescription>Riwayat transaksi Anda di seluruh unit Primkoppol</CardDescription>
                         </div>
                         <Link href="/portal/transaksi" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
                             Lihat Semua <ArrowRight className="h-4 w-4" />
@@ -149,11 +216,10 @@ export default function MemberDashboardPage() {
                             <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-xl border border-dashed">
                                 <History className="h-10 w-10 text-muted-foreground mb-3 opacity-20" />
                                 <p className="text-sm font-medium text-muted-foreground">Belum ada transaksi</p>
-                                <p className="text-xs text-muted-foreground mt-1">Anda belum melakukan transaksi di unit manapun.</p>
                             </div>
                         ) : (
                             <div className="space-y-5">
-                                {data?.unitTransactions.recent.slice(0, 5).map((tx: any) => (
+                                {data?.unitTransactions.recent.slice(0, 6).map((tx: any) => (
                                     <div key={tx.id} className="flex items-start justify-between border-b border-border/50 pb-4 last:border-0 last:pb-0">
                                         <div className="flex gap-3">
                                             <div className="mt-1 h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -182,11 +248,11 @@ export default function MemberDashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Penggunaan per Unit */}
+                {/* Ringkasan Per Unit */}
                 <Card className="md:col-span-1 lg:col-span-3 shadow-sm bg-slate-50 border-0 ring-1 ring-slate-200">
                     <CardHeader>
                         <CardTitle>Ringkasan Per Unit</CardTitle>
-                        <CardDescription>Total transaksi Anda per unit layanan</CardDescription>
+                        <CardDescription>Total transaksi per unit layanan</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
@@ -194,14 +260,12 @@ export default function MemberDashboardPage() {
                                 {[1, 2, 3].map((i) => (
                                     <div key={i} className="flex gap-3 items-center">
                                         <Skeleton className="h-8 w-8 rounded-md" />
-                                        <div className="space-y-2 flex-1">
-                                            <Skeleton className="h-4 w-full" />
-                                        </div>
+                                        <div className="space-y-2 flex-1"><Skeleton className="h-4 w-full" /></div>
                                     </div>
                                 ))}
                             </div>
                         ) : data?.unitTransactions.byUnit.length === 0 ? (
-                            <p className="text-sm text-center text-muted-foreground py-8">Tidak ada data ringkasan</p>
+                            <p className="text-sm text-center text-muted-foreground py-8">Tidak ada data</p>
                         ) : (
                             <div className="space-y-4">
                                 {data?.unitTransactions.byUnit.map((stats: any) => (

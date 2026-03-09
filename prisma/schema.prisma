@@ -22,7 +22,7 @@ model User {
   roleId          Int       @map("role_id")
   branchId        Int?      @map("branch_id")
   memberId        Int?      @unique @map("member_id")
-  unitType        String?   @map("unit_type") // simpan_pinjam, toko, fotocopy, cuci_mobil, fitness, keuangan
+  unitType        String?   @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset
   isActive        Boolean   @default(true) @map("is_active")
   emailVerifiedAt DateTime? @map("email_verified_at")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -222,6 +222,7 @@ model Member {
   province          String?
   postalCode        String?   @map("postal_code")
   joinDate          DateTime  @map("join_date") @db.Date
+  category          String?   // Polri, PNS, Karyawan, etc.
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
   status            String    @default("active") // active, inactive, resigned
   resignedDate      DateTime? @map("resigned_date") @db.Date
@@ -627,7 +628,7 @@ model UnitTransaction {
   id              Int       @id @default(autoincrement())
   transactionNo   String    @unique @map("transaction_no")
   memberId        Int       @map("member_id")
-  unitType        String    @map("unit_type") // toko, simpan_pinjam, fotocopy, cuci_mobil, fitness
+  unitType        String    @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset
   description     String
   amount          Decimal   @db.Decimal(15, 2)
   transactionDate DateTime  @map("transaction_date") @db.Date

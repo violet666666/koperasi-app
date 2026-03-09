@@ -10,6 +10,7 @@ declare module "next-auth" {
             branchId: number | null;
             branchName: string | null;
             memberId: number | null;
+            unitType: string | null;
             permissions: string[];
         } & DefaultSession["user"];
     }
@@ -20,6 +21,7 @@ declare module "next-auth" {
         branchId: number | null;
         branchName: string | null;
         memberId: number | null;
+        unitType: string | null;
         permissions: string[];
     }
 }
@@ -32,6 +34,7 @@ declare module "next-auth/jwt" {
         branchId: number | null;
         branchName: string | null;
         memberId: number | null;
+        unitType: string | null;
         permissions: string[];
     }
 }

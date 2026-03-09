@@ -135,6 +135,7 @@ export default function ProfilPortalPage() {
                     </Button>
                 </div>
 
+                {/* Identity Highlight Card */}
                 <Card className="border-0 shadow-md overflow-hidden">
                     <div className="h-24 bg-primary" />
                     <CardContent className="p-6 relative">
@@ -142,7 +143,7 @@ export default function ProfilPortalPage() {
                             <User className="h-12 w-12 text-slate-400" />
                         </div>
 
-                        <div className="mt-12 mb-6">
+                        <div className="mt-12 mb-4">
                             <div className="flex items-center gap-2">
                                 <h2 className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-48" /> : member?.name}</h2>
                                 {member?.status === "active" && <BadgeCheck className="h-5 w-5 text-emerald-500" />}
@@ -150,14 +151,35 @@ export default function ProfilPortalPage() {
                             <p className="text-muted-foreground">{isLoading ? <Skeleton className="h-4 w-32 mt-2" /> : `NRP: ${member?.nrp || "-"}`}</p>
                         </div>
 
+                        {/* Key Info Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-slate-100">
+                            <div>
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">NRP / NIP</p>
+                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-24" /> : member?.nrp || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Nama Lengkap</p>
+                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-32" /> : member?.name || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Kategori</p>
+                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-20" /> : member?.category || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Gaji Pokok</p>
+                                <p className="text-sm font-bold mt-1 text-emerald-600">{isLoading ? <Skeleton className="h-5 w-28" /> : member?.salary ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(Number(member.salary)) : "-"}</p>
+                            </div>
+                        </div>
+
+                        {/* Detailed Info */}
                         {isLoading ? (
-                            <div className="grid sm:grid-cols-2 gap-y-6 gap-x-12 pt-6 border-t">
+                            <div className="grid sm:grid-cols-2 gap-y-6 gap-x-12 pt-6">
                                 {Array(8).fill(0).map((_, i) => (
                                     <div key={i} className="space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-4 w-3/4" /></div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="grid sm:grid-cols-2 gap-y-5 gap-x-12 pt-6 border-t border-slate-100">
+                            <div className="grid sm:grid-cols-2 gap-y-5 gap-x-12 pt-6">
                                 <InfoRow label="Nomor Anggota" value={member?.memberNo} />
                                 <InfoRow label="Cabang" value={member?.branch?.name} />
                                 <InfoRow label="Tanggal Bergabung" value={member?.joinDate ? format(new Date(member.joinDate), "d MMMM yyyy", { locale: localeId }) : "-"} />

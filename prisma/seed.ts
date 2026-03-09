@@ -352,6 +352,32 @@ async function main() {
         },
     });
 
+    // Admin Fitness
+    await prisma.user.create({
+        data: {
+            name: "Admin Fitness",
+            email: "admin.fitness@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["admin"],
+            branchId: branchMap["HO"],
+            unitType: "fitness",
+            isActive: true,
+        },
+    });
+
+    // Kasir Fitness
+    await prisma.user.create({
+        data: {
+            name: "Kasir Fitness",
+            email: "kasir.fitness@koperasi.com",
+            password: hashedPassword,
+            roleId: roleMap["kasir"],
+            branchId: branchMap["HO"],
+            unitType: "fitness",
+            isActive: true,
+        },
+    });
+
     // ----- Members + User Accounts -----
     console.log("👥 Creating 10 dummy members...");
     const memberIds: number[] = [];
@@ -364,6 +390,7 @@ async function main() {
         const joinDate = new Date(2026, 0, 5 + i); // staggered join dates in January 2026
 
         const salaries = [5500000, 4800000, 6200000, 4500000, 5000000, 5300000, 7000000, 4700000, 5800000, 5100000];
+        const categories = ["Polri", "PNS", "Polri", "Karyawan", "Polri", "PNS", "Polri", "Karyawan", "Polri", "PNS"];
 
         const member = await prisma.member.create({
             data: {
@@ -372,7 +399,7 @@ async function main() {
                 maritalStatus: m.maritalStatus, religion: m.religion, education: m.education,
                 occupation: m.occupation, phone: m.phone, email: m.email,
                 address: m.address, city: m.city, province: m.province, postalCode: m.postalCode,
-                branchId, joinDate, status: "active", salary: salaries[i], createdById: adminUser.id,
+                branchId, joinDate, status: "active", category: categories[i], salary: salaries[i], createdById: adminUser.id,
             },
         });
         memberIds.push(member.id);
@@ -681,13 +708,18 @@ async function main() {
     // ----- Unit Transactions -----
     console.log("🏪 Creating unit transactions for all members...");
     let utSeq = 0;
-    const unitTypes = ["toko", "fotocopy", "cuci_mobil", "fitness", "simpan_pinjam"];
+    const unitTypes = ["toko", "fotocopy", "cuci_mobil", "fitness", "simpan_pinjam", "laundry", "resto_cafe", "playstation", "barbershop", "aset"];
     const unitDescs: Record<string, string[]> = {
         toko: ["Pembelian beras 5kg", "Pembelian minyak goreng 2L", "Pembelian gula 1kg", "Pembelian sabun deterjen"],
         fotocopy: ["Fotocopy dokumen 50 lembar", "Print warna 10 lembar", "Jilid dokumen", "Scan dokumen 20 lembar"],
         cuci_mobil: ["Cuci mobil reguler", "Cuci mobil + poles", "Cuci motor", "Interior cleaning"],
         fitness: ["Membership bulanan", "Personal training 4 sesi", "Kelas yoga bulanan", "Suplemen fitness"],
         simpan_pinjam: ["Pembayaran iuran", "Biaya administrasi", "Biaya materai", "Jasa transfer"],
+        laundry: ["Cuci setrika 3kg", "Dry clean jas", "Cuci selimut besar", "Cuci sepatu"],
+        resto_cafe: ["Makan siang paket", "Kopi + snack", "Catering rapat", "Makan malam keluarga"],
+        playstation: ["Rental PS5 2 jam", "Rental PS5 4 jam + snack", "Turnamen bulanan", "Rental PS4 2 jam"],
+        barbershop: ["Potong rambut pria", "Cukur + creambath", "Shaving + facial", "Potong rambut anak"],
+        aset: ["Sewa tanah kavling A", "Sewa gedung pertemuan", "Sewa lahan parkir", "Iuran perawatan aset"],
     };
     const unitAmounts: Record<string, number[]> = {
         toko: [75000, 35000, 15000, 28000],
@@ -695,6 +727,11 @@ async function main() {
         cuci_mobil: [50000, 150000, 25000, 100000],
         fitness: [200000, 500000, 150000, 100000],
         simpan_pinjam: [10000, 5000, 6000, 7500],
+        laundry: [30000, 75000, 40000, 35000],
+        resto_cafe: [35000, 25000, 250000, 150000],
+        playstation: [30000, 60000, 50000, 20000],
+        barbershop: [35000, 75000, 60000, 25000],
+        aset: [500000, 1000000, 300000, 100000],
     };
 
     for (let i = 0; i < memberIds.length; i++) {
@@ -818,9 +855,18 @@ async function main() {
     console.log("                    AKUN LOGIN                     ");
     console.log("═══════════════════════════════════════════════════");
     console.log("");
-    console.log("  🔑 ADMIN:");
+    console.log("  🔑 OPERATOR:");
     console.log("     Email    : admin@koperasi.com");
     console.log("     Password : password123");
+    console.log("");
+    console.log("  👨‍💼 ADMIN & KASIR:");
+    console.log("     admin.sp@koperasi.com      (Admin Simpan Pinjam)");
+    console.log("     admin.toko@koperasi.com     (Admin Toko)");
+    console.log("     admin.fitness@koperasi.com  (Admin Fitness)");
+    console.log("     kasir.sp@koperasi.com       (Kasir Simpan Pinjam)");
+    console.log("     kasir.toko@koperasi.com     (Kasir Toko)");
+    console.log("     kasir.fitness@koperasi.com  (Kasir Fitness)");
+    console.log("     Password semua: password123");
     console.log("");
     console.log("  👤 ANGGOTA (10 akun):");
     console.log("  ┌─────────────┬──────────────────────┬──────────────────────────┐");
@@ -839,12 +885,11 @@ async function main() {
     console.log("");
     console.log("  📊 DATA DEMO:");
     console.log("     • 6 cabang Jawa Timur");
-    console.log("     • 10 anggota dengan profil lengkap");
-    console.log("     • Simpanan Pokok + Wajib + Sukarela untuk semua anggota");
-    console.log("     • 5 pinjaman aktif (masing-masing 2 angsuran sudah dibayar)");
-    console.log("     • 40+ transaksi unit (toko/fotocopy/cuci mobil/fitness)");
-    console.log("     • Jurnal akuntansi otomatis untuk semua transaksi");
-    console.log("     • Kas & Bank dengan transaksi operasional");
+    console.log("     • 10 anggota + data gaji");
+    console.log("     • 10 unit bisnis Primkoppol");
+    console.log("     • 60+ transaksi unit");
+    console.log("     • Jurnal akuntansi otomatis");
+    console.log("     • Kas & Bank operasional");
     console.log("     • Periode fiskal Jan-Mar 2026");
     console.log("═══════════════════════════════════════════════════\n");
 }
