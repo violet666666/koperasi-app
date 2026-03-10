@@ -300,83 +300,46 @@ async function main() {
         },
     });
 
-    // Admin Simpan Pinjam
-    await prisma.user.create({
-        data: {
-            name: "Admin Simpan Pinjam",
-            email: "admin.sp@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["admin"],
-            branchId: branchMap["HO"],
-            unitType: "simpan_pinjam",
-            isActive: true,
-        },
-    });
+    // Create Admin + Kasir for all 10 units
+    const UNIT_STAFF = [
+        { unit: "simpan_pinjam", label: "Simpan Pinjam", emailKey: "sp" },
+        { unit: "toko", label: "Toko", emailKey: "toko" },
+        { unit: "fitness", label: "Fitness", emailKey: "fitness" },
+        { unit: "cuci_mobil", label: "Cuci Mobil", emailKey: "cucimobil" },
+        { unit: "fotocopy", label: "Fotocopy", emailKey: "fotocopy" },
+        { unit: "laundry", label: "Laundry", emailKey: "laundry" },
+        { unit: "resto_cafe", label: "Resto & Cafe", emailKey: "cafe" },
+        { unit: "playstation", label: "Playstation", emailKey: "ps" },
+        { unit: "barbershop", label: "Barbershop", emailKey: "barbershop" },
+        { unit: "aset", label: "Aset", emailKey: "aset" },
+    ];
 
-    // Admin Toko
-    await prisma.user.create({
-        data: {
-            name: "Admin Toko",
-            email: "admin.toko@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["admin"],
-            branchId: branchMap["HO"],
-            unitType: "toko",
-            isActive: true,
-        },
-    });
-
-    // Kasir Simpan Pinjam
-    await prisma.user.create({
-        data: {
-            name: "Kasir Simpan Pinjam",
-            email: "kasir.sp@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["kasir"],
-            branchId: branchMap["HO"],
-            unitType: "simpan_pinjam",
-            isActive: true,
-        },
-    });
-
-    // Kasir Toko
-    await prisma.user.create({
-        data: {
-            name: "Kasir Toko",
-            email: "kasir.toko@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["kasir"],
-            branchId: branchMap["HO"],
-            unitType: "toko",
-            isActive: true,
-        },
-    });
-
-    // Admin Fitness
-    await prisma.user.create({
-        data: {
-            name: "Admin Fitness",
-            email: "admin.fitness@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["admin"],
-            branchId: branchMap["HO"],
-            unitType: "fitness",
-            isActive: true,
-        },
-    });
-
-    // Kasir Fitness
-    await prisma.user.create({
-        data: {
-            name: "Kasir Fitness",
-            email: "kasir.fitness@koperasi.com",
-            password: hashedPassword,
-            roleId: roleMap["kasir"],
-            branchId: branchMap["HO"],
-            unitType: "fitness",
-            isActive: true,
-        },
-    });
+    for (const us of UNIT_STAFF) {
+        // Admin
+        await prisma.user.create({
+            data: {
+                name: `Admin ${us.label}`,
+                email: `admin${us.emailKey}@koperasi.com`,
+                password: hashedPassword,
+                roleId: roleMap["admin"],
+                branchId: branchMap["HO"],
+                unitType: us.unit,
+                isActive: true,
+            },
+        });
+        // Kasir
+        await prisma.user.create({
+            data: {
+                name: `Kasir ${us.label}`,
+                email: `kasir${us.emailKey}@koperasi.com`,
+                password: hashedPassword,
+                roleId: roleMap["kasir"],
+                branchId: branchMap["HO"],
+                unitType: us.unit,
+                isActive: true,
+            },
+        });
+    }
 
     // ----- Members + User Accounts -----
     console.log("👥 Creating 10 dummy members...");
