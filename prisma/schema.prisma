@@ -45,6 +45,7 @@ model User {
   journals                Journal[]             @relation("JournalCreatedBy")
   unitTransactions        UnitTransaction[]     @relation("UnitTxCreatedBy")
   storeSalesCreated       StoreSale[]           @relation("StoreSaleCreatedBy")
+  receiptsCreated         Receipt[]             @relation("ReceiptCreatedBy")
 
   @@map("users")
 }
@@ -245,6 +246,7 @@ model Member {
   loanPayments        LoanPayment[]
   unitTransactions    UnitTransaction[]
   storeSales          StoreSale[]
+  receipts            Receipt[]
 
   @@map("members")
 }
@@ -639,6 +641,7 @@ model UnitTransaction {
   isPaid          Boolean   @default(false) @map("is_paid")
   paidDate        DateTime? @map("paid_date") @db.Date
   notes           String?
+  supportingDocPath String? @map("supporting_doc_path")
   createdById     Int       @map("created_by_id")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -708,4 +711,32 @@ model StoreSaleItem {
   product StoreProduct @relation(fields: [productId], references: [id])
 
   @@map("store_sale_items")
+}
+
+// =================================================================
+// RECEIPTS (KWITANSI)
+// =================================================================
+
+model Receipt {
+  id              Int       @id @default(autoincrement())
+  receiptNo       String    @unique @map("receipt_no")
+  memberId        Int       @map("member_id")
+  type            String    // simpanan, pinjaman, angsuran, unit_transaction
+  referenceNo     String?   @map("reference_no")
+  amount          Decimal   @db.Decimal(15, 2)
+  description     String
+  receivedFrom    String    @map("received_from")
+  paymentMethod   String    @default("cash") @map("payment_method")
+  status          String    @default("draft") // draft, printed, void
+  notes           String?
+  receiptDate     DateTime  @map("receipt_date") @db.Date
+  printedAt       DateTime? @map("printed_at")
+  createdById     Int       @map("created_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  member    Member @relation(fields: [memberId], references: [id])
+  createdBy User   @relation("ReceiptCreatedBy", fields: [createdById], references: [id])
+
+  @@map("receipts")
 }

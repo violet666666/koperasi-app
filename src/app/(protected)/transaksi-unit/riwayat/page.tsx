@@ -12,7 +12,19 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, Download, FileText, Paperclip } from "lucide-react";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+
+const txExportColumns: ExportColumn[] = [
+    { header: "No. Transaksi", key: "transactionNo", width: 20 },
+    { header: "Tanggal", key: "transactionDate", width: 15, format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID") : "-" },
+    { header: "Anggota", key: "member.name", width: 25 },
+    { header: "NRP", key: "member.nrp", width: 12 },
+    { header: "Unit", key: "unitType", width: 15 },
+    { header: "Keterangan", key: "description", width: 30 },
+    { header: "Nominal", key: "amount", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Status", key: "isPaid", width: 12, format: (v) => v ? "LUNAS" : "BELUM LUNAS" },
+];
 
 export default function RiwayatTransaksiUnitPage() {
     const [page, setPage] = React.useState(1);
@@ -103,6 +115,20 @@ export default function RiwayatTransaksiUnitPage() {
                 );
             },
         },
+        {
+            header: "Dok.",
+            accessorKey: "supportingDocPath",
+            cell: ({ row }) => {
+                const path = (row.original as unknown as Record<string, unknown>).supportingDocPath as string | undefined;
+                return path ? (
+                    <a href={path} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        <Paperclip className="h-4 w-4" />
+                    </a>
+                ) : (
+                    <span className="text-muted-foreground text-xs">-</span>
+                );
+            },
+        },
     ];
 
     return (
@@ -111,12 +137,22 @@ export default function RiwayatTransaksiUnitPage() {
                 title="Riwayat Transaksi Unit"
                 description="Monitor semua transaksi dari unit-unit koperasi"
                 actions={(
-                    <Button asChild>
-                        <Link href="/transaksi-unit">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Input Transaksi Baru
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => exportToExcel((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi")}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - Koperasi Primkoppol", "Riwayat_Transaksi_Unit")}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            PDF
+                        </Button>
+                        <Button asChild>
+                            <Link href="/transaksi-unit">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Input Transaksi Baru
+                            </Link>
+                        </Button>
+                    </div>
                 )}
             />
 

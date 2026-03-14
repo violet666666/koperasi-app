@@ -303,6 +303,23 @@ export default function TransaksiUnitPage() {
                                         className="mt-1"
                                     />
                                 </div>
+
+                                {/* Dokumen Pendukung - hanya untuk Simpan Pinjam */}
+                                {formData.unitType === "simpan_pinjam" && (
+                                    <div className="border rounded-lg p-3 bg-blue-50/50">
+                                        <Label htmlFor="supportingDoc" className="flex items-center gap-2 text-sm font-medium">
+                                            📎 Dokumen Pendukung (Opsional)
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground mb-2">Upload dokumen pendukung untuk transaksi simpan pinjam (PDF, JPG, PNG, max 5MB)</p>
+                                        <Input
+                                            id="supportingDoc"
+                                            name="supportingDoc"
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            className="mt-1 file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-primary/20"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <Button type="submit" disabled={isLoading || !member} className="w-full mt-4">

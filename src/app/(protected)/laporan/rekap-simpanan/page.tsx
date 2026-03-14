@@ -14,9 +14,20 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Download, Wallet, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { Download, Wallet, TrendingUp, TrendingDown, PiggyBank, FileText } from "lucide-react";
 import { formatCurrency, formatNumber, SAVINGS_PRODUCT_TYPES } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+
+const savingsExportColumns: ExportColumn[] = [
+    { header: "Kode", key: "productCode", width: 12 },
+    { header: "Produk Simpanan", key: "productName", width: 25 },
+    { header: "Jenis", key: "productType", width: 15 },
+    { header: "Jml Anggota", key: "totalMembers", width: 12, format: (v) => String(v || 0) },
+    { header: "Total Setoran", key: "totalDeposit", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Total Penarikan", key: "totalWithdrawal", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Saldo Saat Ini", key: "currentBalance", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+];
 
 interface SavingsRecap {
     productCode: string;
@@ -120,10 +131,16 @@ export default function RekapSimpananPage() {
                 description="Rekapitulasi simpanan berdasarkan produk"
                 backHref="/laporan"
                 actions={
-                    <Button variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Excel
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => exportToExcel(data as unknown as Record<string, unknown>[], savingsExportColumns, "Rekap_Simpanan", "Simpanan")}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(data as unknown as Record<string, unknown>[], savingsExportColumns, "Rekap Simpanan - Koperasi Primkoppol", "Rekap_Simpanan")}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            PDF
+                        </Button>
+                    </div>
                 }
             />
 

@@ -15,9 +15,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Download, Users, UserCheck, UserX, UserPlus } from "lucide-react";
+import { Download, Users, UserCheck, UserX, UserPlus, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 
 interface MemberSummary {
     id: number;
@@ -104,6 +105,17 @@ const columns: ColumnDef<MemberSummary>[] = [
     },
 ];
 
+const exportColumns: ExportColumn[] = [
+    { header: "No. Anggota", key: "memberNo", width: 15 },
+    { header: "Nama", key: "name", width: 25 },
+    { header: "Telepon", key: "phone", width: 15 },
+    { header: "Cabang", key: "branch", width: 15 },
+    { header: "Status", key: "status", width: 12, format: (v) => { const labels: Record<string, string> = { active: "Aktif", inactive: "Tidak Aktif", resigned: "Keluar" }; return labels[v as string] || String(v); } },
+    { header: "Tgl Bergabung", key: "joinDate", width: 15, format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID") : "-" },
+    { header: "Total Simpanan", key: "totalSavings", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Sisa Pinjaman", key: "totalLoans", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
+];
+
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
     const colorClasses: Record<string, string> = {
         primary: "bg-primary/10 text-primary",
@@ -170,10 +182,16 @@ export default function RekapAnggotaPage() {
                 description="Rangkuman data seluruh anggota koperasi"
                 backHref="/laporan"
                 actions={
-                    <Button variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Excel
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, "Rekap_Anggota", "Anggota")}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(members as unknown as Record<string, unknown>[], exportColumns, "Rekap Anggota - Koperasi Primkoppol", "Rekap_Anggota")}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            PDF
+                        </Button>
+                    </div>
                 }
             />
 

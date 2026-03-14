@@ -21,6 +21,7 @@ import {
     Megaphone,
     User,
     Activity,
+    Receipt,
     type LucideIcon,
 } from "lucide-react";
 
@@ -108,6 +109,12 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 title: "Transaksi Unit",
                 href: "/transaksi-unit",
                 icon: Wallet,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kwitansi",
+                href: "/kwitansi",
+                icon: Receipt,
                 permission: "manage_unit_transactions",
             },
         ],

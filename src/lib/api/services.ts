@@ -330,3 +330,47 @@ export const memberPortalApi = {
 export const memberLookupApi = {
     byNrp: (nrp: string) => api.get<{ data: Member | null }>(`/members/lookup?nrp=${encodeURIComponent(nrp)}`),
 };
+
+// ============================================================
+// Receipts API
+// ============================================================
+
+export interface Receipt {
+    id: number;
+    receiptNo: string;
+    memberId: number;
+    type: string;
+    referenceNo?: string;
+    amount: number;
+    description: string;
+    receivedFrom: string;
+    paymentMethod: string;
+    status: string;
+    notes?: string;
+    receiptDate: string;
+    printedAt?: string;
+    member?: { id: number; memberNo: string; nrp?: string; name: string };
+    createdBy?: { id: number; name: string };
+}
+
+export const receiptsApi = {
+    list: (params?: { page?: number; perPage?: number; status?: string; search?: string }) =>
+        api.get<PaginatedResponse<Receipt>>("/receipts", { params }),
+
+    get: (id: number) => api.get<{ data: Receipt }>(`/receipts/${id}`),
+
+    create: (data: {
+        memberId: number;
+        type: string;
+        referenceNo?: string;
+        amount: number;
+        description: string;
+        receivedFrom: string;
+        paymentMethod?: string;
+        notes?: string;
+        receiptDate: string;
+    }) => api.post<{ data: Receipt }>("/receipts", data),
+
+    update: (id: number, data: Record<string, unknown>) =>
+        api.put<{ data: Receipt }>(`/receipts/${id}`, data),
+};
