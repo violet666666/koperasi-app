@@ -39,6 +39,8 @@ export default function EditAnggotaPage() {
         nrp: "",
         nik: "",
         gender: "",
+        category: "",
+        salary: "",
         birthPlace: "",
         birthDate: "",
         maritalStatus: "",
@@ -65,6 +67,8 @@ export default function EditAnggotaPage() {
                     nrp: m.nrp || "",
                     nik: m.nik || "",
                     gender: m.gender || "",
+                    category: m.category || "",
+                    salary: m.salary ? String(m.salary) : "",
                     birthPlace: m.birthPlace || "",
                     birthDate: m.birthDate ? m.birthDate.split("T")[0] : "",
                     maritalStatus: m.maritalStatus || "",
@@ -179,6 +183,31 @@ export default function EditAnggotaPage() {
                                     <SelectItem value="female">Perempuan</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div>
+                            <Label>Kategori Anggota</Label>
+                            <Select value={formData.category} onValueChange={(v) => handleSelectChange("category", v)}>
+                                <SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Polri">Polri</SelectItem>
+                                    <SelectItem value="PNS">PNS</SelectItem>
+                                    <SelectItem value="Purnawirawan">Purnawirawan</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="salary">Gaji Bersih (Per Bulan)</Label>
+                            <Input
+                                id="salary"
+                                name="salary"
+                                type="number"
+                                min="0"
+                                value={formData.salary}
+                                onChange={handleChange}
+                                placeholder="Masukkan nominal gaji bersih"
+                            />
                         </div>
 
                         <div>

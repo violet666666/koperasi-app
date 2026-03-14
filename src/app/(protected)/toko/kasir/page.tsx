@@ -23,10 +23,10 @@ import {
     Plus,
     Minus,
     Trash2,
-    CreditCard,
     Banknote,
     Receipt,
     User,
+    Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -49,19 +49,25 @@ export default function KasirPage() {
     const [cart, setCart] = React.useState<CartItem[]>([]);
     const [customerName, setCustomerName] = React.useState("");
     const [paymentAmount, setPaymentAmount] = React.useState("");
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [isProcessing, setIsProcessing] = React.useState(false);
 
-    // Mock products
+    // Fetch real products from API
     React.useEffect(() => {
-        setProducts([
-            { id: 1, sku: "BRS-001", name: "Beras Premium 5kg", price: 75000, stock: 50 },
-            { id: 2, sku: "MGR-001", name: "Minyak Goreng 2L", price: 35000, stock: 15 },
-            { id: 3, sku: "GLP-001", name: "Gula Pasir 1kg", price: 18000, stock: 80 },
-            { id: 4, sku: "KPI-001", name: "Kopi Bubuk 250g", price: 25000, stock: 40 },
-            { id: 5, sku: "TEH-001", name: "Teh Celup 25s", price: 12000, stock: 60 },
-            { id: 6, sku: "SBN-001", name: "Sabun Mandi 100g", price: 8000, stock: 100 },
-            { id: 7, sku: "MIE-001", name: "Mie Instan (box)", price: 120000, stock: 25 },
-            { id: 8, sku: "SUS-001", name: "Susu UHT 1L", price: 18000, stock: 35 },
-        ]);
+        async function fetchProducts() {
+            setIsLoading(true);
+            try {
+                const res = await fetch("/api/toko/products");
+                const json = await res.json();
+                setProducts(json.data || []);
+            } catch (error) {
+                console.error("Failed to fetch products:", error);
+                toast.error("Gagal memuat produk");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchProducts();
     }, []);
 
     // Filtered products
@@ -112,8 +118,8 @@ export default function KasirPage() {
         setCart(prev => prev.filter(item => item.product.id !== productId));
     };
 
-    // Process payment
-    const processPayment = () => {
+    // Process payment via API
+    const processPayment = async () => {
         if (cart.length === 0) {
             toast.error("Keranjang kosong");
             return;
@@ -123,10 +129,46 @@ export default function KasirPage() {
             return;
         }
 
-        toast.success(`Transaksi berhasil! Kembalian: ${formatCurrency(change)}`);
-        setCart([]);
-        setPaymentAmount("");
-        setCustomerName("");
+        setIsProcessing(true);
+        try {
+            const res = await fetch("/api/toko/sales", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    items: cart.map(item => ({
+                        productId: item.product.id,
+                        quantity: item.quantity,
+                    })),
+                    customerName: customerName || undefined,
+                    paymentMethod: "cash",
+                    cashReceived: Number(paymentAmount),
+                }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                toast.error(json.message || "Gagal memproses transaksi");
+                return;
+            }
+
+            toast.success(`Transaksi ${json.data.saleNo} berhasil! Kembalian: ${formatCurrency(json.data.changeAmount)}`);
+
+            // Reset cart
+            setCart([]);
+            setPaymentAmount("");
+            setCustomerName("");
+
+            // Refresh products to get updated stock
+            const productsRes = await fetch("/api/toko/products");
+            const productsJson = await productsRes.json();
+            setProducts(productsJson.data || []);
+        } catch (error) {
+            console.error("Payment error:", error);
+            toast.error("Gagal memproses pembayaran");
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
@@ -155,38 +197,52 @@ export default function KasirPage() {
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="max-h-[400px] overflow-y-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead>Produk</TableHead>
-                                            <TableHead className="text-right">Harga</TableHead>
-                                            <TableHead className="text-center">Stok</TableHead>
-                                            <TableHead></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredProducts.map((product) => (
-                                            <TableRow key={product.id} className="cursor-pointer hover:bg-muted/50" onClick={() => addToCart(product)}>
-                                                <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                                                <TableCell className="font-medium">{product.name}</TableCell>
-                                                <TableCell className="text-right tabular-nums">
-                                                    {formatCurrency(product.price)}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    <Badge variant={product.stock > 0 ? "secondary" : "destructive"}>
-                                                        {product.stock}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
-                                                        <Plus className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        <span className="ml-2 text-sm text-muted-foreground">Memuat produk...</span>
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>SKU</TableHead>
+                                                <TableHead>Produk</TableHead>
+                                                <TableHead className="text-right">Harga</TableHead>
+                                                <TableHead className="text-center">Stok</TableHead>
+                                                <TableHead></TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredProducts.map((product) => (
+                                                <TableRow key={product.id} className="cursor-pointer hover:bg-muted/50" onClick={() => addToCart(product)}>
+                                                    <TableCell className="font-mono text-sm">{product.sku}</TableCell>
+                                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {formatCurrency(product.price)}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Badge variant={product.stock > 0 ? "secondary" : "destructive"}>
+                                                            {product.stock}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
+                                                            <Plus className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {filteredProducts.length === 0 && (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                                        {searchQuery ? "Produk tidak ditemukan" : "Belum ada produk"}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -283,9 +339,22 @@ export default function KasirPage() {
 
                             {/* Actions */}
                             <div className="flex gap-2">
-                                <Button className="flex-1" onClick={processPayment} disabled={cart.length === 0}>
-                                    <Banknote className="mr-2 h-4 w-4" />
-                                    Bayar Tunai
+                                <Button
+                                    className="flex-1"
+                                    onClick={processPayment}
+                                    disabled={cart.length === 0 || isProcessing}
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Memproses...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Banknote className="mr-2 h-4 w-4" />
+                                            Bayar Tunai
+                                        </>
+                                    )}
                                 </Button>
                             </div>
                             <Button variant="outline" className="w-full" disabled={cart.length === 0}>

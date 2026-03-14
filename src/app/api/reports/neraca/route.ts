@@ -1,51 +1,160 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 
-// GET /api/reports/neraca - Balance Sheet
+function toNum(d: Decimal | number): number {
+    return typeof d === "number" ? d : Number(d);
+}
+
+// GET /api/reports/neraca - Balance Sheet from real journal aggregation
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const branchId = searchParams.get("branchId");
         const asOfDate = searchParams.get("asOfDate") || new Date().toISOString().split("T")[0];
+        const endDate = new Date(asOfDate + "T23:59:59.999Z");
 
-        // Get all accounts with their balances
-        const accounts = await prisma.account.findMany({
-            where: { deletedAt: null },
-            orderBy: { code: "asc" },
+        // Get all journal lines up to asOfDate
+        const journalLines = await prisma.journalLine.findMany({
+            where: {
+                journal: {
+                    transactionDate: { lte: endDate },
+                    isPosted: true,
+                },
+            },
+            include: {
+                account: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        type: true,
+                        category: true,
+                        normalBalance: true,
+                        level: true,
+                        isDetail: true,
+                    },
+                },
+            },
         });
 
-        // For demo purposes, generate sample balances
-        // In production, this would aggregate journal entries
+        // Aggregate balances per account
+        const accountBalances: Record<
+            number,
+            {
+                code: string;
+                name: string;
+                type: string;
+                category: string | null;
+                normalBalance: string;
+                level: number;
+                isDetail: boolean;
+                balance: number;
+            }
+        > = {};
+
+        for (const line of journalLines) {
+            const { account } = line;
+            if (!accountBalances[account.id]) {
+                accountBalances[account.id] = {
+                    code: account.code,
+                    name: account.name,
+                    type: account.type,
+                    category: account.category,
+                    normalBalance: account.normalBalance,
+                    level: account.level,
+                    isDetail: account.isDetail,
+                    balance: 0,
+                };
+            }
+
+            const debit = toNum(line.debit);
+            const credit = toNum(line.credit);
+
+            // Calculate balance based on normal balance direction
+            if (account.normalBalance === "debit") {
+                accountBalances[account.id].balance += debit - credit;
+            } else {
+                accountBalances[account.id].balance += credit - debit;
+            }
+        }
+
+        // Group accounts by type and category
+        const detailAccounts = Object.values(accountBalances).filter((a) => a.isDetail && a.balance !== 0);
+
+        // Assets
+        const currentAssets = detailAccounts
+            .filter((a) => a.type === "asset" && a.category === "current_asset")
+            .sort((a, b) => a.code.localeCompare(b.code))
+            .map((a) => ({
+                code: a.code,
+                name: a.name,
+                amount: a.normalBalance === "credit" ? -a.balance : a.balance,
+            }));
+
+        const fixedAssets = detailAccounts
+            .filter((a) => a.type === "asset" && a.category === "fixed_asset")
+            .sort((a, b) => a.code.localeCompare(b.code))
+            .map((a) => ({
+                code: a.code,
+                name: a.name,
+                amount: a.normalBalance === "credit" ? -a.balance : a.balance,
+            }));
+
+        const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + a.amount, 0);
+        const totalFixedAssets = fixedAssets.reduce((sum, a) => sum + a.amount, 0);
+        const totalAssets = totalCurrentAssets + totalFixedAssets;
+
+        // Liabilities
+        const currentLiabilities = detailAccounts
+            .filter((a) => a.type === "liability" && a.category === "current_liability")
+            .sort((a, b) => a.code.localeCompare(b.code))
+            .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
+
+        const totalLiabilities = currentLiabilities.reduce((sum, a) => sum + a.amount, 0);
+
+        // Equity
+        const equityItems = detailAccounts
+            .filter((a) => a.type === "equity")
+            .sort((a, b) => a.code.localeCompare(b.code))
+            .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
+
+        // Calculate SHU Tahun Berjalan (net income) for equity
+        const incomeTotal = detailAccounts
+            .filter((a) => a.type === "income")
+            .reduce((sum, a) => sum + a.balance, 0);
+        const expenseTotal = detailAccounts
+            .filter((a) => a.type === "expense")
+            .reduce((sum, a) => sum + a.balance, 0);
+        const netIncome = incomeTotal - expenseTotal;
+
+        // Check if SHU Tahun Berjalan account already exists in equity
+        const hasShuAccount = equityItems.some((e) => e.code === "3103");
+        if (!hasShuAccount && netIncome !== 0) {
+            equityItems.push({ code: "3103", name: "SHU Tahun Berjalan", amount: netIncome });
+        }
+
+        const totalEquity = equityItems.reduce((sum, a) => sum + a.amount, 0);
+
         const balanceSheet = {
-            asOfDate,
-            branchId: branchId ? parseInt(branchId) : null,
+            period: asOfDate,
             assets: {
-                currentAssets: [
-                    { code: "1-1100", name: "Kas", balance: 50000000 },
-                    { code: "1-1200", name: "Bank", balance: 250000000 },
-                    { code: "1-1300", name: "Piutang Pinjaman", balance: 1500000000 },
-                ],
-                fixedAssets: [
-                    { code: "1-2100", name: "Inventaris Kantor", balance: 75000000 },
-                ],
-                totalAssets: 1875000000,
+                current: currentAssets,
+                fixed: fixedAssets,
+                totalCurrentAssets,
+                totalFixedAssets,
+                totalAssets,
             },
             liabilities: {
-                currentLiabilities: [
-                    { code: "2-1100", name: "Simpanan Pokok", balance: 500000000 },
-                    { code: "2-1200", name: "Simpanan Wajib", balance: 300000000 },
-                    { code: "2-1300", name: "Simpanan Sukarela", balance: 750000000 },
-                ],
-                totalLiabilities: 1550000000,
+                shortTerm: currentLiabilities,
+                longTerm: [],
+                totalLiabilities,
             },
             equity: {
-                items: [
-                    { code: "3-1100", name: "Modal Disetor", balance: 200000000 },
-                    { code: "3-2000", name: "SHU Tahun Berjalan", balance: 125000000 },
-                ],
-                totalEquity: 325000000,
+                items: equityItems,
+                totalEquity,
             },
-            totalLiabilitiesAndEquity: 1875000000,
+            totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
+            isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 1, // floating point tolerance
         };
 
         return NextResponse.json({ data: balanceSheet });

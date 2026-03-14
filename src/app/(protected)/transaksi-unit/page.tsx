@@ -36,6 +36,7 @@ export default function TransaksiUnitPage() {
         transactionDate: new Date().toISOString().split("T")[0],
         isPaid: false,
         notes: "",
+        carwashCategory: "",
     });
 
     const handleChange = (
@@ -98,13 +99,22 @@ export default function TransaksiUnitPage() {
             return;
         }
 
+        if (formData.unitType === "cuci_mobil" && !formData.carwashCategory) {
+            toast.error("Silakan pilih Kategori Kendaraan (Mobil/Motor)");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
+            const finalDescription = formData.unitType === "cuci_mobil"
+                ? `[${formData.carwashCategory}] ${formData.description}`
+                : formData.description;
+
             await unitTransactionsApi.create({
                 nrp: formData.nrp,
                 unitType: formData.unitType,
-                description: formData.description,
+                description: finalDescription,
                 amount: Number(formData.amount),
                 transactionDate: formData.transactionDate,
                 isPaid: formData.isPaid,
@@ -122,6 +132,7 @@ export default function TransaksiUnitPage() {
                 transactionDate: prev.transactionDate,
                 isPaid: false,
                 notes: "",
+                carwashCategory: "",
             }));
             setMember(null);
 
@@ -208,6 +219,25 @@ export default function TransaksiUnitPage() {
                                     </Select>
                                 </div>
 
+                                {formData.unitType === "cuci_mobil" && (
+                                    <div>
+                                        <Label htmlFor="carwashCategory">Kategori Kendaraan *</Label>
+                                        <Select
+                                            value={formData.carwashCategory}
+                                            onValueChange={(value) => handleSelectChange("carwashCategory", value)}
+                                            required
+                                        >
+                                            <SelectTrigger className="mt-1">
+                                                <SelectValue placeholder="Pilih kategori (Mobil / Motor)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Mobil">Mobil</SelectItem>
+                                                <SelectItem value="Motor">Motor</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
                                 <div>
                                     <Label htmlFor="description">Deskripsi Transaksi *</Label>
                                     <Input
@@ -215,7 +245,7 @@ export default function TransaksiUnitPage() {
                                         name="description"
                                         value={formData.description}
                                         onChange={handleChange}
-                                        placeholder="Cth: Pembelian Paket Beras 5Kg"
+                                        placeholder="Cth: Cuci Reguler"
                                         required
                                         className="mt-1"
                                     />

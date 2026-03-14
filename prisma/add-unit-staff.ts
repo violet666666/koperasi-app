@@ -48,10 +48,9 @@ async function main() {
     // --- Ensure permissions exist ---
     const permMap: Record<string, number> = {};
     for (const p of PERMISSIONS) {
-        const displayName = p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
         const perm = await prisma.permission.upsert({
             where: { name: p },
-            create: { name: p, displayName, module: "system" },
+            create: { name: p, displayName: p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()), module: "system" },
             update: {},
         });
         permMap[p] = perm.id;

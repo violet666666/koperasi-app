@@ -130,6 +130,61 @@ export async function POST(request: Request) {
             );
         }
 
+        // === AD-ART Pasal 26: Validate salary remainder ===
+        // Max pinjaman Rp 20.000.000
+        const AD_ART_MAX_LOAN = 20000000;
+        if (data.amount > AD_ART_MAX_LOAN) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 26, pinjaman maksimal Rp 20.000.000` },
+                { status: 400 }
+            );
+        }
+
+        // Get member salary and existing active loan installments
+        const memberFull = await prisma.member.findUnique({
+            where: { id: data.memberId },
+            select: {
+                salary: true,
+                loans: {
+                    where: { status: "active" },
+                    select: { monthlyInstallment: true },
+                },
+            },
+        });
+
+        if (memberFull?.salary) {
+            const salary = Number(memberFull.salary);
+            const existingInstallments = memberFull.loans.reduce(
+                (sum, loan) => sum + Number(loan.monthlyInstallment),
+                0
+            );
+
+            // Calculate new loan monthly installment
+            const interestRate = Number(product.interestRate);
+            const monthlyInterest = (data.amount * interestRate) / 100 / 12;
+            const monthlyPrincipal = data.amount / data.tenorMonths;
+            const newInstallment = monthlyPrincipal + monthlyInterest;
+
+            const salaryRemainder = salary - existingInstallments - newInstallment;
+            const MIN_SALARY_REMAINDER = 2000000; // Rp 2.000.000
+
+            if (salaryRemainder < MIN_SALARY_REMAINDER) {
+                return NextResponse.json(
+                    {
+                        message: `Sesuai AD-ART Pasal 26, sisa gaji setelah pemotongan angsuran minimal Rp 2.000.000. Sisa gaji Anda: Rp ${Math.round(salaryRemainder).toLocaleString("id-ID")}`,
+                        details: {
+                            salary,
+                            existingInstallments: Math.round(existingInstallments),
+                            newInstallment: Math.round(newInstallment),
+                            salaryRemainder: Math.round(salaryRemainder),
+                            minimumRequired: MIN_SALARY_REMAINDER,
+                        },
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
         const application = await prisma.loanApplication.create({
             data: {
                 applicationNo: generateApplicationNo(),

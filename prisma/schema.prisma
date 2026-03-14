@@ -44,6 +44,7 @@ model User {
   approvedRequests        ApprovalRequest[]     @relation("ApprovalApprovedBy")
   journals                Journal[]             @relation("JournalCreatedBy")
   unitTransactions        UnitTransaction[]     @relation("UnitTxCreatedBy")
+  storeSalesCreated       StoreSale[]           @relation("StoreSaleCreatedBy")
 
   @@map("users")
 }
@@ -243,6 +244,7 @@ model Member {
   loans               Loan[]
   loanPayments        LoanPayment[]
   unitTransactions    UnitTransaction[]
+  storeSales          StoreSale[]
 
   @@map("members")
 }
@@ -540,6 +542,7 @@ model FiscalPeriod {
   loans                 Loan[]
   loanPayments          LoanPayment[]
   cashBankTransactions  CashBankTransaction[]
+  storeSales            StoreSale[]
 
   @@unique([year, month])
   @@map("fiscal_periods")
@@ -570,6 +573,7 @@ model Journal {
   loanDisbursements   Loan[]
   loanPayments        LoanPayment[]
   cashBankTransactions CashBankTransaction[]
+  storeSales           StoreSale[]            @relation("StoreSaleJournal")
 
   @@map("journals")
 }
@@ -643,4 +647,65 @@ model UnitTransaction {
   createdBy User   @relation("UnitTxCreatedBy", fields: [createdById], references: [id])
 
   @@map("unit_transactions")
+}
+
+// =================================================================
+// TOKO (STORE) MANAGEMENT
+// =================================================================
+
+model StoreProduct {
+  id        Int       @id @default(autoincrement())
+  sku       String    @unique
+  name      String
+  category  String?
+  costPrice Decimal   @default(0) @map("cost_price") @db.Decimal(15, 2)
+  sellPrice Decimal   @map("sell_price") @db.Decimal(15, 2)
+  stock     Int       @default(0)
+  minStock  Int       @default(5) @map("min_stock")
+  unit      String    @default("pcs")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  saleItems StoreSaleItem[]
+
+  @@map("store_products")
+}
+
+model StoreSale {
+  id            Int       @id @default(autoincrement())
+  saleNo        String    @unique @map("sale_no")
+  memberId      Int?      @map("member_id")
+  customerName  String?   @map("customer_name")
+  totalAmount   Decimal   @map("total_amount") @db.Decimal(15, 2)
+  paymentMethod String    @default("cash") @map("payment_method")
+  cashReceived  Decimal?  @map("cash_received") @db.Decimal(15, 2)
+  changeAmount  Decimal?  @map("change_amount") @db.Decimal(15, 2)
+  journalId     Int?      @map("journal_id")
+  periodId      Int?      @map("period_id")
+  createdById   Int       @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  member    Member?       @relation(fields: [memberId], references: [id])
+  journal   Journal?      @relation("StoreSaleJournal", fields: [journalId], references: [id])
+  period    FiscalPeriod? @relation(fields: [periodId], references: [id])
+  createdBy User          @relation("StoreSaleCreatedBy", fields: [createdById], references: [id])
+  items     StoreSaleItem[]
+
+  @@map("store_sales")
+}
+
+model StoreSaleItem {
+  id        Int     @id @default(autoincrement())
+  saleId    Int     @map("sale_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(15, 2)
+  subtotal  Decimal @db.Decimal(15, 2)
+
+  sale    StoreSale    @relation(fields: [saleId], references: [id])
+  product StoreProduct @relation(fields: [productId], references: [id])
+
+  @@map("store_sale_items")
 }

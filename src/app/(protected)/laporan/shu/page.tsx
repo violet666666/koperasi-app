@@ -50,7 +50,7 @@ interface SHUData {
 }
 
 export default function LaporanSHUPage() {
-    const [period, setPeriod] = React.useState("2024");
+    const [period, setPeriod] = React.useState("2026");
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<SHUData | null>(null);
 
@@ -103,9 +103,9 @@ export default function LaporanSHUPage() {
                         <SelectValue placeholder="Pilih tahun" />
                     </SelectTrigger>
                     <SelectContent>
+                        <SelectItem value="2026">Tahun 2026</SelectItem>
+                        <SelectItem value="2025">Tahun 2025</SelectItem>
                         <SelectItem value="2024">Tahun 2024</SelectItem>
-                        <SelectItem value="2023">Tahun 2023</SelectItem>
-                        <SelectItem value="2022">Tahun 2022</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

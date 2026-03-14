@@ -1,0 +1,1 @@
+prisma/add-unit-staff.ts(53,106): error TS2353: Object literal may only specify known properties, and 'description' does not exist in type '(Without<PermissionCreateInput, PermissionUncheckedCreateInput> & PermissionUncheckedCreateInput) | (Without<...> & PermissionCreateInput)'.

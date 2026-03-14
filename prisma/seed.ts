@@ -79,8 +79,8 @@ const SAVINGS_PRODUCTS = [
 
 // ======= LOAN PRODUCTS =======
 const LOAN_PRODUCTS = [
-    { code: "PR", name: "Pinjaman Reguler", version: 1, interestMethod: "flat", interestRate: 12.0, interestCalculation: "monthly", minTenorMonths: 3, maxTenorMonths: 24, minAmount: 1000000, maxAmount: 50000000, adminFeeType: "percent", adminFeeValue: 1.0, lateFeeType: "percent_per_day", lateFeeValue: 0.05, gracePeriodDays: 3, requiresCollateral: false, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
-    { code: "PK", name: "Pinjaman Khusus", version: 1, interestMethod: "flat", interestRate: 10.0, interestCalculation: "monthly", minTenorMonths: 6, maxTenorMonths: 36, minAmount: 5000000, maxAmount: 100000000, adminFeeType: "percent", adminFeeValue: 1.5, lateFeeType: "percent_per_day", lateFeeValue: 0.1, gracePeriodDays: 7, requiresCollateral: true, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
+    { code: "PR", name: "Pinjaman Reguler", version: 1, interestMethod: "flat", interestRate: 3.6, interestCalculation: "monthly", minTenorMonths: 3, maxTenorMonths: 36, minAmount: 1000000, maxAmount: 20000000, adminFeeType: "percent", adminFeeValue: 1.0, lateFeeType: "percent_per_day", lateFeeValue: 0.05, gracePeriodDays: 3, requiresCollateral: false, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
+    { code: "PK", name: "Pinjaman Khusus", version: 1, interestMethod: "flat", interestRate: 3.6, interestCalculation: "monthly", minTenorMonths: 6, maxTenorMonths: 36, minAmount: 5000000, maxAmount: 20000000, adminFeeType: "percent", adminFeeValue: 1.5, lateFeeType: "percent_per_day", lateFeeValue: 0.1, gracePeriodDays: 7, requiresCollateral: true, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
 ];
 
 // ======= CHART OF ACCOUNTS (CoA) =======
@@ -159,6 +159,9 @@ async function main() {
 
     // ----- Clean existing data (reverse dependency order) -----
     console.log("🧹 Cleaning existing data...");
+    await prisma.storeSaleItem.deleteMany();
+    await prisma.storeSale.deleteMany();
+    await prisma.storeProduct.deleteMany();
     await prisma.loanPaymentAllocation.deleteMany();
     await prisma.loanPayment.deleteMany();
     await prisma.loanSchedule.deleteMany();
@@ -353,7 +356,7 @@ async function main() {
         const joinDate = new Date(2026, 0, 5 + i); // staggered join dates in January 2026
 
         const salaries = [5500000, 4800000, 6200000, 4500000, 5000000, 5300000, 7000000, 4700000, 5800000, 5100000];
-        const categories = ["Polri", "PNS", "Polri", "Karyawan", "Polri", "PNS", "Polri", "Karyawan", "Polri", "PNS"];
+        const categories = ["Polri", "PNS", "Polri", "Purnawirawan", "Polri", "PNS", "Polri", "Purnawirawan", "Polri", "PNS"];
 
         const member = await prisma.member.create({
             data: {
@@ -531,7 +534,7 @@ async function main() {
 
         const principal = loanAmounts[i];
         const tenor = loanTenors[i];
-        const rate = 12; // 12% flat annual
+        const rate = 3.6; // 3.6% flat annual (0.3% per month per AD-ART Pasal 25)
         const monthlyInterest = (principal * rate) / 100 / 12;
         const monthlyPrincipal = principal / tenor;
         const monthlyInstallment = monthlyPrincipal + monthlyInterest;
@@ -854,6 +857,25 @@ async function main() {
     console.log("     • Jurnal akuntansi otomatis");
     console.log("     • Kas & Bank operasional");
     console.log("     • Periode fiskal Jan-Mar 2026");
+    // ----- Store Products -----
+    console.log("🏪 Creating store products (Toko Koperasi)...");
+    const STORE_PRODUCTS = [
+        { sku: "BRS-001", name: "Beras Premium 5kg", category: "Sembako", costPrice: 65000, sellPrice: 75000, stock: 50, unit: "sak" },
+        { sku: "MGR-001", name: "Minyak Goreng 2L", category: "Sembako", costPrice: 28000, sellPrice: 35000, stock: 15, unit: "btl" },
+        { sku: "GLP-001", name: "Gula Pasir 1kg", category: "Sembako", costPrice: 14000, sellPrice: 18000, stock: 80, unit: "kg" },
+        { sku: "KPI-001", name: "Kopi Bubuk 250g", category: "Minuman", costPrice: 20000, sellPrice: 25000, stock: 40, unit: "bks" },
+        { sku: "TEH-001", name: "Teh Celup 25s", category: "Minuman", costPrice: 9000, sellPrice: 12000, stock: 60, unit: "box" },
+        { sku: "SBN-001", name: "Sabun Mandi 100g", category: "Kebersihan", costPrice: 5000, sellPrice: 8000, stock: 100, unit: "pcs" },
+        { sku: "MIE-001", name: "Mie Instan (box)", category: "Makanan", costPrice: 95000, sellPrice: 120000, stock: 25, unit: "box" },
+        { sku: "SUS-001", name: "Susu UHT 1L", category: "Minuman", costPrice: 14000, sellPrice: 18000, stock: 35, unit: "btl" },
+    ];
+    for (const sp of STORE_PRODUCTS) {
+        await prisma.storeProduct.create({ data: sp });
+    }
+
+    console.log("     • 8 produk toko tersedia");
+    console.log("     • Bunga pinjaman 0.3%/bulan (AD-ART Pasal 25)");
+    console.log("     • Kategori anggota: Polri, PNS, Purnawirawan");
     console.log("═══════════════════════════════════════════════════\n");
 }
 

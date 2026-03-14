@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { reportsApi } from "@/lib/api";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,14 +33,11 @@ interface IncomeStatementItem {
 interface IncomeStatement {
     period: string;
     income: {
-        operational: IncomeStatementItem[];
-        other: IncomeStatementItem[];
+        items: IncomeStatementItem[];
         totalIncome: number;
     };
     expense: {
-        operational: IncomeStatementItem[];
-        administrative: IncomeStatementItem[];
-        other: IncomeStatementItem[];
+        items: IncomeStatementItem[];
         totalExpense: number;
     };
     netIncome: number;
@@ -51,51 +49,31 @@ export default function LabaRugiPage() {
     const [data, setData] = React.useState<IncomeStatement | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
 
-    // Fetch data
+    // Fetch real data from API
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
+                const lastDay = new Date(Number(selectedYear), Number(selectedMonth), 0).getDate();
+                const periodFrom = `${selectedYear}-${selectedMonth}-01`;
+                const periodTo = `${selectedYear}-${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+                const response = await reportsApi.labaRugi({ periodFrom, periodTo });
+                const d = response.data as any;
                 setData({
                     period: `${selectedMonth}/${selectedYear}`,
                     income: {
-                        operational: [
-                            { code: "4100", name: "Pendapatan Bunga Pinjaman", amount: 75000000 },
-                            { code: "4110", name: "Pendapatan Administrasi", amount: 15000000 },
-                            { code: "4120", name: "Pendapatan Provisi", amount: 8500000 },
-                        ],
-                        other: [
-                            { code: "4200", name: "Pendapatan Jasa Giro", amount: 2500000 },
-                            { code: "4210", name: "Pendapatan Lain-lain", amount: 1500000 },
-                        ],
-                        totalIncome: 102500000,
+                        items: d.revenue?.items || [],
+                        totalIncome: d.revenue?.total || 0,
                     },
                     expense: {
-                        operational: [
-                            { code: "5100", name: "Biaya Bunga Simpanan", amount: 25000000 },
-                            { code: "5110", name: "Cadangan Risiko Kredit", amount: 5000000 },
-                        ],
-                        administrative: [
-                            { code: "5200", name: "Gaji Karyawan", amount: 18000000 },
-                            { code: "5210", name: "Tunjangan Karyawan", amount: 4500000 },
-                            { code: "5220", name: "Biaya Listrik/Air/Telepon", amount: 3500000 },
-                            { code: "5230", name: "Biaya Perlengkapan", amount: 1500000 },
-                            { code: "5240", name: "Biaya Penyusutan", amount: 5729167 },
-                            { code: "5250", name: "Biaya Sewa", amount: 5000000 },
-                        ],
-                        other: [
-                            { code: "5300", name: "Biaya Administrasi Bank", amount: 500000 },
-                            { code: "5310", name: "Biaya Lain-lain", amount: 1200000 },
-                        ],
-                        totalExpense: 69929167,
+                        items: d.expenses?.items || [],
+                        totalExpense: d.expenses?.total || 0,
                     },
-                    netIncome: 32570833,
+                    netIncome: d.netIncome || 0,
                 });
             } catch (error) {
                 console.error("Failed to fetch:", error);
+                setData(null);
             } finally {
                 setIsLoading(false);
             }
@@ -160,7 +138,7 @@ export default function LabaRugiPage() {
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Pendapatan</p>
                                 <p className="text-lg font-bold tabular-nums text-emerald-600">
-                                    {formatCurrency(data.income.totalIncome)}
+                                    {formatCurrency(data.income.totalIncome || 0)}
                                 </p>
                             </div>
                         </CardContent>
@@ -173,7 +151,7 @@ export default function LabaRugiPage() {
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Biaya</p>
                                 <p className="text-lg font-bold tabular-nums text-red-600">
-                                    {formatCurrency(data.expense.totalExpense)}
+                                    {formatCurrency(data.expense.totalExpense || 0)}
                                 </p>
                             </div>
                         </CardContent>
@@ -225,26 +203,7 @@ export default function LabaRugiPage() {
                                         PENDAPATAN
                                     </TableCell>
                                 </TableRow>
-                                <TableRow className="bg-muted/30">
-                                    <TableCell colSpan={3} className="font-semibold">
-                                        Pendapatan Operasional
-                                    </TableCell>
-                                </TableRow>
-                                {data.income.operational.map((item) => (
-                                    <TableRow key={item.code}>
-                                        <TableCell className="font-mono text-sm">{item.code}</TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-right tabular-nums text-emerald-600">
-                                            {formatCurrency(item.amount)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                <TableRow className="bg-muted/30">
-                                    <TableCell colSpan={3} className="font-semibold">
-                                        Pendapatan Lain-lain
-                                    </TableCell>
-                                </TableRow>
-                                {data.income.other.map((item) => (
+                                {data.income.items.map((item) => (
                                     <TableRow key={item.code}>
                                         <TableCell className="font-mono text-sm">{item.code}</TableCell>
                                         <TableCell>{item.name}</TableCell>
@@ -266,40 +225,7 @@ export default function LabaRugiPage() {
                                         BIAYA-BIAYA
                                     </TableCell>
                                 </TableRow>
-                                <TableRow className="bg-muted/30">
-                                    <TableCell colSpan={3} className="font-semibold">
-                                        Biaya Operasional
-                                    </TableCell>
-                                </TableRow>
-                                {data.expense.operational.map((item) => (
-                                    <TableRow key={item.code}>
-                                        <TableCell className="font-mono text-sm">{item.code}</TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-right tabular-nums text-red-600">
-                                            ({formatCurrency(item.amount)})
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                <TableRow className="bg-muted/30">
-                                    <TableCell colSpan={3} className="font-semibold">
-                                        Biaya Administrasi dan Umum
-                                    </TableCell>
-                                </TableRow>
-                                {data.expense.administrative.map((item) => (
-                                    <TableRow key={item.code}>
-                                        <TableCell className="font-mono text-sm">{item.code}</TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-right tabular-nums text-red-600">
-                                            ({formatCurrency(item.amount)})
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                <TableRow className="bg-muted/30">
-                                    <TableCell colSpan={3} className="font-semibold">
-                                        Biaya Lain-lain
-                                    </TableCell>
-                                </TableRow>
-                                {data.expense.other.map((item) => (
+                                {data.expense.items.map((item) => (
                                     <TableRow key={item.code}>
                                         <TableCell className="font-mono text-sm">{item.code}</TableCell>
                                         <TableCell>{item.name}</TableCell>

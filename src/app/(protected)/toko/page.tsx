@@ -24,11 +24,31 @@ interface TokoStats {
 
 export default function TokoPage() {
     const [stats, setStats] = React.useState<TokoStats>({
-        totalProducts: 45,
-        totalSales: 125000000,
-        totalStock: 850,
-        todaySales: 2500000,
+        totalProducts: 0,
+        totalSales: 0,
+        totalStock: 0,
+        todaySales: 0,
     });
+
+    // Fetch real stats from API
+    React.useEffect(() => {
+        async function fetchStats() {
+            try {
+                const res = await fetch("/api/toko/stats");
+                const json = await res.json();
+                const d = json.data || {};
+                setStats({
+                    totalProducts: d.totalProducts || 0,
+                    totalSales: d.totalSales || 0,
+                    totalStock: d.totalStock || 0,
+                    todaySales: d.todaySales || 0,
+                });
+            } catch (error) {
+                console.error("Failed to fetch toko stats:", error);
+            }
+        }
+        fetchStats();
+    }, []);
 
     const menuItems = [
         {

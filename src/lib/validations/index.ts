@@ -106,6 +106,8 @@ export const createMemberSchema = z.object({
     province: z.string().max(100).optional(),
     postalCode: z.string().max(10).optional(),
     joinDate: z.string().transform((s) => new Date(s)),
+    category: z.string().optional().nullable(),
+    salary: z.coerce.number().nonnegative().optional().nullable(),
     status: z.enum(["active", "inactive", "resigned"]).default("active"),
 });
 

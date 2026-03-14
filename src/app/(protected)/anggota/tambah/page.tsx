@@ -34,6 +34,7 @@ export default function TambahAnggotaPage() {
         nrp: "",
         phone: "",
         email: "",
+        category: "",
         branch_id: "",
         join_date: new Date().toISOString().split("T")[0],
     });
@@ -69,6 +70,7 @@ export default function TambahAnggotaPage() {
                 nrp: formData.nrp || undefined,
                 phone: formData.phone || undefined,
                 email: formData.email || undefined,
+                category: formData.category || undefined,
                 branchId: parseInt(formData.branch_id),
                 joinDate: formData.join_date,
             };
@@ -123,6 +125,24 @@ export default function TambahAnggotaPage() {
                                 placeholder="Masukkan NRP / Nomor Anggota"
                                 required
                             />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="category">Kategori Anggota *</Label>
+                            <Select
+                                value={formData.category}
+                                onValueChange={(value) => handleSelectChange("category", value)}
+                                required
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih kategori" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Polri">Polri</SelectItem>
+                                    <SelectItem value="PNS">PNS</SelectItem>
+                                    <SelectItem value="Purnawirawan">Purnawirawan</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </CardContent>
                 </Card>

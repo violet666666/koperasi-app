@@ -1,0 +1,135 @@
+▲ Next.js 16.1.4 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 30.1s
+  Running TypeScript ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/101) ...
+  Generating static pages using 7 workers (25/101) 
+  Generating static pages using 7 workers (50/101) 
+  Generating static pages using 7 workers (75/101) 
+✓ Generating static pages using 7 workers (101/101) in 1639.0ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /anggota
+├ ƒ /anggota/[id]
+├ ƒ /anggota/[id]/edit
+├ ○ /anggota/buku
+├ ○ /anggota/kartu
+├ ○ /anggota/tambah
+├ ƒ /api/approvals
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/cash-bank/accounts
+├ ƒ /api/cash-bank/transactions
+├ ƒ /api/cash-bank/transfers
+├ ƒ /api/dashboard-stats
+├ ƒ /api/loans
+├ ƒ /api/loans/[id]
+├ ƒ /api/loans/[id]/payments
+├ ƒ /api/loans/applications
+├ ƒ /api/loans/applications/[id]/approve
+├ ƒ /api/loans/applications/[id]/reject
+├ ƒ /api/loans/applications/[id]/submit
+├ ƒ /api/master/accounts
+├ ƒ /api/master/branches
+├ ƒ /api/master/branches/[id]
+├ ƒ /api/master/loan-products
+├ ƒ /api/master/savings-products
+├ ƒ /api/master/savings-products/[id]
+├ ƒ /api/member-portal/profile
+├ ƒ /api/member-portal/summary
+├ ƒ /api/member-portal/transactions
+├ ƒ /api/members
+├ ƒ /api/members/[id]
+├ ƒ /api/members/lookup
+├ ƒ /api/permissions
+├ ƒ /api/reports/laba-rugi
+├ ƒ /api/reports/loans-recap
+├ ƒ /api/reports/members-recap
+├ ƒ /api/reports/neraca
+├ ƒ /api/reports/savings-recap
+├ ƒ /api/reports/shu
+├ ƒ /api/roles
+├ ƒ /api/savings/transactions
+├ ƒ /api/toko/products
+├ ƒ /api/toko/sales
+├ ƒ /api/toko/stats
+├ ƒ /api/unit-transactions
+├ ƒ /api/users
+├ ○ /approval
+├ ○ /aset
+├ ○ /aset/penyusutan
+├ ○ /audit-log
+├ ○ /dashboard
+├ ○ /forgot-password
+├ ○ /jurnal/buku-besar
+├ ○ /jurnal/penyesuaian
+├ ○ /jurnal/umum
+├ ○ /kas-bank
+├ ○ /kas-bank/bank
+├ ○ /kas-bank/kas
+├ ○ /kas-bank/transaksi/tambah
+├ ○ /kas-bank/transfer
+├ ○ /laporan
+├ ○ /laporan/arus-kas
+├ ○ /laporan/laba-rugi
+├ ○ /laporan/neraca
+├ ○ /laporan/rekap-anggota
+├ ○ /laporan/rekap-pinjaman
+├ ○ /laporan/rekap-simpanan
+├ ○ /laporan/shu
+├ ○ /login
+├ ○ /master
+├ ○ /master/cabang
+├ ○ /master/coa
+├ ○ /master/mapping-jurnal
+├ ○ /master/parameter-shu
+├ ○ /master/produk-pinjaman
+├ ○ /master/produk-simpanan
+├ ○ /master/saldo-awal
+├ ○ /master/users
+├ ○ /non-sp/penerimaan
+├ ○ /non-sp/pengeluaran
+├ ○ /pengumuman
+├ ○ /periode/shu/distribusi
+├ ○ /periode/shu/perhitungan
+├ ○ /periode/tutup-buku
+├ ○ /pinjaman
+├ ƒ /pinjaman/[id]
+├ ○ /pinjaman/angsuran
+├ ○ /pinjaman/angsuran/bayar
+├ ○ /pinjaman/jadwal
+├ ○ /pinjaman/pengajuan
+├ ○ /pinjaman/pengajuan/tambah
+├ ○ /portal/dashboard
+├ ○ /portal/pengajuan-pinjaman
+├ ○ /portal/pinjaman
+├ ○ /portal/profil
+├ ○ /portal/simpanan
+├ ○ /portal/transaksi
+├ ○ /profil
+├ ○ /profil-koperasi
+├ ○ /settings
+├ ○ /simpanan
+├ ○ /simpanan/rekap
+├ ○ /simpanan/transaksi
+├ ○ /simpanan/transaksi/tambah
+├ ○ /toko
+├ ○ /toko/kasir
+├ ○ /toko/persediaan
+├ ○ /toko/produk
+├ ƒ /toko/produk/[id]
+├ ○ /transaksi-unit
+└ ○ /transaksi-unit/riwayat
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
