@@ -56,8 +56,8 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
                 )}
             >
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold">
-                        K
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden shrink-0">
+                        <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain" />
                     </div>
                     {!isCollapsed && (
                         <span className="font-semibold text-lg">Koperasi</span>

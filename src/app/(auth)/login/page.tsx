@@ -55,8 +55,8 @@ export default function LoginPage() {
         <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground shadow-lg">
-                    K
+                <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white p-2 shadow-lg drop-shadow-md">
+                    <img src="/LogoPrimkoppol.png" alt="Logo Koperasi" className="h-full w-full object-contain" />
                 </div>
                 <h1 className="text-2xl font-bold text-foreground">Koperasi Digital</h1>
                 <p className="text-sm text-muted-foreground">Sistem Manajemen Koperasi Simpan Pinjam</p>

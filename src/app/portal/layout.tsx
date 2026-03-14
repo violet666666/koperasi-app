@@ -72,7 +72,10 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                                 <Menu className="h-6 w-6" />
                             </Button>
                             <Link href="/portal/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-                                <span>Koperasi<span className="text-white/70">.</span>Digital</span>
+                                <div className="flex h-8 w-8 items-center justify-center bg-white/10 p-0.5 rounded-lg shrink-0">
+                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-[90%] w-[90%] object-contain drop-shadow-sm" />
+                                </div>
+                                <span className="hidden sm:inline-block">Koperasi<span className="text-white/70">.</span>Digital</span>
                             </Link>
                         </div>
 
@@ -135,9 +138,14 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                             <SheetTitle>Menu Navigasi Mobile</SheetTitle>
                         </VisuallyHidden>
                         <div className="flex flex-col h-full bg-slate-950 text-white">
-                            <div className="p-6 border-b border-white/10">
-                                <h2 className="text-2xl font-bold">Koperasi<span className="text-primary">.</span>Map</h2>
-                                <p className="text-white/60 text-sm mt-1">Portal Anggota</p>
+                            <div className="p-6 border-b border-white/10 flex items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center bg-white/10 p-1 rounded-xl shrink-0">
+                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold">Koperasi<span className="text-primary">.</span>Digital</h2>
+                                    <p className="text-white/60 text-xs mt-0.5">Portal Anggota</p>
+                                </div>
                             </div>
                             <nav className="flex-1 overflow-y-auto py-4">
                                 <ul className="space-y-1 px-3">
