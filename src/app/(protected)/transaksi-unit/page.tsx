@@ -356,7 +356,7 @@ export default function TransaksiUnitPage() {
                                     <div className="col-span-2">{member.nrp || "-"}</div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 py-2 border-b">
-                                    <div className="text-sm text-muted-foreground">No. Anggota</div>
+                                    <div className="text-sm text-muted-foreground">NRP</div>
                                     <div className="col-span-2">{member.memberNo}</div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 py-2 border-b">

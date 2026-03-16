@@ -286,7 +286,7 @@ export default function SHUCalculationPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>No. Anggota</TableHead>
+                                        <TableHead>NRP</TableHead>
                                         <TableHead>Nama</TableHead>
                                         <TableHead className="text-right">Kontribusi Simpanan</TableHead>
                                         <TableHead className="text-right">Kontribusi Pinjaman</TableHead>

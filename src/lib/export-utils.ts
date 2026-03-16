@@ -207,7 +207,7 @@ export function generateReceiptPDF(receipt: ReceiptData) {
     // Details table
     const details = [
         ["Diterima dari", receipt.receivedFrom],
-        ["No. Anggota", receipt.memberNo],
+        ["NRP", receipt.memberNo],
         ["Jenis Transaksi", getReceiptTypeLabel(receipt.type)],
         ["Keterangan", receipt.description],
         ["Metode Pembayaran", receipt.paymentMethod === "cash" ? "Tunai" : "Transfer Bank"],

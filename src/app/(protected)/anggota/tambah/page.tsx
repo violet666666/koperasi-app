@@ -122,7 +122,7 @@ export default function TambahAnggotaPage() {
                                 name="nrp"
                                 value={formData.nrp}
                                 onChange={handleChange}
-                                placeholder="Masukkan NRP / Nomor Anggota"
+                                placeholder="Masukkan NRP / NRP"
                                 required
                             />
                         </div>

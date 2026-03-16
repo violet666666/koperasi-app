@@ -211,7 +211,7 @@ export default function LaporanSHUPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>No. Anggota</TableHead>
+                                            <TableHead>NRP</TableHead>
                                             <TableHead>Nama</TableHead>
                                             <TableHead className="text-right">Simpanan</TableHead>
                                             <TableHead className="text-right">Pinjaman</TableHead>

@@ -267,7 +267,7 @@ export default function KasirPage() {
                                 <div className="flex gap-2 mt-1">
                                     <User className="h-4 w-4 text-muted-foreground mt-2" />
                                     <Input
-                                        placeholder="Nama atau No. Anggota"
+                                        placeholder="Nama atau NRP"
                                         value={customerName}
                                         onChange={(e) => setCustomerName(e.target.value)}
                                     />

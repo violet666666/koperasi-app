@@ -180,7 +180,7 @@ export default function CetakKwitansiPage() {
                     <div className="space-y-3 mb-6">
                         {[
                             ["Diterima dari", receipt.receivedFrom],
-                            ["No. Anggota", receipt.member?.memberNo || "-"],
+                            ["NRP", receipt.member?.memberNo || "-"],
                             ["NRP", receipt.member?.nrp || "-"],
                             ["Jenis Transaksi", typeLabels[receipt.type] || receipt.type],
                             ["Keterangan", receipt.description],

@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
         if (existingMemberNo) {
             return NextResponse.json(
-                { message: "Nomor anggota sudah digunakan. Silakan coba simpan lagi." },
+                { message: "NRP sudah digunakan. Silakan coba simpan lagi." },
                 { status: 400 }
             );
         }

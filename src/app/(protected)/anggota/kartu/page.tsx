@@ -137,7 +137,7 @@ export default function KartuAnggotaPage() {
                 doc.text(`NRP: ${member.nrp}`, 5, yPos);
                 yPos += 4;
             }
-            doc.text(`No. Anggota: ${member.memberNo}`, 5, yPos);
+            doc.text(`NRP: ${member.memberNo}`, 5, yPos);
             yPos += 4;
             if (member.category) {
                 doc.text(`Kategori: ${member.category}`, 5, yPos);
@@ -262,7 +262,7 @@ export default function KartuAnggotaPage() {
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2">
-                                        <span className="text-blue-200/70 text-[10px] w-20">No. Anggota</span>
+                                        <span className="text-blue-200/70 text-[10px] w-20">NRP</span>
                                         <span className="text-blue-100 text-[12px] font-medium font-mono">{member.memberNo}</span>
                                     </div>
                                     {member.category && (
@@ -307,7 +307,7 @@ export default function KartuAnggotaPage() {
                             {[
                                 ["Nama", member.name],
                                 ["NRP", member.nrp || "-"],
-                                ["No. Anggota", member.memberNo],
+                                ["NRP", member.memberNo],
                                 ["Kategori", member.category || "-"],
                                 ["Telepon", member.phone || "-"],
                                 ["Status", member.status === "active" ? "Aktif" : "Non-Aktif"],

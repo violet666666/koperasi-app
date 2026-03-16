@@ -223,7 +223,7 @@ export function generateReceiptHTML(data: {
             
             <div class="divider"></div>
             
-            <p>No. Anggota: ${data.memberNo}</p>
+            <p>NRP: ${data.memberNo}</p>
             <p>Nama: ${data.memberName}</p>
             
             <div class="divider"></div>

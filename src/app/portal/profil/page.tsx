@@ -180,7 +180,7 @@ export default function ProfilPortalPage() {
                             </div>
                         ) : (
                             <div className="grid sm:grid-cols-2 gap-y-5 gap-x-12 pt-6">
-                                <InfoRow label="Nomor Anggota" value={member?.memberNo} />
+                                <InfoRow label="NRP" value={member?.memberNo} />
                                 <InfoRow label="Cabang" value={member?.branch?.name} />
                                 <InfoRow label="Tanggal Bergabung" value={member?.joinDate ? format(new Date(member.joinDate), "d MMMM yyyy", { locale: localeId }) : "-"} />
                                 <InfoRow label="Jenis Kelamin" value={member?.gender === "male" ? "Laki-laki" : member?.gender === "female" ? "Perempuan" : "-"} />

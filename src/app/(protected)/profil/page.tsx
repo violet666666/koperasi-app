@@ -48,10 +48,10 @@ interface MemberProfile {
     province: string;
     joinDate: string;
     status: string;
-    // Financial summary
     totalSimpanan: number;
     totalPinjaman: number;
     sisaPinjaman: number;
+    estimasiSHU: number;
 }
 
 export default function ProfilAnggotaPage() {
@@ -87,6 +87,7 @@ export default function ProfilAnggotaPage() {
                     totalSimpanan: 45000000,
                     totalPinjaman: 150000000,
                     sisaPinjaman: 75000000,
+                    estimasiSHU: 1250000,
                 });
             } catch (error) {
                 console.error("Failed to fetch:", error);
@@ -177,7 +178,7 @@ export default function ProfilAnggotaPage() {
                                             </span>
                                             <span className="flex items-center gap-1">
                                                 <User className="h-4 w-4" />
-                                                No. Anggota: {profile.memberNo}
+                                                NRP: {profile.memberNo}
                                             </span>
                                         </div>
                                     </div>
@@ -322,6 +323,17 @@ export default function ProfilAnggotaPage() {
                                         <p className="text-sm text-muted-foreground">Sisa Pinjaman</p>
                                         <p className="text-lg font-bold text-amber-600">
                                             {formatCurrency(profile.sisaPinjaman)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
+                                        <Wallet className="h-4 w-4 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Estimasi SHU</p>
+                                        <p className="text-lg font-bold text-purple-600">
+                                            {formatCurrency(profile.estimasiSHU)}
                                         </p>
                                     </div>
                                 </div>

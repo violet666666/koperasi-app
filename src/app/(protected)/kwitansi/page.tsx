@@ -131,7 +131,7 @@ const exportColumns: ExportColumn[] = [
     { header: "No. Kwitansi", key: "receiptNo", width: 20 },
     { header: "Tanggal", key: "receiptDate", width: 15, format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID") : "-" },
     { header: "Diterima Dari", key: "receivedFrom", width: 25 },
-    { header: "No. Anggota", key: "member.memberNo", width: 15 },
+    { header: "NRP", key: "member.memberNo", width: 15 },
     { header: "Jenis", key: "type", width: 20, format: (v) => typeLabels[v as string] || String(v) },
     { header: "Keterangan", key: "description", width: 30 },
     { header: "Jumlah", key: "amount", width: 18, format: (v) => formatCurrency(Number(v || 0)) },

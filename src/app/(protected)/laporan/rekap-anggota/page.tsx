@@ -43,7 +43,7 @@ interface RecapStats {
 const columns: ColumnDef<MemberSummary>[] = [
     {
         accessorKey: "memberNo",
-        header: "No. Anggota",
+        header: "NRP",
         cell: ({ row }) => (
             <Link href={`/anggota/${row.original.id}`} className="font-mono text-primary hover:underline">
                 {row.getValue("memberNo")}
@@ -106,7 +106,7 @@ const columns: ColumnDef<MemberSummary>[] = [
 ];
 
 const exportColumns: ExportColumn[] = [
-    { header: "No. Anggota", key: "memberNo", width: 15 },
+    { header: "NRP", key: "memberNo", width: 15 },
     { header: "Nama", key: "name", width: 25 },
     { header: "Telepon", key: "phone", width: 15 },
     { header: "Cabang", key: "branch", width: 15 },

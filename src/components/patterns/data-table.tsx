@@ -57,6 +57,15 @@ interface DataTableProps<TData, TValue> {
     showColumnToggle?: boolean;
     showPagination?: boolean;
     onRowClick?: (row: TData) => void;
+    
+    // Server-side pagination and filtering props
+    pageCount?: number;
+    pagination?: { pageIndex: number; pageSize: number };
+    onPaginationChange?: (updater: any) => void;
+    manualPagination?: boolean;
+    globalFilterValue?: string;
+    onGlobalFilterChange?: (value: string) => void;
+    manualFiltering?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -69,6 +78,14 @@ export function DataTable<TData, TValue>({
     showColumnToggle = true,
     showPagination = true,
     onRowClick,
+    
+    pageCount,
+    pagination,
+    onPaginationChange,
+    manualPagination = false,
+    globalFilterValue,
+    onGlobalFilterChange,
+    manualFiltering = false,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -87,15 +104,35 @@ export function DataTable<TData, TValue>({
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        onGlobalFilterChange: setGlobalFilter,
+        onGlobalFilterChange: onGlobalFilterChange || setGlobalFilter,
         globalFilterFn: "includesString",
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-            globalFilter,
-        },
+        
+        // Manual control
+        manualPagination,
+        pageCount,
+        ...(manualPagination && pagination && onPaginationChange
+            ? {
+                state: {
+                    sorting,
+                    columnFilters,
+                    columnVisibility,
+                    rowSelection,
+                    globalFilter: globalFilterValue !== undefined ? globalFilterValue : globalFilter,
+                    pagination,
+                },
+                onPaginationChange: onPaginationChange,
+            }
+            : {
+                state: {
+                    sorting,
+                    columnFilters,
+                    columnVisibility,
+                    rowSelection,
+                    globalFilter: globalFilterValue !== undefined ? globalFilterValue : globalFilter,
+                },
+            }),
+        manualFiltering,
+
         initialState: {
             pagination: {
                 pageSize,
@@ -114,22 +151,26 @@ export function DataTable<TData, TValue>({
                         placeholder={searchPlaceholder}
                         value={searchColumn
                             ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""
-                            : globalFilter
+                            : (globalFilterValue !== undefined ? globalFilterValue : globalFilter)
                         }
                         onChange={(event) => {
                             if (searchColumn) {
                                 table.getColumn(searchColumn)?.setFilterValue(event.target.value);
+                            } else if (onGlobalFilterChange) {
+                                onGlobalFilterChange(event.target.value);
                             } else {
                                 setGlobalFilter(event.target.value);
                             }
                         }}
                         className="pl-9 pr-9"
                     />
-                    {(globalFilter || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (
+                    {((globalFilterValue !== undefined ? globalFilterValue : globalFilter) || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (
                         <button
                             onClick={() => {
                                 if (searchColumn) {
                                     table.getColumn(searchColumn)?.setFilterValue("");
+                                } else if (onGlobalFilterChange) {
+                                    onGlobalFilterChange("");
                                 } else {
                                     setGlobalFilter("");
                                 }

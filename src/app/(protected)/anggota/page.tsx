@@ -130,6 +130,9 @@ export default function AnggotaListPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<Member[]>([]);
     const [branches, setBranches] = React.useState<Array<{ id: number; name: string }>>([]);
+    const [pageCount, setPageCount] = React.useState(0);
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 15 });
+    const [searchQuery, setSearchQuery] = React.useState("");
 
     // Delete confirmation state
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -167,7 +170,7 @@ export default function AnggotaListPage() {
     const columns: ColumnDef<Member>[] = React.useMemo(() => [
         {
             accessorKey: "member_no",
-            header: "No. Anggota",
+            header: "NRP",
             cell: ({ row }) => (
                 <Link
                     href={`/anggota/${row.original.id}`}
@@ -239,38 +242,53 @@ export default function AnggotaListPage() {
             try {
                 setIsLoading(true);
 
-                // Fetch members and branches in parallel
-                const [membersRes, branchesRes] = await Promise.allSettled([
-                    membersApi.list({ perPage: 100 }),
-                    masterApi.branches.list(),
-                ]);
+                // Debounce simple implementation
+                const timeoutId = setTimeout(async () => {
+                    try {
+                        // Fetch members and branches in parallel
+                        const [membersRes, branchesRes] = await Promise.allSettled([
+                            membersApi.list({ 
+                                page: pagination.pageIndex + 1, 
+                                perPage: pagination.pageSize,
+                                search: searchQuery || undefined,
+                                branchId: branchFilter !== "all" ? Number(branchFilter) : undefined,
+                                // @ts-ignore - status is supported by backend but missing in type
+                                status: statusFilter !== "all" ? statusFilter : undefined
+                            }),
+                            masterApi.branches.list(),
+                        ]);
 
-                if (membersRes.status === "fulfilled") {
-                    const mappedMembers = membersRes.value.data.map(mapApiMember);
-                    setMembers(mappedMembers);
-                }
+                        if (membersRes.status === "fulfilled") {
+                            const responseData = membersRes.value.data as any;
+                            const mappedMembers = responseData.data ? responseData.data.map(mapApiMember) : [];
+                            setMembers(mappedMembers);
+                            setPageCount(responseData.meta?.totalPages || 0);
+                        }
 
-                if (branchesRes.status === "fulfilled") {
-                    setBranches(branchesRes.value.data.map((b) => ({ id: b.id, name: b.name })));
-                }
+                        if (branchesRes.status === "fulfilled") {
+                            const branchesData = branchesRes.value.data as any;
+                            setBranches(branchesData.data ? branchesData.data.map((b: any) => ({ id: b.id, name: b.name })) : []);
+                        }
+                    } catch (error) {
+                         console.error("Failed to fetch inside timeout:", error);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                }, 300);
+                
+                return () => clearTimeout(timeoutId);
+
             } catch (error) {
-                console.error("Failed to fetch members:", error);
-            } finally {
+                console.error("Failed to fetch members setup:", error);
                 setIsLoading(false);
             }
         }
 
         fetchData();
-    }, []);
+    }, [pagination, searchQuery, statusFilter, branchFilter]);
 
-    // Filter data
-    const filteredMembers = React.useMemo(() => {
-        return members.filter((member) => {
-            const statusMatch = statusFilter === "all" || member.status === statusFilter;
-            const branchMatch = branchFilter === "all" || member.branch_id === parseInt(branchFilter);
-            return statusMatch && branchMatch;
-        });
-    }, [members, statusFilter, branchFilter]);
+    // Server side filtering is used now, so we just pass members directly
+    const filteredMembers = members;
 
     return (
         <div className="space-y-6">
@@ -323,6 +341,13 @@ export default function AnggotaListPage() {
                 isLoading={isLoading}
                 searchPlaceholder="Cari nama atau no. anggota..."
                 onRowClick={(row) => router.push(`/anggota/${row.id}`)}
+                pageCount={pageCount}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                manualPagination={true}
+                globalFilterValue={searchQuery}
+                onGlobalFilterChange={setSearchQuery}
+                manualFiltering={true}
             />
 
             {/* Delete Confirmation Dialog */}

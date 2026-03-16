@@ -23,7 +23,29 @@ import {
     Building,
     User,
 } from "lucide-react";
-import type { Member, MemberSummary } from "@/types";
+import type { Member } from "@/types";
+
+// Defining MemberSummary here since it seems to be missing from @types
+interface MemberSummary {
+    member_id: number;
+    member_no: string;
+    name: string;
+    savings: {
+        total: number;
+        by_type: any[];
+    };
+    loans: {
+        active_count: number;
+        total_outstanding: number;
+        total_principal_outstanding: number;
+        total_interest_outstanding: number;
+        next_installment?: any;
+        overdue_amount: number;
+        overdue_days: number;
+    };
+    net_position: number;
+    estimasi_shu: number;
+}
 import { formatCurrency, MEMBER_STATUS } from "@/lib/constants";
 import { membersApi } from "@/lib/api/services";
 
@@ -76,6 +98,7 @@ const MOCK_SUMMARY: MemberSummary = {
         overdue_days: 0,
     },
     net_position: -3500000,
+    estimasi_shu: 1500000,
 };
 
 // Info item component
@@ -197,7 +220,8 @@ export default function AnggotaDetailPage() {
                         overdue_amount: 0,
                         overdue_days: 0
                     },
-                    net_position: 0
+                    net_position: 0,
+                    estimasi_shu: 1500000,
                 });
 
             } catch (error) {
@@ -243,7 +267,7 @@ export default function AnggotaDetailPage() {
             {/* Header */}
             <PageHeader
                 title={member.name}
-                description={`No. Anggota: ${member.member_no}`}
+                description={`NRP: ${member.member_no}`}
                 backHref="/anggota"
                 actions={
                     <Button asChild>
@@ -283,6 +307,13 @@ export default function AnggotaDetailPage() {
                     subtitle={summary.loans.overdue_days > 0 ? `${summary.loans.overdue_days} hari` : "Tidak ada"}
                     icon={FileText}
                     color={summary.loans.overdue_amount > 0 ? "danger" : "success"}
+                />
+                <SummaryCard
+                    title="Estimasi SHU"
+                    value={formatCurrency(summary.estimasi_shu)}
+                    subtitle="Tahun Berjalan"
+                    icon={Wallet}
+                    color="primary"
                 />
             </div>
 

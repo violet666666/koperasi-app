@@ -110,7 +110,7 @@ export default function RekapSimpananPage() {
     }, [branchFilter]);
 
     const exportColumns = [
-        { key: "memberNo", header: "No. Anggota" },
+        { key: "memberNo", header: "NRP" },
         { key: "name", header: "Nama" },
         { key: "branchName", header: "Cabang" },
         { key: "simpananPokok", header: "Simpanan Pokok", format: formatCurrencyExport },
@@ -234,7 +234,7 @@ export default function RekapSimpananPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>No. Anggota</TableHead>
+                                        <TableHead>NRP</TableHead>
                                         <TableHead>Nama</TableHead>
                                         <TableHead>Cabang</TableHead>
                                         <TableHead className="text-right">Simpanan Pokok</TableHead>

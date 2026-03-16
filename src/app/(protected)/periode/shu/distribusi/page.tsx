@@ -41,7 +41,7 @@ interface MemberDistribution {
 const columns: ColumnDef<MemberDistribution>[] = [
     {
         accessorKey: "memberNo",
-        header: "No. Anggota",
+        header: "NRP",
         cell: ({ row }) => (
             <span className="font-mono text-sm">{row.getValue("memberNo")}</span>
         ),

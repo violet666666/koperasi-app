@@ -116,7 +116,7 @@ export async function PUT(request: Request, { params }: Params) {
             });
             if (existing) {
                 return NextResponse.json(
-                    { message: "Nomor anggota sudah digunakan" },
+                    { message: "NRP sudah digunakan" },
                     { status: 400 }
                 );
             }
