@@ -55,7 +55,7 @@ export default function LoginPage() {
         <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
-                <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white p-2 shadow-lg drop-shadow-md">
+                <div className="mx-auto mb-4 flex h-72 w-72 items-center justify-center rounded-2xl bg-white p-2 shadow-lg drop-shadow-md">
                     <img src="/LogoPrimkoppol.png" alt="Logo Koperasi" className="h-full w-full object-contain" />
                 </div>
                 <h1 className="text-2xl font-bold text-foreground">Koperasi Digital</h1>
@@ -145,33 +145,6 @@ export default function LoginPage() {
                             )}
                         </Button>
                     </form>
-
-                    {/* Demo Credentials */}
-                    <div className="mt-6 rounded-lg bg-muted p-4 text-sm" role="note" aria-label="Demo credentials">
-                        <p className="font-semibold text-foreground border-b pb-2 mb-3">Akun Demo (Admin):</p>
-                        <div className="space-y-1 mb-4">
-                            <p className="text-xs text-foreground/80 flex items-center justify-between">
-                                <span>Email:</span>
-                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-primary font-medium">admin@koperasi.com</code>
-                            </p>
-                            <p className="text-xs text-foreground/80 flex items-center justify-between">
-                                <span>Password:</span>
-                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-primary font-medium">password123</code>
-                            </p>
-                        </div>
-
-                        <p className="font-semibold text-foreground border-b pb-2 mb-3">Akun Demo (Anggota):</p>
-                        <div className="space-y-1">
-                            <p className="text-xs text-foreground/80 flex items-center justify-between">
-                                <span>Email / NRP:</span>
-                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-emerald-600 font-medium">78120001@koperasi.local</code>
-                            </p>
-                            <p className="text-xs text-foreground/80 flex items-center justify-between">
-                                <span>Password:</span>
-                                <code className="bg-background px-1.5 py-0.5 rounded font-mono text-emerald-600 font-medium">password123</code>
-                            </p>
-                        </div>
-                    </div>
                 </CardContent>
             </Card>
 

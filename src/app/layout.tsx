@@ -36,6 +36,28 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  openGraph: {
+    title: "Koperasi Digital Primkoppol",
+    description: "Sistem Manajemen Koperasi Simpan Pinjam",
+    url: "https://www.primkoppol.online",
+    siteName: "Koperasi Digital",
+    images: [
+      {
+        url: "/og-image-primkoppol.png",
+        width: 1200,
+        height: 630,
+        alt: "Koperasi Digital Primkoppol",
+      },
+    ],
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Koperasi Digital Primkoppol",
+    description: "Sistem Manajemen Koperasi Simpan Pinjam",
+    images: ["/og-image-primkoppol.png"],
+  },
 };
 
 export const viewport: Viewport = {

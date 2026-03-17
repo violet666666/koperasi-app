@@ -259,7 +259,7 @@ export default function AnggotaListPage() {
                         ]);
 
                         if (membersRes.status === "fulfilled") {
-                            const responseData = membersRes.value.data as any;
+                            const responseData = membersRes.value as any;
                             const mappedMembers = responseData.data ? responseData.data.map(mapApiMember) : [];
                             setMembers(mappedMembers);
                             setPageCount(responseData.meta?.totalPages || 0);
