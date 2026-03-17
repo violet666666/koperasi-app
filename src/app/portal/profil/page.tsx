@@ -22,7 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { User, BadgeCheck, Pencil, Save, Loader2, CalendarIcon, X } from "lucide-react";
+import { User, BadgeCheck, Pencil, Save, Loader2, CalendarIcon, X, Lock } from "lucide-react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { toast } from "sonner";
 import { getProvinceNames, getCitiesByProvince } from "@/lib/constants/regions";
@@ -45,6 +45,13 @@ export default function ProfilPortalPage() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = React.useState(false);
+    
+    // Password change states
+    const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+    const [oldPassword, setOldPassword] = React.useState("");
+    const [newPassword, setNewPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [passwordError, setPasswordError] = React.useState("");
 
     const { data: response, isLoading } = useQuery({
         queryKey: ["member-profile"],
@@ -120,6 +127,41 @@ export default function ProfilPortalPage() {
         mutation.mutate(payload);
     };
 
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordError("");
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError("Sandi baru dan konfirmasi tidak cocok.");
+            return;
+        }
+
+        setIsChangingPassword(true);
+
+        try {
+            const res = await fetch("/api/user/password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ oldPassword, newPassword }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Gagal mengubah kata sandi.");
+            }
+
+            toast.success("Sandi berhasil diubah!");
+            setOldPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+        } catch (error: any) {
+            setPasswordError(error.message);
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
     const provinces = getProvinceNames();
     const cities = formData.province ? getCitiesByProvince(formData.province) : [];
 
@@ -145,29 +187,29 @@ export default function ProfilPortalPage() {
 
                         <div className="mt-12 mb-4">
                             <div className="flex items-center gap-2">
-                                <h2 className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-48" /> : member?.name}</h2>
+                                <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-48" /> : member?.name}</div>
                                 {member?.status === "active" && <BadgeCheck className="h-5 w-5 text-emerald-500" />}
                             </div>
-                            <p className="text-muted-foreground">{isLoading ? <Skeleton className="h-4 w-32 mt-2" /> : `NRP: ${member?.nrp || "-"}`}</p>
+                            <div className="text-muted-foreground">{isLoading ? <Skeleton className="h-4 w-32 mt-2" /> : `NRP: ${member?.nrp || "-"}`}</div>
                         </div>
 
                         {/* Key Info Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-slate-100">
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">NRP / NIP</p>
-                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-24" /> : member?.nrp || "-"}</p>
+                                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">NRP / NIP</div>
+                                <div className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-24" /> : member?.nrp || "-"}</div>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Nama Lengkap</p>
-                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-32" /> : member?.name || "-"}</p>
+                                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Nama Lengkap</div>
+                                <div className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-32" /> : member?.name || "-"}</div>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Kategori</p>
-                                <p className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-20" /> : member?.category || "-"}</p>
+                                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Kategori</div>
+                                <div className="text-sm font-bold mt-1">{isLoading ? <Skeleton className="h-5 w-20" /> : member?.category || "-"}</div>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Gaji Pokok</p>
-                                <p className="text-sm font-bold mt-1 text-emerald-600">{isLoading ? <Skeleton className="h-5 w-28" /> : member?.salary ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(Number(member.salary)) : "-"}</p>
+                                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Gaji Pokok</div>
+                                <div className="text-sm font-bold mt-1 text-emerald-600">{isLoading ? <Skeleton className="h-5 w-28" /> : member?.salary ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(Number(member.salary)) : "-"}</div>
                             </div>
                         </div>
 
@@ -195,6 +237,58 @@ export default function ProfilPortalPage() {
                                 </div>
                             </div>
                         )}
+                    </CardContent>
+                </Card>
+
+                {/* Change Password */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Lock className="h-5 w-5" />
+                            Keamanan
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+                            {passwordError && (
+                                <div className="text-sm font-medium text-destructive">{passwordError}</div>
+                            )}
+                            <div className="space-y-2">
+                                <Label>Password Lama</Label>
+                                <Input
+                                    type="password"
+                                    value={oldPassword}
+                                    onChange={(e) => setOldPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Password Baru</Label>
+                                <Input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Konfirmasi Password Baru</Label>
+                                <Input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <Button type="submit" disabled={isChangingPassword || !oldPassword || !newPassword || !confirmPassword}>
+                                {isChangingPassword ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Menyimpan...
+                                    </>
+                                ) : "Ubah Password"}
+                            </Button>
+                        </form>
                     </CardContent>
                 </Card>
             </div>

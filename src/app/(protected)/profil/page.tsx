@@ -61,6 +61,13 @@ export default function ProfilAnggotaPage() {
     const [isEditing, setIsEditing] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
 
+    // Password change states
+    const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+    const [oldPassword, setOldPassword] = React.useState("");
+    const [newPassword, setNewPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [passwordError, setPasswordError] = React.useState("");
+
     // Fetch profile (would use current logged-in user)
     React.useEffect(() => {
         async function fetchData() {
@@ -109,6 +116,41 @@ export default function ProfilAnggotaPage() {
             toast.error("Gagal menyimpan profil");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordError("");
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError("Sandi baru dan konfirmasi tidak cocok.");
+            return;
+        }
+
+        setIsChangingPassword(true);
+
+        try {
+            const res = await fetch("/api/user/password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ oldPassword, newPassword }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Gagal mengubah kata sandi.");
+            }
+
+            toast.success("Sandi berhasil diubah!");
+            setOldPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+        } catch (error: any) {
+            setPasswordError(error.message);
+        } finally {
+            setIsChangingPassword(false);
         }
     };
 
@@ -278,9 +320,46 @@ export default function ProfilAnggotaPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <Button variant="outline">
-                                    Ubah Password
-                                </Button>
+                                <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+                                    {passwordError && (
+                                        <div className="text-sm font-medium text-destructive">{passwordError}</div>
+                                    )}
+                                    <div className="space-y-2">
+                                        <Label>Password Lama</Label>
+                                        <Input
+                                            type="password"
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Password Baru</Label>
+                                        <Input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Konfirmasi Password Baru</Label>
+                                        <Input
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <Button type="submit" disabled={isChangingPassword || !oldPassword || !newPassword || !confirmPassword}>
+                                        {isChangingPassword ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Menyimpan...
+                                            </>
+                                        ) : "Ubah Password"}
+                                    </Button>
+                                </form>
                             </CardContent>
                         </Card>
                     </div>
