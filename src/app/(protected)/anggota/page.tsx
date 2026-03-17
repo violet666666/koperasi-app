@@ -126,10 +126,8 @@ function mapApiMember(apiMember: ApiMember): Member {
 export default function AnggotaListPage() {
     const router = useRouter();
     const [statusFilter, setStatusFilter] = React.useState("all");
-    const [branchFilter, setBranchFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<Member[]>([]);
-    const [branches, setBranches] = React.useState<Array<{ id: number; name: string }>>([]);
     const [pageCount, setPageCount] = React.useState(0);
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 15 });
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -190,14 +188,7 @@ export default function AnggotaListPage() {
                 </div>
             ),
         },
-        {
-            accessorKey: "branch",
-            header: "Cabang",
-            cell: ({ row }) => row.original.branch?.name || "-",
-            filterFn: (row, id, value) => {
-                return value === "all" || row.original.branch_id === parseInt(value);
-            },
-        },
+
         {
             accessorKey: "city",
             header: "Kota",
@@ -245,17 +236,14 @@ export default function AnggotaListPage() {
                 // Debounce simple implementation
                 const timeoutId = setTimeout(async () => {
                     try {
-                        // Fetch members and branches in parallel
-                        const [membersRes, branchesRes] = await Promise.allSettled([
+                        const [membersRes] = await Promise.allSettled([
                             membersApi.list({ 
                                 page: pagination.pageIndex + 1, 
                                 perPage: pagination.pageSize,
                                 search: searchQuery || undefined,
-                                branchId: branchFilter !== "all" ? Number(branchFilter) : undefined,
                                 // @ts-ignore - status is supported by backend but missing in type
                                 status: statusFilter !== "all" ? statusFilter : undefined
-                            }),
-                            masterApi.branches.list(),
+                            })
                         ]);
 
                         if (membersRes.status === "fulfilled") {
@@ -263,11 +251,6 @@ export default function AnggotaListPage() {
                             const mappedMembers = responseData.data ? responseData.data.map(mapApiMember) : [];
                             setMembers(mappedMembers);
                             setPageCount(responseData.meta?.totalPages || 0);
-                        }
-
-                        if (branchesRes.status === "fulfilled") {
-                            const branchesData = branchesRes.value.data as any;
-                            setBranches(branchesData.data ? branchesData.data.map((b: any) => ({ id: b.id, name: b.name })) : []);
                         }
                     } catch (error) {
                          console.error("Failed to fetch inside timeout:", error);
@@ -285,7 +268,7 @@ export default function AnggotaListPage() {
         }
 
         fetchData();
-    }, [pagination, searchQuery, statusFilter, branchFilter]);
+    }, [pagination, searchQuery, statusFilter]);
 
     // Server side filtering is used now, so we just pass members directly
     const filteredMembers = members;
@@ -319,19 +302,6 @@ export default function AnggotaListPage() {
                     </SelectContent>
                 </Select>
 
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Cabang" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Cabang</SelectItem>
-                        {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={String(branch.id)}>
-                                {branch.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
             </div>
 
             {/* Data Table */}

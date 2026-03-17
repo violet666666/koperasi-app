@@ -62,12 +62,7 @@ const ROLES = [
 
 // ======= BRANCHES (East Java) =======
 const BRANCHES = [
-    { code: "HO", name: "Kantor Pusat Surabaya", address: "Jl. Tunjungan No. 1, Surabaya", phone: "031-5551000", email: "pusat@koperasi.com", isHeadOffice: true, isActive: true },
-    { code: "JBR", name: "Cabang Jember", address: "Jl. PB Sudirman No. 45, Jember", phone: "0331-551001", email: "jember@koperasi.com", isHeadOffice: false, isActive: true },
-    { code: "MLG", name: "Cabang Malang", address: "Jl. Ijen No. 20, Malang", phone: "0341-551002", email: "malang@koperasi.com", isHeadOffice: false, isActive: true },
-    { code: "LMJ", name: "Cabang Lumajang", address: "Jl. Alun-Alun Barat No. 10, Lumajang", phone: "0334-551003", email: "lumajang@koperasi.com", isHeadOffice: false, isActive: true },
-    { code: "KDR", name: "Cabang Kediri", address: "Jl. Dhoho No. 55, Kediri", phone: "0354-551004", email: "kediri@koperasi.com", isHeadOffice: false, isActive: true },
-    { code: "BWI", name: "Cabang Banyuwangi", address: "Jl. A. Yani No. 30, Banyuwangi", phone: "0333-551005", email: "banyuwangi@koperasi.com", isHeadOffice: false, isActive: true },
+    { code: "LMJ", name: "Primkoppol Lumajang", address: "Jl. Alun-Alun Barat No. 10, Lumajang", phone: "0334-551003", email: "lumajang@koperasi.com", isHeadOffice: true, isActive: true },
 ];
 
 // ======= SAVINGS PRODUCTS =======
@@ -141,16 +136,16 @@ const COA = [
 
 // ======= 10 DUMMY MEMBERS =======
 const MEMBERS_DATA = [
-    { nrp: "78120001", name: "Agus Setiawan", nik: "3509010101850001", gender: "male", birthPlace: "Surabaya", birthDate: "1985-01-15", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000001", email: "agus@email.com", address: "Jl. Raya Darmo No. 12", city: "Surabaya", province: "Jawa Timur", postalCode: "60241", branchCode: "HO" },
-    { nrp: "78120002", name: "Siti Rahayu", nik: "3509020202870002", gender: "female", birthPlace: "Jember", birthDate: "1987-06-20", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000002", email: "siti@email.com", address: "Jl. Kalimantan No. 5", city: "Jember", province: "Jawa Timur", postalCode: "68121", branchCode: "JBR" },
-    { nrp: "78120003", name: "Bambang Widodo", nik: "3509030303900003", gender: "male", birthPlace: "Malang", birthDate: "1990-03-10", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000003", email: "bambang@email.com", address: "Jl. Ijen No. 45", city: "Malang", province: "Jawa Timur", postalCode: "65119", branchCode: "MLG" },
-    { nrp: "78120004", name: "Dewi Lestari", nik: "3509040404880004", gender: "female", birthPlace: "Lumajang", birthDate: "1988-11-25", maritalStatus: "married", religion: "islam", education: "d3", occupation: "Polisi", phone: "081234000004", email: "dewi@email.com", address: "Jl. Diponegoro No. 78", city: "Lumajang", province: "Jawa Timur", postalCode: "67311", branchCode: "LMJ" },
-    { nrp: "78120005", name: "Eko Prasetyo", nik: "3509050505920005", gender: "male", birthPlace: "Kediri", birthDate: "1992-07-30", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000005", email: "eko@email.com", address: "Jl. Dhoho No. 33", city: "Kediri", province: "Jawa Timur", postalCode: "64123", branchCode: "KDR" },
-    { nrp: "78120006", name: "Fitri Handayani", nik: "3509060606860006", gender: "female", birthPlace: "Banyuwangi", birthDate: "1986-09-12", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000006", email: "fitri@email.com", address: "Jl. A. Yani No. 15", city: "Banyuwangi", province: "Jawa Timur", postalCode: "68416", branchCode: "BWI" },
-    { nrp: "78120007", name: "Gunawan Saputra", nik: "3509070707910007", gender: "male", birthPlace: "Surabaya", birthDate: "1991-04-05", maritalStatus: "married", religion: "kristen", education: "s2", occupation: "Polisi", phone: "081234000007", email: "gunawan@email.com", address: "Jl. Pemuda No. 50", city: "Surabaya", province: "Jawa Timur", postalCode: "60271", branchCode: "HO" },
-    { nrp: "78120008", name: "Heni Kusuma", nik: "3509080808890008", gender: "female", birthPlace: "Jember", birthDate: "1989-12-18", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000008", email: "heni@email.com", address: "Jl. Gajah Mada No. 22", city: "Jember", province: "Jawa Timur", postalCode: "68131", branchCode: "JBR" },
-    { nrp: "78120009", name: "Irfan Maulana", nik: "3509090909930009", gender: "male", birthPlace: "Malang", birthDate: "1993-08-22", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000009", email: "irfan@email.com", address: "Jl. Veteran No. 88", city: "Malang", province: "Jawa Timur", postalCode: "65145", branchCode: "MLG" },
-    { nrp: "78120010", name: "Julia Puspita", nik: "3509101010870010", gender: "female", birthPlace: "Kediri", birthDate: "1987-02-14", maritalStatus: "married", religion: "hindu", education: "s1", occupation: "Polisi", phone: "081234000010", email: "julia@email.com", address: "Jl. Brawijaya No. 60", city: "Kediri", province: "Jawa Timur", postalCode: "64114", branchCode: "KDR" },
+    { nrp: "78120001", name: "Agus Setiawan", nik: "3509010101850001", gender: "male", birthPlace: "Lumajang", birthDate: "1985-01-15", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000001", email: "agus@email.com", address: "Jl. Raya Darmo No. 12", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67311", branchCode: "LMJ" },
+    { nrp: "78120002", name: "Siti Rahayu", nik: "3509020202870002", gender: "female", birthPlace: "Lumajang", birthDate: "1987-06-20", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000002", email: "siti@email.com", address: "Jl. Kalimantan No. 5", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67312", branchCode: "LMJ" },
+    { nrp: "78120003", name: "Bambang Widodo", nik: "3509030303900003", gender: "male", birthPlace: "Lumajang", birthDate: "1990-03-10", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000003", email: "bambang@email.com", address: "Jl. Ijen No. 45", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67313", branchCode: "LMJ" },
+    { nrp: "78120004", name: "Dewi Lestari", nik: "3509040404880004", gender: "female", birthPlace: "Lumajang", birthDate: "1988-11-25", maritalStatus: "married", religion: "islam", education: "d3", occupation: "Polisi", phone: "081234000004", email: "dewi@email.com", address: "Jl. Diponegoro No. 78", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67311", branchCode: "LMJ" },
+    { nrp: "78120005", name: "Eko Prasetyo", nik: "3509050505920005", gender: "male", birthPlace: "Lumajang", birthDate: "1992-07-30", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000005", email: "eko@email.com", address: "Jl. Dhoho No. 33", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67314", branchCode: "LMJ" },
+    { nrp: "78120006", name: "Fitri Handayani", nik: "3509060606860006", gender: "female", birthPlace: "Lumajang", birthDate: "1986-09-12", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000006", email: "fitri@email.com", address: "Jl. A. Yani No. 15", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67315", branchCode: "LMJ" },
+    { nrp: "78120007", name: "Gunawan Saputra", nik: "3509070707910007", gender: "male", birthPlace: "Lumajang", birthDate: "1991-04-05", maritalStatus: "married", religion: "kristen", education: "s2", occupation: "Polisi", phone: "081234000007", email: "gunawan@email.com", address: "Jl. Pemuda No. 50", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67316", branchCode: "LMJ" },
+    { nrp: "78120008", name: "Heni Kusuma", nik: "3509080808890008", gender: "female", birthPlace: "Lumajang", birthDate: "1989-12-18", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000008", email: "heni@email.com", address: "Jl. Gajah Mada No. 22", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67312", branchCode: "LMJ" },
+    { nrp: "78120009", name: "Irfan Maulana", nik: "3509090909930009", gender: "male", birthPlace: "Lumajang", birthDate: "1993-08-22", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000009", email: "irfan@email.com", address: "Jl. Veteran No. 88", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67314", branchCode: "LMJ" },
+    { nrp: "78120010", name: "Julia Puspita", nik: "3509101010870010", gender: "female", birthPlace: "Lumajang", birthDate: "1987-02-14", maritalStatus: "married", religion: "hindu", education: "s1", occupation: "Polisi", phone: "081234000010", email: "julia@email.com", address: "Jl. Brawijaya No. 60", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67315", branchCode: "LMJ" },
 ];
 
 // ===================== MAIN SEED =====================
@@ -258,10 +253,10 @@ async function main() {
     console.log("💵 Creating cash & bank accounts...");
     const cashBankMap: Record<string, number> = {};
     const cashBankAccounts = [
-        { code: "KAS-01", name: "Kas Besar", type: "cash", branchId: branchMap["HO"], glAccountId: accountMap["1101"], currentBalance: 50000000 },
-        { code: "KAS-02", name: "Kas Kecil", type: "cash", branchId: branchMap["HO"], glAccountId: accountMap["1102"], currentBalance: 5000000 },
-        { code: "BRI-01", name: "Bank BRI - Giro", type: "bank", bankName: "BRI", accountNumber: "001201003456789", branchId: branchMap["HO"], glAccountId: accountMap["1103"], currentBalance: 150000000 },
-        { code: "BCA-01", name: "Bank BCA - Giro", type: "bank", bankName: "BCA", accountNumber: "1234567890", branchId: branchMap["HO"], glAccountId: accountMap["1104"], currentBalance: 100000000 },
+        { code: "KAS-01", name: "Kas Besar", type: "cash", branchId: branchMap["LMJ"], glAccountId: accountMap["1101"], currentBalance: 50000000 },
+        { code: "KAS-02", name: "Kas Kecil", type: "cash", branchId: branchMap["LMJ"], glAccountId: accountMap["1102"], currentBalance: 5000000 },
+        { code: "BRI-01", name: "Bank BRI - Giro", type: "bank", bankName: "BRI", accountNumber: "001201003456789", branchId: branchMap["LMJ"], glAccountId: accountMap["1103"], currentBalance: 150000000 },
+        { code: "BCA-01", name: "Bank BCA - Giro", type: "bank", bankName: "BCA", accountNumber: "1234567890", branchId: branchMap["LMJ"], glAccountId: accountMap["1104"], currentBalance: 100000000 },
     ];
     for (const cba of cashBankAccounts) {
         const created = await prisma.cashBankAccount.create({ data: cba });
@@ -298,7 +293,7 @@ async function main() {
             email: "admin@koperasi.com",
             password: hashedPassword,
             roleId: roleMap["operator"],
-            branchId: branchMap["HO"],
+            branchId: branchMap["LMJ"],
             isActive: true,
         },
     });
@@ -325,7 +320,7 @@ async function main() {
                 email: `admin${us.emailKey}@koperasi.com`,
                 password: hashedPassword,
                 roleId: roleMap["admin"],
-                branchId: branchMap["HO"],
+                branchId: branchMap["LMJ"],
                 unitType: us.unit,
                 isActive: true,
             },
@@ -337,7 +332,7 @@ async function main() {
                 email: `kasir${us.emailKey}@koperasi.com`,
                 password: hashedPassword,
                 roleId: roleMap["kasir"],
-                branchId: branchMap["HO"],
+                branchId: branchMap["LMJ"],
                 unitType: us.unit,
                 isActive: true,
             },
@@ -749,7 +744,7 @@ async function main() {
         kasBalance -= exp.amount;
 
         const journal = await createJournal({
-            branchId: branchMap["HO"], date: exp.date, periodId: periodMap[exp.period],
+            branchId: branchMap["LMJ"], date: exp.date, periodId: periodMap[exp.period],
             description: exp.desc,
             sourceType: "cash_bank",
             lines: [
@@ -761,7 +756,7 @@ async function main() {
         await prisma.cashBankTransaction.create({
             data: {
                 transactionNo: `CB-2026${String(cbTxSeq).padStart(5, "0")}`,
-                accountId: cashBankMap["KAS-01"], branchId: branchMap["HO"],
+                accountId: cashBankMap["KAS-01"], branchId: branchMap["LMJ"],
                 type: "out", category: exp.category, amount: exp.amount,
                 balanceBefore: balBefore, balanceAfter: kasBalance,
                 description: exp.desc, transactionDate: exp.date,
@@ -787,7 +782,7 @@ async function main() {
         kasBalance += inc.amount;
 
         const journal = await createJournal({
-            branchId: branchMap["HO"], date: inc.date, periodId: periodMap[inc.period],
+            branchId: branchMap["LMJ"], date: inc.date, periodId: periodMap[inc.period],
             description: inc.desc,
             sourceType: "cash_bank",
             lines: [
@@ -799,7 +794,7 @@ async function main() {
         await prisma.cashBankTransaction.create({
             data: {
                 transactionNo: `CB-2026${String(cbTxSeq).padStart(5, "0")}`,
-                accountId: cashBankMap["KAS-01"], branchId: branchMap["HO"],
+                accountId: cashBankMap["KAS-01"], branchId: branchMap["LMJ"],
                 type: "in", category: inc.category, amount: inc.amount,
                 balanceBefore: balBefore, balanceAfter: kasBalance,
                 description: inc.desc, transactionDate: inc.date,
