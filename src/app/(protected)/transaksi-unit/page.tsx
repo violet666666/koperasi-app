@@ -322,7 +322,7 @@ export default function TransaksiUnitPage() {
                                 )}
                             </div>
 
-                            <Button type="submit" disabled={isLoading || !member} className="w-full mt-4">
+                            <Button type="submit" disabled={isLoading || !member} className="w-full mt-4 bg-accent text-accent-foreground hover:bg-accent/90">
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

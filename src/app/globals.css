@@ -76,30 +76,30 @@
   --radius: 0.625rem;
 
   /* Background & Foreground */
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --background: #F8F9FA;
+  --foreground: #2C3E50;
 
   /* Card & Popover */
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #2C3E50;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #2C3E50;
 
-  /* Primary - Navy */
-  --primary: #0B2A4A;
+  /* Primary - Navy (#1A2A44) */
+  --primary: #1A2A44;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary - Slate */
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
+  /* Secondary - Deep Burgundy (#5D2E3A) */
+  --secondary: #5D2E3A;
+  --secondary-foreground: #FFFFFF;
 
   /* Muted */
-  --muted: #F1F5F9;
+  --muted: #E2E8F0;
   --muted-foreground: #64748B;
 
-  /* Accent - Emerald (subtle for hover states) */
-  --accent: #ECFDF5;
-  --accent-foreground: #065F46;
+  /* Accent - Gold (#D4AF37) */
+  --accent: #D4AF37;
+  --accent-foreground: #FFFFFF;
 
   /* Semantic colors */
   --success: #10B981;
@@ -113,24 +113,24 @@
   /* Borders & Inputs */
   --border: #E2E8F0;
   --input: #E2E8F0;
-  --ring: #10B981;
+  --ring: #D4AF37;
 
   /* Chart colors */
-  --chart-1: #0B2A4A;
-  --chart-2: #10B981;
-  --chart-3: #3B82F6;
-  --chart-4: #F59E0B;
-  --chart-5: #8B5CF6;
+  --chart-1: #1A2A44;
+  --chart-2: #D4AF37;
+  --chart-3: #5D2E3A;
+  --chart-4: #2C3E50;
+  --chart-5: #10B981;
 
-  /* Sidebar - Navy dark theme */
-  --sidebar: #0B2A4A;
-  --sidebar-foreground: #E2E8F0;
-  --sidebar-primary: #10B981;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #154A80;
+  /* Sidebar - Navy */
+  --sidebar: #1A2A44;
+  --sidebar-foreground: #F8F9FA;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #1A2A44;
+  --sidebar-accent: #2A3C58;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #1E5A99;
-  --sidebar-ring: #10B981;
+  --sidebar-border: #2A3C58;
+  --sidebar-ring: #D4AF37;
 }
 
 /* =================================================================
@@ -139,29 +139,29 @@
 .dark {
   /* Background & Foreground */
   --background: #0F172A;
-  --foreground: #F8FAFC;
+  --foreground: #F8F9FA;
 
   /* Card & Popover */
   --card: #1E293B;
-  --card-foreground: #F8FAFC;
+  --card-foreground: #F8F9FA;
   --popover: #1E293B;
-  --popover-foreground: #F8FAFC;
+  --popover-foreground: #F8F9FA;
 
-  /* Primary - Lighter Navy for dark mode */
-  --primary: #3B82F6;
-  --primary-foreground: #FFFFFF;
+  /* Primary - Gold for dark mode visibility */
+  --primary: #D4AF37;
+  --primary-foreground: #1A2A44;
 
-  /* Secondary */
-  --secondary: #334155;
-  --secondary-foreground: #F8FAFC;
+  /* Secondary - Deep Burgundy */
+  --secondary: #5D2E3A;
+  --secondary-foreground: #FFFFFF;
 
   /* Muted */
   --muted: #334155;
   --muted-foreground: #94A3B8;
 
-  /* Accent - Emerald */
-  --accent: #064E3B;
-  --accent-foreground: #A7F3D0;
+  /* Accent - Gold */
+  --accent: #D4AF37;
+  --accent-foreground: #1A2A44;
 
   /* Semantic colors */
   --success: #34D399;
@@ -175,24 +175,24 @@
   /* Borders & Inputs */
   --border: #334155;
   --input: #334155;
-  --ring: #34D399;
+  --ring: #D4AF37;
 
   /* Chart colors */
-  --chart-1: #60A5FA;
+  --chart-1: #D4AF37;
   --chart-2: #34D399;
-  --chart-3: #FBBF24;
-  --chart-4: #A78BFA;
+  --chart-3: #60A5FA;
+  --chart-4: #FBBF24;
   --chart-5: #F472B6;
 
-  /* Sidebar */
+  /* Sidebar - Darker Navy */
   --sidebar: #0F172A;
   --sidebar-foreground: #E2E8F0;
-  --sidebar-primary: #34D399;
-  --sidebar-primary-foreground: #064E3B;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #1A2A44;
   --sidebar-accent: #1E293B;
   --sidebar-accent-foreground: #F8FAFC;
   --sidebar-border: #334155;
-  --sidebar-ring: #34D399;
+  --sidebar-ring: #D4AF37;
 }
 
 /* =================================================================

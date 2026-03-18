@@ -337,10 +337,9 @@ export default function KasirPage() {
                                 )}
                             </div>
 
-                            {/* Actions */}
                             <div className="flex gap-2">
                                 <Button
-                                    className="flex-1"
+                                    className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
                                     onClick={processPayment}
                                     disabled={cart.length === 0 || isProcessing}
                                 >

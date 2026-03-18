@@ -51,9 +51,9 @@ export default function TransaksiPortalPage() {
 
             <Tabs defaultValue="unit" onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 max-w-md bg-white border shadow-sm">
-                    <TabsTrigger value="unit" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transaksi Unit</TabsTrigger>
-                    <TabsTrigger value="savings" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Simpanan</TabsTrigger>
-                    <TabsTrigger value="loan" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Angsuran</TabsTrigger>
+                    <TabsTrigger value="unit" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Transaksi Unit</TabsTrigger>
+                    <TabsTrigger value="savings" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Simpanan</TabsTrigger>
+                    <TabsTrigger value="loan" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Angsuran</TabsTrigger>
                 </TabsList>
 
                 <div className="mt-6 flex flex-col sm:flex-row gap-4">
