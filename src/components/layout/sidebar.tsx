@@ -13,7 +13,6 @@ import {
 } from "@/lib/constants/navigation";
 import { useAuth } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Tooltip,
     TooltipContent,
@@ -66,7 +65,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             </div>
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-thin">
                 <nav className="space-y-2">
                     {filteredNavigation.map((item, index) => {
                         if (isNavGroup(item)) {
@@ -89,7 +88,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
                         );
                     })}
                 </nav>
-            </ScrollArea>
+            </div>
 
             {/* Footer */}
             {!isCollapsed && (

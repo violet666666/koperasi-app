@@ -15,7 +15,6 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { mainNavigation, isNavGroup } from "@/lib/constants/navigation";
 
 export function BottomNav() {
@@ -67,7 +66,7 @@ export function BottomNav() {
                             <SheetHeader>
                                 <SheetTitle>Menu</SheetTitle>
                             </SheetHeader>
-                            <ScrollArea className="h-full py-4">
+                            <div className="h-full overflow-y-auto overflow-x-hidden py-4 scrollbar-thin pb-20">
                                 <div className="grid grid-cols-4 gap-4">
                                     {filteredMainNav.map((item, index) => {
                                         if (isNavGroup(item)) {
@@ -119,7 +118,7 @@ export function BottomNav() {
                                         );
                                     })}
                                 </div>
-                            </ScrollArea>
+                            </div>
                         </SheetContent>
                     </Sheet>
                 </div>
