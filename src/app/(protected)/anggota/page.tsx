@@ -117,7 +117,7 @@ function mapApiMember(apiMember: ApiMember): Member {
         name: apiMember.name,
         phone: apiMember.phone,
         email: apiMember.email,
-        city: undefined,
+        city: (apiMember as any).city,
         join_date: apiMember.joinDate,
         status: (apiMember.status as "active" | "inactive" | "resigned") || "active",
     };
@@ -191,7 +191,7 @@ export default function AnggotaListPage() {
 
         {
             accessorKey: "city",
-            header: "Kota",
+            header: "Kota/Kabupaten",
             cell: ({ row }) => row.getValue("city") || "-",
         },
         {

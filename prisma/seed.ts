@@ -339,7 +339,7 @@ async function main() {
         if(membersToCreate.find(m => m.nrp === nrp)) continue;
 
         membersToCreate.push({
-            nrp, name, salary, category: "PNS"
+            nrp, name, salary, category: "PNS", city: "Kabupaten Lumajang"
         });
     }
 
@@ -353,7 +353,7 @@ async function main() {
         if(membersToCreate.find(m => m.nrp === nrp)) continue;
 
         membersToCreate.push({
-            nrp, name, salary, category: "Polri"
+            nrp, name, salary, category: "Polri", city: "Kabupaten Lumajang"
         });
     }
 
@@ -372,6 +372,7 @@ async function main() {
                 name: m.name, 
                 salary: m.salary,
                 category: m.category,
+                city: m.city,
                 joinDate: new Date(),
                 branchId,
                 status: "active"
