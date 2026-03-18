@@ -1,66 +1,59 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import fs from "fs";
+import path from "path";
 
 const prisma = new PrismaClient();
 
 // ======= PERMISSIONS =======
 const PERMISSIONS = [
-    // System
     { name: "manage_all", displayName: "Akses Penuh", module: "system" },
     { name: "user_management", displayName: "Kelola Pengguna", module: "users" },
     { name: "master_data", displayName: "Master Data", module: "master" },
-    // Members
     { name: "manage_anggota", displayName: "Kelola Anggota", module: "members" },
     { name: "view_anggota", displayName: "Lihat Anggota", module: "members" },
-    // Savings
     { name: "manage_simpanan", displayName: "Kelola Simpanan", module: "savings" },
     { name: "view_simpanan", displayName: "Lihat Simpanan", module: "savings" },
-    // Loans
     { name: "manage_pinjaman", displayName: "Kelola Pinjaman", module: "loans" },
     { name: "view_pinjaman", displayName: "Lihat Pinjaman", module: "loans" },
     { name: "approve_pinjaman", displayName: "Approve Pinjaman", module: "loans" },
-    // Cash & Bank
     { name: "manage_kas_bank", displayName: "Kelola Kas & Bank", module: "cash_bank" },
-    // Accounting
     { name: "view_jurnal", displayName: "Lihat Jurnal", module: "accounting" },
     { name: "manage_jurnal", displayName: "Kelola Jurnal", module: "accounting" },
     { name: "view_laporan", displayName: "Lihat Laporan", module: "reports" },
     { name: "tutup_buku", displayName: "Tutup Buku", module: "period" },
     { name: "alokasi_shu", displayName: "Alokasi SHU", module: "shu" },
-    // Approval & Audit
     { name: "approve_transactions", displayName: "Approve Transaksi", module: "approval" },
     { name: "view_audit_log", displayName: "Lihat Audit Log", module: "audit" },
-    // Shop & Units
     { name: "manage_toko", displayName: "Kelola Toko", module: "shop" },
     { name: "manage_pengumuman", displayName: "Kelola Pengumuman", module: "communication" },
     { name: "edit_profil", displayName: "Edit Profil Koperasi", module: "settings" },
     { name: "manage_aset", displayName: "Kelola Aset", module: "assets" },
     { name: "manage_unit_transactions", displayName: "Kelola Transaksi Unit", module: "unit_transactions" },
-    // Portal
     { name: "view_own_data", displayName: "Lihat Data Sendiri", module: "portal" },
 ];
 
-// ======= ROLES (4-tier RBAC) =======
+// ======= ROLES =======
 const ROLES = [
     {
-        name: "operator", displayName: "Operator", description: "Super Admin – full access to all features and all units", isSystem: true,
+        name: "operator", displayName: "Operator", description: "Super Admin", isSystem: true,
         permissions: ["manage_all"],
     },
     {
-        name: "admin", displayName: "Admin", description: "Admin per unit – manages operations for their assigned unit", isSystem: true,
+        name: "admin", displayName: "Admin", description: "Admin per unit", isSystem: true,
         permissions: ["manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "approve_pinjaman", "manage_kas_bank", "view_jurnal", "view_laporan", "approve_transactions", "manage_toko", "manage_unit_transactions", "manage_pengumuman"],
     },
     {
-        name: "kasir", displayName: "Kasir", description: "Cashier per unit – can only input transactions for their assigned unit", isSystem: true,
+        name: "kasir", displayName: "Kasir", description: "Cashier per unit", isSystem: true,
         permissions: ["view_anggota", "manage_simpanan", "view_simpanan", "view_pinjaman", "manage_kas_bank", "manage_toko", "manage_unit_transactions"],
     },
     {
-        name: "anggota", displayName: "Anggota", description: "Member – portal access to view own data and submit loan applications", isSystem: true,
+        name: "anggota", displayName: "Anggota", description: "Member", isSystem: true,
         permissions: ["view_own_data"],
     },
 ];
 
-// ======= BRANCHES (East Java) =======
+// ======= BRANCHES =======
 const BRANCHES = [
     { code: "LMJ", name: "Primkoppol Lumajang", address: "Jl. Alun-Alun Barat No. 10, Lumajang", phone: "0334-551003", email: "lumajang@koperasi.com", isHeadOffice: true, isActive: true },
 ];
@@ -134,23 +127,36 @@ const COA = [
     { code: "5201", name: "Beban Pokok Toko", type: "expense", level: 2, isDetail: true, normalBalance: "debit", parentCode: "5000", category: "expense" },
 ];
 
-// ======= 10 DUMMY MEMBERS =======
-const MEMBERS_DATA = [
-    { nrp: "78120001", name: "Agus Setiawan", nik: "3509010101850001", gender: "male", birthPlace: "Lumajang", birthDate: "1985-01-15", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000001", email: "agus@email.com", address: "Jl. Raya Darmo No. 12", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67311", branchCode: "LMJ" },
-    { nrp: "78120002", name: "Siti Rahayu", nik: "3509020202870002", gender: "female", birthPlace: "Lumajang", birthDate: "1987-06-20", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000002", email: "siti@email.com", address: "Jl. Kalimantan No. 5", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67312", branchCode: "LMJ" },
-    { nrp: "78120003", name: "Bambang Widodo", nik: "3509030303900003", gender: "male", birthPlace: "Lumajang", birthDate: "1990-03-10", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000003", email: "bambang@email.com", address: "Jl. Ijen No. 45", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67313", branchCode: "LMJ" },
-    { nrp: "78120004", name: "Dewi Lestari", nik: "3509040404880004", gender: "female", birthPlace: "Lumajang", birthDate: "1988-11-25", maritalStatus: "married", religion: "islam", education: "d3", occupation: "Polisi", phone: "081234000004", email: "dewi@email.com", address: "Jl. Diponegoro No. 78", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67311", branchCode: "LMJ" },
-    { nrp: "78120005", name: "Eko Prasetyo", nik: "3509050505920005", gender: "male", birthPlace: "Lumajang", birthDate: "1992-07-30", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000005", email: "eko@email.com", address: "Jl. Dhoho No. 33", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67314", branchCode: "LMJ" },
-    { nrp: "78120006", name: "Fitri Handayani", nik: "3509060606860006", gender: "female", birthPlace: "Lumajang", birthDate: "1986-09-12", maritalStatus: "married", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000006", email: "fitri@email.com", address: "Jl. A. Yani No. 15", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67315", branchCode: "LMJ" },
-    { nrp: "78120007", name: "Gunawan Saputra", nik: "3509070707910007", gender: "male", birthPlace: "Lumajang", birthDate: "1991-04-05", maritalStatus: "married", religion: "kristen", education: "s2", occupation: "Polisi", phone: "081234000007", email: "gunawan@email.com", address: "Jl. Pemuda No. 50", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67316", branchCode: "LMJ" },
-    { nrp: "78120008", name: "Heni Kusuma", nik: "3509080808890008", gender: "female", birthPlace: "Lumajang", birthDate: "1989-12-18", maritalStatus: "single", religion: "islam", education: "s1", occupation: "Polisi", phone: "081234000008", email: "heni@email.com", address: "Jl. Gajah Mada No. 22", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67312", branchCode: "LMJ" },
-    { nrp: "78120009", name: "Irfan Maulana", nik: "3509090909930009", gender: "male", birthPlace: "Lumajang", birthDate: "1993-08-22", maritalStatus: "single", religion: "islam", education: "sma", occupation: "Polisi", phone: "081234000009", email: "irfan@email.com", address: "Jl. Veteran No. 88", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67314", branchCode: "LMJ" },
-    { nrp: "78120010", name: "Julia Puspita", nik: "3509101010870010", gender: "female", birthPlace: "Lumajang", birthDate: "1987-02-14", maritalStatus: "married", religion: "hindu", education: "s1", occupation: "Polisi", phone: "081234000010", email: "julia@email.com", address: "Jl. Brawijaya No. 60", city: "Kabupaten Lumajang", province: "Jawa Timur", postalCode: "67315", branchCode: "LMJ" },
-];
+function parseCSV(filePath: string) {
+    const csvContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
+    if (lines.length === 0) return [];
+    
+    // Simple CSV parser that handles quotes properly
+    return lines.slice(1).map(line => {
+        const values: string[] = [];
+        let curVal = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(curVal.trim());
+                curVal = '';
+            } else {
+                curVal += char;
+            }
+        }
+        values.push(curVal.trim());
+        return values;
+    });
+}
 
-// ===================== MAIN SEED =====================
 async function main() {
-    console.log("🌱 Starting comprehensive demo seed...\n");
+    console.log("🌱 Starting seed with real data...\n");
 
     // ----- Clean existing data (reverse dependency order) -----
     console.log("🧹 Cleaning existing data...");
@@ -170,6 +176,7 @@ async function main() {
     await prisma.journal.deleteMany();
     await prisma.cashBankAccount.deleteMany();
     await prisma.approvalRequest.deleteMany();
+    await prisma.receipt.deleteMany();
     await prisma.user.deleteMany();
     await prisma.member.deleteMany();
     await prisma.fiscalPeriod.deleteMany();
@@ -182,14 +189,11 @@ async function main() {
     await prisma.role.deleteMany();
     console.log("   ✓ Data cleaned\n");
 
-    // ----- Permissions -----
-    console.log("🔑 Creating permissions...");
+    // ----- Permissions & Roles -----
+    console.log("🔑 Creating permissions and roles...");
     for (const perm of PERMISSIONS) {
         await prisma.permission.create({ data: perm });
     }
-
-    // ----- Roles -----
-    console.log("👤 Creating roles...");
     const roleMap: Record<string, number> = {};
     for (const role of ROLES) {
         const { permissions, ...roleData } = role;
@@ -204,23 +208,22 @@ async function main() {
     }
 
     // ----- Branches -----
-    console.log("🏢 Creating East Java branches...");
+    console.log("🏢 Creating branches...");
     const branchMap: Record<string, number> = {};
     for (const branch of BRANCHES) {
         const created = await prisma.branch.create({ data: branch });
         branchMap[branch.code] = created.id;
     }
+    const branchId = branchMap["LMJ"];
 
-    // ----- Chart of Accounts -----
-    console.log("📊 Creating Chart of Accounts...");
+    // ----- CoA & Products -----
+    console.log("📊 Creating Chart of Accounts and Products...");
     const accountMap: Record<string, number> = {};
-    // First pass: create all accounts without parent
     for (const acc of COA) {
         const { parentCode, ...data } = acc as any;
         const created = await prisma.account.create({ data });
         accountMap[acc.code] = created.id;
     }
-    // Second pass: set parent references
     for (const acc of COA) {
         const { parentCode } = acc as any;
         if (parentCode && accountMap[parentCode]) {
@@ -231,74 +234,59 @@ async function main() {
         }
     }
 
-    // Link savings products to GL accounts
-    console.log("💰 Creating savings products...");
-    const savingsProductMap: Record<string, number> = {};
     const spGlMap: Record<string, string> = { SP: "2101", SW: "2102", SS: "2103" };
     for (const product of SAVINGS_PRODUCTS) {
         const glAccountId = accountMap[spGlMap[product.code]] || null;
-        const created = await prisma.savingsProduct.create({ data: { ...product, glAccountId } });
-        savingsProductMap[product.code] = created.id;
+        await prisma.savingsProduct.create({ data: { ...product, glAccountId } });
     }
-
-    // ----- Loan Products -----
-    console.log("🏦 Creating loan products...");
-    const loanProductMap: Record<string, number> = {};
     for (const product of LOAN_PRODUCTS) {
-        const created = await prisma.loanProduct.create({ data: product });
-        loanProductMap[product.code] = created.id;
+        await prisma.loanProduct.create({ data: product });
     }
 
-    // ----- Cash & Bank Accounts -----
-    console.log("💵 Creating cash & bank accounts...");
+    // ----- Core Accounts -----
+    console.log("💵 Creating cash & bank accounts & fiscal periods...");
     const cashBankMap: Record<string, number> = {};
     const cashBankAccounts = [
-        { code: "KAS-01", name: "Kas Besar", type: "cash", branchId: branchMap["LMJ"], glAccountId: accountMap["1101"], currentBalance: 50000000 },
-        { code: "KAS-02", name: "Kas Kecil", type: "cash", branchId: branchMap["LMJ"], glAccountId: accountMap["1102"], currentBalance: 5000000 },
-        { code: "BRI-01", name: "Bank BRI - Giro", type: "bank", bankName: "BRI", accountNumber: "001201003456789", branchId: branchMap["LMJ"], glAccountId: accountMap["1103"], currentBalance: 150000000 },
-        { code: "BCA-01", name: "Bank BCA - Giro", type: "bank", bankName: "BCA", accountNumber: "1234567890", branchId: branchMap["LMJ"], glAccountId: accountMap["1104"], currentBalance: 100000000 },
+        { code: "KAS-01", name: "Kas Besar", type: "cash", branchId, glAccountId: accountMap["1101"], currentBalance: 50000000 },
+        { code: "KAS-02", name: "Kas Kecil", type: "cash", branchId, glAccountId: accountMap["1102"], currentBalance: 5000000 },
+        { code: "BRI-01", name: "Bank BRI - Giro", type: "bank", bankName: "BRI", accountNumber: "001201003456789", branchId, glAccountId: accountMap["1103"], currentBalance: 150000000 },
+        { code: "BCA-01", name: "Bank BCA - Giro", type: "bank", bankName: "BCA", accountNumber: "1234567890", branchId, glAccountId: accountMap["1104"], currentBalance: 100000000 },
     ];
     for (const cba of cashBankAccounts) {
         const created = await prisma.cashBankAccount.create({ data: cba });
         cashBankMap[cba.code] = created.id;
     }
 
-    // ----- Fiscal Periods (Jan-Mar 2026) -----
-    console.log("📅 Creating fiscal periods...");
-    const periodMap: Record<number, number> = {};
     for (let m = 1; m <= 3; m++) {
         const start = new Date(2026, m - 1, 1);
         const end = new Date(2026, m, 0);
         const names = ["Januari", "Februari", "Maret"];
-        const created = await prisma.fiscalPeriod.create({
+        await prisma.fiscalPeriod.create({
             data: {
-                name: `${names[m - 1]} 2026`,
-                year: 2026,
-                month: m,
-                startDate: start,
-                endDate: end,
+                name: `${names[m - 1]} 2026`, year: 2026, month: m,
+                startDate: start, endDate: end,
                 status: m === 3 ? "open" : "closed",
                 closedAt: m < 3 ? end : null,
             },
         });
-        periodMap[m] = created.id;
     }
 
-    // ----- Admin User (Operator = Super Admin) -----
-    console.log("👨‍💼 Creating operator + demo staff accounts...");
-    const hashedPassword = await bcrypt.hash("password123", 12);
-    const adminUser = await prisma.user.create({
+    // ----- Admins & Operators -----
+    console.log("👨‍💼 Creating admin, operator, and kasir accounts...");
+    const defaultPassword = await bcrypt.hash("password123", 10);
+    
+    // Operator
+    await prisma.user.create({
         data: {
             name: "Operator (Super Admin)",
-            email: "admin@koperasi.com",
-            password: hashedPassword,
+            email: "operator@koperasi.com",
+            password: defaultPassword,
             roleId: roleMap["operator"],
-            branchId: branchMap["LMJ"],
+            branchId,
             isActive: true,
         },
     });
 
-    // Create Admin + Kasir for all 10 units
     const UNIT_STAFF = [
         { unit: "simpan_pinjam", label: "Simpan Pinjam", emailKey: "sp" },
         { unit: "toko", label: "Toko", emailKey: "toko" },
@@ -313,570 +301,108 @@ async function main() {
     ];
 
     for (const us of UNIT_STAFF) {
-        // Admin
         await prisma.user.create({
             data: {
-                name: `Admin ${us.label}`,
-                email: `admin${us.emailKey}@koperasi.com`,
-                password: hashedPassword,
-                roleId: roleMap["admin"],
-                branchId: branchMap["LMJ"],
-                unitType: us.unit,
-                isActive: true,
+                name: `Admin ${us.label}`, email: `admin${us.emailKey}@koperasi.com`,
+                password: defaultPassword, roleId: roleMap["admin"], branchId, unitType: us.unit, isActive: true,
             },
         });
-        // Kasir
         await prisma.user.create({
             data: {
-                name: `Kasir ${us.label}`,
-                email: `kasir${us.emailKey}@koperasi.com`,
-                password: hashedPassword,
-                roleId: roleMap["kasir"],
-                branchId: branchMap["LMJ"],
-                unitType: us.unit,
-                isActive: true,
+                name: `Kasir ${us.label}`, email: `kasir${us.emailKey}@koperasi.com`,
+                password: defaultPassword, roleId: roleMap["kasir"], branchId, unitType: us.unit, isActive: true,
             },
         });
     }
 
-    // ----- Members + User Accounts -----
-    console.log("👥 Creating 10 dummy members...");
-    const memberIds: number[] = [];
-    const memberBranchIds: number[] = [];
+    // ----- Members via CSV Import -----
+    console.log("👥 Importing members from CSV...");
+    
+    // Parse PNS
+    const pnsPath = path.join(process.cwd(), 'integrasi-akun-asli', 'daftar_gaji_bersih.csv');
+    const pnsData = parseCSV(pnsPath);
+    
+    // Parse Polri
+    const polriPath = path.join(process.cwd(), 'integrasi-akun-asli', 'daftar_nip_nmpeg_gaji.csv');
+    const polriData = parseCSV(polriPath);
 
-    for (let i = 0; i < MEMBERS_DATA.length; i++) {
-        const m = MEMBERS_DATA[i];
-        const branchId = branchMap[m.branchCode];
-        const memberNo = `MBR-2026${String(i + 1).padStart(4, "0")}`;
-        const joinDate = new Date(2026, 0, 5 + i); // staggered join dates in January 2026
+    const membersToCreate: any[] = [];
 
-        const salaries = [5500000, 4800000, 6200000, 4500000, 5000000, 5300000, 7000000, 4700000, 5800000, 5100000];
-        const categories = ["Polri", "PNS", "Polri", "Purnawirawan", "Polri", "PNS", "Polri", "Purnawirawan", "Polri", "PNS"];
+    // Process PNS (nip,nmpeg,bersih)
+    for(const row of pnsData) {
+        if(row.length < 3) continue;
+        const nrp = row[0];
+        const name = row[1];
+        const salary = Number(row[2]) || 0;
+        
+        // Skip identical nrp (prevent dups)
+        if(membersToCreate.find(m => m.nrp === nrp)) continue;
+
+        membersToCreate.push({
+            nrp, name, salary, category: "PNS"
+        });
+    }
+
+    // Process Polri (no,nip,nmpeg,gjpokok)
+    for(const row of polriData) {
+        if(row.length < 4) continue;
+        const nrp = row[1];
+        const name = row[2];
+        const salary = Number(row[3]) || 0;
+
+        if(membersToCreate.find(m => m.nrp === nrp)) continue;
+
+        membersToCreate.push({
+            nrp, name, salary, category: "Polri"
+        });
+    }
+
+    console.log(`Found ${membersToCreate.length} members to import.`);
+    
+    let createdCount = 0;
+    
+    for (const m of membersToCreate) {
+        // Fast hashing for large batches
+        const memberHash = await bcrypt.hash(m.nrp, 10);
 
         const member = await prisma.member.create({
             data: {
-                memberNo, nrp: m.nrp, name: m.name, nik: m.nik, gender: m.gender,
-                birthPlace: m.birthPlace, birthDate: new Date(m.birthDate),
-                maritalStatus: m.maritalStatus, religion: m.religion, education: m.education,
-                occupation: m.occupation, phone: m.phone, email: m.email,
-                address: m.address, city: m.city, province: m.province, postalCode: m.postalCode,
-                branchId, joinDate, status: "active", category: categories[i], salary: salaries[i], createdById: adminUser.id,
-            },
+                memberNo: m.nrp, // The user strictly wants NIP/NRP numbers, no "MBR-" prefix
+                nrp: m.nrp, 
+                name: m.name, 
+                salary: m.salary,
+                category: m.category,
+                joinDate: new Date(),
+                branchId,
+                status: "active"
+            }
         });
-        memberIds.push(member.id);
-        memberBranchIds.push(branchId);
 
-        // Create user account for member portal login
         await prisma.user.create({
             data: {
                 name: m.name,
-                email: `${m.nrp}@koperasi.local`,
-                password: hashedPassword,
+                email: `${m.nrp}@koperasi.local`, // Optional fallback structure if email is required
+                password: memberHash,
                 roleId: roleMap["anggota"],
                 branchId,
                 memberId: member.id,
-                isActive: true,
-            },
-        });
-    }
-
-    // ----- Helper: Create Journal -----
-    let journalSeq = 0;
-    async function createJournal(opts: { branchId: number; date: Date; description: string; periodId: number; lines: { accountCode: string; debit: number; credit: number; desc?: string }[]; sourceType?: string; sourceId?: number }) {
-        journalSeq++;
-        const journal = await prisma.journal.create({
-            data: {
-                journalNo: `JRN-2026${String(journalSeq).padStart(5, "0")}`,
-                branchId: opts.branchId,
-                transactionDate: opts.date,
-                description: opts.description,
-                sourceType: opts.sourceType || null,
-                sourceId: opts.sourceId || null,
-                periodId: opts.periodId,
-                isPosted: true,
-                createdById: adminUser.id,
-            },
-        });
-        for (const line of opts.lines) {
-            await prisma.journalLine.create({
-                data: {
-                    journalId: journal.id,
-                    accountId: accountMap[line.accountCode],
-                    debit: line.debit,
-                    credit: line.credit,
-                    description: line.desc || opts.description,
-                },
-            });
-        }
-        return journal;
-    }
-
-    // ----- Savings Accounts & Transactions -----
-    console.log("💰 Creating savings accounts & transactions for all members...");
-    let savingsTxSeq = 0;
-
-    for (let i = 0; i < memberIds.length; i++) {
-        const memberId = memberIds[i];
-        const branchId = memberBranchIds[i];
-        const memberName = MEMBERS_DATA[i].name;
-        const joinDate = new Date(2026, 0, 5 + i);
-
-        for (const sp of SAVINGS_PRODUCTS) {
-            const productId = savingsProductMap[sp.code];
-            const accountNo = `${sp.code}-MBR-2026${String(i + 1).padStart(4, "0")}`;
-
-            let initialDeposit = sp.code === "SP" ? 100000 : sp.code === "SW" ? 50000 : 0;
-            let extraDeposits: { date: Date; amount: number }[] = [];
-
-            if (sp.code === "SW") {
-                // Monthly mandatory savings for Jan & Feb 2026
-                extraDeposits = [
-                    { date: new Date(2026, 1, 5 + i), amount: 50000 },
-                ];
+                isActive: true
             }
-            if (sp.code === "SS") {
-                // Some voluntary savings
-                initialDeposit = [200000, 500000, 300000, 150000, 1000000, 250000, 400000, 350000, 600000, 800000][i];
-                extraDeposits = [
-                    { date: new Date(2026, 1, 10 + i), amount: [100000, 200000, 150000, 50000, 500000, 100000, 200000, 150000, 300000, 250000][i] },
-                ];
-            }
+        });
 
-            let balance = 0;
-            const savingsAccount = await prisma.savingsAccount.create({
-                data: {
-                    accountNo, memberId, productId, branchId,
-                    balance: initialDeposit + extraDeposits.reduce((s, d) => s + d.amount, 0),
-                    openedDate: joinDate, status: "active",
-                },
-            });
-
-            // Initial deposit transaction
-            if (initialDeposit > 0) {
-                savingsTxSeq++;
-                const balBefore = balance;
-                balance += initialDeposit;
-                const journal = await createJournal({
-                    branchId, date: joinDate, periodId: periodMap[1],
-                    description: `Setoran ${sp.name} - ${memberName}`,
-                    sourceType: "savings_transaction",
-                    lines: [
-                        { accountCode: "1101", debit: initialDeposit, credit: 0 },
-                        { accountCode: sp.code === "SP" ? "2101" : sp.code === "SW" ? "2102" : "2103", debit: 0, credit: initialDeposit },
-                    ],
-                });
-
-                await prisma.savingsTransaction.create({
-                    data: {
-                        transactionNo: `STX-2026${String(savingsTxSeq).padStart(5, "0")}`,
-                        accountId: savingsAccount.id, memberId, productId, branchId,
-                        type: "deposit", amount: initialDeposit,
-                        balanceBefore: balBefore, balanceAfter: balance,
-                        paymentMethod: "cash", transactionDate: joinDate,
-                        journalId: journal.id, periodId: periodMap[1],
-                        notes: `Setoran awal ${sp.name}`,
-                        createdById: adminUser.id,
-                    },
-                });
-            }
-
-            // Extra deposits
-            for (const dep of extraDeposits) {
-                savingsTxSeq++;
-                const balBefore = balance;
-                balance += dep.amount;
-                const pMonth = dep.date.getMonth() + 1;
-                const journal = await createJournal({
-                    branchId, date: dep.date, periodId: periodMap[pMonth] || periodMap[3],
-                    description: `Setoran ${sp.name} - ${memberName}`,
-                    lines: [
-                        { accountCode: "1101", debit: dep.amount, credit: 0 },
-                        { accountCode: sp.code === "SP" ? "2101" : sp.code === "SW" ? "2102" : "2103", debit: 0, credit: dep.amount },
-                    ],
-                });
-
-                await prisma.savingsTransaction.create({
-                    data: {
-                        transactionNo: `STX-2026${String(savingsTxSeq).padStart(5, "0")}`,
-                        accountId: savingsAccount.id, memberId, productId, branchId,
-                        type: "deposit", amount: dep.amount,
-                        balanceBefore: balBefore, balanceAfter: balance,
-                        paymentMethod: "cash", transactionDate: dep.date,
-                        journalId: journal.id, periodId: periodMap[pMonth] || periodMap[3],
-                        notes: `Setoran bulanan ${sp.name}`,
-                        createdById: adminUser.id,
-                    },
-                });
-            }
+        createdCount++;
+        if(createdCount % 50 === 0) {
+            console.log(`Imported ${createdCount}/${membersToCreate.length} members...`);
         }
     }
 
-    // ----- Loans (for first 5 members) -----
-    console.log("🏦 Creating loans for members...");
-    let loanAppSeq = 0;
-    let loanSeq = 0;
-    let paymentSeq = 0;
-
-    const loanAmounts = [5000000, 10000000, 3000000, 15000000, 8000000];
-    const loanTenors = [12, 12, 6, 24, 12];
-
-    for (let i = 0; i < 5; i++) {
-        const memberId = memberIds[i];
-        const branchId = memberBranchIds[i];
-        const memberName = MEMBERS_DATA[i].name;
-        loanAppSeq++;
-        loanSeq++;
-
-        const principal = loanAmounts[i];
-        const tenor = loanTenors[i];
-        const rate = 3.6; // 3.6% flat annual (0.3% per month per AD-ART Pasal 25)
-        const monthlyInterest = (principal * rate) / 100 / 12;
-        const monthlyPrincipal = principal / tenor;
-        const monthlyInstallment = monthlyPrincipal + monthlyInterest;
-        const totalInterest = monthlyInterest * tenor;
-        const totalAmount = principal + totalInterest;
-        const adminFee = principal * 0.01;
-        const disbursedAmount = principal - adminFee;
-
-        const appDate = new Date(2026, 0, 10 + i);
-        const approveDate = new Date(2026, 0, 12 + i);
-        const disburseDate = new Date(2026, 0, 15 + i);
-
-        // Loan Application
-        const application = await prisma.loanApplication.create({
-            data: {
-                applicationNo: `LA-2026${String(loanAppSeq).padStart(5, "0")}`,
-                memberId, branchId, productId: loanProductMap["PR"],
-                amount: principal, tenorMonths: tenor,
-                purpose: ["Renovasi rumah", "Biaya pendidikan anak", "Modal usaha", "Pembelian kendaraan", "Kebutuhan keluarga"][i],
-                status: "disbursed",
-                submittedAt: appDate, approvedAt: approveDate, approvedById: adminUser.id,
-                createdById: adminUser.id,
-            },
-        });
-
-        // Journal for disbursement
-        const disburseJournal = await createJournal({
-            branchId, date: disburseDate, periodId: periodMap[1],
-            description: `Pencairan Pinjaman - ${memberName}`,
-            sourceType: "loan_disbursement",
-            lines: [
-                { accountCode: "1201", debit: principal, credit: 0, desc: "Piutang Pinjaman" },
-                { accountCode: "1101", debit: 0, credit: disbursedAmount, desc: "Kas keluar" },
-                { accountCode: "4102", debit: 0, credit: adminFee, desc: "Pendapatan admin" },
-            ],
-        });
-
-        // Loan record
-        const loan = await prisma.loan.create({
-            data: {
-                loanNo: `LN-2026${String(loanSeq).padStart(5, "0")}`,
-                applicationId: application.id, memberId, branchId,
-                productSnapshot: { code: "PR", name: "Pinjaman Reguler", interestRate: rate, interestMethod: "flat" },
-                principalAmount: principal, interestAmount: totalInterest, totalAmount,
-                adminFee, disbursedAmount, tenorMonths: tenor, interestRate: rate, interestMethod: "flat",
-                monthlyInstallment,
-                principalPaid: 0, interestPaid: 0, lateFeePaid: 0,
-                principalOutstanding: principal, interestOutstanding: totalInterest,
-                disbursementDate: disburseDate,
-                firstDueDate: new Date(2026, 1, 15 + i),
-                lastDueDate: new Date(2026, tenor, 15 + i),
-                status: "active",
-                disbursementJournalId: disburseJournal.id,
-                disbursementCashBankId: cashBankMap["KAS-01"],
-                periodId: periodMap[1],
-            },
-        });
-
-        // Loan Schedules
-        const scheduleIds: number[] = [];
-        for (let inst = 1; inst <= tenor; inst++) {
-            const dueDate = new Date(2026, inst, 15 + i);
-            const sched = await prisma.loanSchedule.create({
-                data: {
-                    loanId: loan.id, installmentNo: inst,
-                    dueDate, principalAmount: monthlyPrincipal,
-                    interestAmount: monthlyInterest, totalAmount: monthlyInstallment,
-                    status: inst <= 2 ? "paid" : "pending",
-                    paidDate: inst <= 2 ? new Date(2026, inst, 10 + i) : null,
-                    principalPaid: inst <= 2 ? monthlyPrincipal : 0,
-                    interestPaid: inst <= 2 ? monthlyInterest : 0,
-                },
-            });
-            scheduleIds.push(sched.id);
-        }
-
-        // Payments for first 2 installments
-        let totalPrincipalPaid = 0;
-        let totalInterestPaid = 0;
-        for (let inst = 1; inst <= 2; inst++) {
-            paymentSeq++;
-            const payDate = new Date(2026, inst, 10 + i);
-            const pMonth = payDate.getMonth() + 1;
-
-            const payJournal = await createJournal({
-                branchId, date: payDate, periodId: periodMap[pMonth] || periodMap[3],
-                description: `Angsuran ke-${inst} - ${memberName}`,
-                sourceType: "loan_payment",
-                lines: [
-                    { accountCode: "1101", debit: monthlyInstallment, credit: 0, desc: "Kas masuk" },
-                    { accountCode: "1201", debit: 0, credit: monthlyPrincipal, desc: "Piutang berkurang" },
-                    { accountCode: "4101", debit: 0, credit: monthlyInterest, desc: "Pendapatan bunga" },
-                ],
-            });
-
-            const payment = await prisma.loanPayment.create({
-                data: {
-                    paymentNo: `PAY-2026${String(paymentSeq).padStart(5, "0")}`,
-                    loanId: loan.id, memberId, branchId: branchId,
-                    amount: monthlyInstallment,
-                    principalPortion: monthlyPrincipal,
-                    interestPortion: monthlyInterest,
-                    paymentMethod: "cash",
-                    cashBankAccountId: cashBankMap["KAS-01"],
-                    paymentDate: payDate,
-                    journalId: payJournal.id,
-                    periodId: periodMap[pMonth] || periodMap[3],
-                    createdById: adminUser.id,
-                },
-            });
-
-            await prisma.loanPaymentAllocation.create({
-                data: {
-                    paymentId: payment.id,
-                    scheduleId: scheduleIds[inst - 1],
-                    principalAmount: monthlyPrincipal,
-                    interestAmount: monthlyInterest,
-                },
-            });
-
-            totalPrincipalPaid += monthlyPrincipal;
-            totalInterestPaid += monthlyInterest;
-        }
-
-        // Update loan outstanding
-        await prisma.loan.update({
-            where: { id: loan.id },
-            data: {
-                principalPaid: totalPrincipalPaid,
-                interestPaid: totalInterestPaid,
-                principalOutstanding: principal - totalPrincipalPaid,
-                interestOutstanding: totalInterest - totalInterestPaid,
-            },
-        });
-    }
-
-    // ----- Unit Transactions -----
-    console.log("🏪 Creating unit transactions for all members...");
-    let utSeq = 0;
-    const unitTypes = ["toko", "fotocopy", "cuci_mobil", "fitness", "simpan_pinjam", "laundry", "resto_cafe", "playstation", "barbershop", "aset"];
-    const unitDescs: Record<string, string[]> = {
-        toko: ["Pembelian beras 5kg", "Pembelian minyak goreng 2L", "Pembelian gula 1kg", "Pembelian sabun deterjen"],
-        fotocopy: ["Fotocopy dokumen 50 lembar", "Print warna 10 lembar", "Jilid dokumen", "Scan dokumen 20 lembar"],
-        cuci_mobil: ["Cuci mobil reguler", "Cuci mobil + poles", "Cuci motor", "Interior cleaning"],
-        fitness: ["Membership bulanan", "Personal training 4 sesi", "Kelas yoga bulanan", "Suplemen fitness"],
-        simpan_pinjam: ["Pembayaran iuran", "Biaya administrasi", "Biaya materai", "Jasa transfer"],
-        laundry: ["Cuci setrika 3kg", "Dry clean jas", "Cuci selimut besar", "Cuci sepatu"],
-        resto_cafe: ["Makan siang paket", "Kopi + snack", "Catering rapat", "Makan malam keluarga"],
-        playstation: ["Rental PS5 2 jam", "Rental PS5 4 jam + snack", "Turnamen bulanan", "Rental PS4 2 jam"],
-        barbershop: ["Potong rambut pria", "Cukur + creambath", "Shaving + facial", "Potong rambut anak"],
-        aset: ["Sewa tanah kavling A", "Sewa gedung pertemuan", "Sewa lahan parkir", "Iuran perawatan aset"],
-    };
-    const unitAmounts: Record<string, number[]> = {
-        toko: [75000, 35000, 15000, 28000],
-        fotocopy: [25000, 50000, 15000, 10000],
-        cuci_mobil: [50000, 150000, 25000, 100000],
-        fitness: [200000, 500000, 150000, 100000],
-        simpan_pinjam: [10000, 5000, 6000, 7500],
-        laundry: [30000, 75000, 40000, 35000],
-        resto_cafe: [35000, 25000, 250000, 150000],
-        playstation: [30000, 60000, 50000, 20000],
-        barbershop: [35000, 75000, 60000, 25000],
-        aset: [500000, 1000000, 300000, 100000],
-    };
-
-    for (let i = 0; i < memberIds.length; i++) {
-        const memberId = memberIds[i];
-        // Each member gets 3-5 unit transactions across different units
-        const txCount = 3 + (i % 3);
-        for (let t = 0; t < txCount; t++) {
-            utSeq++;
-            const uType = unitTypes[t % unitTypes.length];
-            const descArr = unitDescs[uType];
-            const amtArr = unitAmounts[uType];
-            const desc = descArr[i % descArr.length];
-            const amount = amtArr[i % amtArr.length];
-            const txDate = new Date(2026, (t % 2 === 0 ? 0 : 1), 15 + i + t);
-            const isPaid = t < 2; // First 2 transactions are paid
-
-            await prisma.unitTransaction.create({
-                data: {
-                    transactionNo: `UT-2026${String(utSeq).padStart(5, "0")}`,
-                    memberId, unitType: uType, description: desc,
-                    amount, transactionDate: txDate,
-                    isPaid, paidDate: isPaid ? txDate : null,
-                    createdById: adminUser.id,
-                },
-            });
-        }
-    }
-
-    // ----- Cash & Bank Transactions -----
-    console.log("💵 Creating cash & bank transactions...");
-    let cbTxSeq = 0;
-
-    // Operational expenses (Non Simpan Pinjam entries)
-    const opExpenses = [
-        { desc: "Pembayaran gaji karyawan Januari", amount: 15000000, category: "operational", accountCode: "5101", date: new Date(2026, 0, 25), period: 1 },
-        { desc: "Pembayaran sewa kantor Januari", amount: 5000000, category: "operational", accountCode: "5102", date: new Date(2026, 0, 28), period: 1 },
-        { desc: "Pembayaran listrik & air Januari", amount: 2000000, category: "operational", accountCode: "5103", date: new Date(2026, 0, 30), period: 1 },
-        { desc: "Pembelian ATK", amount: 500000, category: "operational", accountCode: "5104", date: new Date(2026, 0, 20), period: 1 },
-        { desc: "Pembayaran gaji karyawan Februari", amount: 15000000, category: "operational", accountCode: "5101", date: new Date(2026, 1, 25), period: 2 },
-        { desc: "Pembayaran sewa kantor Februari", amount: 5000000, category: "operational", accountCode: "5102", date: new Date(2026, 1, 28), period: 2 },
-        { desc: "Pembayaran listrik & air Februari", amount: 1800000, category: "operational", accountCode: "5103", date: new Date(2026, 1, 28), period: 2 },
-        { desc: "Biaya operasional lainnya", amount: 1000000, category: "operational", accountCode: "5106", date: new Date(2026, 1, 15), period: 2 },
-    ];
-
-    let kasBalance = 50000000;
-    for (const exp of opExpenses) {
-        cbTxSeq++;
-        const balBefore = kasBalance;
-        kasBalance -= exp.amount;
-
-        const journal = await createJournal({
-            branchId: branchMap["LMJ"], date: exp.date, periodId: periodMap[exp.period],
-            description: exp.desc,
-            sourceType: "cash_bank",
-            lines: [
-                { accountCode: exp.accountCode, debit: exp.amount, credit: 0 },
-                { accountCode: "1101", debit: 0, credit: exp.amount },
-            ],
-        });
-
-        await prisma.cashBankTransaction.create({
-            data: {
-                transactionNo: `CB-2026${String(cbTxSeq).padStart(5, "0")}`,
-                accountId: cashBankMap["KAS-01"], branchId: branchMap["LMJ"],
-                type: "out", category: exp.category, amount: exp.amount,
-                balanceBefore: balBefore, balanceAfter: kasBalance,
-                description: exp.desc, transactionDate: exp.date,
-                journalId: journal.id, periodId: periodMap[exp.period],
-                createdById: adminUser.id,
-            },
-        });
-    }
-
-    // Income cash-in entries (Non Simpan Pinjam Penerimaan)
-    const incomeEntries = [
-        { desc: "Penerimaan pendapatan toko Januari", amount: 3500000, category: "other", accountCode: "4201", date: new Date(2026, 0, 31), period: 1 },
-        { desc: "Penerimaan unit fotocopy Januari", amount: 800000, category: "other", accountCode: "4202", date: new Date(2026, 0, 31), period: 1 },
-        { desc: "Penerimaan unit cuci mobil Januari", amount: 2000000, category: "other", accountCode: "4203", date: new Date(2026, 0, 31), period: 1 },
-        { desc: "Penerimaan unit fitness Januari", amount: 1500000, category: "other", accountCode: "4204", date: new Date(2026, 0, 31), period: 1 },
-        { desc: "Penerimaan pendapatan toko Februari", amount: 4200000, category: "other", accountCode: "4201", date: new Date(2026, 1, 28), period: 2 },
-        { desc: "Penerimaan lain-lain Februari", amount: 500000, category: "other", accountCode: "4301", date: new Date(2026, 1, 28), period: 2 },
-    ];
-
-    for (const inc of incomeEntries) {
-        cbTxSeq++;
-        const balBefore = kasBalance;
-        kasBalance += inc.amount;
-
-        const journal = await createJournal({
-            branchId: branchMap["LMJ"], date: inc.date, periodId: periodMap[inc.period],
-            description: inc.desc,
-            sourceType: "cash_bank",
-            lines: [
-                { accountCode: "1101", debit: inc.amount, credit: 0 },
-                { accountCode: inc.accountCode, debit: 0, credit: inc.amount },
-            ],
-        });
-
-        await prisma.cashBankTransaction.create({
-            data: {
-                transactionNo: `CB-2026${String(cbTxSeq).padStart(5, "0")}`,
-                accountId: cashBankMap["KAS-01"], branchId: branchMap["LMJ"],
-                type: "in", category: inc.category, amount: inc.amount,
-                balanceBefore: balBefore, balanceAfter: kasBalance,
-                description: inc.desc, transactionDate: inc.date,
-                journalId: journal.id, periodId: periodMap[inc.period],
-                createdById: adminUser.id,
-            },
-        });
-    }
-
-    // Update Kas Besar final balance
-    await prisma.cashBankAccount.update({
-        where: { id: cashBankMap["KAS-01"] },
-        data: { currentBalance: kasBalance },
-    });
-
-    // ----- Print Summary -----
-    console.log("\n✅ Demo seed completed successfully!\n");
-    console.log("═══════════════════════════════════════════════════");
-    console.log("                    AKUN LOGIN                     ");
-    console.log("═══════════════════════════════════════════════════");
-    console.log("");
-    console.log("  🔑 OPERATOR:");
-    console.log("     Email    : admin@koperasi.com");
-    console.log("     Password : password123");
-    console.log("");
-    console.log("  👨‍💼 ADMIN & KASIR:");
-    console.log("     admin.sp@koperasi.com      (Admin Simpan Pinjam)");
-    console.log("     admin.toko@koperasi.com     (Admin Toko)");
-    console.log("     admin.fitness@koperasi.com  (Admin Fitness)");
-    console.log("     kasir.sp@koperasi.com       (Kasir Simpan Pinjam)");
-    console.log("     kasir.toko@koperasi.com     (Kasir Toko)");
-    console.log("     kasir.fitness@koperasi.com  (Kasir Fitness)");
-    console.log("     Password semua: password123");
-    console.log("");
-    console.log("  👤 ANGGOTA (10 akun):");
-    console.log("  ┌─────────────┬──────────────────────┬──────────────────────────┐");
-    console.log("  │ NRP         │ Nama                 │ Login Email              │");
-    console.log("  ├─────────────┼──────────────────────┼──────────────────────────┤");
-
-    for (const m of MEMBERS_DATA) {
-        const nrp = m.nrp.padEnd(11);
-        const name = m.name.padEnd(20);
-        const loginEmail = `${m.nrp}@koperasi.local`.padEnd(24);
-        console.log(`  │ ${nrp} │ ${name} │ ${loginEmail} │`);
-    }
-
-    console.log("  └─────────────┴──────────────────────┴──────────────────────────┘");
-    console.log("     Password semua anggota: password123");
-    console.log("");
-    console.log("  📊 DATA DEMO:");
-    console.log("     • 6 cabang Jawa Timur");
-    console.log("     • 10 anggota + data gaji");
-    console.log("     • 10 unit bisnis Primkoppol");
-    console.log("     • 60+ transaksi unit");
-    console.log("     • Jurnal akuntansi otomatis");
-    console.log("     • Kas & Bank operasional");
-    console.log("     • Periode fiskal Jan-Mar 2026");
-    // ----- Store Products -----
-    console.log("🏪 Creating store products (Toko Koperasi)...");
-    const STORE_PRODUCTS = [
-        { sku: "BRS-001", name: "Beras Premium 5kg", category: "Sembako", costPrice: 65000, sellPrice: 75000, stock: 50, unit: "sak" },
-        { sku: "MGR-001", name: "Minyak Goreng 2L", category: "Sembako", costPrice: 28000, sellPrice: 35000, stock: 15, unit: "btl" },
-        { sku: "GLP-001", name: "Gula Pasir 1kg", category: "Sembako", costPrice: 14000, sellPrice: 18000, stock: 80, unit: "kg" },
-        { sku: "KPI-001", name: "Kopi Bubuk 250g", category: "Minuman", costPrice: 20000, sellPrice: 25000, stock: 40, unit: "bks" },
-        { sku: "TEH-001", name: "Teh Celup 25s", category: "Minuman", costPrice: 9000, sellPrice: 12000, stock: 60, unit: "box" },
-        { sku: "SBN-001", name: "Sabun Mandi 100g", category: "Kebersihan", costPrice: 5000, sellPrice: 8000, stock: 100, unit: "pcs" },
-        { sku: "MIE-001", name: "Mie Instan (box)", category: "Makanan", costPrice: 95000, sellPrice: 120000, stock: 25, unit: "box" },
-        { sku: "SUS-001", name: "Susu UHT 1L", category: "Minuman", costPrice: 14000, sellPrice: 18000, stock: 35, unit: "btl" },
-    ];
-    for (const sp of STORE_PRODUCTS) {
-        await prisma.storeProduct.create({ data: sp });
-    }
-
-    console.log("     • 8 produk toko tersedia");
-    console.log("     • Bunga pinjaman 0.3%/bulan (AD-ART Pasal 25)");
-    console.log("     • Kategori anggota: Polri, PNS, Purnawirawan");
-    console.log("═══════════════════════════════════════════════════\n");
+    console.log(`✅ successfully imported ${createdCount} members with their accounts (NRP + NRP password).`);
+    console.log("🎉 Seed finished successfully!");
 }
 
 main()
     .catch((e) => {
-        console.error("❌ Seed error:", e);
+        console.error(e);
         process.exit(1);
     })
     .finally(async () => {
