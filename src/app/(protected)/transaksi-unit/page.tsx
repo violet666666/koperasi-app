@@ -47,7 +47,25 @@ export default function TransaksiUnitPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormData((prev) => {
+            const updates = { ...prev, [name]: value };
+            
+            // Auto-fill amount for carwash
+            if (name === "carwashCategory") {
+                const prices: Record<string, string> = {
+                    "Motor": "15000",
+                    "Mobil kecil": "35000",
+                    "Mobil sedang": "40000",
+                    "Mobil besar": "45000",
+                    "Mobil jumbo": "50000"
+                };
+                if (prices[value]) {
+                    updates.amount = prices[value];
+                }
+            }
+            
+            return updates;
+        });
     };
 
     const handleSwitchChange = (checked: boolean) => {
@@ -231,8 +249,11 @@ export default function TransaksiUnitPage() {
                                                 <SelectValue placeholder="Pilih kategori (Mobil / Motor)" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Mobil">Mobil</SelectItem>
-                                                <SelectItem value="Motor">Motor</SelectItem>
+                                                <SelectItem value="Motor">Motor (Rp 15.000)</SelectItem>
+                                                <SelectItem value="Mobil kecil">Mobil kecil (Rp 35.000)</SelectItem>
+                                                <SelectItem value="Mobil sedang">Mobil sedang (Rp 40.000)</SelectItem>
+                                                <SelectItem value="Mobil besar">Mobil besar (Rp 45.000)</SelectItem>
+                                                <SelectItem value="Mobil jumbo">Mobil jumbo (Rp 50.000)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>

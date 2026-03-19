@@ -46,8 +46,8 @@ export function AppShell({
                     <VisuallyHidden>
                         <SheetTitle>Menu Navigasi</SheetTitle>
                     </VisuallyHidden>
-                    <div className="flex-1 overflow-hidden h-full">
-                        <Sidebar isCollapsed={false} />
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
+                        <Sidebar isCollapsed={false} className="border-none min-h-0 flex-1 w-full" />
                     </div>
                 </SheetContent>
             </Sheet>

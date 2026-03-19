@@ -286,6 +286,102 @@ export function generateReceiptPDF(receipt: ReceiptData) {
 }
 
 // ============================================================
+// Thermal Receipt PDF Generator
+// ============================================================
+
+export function generateThermalReceiptPDF(receipt: ReceiptData) {
+    // 80mm generic thermal format
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [80, 200] });
+    const pageWidth = 80;
+    const margin = 5;
+    let y = 10;
+
+    // Header
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("KOPERASI PRIMKOPPOL", pageWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.setFontSize(10);
+    doc.text("POLRES LUMAJANG", pageWidth / 2, y, { align: "center" });
+    
+    y += 8;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 5;
+    
+    // Receipt Info
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(`No: ${receipt.receiptNo}`, margin, y);
+    y += 4;
+    doc.text(`Tgl: ${new Date(receipt.receiptDate).toLocaleDateString("id-ID")}`, margin, y);
+    y += 4;
+    doc.text(`Kasir: ${receipt.createdBy}`, margin, y);
+    
+    y += 6;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 6;
+
+    // Details
+    const details = [
+        ["Terima Dari", receipt.receivedFrom],
+        ["NRP", receipt.memberNo],
+        ["Transaksi", getReceiptTypeLabel(receipt.type)],
+        ["Keterangan", receipt.description],
+        ["Metode", receipt.paymentMethod === "cash" ? "Tunai" : "Transfer"],
+    ];
+
+    details.forEach(([label, value]) => {
+        doc.text(`${label}`, margin, y);
+        doc.text(`: ${value}`, margin + 20, y);
+        y += 5;
+    });
+
+    y += 3;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 8;
+    
+    // Amount
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL", margin, y);
+    doc.text(formatRupiah(receipt.amount), pageWidth - margin, y, { align: "right" });
+    
+    y += 8;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 6;
+
+    // Notes
+    if (receipt.notes) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        const splitNotes = doc.splitTextToSize(`Catatan: ${receipt.notes}`, pageWidth - margin * 2);
+        doc.text(splitNotes, margin, y);
+        y += (splitNotes.length * 4) + 4;
+    }
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "italic");
+    doc.text("Terima kasih atas kepercayaan Anda", pageWidth / 2, y, { align: "center" });
+    y += 4;
+    doc.text("Simpan struk ini sebagai bukti pembayaran", pageWidth / 2, y, { align: "center" });
+
+    doc.save(`Struk_${receipt.receiptNo}.pdf`);
+}
+
+// ============================================================
 // Helper Functions
 // ============================================================
 

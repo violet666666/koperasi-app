@@ -111,7 +111,7 @@ export default function KartuAnggotaPage() {
             doc.text("KOPERASI PRIMKOPPOL", cardWidth / 2, 6, { align: "center" });
             doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
-            doc.text("POLDA RIAU", cardWidth / 2, 10, { align: "center" });
+            doc.text("POLRES LUMAJANG", cardWidth / 2, 10, { align: "center" });
 
             // Separator line
             doc.setDrawColor(200, 200, 255);
@@ -133,11 +133,7 @@ export default function KartuAnggotaPage() {
             doc.setTextColor(200, 210, 240);
 
             let yPos = 30;
-            if (member.nrp) {
-                doc.text(`NRP: ${member.nrp}`, 5, yPos);
-                yPos += 4;
-            }
-            doc.text(`NRP: ${member.memberNo}`, 5, yPos);
+            doc.text(`No. Anggota: ${member.memberNo}`, 5, yPos);
             yPos += 4;
             if (member.category) {
                 doc.text(`Kategori: ${member.category}`, 5, yPos);
@@ -237,7 +233,7 @@ export default function KartuAnggotaPage() {
                                 style={{ background: "linear-gradient(180deg, rgba(41,65,148,0.9) 0%, transparent 100%)" }}>
                                 <div className="text-center">
                                     <h4 className="text-white font-bold text-[15px] tracking-wide">KOPERASI PRIMKOPPOL</h4>
-                                    <p className="text-blue-200 text-[10px] tracking-widest">POLDA RIAU</p>
+                                    <p className="text-blue-200 text-[10px] tracking-widest">POLRES LUMAJANG</p>
                                 </div>
                             </div>
 
@@ -255,14 +251,8 @@ export default function KartuAnggotaPage() {
                                 <h3 className="text-white font-bold text-xl mb-3">{member.name}</h3>
 
                                 <div className="space-y-1.5">
-                                    {member.nrp && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-blue-200/70 text-[10px] w-20">NRP</span>
-                                            <span className="text-blue-100 text-[12px] font-medium">{member.nrp}</span>
-                                        </div>
-                                    )}
                                     <div className="flex items-center gap-2">
-                                        <span className="text-blue-200/70 text-[10px] w-20">NRP</span>
+                                        <span className="text-blue-200/70 text-[10px] w-20">No. Anggota</span>
                                         <span className="text-blue-100 text-[12px] font-medium font-mono">{member.memberNo}</span>
                                     </div>
                                     {member.category && (
@@ -306,8 +296,7 @@ export default function KartuAnggotaPage() {
                         <CardContent className="space-y-3">
                             {[
                                 ["Nama", member.name],
-                                ["NRP", member.nrp || "-"],
-                                ["NRP", member.memberNo],
+                                ["No. Anggota", member.memberNo],
                                 ["Kategori", member.category || "-"],
                                 ["Telepon", member.phone || "-"],
                                 ["Status", member.status === "active" ? "Aktif" : "Non-Aktif"],

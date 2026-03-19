@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,6 +61,9 @@ export default function ProfilAnggotaPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isEditing, setIsEditing] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
+    
+    const { data: session } = useSession();
+    const isOperator = session?.user?.role?.toLowerCase() === "operator";
 
     // Password change states
     const [isChangingPassword, setIsChangingPassword] = React.useState(false);
@@ -77,18 +81,18 @@ export default function ProfilAnggotaPage() {
 
                 // Mock data - would be current user's profile
                 setProfile({
-                    id: 1,
-                    memberNo: "A-001",
-                    name: "AKBP Budi Santoso, S.I.K.",
+                    id: session?.user?.id ? Number(session.user.id) : 1,
+                    memberNo: isOperator ? "OP-001" : "A-001",
+                    name: isOperator ? "Operator" : (session?.user?.name || "AKBP Budi Santoso, S.I.K."),
                     nrp: "75020458",
-                    rank: "AKBP",
-                    unit: "Polda Metro Jaya",
+                    rank: isOperator ? "" : "AKBP",
+                    unit: "Polres Lumajang",
                     nik: "3175041201780001",
                     phone: "08123456789",
-                    email: "budi.santoso@polri.go.id",
-                    address: "Jl. Sudirman No. 123, RT 05/RW 02",
-                    city: "Jakarta Selatan",
-                    province: "DKI Jakarta",
+                    email: session?.user?.email || "budi.santoso@polri.go.id",
+                    address: isOperator ? "" : "Jl. Sudirman No. 123, RT 05/RW 02",
+                    city: "Kabupaten Lumajang",
+                    province: "Jawa Timur",
                     joinDate: "2010-03-15",
                     status: "active",
                     totalSimpanan: 45000000,
@@ -278,11 +282,12 @@ export default function ProfilAnggotaPage() {
                                         <Input
                                             value={profile.address}
                                             onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                                            disabled={isOperator}
                                         />
                                     ) : (
                                         <p className="flex items-center gap-2 mt-1">
                                             <MapPin className="h-4 w-4 text-muted-foreground" />
-                                            {profile.address}
+                                            {profile.address || "-"}
                                         </p>
                                     )}
                                 </div>

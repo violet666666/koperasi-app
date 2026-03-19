@@ -115,23 +115,24 @@ export default function TokoProdukPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
-                setProducts([
-                    { id: 1, sku: "BRS-001", name: "Beras Premium 5kg", category: "Sembako", price: 75000, stock: 50, minStock: 20, status: "available" },
-                    { id: 2, sku: "MGR-001", name: "Minyak Goreng 2L", category: "Sembako", price: 35000, stock: 15, minStock: 20, status: "low_stock" },
-                    { id: 3, sku: "GLP-001", name: "Gula Pasir 1kg", category: "Sembako", price: 18000, stock: 80, minStock: 30, status: "available" },
-                    { id: 4, sku: "TEP-001", name: "Tepung Terigu 1kg", category: "Sembako", price: 15000, stock: 0, minStock: 25, status: "out_of_stock" },
-                    { id: 5, sku: "KPI-001", name: "Kopi Bubuk 250g", category: "Minuman", price: 25000, stock: 40, minStock: 15, status: "available" },
-                    { id: 6, sku: "TEH-001", name: "Teh Celup 25s", category: "Minuman", price: 12000, stock: 60, minStock: 20, status: "available" },
-                    { id: 7, sku: "SBN-001", name: "Sabun Mandi 100g", category: "Toiletries", price: 8000, stock: 100, minStock: 30, status: "available" },
-                    { id: 8, sku: "SMO-001", name: "Shampoo 170ml", category: "Toiletries", price: 22000, stock: 18, minStock: 20, status: "low_stock" },
-                    { id: 9, sku: "MIE-001", name: "Mie Instan (box)", category: "Sembako", price: 120000, stock: 25, minStock: 10, status: "available" },
-                    { id: 10, sku: "SUS-001", name: "Susu UHT 1L", category: "Minuman", price: 18000, stock: 35, minStock: 15, status: "available" },
-                ]);
+                const res = await fetch('/api/toko/products');
+                if (!res.ok) throw new Error('Failed to fetch data');
+                const result = await res.json();
+                
+                // Add status logic to the fetched products
+                const mappedProducts = result.data.map((p: any) => {
+                    let status = "available";
+                    if (p.stock <= 0) {
+                        status = "out_of_stock";
+                    } else if (p.stock <= p.minStock) {
+                        status = "low_stock";
+                    }
+                    return { ...p, status };
+                });
+                
+                setProducts(mappedProducts);
             } catch (error) {
-                console.error("Failed to fetch:", error);
+                console.error("Failed to fetch products:", error);
             } finally {
                 setIsLoading(false);
             }

@@ -101,6 +101,9 @@ export function Topbar({
                 ))}
             </nav>
 
+            {/* Mobile spacer to push items to the right */}
+            <div className="flex-1 lg:hidden" />
+
             {/* Branch Selector (only for users with access to multiple branches) */}
             {branches.length > 1 && (
                 <Select

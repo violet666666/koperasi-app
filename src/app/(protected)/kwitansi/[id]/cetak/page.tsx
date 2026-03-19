@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Printer, Loader2, ArrowLeft } from "lucide-react";
 import { receiptsApi } from "@/lib/api/services";
-import { generateReceiptPDF, type ReceiptData } from "@/lib/export-utils";
+import { generateReceiptPDF, generateThermalReceiptPDF, type ReceiptData } from "@/lib/export-utils";
 import Link from "next/link";
 
 interface ReceiptDetail {
@@ -66,7 +66,7 @@ export default function CetakKwitansiPage() {
         fetchReceipt();
     }, [params.id]);
 
-    const handlePrint = async () => {
+    const handlePrint = async (isThermal: boolean = false) => {
         if (!receipt) return;
 
         setIsPrinting(true);
@@ -85,7 +85,11 @@ export default function CetakKwitansiPage() {
                 createdBy: receipt.createdBy?.name || "-",
             };
 
-            generateReceiptPDF(pdfData);
+            if (isThermal) {
+                generateThermalReceiptPDF(pdfData);
+            } else {
+                generateReceiptPDF(pdfData);
+            }
 
             // Mark as printed
             if (receipt.status === "draft") {
@@ -93,7 +97,7 @@ export default function CetakKwitansiPage() {
                 setReceipt((prev) => prev ? { ...prev, status: "printed", printedAt: new Date().toISOString() } : null);
             }
 
-            toast.success("Kwitansi berhasil dicetak");
+            toast.success(isThermal ? "Struk berhasil dicetak" : "Kwitansi berhasil dicetak");
         } catch {
             toast.error("Gagal mencetak kwitansi");
         } finally {
@@ -142,9 +146,13 @@ export default function CetakKwitansiPage() {
                                 Kembali
                             </Link>
                         </Button>
-                        <Button onClick={handlePrint} disabled={isPrinting || receipt.status === "void"}>
+                        <Button variant="outline" onClick={() => handlePrint(true)} disabled={isPrinting || receipt.status === "void"}>
                             {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
-                            {receipt.status === "draft" ? "Cetak & Finalisasi" : "Cetak Ulang"}
+                            Cetak Struk Thermal
+                        </Button>
+                        <Button onClick={() => handlePrint(false)} disabled={isPrinting || receipt.status === "void"}>
+                            {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                            {receipt.status === "draft" ? "Cetak A4 & Finalisasi" : "Cetak Ulang A4"}
                         </Button>
                     </div>
                 }

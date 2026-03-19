@@ -62,11 +62,11 @@ export function BottomNav() {
                                 <span>Lainnya</span>
                             </button>
                         </SheetTrigger>
-                        <SheetContent side="bottom" className="h-[80vh]">
+                        <SheetContent side="bottom" className="flex flex-col h-[80vh]">
                             <SheetHeader>
                                 <SheetTitle>Menu</SheetTitle>
                             </SheetHeader>
-                            <div className="h-full overflow-y-auto overflow-x-hidden py-4 scrollbar-thin pb-20">
+                            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin">
                                 <div className="grid grid-cols-4 gap-4">
                                     {filteredMainNav.map((item, index) => {
                                         if (isNavGroup(item)) {

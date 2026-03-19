@@ -65,7 +65,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             </div>
 
             {/* Navigation */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-thin overscroll-contain">
                 <nav className="space-y-2">
                     {filteredNavigation.map((item, index) => {
                         if (isNavGroup(item)) {
