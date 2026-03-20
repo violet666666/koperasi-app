@@ -26,6 +26,7 @@ export async function GET(request: Request) {
                 name: true,
                 email: true,
                 phone: true,
+                category: true,
                 status: true,
                 branch: {
                     select: {

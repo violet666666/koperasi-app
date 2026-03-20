@@ -82,11 +82,19 @@ export default function KartuAnggotaPage() {
         }
     };
 
-    const handlePrintCard = () => {
+    const handlePrintCard = async () => {
         if (!member) return;
         setIsPrinting(true);
 
         try {
+            const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+
             const doc = new jsPDF({
                 orientation: "landscape",
                 unit: "mm",
@@ -104,14 +112,24 @@ export default function KartuAnggotaPage() {
             doc.setFillColor(41, 65, 148);
             doc.rect(0, 0, cardWidth, 14, "F");
 
+            // Logo injection
+            try {
+                const logoImg = await loadImage("/LogoPrimkoppol.png");
+                doc.setFillColor(255, 255, 255);
+                doc.circle(9, 7, 5, "F"); 
+                doc.addImage(logoImg, "PNG", 5, 3, 8, 8);
+            } catch (e) {
+                console.warn("Logo load error", e);
+            }
+
             // Title
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text("KOPERASI PRIMKOPPOL", cardWidth / 2, 6, { align: "center" });
+            doc.text("KOPERASI PRIMKOPPOL", 16, 6);
             doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
-            doc.text("POLRES LUMAJANG", cardWidth / 2, 10, { align: "center" });
+            doc.text("POLRES LUMAJANG", 16, 10);
 
             // Separator line
             doc.setDrawColor(200, 200, 255);
@@ -135,53 +153,33 @@ export default function KartuAnggotaPage() {
             let yPos = 30;
             doc.text(`No. Anggota: ${member.memberNo}`, 5, yPos);
             yPos += 4;
-            if (member.category) {
+            if (member.category && member.category !== "null") {
                 doc.text(`Kategori: ${member.category}`, 5, yPos);
             }
 
             // Barcode
             if (barcodeRef.current) {
-                const svgData = new XMLSerializer().serializeToString(barcodeRef.current);
-                const canvas = document.createElement("canvas");
-                const ctx = canvas.getContext("2d");
-                const img = new Image();
-
-                img.onload = () => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    if (ctx) {
-                        ctx.fillStyle = "white";
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, 0, 0);
-                    }
-                    const imgData = canvas.toDataURL("image/png");
-
+                try {
+                    const svgData = new XMLSerializer().serializeToString(barcodeRef.current);
+                    const barcodeSrc = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                    const barcodeImg = await loadImage(barcodeSrc);
+                    
                     const barcodeWidth = 40;
                     const barcodeHeight = 15;
                     doc.setFillColor(255, 255, 255);
                     doc.roundedRect(cardWidth - barcodeWidth - 5, cardHeight - barcodeHeight - 5, barcodeWidth + 2, barcodeHeight + 2, 1, 1, "F");
-                    doc.addImage(imgData, "PNG", cardWidth - barcodeWidth - 4, cardHeight - barcodeHeight - 4, barcodeWidth, barcodeHeight);
-
-                    doc.save(`Kartu_Anggota_${member.memberNo}.pdf`);
-                    setIsPrinting(false);
-                    toast.success("Kartu anggota berhasil dicetak");
-                };
-
-                img.onerror = () => {
-                    doc.save(`Kartu_Anggota_${member.memberNo}.pdf`);
-                    setIsPrinting(false);
-                    toast.success("Kartu anggota berhasil dicetak");
-                };
-
-                img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-            } else {
-                doc.save(`Kartu_Anggota_${member.memberNo}.pdf`);
-                setIsPrinting(false);
-                toast.success("Kartu anggota berhasil dicetak");
+                    doc.addImage(barcodeImg, "PNG", cardWidth - barcodeWidth - 4, cardHeight - barcodeHeight - 4, barcodeWidth, barcodeHeight);
+                } catch (e) {
+                    console.warn("Barcode err", e);
+                }
             }
+
+            doc.save(`Kartu_Anggota_${member.memberNo}.pdf`);
+            toast.success("Kartu anggota berhasil dicetak");
         } catch (error) {
             console.error("Print error:", error);
             toast.error("Gagal mencetak kartu anggota");
+        } finally {
             setIsPrinting(false);
         }
     };
@@ -231,9 +229,14 @@ export default function KartuAnggotaPage() {
                             {/* Top accent */}
                             <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-center"
                                 style={{ background: "linear-gradient(180deg, rgba(41,65,148,0.9) 0%, transparent 100%)" }}>
-                                <div className="text-center">
-                                    <h4 className="text-white font-bold text-[15px] tracking-wide">KOPERASI PRIMKOPPOL</h4>
-                                    <p className="text-blue-200 text-[10px] tracking-widest">POLRES LUMAJANG</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center overflow-hidden">
+                                        <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="w-7 h-7 object-contain ml-0.5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h4 className="text-white font-bold text-[14px] leading-tight tracking-wide">KOPERASI PRIMKOPPOL</h4>
+                                        <p className="text-blue-200 text-[9px] tracking-widest mt-0.5">POLRES LUMAJANG</p>
+                                    </div>
                                 </div>
                             </div>
 
