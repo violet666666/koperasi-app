@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function GET(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
@@ -19,14 +18,11 @@ export async function GET(request: Request) {
         const endDate = new Date(`${yearNum}-12-31T23:59:59.999Z`);
 
         const members = await prisma.member.findMany({
-            where: { isActive: true },
-            select: {
-                id: true,
-                memberNo: true,
-                user: { select: { name: true } },
-                savings: {
-                    where: { transactions: { some: { transactionDate: { gte: startDate, lte: endDate } } } },
-                    include: { transactions: { where: { transactionDate: { gte: startDate, lte: endDate } } } }
+            where: { status: "active" },
+            include: {
+                userAccount: { select: { name: true } },
+                savingsTransactions: {
+                    where: { transactionDate: { gte: startDate, lte: endDate } }
                 },
                 loans: {
                     where: { disbursementDate: { gte: startDate, lte: endDate } }
@@ -81,10 +77,8 @@ export async function GET(request: Request) {
         const rawMemberStats = members.map(m => {
             // Savings contribution (Total Deposits)
             let savingsContribution = 0;
-            m.savings.forEach(acc => {
-                acc.transactions.forEach(tx => {
-                    if (tx.type === 'in') savingsContribution += Number(tx.amount);
-                });
+            m.savingsTransactions.forEach(tx => {
+                if (tx.type === 'in') savingsContribution += Number(tx.amount);
             });
             // Also include their base balance
             if (savingsContribution === 0) savingsContribution = 100000; 
@@ -102,7 +96,7 @@ export async function GET(request: Request) {
             return {
                 id: m.id,
                 memberNo: m.memberNo,
-                name: m.user?.name || "Anggota",
+                name: m.userAccount?.name || "Anggota",
                 savingsContribution,
                 loanContribution,
                 totalContribution: savingsContribution + loanContribution,
