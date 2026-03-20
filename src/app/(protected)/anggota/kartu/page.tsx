@@ -115,9 +115,9 @@ export default function KartuAnggotaPage() {
             // Logo injection
             try {
                 const logoImg = await loadImage("/LogoPrimkoppol.png");
-                doc.setFillColor(255, 255, 255);
-                doc.circle(9, 7, 5, "F"); 
-                doc.addImage(logoImg, "PNG", 5, 3, 8, 8);
+                doc.setFillColor(0, 0, 0); // Black background
+                doc.circle(9, 7, 5, "F"); // Center 9,7 radius 5 (boundingBox: 4,2 -> 14,12)
+                doc.addImage(logoImg, "PNG", 4, 2, 10, 10); // Image covers exactly 10x10 bounding box
             } catch (e) {
                 console.warn("Logo load error", e);
             }
@@ -162,13 +162,25 @@ export default function KartuAnggotaPage() {
                 try {
                     const svgData = new XMLSerializer().serializeToString(barcodeRef.current);
                     const barcodeSrc = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-                    const barcodeImg = await loadImage(barcodeSrc);
+                    const svgImg = await loadImage(barcodeSrc);
                     
+                    // Rasterize SVG to Canvas
+                    const canvas = document.createElement("canvas");
+                    canvas.width = svgImg.width;
+                    canvas.height = svgImg.height;
+                    const ctx = canvas.getContext("2d");
+                    if (ctx) {
+                        ctx.fillStyle = "white";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(svgImg, 0, 0);
+                    }
+                    const finalPngDataUrl = canvas.toDataURL("image/png");
+
                     const barcodeWidth = 40;
                     const barcodeHeight = 15;
                     doc.setFillColor(255, 255, 255);
                     doc.roundedRect(cardWidth - barcodeWidth - 5, cardHeight - barcodeHeight - 5, barcodeWidth + 2, barcodeHeight + 2, 1, 1, "F");
-                    doc.addImage(barcodeImg, "PNG", cardWidth - barcodeWidth - 4, cardHeight - barcodeHeight - 4, barcodeWidth, barcodeHeight);
+                    doc.addImage(finalPngDataUrl, "PNG", cardWidth - barcodeWidth - 4, cardHeight - barcodeHeight - 4, barcodeWidth, barcodeHeight);
                 } catch (e) {
                     console.warn("Barcode err", e);
                 }
@@ -230,8 +242,8 @@ export default function KartuAnggotaPage() {
                             <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-center"
                                 style={{ background: "linear-gradient(180deg, rgba(41,65,148,0.9) 0%, transparent 100%)" }}>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center overflow-hidden">
-                                        <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="w-7 h-7 object-contain ml-0.5" />
+                                    <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center overflow-hidden">
+                                        <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="w-10 h-10 object-contain" />
                                     </div>
                                     <div className="text-left">
                                         <h4 className="text-white font-bold text-[14px] leading-tight tracking-wide">KOPERASI PRIMKOPPOL</h4>
