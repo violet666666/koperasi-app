@@ -53,15 +53,13 @@ export default function PengajuanPinjamanPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // Fetch member data (salary)
-            const memberRes = await fetch("/api/portal/profile");
+            const memberRes = await fetch("/api/member-portal/profile");
             if (memberRes.ok) {
                 const memberData = await memberRes.json();
                 setSalary(Number(memberData.data?.salary || 0));
             }
 
-            // Fetch outstanding bills
-            const billsRes = await fetch("/api/portal/outstanding-bills");
+            const billsRes = await fetch("/api/member-portal/outstanding-bills");
             if (billsRes.ok) {
                 const billsData = await billsRes.json();
                 setOutstandingBills(billsData.data || []);
@@ -100,7 +98,7 @@ export default function PengajuanPinjamanPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/portal/loan-application", {
+            const res = await fetch("/api/member-portal/loan-application", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

@@ -107,16 +107,20 @@ export default function SHUDistributionPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
-                setData([
-                    { id: 1, memberNo: "A-001", name: "Ahmad Sudrajat", shuAmount: 2500000, status: "transferred", distributedAt: "2026-01-20", transferReference: "TF-001" },
-                    { id: 2, memberNo: "A-002", name: "Budi Santoso", shuAmount: 1850000, status: "transferred", distributedAt: "2026-01-20", transferReference: "TF-002" },
-                    { id: 3, memberNo: "A-003", name: "Citra Dewi", shuAmount: 1480000, status: "distributed", distributedAt: "2026-01-22" },
-                    { id: 4, memberNo: "A-004", name: "Dian Pratama", shuAmount: 2380000, status: "pending" },
-                    { id: 5, memberNo: "A-005", name: "Eko Wijaya", shuAmount: 2170000, status: "pending" },
-                ]);
+                const res = await fetch(`/api/reports/shu/calculate?year=${selectedYear}`);
+                if (!res.ok) throw new Error("Gagal mengambil data SHU anggota");
+                const json = await res.json();
+                
+                if (json.data && json.data.memberSHU) {
+                    const distributionFormat = json.data.memberSHU.map((m: any) => ({
+                        id: m.id,
+                        memberNo: m.memberNo,
+                        name: m.name,
+                        shuAmount: m.shuAmount,
+                        status: "pending"
+                    }));
+                    setData(distributionFormat);
+                }
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {

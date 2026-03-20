@@ -74,32 +74,14 @@ export default function SHUCalculationPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
-                setShuData({
-                    year: Number(selectedYear),
-                    status: "calculated",
-                    totalIncome: 850000000,
-                    totalExpense: 450000000,
-                    netSurplus: 400000000,
-                    reserveFund: 80000000,      // 20%
-                    educationFund: 20000000,    // 5%
-                    employeeBonus: 40000000,    // 10%
-                    memberDividend: 160000000,  // 40%
-                    developmentFund: 100000000, // 25%
-                    memberCount: 250,
-                    distributedAt: undefined,
-                });
-
-                // Mock member SHU
-                setMemberSHU([
-                    { id: 1, memberNo: "A-001", name: "Ahmad Sudrajat", savingsContribution: 5000000, loanContribution: 10000000, totalContribution: 15000000, shuAmount: 2500000, percentage: 1.56 },
-                    { id: 2, memberNo: "A-002", name: "Budi Santoso", savingsContribution: 3500000, loanContribution: 8000000, totalContribution: 11500000, shuAmount: 1850000, percentage: 1.16 },
-                    { id: 3, memberNo: "A-003", name: "Citra Dewi", savingsContribution: 4200000, loanContribution: 5000000, totalContribution: 9200000, shuAmount: 1480000, percentage: 0.93 },
-                    { id: 4, memberNo: "A-004", name: "Dian Pratama", savingsContribution: 2800000, loanContribution: 12000000, totalContribution: 14800000, shuAmount: 2380000, percentage: 1.49 },
-                    { id: 5, memberNo: "A-005", name: "Eko Wijaya", savingsContribution: 6000000, loanContribution: 7500000, totalContribution: 13500000, shuAmount: 2170000, percentage: 1.36 },
-                ]);
+                const res = await fetch(`/api/reports/shu/calculate?year=${selectedYear}`);
+                if (!res.ok) throw new Error("Gagal mengambil data perhitungan SHU");
+                const json = await res.json();
+                
+                if (json.data) {
+                    setShuData(json.data.shuData);
+                    setMemberSHU(json.data.memberSHU);
+                }
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {

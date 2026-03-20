@@ -170,7 +170,7 @@ export function Topbar({
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                        <Link href="/settings/profile">
+                        <Link href="/profil">
                             <User className="mr-2 h-4 w-4" />
                             Profil Saya
                         </Link>

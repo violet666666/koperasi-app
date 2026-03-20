@@ -146,9 +146,11 @@ export default function TokoProdukPage() {
                 title="Produk Toko"
                 description="Kelola produk toko koperasi"
                 actions={
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Tambah Produk
+                    <Button asChild>
+                        <Link href="/toko/produk/tambah">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Tambah Produk
+                        </Link>
                     </Button>
                 }
             />
