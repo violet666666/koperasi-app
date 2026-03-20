@@ -140,6 +140,15 @@ export async function POST(request: Request) {
             );
         }
 
+        // Max tenor 3 tahun (36 bulan)
+        const AD_ART_MAX_TENOR_MONTHS = 36;
+        if (data.tenorMonths > AD_ART_MAX_TENOR_MONTHS) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 26, tenor pinjaman maksimal 3 tahun (36 bulan)` },
+                { status: 400 }
+            );
+        }
+
         // Get member salary and existing active loan installments
         const memberFull = await prisma.member.findUnique({
             where: { id: data.memberId },

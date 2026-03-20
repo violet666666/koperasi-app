@@ -59,6 +59,23 @@ export async function POST(request: Request) {
         const body = await request.json();
         const data = createLoanProductSchema.parse(body);
 
+        // === AD-ART Pasal 25: Bunga pinjaman maksimal 9% per tahun ===
+        const AD_ART_MAX_INTEREST_RATE = 9.00;
+        if (Number(data.interestRate) > AD_ART_MAX_INTEREST_RATE) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 25, bunga pinjaman maksimal 9% per tahun (0,3% per bulan)` },
+                { status: 400 }
+            );
+        }
+
+        // === AD-ART Pasal 26: Tenor maksimal 36 bulan ===
+        if (data.maxTenorMonths && data.maxTenorMonths > 36) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 26, tenor pinjaman maksimal 3 tahun (36 bulan)` },
+                { status: 400 }
+            );
+        }
+
         // Check for existing current version and deprecate
         const existing = await prisma.loanProduct.findFirst({
             where: { code: data.code, isCurrent: true },
