@@ -1,7 +1,7 @@
 # Panduan Penggunaan Sistem Koperasi Digital PRIMKOPPOL
 
 > **Koperasi:** PRIMKOPPOL Polres Lumajang  
-> **Versi:** 1.1  
+> **Versi:** 1.2  
 > **Terakhir Diperbarui:** 20 Maret 2026
 
 Dokumen ini merupakan panduan lengkap penggunaan aplikasi Sistem Koperasi Digital. Panduan ini menjelaskan seluruh fitur dan hak akses setiap pengguna yang terlibat dalam sistem operasi koperasi.
@@ -12,159 +12,221 @@ Dokumen ini merupakan panduan lengkap penggunaan aplikasi Sistem Koperasi Digita
 
 1. [Hak Akses Pengguna (Role)](#1-hak-akses-pengguna-role)
 2. [Memulai Sistem & Profil](#2-memulai-sistem--profil)
-3. [Alur Kerja Anggota & Kartu Anggota](#3-alur-kerja-anggota--kartu-anggota)
-4. [Alur Kerja Transaksi Unit (Toko, Carwash, dll)](#4-alur-kerja-transaksi-unit-toko-carwash-dll)
-5. [Pencetakan Bukti Transaksi (Kwitansi & Struk)](#5-pencetakan-bukti-transaksi-kwitansi--struk)
-6. [Alur Kerja Simpanan](#6-alur-kerja-simpanan)
-7. [Alur Kerja Pinjaman](#7-alur-kerja-pinjaman)
-8. [Alur Kerja Kas & Bank](#8-alur-kerja-kas--bank)
-9. [Alur Kerja Persetujuan (Approval)](#9-alur-kerja-persetujuan-approval)
-10. [Laporan Keuangan](#10-laporan-keuangan)
-11. [Pengaturan Master Data](#11-pengaturan-master-data)
+3. [Panduan per Role](#3-panduan-per-role)
+4. [Alur Kerja Anggota & Kartu Anggota](#4-alur-kerja-anggota--kartu-anggota)
+5. [Alur Kerja Transaksi Unit (Toko, Carwash, dll)](#5-alur-kerja-transaksi-unit-toko-carwash-dll)
+6. [Pencetakan Bukti Transaksi (Kwitansi & Struk)](#6-pencetakan-bukti-transaksi-kwitansi--struk)
+7. [Alur Kerja Simpanan](#7-alur-kerja-simpanan)
+8. [Alur Kerja Pinjaman](#8-alur-kerja-pinjaman)
+9. [Alur Kerja Kas & Bank](#9-alur-kerja-kas--bank)
+10. [Alur Kerja Persetujuan (Approval)](#10-alur-kerja-persetujuan-approval)
+11. [Laporan Keuangan](#11-laporan-keuangan)
+12. [Pengaturan Master Data](#12-pengaturan-master-data)
 
 ---
 
 ## 1. Hak Akses Pengguna (Role)
 
-Sistem koperasi ini membagi akses menjadi beberapa peran jabatan. Setiap pengguna hanya dapat mengakses fitur yang menjadi wewenangnya.
+Hierarki akses pengguna dari yang **tertinggi** ke **terendah**:
 
-| Role (Peran) | Hak Akses & Kewenangan |
-|-------------|------------------------|
-| **1. Pengurus / Super Admin** | Memiliki akses penuh (Full Access) ke seluruh modul aplikasi. Dapat menyetujui (Approve) pinjaman besar, melihat seluruh laporan Laba Rugi & Neraca, mengatur identitas profil koperasi (Polres Lumajang), serta mengelola Master Data & Manajemen User pengguna. |
-| **2. Admin** | Bertugas melakukan operasi data harian. Dapat mendaftarkan anggota baru, mencetak kartu anggota, mengelola data simpanan & pinjaman, dan melihat laporan data keanggotaan. |
-| **3. Kasir / Bendahara** | Difokuskan pada penerimaan dan pengeluaran dana Kas/Bank. Berwenang untuk mencairkan pinjaman yang telah di-*approve*, menerima setoran simpanan/angsuran, serta mengelola transaksi POS/Toko. Dapat mencetak struk thermal dan kwitansi. |
-| **4. Operator** | Bertugas menangani input transaksi unit usaha (seperti pencucian mobil/carwash, fotocopy, dll). Operator memiliki keterbatasan akses baca-tulis, profil operator dimunculkan simpel hanya sebagai "Operator" tanpa data privasi berlebih (alamat disembunyikan). |
-| **5. Anggota** | Menggunakan sistem di *Portal Anggota* mandiri (Member Portal). Dapat masuk menggunakan NRP, melihat history simpanan dan pinjaman, mengetahui estimasi SHU, serta merubah password mandiri. |
+```
+Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
+```
+
+| No | Role | Deskripsi | Hak Akses |
+|----|------|-----------|-----------|
+| **1** | **Operator (Super Admin)** | Pengelola utama sistem Koperasi. Memiliki **akses penuh** ke seluruh modul. | Seluruh fitur tanpa terkecuali: Master Data, Manajemen User, Profil Koperasi, Approve Pinjaman, Laporan Keuangan (Neraca, Laba/Rugi, SHU), Tutup Buku, Audit Log, dan seluruh unit usaha. |
+| **2** | **Admin** | Pengelola operasional unit usaha. Setiap unit usaha (Simpan Pinjam, Toko, Cuci Mobil, dll) memiliki Admin masing-masing. | Kelola & lihat anggota, kelola simpanan & pinjaman, approve pinjaman, kas & bank, lihat jurnal & laporan, kelola toko, kelola transaksi unit, kelola pengumuman. |
+| **3** | **Kasir** | Petugas transaksi harian di masing-masing unit usaha. | Lihat anggota, kelola simpanan, lihat pinjaman, kas & bank, kelola toko (POS), kelola transaksi unit. |
+| **4** | **Anggota** | Anggota koperasi yang menggunakan Portal Anggota. | Hanya lihat data sendiri: profil, riwayat simpanan, riwayat pinjaman, estimasi SHU. |
+
+> **Catatan:** Setiap Admin dan Kasir terikat pada unit usaha tertentu (`unitType`) saat dibuat di Master Data User. Contoh: Admin Toko, Kasir Cuci Mobil, dll.
 
 ---
 
 ## 2. Memulai Sistem & Profil
 
 ### 2.1 Login
-1. Masukkan **Email / NRP** dan **Password**
-2. Klik tombol **Masuk**
+1. Masukkan **Email / NRP** dan **Password**.
+2. Klik tombol **Masuk**.
 3. Sistem akan mengarahkan ke **Dashboard** sesuai Role.
+
+> Akun default Operator: `operator@koperasi.com` / `password123`
 
 ### 2.2 Dashboard
 Menampilkan statistik *real-time*: Total Anggota, Total Simpanan, Total Pinjaman Aktif, dan Aktivitas transaksi hari ini.
 
-### 2.3 Profil Koperasi & Identitas
-Gunakan menu **Profil Koperasi** (Khusus Pengurus/Admin) untuk mengatur legalitas koperasi:
-- Nama Badan Hukum
-- Alamat Koperasi (di set default ke *Kabupaten Lumajang, Jawa Timur*)
-- Logo dan Statistik Utama
+### 2.3 Profil Koperasi (Operator & Admin)
+Menu **Profil Koperasi** untuk mengatur identitas resmi koperasi:
+- Nama Badan Hukum: PRIMKOPPOL Polres Lumajang
+- Alamat: Kabupaten Lumajang, Jawa Timur
+- Logo & Statistik Utama
 
 ### 2.4 Profil Pengguna
-- Masing-masing pengguna dapat mengakses menu **Profil Saya** untuk melihat detail kontak.
-- **Perhatian untuk Operator**: Sesuai kebijakan keamanan, Role Operator hanya akan memunculkan identitas global (Nama: "Operator", Wilayah: Kabupaten Lumajang / Polres Lumajang), field personal seperti Alamat dinonaktifkan dari tampilan UI.
+- Setiap pengguna dapat mengakses menu **Profil** untuk melihat dan mengedit data kontak pribadi.
+- Semua pengguna teridentifikasi sebagai bagian dari **Polres Lumajang**, **Kabupaten Lumajang**.
 
 ---
 
-## 3. Alur Kerja Anggota & Kartu Anggota
+## 3. Panduan per Role
 
-### 3.1 Pendaftaran Anggota Baru
-1. Buka Halaman **Anggota** (`/anggota`)
-2. Klik tombol **"+ Tambah Anggota"**
-3. Lengkapi form Data Pribadi, NRP, Pangkat, Unit (Polres Lumajang).
-4. Klik **"Simpan Anggota"**. Nomor anggota otomatis akan digenerate secara *incremental* oleh sistem.
+### 3.1 Panduan Operator (Super Admin)
 
-### 3.2 Pencetakan Kartu Anggota (Ber-Barcode)
-Berfungsi mencetak kartu identitas yang bisa dibawa anggota atau di-scan nanti menggunakan alat barcode.
-1. Masuk ke navigasi menu **Anggota → Cetak Kartu** (`/anggota/kartu`).
-2. Ketik **NRP** lalu klik **Cari**. Detail info anggota akan muncul.
-3. Klik tombol **"Cetak Kartu (PDF)"**.
-4. Sistem akan mengunduh format visual kartu elegan berlatar biru bertuliskan kop *KOPERASI PRIMKOPPOL POLRES LUMAJANG* lengkap dengan no anggota dan *Barcode CODE128* yang valid.
+Operator memiliki kendali penuh atas seluruh sistem. Berikut tugas-tugas utamanya:
+
+| Tugas | Menu | Keterangan |
+|-------|------|------------|
+| Kelola User & Role | `/master/users` | Membuat akun Admin, Kasir, atau Anggota baru. |
+| Profil Koperasi | `/profil-koperasi` | Mengubah identitas resmi koperasi. |
+| Master Produk | `/master/produk-simpanan`, `/master/produk-pinjaman` | Mengatur parameter bunga, tenor, plafon pinjaman. |
+| Approve Pinjaman | `/approval` | Menyetujui/menolak pengajuan pinjaman besar. |
+| Laporan Keuangan | `/laporan/*` | Neraca, Laba Rugi, Rekap Anggota, SHU. |
+| Tutup Buku | `/periode` | Menutup periode akuntansi bulanan/tahunan. |
+| Audit Log | `/audit-log` | Memonitor seluruh aktivitas sistem (siapa, kapan, apa). |
+
+### 3.2 Panduan Admin Unit
+
+Admin bertugas mengelola operasi harian pada unit usaha yang ditugaskan:
+
+| Tugas | Menu | Keterangan |
+|-------|------|------------|
+| Kelola Anggota | `/anggota` | Tambah, edit, cetak kartu anggota ber-barcode. |
+| Simpanan | `/simpanan/*` | Proses setoran & penarikan simpanan. |
+| Pinjaman | `/pinjaman/*` | Input pengajuan pinjaman, mereview sebelum di-approve Operator. |
+| Kas & Bank | `/kas-bank` | Catat pemasukan/pengeluaran kas, transfer internal. |
+| Toko | `/toko/*` | Kelola stok produk, input harga jual. |
+| Transaksi Unit | `/transaksi-unit` | Catat transaksi cuci mobil, fotocopy, fitness, dll. |
+
+### 3.3 Panduan Kasir
+
+Kasir fokus pada aktivitas pencatatan transaksi:
+
+| Tugas | Menu | Keterangan |
+|-------|------|------------|
+| POS Toko | `/toko/kasir` | Memproses penjualan produk, stok otomatis berkurang. |
+| Setoran Simpanan | `/simpanan/transaksi` | Menerima setoran tunai/transfer. |
+| Angsuran Pinjaman | `/pinjaman/[id]` | Menerima pembayaran angsuran anggota. |
+| Cetak Struk/Kwitansi | `/kwitansi/[id]/cetak` | Mencetak struk thermal (80mm) atau kwitansi A4. |
+| Transaksi Unit | `/transaksi-unit` | Input cuci mobil, fotocopy dll. |
+
+### 3.4 Panduan Anggota (Portal Member)
+
+Anggota hanya mengakses Portal Anggota untuk meninjau data pribadinya:
+
+| Tugas | Menu | Keterangan |
+|-------|------|------------|
+| Profil | `/profil` | Lihat NRP, pangkat, unit, data kontak. |
+| Simpanan | Dashboard | Lihat saldo simpanan pokok, wajib, & sukarela. |
+| Pinjaman | Dashboard | Lihat history pinjaman dan jadwal angsuran. |
+| Ganti Password | `/profil` → Keamanan | Ubah password secara mandiri setelah login perdana. |
 
 ---
 
-## 4. Alur Kerja Transaksi Unit (Toko, Carwash, dll)
+## 4. Alur Kerja Anggota & Kartu Anggota
 
-Sistem juga terintegrasi untuk menangani usaha rill milik Koperasi. Diperuntukkan untuk role **Kasir** & **Operator**.
+### 4.1 Pendaftaran Anggota Baru (Admin/Operator)
+1. Buka **Anggota** (`/anggota`) → "**+ Tambah Anggota**".
+2. Isi NRP, Nama, Pangkat, Unit (Polres Lumajang), Gaji Pokok.
+3. Klik **Simpan**. Nomor Anggota = NRP (otomatis).
+4. Sistem otomatis membuat akun login (NRP sebagai username & password awal).
 
-### 4.1 Toko / Retail (Point of Sales)
-1. Pergi ke halaman produk kasir toko (`/toko/kasir` atau `/toko/produk`).
-2. Katalog yang ditampilkan terhubung dengan database inventaris barang asli secara real-time. Status *Low Stock* (stok menipis) atau *Out of Stock* (habis) otomatis muncul berdasarkan persentase ambang minimum (minStock) di database.
-3. Kasir dapat menambah item ke keranjang dan memproses **Checkout**. Nominal kas Koperasi akan bertambah.
+### 4.2 Cetak Kartu Anggota Ber-Barcode (Admin/Operator)
+1. Menu **Anggota → Cetak Kartu** (`/anggota/kartu`).
+2. Cari NRP → Klik **Cari** → Preview kartu muncul.
+3. Klik **Cetak Kartu (PDF)** → Unduh kartu dengan kop **KOPERASI PRIMKOPPOL POLRES LUMAJANG** dan barcode CODE128.
 
-### 4.2 Unit Usaha Carwash (Cuci Mobil) & Fotokopi
-Unit bisnis di luar retail dapat dicatat via halaman Transaksi Unit.
-1. Kunjungi menu **Transaksi Unit** (`/transaksi-unit`).
-2. Input NRP Anggota untuk mencatat ke history pembelian anggota tersebut.
-3. Pilih Jenis Unit. Jika memilih **"Cuci Mobil" (Carwash)**, pilih kategori yang melayani rincian harga progresif otomatis:
+---
+
+## 5. Alur Kerja Transaksi Unit (Toko, Carwash, dll)
+
+### 5.1 Toko / Retail POS (Kasir)
+1. `/toko/kasir` — Cari produk, klik untuk tambah ke keranjang.
+2. Stok ditampilkan *real-time* dari database.
+3. Isi nominal pembayaran → **Bayar Tunai** → Stok otomatis berkurang di database.
+
+### 5.2 Carwash / Cuci Mobil (Kasir/Operator)
+1. `/transaksi-unit` → Pilih unit **Cuci Mobil**.
+2. Pilih kategori, harga otomatis terisi:
    - **Motor**: Rp 15.000
    - **Mobil kecil**: Rp 35.000
    - **Mobil sedang**: Rp 40.000
    - **Mobil besar**: Rp 45.000
    - **Mobil jumbo**: Rp 50.000
-4. Form otomatis menyesuaikan deskripsi & harga. Submit untuk menyimpan.
+3. Submit untuk menyimpan transaksi.
 
 ---
 
-## 5. Pencetakan Bukti Transaksi (Kwitansi & Struk)
+## 6. Pencetakan Bukti Transaksi (Kwitansi & Struk)
 
-Segala transaksi berstatus Lunas (atau pencairan pinjaman, pembayaran angsuran, unit transaksi) dimuat dalam menu **Kwitansi**.
-Sistem mendukung 2 bentuk kertas (Universal / A4 dan Struk POS):
-1. Buka menu **Kwitansi**, cari transaksi, lalu klik tombol **Cetak (Printer Icon)**.
-2. Di halaman preview, Anda diberikan dua tombol opsional:
-   - **Cetak Struk Thermal**: Akan membangun file (lebar 80mm) berjenis struk kasir toko kecil. Sangat efisien, ringkas, dan proporsional apabila dicetak menggunakan mini printer kasir jenis Thermal tipe Bluetooth atau USB.
-   - **Cetak A4 & Finalisasi**: Dokumen berbentuk A4 panjang landscape, resmi dan bertandatangan untuk tanda terima dokumentasi formal yang di-arsip dalam ordner bendahara. Mengubah rekaman dari Draft menjadi final-Printed.
+Di halaman cetak kwitansi (`/kwitansi/[id]/cetak`) tersedia 2 pilihan:
+- **Cetak Struk Thermal**: Format 80mm untuk printer kasir thermal.
+- **Cetak A4 & Finalisasi**: Format A4 formal untuk arsip bendahara. Status berubah dari Draft → Printed.
 
 ---
 
-## 6. Alur Kerja Simpanan
+## 7. Alur Kerja Simpanan
 
-Jenis Simpanan terdiri dari Pokok (dibayar awal gabung), Wajib (bulanan teratur), dan Sukarela (dinamis, bebas tarik setor).
-**Setor Simpanan**:
-1. Buka `/simpanan/transaksi` → "+ Transaksi Baru"
-2. Pilih Setoran, temukan NRP Anggota (Polres Lumajang) yang dituju.
-3. Input nominal pembayaran.
+**Jenis**: Pokok (Rp 100.000, sekali bayar), Wajib (bulanan), Sukarela (fleksibel).
 
-**Penarikan**: Hanya berlaku untuk simpanan dengan status Liquid (Saldo Sukarela). Simpanan wajib tidak dapat dicairkan kecuali anggota ter-mutasi/keluar.
+**Setoran**: `/simpanan/transaksi` → "+ Transaksi Baru" → Pilih anggota → Input nominal → Simpan.
+
+**Penarikan**: Hanya untuk Simpanan Sukarela. Simpanan Pokok & Wajib tidak bisa ditarik selama masih menjadi anggota.
 
 ---
 
-## 7. Alur Kerja Pinjaman
+## 8. Alur Kerja Pinjaman
 
-```mermaid
-flowchart LR
-    Pengajuan --> Approval(Persetujuan) --> Pencairan --> Angsuran/Bayar
-```
+Aturan pinjaman sesuai **AD-ART Pasal 25 & 26**:
+- Bunga maksimal **0,3% per bulan** (9% per tahun)
+- Tenor maksimal **3 tahun** (36 bulan)
+- Plafon maksimal **Rp 20.000.000**
+- Sisa gaji setelah potong angsuran minimal **Rp 2.000.000**
 
-1. **Pengajuan (Admin/Anggota)**: Input produk pinjaman, tenor bulan, jaminan, tujuan cicilan. Berubah ke status *Pending*.
-2. **Approval (Pengurus)**: Buka dashboard Persetujuan. Cek rasio plafon. Klik *Approve* atau *Reject*.
-3. **Pencairan (Kasir/Bendahara)**: Mencetak form pencairan tunai (A4 PDF), nominal diteruskan dari Kas/Bank Koperasi kepada pinjaman anggota. Sistem menyusun *Jadwal Angsuran* berderet 1 hingga batas tenor.
-4. **Bayar Angsuran**: Pilih bulan pembayaran -> "Bayar Angsuran". Sistem memisahkan otomatis Alokasi Pokok + Angsuran Bunga ke masing-masing akuntansi buku besar.
+**Alur**: Pengajuan (Admin) → Approval (Operator) → Pencairan (Kasir/Bendahara) → Angsuran Bulanan.
 
 ---
 
-## 8. Alur Kerja Kas & Bank
+## 9. Alur Kerja Kas & Bank
 
-Gunakan menu Kas & Bank untuk mengontrol liquiditas di luar simpan pinjam (Misal: Bayar listrik, biaya PDAM koperasi, deposit bank).
-1. Masuk `/kas-bank`.  Pilih Tambah Transaksi In / Out.
-2. Fitur *Transfer Internal* juga disediakan bagi bendahara yang hendak memindahkan tunai dari "Laci Kas Kasir" menuju "Rekening Bank BRI Koperasi".
-
----
-
-## 9. Alur Kerja Persetujuan (Approval)
-
-- Bertindak sebagai "Pintu Gerbang".
-- Terdapat tab riwayat di `/approval` agar seluruh pengurus dapat saling tracking transparansi aktivitas siapa yang menyetujui nominal tertentu di jam tertentu (Timestamping System).
+Menu **Kas & Bank** (`/kas-bank`) untuk:
+- Catat pemasukan/pengeluaran kas harian.
+- Transfer internal antar rekening (Kas → Bank atau sebaliknya).
 
 ---
 
-## 10. Laporan Keuangan
+## 10. Alur Kerja Persetujuan (Approval)
 
-Menu laporan hanya tersedia untuk Admin dan Pengurus Inti. Semua laporan dapat ditarik data harian maupun cut-off bebas dari tanggal X hingga Y lalu diekspor (Export Excel).
-- **Neraca (Balance Sheet)**: Tinjauan Aktiva vs Pasiva.
-- **Laba Rugi**: Pendapatan (Bunga, fee admin, hasil toko) vs Beban.
-- **Rekap Pinjaman & Tunggakan**: Mendeteksi NRP yang performa cicilannya sudah merah (lewat jatuh tempo) untuk diteruskan perihalnya.
+Endpoint approval (`/approval`) digunakan oleh **Operator** dan **Admin** untuk menyetujui/menolak pengajuan pinjaman dan transaksi besar lainnya. Riwayat lengkap tercatat di tab Riwayat.
 
 ---
 
-## 11. Pengaturan Master Data
+## 11. Laporan Keuangan (Operator & Admin)
 
-Hierarki parameter sistem yang diurus pada hari ke-1 pemakaian sistem (Setup Period):
-1. `/master/cabang`: Kantor Pusat vs Capem
-2. `/master/produk-simpanan`: Mengedit limit min/maks setoran harian wajib.
-3. `/master/produk-pinjaman`: Menetapkan Rumus Suku Bunga (Flat / Anuitas / Menurun Efektif).
-4. `/master/users`: Create User Login untuk staf baru masuk, dan blokir/inactive staf yang dimutasi keluar dari formatur Koperasi Polres Lumajang.
+| Laporan | URL |
+|---------|-----|
+| Neraca | `/laporan/neraca` |
+| Laba Rugi | `/laporan/laba-rugi` |
+| Rekap Anggota | `/laporan/rekap-anggota` |
+| Rekap Simpanan | `/laporan/rekap-simpanan` |
+| Rekap Pinjaman | `/laporan/rekap-pinjaman` |
+| SHU | `/laporan/shu` |
+
+Semua laporan bisa di-export ke **Excel** dan **PDF**.
+
+---
+
+## 12. Pengaturan Master Data (Operator)
+
+Setup awal yang wajib dilakukan oleh Operator sebelum sistem digunakan:
+
+1. `/master/cabang` — Setup cabang koperasi.
+2. `/master/produk-simpanan` — Atur Simpanan Pokok (min Rp 100.000), Wajib, Sukarela.
+3. `/master/produk-pinjaman` — Atur bunga, tenor, plafon sesuai AD-ART.
+4. `/master/coa` — Chart of Accounts (struktur akuntansi).
+5. `/master/users` — Buat akun Admin & Kasir per unit usaha.
+6. `/master/journal-mapping` — Pemetaan jurnal otomatis.
+7. `/master/parameter-shu` — Parameter pembagian SHU.
+
+---
+
+*Dokumen ini adalah panduan penggunaan Sistem Koperasi Digital PRIMKOPPOL Polres Lumajang. Untuk bantuan teknis, hubungi Operator sistem.*
