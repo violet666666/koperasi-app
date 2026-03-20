@@ -79,6 +79,7 @@ export default function PengajuanPinjamanPage() {
     };
 
     const totalOutstanding = outstandingBills.reduce((sum, bill) => sum + bill.amount, 0);
+    const selectedProductData = loanProducts.find(p => String(p.id) === selectedProduct);
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -261,7 +262,7 @@ export default function PengajuanPinjamanPage() {
                                 <SelectContent>
                                     {loanProducts.map((product) => (
                                         <SelectItem key={product.id} value={String(product.id)}>
-                                            {product.name} — Bunga {product.interestRate}%
+                                            {product.name} — Bunga {product.interestRate / 12}% / bln ({product.interestRate}% / thn)
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -310,15 +311,27 @@ export default function PengajuanPinjamanPage() {
                         </div>
 
                         {/* Estimated Monthly Installment */}
-                        {amount && tenor && (
-                            <div className="rounded-lg bg-muted p-4">
-                                <p className="text-sm text-muted-foreground mb-1">Estimasi Angsuran Per Bulan</p>
-                                <p className="text-xl font-bold text-primary tabular-nums">
-                                    {formatCurrency(Math.ceil(parseFloat(amount) / parseInt(tenor)))}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    *Belum termasuk bunga. Angsuran final akan dihitung setelah persetujuan.
-                                </p>
+                        {amount && tenor && selectedProductData && (
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
+                                <p className="text-sm font-semibold text-emerald-800">Estimasi Angsuran Per Bulan</p>
+                                <div className="grid grid-cols-2 gap-2 text-sm text-emerald-700">
+                                    <div>Angsuran Pokok:</div>
+                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) / parseInt(tenor)))}</div>
+                                    <div>Angsuran Bunga ({selectedProductData.interestRate / 12}%):</div>
+                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100)))}</div>
+                                    <div className="col-span-2 border-t border-emerald-200 my-1"></div>
+                                    <div className="font-semibold text-emerald-900">Total Potongan Gaji:</div>
+                                    <div className="text-right font-bold text-lg text-emerald-900 tabular-nums">
+                                        {formatCurrency(
+                                            Math.ceil(parseFloat(amount) / parseInt(tenor)) + 
+                                            Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100))
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <p>Sistem ini menggunakan metode <strong>kredit otomatis</strong>. Total angsuran per bulan di atas akan langsung <strong>memotong Gaji Netto Anda</strong> setiap bulannya (Sesuai AD-ART). Pemotongan izin potong gaji ini akan diotorisasi saat pencairan.</p>
+                                </div>
                             </div>
                         )}
 
