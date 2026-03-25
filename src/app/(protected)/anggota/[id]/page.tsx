@@ -22,6 +22,8 @@ import {
     Calendar,
     Building,
     User,
+    Banknote,
+    Award,
 } from "lucide-react";
 import type { Member } from "@/types";
 
@@ -200,6 +202,8 @@ export default function AnggotaDetailPage() {
                     status: apiData.status,
                     created_at: apiData.createdAt || apiData.created_at,
                     updated_at: apiData.updatedAt || apiData.updated_at,
+                    salary: apiData.salary ? Number(apiData.salary) : undefined,
+                    tunles_kinerja: apiData.tunlesKinerja ? Number(apiData.tunlesKinerja) : undefined,
                 };
                 setMember(memberData);
 
@@ -413,6 +417,16 @@ export default function AnggotaDetailPage() {
                                     month: "long",
                                     year: "numeric",
                                 })}
+                            />
+                            <InfoItem
+                                icon={Banknote}
+                                label="Gaji Bersih"
+                                value={member.salary ? formatCurrency(member.salary) : "-"}
+                            />
+                            <InfoItem
+                                icon={Award}
+                                label="Tunjangan Kinerja (Tunkin)"
+                                value={member.tunles_kinerja ? formatCurrency(member.tunles_kinerja) : "-"}
                             />
                         </CardContent>
                     </Card>

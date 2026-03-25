@@ -253,6 +253,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Mapping Jurnal", href: "/master/mapping-jurnal" },
                     { title: "Parameter SHU", href: "/master/parameter-shu" },
                     { title: "Saldo Awal", href: "/master/saldo-awal" },
+                    { title: "Import & Export Data", href: "/master/import-data" },
                 ],
             },
             {

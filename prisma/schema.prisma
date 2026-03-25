@@ -226,6 +226,7 @@ model Member {
   joinDate          DateTime  @map("join_date") @db.Date
   category          String?   // Polri, PNS, Karyawan, etc.
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
+  tunlesKinerja     Decimal?  @map("tunles_kinerja") @db.Decimal(15, 2) // Tunjangan Kinerja (Tunkin)
   status            String    @default("active") // active, inactive, resigned
   resignedDate      DateTime? @map("resigned_date") @db.Date
   resignationReason String?   @map("resignation_reason")
@@ -330,6 +331,7 @@ model LoanApplication {
   collateralDescription String?   @map("collateral_description")
   notes                 String?
   status                String    @default("draft") // draft, submitted, approved, rejected, disbursed, cancelled
+  deductionSource       String    @default("gaji") @map("deduction_source") // gaji, tunkin
   submittedAt           DateTime? @map("submitted_at")
   approvedAt            DateTime? @map("approved_at")
   approvedById          Int?      @map("approved_by_id")

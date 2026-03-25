@@ -30,6 +30,7 @@ import {
     Gamepad2,
     Scissors,
     Building,
+    Award,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -90,6 +91,7 @@ export default function MemberDashboardPage() {
 
     const data = response?.data;
     const salary = data?.member?.salary || 0;
+    const tunkin = data?.member?.tunlesKinerja ? Number(data.member.tunlesKinerja) : 0;
     const totalLoanOutstanding = data?.loans?.totalOutstanding || 0;
     const netAfterLoan = salary - totalLoanOutstanding;
     const hasApprovedLoan = data?.loans?.list?.some((l: any) => l.status === "approved") || false;
@@ -113,7 +115,7 @@ export default function MemberDashboardPage() {
             )}
 
             {/* 4 Main Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 {/* 1. Gaji Bersih */}
                 <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -125,6 +127,20 @@ export default function MemberDashboardPage() {
                             {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
                         </div>
                         <p className="text-xs opacity-80 mt-1">Gaji pokok per bulan</p>
+                    </CardContent>
+                </Card>
+
+                {/* 1b. Tunjangan Kinerja (Tunkin) */}
+                <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium opacity-90">Tunjangan Kinerja</CardTitle>
+                        <Award className="h-4 w-4 opacity-75" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : tunkin > 0 ? formatCurrency(tunkin) : "Belum diisi"}
+                        </div>
+                        <p className="text-xs opacity-80 mt-1">Tunkin bulan berjalan</p>
                     </CardContent>
                 </Card>
 

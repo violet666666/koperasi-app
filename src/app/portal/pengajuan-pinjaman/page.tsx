@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, Send, Wallet, CreditCard, AlertTriangle, DollarSign } from "lucide-react";
+import { Loader2, AlertCircle, Send, Wallet, CreditCard, AlertTriangle, DollarSign, Award } from "lucide-react";
 import { useAuth } from "@/lib/hooks";
 import { toast } from "sonner";
 
@@ -45,6 +45,8 @@ export default function PengajuanPinjamanPage() {
     const [amount, setAmount] = React.useState<string>("");
     const [tenor, setTenor] = React.useState<string>("");
     const [purpose, setPurpose] = React.useState<string>("");
+    const [tunkin, setTunkin] = React.useState<number>(0);
+    const [deductionSource, setDeductionSource] = React.useState<string>("gaji");
 
     React.useEffect(() => {
         fetchData();
@@ -57,6 +59,7 @@ export default function PengajuanPinjamanPage() {
             if (memberRes.ok) {
                 const memberData = await memberRes.json();
                 setSalary(Number(memberData.data?.salary || 0));
+                setTunkin(Number(memberData.data?.tunlesKinerja || 0));
             }
 
             const billsRes = await fetch("/api/member-portal/outstanding-bills");
@@ -107,6 +110,7 @@ export default function PengajuanPinjamanPage() {
                     amount: parseFloat(amount),
                     tenorMonths: parseInt(tenor),
                     purpose,
+                    deductionSource,
                 }),
             });
 
@@ -166,6 +170,26 @@ export default function PengajuanPinjamanPage() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Tunkin Card */}
+                {tunkin > 0 && (
+                    <Card className="border-violet-200 bg-violet-50/50">
+                        <CardHeader className="pb-2">
+                            <CardDescription className="flex items-center gap-2 text-violet-700">
+                                <Award className="h-4 w-4" />
+                                Tunjangan Kinerja
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold text-violet-800 tabular-nums">
+                                {formatCurrency(tunkin)}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Dapat digunakan untuk pemotongan
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Outstanding Bills Card */}
                 <Card className={totalOutstanding > 0 ? "border-amber-200 bg-amber-50/50" : "border-emerald-200 bg-emerald-50/50"}>
@@ -308,6 +332,72 @@ export default function PengajuanPinjamanPage() {
                                 value={purpose}
                                 onChange={(e) => setPurpose(e.target.value)}
                             />
+                        </div>
+
+                        {/* Deduction Source Selector */}
+                        <div className="space-y-3">
+                            <Label>Sumber Pemotongan Angsuran *</Label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div
+                                    className={`relative flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                                        deductionSource === "gaji"
+                                            ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                                            : "hover:bg-muted/50"
+                                    }`}
+                                    onClick={() => setDeductionSource("gaji")}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="deductionSource"
+                                        value="gaji"
+                                        checked={deductionSource === "gaji"}
+                                        onChange={() => setDeductionSource("gaji")}
+                                        className="mt-1"
+                                    />
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <DollarSign className="h-4 w-4 text-emerald-600" />
+                                            <span className="text-sm font-semibold">Gaji</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Angsuran dipotong dari gaji bersih bulanan
+                                            {salary > 0 && (
+                                                <span className="font-medium"> ({formatCurrency(salary)})</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div
+                                    className={`relative flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                                        deductionSource === "tunkin"
+                                            ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200"
+                                            : tunkin > 0 ? "hover:bg-muted/50" : "opacity-50 cursor-not-allowed"
+                                    }`}
+                                    onClick={() => tunkin > 0 && setDeductionSource("tunkin")}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="deductionSource"
+                                        value="tunkin"
+                                        checked={deductionSource === "tunkin"}
+                                        onChange={() => setDeductionSource("tunkin")}
+                                        disabled={tunkin <= 0}
+                                        className="mt-1"
+                                    />
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <Award className="h-4 w-4 text-violet-600" />
+                                            <span className="text-sm font-semibold">Tunjangan Kinerja</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {tunkin > 0
+                                                ? <>Angsuran dipotong dari tunkin<span className="font-medium"> ({formatCurrency(tunkin)})</span></>
+                                                : "Data tunkin belum tersedia"
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Estimated Monthly Installment */}

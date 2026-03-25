@@ -41,6 +41,13 @@ export const membersApi = {
         api.put<{ data: Member }>(`/members/${id}`, data),
 
     delete: (id: number) => api.delete<{ message: string }>(`/members/${id}`),
+
+    importData: (formData: FormData) =>
+        api.post<{ data: any }>("/members/import", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
+    exportCsv: () => `/api/members/export?format=csv`,
 };
 
 // ============================================================

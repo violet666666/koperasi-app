@@ -95,6 +95,7 @@ export async function GET() {
                     name: member.name,
                     category: member.category,
                     salary: member.salary ? Number(member.salary) : null,
+                    tunlesKinerja: member.tunlesKinerja ? Number(member.tunlesKinerja) : null,
                     phone: member.phone,
                     email: member.email,
                     address: member.address,

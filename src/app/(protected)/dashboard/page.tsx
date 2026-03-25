@@ -13,6 +13,7 @@ import {
     TrendingDown,
     ArrowRight,
     CheckSquare,
+    Award,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
@@ -27,6 +28,8 @@ interface DashboardStats {
     pencairanHariIni: number;
     angsuranHariIni: number;
     pendingApproval: number;
+    totalTunkin: number;
+    membersWithTunkin: number;
 }
 
 interface PendingApproval {
@@ -183,6 +186,8 @@ export default function DashboardPage() {
         pencairanHariIni: 0,
         angsuranHariIni: 0,
         pendingApproval: 0,
+        totalTunkin: 0,
+        membersWithTunkin: 0,
     });
     const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
 
@@ -209,6 +214,8 @@ export default function DashboardPage() {
                         pencairanHariIni: data.todayWithdrawals || 0,
                         angsuranHariIni: data.todayPayments || 0,
                         pendingApproval: data.pendingApprovals || 0,
+                        totalTunkin: data.totalTunkin || 0,
+                        membersWithTunkin: data.membersWithTunkin || 0,
                     });
                 }
 
@@ -249,7 +256,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <StatsCard
                     title="Total Anggota"
                     value={stats.totalAnggota.toLocaleString("id-ID")}
@@ -275,6 +282,14 @@ export default function DashboardPage() {
                     icon={CreditCard}
                     trend={3.4}
                     trendLabel="vs bulan lalu"
+                    color="primary"
+                    isLoading={isLoading}
+                />
+                <StatsCard
+                    title="Total Tunkin"
+                    value={formatCurrency(stats.totalTunkin)}
+                    subtitle={`${stats.membersWithTunkin} anggota`}
+                    icon={Award}
                     color="primary"
                     isLoading={isLoading}
                 />

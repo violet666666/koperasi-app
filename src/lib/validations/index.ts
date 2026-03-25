@@ -108,6 +108,7 @@ export const createMemberSchema = z.object({
     joinDate: z.string().transform((s) => new Date(s)),
     category: z.string().optional().nullable(),
     salary: z.coerce.number().nonnegative().optional().nullable(),
+    tunlesKinerja: z.coerce.number().nonnegative().optional().nullable(),
     status: z.enum(["active", "inactive", "resigned"]).default("active"),
 });
 
@@ -135,6 +136,7 @@ export const createLoanApplicationSchema = z.object({
     purpose: z.string().optional(),
     collateralDescription: z.string().optional(),
     notes: z.string().optional(),
+    deductionSource: z.enum(["gaji", "tunkin"]).default("gaji"),
 });
 
 // Loan Payment validation schemas

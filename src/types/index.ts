@@ -66,6 +66,8 @@ export interface Member {
     province?: string;
     join_date: string;
     status: 'active' | 'inactive' | 'resigned';
+    salary?: number;
+    tunles_kinerja?: number;
     photo_url?: string;
     created_at: string;
     updated_at: string;
@@ -182,6 +184,7 @@ export interface LoanApplication {
     tenor_months: number;
     purpose?: string;
     status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'cancelled';
+    deduction_source?: 'gaji' | 'tunkin';
     submitted_at?: string;
     approved_at?: string;
     approved_by?: { id: number; name: string };

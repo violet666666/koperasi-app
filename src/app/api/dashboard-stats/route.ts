@@ -93,6 +93,13 @@ export async function GET() {
             },
         });
 
+        // Total Tunjangan Kinerja (Tunkin)
+        const tunkinStats = await prisma.member.aggregate({
+            _sum: { tunlesKinerja: true },
+            _count: { tunlesKinerja: true },
+            where: { status: "active", deletedAt: null, tunlesKinerja: { not: null } },
+        });
+
         const stats = {
             // Member stats
             totalMembers: totalMembers,
@@ -113,6 +120,10 @@ export async function GET() {
 
             // Pending approvals
             pendingApprovals: pendingApprovals,
+
+            // Tunkin stats
+            totalTunkin: Number(tunkinStats._sum.tunlesKinerja) || 0,
+            membersWithTunkin: tunkinStats._count.tunlesKinerja || 0,
         };
 
         return NextResponse.json({ data: stats });
