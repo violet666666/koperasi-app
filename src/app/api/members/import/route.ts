@@ -24,9 +24,10 @@ export async function POST(request: Request) {
         
         let sheetName = workbook.SheetNames[0];
         
-        // Handle specific sheet names commonly found in Police Salary files
-        if (importType === 'gaji' && workbook.SheetNames.includes('POT GAJI')) {
-             sheetName = 'POT GAJI';
+        // Handle specific sheet names commonly found in Police Salary files (tolerate spaces/case)
+        const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
+        if (importType === 'gaji' && potGajiSheet) {
+             sheetName = potGajiSheet;
         }
         
         const worksheet = workbook.Sheets[sheetName];
@@ -44,11 +45,11 @@ export async function POST(request: Request) {
             );
         }
 
-        // Find the header row (it's not always row 0)
+        // Find the header row (it's not always row 0, some police files have big headers)
         let headerRowIndex = 0;
-        for (let i = 0; i < Math.min(5, rows.length); i++) {
+        for (let i = 0; i < Math.min(20, rows.length); i++) {
             const rowStr = rows[i].join(" ").toLowerCase();
-            if (rowStr.includes("nama") || rowStr.includes("nrp") || rowStr.includes("nip") || rowStr.includes("gaji") || rowStr.includes("tunkin") || rowStr.includes("bersih")) {
+            if (rowStr.includes("nama") || rowStr.includes("nrp") || rowStr.includes("nip") || rowStr.includes("gaji") || rowStr.includes("tunkin") || rowStr.includes("bersih") || rowStr.includes("diterima")) {
                 headerRowIndex = i;
                 break;
             }
