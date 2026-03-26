@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -17,6 +16,22 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,12 +47,13 @@ import { toast } from "sonner";
 import {
     Bell,
     Plus,
-    Calendar,
-    User,
     Eye,
     Pin,
     Loader2,
     Megaphone,
+    MoreHorizontal,
+    Pencil,
+    Trash2,
 } from "lucide-react";
 
 interface Announcement {
@@ -46,76 +62,20 @@ interface Announcement {
     content: string;
     category: string;
     isPinned: boolean;
-    publishedAt: string;
-    author: string;
+    publishedAt: string | null;
+    author: { id: number; name: string };
     views: number;
     status: "draft" | "published";
+    createdAt: string;
 }
-
-const columns: ColumnDef<Announcement>[] = [
-    {
-        accessorKey: "title",
-        header: "Judul",
-        cell: ({ row }) => (
-            <div className="flex items-center gap-2">
-                {row.original.isPinned && (
-                    <Pin className="h-4 w-4 text-primary shrink-0" />
-                )}
-                <span className="font-medium">{row.getValue("title")}</span>
-            </div>
-        ),
-    },
-    {
-        accessorKey: "category",
-        header: "Kategori",
-        cell: ({ row }) => {
-            const categoryMap: Record<string, string> = {
-                info: "Informasi",
-                event: "Kegiatan",
-                policy: "Kebijakan",
-                promo: "Promo",
-            };
-            return <Badge variant="outline">{categoryMap[row.getValue("category") as string] || row.getValue("category")}</Badge>;
-        },
-    },
-    {
-        accessorKey: "publishedAt",
-        header: "Tanggal",
-        cell: ({ row }) => new Date(row.getValue("publishedAt")).toLocaleDateString("id-ID"),
-    },
-    {
-        accessorKey: "author",
-        header: "Penulis",
-    },
-    {
-        accessorKey: "views",
-        header: "Views",
-        cell: ({ row }) => (
-            <div className="flex items-center gap-1">
-                <Eye className="h-3 w-3 text-muted-foreground" />
-                {row.getValue("views")}
-            </div>
-        ),
-    },
-    {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-            const status = row.getValue("status") as string;
-            return (
-                <Badge variant={status === "published" ? "default" : "secondary"}>
-                    {status === "published" ? "Terbit" : "Draft"}
-                </Badge>
-            );
-        },
-    },
-];
 
 export default function PengumumanPage() {
     const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [editItem, setEditItem] = React.useState<Announcement | null>(null);
+    const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -125,33 +85,42 @@ export default function PengumumanPage() {
         isPinned: false,
     });
 
-    // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
-                setAnnouncements([
-                    { id: 1, title: "Jadwal RAT Tahun 2026", content: "RAT Tahun 2025 akan dilaksanakan pada tanggal 15 Februari 2026...", category: "event", isPinned: true, publishedAt: "2026-01-20", author: "Pengurus", views: 245, status: "published" },
-                    { id: 2, title: "Promo Pinjaman Awal Tahun", content: "Dapatkan bunga spesial untuk pengajuan pinjaman bulan Januari-Februari...", category: "promo", isPinned: true, publishedAt: "2026-01-15", author: "Admin", views: 189, status: "published" },
-                    { id: 3, title: "Perubahan Jam Operasional", content: "Mulai 1 Februari 2026, jam operasional kantor berubah menjadi...", category: "info", isPinned: false, publishedAt: "2026-01-10", author: "Admin", views: 156, status: "published" },
-                    { id: 4, title: "Pembagian SHU Tahun 2025", content: "Pembagian SHU tahun buku 2025 akan dilaksanakan setelah RAT...", category: "policy", isPinned: false, publishedAt: "2026-01-08", author: "Pengurus", views: 312, status: "published" },
-                    { id: 5, title: "Libur Hari Raya Imlek", content: "Kantor tutup pada tanggal...", category: "info", isPinned: false, publishedAt: "2026-01-05", author: "Admin", views: 98, status: "published" },
-                    { id: 6, title: "Draft: Produk Baru Simpanan", content: "Produk simpanan berjangka dengan bunga...", category: "promo", isPinned: false, publishedAt: "2026-01-25", author: "Admin", views: 0, status: "draft" },
-                ]);
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
+    const fetchData = React.useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch("/api/pengumuman");
+            const json = await res.json();
+            if (res.ok) {
+                setAnnouncements(json.data);
             }
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+            toast.error("Gagal mengambil data pengumuman");
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
     }, []);
 
-    // Handle submit
-    const handleSubmit = async () => {
+    React.useEffect(() => { fetchData(); }, [fetchData]);
+
+    const resetForm = () => {
+        setFormData({ title: "", content: "", category: "info", isPinned: false });
+        setEditItem(null);
+    };
+
+    const openEditDialog = (item: Announcement) => {
+        setEditItem(item);
+        setFormData({
+            title: item.title,
+            content: item.content,
+            category: item.category,
+            isPinned: item.isPinned,
+        });
+        setDialogOpen(true);
+    };
+
+    // Handle submit (create or update)
+    const handleSubmit = async (asStatus: "draft" | "published") => {
         if (!formData.title || !formData.content) {
             toast.error("Lengkapi judul dan isi pengumuman");
             return;
@@ -159,16 +128,155 @@ export default function PengumumanPage() {
 
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Pengumuman berhasil dibuat");
+            const url = editItem ? `/api/pengumuman/${editItem.id}` : "/api/pengumuman";
+            const method = editItem ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ...formData,
+                    status: asStatus,
+                }),
+            });
+
+            const json = await res.json();
+            if (!res.ok) {
+                toast.error(json.message || "Gagal menyimpan pengumuman");
+                return;
+            }
+
+            toast.success(editItem ? "Pengumuman berhasil diupdate" : "Pengumuman berhasil dibuat");
             setDialogOpen(false);
-            setFormData({ title: "", content: "", category: "info", isPinned: false });
-        } catch (error) {
-            toast.error("Gagal membuat pengumuman");
+            resetForm();
+            fetchData();
+        } catch {
+            toast.error("Gagal menyimpan pengumuman");
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
+        try {
+            const res = await fetch(`/api/pengumuman/${deleteId}`, { method: "DELETE" });
+            if (res.ok) {
+                toast.success("Pengumuman berhasil dihapus");
+                fetchData();
+            } else {
+                toast.error("Gagal menghapus pengumuman");
+            }
+        } catch {
+            toast.error("Gagal menghapus pengumuman");
+        }
+        setDeleteId(null);
+    };
+
+    const handleTogglePin = async (item: Announcement) => {
+        try {
+            const res = await fetch(`/api/pengumuman/${item.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ isPinned: !item.isPinned }),
+            });
+            if (res.ok) {
+                toast.success(item.isPinned ? "Pengumuman di-unpin" : "Pengumuman disematkan");
+                fetchData();
+            }
+        } catch {
+            toast.error("Gagal mengubah status pin");
+        }
+    };
+
+    const columns: ColumnDef<Announcement>[] = [
+        {
+            accessorKey: "title",
+            header: "Judul",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-2">
+                    {row.original.isPinned && (
+                        <Pin className="h-4 w-4 text-primary shrink-0" />
+                    )}
+                    <span className="font-medium">{row.getValue("title")}</span>
+                </div>
+            ),
+        },
+        {
+            accessorKey: "category",
+            header: "Kategori",
+            cell: ({ row }) => {
+                const categoryMap: Record<string, string> = {
+                    info: "Informasi",
+                    event: "Kegiatan",
+                    policy: "Kebijakan",
+                    promo: "Promo",
+                };
+                return <Badge variant="outline">{categoryMap[row.getValue("category") as string] || row.getValue("category")}</Badge>;
+            },
+        },
+        {
+            accessorKey: "createdAt",
+            header: "Tanggal",
+            cell: ({ row }) => new Date(row.getValue("createdAt")).toLocaleDateString("id-ID"),
+        },
+        {
+            id: "authorName",
+            header: "Penulis",
+            cell: ({ row }) => row.original.author?.name || "-",
+        },
+        {
+            accessorKey: "views",
+            header: "Views",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                    <Eye className="h-3 w-3 text-muted-foreground" />
+                    {row.getValue("views")}
+                </div>
+            ),
+        },
+        {
+            accessorKey: "status",
+            header: "Status",
+            cell: ({ row }) => {
+                const status = row.getValue("status") as string;
+                return (
+                    <Badge variant={status === "published" ? "default" : "secondary"}>
+                        {status === "published" ? "Terbit" : "Draft"}
+                    </Badge>
+                );
+            },
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleTogglePin(row.original)}>
+                            <Pin className="mr-2 h-4 w-4" />
+                            {row.original.isPinned ? "Unpin" : "Sematkan"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteId(row.original.id)}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ),
+        },
+    ];
 
     return (
         <div className="space-y-6">
@@ -176,7 +284,10 @@ export default function PengumumanPage() {
                 title="Pengumuman"
                 description="Kelola pengumuman dan berita koperasi"
                 actions={
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <Dialog open={dialogOpen} onOpenChange={(open) => {
+                        setDialogOpen(open);
+                        if (!open) resetForm();
+                    }}>
                         <DialogTrigger asChild>
                             <Button>
                                 <Plus className="mr-2 h-4 w-4" />
@@ -185,9 +296,9 @@ export default function PengumumanPage() {
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                                <DialogTitle>Buat Pengumuman Baru</DialogTitle>
+                                <DialogTitle>{editItem ? "Edit Pengumuman" : "Buat Pengumuman Baru"}</DialogTitle>
                                 <DialogDescription>
-                                    Buat pengumuman untuk anggota koperasi
+                                    {editItem ? "Ubah detail pengumuman" : "Buat pengumuman untuk anggota koperasi"}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
@@ -227,10 +338,10 @@ export default function PengumumanPage() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                <Button variant="outline" onClick={() => handleSubmit("draft")} disabled={isSubmitting}>
                                     Simpan Draft
                                 </Button>
-                                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                <Button onClick={() => handleSubmit("published")} disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Terbitkan
                                 </Button>
@@ -311,6 +422,22 @@ export default function PengumumanPage() {
                     searchPlaceholder="Cari pengumuman..."
                 />
             )}
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Pengumuman?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Pengumuman yang dihapus tidak bisa dikembalikan. Apakah Anda yakin?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete}>Hapus</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

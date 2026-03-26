@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 import * as XLSX from "xlsx";
 
 // POST /api/members/import - Import CSV/XLSX data to update members
@@ -66,6 +67,9 @@ export async function POST(request: Request) {
             case "gaji":
                 result = await processGajiImport(headers, dataRows, mode);
                 break;
+            case "akun_anggota":
+                result = await processAkunAnggotaImport(headers, dataRows, mode);
+                break;
             default:
                 return NextResponse.json(
                     { message: `Tipe import '${importType}' tidak didukung` },
@@ -117,6 +121,68 @@ function cleanNameForMatch(name: string): string {
     }
     
     return clean.replace(/\./g, '').replace(/\s+/g, ' ').trim();
+}
+
+// ==========================================
+// Auto-register member helper
+// ==========================================
+async function autoRegisterMember(nrp: string, nama: string, tx: any) {
+    // Find default branch (head office or first available)
+    let branch = await tx.branch.findFirst({ where: { isHeadOffice: true, isActive: true } });
+    if (!branch) {
+        branch = await tx.branch.findFirst({ where: { isActive: true } });
+    }
+    if (!branch) {
+        throw new Error("Tidak ada cabang aktif di sistem");
+    }
+
+    // Generate memberNo
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomId = Math.floor(1000 + Math.random() * 9000);
+    const memberNo = `MBR${dateStr}${randomId}`;
+
+    // Check if NRP already in use (edge case)
+    const existingNrp = await tx.member.findUnique({ where: { nrp } });
+    if (existingNrp) {
+        return existingNrp;
+    }
+
+    // Create member
+    const member = await tx.member.create({
+        data: {
+            memberNo,
+            nrp,
+            name: nama,
+            branchId: branch.id,
+            joinDate: new Date(),
+            status: "active",
+        },
+    });
+
+    // Create user account for login
+    const anggotaRole = await tx.role.findUnique({ where: { name: "anggota" } });
+    if (anggotaRole) {
+        const hashedPassword = await bcrypt.hash(nrp, 10);
+
+        // Check if user email already exists
+        const email = `${nrp}@koperasi.local`;
+        const existingUser = await tx.user.findUnique({ where: { email } });
+        if (!existingUser) {
+            await tx.user.create({
+                data: {
+                    name: nama,
+                    email,
+                    password: hashedPassword,
+                    roleId: anggotaRole.id,
+                    branchId: branch.id,
+                    memberId: member.id,
+                    isActive: true,
+                },
+            });
+        }
+    }
+
+    return member;
 }
 
 // ==========================================
@@ -192,7 +258,7 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
         if (matches.length === 0) {
             results.push({
                 row: i + 2, nrp, nama: rawNama, tunkin,
-                status: 'error', reason: 'Anggota tdk ditemukan'
+                status: 'error', reason: 'Anggota tdk ditemukan (daftarkan dulu via Import Akun Anggota)',
             });
             failCount++;
             continue;
@@ -276,7 +342,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         const rawNama = String(row[namaIdx] || '').trim();
         
         if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
-        if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama (like NO column mistakenly mapped)
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama
 
         const gaji = cleanNumber(row[gajiIdx] || 0);
         const csvCleanName = cleanNameForMatch(rawNama);
@@ -305,7 +371,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         if (matches.length === 0) {
             results.push({
                 row: i + 2, nrp, nama: rawNama, gaji,
-                status: 'error', reason: 'Anggota tdk ditemukan'
+                status: 'error', reason: 'Anggota tdk ditemukan (daftarkan dulu via Import Akun Anggota)',
             });
             failCount++;
             continue;
@@ -345,5 +411,112 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         success: successCount, failed: failCount,
         preview: results,
         allResults: mode === "commit" ? results : undefined,
+    };
+}
+
+// ==========================================
+// Akun Anggota Import (NRP + Nama only)
+// ==========================================
+async function processAkunAnggotaImport(headers: string[], dataRows: string[][], mode: string) {
+    const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
+    const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
+
+    if (nrpIdx === -1) {
+        return {
+            success: 0, failed: 0,
+            error: "Kolom NRP/NIP tidak ditemukan di header file. Wajib ada untuk import akun anggota.",
+            preview: [],
+        };
+    }
+
+    if (namaIdx === -1) {
+        return {
+            success: 0, failed: 0,
+            error: "Kolom NAMA tidak ditemukan di header file.",
+            preview: [],
+        };
+    }
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, nrp: true, memberNo: true }
+    });
+
+    const results: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length === 0) continue;
+
+        const nrp = cleanNrp(row[nrpIdx] || '');
+        const rawNama = String(row[namaIdx] || '').trim();
+
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
+        if (!nrp) {
+            results.push({
+                row: i + 2, nrp: '', nama: rawNama,
+                status: 'error', reason: 'NRP/NIP kosong, tidak bisa membuat akun',
+            });
+            failCount++;
+            continue;
+        }
+
+        // Check if member already exists
+        const existing = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+        if (existing) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama,
+                memberId: existing.id, memberName: existing.name,
+                status: 'valid', reason: null,
+                isNewMember: false,
+            });
+            successCount++;
+            continue;
+        }
+
+        // New member to register
+        if (mode === "commit") {
+            try {
+                const newMember = await prisma.$transaction(async (tx) => {
+                    return await autoRegisterMember(nrp, rawNama, tx);
+                });
+
+                allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo });
+
+                results.push({
+                    row: i + 2, nrp, nama: rawNama,
+                    memberId: newMember.id, memberName: newMember.name,
+                    status: 'valid', reason: null,
+                    isNewMember: true,
+                });
+                successCount++;
+            } catch (err) {
+                console.error("Auto-register error:", err);
+                results.push({
+                    row: i + 2, nrp, nama: rawNama,
+                    status: 'error', reason: 'Gagal mendaftarkan: ' + (err instanceof Error ? err.message : 'Unknown'),
+                });
+                failCount++;
+            }
+        } else {
+            // Preview mode
+            results.push({
+                row: i + 2, nrp, nama: rawNama,
+                memberId: null, memberName: `[BARU] ${rawNama}`,
+                status: 'valid', reason: null,
+                isNewMember: true,
+            });
+            successCount++;
+        }
+    }
+
+    return {
+        mode, type: "akun_anggota",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
+        preview: results,
     };
 }

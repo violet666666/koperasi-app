@@ -23,7 +23,7 @@ import {
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji";
+type ImportType = "tunkin" | "gaji" | "akun_anggota";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -38,6 +38,7 @@ interface PreviewRow {
     reason: string | null;
     currentTunkin?: number | null;
     currentGaji?: number | null;
+    isNewMember?: boolean;
 }
 
 interface ImportResult {
@@ -282,6 +283,9 @@ export default function ImportDataPage() {
                                         <SelectItem value="gaji">
                                             Gaji Bersih
                                         </SelectItem>
+                                        <SelectItem value="akun_anggota">
+                                            Import Akun Anggota (NRP + Nama)
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -340,11 +344,20 @@ export default function ImportDataPage() {
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">SISA_TUNKIN</strong> (atau TUNKIN/TUNJANGAN).
                                 </p>
-                            ) : (
+                            ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH.
                                 </p>
+                            ) : (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong> dan <strong>NAMA</strong>. Anggota yang belum terdaftar akan otomatis dibuatkan akun dengan password = NRP.
+                                </p>
                             )}
+                        </div>
+                        <div className="rounded-lg border p-4 bg-amber-50 dark:bg-amber-950/20">
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                                💡 <strong>Tips:</strong> Jika anggota belum terdaftar di sistem, gunakan tipe <strong>&quot;Import Akun Anggota&quot;</strong> terlebih dahulu untuk mendaftarkan anggota baru, lalu baru import data Tunkin/Gaji. Anggota juga bisa didaftarkan manual melalui menu Anggota → Tambah Anggota.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -514,7 +527,14 @@ export default function ImportDataPage() {
                                                     <TableCell>{r.row}</TableCell>
                                                     <TableCell className="font-mono text-xs">{r.nrp}</TableCell>
                                                     <TableCell className="text-xs">{r.nama}</TableCell>
-                                                    <TableCell className="text-xs font-medium">{r.memberName}</TableCell>
+                                                    <TableCell className="text-xs font-medium">
+                                                        {r.isNewMember ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-emerald-100 text-emerald-700">BARU</Badge>
+                                                                {r.memberName}
+                                                            </span>
+                                                        ) : r.memberName}
+                                                    </TableCell>
                                                     <TableCell className="text-right font-mono">
                                                         {formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : (r.gaji || 0))}
                                                     </TableCell>

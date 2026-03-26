@@ -46,6 +46,7 @@ model User {
   unitTransactions        UnitTransaction[]     @relation("UnitTxCreatedBy")
   storeSalesCreated       StoreSale[]           @relation("StoreSaleCreatedBy")
   receiptsCreated         Receipt[]             @relation("ReceiptCreatedBy")
+  announcements           Announcement[]        @relation("AnnouncementAuthor")
 
   @@map("users")
 }
@@ -741,4 +742,54 @@ model Receipt {
   createdBy User   @relation("ReceiptCreatedBy", fields: [createdById], references: [id])
 
   @@map("receipts")
+}
+
+// =================================================================
+// ASSETS (ASET)
+// =================================================================
+
+model Asset {
+  id                      Int       @id @default(autoincrement())
+  code                    String    @unique
+  name                    String
+  category                String    // building, vehicle, equipment, furniture, computer, other
+  acquisitionDate         DateTime  @map("acquisition_date") @db.Date
+  acquisitionCost         Decimal   @map("acquisition_cost") @db.Decimal(15, 2)
+  usefulLifeYears         Int       @map("useful_life_years")
+  residualValue           Decimal   @default(0) @map("residual_value") @db.Decimal(15, 2)
+  accumulatedDepreciation Decimal   @default(0) @map("accumulated_depreciation") @db.Decimal(15, 2)
+  bookValue               Decimal   @map("book_value") @db.Decimal(15, 2)
+  location                String?
+  description             String?
+  status                  String    @default("active") // active, disposed, under_maintenance
+  disposedDate            DateTime? @map("disposed_date") @db.Date
+  disposedValue           Decimal?  @map("disposed_value") @db.Decimal(15, 2)
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  @@map("assets")
+}
+
+// =================================================================
+// ANNOUNCEMENTS (PENGUMUMAN)
+// =================================================================
+
+model Announcement {
+  id          Int       @id @default(autoincrement())
+  title       String
+  content     String    @db.Text
+  category    String    @default("info") // info, event, policy, promo
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  status      String    @default("draft") // draft, published
+  views       Int       @default(0)
+  authorId    Int       @map("author_id")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  author User @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+
+  @@map("announcements")
 }
