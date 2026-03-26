@@ -49,12 +49,18 @@ interface ImportResult {
     error?: string;
 }
 
+const ITEMS_PER_PAGE = 50;
+
 export default function ImportDataPage() {
     const [importType, setImportType] = useState<ImportType>("tunkin");
     const [status, setStatus] = useState<ImportStatus>("idle");
     const [file, setFile] = useState<File | null>(null);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    
+    // Pagination states
+    const [validPage, setValidPage] = useState(1);
+    const [errorPage, setErrorPage] = useState(1);
 
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0];
@@ -62,6 +68,8 @@ export default function ImportDataPage() {
             setFile(f);
             setResult(null);
             setError(null);
+            setValidPage(1);
+            setErrorPage(1);
         }
     }, []);
 
@@ -69,6 +77,8 @@ export default function ImportDataPage() {
         if (!file) return;
         setStatus("uploading");
         setError(null);
+        setValidPage(1);
+        setErrorPage(1);
 
         try {
             const formData = new FormData();
@@ -148,10 +158,19 @@ export default function ImportDataPage() {
         setResult(null);
         setError(null);
         setStatus("idle");
+        setValidPage(1);
+        setErrorPage(1);
     }, []);
 
     const validRows = result?.preview.filter(r => r.status === "valid") || [];
     const errorRows = result?.preview.filter(r => r.status === "error") || [];
+
+    // Pagination calculations
+    const totalValidPages = Math.ceil(result?.success ? result.success / ITEMS_PER_PAGE : 0);
+    const validPageRows = validRows.slice((validPage - 1) * ITEMS_PER_PAGE, validPage * ITEMS_PER_PAGE);
+
+    const totalErrorPages = Math.ceil(result?.failed ? result.failed / ITEMS_PER_PAGE : 0);
+    const errorPageRows = errorRows.slice((errorPage - 1) * ITEMS_PER_PAGE, errorPage * ITEMS_PER_PAGE);
 
     return (
         <div className="space-y-6">
@@ -334,8 +353,8 @@ export default function ImportDataPage() {
                                     Daftar Data Error ({result.failed} baris)
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="overflow-auto max-h-60">
+                            <CardContent className="p-0">
+                                <div className="overflow-auto max-h-60 px-4">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -346,7 +365,7 @@ export default function ImportDataPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {errorRows.slice(0, 50).map((r, i) => (
+                                            {errorPageRows.map((r, i) => (
                                                 <TableRow key={i}>
                                                     <TableCell>{r.row}</TableCell>
                                                     <TableCell className="font-mono text-xs">{r.nrp || '-'}</TableCell>
@@ -358,12 +377,38 @@ export default function ImportDataPage() {
                                             ))}
                                         </TableBody>
                                     </Table>
-                                    {errorRows.length > 50 && (
-                                        <p className="text-xs text-center text-muted-foreground py-2">
-                                            Menampilkan 50 error pertama dari {result.failed} total error
-                                        </p>
-                                    )}
                                 </div>
+                                {totalErrorPages > 1 ? (
+                                    <div className="bg-muted/30 border-t px-4 py-3 flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">
+                                            Menampilkan {((errorPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(errorPage * ITEMS_PER_PAGE, result.failed)} dari {result.failed} error
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setErrorPage(p => Math.max(1, p - 1))}
+                                                disabled={errorPage === 1}
+                                            >
+                                                Sebelumnya
+                                            </Button>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setErrorPage(p => Math.min(totalErrorPages, p + 1))}
+                                                disabled={errorPage === totalErrorPages}
+                                            >
+                                                Selanjutnya
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-muted/30 border-t px-4 py-3">
+                                        <p className="text-xs text-center text-muted-foreground">
+                                            Menampilkan semua {result.failed} error
+                                        </p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -377,8 +422,8 @@ export default function ImportDataPage() {
                                     Pratinjau Data Valid ({result.success} baris)
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="overflow-auto max-h-96">
+                            <CardContent className="p-0">
+                                <div className="overflow-auto max-h-96 px-4">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -395,7 +440,7 @@ export default function ImportDataPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {validRows.slice(0, 50).map((r, i) => (
+                                            {validPageRows.map((r, i) => (
                                                 <TableRow key={i}>
                                                     <TableCell>{r.row}</TableCell>
                                                     <TableCell className="font-mono text-xs">{r.nrp}</TableCell>
@@ -414,12 +459,39 @@ export default function ImportDataPage() {
                                             ))}
                                         </TableBody>
                                     </Table>
-                                    {validRows.length > 50 && (
-                                        <p className="text-xs text-center text-muted-foreground py-2">
-                                            Menampilkan 50 data pertama dari {result.success} baris valid
-                                        </p>
-                                    )}
                                 </div>
+                                
+                                {totalValidPages > 1 ? (
+                                    <div className="bg-muted/30 border-t px-4 py-3 flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">
+                                            Menampilkan {((validPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(validPage * ITEMS_PER_PAGE, result.success)} dari {result.success} data
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setValidPage(p => Math.max(1, p - 1))}
+                                                disabled={validPage === 1}
+                                            >
+                                                Sebelumnya
+                                            </Button>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setValidPage(p => Math.min(totalValidPages, p + 1))}
+                                                disabled={validPage === totalValidPages}
+                                            >
+                                                Selanjutnya
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-muted/30 border-t px-4 py-3">
+                                        <p className="text-xs text-center text-muted-foreground">
+                                            Menampilkan semua {result.success} data valid
+                                        </p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     )}
