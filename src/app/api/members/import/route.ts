@@ -124,17 +124,25 @@ function cleanNameForMatch(name: string): string {
 // ==========================================
 async function processTunkinImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
-    const namaIdx = headers.findIndex(h => h.includes("nama"));
+    const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
     
     let tunkinIdx = headers.findIndex(h => h.includes("sisa_tunkin") || h.includes("sisa tunkin") || h.includes("sisa"));
     if (tunkinIdx === -1) {
-        tunkinIdx = headers.findIndex(h => h.includes("tunkin") || h.includes("tunjangan") || h.includes("tunles"));
+        tunkinIdx = headers.findIndex(h => h.includes("tunkin") || h.includes("tunjangan") || h.includes("tunles") || h.includes("bersih"));
+    }
+
+    if (namaIdx === -1) {
+        return {
+            success: 0, failed: 0,
+            error: "Kolom NAMA atau NMPEG tidak ditemukan di header file.",
+            preview: [],
+        };
     }
 
     if (tunkinIdx === -1) {
         return {
             success: 0, failed: 0,
-            error: "Kolom Tunkin ('SISA_TUNKIN' atau sejenisnya) tidak ditemukan di header file.",
+            error: "Kolom Tunkin ('SISA_TUNKIN', 'BERSIH', dsb) tidak ditemukan di header file.",
             preview: [],
         };
     }
@@ -153,30 +161,53 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
         if (row.length === 0) continue;
 
         const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
-        const nama = namaIdx >= 0 ? String(row[namaIdx] || '-').trim() : '-';
-        if (nama.toUpperCase() === 'NAMA' || nama === '0') continue;
+        const rawNama = String(row[namaIdx] || '').trim();
+        
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama
         
         const tunkin = cleanNumber(row[tunkinIdx] || 0);
-        if (!nrp && (!nama || nama === '-')) continue;
+        const csvCleanName = cleanNameForMatch(rawNama);
 
-        let member = null;
+        let matches: any[] = [];
+        
+        // 1. Matched by NRP
         if (nrp) {
-            member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+            matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
         }
         
-        if (!member && nama && nama !== '-') {
-            const csvCleanName = cleanNameForMatch(nama);
-            member = allMembers.find(m => cleanNameForMatch(m.name) === csvCleanName);
+        // 2. Exact match on cleaned string
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        }
+        
+        // 3. Partial/Fuzzy match
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => {
+                const dbName = cleanNameForMatch(m.name);
+                return (dbName.includes(csvCleanName) || csvCleanName.includes(dbName)) && csvCleanName.length >= 5;
+            });
         }
 
-        if (!member) {
+        if (matches.length === 0) {
             results.push({
-                row: i + 2, nrp, nama, tunkin,
-                status: 'error', reason: 'Anggota tidak ditemukan di database'
+                row: i + 2, nrp, nama: rawNama, tunkin,
+                status: 'error', reason: 'Anggota tdk ditemukan'
             });
             failCount++;
             continue;
         }
+
+        if (matches.length > 1) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama, tunkin,
+                status: 'error', reason: 'Ada 2+ kembaran nama, NRP dibutuhkan'
+            });
+            failCount++;
+            continue;
+        }
+
+        const member = matches[0];
 
         if (mode === "commit") {
             await prisma.member.update({
@@ -187,7 +218,7 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
         }
 
         results.push({
-            row: i + 2, nrp: member.nrp || nrp, nama: row[namaIdx] || nama, tunkin,
+            row: i + 2, nrp: member.nrp || nrp, nama: rawNama, tunkin,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null,
             currentTunkin: member.tunlesKinerja ? Number(member.tunlesKinerja) : null,
