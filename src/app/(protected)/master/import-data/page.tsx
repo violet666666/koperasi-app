@@ -309,17 +309,17 @@ export default function ImportDataPage() {
                         </Button>
                         <Button
                             onClick={handleImport}
-                            disabled={status === "importing" || validRows.length === 0}
+                            disabled={status === "importing" || result.success === 0}
                         >
                             {status === "importing" ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Mengimport {validRows.length} data...
+                                    Mengimport {result.success} data...
                                 </>
                             ) : (
                                 <>
                                     <Upload className="mr-2 h-4 w-4" />
-                                    Import {validRows.length} Data Valid
+                                    Import {result.success} Data Valid
                                 </>
                             )}
                         </Button>
@@ -331,7 +331,7 @@ export default function ImportDataPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2 text-red-700">
                                     <XCircle className="h-4 w-4" />
-                                    Data Error ({errorRows.length} baris)
+                                    Daftar Data Error ({result.failed} baris)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -346,7 +346,7 @@ export default function ImportDataPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {errorRows.map((r, i) => (
+                                            {errorRows.slice(0, 50).map((r, i) => (
                                                 <TableRow key={i}>
                                                     <TableCell>{r.row}</TableCell>
                                                     <TableCell className="font-mono text-xs">{r.nrp || '-'}</TableCell>
@@ -358,6 +358,11 @@ export default function ImportDataPage() {
                                             ))}
                                         </TableBody>
                                     </Table>
+                                    {errorRows.length > 50 && (
+                                        <p className="text-xs text-center text-muted-foreground py-2">
+                                            Menampilkan 50 error pertama dari {result.failed} total error
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -369,7 +374,7 @@ export default function ImportDataPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2 text-emerald-700">
                                     <CheckCircle2 className="h-4 w-4" />
-                                    Data Valid ({validRows.length} baris)
+                                    Pratinjau Data Valid ({result.success} baris)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -411,7 +416,7 @@ export default function ImportDataPage() {
                                     </Table>
                                     {validRows.length > 50 && (
                                         <p className="text-xs text-center text-muted-foreground py-2">
-                                            Menampilkan 50 dari {validRows.length} baris valid
+                                            Menampilkan 50 data pertama dari {result.success} baris valid
                                         </p>
                                     )}
                                 </div>

@@ -198,7 +198,7 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
         mode, type: "tunkin",
         totalRows: results.length,
         success: successCount, failed: failCount,
-        preview: results.slice(0, 100),
+        preview: results,
         allResults: mode === "commit" ? results : undefined,
     };
 }
@@ -311,7 +311,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         mode, type: "gaji",
         totalRows: results.length,
         success: successCount, failed: failCount,
-        preview: results.slice(0, 100),
+        preview: results,
         allResults: mode === "commit" ? results : undefined,
     };
 }
