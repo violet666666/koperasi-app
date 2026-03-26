@@ -91,9 +91,13 @@ export default function ImportDataPage() {
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                 
                 let sheetName = workbook.SheetNames[0];
-                const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
-                if (potGajiSheet) {
-                    sheetName = potGajiSheet;
+                
+                if (importType === "gaji") {
+                    const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
+                    if (potGajiSheet) sheetName = potGajiSheet;
+                } else if (importType === "tunkin") {
+                    const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
+                    if (tunkinSheet) sheetName = tunkinSheet;
                 }
                 
                 const worksheet = workbook.Sheets[sheetName];
@@ -167,9 +171,17 @@ export default function ImportDataPage() {
                 }
                 const arrayBuffer = await originalFile.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
                 let sheetName = workbook.SheetNames[0];
-                const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
-                if (potGajiSheet) sheetName = potGajiSheet;
+                
+                if (importType === "gaji") {
+                    const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
+                    if (potGajiSheet) sheetName = potGajiSheet;
+                } else if (importType === "tunkin") {
+                    const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
+                    if (tunkinSheet) sheetName = tunkinSheet;
+                }
+                
                 const worksheet = workbook.Sheets[sheetName];
                 const csvString = XLSX.utils.sheet_to_csv(worksheet);
                 const newFileName = originalFile.name.replace(/\.[^/.]+$/, "") + "_converted.csv";
