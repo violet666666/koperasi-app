@@ -227,11 +227,6 @@ function NavItemComponent({
                 >
                     {Icon && <Icon className="h-5 w-5 shrink-0" />}
                     <span className="truncate">{item.title}</span>
-                    {item.badge && (
-                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-primary text-xs text-sidebar-primary-foreground">
-                            3
-                        </span>
-                    )}
                 </Button>
             </Link>
         );

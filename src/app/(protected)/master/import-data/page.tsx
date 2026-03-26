@@ -21,6 +21,7 @@ import {
     Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import * as XLSX from "xlsx";
 
 type ImportType = "tunkin" | "gaji";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
@@ -81,8 +82,30 @@ export default function ImportDataPage() {
         setErrorPage(1);
 
         try {
+            // Helper to convert Excel to CSV on the client side
+            const processFileToCSV = async (originalFile: File): Promise<File> => {
+                if (originalFile.name.toLowerCase().endsWith('.csv')) {
+                    return originalFile;
+                }
+                const arrayBuffer = await originalFile.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                let sheetName = workbook.SheetNames[0];
+                const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
+                if (potGajiSheet) {
+                    sheetName = potGajiSheet;
+                }
+                
+                const worksheet = workbook.Sheets[sheetName];
+                const csvString = XLSX.utils.sheet_to_csv(worksheet);
+                const newFileName = originalFile.name.replace(/\.[^/.]+$/, "") + "_converted.csv";
+                return new File([csvString], newFileName, { type: "text/csv" });
+            };
+
+            const processedFile = await processFileToCSV(file);
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", processedFile);
             formData.append("type", importType);
             formData.append("mode", "preview");
 
@@ -91,15 +114,30 @@ export default function ImportDataPage() {
                 body: formData,
             });
 
-            const json = await res.json();
+            let json;
+            try {
+                const text = await res.text();
+                try {
+                    json = JSON.parse(text);
+                } catch (e) {
+                    console.error("Raw response:", text);
+                    setError("Server menolak file ini (Mungkin karena ukuran file terlalu besar melebihi 4.5 MB).");
+                    toast.error("File terlalu besar atau server mengirim respons invalid.");
+                    setStatus("idle");
+                    return;
+                }
+            } catch (err) {
+                // fall through
+            }
+
             if (!res.ok) {
-                setError(json.message || "Gagal memproses file");
-                toast.error(json.message || "Gagal membaca isi file tersebut.");
+                setError(json?.message || "Gagal memproses file");
+                toast.error(json?.message || "Gagal membaca isi file tersebut.");
                 setStatus("idle");
                 return;
             }
 
-            if (json.data.error) {
+            if (json?.data?.error) {
                 setError(json.data.error);
                 toast.error(json.data.error);
                 setStatus("idle");
@@ -110,7 +148,8 @@ export default function ImportDataPage() {
             toast.success("File berhasil di-parse. Silakan review data di bawah.");
             setStatus("previewing");
         } catch (err) {
-            setError("Terjadi kesalahan saat memproses file");
+            console.error("HandlePreview Error:", err);
+            setError("Terjadi kesalahan sistem internal/jaringan.");
             toast.error("Internal Server Error saat memproses file.");
             setStatus("idle");
         }
@@ -121,8 +160,26 @@ export default function ImportDataPage() {
         setStatus("importing");
 
         try {
+            // Re-use logic to convert file on commit if necessary
+            const processFileToCSV = async (originalFile: File): Promise<File> => {
+                if (originalFile.name.toLowerCase().endsWith('.csv')) {
+                    return originalFile;
+                }
+                const arrayBuffer = await originalFile.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                let sheetName = workbook.SheetNames[0];
+                const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
+                if (potGajiSheet) sheetName = potGajiSheet;
+                const worksheet = workbook.Sheets[sheetName];
+                const csvString = XLSX.utils.sheet_to_csv(worksheet);
+                const newFileName = originalFile.name.replace(/\.[^/.]+$/, "") + "_converted.csv";
+                return new File([csvString], newFileName, { type: "text/csv" });
+            };
+
+            const processedFile = await processFileToCSV(file);
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", processedFile);
             formData.append("type", importType);
             formData.append("mode", "commit");
 
