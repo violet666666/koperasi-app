@@ -56,10 +56,10 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             >
                 <Link href="/dashboard" className="flex items-center gap-2">
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg overflow-hidden shrink-0">
-                        <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain transform scale-110" />
+                        <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain transform scale-[2.2]" />
                     </div>
                     {!isCollapsed && (
-                        <span className="font-semibold text-lg">Koperasi</span>
+                        <span className="font-bold text-[15px] leading-tight">PRIMKOPPOL<br />LUMAJANG</span>
                     )}
                 </Link>
             </div>
@@ -94,7 +94,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             {!isCollapsed && (
                 <div className="border-t border-sidebar-border p-4">
                     <p className="text-xs text-sidebar-foreground/60">
-                        © 2025 Koperasi Digital
+                        © 2025 PRIMKOPPOL LUMAJANG
                     </p>
                 </div>
             )}

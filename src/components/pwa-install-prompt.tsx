@@ -82,11 +82,9 @@ export function PwaInstallPrompt() {
                     <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
                         <Smartphone className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">Pasang Koperasi Digital</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Akses lebih cepat langsung dari layar utama HP Anda
-                        </p>
+                    <div className="flex-1">
+                        <p className="font-semibold text-sm">Aplikasi PRIMKOPPOL LUMAJANG</p>
+                        <p className="text-xs text-muted-foreground">Install untuk akses lebih cepat dan notifikasi</p>
                     </div>
                     <button
                         onClick={handleDismiss}

@@ -21,12 +21,12 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Koperasi Digital",
-    template: "%s | Koperasi Digital",
+    default: "PRIMKOPPOL LUMAJANG",
+    template: "%s | PRIMKOPPOL LUMAJANG",
   },
   description: "Sistem Manajemen Koperasi Simpan Pinjam",
   keywords: ["koperasi", "simpan pinjam", "anggota", "pinjaman", "simpanan"],
-  authors: [{ name: "Koperasi Digital" }],
+  authors: [{ name: "PRIMKOPPOL LUMAJANG" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -37,16 +37,16 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "Koperasi Digital Primkoppol",
-    description: "Sistem Manajemen Koperasi Simpan Pinjam",
-    url: "https://www.primkoppol.online",
-    siteName: "Koperasi Digital",
+    title: "PRIMKOPPOL LUMAJANG",
+    description: "Sistem Informasi Manajemen PRIMKOPPOL LUMAJANG",
+    url: "https://koperasi.xertusai.com",
+    siteName: "PRIMKOPPOL LUMAJANG",
     images: [
       {
         url: "/og-image-primkoppol.png",
         width: 1200,
         height: 630,
-        alt: "Koperasi Digital Primkoppol",
+        alt: "PRIMKOPPOL LUMAJANG",
       },
     ],
     locale: "id_ID",
@@ -54,8 +54,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Koperasi Digital Primkoppol",
-    description: "Sistem Manajemen Koperasi Simpan Pinjam",
+    title: "PRIMKOPPOL LUMAJANG",
+    description: "Sistem Informasi Manajemen PRIMKOPPOL LUMAJANG",
     images: ["/og-image-primkoppol.png"],
   },
 };

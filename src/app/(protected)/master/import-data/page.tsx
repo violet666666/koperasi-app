@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 import {
     Upload,
     FileSpreadsheet,
@@ -83,20 +84,24 @@ export default function ImportDataPage() {
             const json = await res.json();
             if (!res.ok) {
                 setError(json.message || "Gagal memproses file");
+                toast.error(json.message || "Gagal membaca isi file tersebut.");
                 setStatus("idle");
                 return;
             }
 
             if (json.data.error) {
                 setError(json.data.error);
+                toast.error(json.data.error);
                 setStatus("idle");
                 return;
             }
 
             setResult(json.data);
+            toast.success("File berhasil di-parse. Silakan review data di bawah.");
             setStatus("previewing");
         } catch (err) {
             setError("Terjadi kesalahan saat memproses file");
+            toast.error("Internal Server Error saat memproses file.");
             setStatus("idle");
         }
     }, [file, importType]);
@@ -119,14 +124,17 @@ export default function ImportDataPage() {
             const json = await res.json();
             if (!res.ok) {
                 setError(json.message || "Gagal import data");
+                toast.error(json.message || "Gagal import data ke database.");
                 setStatus("previewing");
                 return;
             }
 
             setResult(json.data);
+            toast.success(`Berhasil menyimpan ${json.data.success} data.`);
             setStatus("done");
         } catch (err) {
             setError("Terjadi kesalahan saat import");
+            toast.error("Ada masalah koneksi/server saat upload.");
             setStatus("previewing");
         }
     }, [file, importType]);
@@ -190,10 +198,10 @@ export default function ImportDataPage() {
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">File CSV</label>
+                                <label className="text-sm font-medium">File Excel/CSV</label>
                                 <input
                                     type="file"
-                                    accept=".csv,.txt"
+                                    accept=".csv,.txt,.xlsx,.xls"
                                     onChange={handleFileChange}
                                     className="block w-full text-sm text-muted-foreground
                                         file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
@@ -242,13 +250,11 @@ export default function ImportDataPage() {
                             </h4>
                             {importType === "tunkin" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Header harus mengandung kolom <strong>NRP/NIP</strong> dan <strong>TUNKIN</strong> (atau TUNJANGAN).
-                                    Contoh: NO, NAMA, NRP/NIP, NO_REKENING, TUNKIN_MARET
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">SISA_TUNKIN</strong> (atau TUNKIN/TUNJANGAN).
                                 </p>
                             ) : (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Header harus mengandung kolom <strong>NRP/NIP</strong> dan <strong>GAJI</strong> (atau BERSIH).
-                                    Contoh: nip, nmpeg, bersih
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH.
                                 </p>
                             )}
                         </div>

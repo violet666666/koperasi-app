@@ -86,7 +86,7 @@ export const API_ENDPOINTS = {
 // Application Constants
 // =================================================================
 
-export const APP_NAME = "Koperasi Digital";
+export const APP_NAME = "PRIMKOPPOL LUMAJANG";
 export const APP_SHORT_NAME = "Koperasi";
 export const APP_DESCRIPTION = "Sistem Manajemen Koperasi Simpan Pinjam";
 

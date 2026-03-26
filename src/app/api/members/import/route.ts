@@ -1,41 +1,62 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import * as XLSX from "xlsx";
 
-
-// POST /api/members/import - Import CSV data to update members
+// POST /api/members/import - Import CSV/XLSX data to update members
 export async function POST(request: Request) {
     try {
-        // Parse form data (multipart)
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
-        const importType = (formData.get("type") as string) || "tunkin"; // tunkin, gaji, anggota
+        const importType = (formData.get("type") as string) || "tunkin"; // tunkin, gaji
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit
 
         if (!file) {
             return NextResponse.json(
-                { message: "File CSV wajib diupload" },
+                { message: "File wajib diupload" },
                 { status: 400 }
             );
         }
 
-        // Read file content
-        const text = await file.text();
+        // Read file ArrayBuffer and parse with XLSX
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        
+        let sheetName = workbook.SheetNames[0];
+        
+        // Handle specific sheet names commonly found in Police Salary files
+        if (importType === 'gaji' && workbook.SheetNames.includes('POT GAJI')) {
+             sheetName = 'POT GAJI';
+        }
+        
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to array of arrays
+        let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" }) as string[][];
 
-        // Parse CSV with robust handling
-        const rows = parseCSV(text);
+        // Filter out empty rows
+        rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
 
         if (rows.length === 0) {
             return NextResponse.json(
-                { message: "File CSV kosong atau format tidak valid" },
+                { message: "File kosong atau format tidak valid" },
                 { status: 400 }
             );
         }
 
-        // Detect headers
-        const headers = rows[0].map(h => h.toLowerCase().trim());
-        const dataRows = rows.slice(1);
+        // Find the header row (it's not always row 0)
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(5, rows.length); i++) {
+            const rowStr = rows[i].join(" ").toLowerCase();
+            if (rowStr.includes("nama") || rowStr.includes("nrp") || rowStr.includes("nip") || rowStr.includes("gaji") || rowStr.includes("tunkin") || rowStr.includes("bersih")) {
+                headerRowIndex = i;
+                break;
+            }
+        }
 
-        // Validate and process based on type
+        const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
+        const dataRows = rows.slice(headerRowIndex + 1);
+
         let result;
         switch (importType) {
             case "tunkin":
@@ -55,81 +76,72 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("POST /api/members/import error:", error);
         return NextResponse.json(
-            { message: "Gagal memproses import data" },
+            { message: "Gagal memproses import data. Pastikan format file benar." },
             { status: 500 }
         );
     }
 }
 
 // ==========================================
-// CSV Parser (handles quotes, commas, etc)
-// ==========================================
-function parseCSV(text: string): string[][] {
-    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-    if (lines.length === 0) return [];
-
-    return lines.map(line => {
-        const values: string[] = [];
-        let curVal = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                values.push(curVal.trim());
-                curVal = '';
-            } else {
-                curVal += char;
-            }
-        }
-        values.push(curVal.trim());
-        return values;
-    });
-}
-
-// ==========================================
 // Clean helpers
 // ==========================================
 function cleanNrp(raw: string): string {
-    return raw.replace(/^'/, '').replace(/\.0$/, '').trim();
+    return String(raw).replace(/['"]/g, '').replace(/\.0$/, '').trim();
 }
 
-function cleanNumber(raw: string): number {
-    const cleaned = raw.replace(/[^0-9.\-]/g, '');
+function cleanNumber(raw: string | number): number {
+    if (typeof raw === 'number') return raw;
+    const cleaned = String(raw).replace(/[^0-9.\-]/g, '');
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
+}
+
+// Name matching cleaner (strips common titles and normalizes)
+function cleanNameForMatch(name: string): string {
+    if (!name) return "";
+    let clean = String(name).replace(/['"]/g, '').trim().toUpperCase();
+    clean = clean.split(',')[0].trim(); 
+    
+    const titles = [' S.H.', ' SH', ' S.PD.', ' S.PD', ' S.T.K.', ' STK', ' S.SOS.', ' S.SOS', ' S.E.', ' SE', ' S.IP.', ' SIP', ' M.H.', ' MH', ' M.SC.', ' MSC', ' M.M.', ' MM', ' S.T.', ' ST', ' S.PT.', ' SPT', ' S.OR.'];
+    
+    let changed = true;
+    while(changed) {
+        changed = false;
+        for (const t of titles) {
+            if (clean.endsWith(t) || clean.endsWith(t.replace(/\./g, ''))) {
+                clean = clean.substring(0, clean.length - t.length).trim();
+                changed = true;
+            }
+        }
+    }
+    
+    return clean.replace(/\./g, '').replace(/\s+/g, ' ').trim();
 }
 
 // ==========================================
 // Tunkin Import
 // ==========================================
 async function processTunkinImport(headers: string[], dataRows: string[][], mode: string) {
-    // Try to find NRP column
-    const nrpIdx = headers.findIndex(h =>
-        h.includes("nrp") || h.includes("nip") || h === "nrp/nip"
-    );
+    const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama"));
-    const tunkinIdx = headers.findIndex(h =>
-        h.includes("tunkin") || h.includes("tunjangan") || h.includes("tunles")
-    );
-
-    if (nrpIdx === -1) {
-        return {
-            success: 0, failed: 0,
-            error: "Kolom NRP/NIP tidak ditemukan di header CSV. Header yang ditemukan: " + headers.join(", "),
-            preview: [],
-        };
+    
+    let tunkinIdx = headers.findIndex(h => h.includes("sisa_tunkin") || h.includes("sisa tunkin") || h.includes("sisa"));
+    if (tunkinIdx === -1) {
+        tunkinIdx = headers.findIndex(h => h.includes("tunkin") || h.includes("tunjangan") || h.includes("tunles"));
     }
 
     if (tunkinIdx === -1) {
         return {
             success: 0, failed: 0,
-            error: "Kolom Tunkin/Tunjangan tidak ditemukan di header CSV. Header yang ditemukan: " + headers.join(", "),
+            error: "Kolom Tunkin ('SISA_TUNKIN' atau sejenisnya) tidak ditemukan di header file.",
             preview: [],
         };
     }
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, nrp: true, memberNo: true, tunlesKinerja: true }
+    });
 
     const results: any[] = [];
     let successCount = 0;
@@ -137,26 +149,24 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const nrp = cleanNrp(row[nrpIdx] || '');
-        const nama = row[namaIdx] || '-';
-        const tunkin = cleanNumber(row[tunkinIdx] || '0');
+        if (row.length === 0) continue;
 
-        if (!nrp) {
-            results.push({
-                row: i + 2, nrp: '', nama, tunkin,
-                status: 'error', reason: 'NRP/NIP kosong'
-            });
-            failCount++;
-            continue;
+        const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
+        const nama = namaIdx >= 0 ? String(row[namaIdx] || '-').trim() : '-';
+        if (nama.toUpperCase() === 'NAMA' || nama === '0') continue;
+        
+        const tunkin = cleanNumber(row[tunkinIdx] || 0);
+        if (!nrp && (!nama || nama === '-')) continue;
+
+        let member = null;
+        if (nrp) {
+            member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
         }
-
-        // Find member
-        const member = await prisma.member.findFirst({
-            where: {
-                OR: [{ nrp }, { memberNo: nrp }],
-                deletedAt: null,
-            },
-        });
+        
+        if (!member && nama && nama !== '-') {
+            const csvCleanName = cleanNameForMatch(nama);
+            member = allMembers.find(m => cleanNameForMatch(m.name) === csvCleanName);
+        }
 
         if (!member) {
             results.push({
@@ -172,10 +182,11 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
                 where: { id: member.id },
                 data: { tunlesKinerja: tunkin },
             });
+            member.tunlesKinerja = tunkin as any;
         }
 
         results.push({
-            row: i + 2, nrp, nama, tunkin,
+            row: i + 2, nrp: member.nrp || nrp, nama: row[namaIdx] || nama, tunkin,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null,
             currentTunkin: member.tunlesKinerja ? Number(member.tunlesKinerja) : null,
@@ -184,12 +195,10 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
     }
 
     return {
-        mode,
-        type: "tunkin",
-        totalRows: dataRows.length,
-        success: successCount,
-        failed: failCount,
-        preview: results.slice(0, 100), // limit preview to 100 rows
+        mode, type: "tunkin",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
+        preview: results.slice(0, 100),
         allResults: mode === "commit" ? results : undefined,
     };
 }
@@ -198,18 +207,14 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 // Gaji Import
 // ==========================================
 async function processGajiImport(headers: string[], dataRows: string[][], mode: string) {
-    const nrpIdx = headers.findIndex(h =>
-        h.includes("nrp") || h.includes("nip") || h === "nrp/nip"
-    );
+    const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip"));
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
-    const gajiIdx = headers.findIndex(h =>
-        h.includes("gaji") || h.includes("bersih") || h.includes("salary")
-    );
+    const gajiIdx = headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary") || h.includes("diterima"));
 
-    if (nrpIdx === -1) {
+    if (namaIdx === -1) {
         return {
             success: 0, failed: 0,
-            error: "Kolom NRP/NIP tidak ditemukan di header CSV",
+            error: "Kolom NAMA tidak ditemukan di header file.",
             preview: [],
         };
     }
@@ -217,10 +222,15 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
     if (gajiIdx === -1) {
         return {
             success: 0, failed: 0,
-            error: "Kolom Gaji/Bersih tidak ditemukan di header CSV",
+            error: "Kolom Gaji (cth: DITERIMA / BERSIH) tidak ditemukan di header file.",
             preview: [],
         };
     }
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, nrp: true, memberNo: true, salary: true }
+    });
 
     const results: any[] = [];
     let successCount = 0;
@@ -228,44 +238,68 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const nrp = cleanNrp(row[nrpIdx] || '');
-        const nama = row[namaIdx] || '-';
-        const gaji = cleanNumber(row[gajiIdx] || '0');
+        if (row.length === 0) continue;
 
-        if (!nrp) {
+        const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
+        const rawNama = String(row[namaIdx] || '').trim();
+        
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama (like NO column mistakenly mapped)
+
+        const gaji = cleanNumber(row[gajiIdx] || 0);
+        const csvCleanName = cleanNameForMatch(rawNama);
+
+        let matches: any[] = [];
+        
+        // 1. Matched by NRP
+        if (nrp) {
+            matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
+        }
+        
+        // 2. Exact match on cleaned string
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        }
+        
+        // 3. Partial/Fuzzy match
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => {
+                const dbName = cleanNameForMatch(m.name);
+                // Simple inclusion check if string length > 5
+                return (dbName.includes(csvCleanName) || csvCleanName.includes(dbName)) && csvCleanName.length >= 5;
+            });
+        }
+
+        if (matches.length === 0) {
             results.push({
-                row: i + 2, nrp: '', nama, gaji,
-                status: 'error', reason: 'NRP/NIP kosong'
+                row: i + 2, nrp, nama: rawNama, gaji,
+                status: 'error', reason: 'Anggota tdk ditemukan'
             });
             failCount++;
             continue;
         }
 
-        const member = await prisma.member.findFirst({
-            where: {
-                OR: [{ nrp }, { memberNo: nrp }],
-                deletedAt: null,
-            },
-        });
-
-        if (!member) {
+        if (matches.length > 1) {
             results.push({
-                row: i + 2, nrp, nama, gaji,
-                status: 'error', reason: 'Anggota tidak ditemukan di database'
+                row: i + 2, nrp, nama: rawNama, gaji,
+                status: 'error', reason: 'Ada 2+ kembaran nama, NRP dibutuhkan'
             });
             failCount++;
             continue;
         }
+
+        const member = matches[0];
 
         if (mode === "commit") {
             await prisma.member.update({
                 where: { id: member.id },
                 data: { salary: gaji },
             });
+            member.salary = gaji as any;
         }
 
         results.push({
-            row: i + 2, nrp, nama, gaji,
+            row: i + 2, nrp: member.nrp || nrp, nama: rawNama, gaji,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null,
             currentGaji: member.salary ? Number(member.salary) : null,
@@ -274,11 +308,9 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
     }
 
     return {
-        mode,
-        type: "gaji",
-        totalRows: dataRows.length,
-        success: successCount,
-        failed: failCount,
+        mode, type: "gaji",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
         preview: results.slice(0, 100),
         allResults: mode === "commit" ? results : undefined,
     };

@@ -100,7 +100,7 @@ export default function MemberDashboardPage() {
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">Selamat Datang, {user?.name?.split(' ')[0]}!</h1>
-                <p className="text-muted-foreground">Dashboard anggota koperasi Primkoppol</p>
+                <p className="text-muted-foreground">Dashboard anggota Primkoppol</p>
             </div>
 
             {/* Loan Approved Notification */}

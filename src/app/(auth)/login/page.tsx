@@ -56,10 +56,14 @@ export default function LoginPage() {
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
                 <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 p-4 shadow-lg drop-shadow-md border border-slate-200 dark:border-slate-700">
-                    <img src="/LogoPrimkoppol.png" alt="Logo Koperasi" className="h-full w-full object-contain drop-shadow-sm transform scale-110" />
+                    <img src="/LogoPrimkoppol.png" alt="Logo Koperasi" className="h-full w-full object-contain drop-shadow-sm transform scale-[2.2]" />
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">Koperasi Digital</h1>
-                <p className="text-sm text-muted-foreground">Sistem Manajemen Koperasi Simpan Pinjam</p>
+                <div className="flex flex-col space-y-2 text-center items-center">
+                    <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL LUMAJANG</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Sistem Informasi Koperasi
+                    </p>
+                </div>
             </div>
 
             {/* Login Card */}
@@ -149,9 +153,9 @@ export default function LoginPage() {
             </Card>
 
             {/* Footer */}
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-                © 2025 Koperasi Digital. All rights reserved.
-            </p>
+            <div className="text-center text-xs text-muted-foreground mt-8">
+                © 2025 PRIMKOPPOL LUMAJANG. All rights reserved.
+            </div>
         </main>
     );
 }

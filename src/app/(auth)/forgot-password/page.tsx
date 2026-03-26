@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground shadow-lg">
                     K
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">Koperasi Digital</h1>
+                <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL LUMAJANG</h1>
                 <p className="text-sm text-muted-foreground">Reset Password</p>
             </div>
 
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
 
             {/* Footer */}
             <p className="mt-8 text-center text-xs text-muted-foreground">
-                © 2025 Koperasi Digital. All rights reserved.
+                © 2025 PRIMKOPPOL LUMAJANG. All rights reserved.
             </p>
         </main>
     );
