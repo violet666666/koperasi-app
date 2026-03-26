@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import * as XLSX from "xlsx";
+import { auth } from "@/lib/auth";
+import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // POST /api/members/import - Import CSV/XLSX data to update members
 export async function POST(request: Request) {
@@ -76,6 +78,19 @@ export async function POST(request: Request) {
                     { status: 400 }
                 );
         }
+
+        // Audit log for import activity
+        try {
+            const session = await auth();
+            const reqInfo = extractRequestInfo(request);
+            const userInfo = extractUserFromSession(session);
+            await logAudit({
+                ...userInfo, ...reqInfo,
+                action: "IMPORT", module: "Anggota",
+                description: `Import data '${importType}': ${(result as any).success || 0} berhasil, ${(result as any).failed || 0} gagal dari total ${dataRows.length} baris`,
+                newData: { importType, mode, totalRows: dataRows.length, success: (result as any).success, failed: (result as any).failed },
+            });
+        } catch (e) { /* audit log failure must not break response */ }
 
         return NextResponse.json({ data: result });
     } catch (error) {

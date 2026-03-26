@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createSavingsTransactionSchema, paginationSchema } from "@/lib/validations";
+import { auth } from "@/lib/auth";
+import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // Helper to generate transaction number
 function generateTransactionNo(prefix: string): string {
@@ -164,6 +166,20 @@ export async function POST(request: Request) {
             where: { id: account.id },
             data: { balance: balanceAfter },
         });
+
+        // Audit log
+        try {
+            const session = await auth();
+            const reqInfo = extractRequestInfo(request);
+            const userInfo = extractUserFromSession(session);
+            await logAudit({
+                ...userInfo, ...reqInfo,
+                action: "CREATE", module: "Simpanan",
+                description: `Transaksi ${data.type}: Rp ${data.amount.toLocaleString()} untuk anggota ${transaction.member?.name || data.memberId}`,
+                targetId: String(transaction.id), targetType: "SavingsTransaction",
+                newData: { transactionNo: transaction.transactionNo, type: data.type, amount: data.amount, balanceBefore: currentBalance, balanceAfter },
+            });
+        } catch (e) { /* audit log failure must not break response */ }
 
         return NextResponse.json({ data: transaction }, { status: 201 });
     } catch (error) {

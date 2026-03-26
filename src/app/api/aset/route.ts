@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // GET /api/aset - List all assets
 export async function GET(request: Request) {
@@ -80,6 +82,20 @@ export async function POST(request: Request) {
                 status: status || "active",
             },
         });
+
+        // Audit log
+        try {
+            const session = await auth();
+            const reqInfo = extractRequestInfo(request);
+            const userInfo = extractUserFromSession(session);
+            await logAudit({
+                ...userInfo, ...reqInfo,
+                action: "CREATE", module: "Aset",
+                description: `Aset baru: ${asset.code} - ${asset.name} (${category})`,
+                targetId: String(asset.id), targetType: "Asset",
+                newData: { id: asset.id, code: asset.code, name: asset.name, acquisitionCost: cost },
+            });
+        } catch (e) { /* audit log failure must not break response */ }
 
         return NextResponse.json({ data: asset }, { status: 201 });
     } catch (error) {

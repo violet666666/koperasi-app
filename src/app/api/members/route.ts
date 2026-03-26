@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { paginationSchema, createMemberSchema } from "@/lib/validations";
 import bcrypt from "bcryptjs";
+import { auth } from "@/lib/auth";
+import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // GET /api/members - List all members
 export async function GET(request: Request) {
@@ -133,6 +135,20 @@ export async function POST(request: Request) {
 
             return member;
         });
+
+        // Audit log
+        try {
+            const session = await auth();
+            const reqInfo = extractRequestInfo(request);
+            const userInfo = extractUserFromSession(session);
+            await logAudit({
+                ...userInfo, ...reqInfo,
+                action: "CREATE", module: "Anggota",
+                description: `Pendaftaran anggota baru: ${result.name} (${result.memberNo})`,
+                targetId: String(result.id), targetType: "Member",
+                newData: { id: result.id, memberNo: result.memberNo, name: result.name },
+            });
+        } catch (e) { /* audit log failure must not break response */ }
 
         return NextResponse.json({ data: result }, { status: 201 });
     } catch (error) {

@@ -4,363 +4,385 @@ import * as React from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
-import { ExportButton, formatDateExport } from "@/components/patterns/export-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import {
-    Activity,
-    User,
-    Calendar,
-    Search,
-    Filter,
-    Clock,
-    CheckCircle,
-    XCircle,
-    AlertCircle,
-    Edit,
-    Plus,
-    Trash2,
-    Eye,
-    LogIn,
-    LogOut,
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import {
+    Activity, User, Filter, CheckCircle, XCircle, AlertCircle,
+    Edit, Plus, Trash2, Eye, LogIn, LogOut, Download, Shield,
+    FileText, Search, Globe, Monitor, Clock, Hash,
 } from "lucide-react";
 
 interface AuditLog {
-    id: number;
-    timestamp: string;
-    userId: number;
-    userName: string;
-    userRole: string;
-    action: string;
-    module: string;
-    description: string;
-    ipAddress: string;
-    userAgent: string;
-    status: "success" | "failed" | "warning";
-    details?: Record<string, any>;
+    id: number; timestamp: string;
+    userId: number | null; userName: string; userEmail: string | null; userRole: string;
+    sessionId: string | null;
+    action: string; module: string; description: string;
+    targetId: string | null; targetType: string | null;
+    oldData: string | null; newData: string | null;
+    ipAddress: string | null; userAgent: string | null;
+    requestMethod: string | null; requestUrl: string | null;
+    status: string; errorMessage: string | null;
+    duration: number | null; metadata: string | null;
 }
 
-// Action type to icon mapping
+interface Pagination { page: number; limit: number; total: number; totalPages: number; }
+
 const actionIcons: Record<string, React.ReactNode> = {
-    create: <Plus className="h-3 w-3" />,
-    update: <Edit className="h-3 w-3" />,
-    delete: <Trash2 className="h-3 w-3" />,
-    view: <Eye className="h-3 w-3" />,
-    login: <LogIn className="h-3 w-3" />,
-    logout: <LogOut className="h-3 w-3" />,
-    approve: <CheckCircle className="h-3 w-3" />,
-    reject: <XCircle className="h-3 w-3" />,
+    CREATE: <Plus className="h-3 w-3" />, UPDATE: <Edit className="h-3 w-3" />,
+    DELETE: <Trash2 className="h-3 w-3" />, VIEW: <Eye className="h-3 w-3" />,
+    LOGIN: <LogIn className="h-3 w-3" />, LOGOUT: <LogOut className="h-3 w-3" />,
+    LOGIN_FAILED: <XCircle className="h-3 w-3" />,
+    APPROVE: <CheckCircle className="h-3 w-3" />, REJECT: <XCircle className="h-3 w-3" />,
+    IMPORT: <FileText className="h-3 w-3" />, EXPORT: <Download className="h-3 w-3" />,
+    PASSWORD_CHANGE: <Shield className="h-3 w-3" />,
 };
 
-const columns: ColumnDef<AuditLog>[] = [
-    {
-        accessorKey: "timestamp",
-        header: "Waktu",
-        cell: ({ row }) => {
-            const date = new Date(row.getValue("timestamp"));
-            return (
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium">
-                        {date.toLocaleDateString("id-ID")}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                        {date.toLocaleTimeString("id-ID")}
-                    </span>
+const actionColors: Record<string, string> = {
+    CREATE: "bg-emerald-100 text-emerald-700", UPDATE: "bg-blue-100 text-blue-700",
+    DELETE: "bg-red-100 text-red-700", LOGIN: "bg-emerald-100 text-emerald-700",
+    LOGOUT: "bg-slate-100 text-slate-700", LOGIN_FAILED: "bg-red-100 text-red-700",
+    APPROVE: "bg-emerald-100 text-emerald-700", REJECT: "bg-red-100 text-red-700",
+    IMPORT: "bg-purple-100 text-purple-700", EXPORT: "bg-amber-100 text-amber-700",
+    PASSWORD_CHANGE: "bg-amber-100 text-amber-700",
+};
+
+function DetailDialog({ log }: { log: AuditLog }) {
+    let oldDataParsed = null;
+    let newDataParsed = null;
+    let metadataParsed = null;
+    try { if (log.oldData) oldDataParsed = JSON.parse(log.oldData); } catch { }
+    try { if (log.newData) newDataParsed = JSON.parse(log.newData); } catch { }
+    try { if (log.metadata) metadataParsed = JSON.parse(log.metadata); } catch { }
+
+    return (
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" /> Detail Audit Log #{log.id}
+                </DialogTitle>
+                <DialogDescription>Informasi lengkap aktivitas sistem</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div><Label className="text-xs text-muted-foreground">Waktu</Label><p className="font-medium">{new Date(log.timestamp).toLocaleString("id-ID")}</p></div>
+                    <div><Label className="text-xs text-muted-foreground">Status</Label>
+                        <Badge className={log.status === "success" ? "bg-emerald-100 text-emerald-700" : log.status === "failed" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}>{log.status}</Badge>
+                    </div>
                 </div>
-            );
-        },
-    },
-    {
-        accessorKey: "userName",
-        header: "Pengguna",
-        cell: ({ row }) => (
-            <div className="flex items-center gap-2">
-                <div className="rounded-full bg-primary/10 p-1.5">
-                    <User className="h-3 w-3 text-primary" />
+                <Separator />
+                <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Pengguna</Label>
+                    <p className="font-medium">{log.userName} {log.userEmail && <span className="text-sm text-muted-foreground">({log.userEmail})</span>}</p>
+                    <p className="text-sm text-muted-foreground">Role: {log.userRole}</p>
                 </div>
                 <div>
-                    <span className="font-medium">{row.getValue("userName")}</span>
-                    <Badge variant="outline" className="ml-2 text-xs">
-                        {row.original.userRole}
-                    </Badge>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><Activity className="h-3 w-3" /> Aksi</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                        <Badge className={actionColors[log.action] || "bg-slate-100 text-slate-700"}>{log.action}</Badge>
+                        <Badge variant="outline">{log.module}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm">{log.description}</p>
                 </div>
+                {(log.targetId || log.targetType) && (
+                    <div>
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><Hash className="h-3 w-3" /> Target</Label>
+                        <p className="text-sm">{log.targetType} #{log.targetId}</p>
+                    </div>
+                )}
+                <Separator />
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><Globe className="h-3 w-3" /> IP Address</Label>
+                        <p className="font-mono text-sm">{log.ipAddress || "-"}</p>
+                    </div>
+                    <div>
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Request</Label>
+                        <p className="font-mono text-sm">{log.requestMethod || "-"}</p>
+                    </div>
+                </div>
+                <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1"><Monitor className="h-3 w-3" /> User Agent</Label>
+                    <p className="font-mono text-xs break-all bg-muted p-2 rounded">{log.userAgent || "-"}</p>
+                </div>
+                {log.requestUrl && (
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Request URL</Label>
+                        <p className="font-mono text-xs break-all bg-muted p-2 rounded">{log.requestUrl}</p>
+                    </div>
+                )}
+                {log.errorMessage && (
+                    <div>
+                        <Label className="text-xs text-muted-foreground text-red-600">Error</Label>
+                        <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{log.errorMessage}</p>
+                    </div>
+                )}
+                {(oldDataParsed || newDataParsed) && (
+                    <>
+                        <Separator />
+                        <div>
+                            <Label className="text-xs text-muted-foreground">Data Changes</Label>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                {oldDataParsed && (
+                                    <div>
+                                        <p className="text-xs font-medium text-red-600 mb-1">Before</p>
+                                        <pre className="text-xs bg-red-50 dark:bg-red-900/20 p-2 rounded overflow-auto max-h-48">{JSON.stringify(oldDataParsed, null, 2)}</pre>
+                                    </div>
+                                )}
+                                {newDataParsed && (
+                                    <div>
+                                        <p className="text-xs font-medium text-emerald-600 mb-1">After</p>
+                                        <pre className="text-xs bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded overflow-auto max-h-48">{JSON.stringify(newDataParsed, null, 2)}</pre>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+                {metadataParsed && (
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Metadata Tambahan</Label>
+                        <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-auto max-h-32">{JSON.stringify(metadataParsed, null, 2)}</pre>
+                    </div>
+                )}
             </div>
-        ),
-    },
-    {
-        accessorKey: "action",
-        header: "Aksi",
-        cell: ({ row }) => {
-            const action = row.getValue("action") as string;
-            const icon = actionIcons[action.toLowerCase()] || <Activity className="h-3 w-3" />;
-            return (
-                <Badge variant="outline" className="gap-1">
-                    {icon}
-                    {action}
-                </Badge>
-            );
-        },
-    },
-    {
-        accessorKey: "module",
-        header: "Modul",
-        cell: ({ row }) => (
-            <Badge variant="secondary">{row.getValue("module")}</Badge>
-        ),
-    },
-    {
-        accessorKey: "description",
-        header: "Deskripsi",
-        cell: ({ row }) => (
-            <span className="text-sm max-w-[300px] truncate block">
-                {row.getValue("description")}
-            </span>
-        ),
-    },
-    {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-            const status = row.getValue("status") as string;
-            const statusConfig: Record<string, { icon: React.ReactNode; className: string }> = {
-                success: { icon: <CheckCircle className="h-3 w-3" />, className: "bg-emerald-100 text-emerald-700" },
-                failed: { icon: <XCircle className="h-3 w-3" />, className: "bg-red-100 text-red-700" },
-                warning: { icon: <AlertCircle className="h-3 w-3" />, className: "bg-amber-100 text-amber-700" },
-            };
-            const config = statusConfig[status] || statusConfig.success;
-            return (
-                <Badge className={`gap-1 ${config.className}`}>
-                    {config.icon}
-                    {status}
-                </Badge>
-            );
-        },
-    },
-    {
-        accessorKey: "ipAddress",
-        header: "IP Address",
-        cell: ({ row }) => (
-            <span className="font-mono text-xs">{row.getValue("ipAddress")}</span>
-        ),
-    },
-];
-
-// Export columns configuration
-const exportColumns = [
-    { key: "timestamp", header: "Waktu", format: (v: string) => formatDateExport(v) },
-    { key: "userName", header: "Pengguna" },
-    { key: "userRole", header: "Role" },
-    { key: "action", header: "Aksi" },
-    { key: "module", header: "Modul" },
-    { key: "description", header: "Deskripsi" },
-    { key: "status", header: "Status" },
-    { key: "ipAddress", header: "IP Address" },
-];
+        </DialogContent>
+    );
+}
 
 export default function AuditLogPage() {
     const [logs, setLogs] = React.useState<AuditLog[]>([]);
+    const [pagination, setPagination] = React.useState<Pagination>({ page: 1, limit: 50, total: 0, totalPages: 0 });
     const [isLoading, setIsLoading] = React.useState(true);
+
+    // Filters
     const [filterModule, setFilterModule] = React.useState<string>("all");
     const [filterAction, setFilterAction] = React.useState<string>("all");
-    const [filterUser, setFilterUser] = React.useState<string>("");
+    const [filterStatus, setFilterStatus] = React.useState<string>("all");
+    const [searchQuery, setSearchQuery] = React.useState<string>("");
+    const [dateFrom, setDateFrom] = React.useState<string>("");
+    const [dateTo, setDateTo] = React.useState<string>("");
+    const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null);
 
-    // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                await new Promise(resolve => setTimeout(resolve, 500));
+    const fetchLogs = React.useCallback(async (page = 1) => {
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams({ page: String(page), limit: "50" });
+            if (filterModule !== "all") params.set("module", filterModule);
+            if (filterAction !== "all") params.set("action", filterAction);
+            if (filterStatus !== "all") params.set("status", filterStatus);
+            if (searchQuery) params.set("search", searchQuery);
+            if (dateFrom) params.set("dateFrom", dateFrom);
+            if (dateTo) params.set("dateTo", dateTo);
 
-                // Mock data - would come from API with role-based filtering
-                setLogs([
-                    { id: 1, timestamp: "2026-01-26T02:45:00", userId: 1, userName: "admin", userRole: "Admin", action: "Login", module: "Auth", description: "Login berhasil dari browser Chrome", ipAddress: "192.168.1.100", userAgent: "Chrome/120", status: "success" },
-                    { id: 2, timestamp: "2026-01-26T02:40:00", userId: 2, userName: "Budi Santoso", userRole: "Teller", action: "Create", module: "Simpanan", description: "Setoran simpanan anggota A-001 Rp 500.000", ipAddress: "192.168.1.101", userAgent: "Chrome/120", status: "success" },
-                    { id: 3, timestamp: "2026-01-26T02:35:00", userId: 1, userName: "admin", userRole: "Admin", action: "Approve", module: "Pinjaman", description: "Persetujuan pinjaman PJ-2026-0015 Rp 50.000.000", ipAddress: "192.168.1.100", userAgent: "Chrome/120", status: "success" },
-                    { id: 4, timestamp: "2026-01-26T02:30:00", userId: 3, userName: "Siti Rahayu", userRole: "Kasir", action: "Create", module: "Toko", description: "Penjualan POS - 5 item Rp 250.000", ipAddress: "192.168.1.102", userAgent: "Chrome/120", status: "success" },
-                    { id: 5, timestamp: "2026-01-26T02:25:00", userId: 2, userName: "Budi Santoso", userRole: "Teller", action: "Update", module: "Anggota", description: "Update data anggota A-123", ipAddress: "192.168.1.101", userAgent: "Chrome/120", status: "success" },
-                    { id: 6, timestamp: "2026-01-26T02:20:00", userId: 4, userName: "unknown", userRole: "Guest", action: "Login", module: "Auth", description: "Login gagal - password salah", ipAddress: "192.168.1.200", userAgent: "Firefox/115", status: "failed" },
-                    { id: 7, timestamp: "2026-01-26T02:15:00", userId: 1, userName: "admin", userRole: "Admin", action: "Delete", module: "Master", description: "Hapus produk simpanan PS-005", ipAddress: "192.168.1.100", userAgent: "Chrome/120", status: "warning" },
-                    { id: 8, timestamp: "2026-01-26T02:10:00", userId: 1, userName: "admin", userRole: "Admin", action: "Create", module: "User", description: "Tambah user baru: operator1", ipAddress: "192.168.1.100", userAgent: "Chrome/120", status: "success" },
-                    { id: 9, timestamp: "2026-01-26T02:05:00", userId: 2, userName: "Budi Santoso", userRole: "Teller", action: "Create", module: "Angsuran", description: "Bayar angsuran PJ-2026-0012 Rp 2.500.000", ipAddress: "192.168.1.101", userAgent: "Chrome/120", status: "success" },
-                    { id: 10, timestamp: "2026-01-26T02:00:00", userId: 1, userName: "admin", userRole: "Admin", action: "Logout", module: "Auth", description: "Logout dari sistem", ipAddress: "192.168.1.100", userAgent: "Chrome/120", status: "success" },
-                ]);
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
-            }
+            const res = await fetch(`/api/audit-logs?${params}`);
+            if (!res.ok) throw new Error("Failed");
+            const json = await res.json();
+            setLogs(json.data || []);
+            setPagination(json.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 });
+        } catch (error) {
+            console.error("Failed to fetch audit logs:", error);
+            toast.error("Gagal memuat audit log");
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
-    }, []);
+    }, [filterModule, filterAction, filterStatus, searchQuery, dateFrom, dateTo]);
 
-    // Stats
+    React.useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
         const todayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === today);
         return {
             totalToday: todayLogs.length,
+            totalAll: pagination.total,
             successCount: todayLogs.filter(l => l.status === "success").length,
             failedCount: todayLogs.filter(l => l.status === "failed").length,
-            uniqueUsers: new Set(todayLogs.map(l => l.userId)).size,
+            loginAttempts: todayLogs.filter(l => ["LOGIN", "LOGIN_FAILED"].includes(l.action)).length,
         };
-    }, [logs]);
+    }, [logs, pagination.total]);
 
-    // Filtered logs
-    const filteredLogs = React.useMemo(() => {
-        return logs.filter(log => {
-            if (filterModule !== "all" && log.module !== filterModule) return false;
-            if (filterAction !== "all" && log.action.toLowerCase() !== filterAction) return false;
-            if (filterUser && !log.userName.toLowerCase().includes(filterUser.toLowerCase())) return false;
-            return true;
-        });
-    }, [logs, filterModule, filterAction, filterUser]);
+    const MODULES = ["Auth", "Anggota", "Simpanan", "Pinjaman", "Toko", "Jurnal", "Kas", "Aset", "Laporan", "Master", "User", "Pengumuman", "System", "Period"];
+    const ACTIONS = ["LOGIN", "LOGOUT", "LOGIN_FAILED", "CREATE", "UPDATE", "DELETE", "VIEW", "EXPORT", "APPROVE", "REJECT", "IMPORT", "PASSWORD_CHANGE"];
 
-    // Get unique modules and actions for filters
-    const modules = [...new Set(logs.map(l => l.module))];
-    const actions = [...new Set(logs.map(l => l.action.toLowerCase()))];
+    const columns: ColumnDef<AuditLog>[] = [
+        {
+            accessorKey: "timestamp", header: "Waktu",
+            cell: ({ row }) => {
+                const d = new Date(row.getValue("timestamp"));
+                return <div className="flex flex-col"><span className="text-sm font-medium">{d.toLocaleDateString("id-ID")}</span><span className="text-xs text-muted-foreground">{d.toLocaleTimeString("id-ID")}</span></div>;
+            },
+        },
+        {
+            accessorKey: "userName", header: "Pengguna",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-2">
+                    <div className="rounded-full bg-primary/10 p-1.5"><User className="h-3 w-3 text-primary" /></div>
+                    <div>
+                        <span className="font-medium text-sm">{row.getValue("userName")}</span>
+                        <Badge variant="outline" className="ml-1 text-xs">{row.original.userRole}</Badge>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: "action", header: "Aksi",
+            cell: ({ row }) => {
+                const action = row.getValue("action") as string;
+                const icon = actionIcons[action] || <Activity className="h-3 w-3" />;
+                return <Badge className={`gap-1 ${actionColors[action] || "bg-slate-100 text-slate-700"}`}>{icon}{action}</Badge>;
+            },
+        },
+        {
+            accessorKey: "module", header: "Modul",
+            cell: ({ row }) => <Badge variant="secondary">{row.getValue("module")}</Badge>,
+        },
+        {
+            accessorKey: "description", header: "Deskripsi",
+            cell: ({ row }) => <span className="text-sm max-w-[250px] truncate block">{row.getValue("description")}</span>,
+        },
+        {
+            accessorKey: "ipAddress", header: "IP Address",
+            cell: ({ row }) => <span className="font-mono text-xs">{row.getValue("ipAddress") || "-"}</span>,
+        },
+        {
+            accessorKey: "status", header: "Status",
+            cell: ({ row }) => {
+                const status = row.getValue("status") as string;
+                const icons: Record<string, React.ReactNode> = {
+                    success: <CheckCircle className="h-3 w-3" />,
+                    failed: <XCircle className="h-3 w-3" />,
+                    warning: <AlertCircle className="h-3 w-3" />,
+                };
+                const colors: Record<string, string> = {
+                    success: "bg-emerald-100 text-emerald-700",
+                    failed: "bg-red-100 text-red-700",
+                    warning: "bg-amber-100 text-amber-700",
+                };
+                return <Badge className={`gap-1 ${colors[status] || ""}`}>{icons[status]}{status}</Badge>;
+            },
+        },
+        {
+            id: "actions", header: "",
+            cell: ({ row }) => (
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedLog(row.original)}>
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                    <DetailDialog log={row.original} />
+                </Dialog>
+            ),
+        },
+    ];
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Audit Log"
-                description="Riwayat aktivitas sistem berdasarkan role"
+            <PageHeader title="Audit Log" description="Riwayat aktivitas sistem — Keamanan & Compliance"
                 actions={
-                    <ExportButton
-                        data={filteredLogs}
-                        columns={exportColumns}
-                        filename="audit_log"
-                        title="Audit Log"
-                        subtitle={`Diekspor pada ${new Date().toLocaleString("id-ID")}`}
-                    />
+                    <Badge variant="outline" className="gap-1 text-sm">
+                        <Shield className="h-4 w-4" /> {pagination.total.toLocaleString()} Total Records
+                    </Badge>
                 }
             />
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 sm:grid-cols-4">
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-primary/10 p-3">
-                            <Activity className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Aktivitas Hari Ini</p>
-                            <p className="text-2xl font-bold">{stats.totalToday}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30">
-                            <CheckCircle className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Sukses</p>
-                            <p className="text-2xl font-bold text-emerald-600">{stats.successCount}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30">
-                            <XCircle className="h-5 w-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Gagal</p>
-                            <p className="text-2xl font-bold text-red-600">{stats.failedCount}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30">
-                            <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Pengguna Aktif</p>
-                            <p className="text-2xl font-bold text-blue-600">{stats.uniqueUsers}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><Activity className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">Total Records</p><p className="text-2xl font-bold">{pagination.total.toLocaleString()}</p></div></CardContent></Card>
+                <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30"><Clock className="h-5 w-5 text-blue-600" /></div><div><p className="text-xs text-muted-foreground">Hari Ini</p><p className="text-2xl font-bold">{stats.totalToday}</p></div></CardContent></Card>
+                <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><CheckCircle className="h-5 w-5 text-emerald-600" /></div><div><p className="text-xs text-muted-foreground">Sukses</p><p className="text-2xl font-bold text-emerald-600">{stats.successCount}</p></div></CardContent></Card>
+                <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30"><XCircle className="h-5 w-5 text-red-600" /></div><div><p className="text-xs text-muted-foreground">Gagal</p><p className="text-2xl font-bold text-red-600">{stats.failedCount}</p></div></CardContent></Card>
+                <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-amber-100 p-3 dark:bg-amber-900/30"><LogIn className="h-5 w-5 text-amber-600" /></div><div><p className="text-xs text-muted-foreground">Login Attempts</p><p className="text-2xl font-bold text-amber-600">{stats.loginAttempts}</p></div></CardContent></Card>
             </div>
 
-            {/* Filters */}
             <Card>
-                <CardContent className="p-4">
-                    <div className="flex flex-wrap gap-4 items-center">
-                        <Filter className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex-1 min-w-[200px] max-w-xs">
-                            <Input
-                                placeholder="Cari pengguna..."
-                                value={filterUser}
-                                onChange={(e) => setFilterUser(e.target.value)}
-                                className="h-9"
-                            />
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Filter className="h-4 w-4" /> Filter & Pencarian</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Cari</Label>
+                            <div className="relative">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Cari user, deskripsi, IP..." value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)} className="pl-8" />
+                            </div>
                         </div>
-                        <Select value={filterModule} onValueChange={setFilterModule}>
-                            <SelectTrigger className="w-[150px] h-9">
-                                <SelectValue placeholder="Modul" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Modul</SelectItem>
-                                {modules.map(m => (
-                                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select value={filterAction} onValueChange={setFilterAction}>
-                            <SelectTrigger className="w-[150px] h-9">
-                                <SelectValue placeholder="Aksi" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Aksi</SelectItem>
-                                {actions.map(a => (
-                                    <SelectItem key={a} value={a} className="capitalize">{a}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {(filterModule !== "all" || filterAction !== "all" || filterUser) && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setFilterModule("all");
-                                    setFilterAction("all");
-                                    setFilterUser("");
-                                }}
-                            >
-                                Reset
-                            </Button>
-                        )}
+                        <div className="space-y-1">
+                            <Label className="text-xs">Modul</Label>
+                            <Select value={filterModule} onValueChange={setFilterModule}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="all">Semua Modul</SelectItem>{MODULES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Aksi</Label>
+                            <Select value={filterAction} onValueChange={setFilterAction}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="all">Semua Aksi</SelectItem>{ACTIONS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Status</Label>
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua</SelectItem>
+                                    <SelectItem value="success">Sukses</SelectItem>
+                                    <SelectItem value="failed">Gagal</SelectItem>
+                                    <SelectItem value="warning">Warning</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Dari Tanggal</Label>
+                            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Sampai Tanggal</Label>
+                            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => {
+                                setFilterModule("all"); setFilterAction("all"); setFilterStatus("all");
+                                setSearchQuery(""); setDateFrom(""); setDateTo("");
+                            }}>Reset Filter</Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Data Table */}
             {isLoading ? (
-                <Card>
-                    <CardContent className="p-6 space-y-4">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <Skeleton key={i} className="h-12 w-full" />
-                        ))}
-                    </CardContent>
-                </Card>
+                <Card><CardContent className="p-6 space-y-4">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</CardContent></Card>
             ) : (
-                <DataTable
-                    columns={columns}
-                    data={filteredLogs}
-                    searchColumn="description"
-                    searchPlaceholder="Cari di deskripsi..."
-                />
+                <>
+                    <DataTable columns={columns} data={logs} searchColumn="description" searchPlaceholder="Cari di deskripsi..." />
+                    {pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">
+                                Halaman {pagination.page} dari {pagination.totalPages} ({pagination.total} records)
+                            </p>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" disabled={pagination.page <= 1}
+                                    onClick={() => fetchLogs(pagination.page - 1)}>Sebelumnya</Button>
+                                <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages}
+                                    onClick={() => fetchLogs(pagination.page + 1)}>Selanjutnya</Button>
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

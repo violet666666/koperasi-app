@@ -47,6 +47,7 @@ model User {
   storeSalesCreated       StoreSale[]           @relation("StoreSaleCreatedBy")
   receiptsCreated         Receipt[]             @relation("ReceiptCreatedBy")
   announcements           Announcement[]        @relation("AnnouncementAuthor")
+  auditLogs               AuditLog[]            @relation("AuditLogUser")
 
   @@map("users")
 }
@@ -792,4 +793,57 @@ model Announcement {
   author User @relation("AnnouncementAuthor", fields: [authorId], references: [id])
 
   @@map("announcements")
+}
+
+// =================================================================
+// AUDIT LOG (Enterprise-grade untuk Instansi Polisi)
+// =================================================================
+
+model AuditLog {
+  id            Int       @id @default(autoincrement())
+  timestamp     DateTime  @default(now())
+
+  // User info (denormalized for immutability)
+  userId        Int?      @map("user_id")
+  userName      String    @map("user_name")
+  userEmail     String?   @map("user_email")
+  userRole      String    @map("user_role")
+  sessionId     String?   @map("session_id")
+
+  // Action info
+  action        String    // LOGIN, LOGOUT, LOGIN_FAILED, CREATE, UPDATE, DELETE, VIEW, EXPORT, APPROVE, REJECT, IMPORT
+  module        String    // Auth, Anggota, Simpanan, Pinjaman, Toko, Jurnal, Kas, Aset, Laporan, Master, User, Pengumuman
+  description   String    @db.Text
+
+  // Target entity
+  targetId      String?   @map("target_id")    // ID of affected record
+  targetType    String?   @map("target_type")  // Model name e.g. "Member", "Loan"
+
+  // Data change tracking
+  oldData       String?   @map("old_data") @db.Text   // JSON snapshot before change
+  newData       String?   @map("new_data") @db.Text   // JSON snapshot after change
+
+  // Request metadata
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent") @db.Text
+  requestMethod String?   @map("request_method")
+  requestUrl    String?   @map("request_url") @db.Text
+
+  // Result
+  status        String    @default("success")  // success, failed, warning
+  errorMessage  String?   @map("error_message") @db.Text
+
+  // Metadata
+  duration      Int?      // request duration in ms
+  metadata      String?   @db.Text  // additional JSON metadata (MAC address, etc.)
+
+  // Relation (nullable for system/anonymous events like failed login)
+  user          User?     @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([module])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
 }
