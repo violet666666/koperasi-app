@@ -10,10 +10,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        // Only admin/superadmin can view audit logs
+        // Only Operator (Super Admin) can view audit logs
         const userRole = session.user.role;
-        if (!["admin", "superadmin", "ketua"].includes(userRole)) {
-            return NextResponse.json({ message: "Forbidden: Hanya admin yang dapat melihat audit log" }, { status: 403 });
+        if (userRole !== "operator") {
+            return NextResponse.json({ message: "Forbidden: Hanya Operator yang dapat melihat audit log" }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
