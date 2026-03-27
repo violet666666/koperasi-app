@@ -25,8 +25,11 @@ interface DashboardStats {
     totalPinjaman: number;
     tunggakan: number;
     simpananHariIni: number;
+    simpananHariIniCount: number;
     pencairanHariIni: number;
+    pencairanHariIniCount: number;
     angsuranHariIni: number;
+    angsuranHariIniCount: number;
     pendingApproval: number;
     totalTunkin: number;
     membersWithTunkin: number;
@@ -183,8 +186,11 @@ export default function DashboardPage() {
         totalPinjaman: 0,
         tunggakan: 0,
         simpananHariIni: 0,
+        simpananHariIniCount: 0,
         pencairanHariIni: 0,
+        pencairanHariIniCount: 0,
         angsuranHariIni: 0,
+        angsuranHariIniCount: 0,
         pendingApproval: 0,
         totalTunkin: 0,
         membersWithTunkin: 0,
@@ -211,8 +217,11 @@ export default function DashboardPage() {
                         totalPinjaman: data.totalLoansOutstanding || 0,
                         tunggakan: data.totalArrears || 0,
                         simpananHariIni: data.todayDeposits || 0,
+                        simpananHariIniCount: data.todayDepositsCount || 0,
                         pencairanHariIni: data.todayWithdrawals || 0,
+                        pencairanHariIniCount: data.todayWithdrawalsCount || 0,
                         angsuranHariIni: data.todayPayments || 0,
+                        angsuranHariIniCount: data.todayPaymentsCount || 0,
                         pendingApproval: data.pendingApprovals || 0,
                         totalTunkin: data.totalTunkin || 0,
                         membersWithTunkin: data.membersWithTunkin || 0,
@@ -317,7 +326,7 @@ export default function DashboardPage() {
                                 {formatCurrency(stats.simpananHariIni)}
                             </p>
                         )}
-                        <p className="text-sm text-muted-foreground">12 transaksi</p>
+                        <p className="text-sm text-muted-foreground">{stats.simpananHariIniCount} transaksi</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -332,7 +341,7 @@ export default function DashboardPage() {
                                 {formatCurrency(stats.pencairanHariIni)}
                             </p>
                         )}
-                        <p className="text-sm text-muted-foreground">3 pencairan</p>
+                        <p className="text-sm text-muted-foreground">{stats.pencairanHariIniCount} pencairan</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -347,7 +356,7 @@ export default function DashboardPage() {
                                 {formatCurrency(stats.angsuranHariIni)}
                             </p>
                         )}
-                        <p className="text-sm text-muted-foreground">8 pembayaran</p>
+                        <p className="text-sm text-muted-foreground">{stats.angsuranHariIniCount} pembayaran</p>
                     </CardContent>
                 </Card>
             </div>

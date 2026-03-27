@@ -64,6 +64,7 @@ export async function GET() {
         const [todayDeposits, todayWithdrawals] = await Promise.all([
             prisma.savingsTransaction.aggregate({
                 _sum: { amount: true },
+                _count: { _all: true },
                 where: {
                     type: "deposit",
                     transactionDate: { gte: today, lt: tomorrow },
@@ -71,6 +72,7 @@ export async function GET() {
             }),
             prisma.savingsTransaction.aggregate({
                 _sum: { amount: true },
+                _count: { _all: true },
                 where: {
                     type: "withdrawal",
                     transactionDate: { gte: today, lt: tomorrow },
@@ -113,7 +115,9 @@ export async function GET() {
 
             // Today's activity
             todayDeposits: Number(todayDeposits._sum.amount) || 0,
+            todayDepositsCount: todayDeposits._count._all || 0,
             todayWithdrawals: Number(todayWithdrawals._sum.amount) || 0,
+            todayWithdrawalsCount: todayWithdrawals._count._all || 0,
             todayPayments: Number(todayPayments._sum.amount) || 0,
             todayPaymentsCount: todayPayments._count._all || 0,
             todayTransactionsCount: todayTransactions._count._all || 0,
