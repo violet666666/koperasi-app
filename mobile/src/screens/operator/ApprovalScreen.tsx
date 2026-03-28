@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -18,7 +19,9 @@ interface Approval {
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
-export default function ApprovalScreen() {
+export default function ApprovalScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
   const [items, setItems] = useState<Approval[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -89,12 +92,23 @@ export default function ApprovalScreen() {
     </View>
   );
 
+  const canGoBack = navigation.canGoBack?.() ?? false;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Persetujuan Pinjaman</Text>
-        <Text style={styles.headerSub}>{items.length} pengajuan menunggu</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {canGoBack && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.headerTitle}>Persetujuan Pinjaman</Text>
+            <Text style={styles.headerSub}>{items.length} pengajuan menunggu</Text>
+          </View>
+        </View>
       </View>
 
       {loading ? (

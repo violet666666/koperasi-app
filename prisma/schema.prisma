@@ -23,6 +23,7 @@ model User {
   branchId        Int?      @map("branch_id")
   memberId        Int?      @unique @map("member_id")
   unitType        String?   @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset
+  fcmToken        String?   @map("fcm_token")
   isActive        Boolean   @default(true) @map("is_active")
   emailVerifiedAt DateTime? @map("email_verified_at")
   createdAt       DateTime  @default(now()) @map("created_at")

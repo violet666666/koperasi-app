@@ -18,14 +18,14 @@ interface Member {
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
-export default function MemberListScreen() {
+export default function MemberListScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-
-  const navigation = useNavigation<any>();
 
   const loadData = useCallback(async (q?: string) => {
     setLoading(true);
@@ -81,6 +81,13 @@ export default function MemberListScreen() {
             {item.status === 'active' && (
               <View style={styles.actionsRow}>
                 <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: C.info }]}
+                  onPress={() => navigation.navigate('MemberDetail', { memberId: item.id, memberName: item.name })}
+                >
+                  <Ionicons name="eye-outline" size={16} color="#FFF" />
+                  <Text style={styles.actionText}>Detail</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.actionBtn, { backgroundColor: C.primaryLight }]}
                   onPress={() => navigation.navigate('SavingsTransaction', { memberId: item.id, memberName: item.name })}
                 >
@@ -102,11 +109,20 @@ export default function MemberListScreen() {
     );
   };
 
+  const canGoBack = navigation.canGoBack?.() ?? false;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Data Anggota</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          {canGoBack && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Data Anggota</Text>
+        </View>
         <View style={styles.searchRow}>
           <TextInput
             style={styles.searchInput}

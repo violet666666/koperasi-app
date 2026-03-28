@@ -10,6 +10,8 @@ export interface MobileJWTPayload {
     role: string;
     nrp?: string | null;
     unitId?: number | null;
+    branchId?: number | null;
+    isOperator?: boolean;
 }
 
 export function signMobileToken(payload: MobileJWTPayload): string {

@@ -86,30 +86,12 @@ export default function TambahPengajuanPage() {
         const tenor = parseInt(formData.tenor_months);
         const rate = selectedProduct.interest_rate / 100;
 
+        // Bunga dihapus (0%) sesuai kebijakan Koperasi Primkoppol Lumajang
         let interest = 0;
-        let monthly = 0;
+        let monthly = principal / tenor;
 
-        if (selectedProduct.interest_method === "flat") {
-            // Flat: Interest = Principal * Rate * Tenor
-            interest = principal * rate * tenor;
-            monthly = (principal + interest) / tenor;
-        } else if (selectedProduct.interest_method === "annuity") {
-            // Annuity: Fixed monthly payment
-            monthly = (principal * rate * Math.pow(1 + rate, tenor)) / (Math.pow(1 + rate, tenor) - 1);
-            interest = (monthly * tenor) - principal;
-        } else {
-            // Declining: Interest calculated on remaining principal
-            interest = 0;
-            for (let i = 0; i < tenor; i++) {
-                interest += (principal - (principal * i / tenor)) * rate;
-            }
-            monthly = (principal + interest) / tenor;
-        }
-
-        const total = principal + interest;
-        const admin_fee = selectedProduct.admin_fee_type === "percent"
-            ? principal * (selectedProduct.admin_fee_value / 100)
-            : selectedProduct.admin_fee_value;
+        const total = principal;
+        const admin_fee = principal * 0.01; // Biaya jasa 1% tetap
         const disbursed = principal - admin_fee;
 
         setCalculation({
@@ -248,7 +230,7 @@ export default function TambahPengajuanPage() {
                                                     <div className="flex flex-col">
                                                         <span>{product.name}</span>
                                                         <span className="text-xs text-muted-foreground">
-                                                            {product.interest_rate}%/bln - {INTEREST_METHODS[product.interest_method as keyof typeof INTEREST_METHODS].label}
+                                                            Bunga 0% - Biaya Jasa 1%
                                                         </span>
                                                     </div>
                                                 </SelectItem>
@@ -343,7 +325,7 @@ export default function TambahPengajuanPage() {
                                                 <span className="font-medium tabular-nums">{formatCurrency(calculation.principal)}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Total Bunga ({selectedProduct?.interest_rate}%)</span>
+                                                <span className="text-muted-foreground">Total Bunga (0%)</span>
                                                 <span className="font-medium tabular-nums">{formatCurrency(calculation.interest)}</span>
                                             </div>
                                             <Separator />
@@ -357,7 +339,7 @@ export default function TambahPengajuanPage() {
 
                                         <div className="space-y-3">
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Biaya Admin</span>
+                                                <span className="text-muted-foreground">Biaya Jasa Admin (1%)</span>
                                                 <span className="font-medium tabular-nums text-red-600">- {formatCurrency(calculation.admin_fee)}</span>
                                             </div>
                                             <div className="flex justify-between">
@@ -375,7 +357,7 @@ export default function TambahPengajuanPage() {
                                         </div>
 
                                         <p className="text-xs text-muted-foreground text-center">
-                                            Metode: {selectedProduct && INTEREST_METHODS[selectedProduct.interest_method as keyof typeof INTEREST_METHODS].description}
+                                            Pinjaman Tanpa Bunga - Potongan Jasa 1% di Awal
                                         </p>
                                     </div>
                                 ) : (

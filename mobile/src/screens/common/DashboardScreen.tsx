@@ -7,7 +7,7 @@ import { registerForPushNotificationsAsync } from '../../lib/notifications';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function DashboardScreen({ setToken }: any) {
   const navigation = useNavigation<any>();
@@ -25,7 +25,6 @@ export default function DashboardScreen({ setToken }: any) {
       console.log('Error reading user data:', err);
     }
 
-    // Fetch summary data
     try {
       const summaryRes = await api.get('/api/mobile/summary');
       const d = summaryRes.data.data;
@@ -56,7 +55,6 @@ export default function DashboardScreen({ setToken }: any) {
       }
     }
 
-    // Fetch announcements
     try {
       const annRes = await api.get('/api/mobile/pengumuman?limit=3');
       setAnnouncements(annRes.data.data || []);
@@ -67,7 +65,6 @@ export default function DashboardScreen({ setToken }: any) {
 
   useEffect(() => { 
     loadData(); 
-    // Minta izin Push Notifications hanya setelah user masuk ke Dashboard (terautentikasi)
     registerForPushNotificationsAsync();
   }, [loadData]);
 
@@ -84,9 +81,20 @@ export default function DashboardScreen({ setToken }: any) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <Text style={styles.greeting}>Selamat Datang,</Text>
-        <Text style={styles.userName}>{data?.user?.name || user?.name || 'Pengguna'}</Text>
-        <Text style={styles.userRole}>{data?.user?.roleDisplayName || user?.roleDisplayName || ''}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Selamat Datang,</Text>
+            <Text style={styles.userName}>{data?.user?.name || user?.name || 'Pengguna'}</Text>
+            <Text style={styles.userRole}>{data?.user?.roleDisplayName || user?.roleDisplayName || ''}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.notifBtn} 
+            onPress={() => navigation.navigate('Pengumuman')}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#FFF" />
+            {announcements.length > 0 && <View style={styles.notifBadge} />}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -94,7 +102,7 @@ export default function DashboardScreen({ setToken }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* OPERATOR */}
+        {/* ===== OPERATOR DASHBOARD ===== */}
         {isOperator && (
           <>
             <Text style={styles.sectionTitle}>Ringkasan Koperasi</Text>
@@ -120,19 +128,61 @@ export default function DashboardScreen({ setToken }: any) {
               <TodayRow emoji="💳" label="Angsuran Masuk" amount={dashStats?.todayPayments ?? 0} count={dashStats?.todayPaymentsCount ?? 0} unit="pembayaran" color={C.accent} />
             </View>
 
-            <Text style={styles.sectionTitle}>Aksi Cepat</Text>
-            <QuickAction icon="person-add-outline" label="Tambah Anggota" desc="Daftarkan anggota baru" onPress={() => navigation.navigate('Member')} />
-            <QuickAction icon="card-outline" label="Transaksi Simpanan" desc="Catat setoran atau penarikan" onPress={() => navigation.navigate('SavingsTransaction')} />
-            <QuickAction icon="cash-outline" label="Input Angsuran" desc="Catat pembayaran angsuran" onPress={() => navigation.navigate('LoanPayment')} />
-            
-            <Text style={styles.sectionTitle}>Laporan Pimpinan</Text>
-            <QuickAction icon="pie-chart-outline" label="Rekap Pinjaman" desc="Lihat kolektibilitas & pinjaman" onPress={() => navigation.navigate('LaporanPinjaman')} />
-            <QuickAction icon="wallet-outline" label="Rekap Simpanan" desc="Lihat saldo & aktivitas simpanan" onPress={() => navigation.navigate('LaporanSimpanan')} />
+            {/* OPERATOR MENU GRID */}
+            <Text style={styles.sectionTitle}>Menu Utama</Text>
+            <View style={styles.menuGrid}>
+              <MenuItem icon="checkmark-circle-outline" label="Approval" color="#10B981" onPress={() => navigation.navigate('ApprovalFull')} />
+              <MenuItem icon="people-outline" label="Anggota" color={C.info} onPress={() => navigation.navigate('MemberListFull')} />
+              <MenuItem icon="card-outline" label="Transaksi Simpanan" color={C.accent} onPress={() => navigation.navigate('MemberListFull')} />
+              <MenuItem icon="cash-outline" label="Input Angsuran" color={C.success} onPress={() => navigation.navigate('MemberListFull')} />
+              <MenuItem icon="pie-chart-outline" label="Laporan Pinjaman" color="#8B5CF6" onPress={() => navigation.navigate('LaporanPinjaman')} />
+              <MenuItem icon="wallet-outline" label="Laporan Simpanan" color="#EC4899" onPress={() => navigation.navigate('LaporanSimpanan')} />
+              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
+              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
+            </View>
           </>
         )}
 
-        {/* MEMBER */}
-        {!isOperator && data && (
+        {/* ===== KASIR DASHBOARD ===== */}
+        {isKasir && (
+          <>
+            <Text style={styles.sectionTitle}>Ringkasan Kasir Hari Ini</Text>
+            <View style={styles.cardRow}>
+              <StatCard label="Total Penjualan" value={formatRp(data.today?.salesTotal || 0)} icon="🛒" color={C.success} subtitle={`${data.today?.salesCount || 0} transaksi`} />
+            </View>
+
+            <Text style={styles.sectionTitle}>5 Transaksi Terakhir</Text>
+            {data.latestSales && data.latestSales.length > 0 ? (
+              data.latestSales.map((sale: any) => (
+                <View key={sale.id} style={styles.salesCard}>
+                  <View style={styles.salesRow}>
+                    <Text style={styles.salesNo}>{sale.saleNo}</Text>
+                    <Text style={styles.salesTime}>{new Date(sale.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  </View>
+                  <View style={styles.salesRow}>
+                    <Text style={styles.salesMethod}>{sale.paymentMethod === 'cash' ? 'Tunai' : 'Kredit'}</Text>
+                    <Text style={styles.salesAmount}>{formatRp(sale.totalAmount)}</Text>
+                  </View>
+                  <Text style={styles.salesItems}>{sale.itemCount} Item</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: C.mutedForeground, textAlign: 'center', marginTop: 10 }}>Belum ada transaksi hari ini</Text>
+            )}
+
+            {/* KASIR MENU */}
+            <Text style={styles.sectionTitle}>Menu Kasir</Text>
+            <View style={styles.menuGrid}>
+              <MenuItem icon="cart-outline" label="Kasir/POS" color={C.accent} onPress={() => navigation.navigate('KasirFull')} />
+              <MenuItem icon="cube-outline" label="Stok Barang" color={C.info} onPress={() => navigation.navigate('StokFull')} />
+              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
+              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
+            </View>
+          </>
+        )}
+
+        {/* ===== ANGGOTA/MEMBER DASHBOARD ===== */}
+        {!isOperator && !isKasir && data && (
           <>
             <Text style={styles.sectionTitle}>Keuangan Saya</Text>
             <View style={styles.cardRow}>
@@ -158,50 +208,40 @@ export default function DashboardScreen({ setToken }: any) {
                 ))}
               </>
             )}
-          </>
-        )}
 
-        {/* KASIR */}
-        {isKasir && data && (
-          <>
-            <Text style={styles.sectionTitle}>Ringkasan Kasir Hari Ini</Text>
-            <View style={styles.cardRow}>
-              <StatCard label="Total Penjualan" value={formatRp(data.today?.salesTotal || 0)} icon="🛒" color={C.success} subtitle={`${data.today?.salesCount || 0} transaksi`} />
+            {/* ANGGOTA MENU GRID */}
+            <Text style={styles.sectionTitle}>Menu Layanan</Text>
+            <View style={styles.menuGrid}>
+              <MenuItem icon="receipt-outline" label="Mutasi Transaksi" color={C.info} onPress={() => navigation.navigate('Main', { screen: 'Transaksi' })} />
+              <MenuItem icon="cash-outline" label="Pinjaman Saya" color={C.accent} onPress={() => navigation.navigate('Main', { screen: 'Pinjaman' })} />
+              <MenuItem icon="add-circle-outline" label="Ajukan Pinjaman" color={C.success} onPress={() => navigation.navigate('LoanApplication')} />
+              <MenuItem icon="card-outline" label="Kartu Anggota" color="#8B5CF6" onPress={() => navigation.navigate('AnggotaCard')} />
+              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
+              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
             </View>
-
-            <Text style={styles.sectionTitle}>5 Transaksi Terakhir</Text>
-            {data.latestSales && data.latestSales.length > 0 ? (
-              data.latestSales.map((sale: any) => (
-                <View key={sale.id} style={styles.salesCard}>
-                  <View style={styles.salesRow}>
-                    <Text style={styles.salesNo}>{sale.saleNo}</Text>
-                    <Text style={styles.salesTime}>{new Date(sale.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</Text>
-                  </View>
-                  <View style={styles.salesRow}>
-                    <Text style={styles.salesMethod}>{sale.paymentMethod === 'cash' ? 'Tunai' : 'Kredit'}</Text>
-                    <Text style={styles.salesAmount}>{formatRp(sale.totalAmount)}</Text>
-                  </View>
-                  <Text style={styles.salesItems}>{sale.itemCount} Item</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={{ color: C.mutedForeground, textAlign: 'center', marginTop: 10 }}>Belum ada transaksi hari ini</Text>
-            )}
           </>
         )}
 
-        {/* PENGUMUMAN */}
+        {/* PENGUMUMAN TERBARU */}
         {announcements.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>📢 Pengumuman</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+              <Text style={[styles.sectionTitle, { marginTop: 0 }]}>📢 Pengumuman Terbaru</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Pengumuman')}>
+                <Text style={{ color: C.accent, fontSize: 13, fontWeight: '600' }}>Lihat Semua</Text>
+              </TouchableOpacity>
+            </View>
             {announcements.map((a) => (
-              <View key={a.id} style={styles.announcementCard}>
+              <TouchableOpacity key={a.id} style={styles.announcementCard} onPress={() => navigation.navigate('PengumumanDetail', { item: a })}>
                 <Text style={styles.announcementTitle}>{a.title}</Text>
                 <Text style={styles.announcementContent} numberOfLines={2}>{a.content}</Text>
-                <Text style={styles.announcementDate}>
-                  {new Date(a.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </Text>
-              </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <Text style={styles.announcementDate}>
+                    {new Date(a.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={C.mutedForeground} />
+                </View>
+              </TouchableOpacity>
             ))}
           </>
         )}
@@ -211,6 +251,8 @@ export default function DashboardScreen({ setToken }: any) {
     </View>
   );
 }
+
+// ========== REUSABLE COMPONENTS ==========
 
 function StatCard({ label, value, icon, color, subtitle }: { label: string; value: string; icon: string; color: string; subtitle?: string }) {
   return (
@@ -237,30 +279,30 @@ function TodayRow({ emoji, label, amount, count, unit, color }: any) {
   );
 }
 
-function QuickAction({ icon, label, desc, onPress }: { icon: any; label: string; desc: string; onPress?: () => void }) {
+function MenuItem({ icon, label, color, onPress }: { icon: any; label: string; color: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={cs.quickAction} onPress={onPress}>
-      <View style={cs.quickIcon}>
-        <Ionicons name={icon} size={20} color={C.accent} />
+    <TouchableOpacity style={cs.menuItem} onPress={onPress} activeOpacity={0.7}>
+      <View style={[cs.menuIconWrap, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={24} color={color} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={cs.quickLabel}>{label}</Text>
-        <Text style={cs.quickDesc}>{desc}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={C.muted} />
+      <Text style={cs.menuLabel} numberOfLines={2}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
+// ========== STYLES ==========
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.primary, paddingTop: 56, paddingBottom: 24, paddingHorizontal: 24,
+    backgroundColor: C.primary, paddingTop: 52, paddingBottom: 24, paddingHorizontal: 24,
     borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
-  greeting: { color: C.mutedForeground, fontSize: 14 },
-  userName: { color: '#FFFFFF', fontSize: 24, fontWeight: 'bold', marginTop: 4 },
+  greeting: { color: '#94A3B8', fontSize: 14 },
+  userName: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginTop: 4 },
   userRole: { color: C.accent, fontSize: 13, fontWeight: '500', marginTop: 4 },
+  notifBtn: { padding: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
+  notifBadge: { position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', borderWidth: 2, borderColor: C.primary },
   scrollView: { flex: 1, paddingHorizontal: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: C.primary, marginTop: 20, marginBottom: 12 },
   cardRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
@@ -269,6 +311,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
   divider: { height: 1, backgroundColor: C.border },
+  menuGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 12,
+  },
   accountCard: {
     backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 8,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -284,7 +329,7 @@ const styles = StyleSheet.create({
   },
   announcementTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 4 },
   announcementContent: { fontSize: 13, color: C.mutedForeground, lineHeight: 20 },
-  announcementDate: { fontSize: 11, color: C.mutedForeground, marginTop: 8 },
+  announcementDate: { fontSize: 11, color: C.mutedForeground },
   salesCard: {
     backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 8,
     borderLeftWidth: 4, borderLeftColor: C.info,
@@ -310,12 +355,13 @@ const cs = StyleSheet.create({
   todayLabel: { fontSize: 14, color: C.foreground, fontWeight: '600' },
   todayValue: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
   todayCount: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
-  quickAction: {
-    backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 8,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  menuItem: {
+    width: '30%', alignItems: 'center', paddingVertical: 12,
+    backgroundColor: C.card, borderRadius: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  quickIcon: { backgroundColor: C.accentBg, padding: 10, borderRadius: 10 },
-  quickLabel: { fontSize: 14, fontWeight: '600', color: C.primary },
-  quickDesc: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
+  menuIconWrap: {
+    width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+  },
+  menuLabel: { fontSize: 11, fontWeight: '600', color: C.foreground, textAlign: 'center', paddingHorizontal: 4 },
 });

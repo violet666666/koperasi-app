@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -16,7 +17,10 @@ interface Product {
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
-export default function StokScreen() {
+export default function StokScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
+  const canGoBack = navigation.canGoBack?.() ?? false;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -58,7 +62,14 @@ export default function StokScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Persediaan Stok</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          {canGoBack && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Persediaan Stok</Text>
+        </View>
         <View style={styles.searchRow}>
           <TextInput
             style={styles.searchInput}

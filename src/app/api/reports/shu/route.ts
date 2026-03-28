@@ -4,22 +4,23 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 // AD-ART Pasal 42 — SHU Allocation for Members
 const SHU_ALLOCATIONS_MEMBER = [
-    { key: "cadangan", label: "Cadangan", percentage: 25, description: "Dana cadangan koperasi (Pasal 43)" },
-    { key: "jasa_usaha", label: "Jasa Usaha Anggota", percentage: 30, description: "Dibagi berdasar kontribusi bunga pinjaman anggota" },
-    { key: "jasa_simpanan", label: "Jasa Simpanan (Pokok & Wajib)", percentage: 20, description: "Dibagi berdasar proporsi simpanan pokok & wajib anggota" },
-    { key: "pengurus_pengawas", label: "Dana Pengurus & Pengawas", percentage: 7.5, description: "Imbalan jasa pengurus dan pengawas" },
-    { key: "kesejahteraan", label: "Dana Kesejahteraan Pegawai", percentage: 7.5, description: "Kesejahteraan pegawai/karyawan koperasi" },
-    { key: "pendidikan", label: "Dana Pendidikan Koperasi", percentage: 5, description: "Pendidikan perkoperasian anggota" },
-    { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Dana kegiatan sosial koperasi" },
+    { key: "jasa_modal", label: "Jasa Modal (Simpanan)", percentage: 25, description: "Dibagi berdasar proporsi simpanan anggota" },
+    { key: "jasa_pelayanan", label: "Jasa Pelayanan (Pinjaman)", percentage: 25, description: "Dibagi berdasar kontribusi pinjaman" },
+    { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Imbalan jasa pengurus" },
+    { key: "pegawai", label: "Dana Pegawai", percentage: 10, description: "Kesejahteraan pegawai/karyawan" },
+    { key: "pembangunan", label: "Dana Pembangunan Daerah Kerja", percentage: 10, description: "Pembangunan daerah kerja" },
+    { key: "audit", label: "Dana Audit", percentage: 10, description: "Biaya audit koperasi" },
+    { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan perkoperasian" },
+    { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Kegiatan sosial" },
 ];
 
 // AD-ART Pasal 42 — SHU Allocation for Non-Member revenue
 const SHU_ALLOCATIONS_NON_MEMBER = [
-    { key: "cadangan", label: "Dana Cadangan", percentage: 60 },
-    { key: "pendidikan1", label: "Dana Pendidikan Koperasi", percentage: 10 },
-    { key: "kesejahteraan", label: "Dana Kesejahteraan Pegawai", percentage: 10 },
-    { key: "pendidikan2", label: "Dana Pendidikan Koperasi (2)", percentage: 10 },
-    { key: "sosial", label: "Dana Sosial", percentage: 10 },
+    { key: "cadangan", label: "Dana Cadangan", percentage: 60, description: "Dana cadangan koperasi" },
+    { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Imbalan jasa pengurus" },
+    { key: "pegawai", label: "Dana Pegawai", percentage: 10, description: "Kesejahteraan pegawai/karyawan" },
+    { key: "pendidikan1", label: "Dana Pendidikan", percentage: 10, description: "Dana Pendidikan Koperasi" },
+    { key: "sosial", label: "Dana Sosial", percentage: 10, description: "Dana Sosial Koperasi" },
 ];
 
 function toNum(d: Decimal | number): number {
@@ -82,19 +83,32 @@ export async function GET(request: Request) {
         const netIncome = totalIncome - totalExpense; // This is the SHU
 
         // 2. Calculate allocations per AD-ART Pasal 42
-        const allocations = SHU_ALLOCATIONS_MEMBER.map((alloc) => ({
+        // Default assumption: 80% income from members, 20% from non-members for display purposes
+        // Real implementation should split Net Income based on exact Journal types
+        const memberNetIncome = Math.round(netIncome * 0.8);
+        const nonMemberNetIncome = Math.round(netIncome * 0.2);
+
+        const allocationsMember = SHU_ALLOCATIONS_MEMBER.map((alloc) => ({
             category: alloc.label,
             percentage: alloc.percentage,
-            amount: Math.round((netIncome * alloc.percentage) / 100),
+            amount: Math.round((memberNetIncome * alloc.percentage) / 100),
+            description: alloc.description,
+            key: alloc.key,
+        }));
+
+        const allocationsNonMember = SHU_ALLOCATIONS_NON_MEMBER.map((alloc) => ({
+            category: alloc.label,
+            percentage: alloc.percentage,
+            amount: Math.round((nonMemberNetIncome * alloc.percentage) / 100),
             description: alloc.description,
             key: alloc.key,
         }));
 
         // 3. Calculate per-member SHU
-        // jasa_simpanan (20%) — proportional to simpanan pokok + wajib balance
-        // jasa_usaha (30%) — proportional to loan interest paid during the year
-        const jasaSimpananPool = Math.round((netIncome * 20) / 100);
-        const jasaUsahaPool = Math.round((netIncome * 30) / 100);
+        // Jasa Modal (25%) — proportional to simpanan pokok + wajib balance
+        // Jasa Pelayanan (25%) — proportional to loan interest paid/admin fee paid
+        const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
+        const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
 
         // Get active members with their savings and loan data
         const members = await prisma.member.findMany({
@@ -169,8 +183,11 @@ export async function GET(request: Request) {
             period: String(year),
             totalIncome,
             totalExpense,
-            memberSharePercent: 50, // 30% jasa usaha + 20% jasa simpanan
-            allocations,
+            memberNetIncome,
+            nonMemberNetIncome,
+            memberSharePercent: 50, // 25% jasa usaha + 25% jasa simpanan
+            allocationsMember,
+            allocationsNonMember,
             memberShu: memberShu.sort((a, b) => b.shuShare - a.shuShare),
         };
 

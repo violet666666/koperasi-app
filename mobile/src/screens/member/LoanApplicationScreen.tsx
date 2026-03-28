@@ -12,6 +12,7 @@ interface Product {
   code: string;
   name: string;
   interestRate: number;
+  adminFee: number;
   maxAmount: number;
   maxTenor: number;
 }
@@ -43,8 +44,14 @@ export default function LoanApplicationScreen({ navigation }: any) {
     const amt = parseFloat(amount);
     const tnr = parseInt(tenor);
     if (!amt || !tnr) return 0;
-    const interest = (amt * selectedProduct.interestRate) / 100;
-    return Math.round(amt / tnr + interest);
+    return Math.round(amt / tnr); // Pokok saja, tanpa bunga per bulan
+  };
+
+  const adminFee = () => {
+    if (!amount) return 0;
+    const amt = parseFloat(amount);
+    if (!amt) return 0;
+    return Math.round(amt * 0.01); // 1% admin fee
   };
 
   const handleSubmit = async () => {
@@ -73,7 +80,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
     Alert.alert(
       'Konfirmasi Pengajuan',
-      `Pinjaman ${selectedProduct.name}\nJumlah: ${formatRp(amt)}\nTenor: ${tnr} bulan\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
+      `Pinjaman ${selectedProduct.name}\nJumlah: ${formatRp(amt)}\nTenor: ${tnr} bulan\nBiaya Jasa (1%): ${formatRp(adminFee())}\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -125,8 +132,8 @@ export default function LoanApplicationScreen({ navigation }: any) {
                 <Text style={[styles.productName, selectedProduct?.id === p.id && { color: C.accent }]}>
                   {p.name}
                 </Text>
-                <Text style={styles.productInfo}>Bunga {p.interestRate}% • Maks {formatRp(p.maxAmount)}</Text>
-                <Text style={styles.productInfo}>Tenor maks {p.maxTenor} bulan</Text>
+                <Text style={styles.productInfo}>Bunga 0% • Biaya Jasa 1%</Text>
+                <Text style={styles.productInfo}>Plafon maks {formatRp(p.maxAmount)} • Tenor {p.maxTenor} bulan</Text>
               </TouchableOpacity>
             ))}
             {products.length === 0 && <Text style={styles.emptyText}>Memuat produk pinjaman...</Text>}
@@ -171,7 +178,9 @@ export default function LoanApplicationScreen({ navigation }: any) {
               <Text style={styles.previewTitle}>Estimasi Angsuran</Text>
               <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())} / bulan</Text>
               <Text style={styles.previewNote}>
-                Pokok: {formatRp(Math.round(parseFloat(amount || '0') / parseInt(tenor || '1')))} + Bunga: {formatRp(Math.round(parseFloat(amount || '0') * (selectedProduct.interestRate / 100)))}
+                Angsuran Pokok Saja (Bunga 0%)
+                {'\n'}
+                Terpotong biaya jasa admin 1%: {formatRp(adminFee())}
               </Text>
             </View>
           )}

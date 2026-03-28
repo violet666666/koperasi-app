@@ -23,15 +23,15 @@ export async function POST(request: Request, { params }: Params) {
         }
 
         const product = application.product;
-        // Bunga Pinjaman calculation (Flat) -> Rate is Year. Monthly = Rate / 12
+        // Bunga Pinjaman dihapus (0%) sesuai kebijakan Koperasi Primkoppol Lumajang
         const principalAmount = Number(application.amount);
         const tenorMonths = application.tenorMonths;
-        const interestRate = Number(product.interestRate); // e.g. 3.6 yearly
+        const interestRate = 0; // Fixed 0%
         
-        const totalInterest = Math.round(principalAmount * (interestRate / 100) * (tenorMonths / 12));
-        const totalAmount = principalAmount + totalInterest;
-        const monthlyInstallment = Math.round(totalAmount / tenorMonths);
-        const adminFee = Math.round(principalAmount * (Number(product.adminFeeValue) / 100)); // percent admin fee
+        const totalInterest = 0;
+        const totalAmount = principalAmount;
+        const monthlyInstallment = Math.round(principalAmount / tenorMonths);
+        const adminFee = Math.round(principalAmount * 0.01); // Biaya jasa 1% dari total pinjaman
 
         // Transaction Block for Disbursement
         const result = await prisma.$transaction(async (tx) => {

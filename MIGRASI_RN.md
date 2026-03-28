@@ -226,12 +226,11 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **Backend API**: `/api/mobile/reports/savings` (Rekapitulasi total produk simpanan, setoran & tarikan per-periode)
 - [x] **Backend API**: `/api/mobile/reports/loans` (Rekapitulasi total dicairkan, status bayar, outstanding, kolektibilitas per-periode)
 - [x] **Screen Operator**: `LaporanSimpananScreen` (Menampilkan indikator finansial koperasi & tabel rekap produk simpanan)
-- [x] **Screen Operator**: `LaporanPinjamanScreen` (Menampilkan indikator pinjaman & collectibility bar)
-- [x] **KasirScreen**: Menyuntikkan fungsi cetak *Thermal Printer* (`expo-print`) sesudah pembayaran POS sukses.
-- [x] **Push Notifications**: Menyiapkan modul FCM + Request Permissions (`expo-notifications` + `expo-device`).
-- [ ] **Export PDF/Excel (Mobile)**: Membuat fitur "Share as PDF" untuk laporan Simpanan & Pinjaman (Menggunakan `expo-print` & `expo-sharing`).
-- [ ] **UI Refactor (NativeWind)**: Migrasi dari `StyleSheet.create` ke NativeWind (Tailwind CSS) untuk kemudahan maintenance desain.
-- [ ] **Biometric Login**: Opsional — integrasi Fingerprint/FaceID login.
+- [x] **Backend API**: `/api/mobile/push-token` (Menyimpan Expo Push Token anggota ke tabel database user untuk notifikasi).
+- [x] **Export PDF/Excel (Mobile)**: Membuat fitur "Share as PDF" untuk laporan Simpanan & Laporan Pinjaman (Menggunakan `expo-print` & `expo-sharing`).
+- [x] **Typing Refactor**: Update interface `MobileJWTPayload` di backend supaya TypeScript mengenali properti `branchId` dan `isOperator` agar tidak ada linter bypass.
+- [-] **UI Refactor (NativeWind)**: Migrasi bertahap dari `StyleSheet.create` ke NativeWind (Tailwind CSS). *(Ditunda, UI StyleSheet difinalisasi).*
+- [-] **Biometric Login**: Fitur opsional penyematan verifikasi Fingerprint/FaceID. *(Diskip sesuai permintaan).*
 
 ### Fase 4c — Audit Hardcode & Quality Assurance
 
@@ -256,7 +255,28 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **Backend API**: Fixed tipe audit logger module dari `"AuthMobile"` menjadi `"Auth"` pada login dan change-password.
 - [x] **Frontend Mobile**: Restrukturisasi try-catch bertingkat di `DashboardScreen.tsx` agar setiap request ditangani terpisah log-nya.
 - [x] **Frontend Mobile**: Menghapus duplikasi import `C` di `PengumumanScreen.tsx` hasil dari script sebelumnya.
-- [x] **Quality Assurance**: 100% lulus kompilasi `npx tsc --noEmit` tanpa error TypeScript.
+### Fase 4e — Overhaul UX & Kelengkapan Fitur Mobile
+
+- [x] **LoginScreen**: Tambah Show/Hide Password toggle (icon mata), redesign UI dengan branding PRIMKOPPOL dan input icon.
+- [x] **Splash Screen**: Implementasi splash screen native saat buka aplikasi (logo PRIMKOPPOL + animasi loading).
+- [x] **app.json**: Update nama aplikasi "Koperasi Primkoppol", splash background navy `#1A2A44`, package identifier.
+- [x] **Back Button**: Tambah tombol kembali (arrow-back) ke **semua screen** yang sebelumnya tidak memilikinya:
+  - ApprovalScreen, MemberListScreen, KasirScreen, StokScreen
+  - LaporanSimpananScreen, LaporanPinjamanScreen
+  - PengumumanScreen (conditional, hanya muncul saat diakses dari Stack, tidak di Tab)
+- [x] **DashboardScreen**: Overhaul total — grid menu navigasi lengkap untuk setiap role:
+  - **Anggota**: Mutasi Transaksi, Pinjaman Saya, Ajukan Pinjaman, Kartu Anggota, Pengumuman, Ganti Password
+  - **Operator**: Approval, Anggota, Transaksi Simpanan, Input Angsuran, Laporan Pinjaman/Simpanan, Pengumuman, Ganti Password
+  - **Kasir**: Kasir/POS, Stok Barang, Pengumuman, Ganti Password
+- [x] **Fix Navigasi Broken**: Error `NAVIGATE 'Member'` dihilangkan, diganti route yang benar ke `MemberListFull`.
+- [x] **Notification Bell**: Tombol notifikasi (lonceng) di header Dashboard mengarah ke halaman Pengumuman.
+- [x] **Pengumuman Clickable**: Setiap pengumuman di Dashboard bisa di-tap untuk melihat detail lengkap.
+- [x] **PengumumanDetailScreen** [NEW]: Halaman full-page untuk baca pengumuman (kategori badge, penulis, tanggal, isi lengkap).
+- [x] **MemberDetailScreen** [NEW]: Detail profil anggota lengkap (NRP, email, telepon, satker, kategori, gaji, tunkin, simpanan, pinjaman).
+- [x] **AnggotaCardScreen** [NEW]: Kartu anggota digital premium (info NRP, nama, role, simpanan, pinjaman aktif).
+- [x] **MemberListScreen**: Tambah tombol "Detail" per-anggota untuk navigasi ke MemberDetailScreen.
+- [x] **Backend API**: Endpoint baru `GET /api/mobile/members/[id]` untuk detail anggota.
+- [x] **App.tsx**: Registrasi seluruh screen baru ke Stack Navigator (PengumumanDetail, MemberDetail, AnggotaCard, dll).
 
 ### Catatan Fitur Web yang Tidak Dimobilkan (By Design)
 
@@ -272,7 +292,6 @@ Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akunta
 | Master Data (Cabang, COA, Mapping, dll) | Pengaturan admin, 1x setup |
 | User Management | Pengaturan admin |
 | Audit Log | Read-only monitoring |
-| Kartu/Buku Anggota | Fitur cetak fisik |
 | Pengumuman CRUD | Mobile hanya read, buat/edit via web |
 
 ---

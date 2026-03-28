@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import C from '../../lib/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 
 interface Announcement {
@@ -18,7 +19,9 @@ const categoryIcon: Record<string, string> = {
   info: 'ℹ️', event: '📅', policy: '📋', promo: '🎁',
 };
 
-export default function PengumumanScreen() {
+export default function PengumumanScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,12 +66,23 @@ export default function PengumumanScreen() {
     </TouchableOpacity>
   );
 
+  const canGoBack = navigation.canGoBack?.() ?? false;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📢 Pengumuman</Text>
-        <Text style={styles.headerSub}>Informasi & berita koperasi terbaru</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {canGoBack && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.headerTitle}>📢 Pengumuman</Text>
+            <Text style={styles.headerSub}>Informasi & berita koperasi terbaru</Text>
+          </View>
+        </View>
       </View>
 
       {loading ? (

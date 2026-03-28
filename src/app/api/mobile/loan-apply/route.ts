@@ -19,10 +19,11 @@ export async function GET(request: Request) {
                 id: p.id,
                 code: p.code,
                 name: p.name,
-                interestRate: Number(p.interestRate),
+                interestRate: 0, // 0% per kebijakan Koperasi Primkoppol Lumajang
+                adminFee: 1, // 1%
                 maxAmount: Number(p.maxAmount),
                 maxTenor: p.maxTenorMonths || 12,
-                description: "", // Schema does not have description, returning empty string
+                description: "Biaya jasa admin pemotongan sebesar 1% di awal.",
             })),
         });
     } catch (error) {
@@ -95,11 +96,10 @@ export async function POST(request: Request) {
             );
         }
 
-        // Hitung angsuran per bulan (flat)
-        const interestRate = Number(product.interestRate);
-        const monthlyInterest = (amount * interestRate) / 100;
+        // Hitung angsuran per bulan (Pokok saja) & Biaya Administrasi
+        const adminFee = amount * 0.01; // Biaya jasa 1%
         const monthlyPrincipal = amount / tenor;
-        const monthlyInstallment = monthlyPrincipal + monthlyInterest;
+        const monthlyInstallment = monthlyPrincipal;
 
         // Buat aplikasi pinjaman
         const appPrefix = "APP-MOBILE-";

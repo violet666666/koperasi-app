@@ -35,7 +35,7 @@ export default function TambahAnggotaPage() {
         phone: "",
         email: "",
         category: "",
-        branch_id: "",
+        branch_id: "1",
         join_date: new Date().toISOString().split("T")[0],
     });
 
@@ -185,26 +185,6 @@ export default function TambahAnggotaPage() {
                         <CardTitle className="text-lg">Keanggotaan</CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <Label htmlFor="branch_id">Cabang *</Label>
-                            <Select
-                                value={formData.branch_id}
-                                onValueChange={(value) => handleSelectChange("branch_id", value)}
-                                required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih cabang" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="1">Kantor Pusat</SelectItem>
-                                    <SelectItem value="2">Cabang Jakarta</SelectItem>
-                                    <SelectItem value="3">Cabang Surabaya</SelectItem>
-                                    <SelectItem value="4">Cabang Bandung</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
                             <Label htmlFor="join_date">Tanggal Bergabung *</Label>
                             <Popover>
                                 <PopoverTrigger asChild>

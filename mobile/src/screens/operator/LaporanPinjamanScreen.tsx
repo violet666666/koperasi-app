@@ -1,12 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, StatusBar, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
-export default function LaporanPinjamanScreen() {
+export default function LaporanPinjamanScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
   const [data, setData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -27,13 +32,98 @@ export default function LaporanPinjamanScreen() {
     setRefreshing(false);
   };
 
+  const exportPDF = async () => {
+    if (!data) return;
+    try {
+      const html = `
+        <html>
+          <body style="font-family: Helvetica, Arial, sans-serif; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="margin: 0; color: #1A2A44;">KOPERASI PRIMKOPPOL</h2>
+              <p style="margin: 5px 0;">Laporan Agregasi Pinjaman</p>
+              <hr style="border: 1px solid #D4AF37; margin-top: 10px;" />
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;"><b>Kolektibilitas Rasio</b></td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-size: 18px; color: ${data.avgCollectibility >= 90 ? 'green' : 'red'};"><b>${data.avgCollectibility || 0}%</b></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;">Total Pinjaman Beredar</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${data.totalLoans || 0}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;">Total Dana Dicairkan</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: blue;">${formatRp(data.totalDisbursed || 0)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;">Dana Sudah Dibayar</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: green;">${formatRp(data.totalPaid || 0)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9;">Total Sisa Outstanding</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: red;"><b>${formatRp(data.totalOutstanding || 0)}</b></td>
+              </tr>
+            </table>
+
+            <h3 style="color: #1A2A44;">Rincian Produk Pinjaman Aktif</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: #1A2A44; color: white;">
+                  <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Produk</th>
+                  <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Bunga</th>
+                  <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Total Cair</th>
+                  <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Outstanding</th>
+                  <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Kolektibilitas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.products?.map((item: any) => `
+                  <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><b>${item.productCode}</b><br/><small>${item.productName}</small></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.interestRate}%</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatRp(item.totalDisbursed)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: red;">${formatRp(item.totalOutstanding)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; color: ${item.collectibilityRatio >= 90 ? 'green' : 'red'};">${item.collectibilityRatio}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <p style="text-align: right; margin-top: 30px; font-size: 12px; color: #666;">
+              Dicetak pada: ${new Date().toLocaleString('id-ID')}
+            </p>
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (err) {
+      Alert.alert('Gagal', 'Terjadi kesalahan saat memproses laporan PDF');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📊 Rekap Pinjaman</Text>
-        <Text style={styles.headerSubtitle}>Laporan Agregasi Produk Pinjaman</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>📊 Rekap Pinjaman</Text>
+              <Text style={styles.headerSubtitle}>Laporan Agregasi Produk Pinjaman</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={exportPDF} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 }}>
+            <Ionicons name="print" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView

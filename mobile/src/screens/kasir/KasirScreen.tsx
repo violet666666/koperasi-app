@@ -4,6 +4,7 @@ import {
   TextInput, TouchableOpacity, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 import api from '../../lib/api';
@@ -14,7 +15,10 @@ interface CartItem { product: Product; quantity: number; }
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
-export default function KasirScreen() {
+export default function KasirScreen({ navigation: navProp }: any) {
+  const navHook = useNavigation<any>();
+  const navigation = navProp || navHook;
+  const canGoBack = navigation.canGoBack?.() ?? false;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -163,7 +167,14 @@ export default function KasirScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={C.primary} />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>🛒 Kasir POS</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            {canGoBack && (
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle}>🛒 Kasir POS</Text>
+          </View>
           <View style={styles.searchRow}>
             <TextInput
               style={styles.searchInput}

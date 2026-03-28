@@ -11,20 +11,29 @@ import Constants from 'expo-constants';
  * Jika hostUri tidak tersedia (misalnya di standalone build), fallback ke production URL.
  */
 function getBaseUrl(): string {
-  // Jika sudah di production build (bukan Expo Go), gunakan domain
+  // ==========================================================
+  // 🔴 PENTING UNTUK BUILD APK: 
+  // Jika Anda membuild APK untuk dipakai di HP lain, ubah 'MANUAL_URL' di bawah ini menjadi IP Wi-Fi laptop Anda (contoh: 'http://192.168.1.15:3000') 
+  // Atau tempel link NGROK Anda (contoh: 'https://xxx.ngrok.app').
+  // ==========================================================
+  const MANUAL_URL = ''; // CONTOH: 'http://192.168.1.5:3000'
+
+  if (MANUAL_URL) return MANUAL_URL;
+
+  // Jika sudah di production build (bukan Expo Go), gunakan domain remote
   const isProduction = !__DEV__;
   if (isProduction) {
     return 'https://www.primkoppol.online';
   }
 
-  // Development: ambil IP laptop dari Expo debugger
+  // Development (Di Expo Go): otomatis detect IP laptop
   const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
   if (debuggerHost) {
     const ip = debuggerHost.split(':')[0];
     return `http://${ip}:3000`;
   }
 
-  // Fallback jika tidak bisa detect
+  // Fallback default
   return 'http://192.168.1.9:3000';
 }
 
