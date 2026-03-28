@@ -69,7 +69,8 @@ export async function POST(request: Request) {
         });
 
         const results: any[] = [];
-        const upserts: any[] = [];
+        const upsertMap = new Map<string, any>();
+        const resultMap = new Map<string, any>();
         let successCount = 0;
         let failCount = 0;
 
@@ -111,50 +112,55 @@ export async function POST(request: Request) {
             }
 
             if (mode === "commit") {
-                upserts.push(
-                    prisma.storeProduct.upsert({
-                        where: { sku },
-                        update: {
-                            name,
-                            category,
-                            costPrice,
-                            sellPrice,
-                            stock,
-                            stockGdg,
-                            stockToko,
-                            unit
-                        },
-                        create: {
-                            sku,
-                            name,
-                            category,
-                            costPrice,
-                            sellPrice,
-                            stock,
-                            stockGdg,
-                            stockToko,
-                            unit,
-                            minStock: Math.max(Math.ceil(stock * 0.1), 5)
-                        }
-                    })
-                );
+                upsertMap.set(sku, prisma.storeProduct.upsert({
+                    where: { sku },
+                    update: {
+                        name,
+                        category,
+                        costPrice,
+                        sellPrice,
+                        stock,
+                        stockGdg,
+                        stockToko,
+                        unit
+                    },
+                    create: {
+                        sku,
+                        name,
+                        category,
+                        costPrice,
+                        sellPrice,
+                        stock,
+                        stockGdg,
+                        stockToko,
+                        unit,
+                        minStock: Math.max(Math.ceil(stock * 0.1), 5)
+                    }
+                }));
             }
 
-            results.push({
+            // Keep the last valid status per SKU for preview accuracy
+            if (!resultMap.has(sku)) {
+                successCount++;
+            }
+            resultMap.set(sku, {
                 row: i + 2, sku, name, category, stockGdg, stockToko, stock, unit, sellPrice, costPrice,
                 isNew, status: 'valid', reason: null,
                 currentStock: existing ? existing.stock : null,
                 currentSellPrice: existing ? Number(existing.sellPrice) : null
             });
-            successCount++;
         }
+        
+        const finalResults = Array.from(resultMap.values());
+        results.push(...finalResults);
 
-        if (mode === "commit" && upserts.length > 0) {
-            // Proses query secara batch (masing-masing 300 row per transaksi) untuk menghindari timeout
-            const BATCH_SIZE = 300;
+        if (mode === "commit" && upsertMap.size > 0) {
+            // Run exactly one promise per unique SKU, in batches of 50
+            const upserts = Array.from(upsertMap.values());
+            const BATCH_SIZE = 50;
             for (let i = 0; i < upserts.length; i += BATCH_SIZE) {
                 const batch = upserts.slice(i, i + BATCH_SIZE);
-                await prisma.$transaction(batch);
+                await Promise.all(batch);
             }
         }
 
@@ -167,7 +173,7 @@ export async function POST(request: Request) {
                     ...userInfo, ...reqInfo,
                     action: "IMPORT", module: "Toko",
                     description: `Import produk toko: ${successCount} berhasil, ${failCount} gagal`,
-                    newData: { mode, totalRows: dataRows.length, success: successCount, failed: failCount },
+                    newData: { mode, totalRows: finalResults.length, success: successCount, failed: failCount },
                 });
             }
         } catch (e) { /* silent fail for audit */ }
