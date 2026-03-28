@@ -23,7 +23,7 @@ export async function POST(request: Request) {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" }) as string[][];
+        let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
 
         // Filter out empty rows
         rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
@@ -78,8 +78,10 @@ export async function POST(request: Request) {
             const row = dataRows[i];
             if (row.length === 0) continue;
 
-            const sku = row[kodeIdx] ? String(row[kodeIdx]).trim() : '';
-            const name = row[namaIdx] ? String(row[namaIdx]).trim() : '';
+            const skuVal = row[kodeIdx];
+            const nameVal = row[namaIdx];
+            const sku = skuVal !== undefined && skuVal !== null ? String(skuVal).trim() : '';
+            const name = nameVal !== undefined && nameVal !== null ? String(nameVal).trim() : '';
             
             if (!sku || !name || name.toUpperCase() === 'NAMA BARANG') continue;
 
@@ -111,38 +113,31 @@ export async function POST(request: Request) {
                 sellPrice = Number(existing.sellPrice);
             }
 
+            if (resultMap.has(sku)) {
+                results.push({
+                    row: i + 2, sku, name, category, stockGdg, stockToko, stock, unit, sellPrice, costPrice,
+                    isNew, status: 'error', reason: 'SKU Ganda/Duplikat di dalam file Excel',
+                    currentStock: null,
+                    currentSellPrice: null
+                });
+                failCount++;
+                continue;
+            }
+
             if (mode === "commit") {
                 upsertMap.set(sku, prisma.storeProduct.upsert({
                     where: { sku },
                     update: {
-                        name,
-                        category,
-                        costPrice,
-                        sellPrice,
-                        stock,
-                        stockGdg,
-                        stockToko,
-                        unit
+                        name, category, costPrice, sellPrice, stock, stockGdg, stockToko, unit
                     },
                     create: {
-                        sku,
-                        name,
-                        category,
-                        costPrice,
-                        sellPrice,
-                        stock,
-                        stockGdg,
-                        stockToko,
-                        unit,
+                        sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, unit,
                         minStock: Math.max(Math.ceil(stock * 0.1), 5)
                     }
                 }));
             }
 
-            // Keep the last valid status per SKU for preview accuracy
-            if (!resultMap.has(sku)) {
-                successCount++;
-            }
+            successCount++;
             resultMap.set(sku, {
                 row: i + 2, sku, name, category, stockGdg, stockToko, stock, unit, sellPrice, costPrice,
                 isNew, status: 'valid', reason: null,
