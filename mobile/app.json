@@ -4,7 +4,7 @@
     "slug": "koperasi-primkoppol",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/LogoPrimkoppol.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/LogoPrimkoppol.png",
@@ -18,8 +18,9 @@
     "android": {
       "package": "com.primkoppol.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#1A2A44",
-        "foregroundImage": "./assets/LogoPrimkoppol.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -27,12 +28,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "3db40b2b-1d5f-4362-a61a-cacdaf712cd5"
       }
-    }
+    },
+    "owner": "violet666"
   }
 }

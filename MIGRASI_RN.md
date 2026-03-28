@@ -278,6 +278,19 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **Backend API**: Endpoint baru `GET /api/mobile/members/[id]` untuk detail anggota.
 - [x] **App.tsx**: Registrasi seluruh screen baru ke Stack Navigator (PengumumanDetail, MemberDetail, AnggotaCard, dll).
 
+### Fase 4f — Splash Screen Overhaul, Login UX & Ekspansi Fitur Operator
+
+- [x] **Splash Screen**: Ganti ikon `Ionicons shield` → gambar logo `LogoPrimkoppol.png` asli berukuran 300×300 tanpa container putih, tampil langsung di atas background navy `#1A2A44`.
+- [x] **LoginScreen**: Perbesar logo dari 100×100 → 300×300 (3× lipat), tambah `textAlign: 'center'` eksplisit pada teks "PRIMKOPPOL LUMAJANG", wrap konten ke `ScrollView` agar tidak overflow di layar kecil.
+- [x] **LoginScreen — Remember Me**: Tambah checkbox "Ingat NRP / Email saya". Jika dicentang, `identifier` disimpan ke `SecureStore` dengan key `rememberedIdentifier` dan di-restore otomatis saat aplikasi dibuka kembali.
+- [x] **Backend API**: `GET /api/mobile/loans-operator` — daftar semua pinjaman (semua anggota) untuk operator, support filter `status` (all/active/overdue/paid), pencarian `search` (nama/NRP/No. Anggota), pagination, dan ringkasan summary per-status. Tipe-safe dengan `Prisma.LoanWhereInput`.
+- [x] **Backend API**: `GET /api/mobile/savings-accounts` — daftar semua rekening simpanan aktif (semua anggota) untuk operator, support pencarian, pagination, agregat total saldo, dan ringkasan per-produk simpanan. Tipe-safe dengan `Prisma.SavingsAccountWhereInput`.
+- [x] **Screen Operator**: `DaftarPinjamanScreen` [NEW] — Daftar semua pinjaman dengan tab filter (Semua/Aktif/Menunggak/Lunas), search bar, progress bar pelunasan, info cicilan/bulan, dan tombol "Input Angsuran" langsung dari list.
+- [x] **Screen Operator**: `RekeningListScreen` [NEW] — Daftar seluruh rekening simpanan anggota, summary card total saldo + rekap per-produk, search, pagination load-more, tombol "Setor / Tarik" per rekening yang navigasi ke `SavingsTransactionScreen`.
+- [x] **Screen Operator**: `ProfilKoperasiScreen` [NEW] — Halaman informasi koperasi: hero card dengan logo, stats (anggota/simpanan/usia), seksi identitas (No. BH, NPWP, tanggal berdiri), alamat, kontak (telepon/email/website dapat di-tap untuk Linking), dan deskripsi koperasi. Data realtime dari `/api/mobile/summary`.
+- [x] **DashboardScreen Operator**: Menu utama diperluas dan dibagi dua seksi — "Transaksi & Anggota" (Approval, Anggota, Rekening Simpanan, Input Angsuran, Daftar Pinjaman, Profil Koperasi) dan "Laporan & Pengaturan" (Laporan Pinjaman, Laporan Simpanan, Pengumuman, Ganti Password). Total menu operator naik dari 8 → 10 item.
+- [x] **App.tsx**: Registrasi tiga screen baru ke Stack Navigator: `DaftarPinjaman`, `RekeningList`, `ProfilKoperasi`.
+
 ### Catatan Fitur Web yang Tidak Dimobilkan (By Design)
 
 Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akuntansi berat yang lebih cocok dikerjakan di desktop/laptop:
@@ -296,4 +309,4 @@ Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akunta
 
 ---
 
-*Dokumen Master Plan & Tracking ini terakhir diperbarui pada **28 Maret 2026**.*
+*Dokumen Master Plan & Tracking ini terakhir diperbarui pada **29 Maret 2026**.*

@@ -1,13 +1,21 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, StatusBar, TouchableOpacity } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { registerForPushNotificationsAsync } from '../../lib/notifications';
-import api from '../../lib/api';
-import C from '../../lib/colors';
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  StatusBar,
+  TouchableOpacity,
+} from "react-native";
+import * as SecureStore from "expo-secure-store";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { registerForPushNotificationsAsync } from "../../lib/notifications";
+import api from "../../lib/api";
+import C from "../../lib/colors";
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
+const formatRp = (n: number) => "Rp " + (n || 0).toLocaleString("id-ID");
 
 export default function DashboardScreen({ setToken }: any) {
   const navigation = useNavigation<any>();
@@ -19,17 +27,17 @@ export default function DashboardScreen({ setToken }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const userData = await SecureStore.getItemAsync('userData');
+      const userData = await SecureStore.getItemAsync("userData");
       if (userData) setUser(JSON.parse(userData));
     } catch (err) {
-      console.log('Error reading user data:', err);
+      console.log("Error reading user data:", err);
     }
 
     try {
-      const summaryRes = await api.get('/api/mobile/summary');
+      const summaryRes = await api.get("/api/mobile/summary");
       const d = summaryRes.data.data;
       setData(d);
-      if (d.type === 'operator' && d.today) {
+      if (d.type === "operator" && d.today) {
         setDashStats({
           totalSavings: d.stats.totalSavings,
           totalLoansOutstanding: d.stats.totalLoansOutstanding,
@@ -47,24 +55,28 @@ export default function DashboardScreen({ setToken }: any) {
         });
       }
     } catch (err: any) {
-      console.log('Dashboard fetch error:', err?.response?.status, err?.response?.data?.message || err?.message);
+      console.log(
+        "Dashboard fetch error:",
+        err?.response?.status,
+        err?.response?.data?.message || err?.message,
+      );
       if (err.response?.status === 401) {
-        await SecureStore.deleteItemAsync('userToken');
+        await SecureStore.deleteItemAsync("userToken");
         setToken(null);
         return;
       }
     }
 
     try {
-      const annRes = await api.get('/api/mobile/pengumuman?limit=3');
+      const annRes = await api.get("/api/mobile/pengumuman?limit=3");
       setAnnouncements(annRes.data.data || []);
     } catch (err) {
-      console.log('Pengumuman fetch error:', err);
+      console.log("Pengumuman fetch error:", err);
     }
   }, [setToken]);
 
-  useEffect(() => { 
-    loadData(); 
+  useEffect(() => {
+    loadData();
     registerForPushNotificationsAsync();
   }, [loadData]);
 
@@ -74,22 +86,32 @@ export default function DashboardScreen({ setToken }: any) {
     setRefreshing(false);
   };
 
-  const isOperator = data?.type === 'operator';
-  const isKasir = data?.type === 'kasir';
+  const isOperator = data?.type === "operator";
+  const isKasir = data?.type === "kasir";
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>Selamat Datang,</Text>
-            <Text style={styles.userName}>{data?.user?.name || user?.name || 'Pengguna'}</Text>
-            <Text style={styles.userRole}>{data?.user?.roleDisplayName || user?.roleDisplayName || ''}</Text>
+            <Text style={styles.userName}>
+              {data?.user?.name || user?.name || "Pengguna"}
+            </Text>
+            <Text style={styles.userRole}>
+              {data?.user?.roleDisplayName || user?.roleDisplayName || ""}
+            </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.notifBtn} 
-            onPress={() => navigation.navigate('Pengumuman')}
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => navigation.navigate("Pengumuman")}
           >
             <Ionicons name="notifications-outline" size={24} color="#FFF" />
             {announcements.length > 0 && <View style={styles.notifBadge} />}
@@ -99,7 +121,13 @@ export default function DashboardScreen({ setToken }: any) {
 
       <ScrollView
         style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[C.accent]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* ===== OPERATOR DASHBOARD ===== */}
@@ -107,38 +135,148 @@ export default function DashboardScreen({ setToken }: any) {
           <>
             <Text style={styles.sectionTitle}>Ringkasan Koperasi</Text>
             <View style={styles.cardRow}>
-              <StatCard label="Total Anggota" value={String(dashStats?.activeMembers ?? '...')} icon="👥" color={C.info} />
-              <StatCard label="Total Simpanan" value={dashStats ? formatRp(dashStats.totalSavings) : '...'} icon="💰" color={C.success} />
+              <StatCard
+                label="Total Anggota"
+                value={String(dashStats?.activeMembers ?? "...")}
+                icon="👥"
+                color={C.info}
+              />
+              <StatCard
+                label="Total Simpanan"
+                value={dashStats ? formatRp(dashStats.totalSavings) : "..."}
+                icon="💰"
+                color={C.success}
+              />
             </View>
             <View style={styles.cardRow}>
-              <StatCard label="Pinjaman Aktif" value={dashStats ? formatRp(dashStats.totalLoansOutstanding) : '...'} icon="💳" color={C.accent} />
-              <StatCard label="Tunggakan" value={dashStats ? formatRp(dashStats.totalArrears) : '...'} icon="⚠️" color={C.destructive} />
+              <StatCard
+                label="Pinjaman Aktif"
+                value={
+                  dashStats ? formatRp(dashStats.totalLoansOutstanding) : "..."
+                }
+                icon="💳"
+                color={C.accent}
+              />
+              <StatCard
+                label="Tunggakan"
+                value={dashStats ? formatRp(dashStats.totalArrears) : "..."}
+                icon="⚠️"
+                color={C.destructive}
+              />
             </View>
             <View style={styles.cardRow}>
-              <StatCard label="Total Tunkin" value={dashStats ? formatRp(dashStats.totalTunkin) : '...'} icon="🏅" color={C.secondary} subtitle={`${dashStats?.membersWithTunkin ?? 0} anggota`} />
-              <StatCard label="Pending Approval" value={String(dashStats?.pendingApprovals ?? 0)} icon="📋" color={C.warning} />
+              <StatCard
+                label="Total Tunkin"
+                value={dashStats ? formatRp(dashStats.totalTunkin) : "..."}
+                icon="🏅"
+                color={C.secondary}
+                subtitle={`${dashStats?.membersWithTunkin ?? 0} anggota`}
+              />
+              <StatCard
+                label="Pending Approval"
+                value={String(dashStats?.pendingApprovals ?? 0)}
+                icon="📋"
+                color={C.warning}
+              />
             </View>
 
             <Text style={styles.sectionTitle}>Aktivitas Hari Ini</Text>
             <View style={styles.todayCard}>
-              <TodayRow emoji="💰" label="Simpanan Masuk" amount={dashStats?.todayDeposits ?? 0} count={dashStats?.todayDepositsCount ?? 0} unit="transaksi" color={C.success} />
+              <TodayRow
+                emoji="💰"
+                label="Simpanan Masuk"
+                amount={dashStats?.todayDeposits ?? 0}
+                count={dashStats?.todayDepositsCount ?? 0}
+                unit="transaksi"
+                color={C.success}
+              />
               <View style={styles.divider} />
-              <TodayRow emoji="📤" label="Pencairan" amount={dashStats?.todayWithdrawals ?? 0} count={dashStats?.todayWithdrawalsCount ?? 0} unit="pencairan" color={C.info} />
+              <TodayRow
+                emoji="📤"
+                label="Pencairan"
+                amount={dashStats?.todayWithdrawals ?? 0}
+                count={dashStats?.todayWithdrawalsCount ?? 0}
+                unit="pencairan"
+                color={C.info}
+              />
               <View style={styles.divider} />
-              <TodayRow emoji="💳" label="Angsuran Masuk" amount={dashStats?.todayPayments ?? 0} count={dashStats?.todayPaymentsCount ?? 0} unit="pembayaran" color={C.accent} />
+              <TodayRow
+                emoji="💳"
+                label="Angsuran Masuk"
+                amount={dashStats?.todayPayments ?? 0}
+                count={dashStats?.todayPaymentsCount ?? 0}
+                unit="pembayaran"
+                color={C.accent}
+              />
             </View>
 
             {/* OPERATOR MENU GRID */}
-            <Text style={styles.sectionTitle}>Menu Utama</Text>
+            <Text style={styles.sectionTitle}>Transaksi & Anggota</Text>
             <View style={styles.menuGrid}>
-              <MenuItem icon="checkmark-circle-outline" label="Approval" color="#10B981" onPress={() => navigation.navigate('ApprovalFull')} />
-              <MenuItem icon="people-outline" label="Anggota" color={C.info} onPress={() => navigation.navigate('MemberListFull')} />
-              <MenuItem icon="card-outline" label="Transaksi Simpanan" color={C.accent} onPress={() => navigation.navigate('MemberListFull')} />
-              <MenuItem icon="cash-outline" label="Input Angsuran" color={C.success} onPress={() => navigation.navigate('MemberListFull')} />
-              <MenuItem icon="pie-chart-outline" label="Laporan Pinjaman" color="#8B5CF6" onPress={() => navigation.navigate('LaporanPinjaman')} />
-              <MenuItem icon="wallet-outline" label="Laporan Simpanan" color="#EC4899" onPress={() => navigation.navigate('LaporanSimpanan')} />
-              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
-              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
+              <MenuItem
+                icon="checkmark-circle-outline"
+                label="Approval"
+                color="#10B981"
+                onPress={() => navigation.navigate("ApprovalFull")}
+              />
+              <MenuItem
+                icon="people-outline"
+                label="Anggota"
+                color={C.info}
+                onPress={() => navigation.navigate("MemberListFull")}
+              />
+              <MenuItem
+                icon="albums-outline"
+                label="Rekening Simpanan"
+                color={C.accent}
+                onPress={() => navigation.navigate("RekeningList")}
+              />
+              <MenuItem
+                icon="cash-outline"
+                label="Input Angsuran"
+                color={C.success}
+                onPress={() => navigation.navigate("MemberListFull")}
+              />
+              <MenuItem
+                icon="list-outline"
+                label="Daftar Pinjaman"
+                color="#7C3AED"
+                onPress={() => navigation.navigate("DaftarPinjaman")}
+              />
+              <MenuItem
+                icon="business-outline"
+                label="Profil Koperasi"
+                color="#0F766E"
+                onPress={() => navigation.navigate("ProfilKoperasi")}
+              />
+            </View>
+
+            <Text style={styles.sectionTitle}>Laporan & Pengaturan</Text>
+            <View style={styles.menuGrid}>
+              <MenuItem
+                icon="pie-chart-outline"
+                label="Laporan Pinjaman"
+                color="#8B5CF6"
+                onPress={() => navigation.navigate("LaporanPinjaman")}
+              />
+              <MenuItem
+                icon="wallet-outline"
+                label="Laporan Simpanan"
+                color="#EC4899"
+                onPress={() => navigation.navigate("LaporanSimpanan")}
+              />
+              <MenuItem
+                icon="megaphone-outline"
+                label="Pengumuman"
+                color="#F59E0B"
+                onPress={() => navigation.navigate("Pengumuman")}
+              />
+              <MenuItem
+                icon="key-outline"
+                label="Ganti Password"
+                color="#6B7280"
+                onPress={() => navigation.navigate("ChangePassword")}
+              />
             </View>
           </>
         )}
@@ -148,7 +286,13 @@ export default function DashboardScreen({ setToken }: any) {
           <>
             <Text style={styles.sectionTitle}>Ringkasan Kasir Hari Ini</Text>
             <View style={styles.cardRow}>
-              <StatCard label="Total Penjualan" value={formatRp(data.today?.salesTotal || 0)} icon="🛒" color={C.success} subtitle={`${data.today?.salesCount || 0} transaksi`} />
+              <StatCard
+                label="Total Penjualan"
+                value={formatRp(data.today?.salesTotal || 0)}
+                icon="🛒"
+                color={C.success}
+                subtitle={`${data.today?.salesCount || 0} transaksi`}
+              />
             </View>
 
             <Text style={styles.sectionTitle}>5 Transaksi Terakhir</Text>
@@ -157,26 +301,63 @@ export default function DashboardScreen({ setToken }: any) {
                 <View key={sale.id} style={styles.salesCard}>
                   <View style={styles.salesRow}>
                     <Text style={styles.salesNo}>{sale.saleNo}</Text>
-                    <Text style={styles.salesTime}>{new Date(sale.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</Text>
+                    <Text style={styles.salesTime}>
+                      {new Date(sale.timestamp).toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
                   </View>
                   <View style={styles.salesRow}>
-                    <Text style={styles.salesMethod}>{sale.paymentMethod === 'cash' ? 'Tunai' : 'Kredit'}</Text>
-                    <Text style={styles.salesAmount}>{formatRp(sale.totalAmount)}</Text>
+                    <Text style={styles.salesMethod}>
+                      {sale.paymentMethod === "cash" ? "Tunai" : "Kredit"}
+                    </Text>
+                    <Text style={styles.salesAmount}>
+                      {formatRp(sale.totalAmount)}
+                    </Text>
                   </View>
                   <Text style={styles.salesItems}>{sale.itemCount} Item</Text>
                 </View>
               ))
             ) : (
-              <Text style={{ color: C.mutedForeground, textAlign: 'center', marginTop: 10 }}>Belum ada transaksi hari ini</Text>
+              <Text
+                style={{
+                  color: C.mutedForeground,
+                  textAlign: "center",
+                  marginTop: 10,
+                }}
+              >
+                Belum ada transaksi hari ini
+              </Text>
             )}
 
             {/* KASIR MENU */}
             <Text style={styles.sectionTitle}>Menu Kasir</Text>
             <View style={styles.menuGrid}>
-              <MenuItem icon="cart-outline" label="Kasir/POS" color={C.accent} onPress={() => navigation.navigate('KasirFull')} />
-              <MenuItem icon="cube-outline" label="Stok Barang" color={C.info} onPress={() => navigation.navigate('StokFull')} />
-              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
-              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
+              <MenuItem
+                icon="cart-outline"
+                label="Kasir/POS"
+                color={C.accent}
+                onPress={() => navigation.navigate("KasirFull")}
+              />
+              <MenuItem
+                icon="cube-outline"
+                label="Stok Barang"
+                color={C.info}
+                onPress={() => navigation.navigate("StokFull")}
+              />
+              <MenuItem
+                icon="megaphone-outline"
+                label="Pengumuman"
+                color="#F59E0B"
+                onPress={() => navigation.navigate("Pengumuman")}
+              />
+              <MenuItem
+                icon="key-outline"
+                label="Ganti Password"
+                color="#6B7280"
+                onPress={() => navigation.navigate("ChangePassword")}
+              />
             </View>
           </>
         )}
@@ -186,12 +367,32 @@ export default function DashboardScreen({ setToken }: any) {
           <>
             <Text style={styles.sectionTitle}>Keuangan Saya</Text>
             <View style={styles.cardRow}>
-              <StatCard label="Total Simpanan" value={formatRp(data.savings?.totalBalance || 0)} icon="💰" color={C.success} />
-              <StatCard label="Sisa Pinjaman" value={formatRp(data.loans?.totalOutstanding || 0)} icon="💳" color={C.destructive} />
+              <StatCard
+                label="Total Simpanan"
+                value={formatRp(data.savings?.totalBalance || 0)}
+                icon="💰"
+                color={C.success}
+              />
+              <StatCard
+                label="Sisa Pinjaman"
+                value={formatRp(data.loans?.totalOutstanding || 0)}
+                icon="💳"
+                color={C.destructive}
+              />
             </View>
             <View style={styles.cardRow}>
-              <StatCard label="Pinjaman Aktif" value={String(data.loans?.activeCount || 0)} icon="📊" color={C.info} />
-              <StatCard label="Kredit Belum Lunas" value={formatRp(data.unitCredit?.unpaidTotal || 0)} icon="🛒" color={C.warning} />
+              <StatCard
+                label="Pinjaman Aktif"
+                value={String(data.loans?.activeCount || 0)}
+                icon="📊"
+                color={C.info}
+              />
+              <StatCard
+                label="Kredit Belum Lunas"
+                value={formatRp(data.unitCredit?.unpaidTotal || 0)}
+                icon="🛒"
+                color={C.warning}
+              />
             </View>
 
             {data.savings?.accounts?.length > 0 && (
@@ -200,10 +401,14 @@ export default function DashboardScreen({ setToken }: any) {
                 {data.savings.accounts.map((acc: any) => (
                   <View key={acc.id} style={styles.accountCard}>
                     <View>
-                      <Text style={styles.accountName}>{acc.product?.name || 'Simpanan'}</Text>
+                      <Text style={styles.accountName}>
+                        {acc.product?.name || "Simpanan"}
+                      </Text>
                       <Text style={styles.accountNo}>{acc.accountNo}</Text>
                     </View>
-                    <Text style={styles.accountBalance}>{formatRp(acc.balance)}</Text>
+                    <Text style={styles.accountBalance}>
+                      {formatRp(acc.balance)}
+                    </Text>
                   </View>
                 ))}
               </>
@@ -212,12 +417,46 @@ export default function DashboardScreen({ setToken }: any) {
             {/* ANGGOTA MENU GRID */}
             <Text style={styles.sectionTitle}>Menu Layanan</Text>
             <View style={styles.menuGrid}>
-              <MenuItem icon="receipt-outline" label="Mutasi Transaksi" color={C.info} onPress={() => navigation.navigate('Main', { screen: 'Transaksi' })} />
-              <MenuItem icon="cash-outline" label="Pinjaman Saya" color={C.accent} onPress={() => navigation.navigate('Main', { screen: 'Pinjaman' })} />
-              <MenuItem icon="add-circle-outline" label="Ajukan Pinjaman" color={C.success} onPress={() => navigation.navigate('LoanApplication')} />
-              <MenuItem icon="card-outline" label="Kartu Anggota" color="#8B5CF6" onPress={() => navigation.navigate('AnggotaCard')} />
-              <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate('Pengumuman')} />
-              <MenuItem icon="key-outline" label="Ganti Password" color="#6B7280" onPress={() => navigation.navigate('ChangePassword')} />
+              <MenuItem
+                icon="receipt-outline"
+                label="Mutasi Transaksi"
+                color={C.info}
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Transaksi" })
+                }
+              />
+              <MenuItem
+                icon="cash-outline"
+                label="Pinjaman Saya"
+                color={C.accent}
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Pinjaman" })
+                }
+              />
+              <MenuItem
+                icon="add-circle-outline"
+                label="Ajukan Pinjaman"
+                color={C.success}
+                onPress={() => navigation.navigate("LoanApplication")}
+              />
+              <MenuItem
+                icon="card-outline"
+                label="Kartu Anggota"
+                color="#8B5CF6"
+                onPress={() => navigation.navigate("AnggotaCard")}
+              />
+              <MenuItem
+                icon="megaphone-outline"
+                label="Pengumuman"
+                color="#F59E0B"
+                onPress={() => navigation.navigate("Pengumuman")}
+              />
+              <MenuItem
+                icon="key-outline"
+                label="Ganti Password"
+                color="#6B7280"
+                onPress={() => navigation.navigate("ChangePassword")}
+              />
             </View>
           </>
         )}
@@ -225,21 +464,59 @@ export default function DashboardScreen({ setToken }: any) {
         {/* PENGUMUMAN TERBARU */}
         {announcements.length > 0 && (
           <>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
-              <Text style={[styles.sectionTitle, { marginTop: 0 }]}>📢 Pengumuman Terbaru</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Pengumuman')}>
-                <Text style={{ color: C.accent, fontSize: 13, fontWeight: '600' }}>Lihat Semua</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 20,
+              }}
+            >
+              <Text style={[styles.sectionTitle, { marginTop: 0 }]}>
+                📢 Pengumuman Terbaru
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Pengumuman")}
+              >
+                <Text
+                  style={{ color: C.accent, fontSize: 13, fontWeight: "600" }}
+                >
+                  Lihat Semua
+                </Text>
               </TouchableOpacity>
             </View>
             {announcements.map((a) => (
-              <TouchableOpacity key={a.id} style={styles.announcementCard} onPress={() => navigation.navigate('PengumumanDetail', { item: a })}>
+              <TouchableOpacity
+                key={a.id}
+                style={styles.announcementCard}
+                onPress={() =>
+                  navigation.navigate("PengumumanDetail", { item: a })
+                }
+              >
                 <Text style={styles.announcementTitle}>{a.title}</Text>
-                <Text style={styles.announcementContent} numberOfLines={2}>{a.content}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <Text style={styles.announcementContent} numberOfLines={2}>
+                  {a.content}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: 8,
+                  }}
+                >
                   <Text style={styles.announcementDate}>
-                    {new Date(a.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    {new Date(a.createdAt).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={C.mutedForeground} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={C.mutedForeground}
+                  />
                 </View>
               </TouchableOpacity>
             ))}
@@ -254,13 +531,33 @@ export default function DashboardScreen({ setToken }: any) {
 
 // ========== REUSABLE COMPONENTS ==========
 
-function StatCard({ label, value, icon, color, subtitle }: { label: string; value: string; icon: string; color: string; subtitle?: string }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+  subtitle,
+}: {
+  label: string;
+  value: string;
+  icon: string;
+  color: string;
+  subtitle?: string;
+}) {
   return (
     <View style={[cs.stat, { borderLeftColor: color }]}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
         <View style={{ flex: 1 }}>
           <Text style={cs.statLabel}>{label}</Text>
-          <Text style={cs.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+          <Text style={cs.statValue} numberOfLines={1} adjustsFontSizeToFit>
+            {value}
+          </Text>
           {subtitle && <Text style={cs.statSub}>{subtitle}</Text>}
         </View>
         <Text style={{ fontSize: 22 }}>{icon}</Text>
@@ -272,20 +569,36 @@ function StatCard({ label, value, icon, color, subtitle }: { label: string; valu
 function TodayRow({ emoji, label, amount, count, unit, color }: any) {
   return (
     <View style={cs.todayRow}>
-      <Text style={cs.todayLabel}>{emoji} {label}</Text>
+      <Text style={cs.todayLabel}>
+        {emoji} {label}
+      </Text>
       <Text style={[cs.todayValue, { color }]}>{formatRp(amount)}</Text>
-      <Text style={cs.todayCount}>{count} {unit}</Text>
+      <Text style={cs.todayCount}>
+        {count} {unit}
+      </Text>
     </View>
   );
 }
 
-function MenuItem({ icon, label, color, onPress }: { icon: any; label: string; color: string; onPress: () => void }) {
+function MenuItem({
+  icon,
+  label,
+  color,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  color: string;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity style={cs.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[cs.menuIconWrap, { backgroundColor: color + '18' }]}>
+      <View style={[cs.menuIconWrap, { backgroundColor: color + "18" }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
-      <Text style={cs.menuLabel} numberOfLines={2}>{label}</Text>
+      <Text style={cs.menuLabel} numberOfLines={2}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -295,73 +608,179 @@ function MenuItem({ icon, label, color, onPress }: { icon: any; label: string; c
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.primary, paddingTop: 52, paddingBottom: 24, paddingHorizontal: 24,
-    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
+    backgroundColor: C.primary,
+    paddingTop: 52,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  greeting: { color: '#94A3B8', fontSize: 14 },
-  userName: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginTop: 4 },
-  userRole: { color: C.accent, fontSize: 13, fontWeight: '500', marginTop: 4 },
-  notifBtn: { padding: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
-  notifBadge: { position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', borderWidth: 2, borderColor: C.primary },
+  greeting: { color: "#94A3B8", fontSize: 14 },
+  userName: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  userRole: { color: C.accent, fontSize: 13, fontWeight: "500", marginTop: 4 },
+  notifBtn: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  notifBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#EF4444",
+    borderWidth: 2,
+    borderColor: C.primary,
+  },
   scrollView: { flex: 1, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: C.primary, marginTop: 20, marginBottom: 12 },
-  cardRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.primary,
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  cardRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
   todayCard: {
-    backgroundColor: C.card, borderRadius: 16, padding: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   divider: { height: 1, backgroundColor: C.border },
   menuGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
   accountCard: {
-    backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 8,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    backgroundColor: C.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  accountName: { fontSize: 14, fontWeight: '600', color: C.primary },
+  accountName: { fontSize: 14, fontWeight: "600", color: C.primary },
   accountNo: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
-  accountBalance: { fontSize: 16, fontWeight: 'bold', color: C.success },
+  accountBalance: { fontSize: 16, fontWeight: "bold", color: C.success },
   announcementCard: {
-    backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 10,
-    borderLeftWidth: 4, borderLeftColor: C.accent,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    backgroundColor: C.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: C.accent,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  announcementTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 4 },
-  announcementContent: { fontSize: 13, color: C.mutedForeground, lineHeight: 20 },
+  announcementTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.primary,
+    marginBottom: 4,
+  },
+  announcementContent: {
+    fontSize: 13,
+    color: C.mutedForeground,
+    lineHeight: 20,
+  },
   announcementDate: { fontSize: 11, color: C.mutedForeground },
   salesCard: {
-    backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 8,
-    borderLeftWidth: 4, borderLeftColor: C.info,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    backgroundColor: C.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: C.info,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  salesRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  salesNo: { fontSize: 13, fontWeight: '600', color: C.primary },
+  salesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  salesNo: { fontSize: 13, fontWeight: "600", color: C.primary },
   salesTime: { fontSize: 11, color: C.mutedForeground },
-  salesMethod: { fontSize: 12, color: C.mutedForeground, textTransform: 'uppercase' },
-  salesAmount: { fontSize: 15, fontWeight: 'bold', color: C.success },
+  salesMethod: {
+    fontSize: 12,
+    color: C.mutedForeground,
+    textTransform: "uppercase",
+  },
+  salesAmount: { fontSize: 15, fontWeight: "bold", color: C.success },
   salesItems: { fontSize: 12, color: C.mutedForeground, marginTop: 4 },
 });
 
 const cs = StyleSheet.create({
   stat: {
-    flex: 1, backgroundColor: C.card, borderRadius: 12, padding: 14, borderLeftWidth: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    flex: 1,
+    backgroundColor: C.card,
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statLabel: { fontSize: 11, color: C.mutedForeground, marginBottom: 4 },
-  statValue: { fontSize: 15, fontWeight: 'bold', color: C.foreground },
+  statValue: { fontSize: 15, fontWeight: "bold", color: C.foreground },
   statSub: { fontSize: 10, color: C.mutedForeground, marginTop: 2 },
   todayRow: { paddingVertical: 12 },
-  todayLabel: { fontSize: 14, color: C.foreground, fontWeight: '600' },
-  todayValue: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
+  todayLabel: { fontSize: 14, color: C.foreground, fontWeight: "600" },
+  todayValue: { fontSize: 20, fontWeight: "bold", marginTop: 4 },
   todayCount: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
   menuItem: {
-    width: '30%', alignItems: 'center', paddingVertical: 12,
-    backgroundColor: C.card, borderRadius: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    width: "30%",
+    alignItems: "center",
+    paddingVertical: 12,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   menuIconWrap: {
-    width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  menuLabel: { fontSize: 11, fontWeight: '600', color: C.foreground, textAlign: 'center', paddingHorizontal: 4 },
+  menuLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: C.foreground,
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
 });
