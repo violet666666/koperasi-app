@@ -24,6 +24,8 @@ export default function TambahProdukPage() {
         costPrice: "",
         sellPrice: "",
         stock: "",
+        stockGdg: "",
+        stockToko: "",
         minStock: "5",
         unit: "pcs",
     });
@@ -51,7 +53,9 @@ export default function TambahProdukPage() {
                     category: form.category || null,
                     costPrice: parseFloat(form.costPrice) || 0,
                     sellPrice: parseFloat(form.sellPrice),
-                    stock: parseInt(form.stock) || 0,
+                    stock: parseInt(form.stock) || ((parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0)),
+                    stockGdg: parseInt(form.stockGdg) || 0,
+                    stockToko: parseInt(form.stockToko) || 0,
                     minStock: parseInt(form.minStock) || 5,
                     unit: form.unit || "pcs",
                 }),
@@ -147,14 +151,27 @@ export default function TambahProdukPage() {
                             </div>
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-3">
                             <div className="space-y-2">
-                                <Label htmlFor="stock">Stok Awal</Label>
+                                <Label htmlFor="stockGdg">Stock Gdg</Label>
+                                <Input id="stockGdg" type="number" min={0} placeholder="0"
+                                    value={form.stockGdg} onChange={e => handleChange("stockGdg", e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="stockToko">Stock Toko</Label>
+                                <Input id="stockToko" type="number" min={0} placeholder="0"
+                                    value={form.stockToko} onChange={e => handleChange("stockToko", e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="stock">Total Stock</Label>
                                 <Input id="stock" type="number" min={0} placeholder="0"
                                     value={form.stock} onChange={e => handleChange("stock", e.target.value)} />
                             </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="minStock">Stok Minimum (peringatan)</Label>
+                                <Label htmlFor="minStock">Min. Stock (Alert)</Label>
                                 <Input id="minStock" type="number" min={0} placeholder="5"
                                     value={form.minStock} onChange={e => handleChange("minStock", e.target.value)} />
                             </div>

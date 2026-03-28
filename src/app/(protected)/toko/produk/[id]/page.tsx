@@ -48,11 +48,15 @@ export default function DetailProdukPage() {
                 </CardHeader>
                 <CardContent>
                     {product ? (
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div><p className="text-sm text-muted-foreground">Kode</p><p className="font-medium">{product.code}</p></div>
-                            <div><p className="text-sm text-muted-foreground">Harga</p><p className="font-medium">Rp {Number(product.price).toLocaleString("id-ID")}</p></div>
-                            <div><p className="text-sm text-muted-foreground">Stok</p><p className="font-medium">{product.stock}</p></div>
-                            <div><p className="text-sm text-muted-foreground">Status</p><Badge variant={product.isActive ? "default" : "secondary"}>{product.isActive ? "Aktif" : "Nonaktif"}</Badge></div>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div><p className="text-sm text-muted-foreground">Kode (SKU)</p><p className="font-medium">{product.sku || product.code}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Harga Jual</p><p className="font-medium">Rp {Number(product.price || product.sellPrice).toLocaleString("id-ID")}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Harga Pokok</p><p className="font-medium">Rp {Number(product.costPrice).toLocaleString("id-ID")}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Stock Gudang</p><p className="font-medium">{product.stockGdg || 0}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Stock Toko</p><p className="font-medium">{product.stockToko || 0}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Total Stock</p><p className="font-medium">{product.stock || 0}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Rak/Kategori</p><p className="font-medium">{product.category || "-"}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Status</p><Badge variant={product.isActive === false ? "secondary" : "default"}>{product.isActive === false ? "Nonaktif" : "Aktif"}</Badge></div>
                         </div>
                     ) : (
                         <p className="text-muted-foreground">Data produk tidak ditemukan atau API belum tersedia.</p>

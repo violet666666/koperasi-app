@@ -16,6 +16,7 @@ import {
     Warehouse,
     TrendingUp,
     AlertTriangle,
+    Upload,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -25,7 +26,11 @@ interface Product {
     name: string;
     category: string;
     price: number;
+    costPrice: number;
     stock: number;
+    stockGdg: number;
+    stockToko: number;
+    unit: string;
     minStock: number;
     status: "available" | "low_stock" | "out_of_stock";
 }
@@ -33,67 +38,83 @@ interface Product {
 const columns: ColumnDef<Product>[] = [
     {
         accessorKey: "sku",
-        header: "SKU",
+        header: "KODE",
         cell: ({ row }) => (
-            <span className="font-mono text-sm">{row.getValue("sku")}</span>
+            <span className="font-mono text-xs">{row.getValue("sku")}</span>
         ),
     },
     {
         accessorKey: "name",
-        header: "Nama Produk",
+        header: "Nama Barang",
         cell: ({ row }) => (
-            <Link href={`/toko/produk/${row.original.id}`} className="font-medium hover:underline">
+            <Link href={`/toko/produk/${row.original.id}`} className="font-medium hover:underline text-sm truncate max-w-[200px] block">
                 {row.getValue("name")}
             </Link>
         ),
     },
     {
         accessorKey: "category",
-        header: "Kategori",
+        header: "Rak",
         cell: ({ row }) => (
-            <Badge variant="outline">{row.getValue("category")}</Badge>
+            <span className="text-xs">{row.getValue("category") || "-"}</span>
         ),
     },
     {
-        accessorKey: "price",
-        header: "Harga",
+        accessorKey: "stockGdg",
+        header: "Stock Gdg",
         cell: ({ row }) => (
-            <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("price"))}
-            </span>
+            <span className="tabular-nums text-xs">{row.original.stockGdg || 0}</span>
+        ),
+    },
+    {
+        accessorKey: "stockToko",
+        header: "Stock Toko",
+        cell: ({ row }) => (
+            <span className="tabular-nums text-xs">{row.original.stockToko || 0}</span>
         ),
     },
     {
         accessorKey: "stock",
-        header: "Stok",
+        header: "Total Stock",
         cell: ({ row }) => {
             const stock = row.getValue("stock") as number;
             const minStock = row.original.minStock;
             return (
-                <div className="flex items-center gap-2">
-                    <span className={`font-medium tabular-nums ${stock <= minStock ? "text-red-600" : ""}`}>
+                <div className="flex items-center gap-1">
+                    <span className={`font-medium tabular-nums text-xs ${stock <= minStock ? "text-red-600" : ""}`}>
                         {stock}
                     </span>
                     {stock <= minStock && stock > 0 && (
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
                     )}
                 </div>
             );
         },
     },
     {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-            const status = row.getValue("status") as string;
-            const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-                available: { label: "Tersedia", variant: "default" },
-                low_stock: { label: "Stok Menipis", variant: "secondary" },
-                out_of_stock: { label: "Habis", variant: "destructive" },
-            };
-            const { label, variant } = statusMap[status] || { label: status, variant: "default" };
-            return <Badge variant={variant}>{label}</Badge>;
-        },
+        accessorKey: "unit",
+        header: "Sat",
+        cell: ({ row }) => (
+            <span className="text-xs text-muted-foreground">{row.original.unit || "-"}</span>
+        ),
+    },
+    {
+        accessorKey: "price",
+        header: "@ Harga Sat",
+        cell: ({ row }) => (
+            <span className="font-medium tabular-nums text-xs">
+                {formatCurrency(row.getValue("price"))}
+            </span>
+        ),
+    },
+    {
+        accessorKey: "costPrice",
+        header: "HrgPokok",
+        cell: ({ row }) => (
+            <span className="tabular-nums text-xs text-muted-foreground block">
+                {formatCurrency(row.original.costPrice || 0)}
+            </span>
+        ),
     },
 ];
 
@@ -146,12 +167,20 @@ export default function TokoProdukPage() {
                 title="Produk Toko"
                 description="Kelola produk toko koperasi"
                 actions={
-                    <Button asChild>
-                        <Link href="/toko/produk/tambah">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Tambah Produk
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href="/toko/produk/import">
+                                <Upload className="mr-2 h-4 w-4" />
+                                Import Data
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href="/toko/produk/tambah">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Tambah Produk
+                            </Link>
+                        </Button>
+                    </div>
                 }
             />
 

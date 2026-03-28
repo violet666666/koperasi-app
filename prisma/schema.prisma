@@ -668,7 +668,9 @@ model StoreProduct {
   category  String?
   costPrice Decimal   @default(0) @map("cost_price") @db.Decimal(15, 2)
   sellPrice Decimal   @map("sell_price") @db.Decimal(15, 2)
-  stock     Int       @default(0)
+  stock     Int       @default(0) // Now acts as Total Stock
+  stockGdg  Int       @default(0) @map("stock_gdg")
+  stockToko Int       @default(0) @map("stock_toko")
   minStock  Int       @default(5) @map("min_stock")
   unit      String    @default("pcs")
   isActive  Boolean   @default(true) @map("is_active")

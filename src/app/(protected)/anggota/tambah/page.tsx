@@ -185,6 +185,7 @@ export default function TambahAnggotaPage() {
                         <CardTitle className="text-lg">Keanggotaan</CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
                             <Label htmlFor="join_date">Tanggal Bergabung *</Label>
                             <Popover>
                                 <PopoverTrigger asChild>

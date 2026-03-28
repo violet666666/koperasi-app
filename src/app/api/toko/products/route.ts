@@ -30,6 +30,8 @@ export async function GET(request: Request) {
                 price: Number(p.sellPrice),
                 costPrice: Number(p.costPrice),
                 stock: p.stock,
+                stockGdg: p.stockGdg,
+                stockToko: p.stockToko,
                 minStock: p.minStock,
                 unit: p.unit,
             })),
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, stock, minStock, unit } = body;
+        const { sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, minStock, unit } = body;
 
         if (!sku || !name || sellPrice === undefined) {
             return NextResponse.json(
@@ -64,6 +66,8 @@ export async function POST(request: Request) {
                 costPrice: costPrice || 0,
                 sellPrice,
                 stock: stock || 0,
+                stockGdg: stockGdg || 0,
+                stockToko: stockToko || 0,
                 minStock: minStock || 5,
                 unit: unit || "pcs",
             },
