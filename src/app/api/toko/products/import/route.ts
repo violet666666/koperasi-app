@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         });
 
         const results: any[] = [];
+        const upserts: any[] = [];
         let successCount = 0;
         let failCount = 0;
 
@@ -110,31 +111,33 @@ export async function POST(request: Request) {
             }
 
             if (mode === "commit") {
-                await prisma.storeProduct.upsert({
-                    where: { sku },
-                    update: {
-                        name,
-                        category,
-                        costPrice,
-                        sellPrice,
-                        stock,
-                        stockGdg,
-                        stockToko,
-                        unit
-                    },
-                    create: {
-                        sku,
-                        name,
-                        category,
-                        costPrice,
-                        sellPrice,
-                        stock,
-                        stockGdg,
-                        stockToko,
-                        unit,
-                        minStock: Math.max(Math.ceil(stock * 0.1), 5)
-                    }
-                });
+                upserts.push(
+                    prisma.storeProduct.upsert({
+                        where: { sku },
+                        update: {
+                            name,
+                            category,
+                            costPrice,
+                            sellPrice,
+                            stock,
+                            stockGdg,
+                            stockToko,
+                            unit
+                        },
+                        create: {
+                            sku,
+                            name,
+                            category,
+                            costPrice,
+                            sellPrice,
+                            stock,
+                            stockGdg,
+                            stockToko,
+                            unit,
+                            minStock: Math.max(Math.ceil(stock * 0.1), 5)
+                        }
+                    })
+                );
             }
 
             results.push({
@@ -144,6 +147,15 @@ export async function POST(request: Request) {
                 currentSellPrice: existing ? Number(existing.sellPrice) : null
             });
             successCount++;
+        }
+
+        if (mode === "commit" && upserts.length > 0) {
+            // Proses query secara batch (masing-masing 300 row per transaksi) untuk menghindari timeout
+            const BATCH_SIZE = 300;
+            for (let i = 0; i < upserts.length; i += BATCH_SIZE) {
+                const batch = upserts.slice(i, i + BATCH_SIZE);
+                await prisma.$transaction(batch);
+            }
         }
 
         try {
