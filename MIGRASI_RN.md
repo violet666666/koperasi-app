@@ -1,74 +1,268 @@
-# Rencana Migrasi ke Mobile App (React Native)
+# Master Plan Eksekutif: Migrasi Penuh Koperasi Digital ke React Native (Mobile App)
 
-Dokumen ini berisi *blueprint* atau rencana teknis untuk mengembangkan aplikasi Koperasi PRIMKOPPOL ke dalam platform mobile asli (Native) menggunakan React Native (Expo), dengan tetap mempertahankan kapabilitas Website (Next.js) yang sudah ada sebelumnya.
+Dokumen ini adalah cetak biru (Blueprint) komprehensif untuk mereplika **100% fitur website Next.js Koperasi PRIMKOPPOL** ke dalam aplikasi **Mobile Native (Android & iOS)** menggunakan React Native.
 
-Pendekatan yang direkomendasikan adalah arsitektur **Monorepo**. Ini memungkinkan kita untuk meletakkan kode aplikasi secara terstruktur dalam satu *root* folder tanpa merusak ekosistem yang sudah stabil.
+Proses ini didesain dengan prinsip **Zero Downtime & Zero Impact**, artinya selama pengembangan, website *live* dan operasional koperasi tidak akan terganggu sama sekali.
 
 ---
 
-## 1. Arsitektur Folder (Monorepo Workspace)
+## 🏗️ 1. Arsitektur Infrastruktur (Monorepo Turborepo)
 
-Sesuai permintaan, sangat memungkinkan dan *sangat disarankan* untuk menggunakan satu root folder (`koperasi-app`).
-Struktur folder baru (berbasis **Turborepo** atau **NPM Workspaces**) akan tampak seperti ini:
+Kita akan mengubah repository `koperasi-app` menjadi Monorepo. Semua kode untuk Web dan Mobile berada di satu tempat namun dieksekusi terpisah.
+
+### Struktur Folder Ideal
 
 ```text
-koperasi-app/               <-- Root Folder
-├── package.json            <-- Konfigurasi Workspace & Scripts global
-├── turbo.json              <-- (Opsional) Konfigurasi pipeline Turborepo
-│
-├── apps/                   <-- Tempat aplikasi berjalan (Frontends)
-│   ├── website/            <-- [CURRENT] Berisi Project Next.js Koperasi Bapak saat ini
-│   └── mobile/             <-- [NEW] Berisi Project React Native (menggunakan Expo)
-│
-└── packages/               <-- Tempat kode/logika yang dishare lintas aplikasi
-    ├── config/             <-- Konfigurasi ESLint, TypeScript, dll
-    ├── ui/                 <-- (Opsional) Shared UI components (contoh: Tamagui/NativeWind)
-    └── api-client/         <-- (Opsional) Shared Axios/Fetch functions untuk interaksi API
+koperasi-app/
+├── package.json               # Dependensi global (Turborepo)
+├── turbo.json                 # Konfigurasi build system
+├── apps/
+│   ├── web/                   # 🌐 [CURRENT] Website Next.js (Admin & Kasir)
+│   └── mobile/                # 📱 [NEW] Aplikasi React Native Expo (Android/iOS)
+└── packages/
+    ├── ui/                    # 🎨 Komponen UI bersama (Opsional)
+    ├── config-tailwind/       # 💅 Konfigurasi warna biru koperasi & font statis
+    └── koperasi-api-client/   # 🔗 Jembatan fetch Axios/Zod untuk hit ke Web Backend
 ```
 
----
-
-## 2. Fase Migrasi (Roadmap)
-
-Migrasi dari Web ke ekosistem hibrida (Web + Mobile App) perlu dilakukan dalam 3 Fase agar operasi bisnis koperasi Bapak tidak terganggu.
-
-### Fase 1: Restrukturisasi menjadi Monorepo (Minggu 1)
-- Memindahkan semua file Next.js yang ada saat ini (`src/`, `public/`, `package.json`, dll) dari root `koperasi-app/` ke dalam sub-folder `koperasi-app/apps/website/`.
-- Melakukan setup awal **Yarn Workspaces** atau **NPM Workspaces** di root level.
-- Memastikan website Next.js masih bisa di-build dan berjalan normal.
-
-### Fase 2: Inisialisasi React Native App (Minggu 2)
-- Menjalankan perintah inisialisasi Expo di dalam folder `/apps`: 
-  ```bash
-  cd apps
-  npx create-expo-app mobile --template blank-typescript
-  ```
-- Setup **React Navigation** untuk sistem routing *Bottom Tabs* (Beranda, Pinjaman, Simpanan, Profil).
-- Setup **Zustand** atau **Redux** (untuk *state management*) dan konfigurasi Axios/Fetch agar mengarah ke endpoint API website Next.js.
-  *(Next.js API route seperti `/api/members` atau `/api/loans` akan bertindak murni sebagai Backend bagi mobile app)*.
-
-### Fase 3: Pengembangan Fitur Mobile Anggota (Minggu 3 & 4)
-Untuk permulaan, aplikasi mobile hanya difokuskan untuk **Portal Anggota**, mengingat interaksi Admin/Operator lebih leluasa dilakukan via Desktop/Web.
-Fitur yang akan dibangun khusus di React Native:
-- **Halaman Login Anggota**: Autentikasi NRP.
-- **Beranda (Dashboard)**: Tampilan kartu ringkasan saldo simpanan & pinjaman berjalan.
-- **Histori Simpanan**: FlatList menampilkan mutasi simpanan.
-- **Plafon & Pengajuan Kredit**: Form pengajuan dari HP anggota.
-- **Notifikasi Push (Expo Push Notifications/FCM)**: *Notifikasi real-time jika pinjaman di-Approve, atau ada Tagihan Angsuran Baru.*
+**Kelebihan Skema Ini:**
+Jika Bapak mengubah skema database Prisma di Web, kode *Mobile* otomatis bisa menyesuaikan tipe datanya karena berada di repository yang sama.
 
 ---
 
-## 3. Kebutuhan Teknis Lanjutan
+## 🛠️ 2. Core Technology Stack (Teknologi Pendukung)
 
-| Topik | Keterangan |
-| - | - |
-| **Backend / API Server** | Sistem Next.js saat ini (`apps/website`) sudah mumpuni untuk berfungsi ganda sebagai penyedia API RESTful untuk aplikasi mobile. Kita hanya perlu menyesuaikan agar API Route mendukung *Token/JWT based authentication* untuk aplikasi React Native (bukan skema session cookies browser). |
-| **Styling Components** | Menyarankan menggunakan **NativeWind** (Tailwind CSS untuk React Native) agar style/desain UI sama persis dengan framework TailwindCSS yang dipakai di Web Next.js. |
-| **Data Fetching** | **TanStack Query (React Query)** dapat di-share code-nya ke lingkungan React Native. Konsep invalidasinya sama persis seperti yang Web aplikasikan sekarang. |
+Untuk memastikan performa sekelas aplikasi *Native* namun dengan rasa fleksibilitas Web, kita akan menggunakan:
+
+| Kategori | Teknologi Pilihan | Alasan |
+| - | - | - |
+| **Framework Mobile** | **Expo (React Native)** | Memudahkan *build* ke APK/AAB Android & iOS IPA tanpa pusing konfigurasi Gradle/Xcode kompleks. |
+| **Routing / Navigasi** | **Expo Router v3** | Menggunakan sistem navigasi *File-based* (mirip persis dengan `src/app` Next.js saat ini). |
+| **Styling** | **NativeWind (Tailwind CSS)** | Developer dapat menggunakan `className="bg-primary text-white"` persis seperti di website Next.js Koperasi. |
+| **Data Fetching** | **TanStack Query (v5)** | Untuk *caching* data real-time, handling *loading spinner*, dan mekanisme sinkronisasi di HP lambat. |
+| **Form Management** | **React Hook Form + Zod** | Sama seperti web, divalidasi dengan sangat ketat agar data keuangan tidak tembus nilai minus/salah. |
+| **Penyimpanan Lokal** | **Expo SecureStore** | Menyimpan Token Login dan Session secara aman teraplikasi enkripsi Native HP. |
 
 ---
 
-## 4. Keuntungan Skema Ini:
-1. **Single Source of Truth**: Database Schema Prisma hanya ada satu di root project.
-2. **Perawatan Mudah**: Jika ada fitur/endpoint backend yang diperbaiki di Websitenya, otomatis aplikasi Mobile juga langsung merasakan efeknya karena backend-nya tunggal (Integrated).
-3. **Efisiensi Developer**: Tidak perlu repot berpindah antar editor yang benar-benar terpisah.
+## 🚀 3. Eksekusi Fase Migrasi
+
+Pengembangan dilakukan secara iteratif (bertahap). Pada tiap tahap, Bapak bisa langsung mengetes fungsi dari *smartphone* Android menggunakan aplikasi bawaan **Expo Go**.
+
+### FASE 1: Inisialisasi & Setup Autentikasi (Minggu 1)
+
+Karena website menggunakan NextAuth (Cookies), Mobile App membutuhkan **API Token/JWT (JSON Web Token)**.
+
+1.  **API Refactoring di Web (`apps/web/src/app/api`)**:
+    - Membuka sedikit celah di API existing agar bisa menerima verifikasi lewat *Header Authorization Bearer Token*, bukan hanya membaca Cookies Session browser.
+2.  **Setup Expo & NativeWind (`apps/mobile`)**.
+3.  **Membangun Layar Login Mobile**:
+    - Integrasi login NRP/Email dan Password.
+    - Pengecekan *Role* dinamis pasca-login (mengarahkan Operator, Kasir, atau Anggota ke *Dashboard Bottom Tabs* yang berbeda).
+
+### FASE 2: Modul Utama Anggota & Dashboard (Minggu 2)
+
+1.  **Navigasi Bawah (Bottom Tab Bar)**: `Beranda`, `Mutasi`, `Pinjaman`, `Profil`.
+2.  **Dashboard Real-time**:
+    - Membaca `/api/dashboard-stats` dan menampilkannya dengan Chart / Grafik Native yang *smooth*.
+3.  **Tracking Angsuran & Simpanan**:
+    - Memindahkan tabel dari web ke **FlatList React Native** khusus dengan *Pull-to-Refresh* (tarik layar ke bawah untuk reload mutasi baru).
+    - Card khusus "Sisa Tenor Pinjaman" Bapak dan "Estimasi Tagihan Bulan Ini".
+
+### FASE 3: Modul Operasional (Kasir & Unit) (Minggu 3 & 4)
+
+Untuk menjamin Kasir (Toko, Barbershop, Cuci Mobil) dapat beroperasi *hanya modal HP Tablet*, kita replikasi sistem POS:
+
+1.  **Toko / POS Kasir**:
+    - Tampilan *kasir touchscreen* (Scanner Barcode memanfaatkan Kamera HP OS-Level).
+    - Fitur "Potong Gaji/Kredit Anggota" lengkap dengan form pencarian NRP.
+2.  **Persetujuan (Approval) Pinjaman**:
+    - Layar khusus Operator/Admin di Mobile untuk *Swipe to Approve* atau Tolak pengajuan dari anggota.
+3.  **Audit Log Mobile (Operator Only)**: List histori aktivitas *real-time* yang dapat dipantau dari manapun.
+
+### FASE 4: Polishing & Device Integrations (Minggu 5)
+
+1.  **Integrasi Printer Thermal Bluetooth**:
+    - Jika kasir menekan "Bayar", Print Struk (*receipt*) langsung dikirim lewat koneksi Bluetooth ke printer kasir format 58mm/80mm tanpa driver tambahan.
+2.  **Push Notifications (Expo Push / Firebase)**:
+    - Apabila pinjaman masuk/disetujui, HP anggota akan bergetar dan memunculkan notifikasi mirip WhatsApp.
+3.  **Splash Screen & App Icon**: Branding Logo Primkoppol yang elegan saat aplikasi di-*tap*.
+
+---
+
+## 🔒 4. Keamanan & Pengamanan Server
+
+1.  **Environment Variables**: Mobile APP dilarang menyimpan URL rahasia, semua rahasia tetap berada di sisi `apps/web/.env`.
+2.  **CORS & Rate Limiting**: Next.js Server akan dikonfigurasi untuk menerima request API yang asalnya *hanya* dari App React Native *signature* kita, meminimalisir bot eksternal.
+3.  **Offline Caching Terbatas**: Data nominal sensitif tidak boleh di *cache* terlalu lama; kita mengandalkan TanStack Query untuk secara agresif membersihkan sisa cache agar angka selalu cocok.
+
+---
+
+## 📱 5. Proses Build & Deployment Akhir
+
+Berbeda dengan Vercel yang me-*hosting* website, mobile app di-distribusikan secara *binary* (`.apk` atau `.aab`).
+
+**Proses Distribusi Internal Koperasi:**
+
+- Menggunakan **EAS (Expo Application Services) Build**.
+- Server cloud Expo akan melakukan proses *compiling* kode JavaScript kita menjadi Bahasa C++/Java secara remote.
+- Hasil *output* akan berupa sebuah link download atau file **`KoperasiPrimkoppol_v1.0.apk`**.
+- File tersebut bisa langsung disebarkan lewat **Grup WhatsApp Anggota** untuk langsung di-*install* (Sideload), tanpa harus menunggu proses verifikasi berhari-hari dari Google PlayStore.
+
+*(Kedepannya Bapak tetap memiliki hak opsional jika ingin secara resmi dirilis di Google Play Store Koperasi Polri)*.
+
+### 📝 Cara Build APK untuk Uji Coba
+
+Untuk menghasilkan file `.apk` yang bisa di-install di HP lain:
+
+1.  **Install EAS CLI**: `npm install -g eas-cli`
+2.  **Login ke Expo**: `eas login`
+3.  **Konfigurasi Project**: `eas build:configure` (Pilih Android)
+4.  **Edit `eas.json`**: Pastikan ada profil `preview` dengan `buildType: "apk"`.
+
+    ```json
+    {
+      "build": {
+        "preview": {
+          "android": {
+            "buildType": "apk"
+          }
+        }
+      }
+    }
+    ```
+
+5.  **Jalankan Build**: `eas build -p android --profile preview`
+6.  Tunggu proses selesai di cloud, lalu download file `.apk` melalui link yang diberikan.
+
+---
+
+## 📋 6. Daftar Fitur Lengkap Sistem (Website to Mobile)
+
+Berikut adalah rekapitulasi 100% fitur yang saat ini sudah beroperasi penuh di Website Next.js, beserta target skope ketersediaannya di aplikasi Mobile nantinya:
+
+| Kategori Fitur | Deskripsi (Fungsi Saat Ini di Web) | Target Integrasi di Mobile App |
+| - | - | - |
+| **Autentikasi & Role** | Login multi-role (Operator, Admin, Kasir, Anggota). | ✅ *Full Support* (Support Login NRP). |
+| **Dashboard Utama** | Ringkasan statistik (Total Kas, Anggota, Pencairan, Transaksi). | ✅ *Full Support* (UI disesuaikan per Role). |
+| **Anggota** | Pendaftaran otomatis (via Import Tunkin/Gaji), Kartu/Buku Anggota. | ✅ *Partial* (Anggota melihat kartu & histori mandiri). |
+| **Simpanan** | Transaksi Pokok, Wajib, Sukarela. Cetak Kwitansi thermal/A4. | ✅ *Partial* (Anggota melihat mutasi, Kasir khusus input). |
+| **Pinjaman & Approval** | Pengajuan, simulasi angsuran AD-ART, Inbox Approval Admin. | ✅ *Full Support* (Termasuk push notification approval). |
+| **Kas & Bank** | Transfer antar akun, pengeluaran non-simpan-pinjam. | ❌ *Web Only* (Fungsi ini lebih optimal di layar Desktop/Web). |
+| **Akuntansi & Jurnal** | Buku Besar, Jurnal Penyesuaian, Otomatisasi Jurnal (*Double-entry*). | ❌ *Web Only* (Fungsi ini ditugaskan khusus Operator web). |
+| **Aset** | Inventarisasi aset dan perhitungan Penyusutan (Depresiasi). | ❌ *Web Only*. |
+| **Laporan & SHU** | Arus Kas, Neraca, Laba Rugi, Kalkulasi Alokasi SHU realtime. | ❌ *Web Only*. |
+| **Toko POS & Inventory** | Produk toko, Kasir Touchscreen dengan opsi pembayaran *Kredit/Potong Gaji*. | ✅ *Full Support* (Digunakan Kasir Toko via Tablet/HP). |
+| **Audit Log** | Pencatatan rekam jejak permanen (`CREATE`, `UPDATE`, `LOGIN`). | ✅ *Partial* (View logs ringan untuk Operator dari HP). |
+
+---
+
+## 🕒 7. Progress Tracker (Catatan Handover Developer / AI)
+
+Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang atau asisten AI selanjutnya (yang berbeda *session*) dapat dengan mudah melanjutkan pekerjaan dari persis titik terakhir yang ditinggalkan.
+
+**🟩 Tahap 1: Stabilitas Core System Website (SELESAI ✅)**
+
+- [x] Perbaikan perhitungan statistik di Dashboard (menghilangkan hardcode jumlah transaksi Hari Ini).
+- [x] Modul **import Tunkin & Gaji massal** terintegrasi, dengan validasi pembuatan akun auto-NRP.
+- [x] Perbaikan keranjang dan proses pembayaran **POS Kasir** agar mendukung potong saldo gaji (Kredit Unit Toko/Jasa).
+- [x] Audit Log tersistem di belakang layar (middleware-level tracking) dan menu Audit Log dikunci eksklusif `operator`.
+- [x] Sistem Website *fully live*, tersinkron dengan PostgreSQL (Prisma), dan mendukung layout *PWA (Progressive Web Application)*.
+
+**🟩 Tahap 2: Setup Mobile App Monorepo (SELESAI ✅)**
+
+- [x] Implementasi struktur bersebelahan (Side-by-side) `src/` web dan `mobile/` app.
+- [x] Konfigurasi React Navigation untuk aplikasi React Native blank project.
+- [x] Pembuatan sisi `src/app/api/mobile/login` agar validasi login dan distribusi spesifikasi token JWT.
+
+**🟨 Tahap 3: Pengembangan UI Mobile (SEDANG BERJALAN ⏳)**
+
+- [x] Form Login Native & Secure JWT Persistence (Terhubung ke Web API).
+- [x] Bottom Tab Navigation (Beranda, Simpanan, Pinjaman, Profil) dengan Ionicons.
+- [x] Dashboard Real-time Role-aware (Operator: statistik koperasi global; Anggota: saldo & pinjaman pribadi).
+- [x] Simpanan History FlatList dari `/api/mobile/transactions`.
+- [x] Pinjaman List dengan Badge Status + riwayat 3 angsuran terakhir dari `/api/mobile/loans`.
+- [x] Profile Screen dengan Logout & NRP Display.
+- [x] Centralized API Client (`src/lib/api.ts`) dengan JWT Bearer Interceptor.
+- [x] JWT Middleware Backend (`api/mobile/middleware.ts`) untuk validasi token di semua endpoint mobile.
+- [x] Mobile API: `/api/mobile/summary` (role-aware dashboard data).
+- [x] Mobile API: `/api/mobile/transactions` (savings, unit credit, loan payments paginated).
+- [x] Mobile API: `/api/mobile/loans` (daftar pinjaman + recent payments).
+- [x] Mobile API: `/api/mobile/pengumuman` (pengumuman terbaru tampil di dashboard).
+- [x] Auto-logout jika token expired (status 401).
+- [x] Pengumuman Full Tab (5th tab: Info) dengan category icons, pinned indicator, dan detail modal.
+- [x] Ganti Password via HP (`/api/mobile/change-password`) + bcrypt + Audit Log.
+- [x] Pengajuan Pinjaman via HP (`/api/mobile/loan-apply`) — GET produk + POST apply dengan validasi plafon/tenor/max 3 aktif.
+- [x] LoanApplicationScreen (pilih produk, kalkulator angsuran, konfirmasi submission).
+- [x] ProfileScreen diperluas (menu: Ganti Password, Ajukan Pinjaman, Logout).
+- [x] Stack Navigator diperluas (ChangePassword & LoanApplication sub-screens).
+- [x] TransaksiScreen (3 tab filter: Simpanan/Kredit Unit/Angsuran) — menggantikan tab Simpanan.
+- [x] FAB "Ajukan Pinjaman" dipindah dari Profil ke tab Pinjaman (sesuai flow web).
+- [x] Web-Mobile Feature Parity Analysis & Navigation Restructure.
+- [x] Tab Info dihapus → Pengumuman di-embed ke Beranda.
+- [x] Dashboard Operator diperluas: 6 Stat Cards + Aktivitas Hari Ini (Simpanan/Pencairan/Angsuran) + Aksi Cepat.
+- [x] `/api/mobile/summary` diperluas dengan today-activity stats (deposits/withdrawals/payments) + Tunkin + Tunggakan.
+- [x] `colors.ts` — Centralized color palette sinkron dari web `globals.css` (Navy #1A2A44, Gold #D4AF37, Burgundy #5D2E3A).
+- [x] Semua 9 screen mobile di-update dengan theme terpusat (Login, Dashboard, Transaksi, Pinjaman, Profil, ChangePassword, LoanApplication, Pengumuman, MainTabs).
+
+### Fase 4a — Multi-Role Features
+
+- [x] **Backend API**: `/api/mobile/approvals` (GET list pending + PATCH approve/reject + audit log)
+- [x] **Backend API**: `/api/mobile/members` (GET search anggota by nama/NRP)
+- [x] **Backend API**: `/api/mobile/savings-tx` (GET rekening + POST setoran/penarikan atomic)
+- [x] **Backend API**: `/api/mobile/loan-payment` (GET pinjaman aktif + POST angsuran + auto-lunas)
+- [x] **Backend API**: `/api/mobile/toko` (GET produk + POST checkout cash/kredit + stok deduction)
+- [x] **Screen**: `ApprovalScreen` — List pengajuan pending + tombol Setujui/Tolak
+- [x] **Screen**: `MemberListScreen` — Cari anggota + navigasi fitur transaksi
+- [x] **Screen**: `SavingsTransactionScreen` — Input setoran/penarikan simpanan anggota
+- [x] **Screen**: `LoanPaymentScreen` — Pilih pinjaman aktif & bayar angsuran
+- [x] **Screen**: `KasirScreen` — Full POS: cari produk, keranjang, checkout tunai/kredit
+- [x] **Screen**: `StokScreen` — Lihat persediaan barang khusus Kasir
+- [x] **Navigation**: `MainTabs` & Stack Registration — tab berubah berdasar role (Anggota/Operator/Kasir)
+- [x] **Dashboard**: Multi-role summary statistics (Operator global, Kasir sales, Anggota personal)
+
+### Fase 4b — Mobile Reports & Device Peripherals
+
+- [x] **Backend API**: `/api/mobile/reports/savings` (Rekapitulasi total produk simpanan, setoran & tarikan per-periode)
+- [x] **Backend API**: `/api/mobile/reports/loans` (Rekapitulasi total dicairkan, status bayar, outstanding, kolektibilitas per-periode)
+- [x] **Screen Operator**: `LaporanSimpananScreen` (Menampilkan indikator finansial koperasi & tabel rekap produk simpanan)
+- [x] **Screen Operator**: `LaporanPinjamanScreen` (Menampilkan indikator pinjaman & collectibility bar)
+- [x] **KasirScreen**: Menyuntikkan fungsi cetak *Thermal Printer* (`expo-print`) sesudah pembayaran POS sukses.
+- [x] **Push Notifications**: Menyiapkan modul FCM + Request Permissions (`expo-notifications` + `expo-device`).
+- [ ] **Export PDF/Excel (Mobile)**: Membuat fitur "Share as PDF" untuk laporan Simpanan & Pinjaman (Menggunakan `expo-print` & `expo-sharing`).
+- [ ] **UI Refactor (NativeWind)**: Migrasi dari `StyleSheet.create` ke NativeWind (Tailwind CSS) untuk kemudahan maintenance desain.
+- [ ] **Biometric Login**: Opsional — integrasi Fingerprint/FaceID login.
+
+### Fase 4c — Audit Hardcode & Quality Assurance
+
+- [x] **LoginScreen**: Refactor — hapus `import axios` + hardcode IP → gunakan centralized `api.ts`.
+- [x] **api.ts**: IP hardcode → auto-detect IP dari Expo debugger (`Constants.expoConfig.hostUri`) + fallback production `primkoppol.online`.
+- [x] **SimpananScreen**: Rewrote — semua warna inline `#0B2A4A` → `C.primary`, `#94A3B8` → `C.mutedForeground`, dll.
+- [x] **ProfileScreen**: StatusBar hardcode `#0B2A4A` → `C.primary`.
+- [x] **TransaksiScreen**: Warna hardcode `#0B2A4A` + `#0EA5E9` → `C.primary` + `C.accent`.
+- [x] **PinjamanScreen**: Warna hardcode `#0B2A4A` + `#0EA5E9` → `C.primary` + `C.accent`.
+- [x] **LoanApplicationScreen**: Warna hardcode `#0B2A4A` + `#0EA5E9` → `C.primary` + `C.accent`.
+- [x] **PengumumanScreen**: Warna hardcode `#0B2A4A` + `#0EA5E9` → `C.primary` + `C.accent`.
+- [x] **ChangePasswordScreen**: Warna hardcode `#0B2A4A` → `C.primary`.
+- [x] **Full Audit**: Tidak ditemukan data dummy/mock/lorem pada seluruh screen source.
+
+### Catatan Fitur Web yang Tidak Dimobilkan (By Design)
+
+Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akuntansi berat yang lebih cocok dikerjakan di desktop/laptop:
+
+| Fitur Web | Alasan Tidak Dimobilkan |
+| --- | --- |
+| Kas & Bank (Transaksi/Transfer) | Akuntansi berat, perlu layar besar |
+| Non SP (Penerimaan/Pengeluaran) | Akuntansi berat |
+| Jurnal (Buku Besar/Umum/Penyesuaian) | Akuntansi — form tabel kompleks |
+| Aset (Daftar + Penyusutan) | Akuntansi — jarang diakses |
+| Laporan Keuangan (Neraca, Laba Rugi, Arus Kas, SHU) | Tabel besar, perlu Excel/PDF |
+| Master Data (Cabang, COA, Mapping, dll) | Pengaturan admin, 1x setup |
+| User Management | Pengaturan admin |
+| Audit Log | Read-only monitoring |
+| Kartu/Buku Anggota | Fitur cetak fisik |
+| Pengumuman CRUD | Mobile hanya read, buat/edit via web |
+
+---
+
+*Dokumen Master Plan & Tracking ini terakhir diperbarui pada **28 Maret 2026**.*
