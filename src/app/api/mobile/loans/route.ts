@@ -37,7 +37,7 @@ export async function GET(request: Request) {
                 interestOutstanding: Number(loan.interestOutstanding),
                 interestRate: Number(loan.interestRate),
                 monthlyInstallment: Number(loan.monthlyInstallment),
-                tenor: loan.tenor,
+                tenor: loan.tenorMonths,
                 status: loan.status,
                 disbursedAt: loan.disbursementDate,
                 lastDueDate: loan.lastDueDate,

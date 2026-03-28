@@ -124,6 +124,24 @@ export async function GET(request: Request) {
         }
 
         // Jika anggota biasa, kirim data personal
+        // Guard: jika user belum terhubung dengan data member
+        if (!memberId || !user.member) {
+            return NextResponse.json({
+                data: {
+                    type: "member",
+                    user: {
+                        id: user.id, name: user.name, email: user.email,
+                        role: user.role.name, roleDisplayName: user.role.displayName,
+                        branch: user.branch?.name,
+                    },
+                    member: null,
+                    savings: { accounts: [], totalBalance: 0 },
+                    loans: { list: [], activeCount: 0, totalOutstanding: 0 },
+                    unitCredit: { unpaidTotal: 0, unpaidCount: 0 },
+                },
+            });
+        }
+
         const [savingsAccounts, loans, unitUnpaid] = await Promise.all([
             prisma.savingsAccount.findMany({
                 where: { memberId, status: "active" },
@@ -152,12 +170,12 @@ export async function GET(request: Request) {
                 user: {
                     id: user.id, name: user.name, email: user.email,
                     role: user.role.name, roleDisplayName: user.role.displayName,
-                    nrp: user.member?.nrp, branch: user.branch?.name,
+                    nrp: user.member.nrp, branch: user.branch?.name,
                 },
                 member: {
-                    id: user.member!.id, memberNo: user.member!.memberNo,
-                    name: user.member!.name, salary: Number(user.member!.salary || 0),
-                    tunlesKinerja: Number(user.member!.tunlesKinerja || 0),
+                    id: user.member.id, memberNo: user.member.memberNo,
+                    name: user.member.name, salary: Number(user.member.salary || 0),
+                    tunlesKinerja: Number(user.member.tunlesKinerja || 0),
                 },
                 savings: {
                     accounts: savingsAccounts.map((a) => ({
@@ -179,8 +197,8 @@ export async function GET(request: Request) {
                 },
             },
         });
-    } catch (error) {
-        console.error("GET /api/mobile/summary error:", error);
-        return NextResponse.json({ message: "Gagal memuat data" }, { status: 500 });
+    } catch (error: any) {
+        console.error("GET /api/mobile/summary error:", error?.message || error);
+        return NextResponse.json({ message: "Gagal memuat data", error: error?.message }, { status: 500 });
     }
 }

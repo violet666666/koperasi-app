@@ -21,8 +21,8 @@ export async function GET(request: Request) {
                 name: p.name,
                 interestRate: Number(p.interestRate),
                 maxAmount: Number(p.maxAmount),
-                maxTenor: p.maxTenor,
-                description: p.description,
+                maxTenor: p.maxTenorMonths || 12,
+                description: "", // Schema does not have description, returning empty string
             })),
         });
     } catch (error) {
@@ -76,9 +76,9 @@ export async function POST(request: Request) {
             );
         }
 
-        if (tenor > product.maxTenor) {
+        if (product.maxTenorMonths && tenor > product.maxTenorMonths) {
             return NextResponse.json(
-                { message: `Tenor melebihi maksimum ${product.maxTenor} bulan` },
+                { message: `Tenor melebihi maksimum ${product.maxTenorMonths} bulan` },
                 { status: 400 }
             );
         }
@@ -102,22 +102,21 @@ export async function POST(request: Request) {
         const monthlyInstallment = monthlyPrincipal + monthlyInterest;
 
         // Buat aplikasi pinjaman
+        const appPrefix = "APP-MOBILE-";
+        const randomString = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
         const application = await prisma.loanApplication.create({
             data: {
+                applicationNo: `${appPrefix}${Date.now()}-${randomString}`,
                 memberId: user.memberId,
-                loanProductId: product.id,
+                branchId: user.branchId || 1, // Fallback to 1 if no branch
+                createdById: user.id,
+                productId: product.id,
                 amount: amount,
-                tenor: tenor,
-                interestRate: interestRate,
-                monthlyInstallment: monthlyInstallment,
+                tenorMonths: tenor,
                 purpose: purpose || "Keperluan pribadi",
                 status: "submitted",
-                appliedAt: new Date(),
-                productSnapshot: {
-                    code: product.code,
-                    name: product.name,
-                    interestRate: interestRate,
-                },
+                submittedAt: new Date(),
             },
         });
 
@@ -127,7 +126,7 @@ export async function POST(request: Request) {
         await logAudit({
             userId: user.id,
             action: "CREATE",
-            module: "PinjamanMobile",
+            module: "Pinjaman",
             description: `Pengajuan pinjaman via Mobile: ${user.member.name} - Rp ${amount.toLocaleString('id-ID')} (${tenor} bulan)`,
             userName: user.name,
             userEmail: user.email,

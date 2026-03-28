@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import C from '../../lib/colors';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import C from '../../lib/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +49,7 @@ export default function PengumumanScreen() {
         <Text style={styles.cardIcon}>{categoryIcon[item.category] || 'ℹ️'}</Text>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {item.isPinned && <Ionicons name="pin" size={14} color="#F59E0B" />}
+            {item.isPinned && <Ionicons name="pin" size={14} color={C.warning} />}
             <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
           </View>
           <Text style={styles.cardDate}>
@@ -58,7 +57,7 @@ export default function PengumumanScreen() {
             {' • '}{item.authorName}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+        <Ionicons name="chevron-forward" size={18} color={C.mutedForeground} />
       </View>
       <Text style={styles.cardPreview} numberOfLines={2}>{item.content}</Text>
     </TouchableOpacity>
@@ -98,7 +97,7 @@ export default function PengumumanScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{selectedItem?.title}</Text>
               <TouchableOpacity onPress={() => setSelectedItem(null)}>
-                <Ionicons name="close-circle" size={28} color="#94A3B8" />
+                <Ionicons name="close-circle" size={28} color={C.mutedForeground} />
               </TouchableOpacity>
             </View>
             <Text style={styles.modalMeta}>
@@ -116,33 +115,33 @@ export default function PengumumanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
+  container: { flex: 1, backgroundColor: C.background },
   header: {
     backgroundColor: C.primary, paddingTop: 56, paddingBottom: 24, paddingHorizontal: 24,
     borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
   headerTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
-  headerSub: { color: '#94A3B8', fontSize: 13, marginTop: 4 },
+  headerSub: { color: C.mutedForeground, fontSize: 13, marginTop: 4 },
   card: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 10,
+    backgroundColor: C.card, borderRadius: 14, padding: 16, marginBottom: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardIcon: { fontSize: 22, marginTop: 2 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: C.primary, flex: 1 },
-  cardDate: { fontSize: 12, color: '#94A3B8', marginTop: 4 },
-  cardPreview: { fontSize: 13, color: '#64748B', lineHeight: 20, marginTop: 10 },
+  cardDate: { fontSize: 12, color: C.mutedForeground, marginTop: 4 },
+  cardPreview: { fontSize: 13, color: C.foreground, lineHeight: 20, marginTop: 10 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 15, color: '#94A3B8' },
+  emptyText: { fontSize: 15, color: C.mutedForeground },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, maxHeight: '80%',
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: C.primary, flex: 1, marginRight: 12 },
-  modalMeta: { fontSize: 12, color: '#94A3B8', marginBottom: 16 },
+  modalMeta: { fontSize: 12, color: C.mutedForeground, marginBottom: 16 },
   modalScroll: { maxHeight: 400 },
-  modalBody: { fontSize: 15, color: '#334155', lineHeight: 24 },
+  modalBody: { fontSize: 15, color: C.foreground, lineHeight: 24 },
 });

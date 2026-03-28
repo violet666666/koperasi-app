@@ -21,42 +21,47 @@ export default function DashboardScreen({ setToken }: any) {
     try {
       const userData = await SecureStore.getItemAsync('userData');
       if (userData) setUser(JSON.parse(userData));
-
-      try {
-        const summaryRes = await api.get('/api/mobile/summary');
-        const d = summaryRes.data.data;
-        setData(d);
-        if (d.type === 'operator' && d.today) {
-          setDashStats({
-            totalSavings: d.stats.totalSavings,
-            totalLoansOutstanding: d.stats.totalLoansOutstanding,
-            totalArrears: d.stats.totalArrears,
-            activeMembers: d.stats.totalMembers,
-            pendingApprovals: d.stats.pendingApprovals,
-            totalTunkin: d.stats.totalTunkin,
-            membersWithTunkin: d.stats.membersWithTunkin,
-            todayDeposits: d.today.deposits,
-            todayDepositsCount: d.today.depositsCount,
-            todayWithdrawals: d.today.withdrawals,
-            todayWithdrawalsCount: d.today.withdrawalsCount,
-            todayPayments: d.today.payments,
-            todayPaymentsCount: d.today.paymentsCount,
-          });
-        }
-      } catch (err: any) {
-        if (err.response?.status === 401) {
-          await SecureStore.deleteItemAsync('userToken');
-          setToken(null);
-          return;
-        }
-      }
-
-      try {
-        const annRes = await api.get('/api/mobile/pengumuman?limit=3');
-        setAnnouncements(annRes.data.data || []);
-      } catch (err) {}
     } catch (err) {
-      console.log('Dashboard load error:', err);
+      console.log('Error reading user data:', err);
+    }
+
+    // Fetch summary data
+    try {
+      const summaryRes = await api.get('/api/mobile/summary');
+      const d = summaryRes.data.data;
+      setData(d);
+      if (d.type === 'operator' && d.today) {
+        setDashStats({
+          totalSavings: d.stats.totalSavings,
+          totalLoansOutstanding: d.stats.totalLoansOutstanding,
+          totalArrears: d.stats.totalArrears,
+          activeMembers: d.stats.totalMembers,
+          pendingApprovals: d.stats.pendingApprovals,
+          totalTunkin: d.stats.totalTunkin,
+          membersWithTunkin: d.stats.membersWithTunkin,
+          todayDeposits: d.today.deposits,
+          todayDepositsCount: d.today.depositsCount,
+          todayWithdrawals: d.today.withdrawals,
+          todayWithdrawalsCount: d.today.withdrawalsCount,
+          todayPayments: d.today.payments,
+          todayPaymentsCount: d.today.paymentsCount,
+        });
+      }
+    } catch (err: any) {
+      console.log('Dashboard fetch error:', err?.response?.status, err?.response?.data?.message || err?.message);
+      if (err.response?.status === 401) {
+        await SecureStore.deleteItemAsync('userToken');
+        setToken(null);
+        return;
+      }
+    }
+
+    // Fetch announcements
+    try {
+      const annRes = await api.get('/api/mobile/pengumuman?limit=3');
+      setAnnouncements(annRes.data.data || []);
+    } catch (err) {
+      console.log('Pengumuman fetch error:', err);
     }
   }, [setToken]);
 

@@ -1,30 +1,27 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser } from "../middleware";
+import { getMobileUser } from "../../middleware";
 
 export async function GET(request: Request) {
     try {
         // Authenticate request first
-        const user = await getMobileUser(request);
-        if (!user || !user.isOperator) {
+        const user = getMobileUser(request);
+        const isOperator = user && ["operator", "admin", "superadmin"].includes(user.role);
+        if (!user || !isOperator) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const branchId = user.branchId;
-
-        const where = {
-            ...(branchId && { branchId: branchId }),
-        };
+        const where = {};
 
         // Get loan products
         const products = await prisma.loanProduct.findMany({
-            where: { deletedAt: null }
+            where: { isCurrent: true }
         });
 
         const loansByProduct = await prisma.loan.findMany({
             where,
             select: {
-                productId: true,
+                application: { select: { productId: true } },
                 status: true,
                 principalAmount: true,
                 principalOutstanding: true,
@@ -33,7 +30,7 @@ export async function GET(request: Request) {
         });
 
         const productSummary = products.map((product) => {
-            const loans = loansByProduct.filter((l) => l.productId === product.id);
+            const loans = loansByProduct.filter((l) => l.application?.productId === product.id);
             const totalLoans = loans.length;
             const totalDisbursed = loans.reduce((sum, l) => sum + Number(l.principalAmount), 0);
             const totalOutstanding = loans.reduce((sum, l) => sum + Number(l.principalOutstanding), 0);

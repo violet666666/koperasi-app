@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         await logAudit({
             userId: user.id,
             action: "UPDATE",
-            module: "AuthMobile",
+            module: "Auth",
             description: `Password diubah via Mobile App oleh ${user.name}`,
             userName: user.name,
             userEmail: user.email,

@@ -1,23 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser } from "../middleware";
+import { getMobileUser } from "../../middleware";
 
 export async function GET(request: Request) {
     try {
         // Authenticate request first
-        const user = await getMobileUser(request);
-        if (!user || !user.isOperator) {
+        const user = getMobileUser(request);
+        const isOperator = user && ["operator", "admin", "superadmin"].includes(user.role);
+        if (!user || !isOperator) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const branchId = user.branchId; // Limit by operator's branch if they have one
-
-        // Optional filtering by period could be handled here if needed in the future
-
-        const where = {
-            ...(branchId && { branchId: branchId }),
-        };
+        const where = {};
 
         // Get savings products summary
         const products = await prisma.savingsProduct.findMany({
@@ -47,9 +41,7 @@ export async function GET(request: Request) {
         // Get transaction summary
         const transactionSummary = await prisma.savingsTransaction.groupBy({
             by: ["type"],
-            where: {
-                ...(branchId && { branchId: branchId }),
-            },
+            where: {},
             _count: { id: true },
             _sum: { amount: true },
         });

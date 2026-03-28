@@ -8,7 +8,7 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 // POST /api/members/import - Import CSV/XLSX data to update members
 export async function POST(request: Request) {
     try {
-        const formData = await request.formData();
+        const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
         const importType = (formData.get("type") as string) || "tunkin"; // tunkin, gaji
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit

@@ -1,49 +1,66 @@
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import api from './api';
 
-// Default behavior for incoming notifications when app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let Notifications: any = null;
+
+// Only load and initialize expo-notifications if we are NOT in Expo Go
+if (Constants.appOwnership !== 'expo') {
+  try {
+    Notifications = require('expo-notifications');
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.log("Failed to initialize expo-notifications", e);
+  }
+}
 
 export async function registerForPushNotificationsAsync() {
   let token;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#D4AF37',
-    });
+  // IMPORTANT: SDK 53 removed Android push notification from Expo Go
+  // We must skip registration entirely to prevent app crashes when run in Expo Go
+  if (!Notifications) {
+    console.log('Push notifications registration is skipped (Not supported in this environment)');
+    return null;
   }
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance?.MAX || 5, // fallback 5
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#D4AF37',
+      });
     }
-    
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
-      return;
-    }
-    
-    try {
-      // You can pass your Expo project ID here if you migrate to EAS Build:
-      // projectId: 'your-project-id'
-      token = (await Notifications.getExpoPushTokenAsync()).data;
+
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push token for push notification!');
+        return;
+      }
+      
+      // projectId is retrieved from Constants.expoConfig automatically in SDK 50+
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+      
+      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
       
       // Optionally send the token to your backend immediately
       if (token) {
@@ -53,12 +70,11 @@ export async function registerForPushNotificationsAsync() {
            console.log('Gagal menyimpan Push Token ke backend:', err);
          }
       }
-    } catch (error) {
-       console.log('Error getting push token', error);
+    } else {
+      // Simulator/Emulator doesn't support Push Notifications generally.
     }
-  } else {
-    // Simulator/Emulator doesn't support Push Notifications generally.
-    // console.log('Must use physical device for Push Notifications');
+  } catch (error) {
+     console.log('Error getting push token. Safely ignoring.', error);
   }
 
   return token;

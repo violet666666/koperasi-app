@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         if (!user) {
             await logAudit({
                 action: "LOGIN_FAILED",
-                module: "AuthMobile",
+                module: "Auth",
                 description: `Mobile Login gagal: akun '${identifier}' tidak ditemukan`,
                 userName: identifier,
                 userRole: "unknown",
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
             await logAudit({
                 userId: user.id,
                 action: "LOGIN_FAILED",
-                module: "AuthMobile",
+                module: "Auth",
                 description: `Mobile Login gagal: password salah untuk '${user.name}' (${identifier})`,
                 userName: user.name,
                 userEmail: user.email,
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
         await logAudit({
             userId: user.id,
             action: "LOGIN",
-            module: "AuthMobile",
+            module: "Auth",
             description: `Mobile Login berhasil: ${user.name} (${identifier}) sebagai ${user.role.displayName}`,
             userName: user.name,
             userEmail: user.email,

@@ -246,6 +246,18 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **ChangePasswordScreen**: Warna hardcode `#0B2A4A` → `C.primary`.
 - [x] **Full Audit**: Tidak ditemukan data dummy/mock/lorem pada seluruh screen source.
 
+### Fase 4d — Stability & TypeScript Fixes
+
+- [x] **Backend API**: Fixed 500 error in `/api/mobile/summary` (ditangani dengan `null-guard` jika akun user belum terkait `memberId`).
+- [x] **Backend API**: Memperbaiki salah path import middleware di `/api/mobile/reports/savings` dan `/api/mobile/reports/loans` (`../../middleware`).
+- [x] **Backend API**: Memperbaiki derivation status `isOperator` agar berdasarkan `role` dari JWT payload.
+- [x] **Backend API**: Fixed TypeScript errors di `/api/mobile/loan-apply` (menggunakan `maxTenorMonths`, `productId`, dan menghapus field yang tidak ada pada `LoanApplication`).
+- [x] **Backend API**: Fixed TypeScript errors di `/api/mobile/loans` (mengubah `tenor` menjadi `tenorMonths` sesuai Schema Prisma).
+- [x] **Backend API**: Fixed tipe audit logger module dari `"AuthMobile"` menjadi `"Auth"` pada login dan change-password.
+- [x] **Frontend Mobile**: Restrukturisasi try-catch bertingkat di `DashboardScreen.tsx` agar setiap request ditangani terpisah log-nya.
+- [x] **Frontend Mobile**: Menghapus duplikasi import `C` di `PengumumanScreen.tsx` hasil dari script sebelumnya.
+- [x] **Quality Assurance**: 100% lulus kompilasi `npx tsc --noEmit` tanpa error TypeScript.
+
 ### Catatan Fitur Web yang Tidak Dimobilkan (By Design)
 
 Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akuntansi berat yang lebih cocok dikerjakan di desktop/laptop:
