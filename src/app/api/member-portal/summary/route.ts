@@ -86,6 +86,57 @@ export async function GET() {
             _count: { id: true },
         });
 
+        // --- Real-time SHU Estimation ---
+        const year = new Date().getFullYear();
+        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+        const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+
+        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavingsDeposits, sysTajib, sysSimpananPokok,
+            mySavings, myToko, myUnit, myLoan] = await Promise.all([
+            // System-wide aggregates
+            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
+            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
+            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
+            prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
+            prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            // System total Tabungan Wajib & Simpanan Pokok (all active members)
+            prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
+            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
+            // My contributions
+            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+        ]);
+
+        // Income calculation
+        const memberIncome = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const nonMemberIncome = Number(sysTokoNonMember._sum.totalAmount || 0);
+        const totalIncome = memberIncome + nonMemberIncome;
+        const totalExpense = totalIncome * 0.4;
+        const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
+        const memberSurplus = memberIncome - memberExpense;
+
+        const jasaModalPool = memberSurplus * 0.20; // 20% Jasa Simpanan/Modal
+        const jasaUsahaPool = memberSurplus * 0.25; // 25% Jasa Usaha/Anggota
+
+        // System denominators — savings includes deposits + tabungan wajib + simpanan pokok
+        const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
+        // Transaction denominator: toko + unit + loans
+        const totalSysTx = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
+
+        // My numerators — savings includes deposits + tabungan wajib + simpanan pokok
+        const myTabWajib = member.tabunganWajib ? Number(member.tabunganWajib) : 0;
+        const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
+        const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
+        const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0);
+
+        const myModal = (mySavCont / totalSysSavings) * jasaModalPool;
+        const myUsaha = (myTxCont / totalSysTx) * jasaUsahaPool;
+        const estimatedSHUTotal = Math.round(myModal + myUsaha);
+        const jasaModalPercent = totalSysSavings > 0 ? (mySavCont / totalSysSavings) * 100 : 0;
+        const jasaUsahaPercent = totalSysTx > 0 ? (myTxCont / totalSysTx) * 100 : 0;
+
         return NextResponse.json({
             data: {
                 member: {
@@ -137,6 +188,13 @@ export async function GET() {
                     })),
                     unpaidTotal: Number(unpaidUnitTotal._sum.amount || 0),
                     unpaidCount: unpaidUnitTotal._count.id,
+                },
+                estimatedSHU: {
+                    total: estimatedSHUTotal,
+                    jasaModal: Math.round(myModal),
+                    jasaUsaha: Math.round(myUsaha),
+                    jasaModalPercent,
+                    jasaUsahaPercent,
                 },
             },
         });

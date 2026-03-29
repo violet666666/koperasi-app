@@ -70,6 +70,8 @@ function getUnitName(unitType: string) {
 }
 
 export default function MemberDashboardPage() {
+    // Dynamic month name
+    const currentMonthName = format(new Date(), "MMMM", { locale: id });
     const { user } = useAuth();
 
     type SummaryResponse = {
@@ -82,6 +84,13 @@ export default function MemberDashboardPage() {
                 unpaidCount: number;
                 byUnit: { unitType: string; totalAmount: number; count: number }[];
                 recent: any[];
+            };
+            estimatedSHU?: {
+                total: number;
+                jasaModal: number;
+                jasaUsaha: number;
+                jasaModalPercent: number;
+                jasaUsahaPercent: number;
             };
         }
     };
@@ -215,15 +224,15 @@ export default function MemberDashboardPage() {
                         {!isLoading && (
                             <div className="mt-2 space-y-1">
                                 <div className="flex justify-between text-xs opacity-80">
-                                    <span>Tab. Wajib (Bulan Ini)</span>
+                                    <span>Tab. Wajib (per {currentMonthName})</span>
                                     <span className="font-semibold">{formatCurrency(tabunganWajib)}</span>
                                 </div>
                                 <div className="flex justify-between text-xs opacity-80">
-                                    <span>Simpanan Pokok</span>
+                                    <span>Simpanan Pokok (per {currentMonthName})</span>
                                     <span className="font-semibold">{formatCurrency(simpananPokok)}</span>
                                 </div>
                                 <div className="flex justify-between text-xs opacity-80">
-                                    <span>Simpanan Sukarela</span>
+                                    <span>Simpanan Sukarela (per {currentMonthName})</span>
                                     <span className="font-semibold">{formatCurrency(simpananSukarela)}</span>
                                 </div>
                             </div>
@@ -231,26 +240,26 @@ export default function MemberDashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* 7. SHU Estimasi */}
+                {/* 7. SHU Estimasi — Realtime */}
                 <Card className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Estimasi SHU</CardTitle>
+                        <CardTitle className="text-sm font-medium opacity-90">Estimasi SHU Anda</CardTitle>
                         <TrendingUp className="h-4 w-4 opacity-75" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : "Menunggu Perhitungan"}
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.estimatedSHU?.total || 0)}
                         </div>
-                        <p className="text-xs opacity-80 mt-1">SHU dihitung pada akhir periode (Tutup Buku)</p>
-                        {!isLoading && (
+                        <p className="text-xs opacity-80 mt-1">Estimasi realtime — kontribusi belanja, pinjaman, tabungan wajib &amp; pokok</p>
+                        {!isLoading && data?.estimatedSHU && (
                             <div className="mt-2 space-y-1">
                                 <div className="flex justify-between text-xs opacity-80">
-                                    <span>Jasa Anggota (25%)</span>
-                                    <span className="font-semibold">—</span>
+                                    <span>Jasa Usaha ({data.estimatedSHU.jasaUsahaPercent?.toFixed(1)}%)</span>
+                                    <span className="font-semibold">{formatCurrency(data.estimatedSHU.jasaUsaha)}</span>
                                 </div>
                                 <div className="flex justify-between text-xs opacity-80">
-                                    <span>Jasa Simpanan (20%)</span>
-                                    <span className="font-semibold">—</span>
+                                    <span>Jasa Modal ({data.estimatedSHU.jasaModalPercent?.toFixed(1)}%)</span>
+                                    <span className="font-semibold">{formatCurrency(data.estimatedSHU.jasaModal)}</span>
                                 </div>
                             </div>
                         )}

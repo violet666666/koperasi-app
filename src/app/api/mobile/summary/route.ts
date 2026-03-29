@@ -169,12 +169,15 @@ export async function GET(request: Request) {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavings, mySavings, myToko, myUnit, myLoan] = await Promise.all([
+        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myToko, myUnit, myLoan] = await Promise.all([
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            // System total Tabungan Wajib & Simpanan Pokok (all active members)
+            prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
+            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
             
             prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
@@ -193,12 +196,14 @@ export async function GET(request: Request) {
         const jasaModalPool = memberSurplus * 0.20; // 20% from Member Surplus
         const jasaUsahaPool = memberSurplus * 0.30; // 30% from Member Surplus
 
-        // System Denominators
-        const totalSysSav = Number(sysSavings._sum.amount || 0) || 1;
+        // System Denominators — include Tajib + Simpanan Pokok
+        const totalSysSav = Number(sysSavings._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
         const totalSysTx = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
 
-        // Member Numerators
-        const mySavCont = Number(mySavings._sum.amount || 0);
+        // Member Numerators — include my Tajib + Simpanan Pokok
+        const myTabWajib = Number(user.member.tabunganWajib || 0);
+        const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
+        const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
         const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0);
 
         const myModal = (mySavCont / totalSysSav) * jasaModalPool;
