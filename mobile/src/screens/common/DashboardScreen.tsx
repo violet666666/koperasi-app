@@ -251,6 +251,40 @@ export default function DashboardScreen({ setToken }: any) {
               />
             </View>
 
+            <Text style={styles.sectionTitle}>Akuntansi & Keuangan</Text>
+            <View style={styles.menuGrid}>
+              <MenuItem
+                icon="book-outline"
+                label="Jurnal Umum"
+                color="#0284c7"
+                onPress={() => navigation.navigate("JurnalDaftar")}
+              />
+              <MenuItem
+                icon="library-outline"
+                label="Buku Besar"
+                color="#4338ca"
+                onPress={() => navigation.navigate("BukuBesar")}
+              />
+              <MenuItem
+                icon="bar-chart-outline"
+                label="Laba Rugi"
+                color="#10B981"
+                onPress={() => navigation.navigate("LabaRugi")}
+              />
+              <MenuItem
+                icon="scale-outline"
+                label="Neraca"
+                color="#D97706"
+                onPress={() => navigation.navigate("Neraca")}
+              />
+              <MenuItem
+                icon="pie-chart-outline"
+                label="Kalkulasi SHU"
+                color="#be185d"
+                onPress={() => navigation.navigate("LaporanSHU")}
+              />
+            </View>
+
             <Text style={styles.sectionTitle}>Laporan & Pengaturan</Text>
             <View style={styles.menuGrid}>
               <MenuItem

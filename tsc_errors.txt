@@ -1,1 +1,5 @@
-prisma/add-unit-staff.ts(53,106): error TS2353: Object literal may only specify known properties, and 'description' does not exist in type '(Without<PermissionCreateInput, PermissionUncheckedCreateInput> & PermissionUncheckedCreateInput) | (Without<...> & PermissionCreateInput)'.
+src/app/api/mobile/journals/route.ts(115,21): error TS2322: Type 'string' is not assignable to type 'number'.
+src/app/api/mobile/journals/route.ts(134,21): error TS2322: Type 'string' is not assignable to type 'number'.
+src/app/api/mobile/reports/financial/route.ts(4,53): error TS2307: Cannot find module '../../../middleware' or its corresponding type declarations.
+src/app/api/mobile/reports/financial/route.ts(69,22): error TS2551: Property 'journal' does not exist on type '{ account: { name: string; id: number; category: string | null; type: string; code: string; isDetail: boolean; normalBalance: string; }; } & { id: number; description: string | null; accountId: number; journalId: number; debit: Decimal; credit: Decimal; }'. Did you mean 'journalId'?
+src/app/api/mobile/reports/shu-calculator/route.ts(4,53): error TS2307: Cannot find module '../../../middleware' or its corresponding type declarations.

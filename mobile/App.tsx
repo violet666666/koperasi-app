@@ -36,6 +36,13 @@ import RekeningListScreen from "./src/screens/operator/RekeningListScreen";
 import ProfilKoperasiScreen from "./src/screens/operator/ProfilKoperasiScreen";
 import KasBankScreen from "./src/screens/operator/KasBankScreen";
 import AuditLogScreen from "./src/screens/operator/AuditLogScreen";
+import JurnalDaftarScreen from "./src/screens/operator/JurnalDaftarScreen";
+import JurnalInputScreen from "./src/screens/operator/JurnalInputScreen";
+import BukuBesarScreen from "./src/screens/operator/BukuBesarScreen";
+import LabaRugiScreen from "./src/screens/operator/LabaRugiScreen";
+import NeracaScreen from "./src/screens/operator/NeracaScreen";
+import LaporanSHUScreen from "./src/screens/operator/LaporanSHUScreen";
+
 const Stack = createNativeStackNavigator();
 
 // ========== SPLASH SCREEN ==========
@@ -176,6 +183,12 @@ export default function App() {
             />
             <Stack.Screen name="KasBankFull" component={KasBankScreen} />
             <Stack.Screen name="AuditLogFull" component={AuditLogScreen} />
+            <Stack.Screen name="JurnalDaftar" component={JurnalDaftarScreen} />
+            <Stack.Screen name="JurnalInput" component={JurnalInputScreen} />
+            <Stack.Screen name="BukuBesar" component={BukuBesarScreen} />
+            <Stack.Screen name="LabaRugi" component={LabaRugiScreen} />
+            <Stack.Screen name="Neraca" component={NeracaScreen} />
+            <Stack.Screen name="LaporanSHU" component={LaporanSHUScreen} />
 
             {/* ====== Common Sub-screens ====== */}
             <Stack.Screen

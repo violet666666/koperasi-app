@@ -313,19 +313,19 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 
 #### Fase 5b — Jurnal & Buku Besar (Akuntansi Double-Entry)
 
-- [ ] **Backend API**: `GET/POST /api/mobile/journals` — Daftar jurnal umum + pembuatan jurnal penyesuaian dengan validasi Debit == Kredit.
-- [ ] **Backend API**: `GET /api/mobile/accounts` — Bagan Akun (Chart of Accounts) untuk pilihan dropdown di form jurnal.
-- [ ] **Screen Operator**: `JurnalDaftarScreen` — Daftar jurnal (FlatList + search + filter periode) dengan Horizontal ScrollView untuk baris Debit/Kredit.
-- [ ] **Screen Operator**: `JurnalInputScreen` — Form input jurnal baru: wizard bertingkat dengan dynamic add-row untuk baris akun Debit/Kredit. Indikator Balance merah/hijau. Konfirmasi 2 tahap sebelum simpan.
-- [ ] **Screen Operator**: `BukuBesarScreen` — Filter per akun + rentang tanggal. Tampilkan mutasi Debit/Kredit beserta saldo berjalan (running balance) dengan Horizontal ScrollView.
+- [x] **Backend API**: `GET/POST /api/mobile/journals` — Daftar jurnal umum + pembuatan jurnal penyesuaian dengan validasi Debit == Kredit.
+- [x] **Backend API**: `GET /api/mobile/accounts` — Bagan Akun (Chart of Accounts) untuk pilihan dropdown di form jurnal.
+- [x] **Screen Operator**: `JurnalDaftarScreen` — Daftar jurnal (FlatList + search + filter periode) dengan Horizontal ScrollView untuk baris Debit/Kredit.
+- [x] **Screen Operator**: `JurnalInputScreen` — Form input jurnal baru: wizard bertingkat dengan dynamic add-row untuk baris akun Debit/Kredit. Indikator Balance merah/hijau. Konfirmasi 2 tahap sebelum simpan.
+- [x] **Screen Operator**: `BukuBesarScreen` — Filter per akun + rentang tanggal. Tampilkan mutasi Debit/Kredit beserta saldo berjalan (running balance) dengan Horizontal ScrollView.
 
 #### Fase 5c — Laporan Keuangan Komprehensif (Neraca, Laba Rugi, SHU)
 
-- [ ] **Backend API**: `GET /api/mobile/reports/financial` — Aggregator data Neraca (aset/kewajiban/ekuitas) dan Laba Rugi (pendapatan/beban) per periode.
-- [ ] **Backend API**: `GET /api/mobile/reports/shu-calculator` — Kalkulasi Alokasi SHU per anggota (Jasa Anggota 25%, Jasa Simpanan 20%, Cadangan 30%, dsb.) sesuai AD-ART.
-- [ ] **Screen Operator**: `LabaRugiScreen` — Card pendapatan vs beban + laba bersih. Tabel detail dalam ScrollView.
-- [ ] **Screen Operator**: `NeracaScreen` — Aset = Kewajiban + Ekuitas. Card total + tabel breakdown per akun.
-- [ ] **Screen Operator**: `LaporanSHUScreen` — Ringkasan distribusi SHU koperasi + daftar top anggota penerima SHU.
+- [x] **Backend API**: `GET /api/mobile/reports/financial` — Aggregator data Neraca (aset/kewajiban/ekuitas) dan Laba Rugi (pendapatan/beban) per periode.
+- [x] **Backend API**: `GET /api/mobile/reports/shu-calculator` — Kalkulasi Alokasi SHU per anggota (Jasa Anggota 25%, Jasa Simpanan 20%, Cadangan 30%, dsb.) sesuai AD-ART.
+- [x] **Screen Operator**: `LabaRugiScreen` — Card pendapatan vs beban + laba bersih. Tabel detail dalam ScrollView.
+- [x] **Screen Operator**: `NeracaScreen` — Aset = Kewajiban + Ekuitas. Card total + tabel breakdown per akun.
+- [x] **Screen Operator**: `LaporanSHUScreen` — Ringkasan distribusi SHU koperasi + daftar top anggota penerima SHU.
 - [ ] **Export**: Share as PDF via `expo-print` + `expo-sharing` untuk semua laporan.
 
 #### Fase 5d — Manajemen Aset & Inventaris
@@ -424,8 +424,8 @@ Agar aplikasi aman (Verified by Play Protect) dan bisa di-search oleh umum:
 | Tunjangan, Tajib, Gaji, SHU | ✅ | ✅ | ✅ Selesai |
 | Kas & Bank | ✅ | ✅ | ✅ Selesai |
 | Audit Log | ✅ | ✅ | ✅ Selesai |
-| Jurnal & Buku Besar | ✅ | 🔲 | ⏳ Fase 5b |
-| Laporan Keuangan (Neraca/L-R/SHU) | ✅ | 🔲 | ⏳ Fase 5c |
+| Jurnal & Buku Besar | ✅ | ✅ | ✅ Fase 5b Selesai |
+| Laporan Keuangan (Neraca/L-R/SHU) | ✅ | ✅ | ✅ Fase 5c Selesai |
 | Manajemen Aset | ✅ | 🔲 | ⏳ Fase 5d |
 | Master Data & User Management | ✅ | 🔲 | ⏳ Fase 5e |
 | Import Data Anggota & Tunkin | ✅ | 🔲 | ⏳ Fase 5e |
