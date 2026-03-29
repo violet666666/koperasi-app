@@ -13,16 +13,20 @@ export async function GET(request: Request) {
         const year = searchParams.get("year") || new Date().getFullYear().toString();
         const yearNum = parseInt(year);
 
-        // Fetch all members with their transactions for the given year
         const startDate = new Date(`${yearNum}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${yearNum}-12-31T23:59:59.999Z`);
 
+        // Fetch all active members with their transactions AND savings accounts
         const members = await prisma.member.findMany({
-            where: { status: "active" },
+            where: { status: "active", deletedAt: null },
             include: {
                 userAccount: { select: { name: true } },
                 savingsTransactions: {
                     where: { transactionDate: { gte: startDate, lte: endDate } }
+                },
+                savingsAccounts: {
+                    where: { status: "active" },
+                    include: { product: { select: { type: true } } }
                 },
                 loans: {
                     where: { disbursementDate: { gte: startDate, lte: endDate } }
@@ -36,8 +40,7 @@ export async function GET(request: Request) {
             }
         });
 
-        // Calculate total cooperative income/expense (simplified for SHU demo based on real DB values)
-        // 1. Toko Sales Income (Member vs Non-Member)
+        // === SYSTEM-WIDE INCOME CALCULATION ===
         const tokoSalesMember = await prisma.storeSale.aggregate({
             where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } },
             _sum: { totalAmount: true }
@@ -46,85 +49,88 @@ export async function GET(request: Request) {
             where: { createdAt: { gte: startDate, lte: endDate }, memberId: null },
             _sum: { totalAmount: true }
         });
-        
-        // 2. Unit Transactions Income (Member only)
         const allUnitTx = await prisma.unitTransaction.aggregate({
             where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true },
             _sum: { amount: true }
         });
-
-        // 3. Loan Interest Income (Member only)
         const allLoanInterest = await prisma.loanPayment.aggregate({
             where: { paymentDate: { gte: startDate, lte: endDate } },
             _sum: { interestPortion: true }
         });
 
-        const memberIncome = Number(tokoSalesMember._sum.totalAmount || 0) + 
-                             Number(allUnitTx._sum.amount || 0) + 
+        const memberIncome = Number(tokoSalesMember._sum.totalAmount || 0) +
+                             Number(allUnitTx._sum.amount || 0) +
                              Number(allLoanInterest._sum.interestPortion || 0);
-                             
         const nonMemberIncome = Number(tokoSalesNonMember._sum.totalAmount || 0);
-
         const totalIncome = memberIncome + nonMemberIncome;
 
-        // Expense Allocation (Assumption: Pro-rated across incomes)
-        const totalExpense = totalIncome * 0.4; // Assuming 40% expenses total
+        const totalExpense = totalIncome * 0.4;
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const nonMemberExpense = totalIncome > 0 ? (nonMemberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
         const nonMemberSurplus = nonMemberIncome - nonMemberExpense;
         const netSurplus = memberSurplus + nonMemberSurplus;
 
-        // --- AD-ART MEMBER --- (100% of Member Surplus)
-        // Per lampiran gambar parameter SHU Anggota:
-        // 1. Jasa Anggota 25%, 2. Jasa Simpanan 20%, 3. Cadangan 30%,
-        // 4. Dana Pengurus 10%, 5. Dana Pegawai 5%, 6. Dana Pendidikan 5%, 7. Dana Sosial 5%
-        const mReserveFund = memberSurplus * 0.30;  // Cadangan
-        const mJasaUsaha = memberSurplus * 0.25;    // Jasa Anggota
-        const mPengurus = memberSurplus * 0.10;     // Dana Pengurus
-        const mEmployee = memberSurplus * 0.05;     // Dana Pegawai
-        const mEducation = memberSurplus * 0.05;    // Dana Pendidikan
-        const mSocial = memberSurplus * 0.05;       // Dana Sosial
+        // === AD-ART MEMBER ALLOCATION (100% of Member Surplus) ===
+        // Cadangan 30%, Jasa Anggota 25%, Dana Pengurus 10%, Dana Pegawai 5%, Pendidikan 5%, Sosial 5%
+        const mReserveFund = memberSurplus * 0.30;
+        const mJasaUsaha = memberSurplus * 0.25;
+        const mPengurus = memberSurplus * 0.10;
+        const mEmployee = memberSurplus * 0.05;
+        const mEducation = memberSurplus * 0.05;
+        const mSocial = memberSurplus * 0.05;
 
-        // Jasa Simpanan: uses TOTAL net surplus (member savings fund ALL koperasi ops)
-        const mJasaModal = netSurplus * 0.20;       // Jasa Simpanan
+        // Jasa Simpanan 20%: uses TOTAL net surplus WITH minimum floor
+        const totalActiveSavBal = await prisma.savingsAccount.aggregate({
+            where: { status: "active" }, _sum: { balance: true }
+        });
+        const sysTajib = await prisma.member.aggregate({
+            where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true }
+        });
+        const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0) + Number(sysTajib._sum.tabunganWajib || 0);
+        const surplusBasedPool = netSurplus * 0.20;
+        const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20;
+        const mJasaModal = Math.max(surplusBasedPool, minSavingsReturnPool);
 
-        // --- AD-ART NON-MEMBER --- (100% of Non-Member Surplus)
+        // === AD-ART NON-MEMBER ALLOCATION ===
+        // Cadangan 60%, Pendidikan 20%, Pegawai 10%, Sosial 10%
         const nmReserveFund = nonMemberSurplus * 0.60;
         const nmEmployee = nonMemberSurplus * 0.10;
         const nmEducation = nonMemberSurplus * 0.20;
         const nmSocial = nonMemberSurplus * 0.10;
 
-        // --- TOTAL FUNDS FOR DISTRIBUTION ---
+        // === TOTAL COMBINED FUNDS ===
         const reserveFund = mReserveFund + nmReserveFund;
         const educationFund = mEducation + nmEducation;
         const employeeBonus = mEmployee + nmEmployee;
         const socialFund = mSocial + nmSocial;
         const pengurusFund = mPengurus;
-
         const jasaModalPool = mJasaModal;
         const jasaUsahaPool = mJasaUsaha;
         const memberDividend = jasaModalPool + jasaUsahaPool;
 
-        // Calculate individual member contributions
+        // === INDIVIDUAL MEMBER CONTRIBUTIONS ===
         let totalSystemSavings = 0;
         let totalSystemTransactions = 0;
 
         const rawMemberStats = members.map(m => {
-            // Savings contribution (Total Deposits)
+            // Savings contribution: deposits + tabunganWajib + simpanan pokok balance
             let savingsContribution = 0;
             m.savingsTransactions.forEach(tx => {
-                if (tx.type === 'in') savingsContribution += Number(tx.amount);
+                if (tx.type === 'deposit') savingsContribution += Number(tx.amount);
             });
-            // Also include their base balance
-            // Removed logical dummy fallback to represent real calculations
+            savingsContribution += Number(m.tabunganWajib || 0);
+            m.savingsAccounts.forEach(acc => {
+                if (acc.product.type === 'pokok') {
+                    savingsContribution += Number(acc.balance || 0);
+                }
+            });
 
             // Transaction contribution (Store + Unit + Loans)
             let loanContribution = 0;
             m.loans.forEach(l => { loanContribution += Number(l.totalAmount); });
             m.storeSales.forEach(s => { loanContribution += Number(s.totalAmount); });
             m.unitTransactions.forEach(u => { loanContribution += Number(u.amount); });
-            // Removed dummy fallback to reflect true AD-ART zero contribution
 
             totalSystemSavings += savingsContribution;
             totalSystemTransactions += loanContribution;
@@ -132,7 +138,7 @@ export async function GET(request: Request) {
             return {
                 id: m.id,
                 memberNo: m.memberNo,
-                name: m.userAccount?.name || "Anggota",
+                name: m.userAccount?.name || m.name || "Anggota",
                 savingsContribution,
                 loanContribution,
                 totalContribution: savingsContribution + loanContribution,
@@ -141,8 +147,7 @@ export async function GET(request: Request) {
             };
         });
 
-        // Calculation is handled above with jasaModalPool and jasaUsahaPool
-
+        // === DISTRIBUTE SHU TO EACH MEMBER ===
         const memberSHU = rawMemberStats.map(m => {
             const modalPortion = totalSystemSavings > 0 ? (m.savingsContribution / totalSystemSavings) * jasaModalPool : 0;
             const usahaPortion = totalSystemTransactions > 0 ? (m.loanContribution / totalSystemTransactions) * jasaUsahaPool : 0;
@@ -151,16 +156,22 @@ export async function GET(request: Request) {
 
             return {
                 ...m,
+                modalPortion: Math.round(modalPortion),
+                usahaPortion: Math.round(usahaPortion),
                 shuAmount: Math.round(myShu),
                 percentage: Number(myPercentage.toFixed(2))
             };
-        }).sort((a, b) => b.shuAmount - a.shuAmount); // Sort by highest SHU
+        }).sort((a, b) => b.shuAmount - a.shuAmount);
+
+        // Determine status dynamically
+        const hasAnyContribution = totalSystemSavings > 0 || totalSystemTransactions > 0;
+        const status = hasAnyContribution ? "calculated" : "draft";
 
         return NextResponse.json({
             data: {
                 shuData: {
                     year: yearNum,
-                    status: "calculated",
+                    status,
                     totalIncome,
                     totalExpense,
                     netSurplus,

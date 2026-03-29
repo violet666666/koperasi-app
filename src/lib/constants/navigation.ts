@@ -174,7 +174,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Alokasi SHU",
-                href: "/shu",
+                href: "/periode/shu/perhitungan",
                 icon: PieChart,
                 permission: "alokasi_shu",
                 children: [
@@ -246,7 +246,6 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 icon: Database,
                 permission: "master_data",
                 children: [
-                    { title: "Cabang", href: "/master/cabang" },
                     { title: "Produk Simpanan", href: "/master/produk-simpanan" },
                     { title: "Produk Pinjaman", href: "/master/produk-pinjaman" },
                     { title: "Chart of Accounts", href: "/master/coa" },

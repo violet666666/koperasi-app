@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
@@ -25,9 +24,8 @@ import {
     TrendingUp,
     PieChart,
     Download,
-    Play,
     Loader2,
-    CheckCircle,
+    RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { toast } from "sonner";
@@ -77,7 +75,7 @@ const columns: ColumnDef<MemberSHU>[] = [
         header: "NRP",
         cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("memberNo")}</span>,
     },
-    { accessorKey: "name", header: "Nama" },
+    { accessorKey: "name", header: "Nama Anggota" },
     {
         accessorKey: "savingsContribution",
         header: () => <div className="text-right">Kontribusi Simpanan</div>,
@@ -85,8 +83,18 @@ const columns: ColumnDef<MemberSHU>[] = [
     },
     {
         accessorKey: "loanContribution",
-        header: () => <div className="text-right">Kontribusi Pinjaman</div>,
+        header: () => <div className="text-right">Kontribusi Transaksi</div>,
         cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("loanContribution"))}</div>,
+    },
+    {
+        accessorKey: "modalPortion",
+        header: () => <div className="text-right">Jasa Simpanan</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums text-blue-600">{formatCurrency(row.getValue("modalPortion"))}</div>,
+    },
+    {
+        accessorKey: "usahaPortion",
+        header: () => <div className="text-right">Jasa Anggota</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums text-green-600">{formatCurrency(row.getValue("usahaPortion"))}</div>,
     },
     {
         accessorKey: "percentage",
@@ -95,88 +103,80 @@ const columns: ColumnDef<MemberSHU>[] = [
     },
     {
         accessorKey: "shuAmount",
-        header: () => <div className="text-right">SHU</div>,
+        header: () => <div className="text-right font-bold">Total SHU</div>,
         cell: ({ row }) => <div className="text-right tabular-nums font-bold text-emerald-600">{formatCurrency(row.getValue("shuAmount"))}</div>,
     },
 ];
 
 export default function SHUCalculationPage() {
-    const [selectedYear, setSelectedYear] = React.useState<string>("2025");
+    const currentYear = new Date().getFullYear().toString();
+    const [selectedYear, setSelectedYear] = React.useState<string>(currentYear);
     const [shuData, setShuData] = React.useState<SHUCalculation | null>(null);
     const [memberSHU, setMemberSHU] = React.useState<MemberSHU[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [isCalculating, setIsCalculating] = React.useState(false);
 
     // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                const res = await fetch(`/api/reports/shu/calculate?year=${selectedYear}`);
-                if (!res.ok) throw new Error("Gagal mengambil data perhitungan SHU");
-                const json = await res.json();
-                
-                if (json.data) {
-                    setShuData(json.data.shuData);
-                    setMemberSHU(json.data.memberSHU);
-                }
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
+    const fetchData = React.useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/reports/shu/calculate?year=${selectedYear}`);
+            if (!res.ok) throw new Error("Gagal mengambil data perhitungan SHU");
+            const json = await res.json();
+            
+            if (json.data) {
+                setShuData(json.data.shuData);
+                setMemberSHU(json.data.memberSHU);
             }
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+            toast.error("Gagal memuat data SHU");
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
     }, [selectedYear]);
 
-    // Handle calculation
-    const handleCalculate = async () => {
-        setIsCalculating(true);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            toast.success("Perhitungan SHU selesai");
-        } catch (error) {
-            toast.error("Gagal menghitung SHU");
-        } finally {
-            setIsCalculating(false);
-        }
-    };
+    React.useEffect(() => { fetchData(); }, [fetchData]);
 
-    const memberDistribution = shuData && shuData.memberSurplus > 0 ? [
-        { name: "Jasa Anggota", amount: shuData.memberSurplus * 0.25, percentage: 25, color: "bg-emerald-600" },
-        { name: "Jasa Simpanan", amount: shuData.memberSurplus * 0.20, percentage: 20, color: "bg-emerald-400" },
-        { name: "Cadangan", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-blue-500" },
-        { name: "Dana Pengurus", amount: shuData.memberSurplus * 0.10, percentage: 10, color: "bg-indigo-500" },
-        { name: "Dana Pegawai", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-amber-500" },
-        { name: "Dana Pendidikan", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
+    // AD-ART distributions — calculated dynamically from API data
+    const memberDistribution = shuData ? [
+        { name: "Jasa Anggota (Usaha)", amount: shuData.jasaUsahaPool, percentage: 25, color: "bg-emerald-600" },
+        { name: "Jasa Simpanan (Modal)", amount: shuData.jasaModalPool, percentage: 20, color: "bg-blue-500" },
+        { name: "Cadangan", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-indigo-500" },
+        { name: "Dana Pengurus & Pengawas", amount: shuData.memberSurplus * 0.10, percentage: 10, color: "bg-violet-500" },
+        { name: "Dana Pegawai/Karyawan", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-amber-500" },
+        { name: "Dana Pendidikan Koperasi", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
         { name: "Dana Sosial", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-rose-500" },
     ] : [];
 
-    const nonMemberDistribution = shuData && shuData.nonMemberSurplus > 0 ? [
-        { name: "Dana Cadangan", amount: shuData.nonMemberSurplus * 0.60, percentage: 60, color: "bg-blue-500" },
+    const nonMemberDistribution = shuData ? [
+        { name: "Dana Cadangan", amount: shuData.nonMemberSurplus * 0.60, percentage: 60, color: "bg-indigo-500" },
         { name: "Dana Pendidikan Koperasi", amount: shuData.nonMemberSurplus * 0.20, percentage: 20, color: "bg-pink-500" },
         { name: "Kesejahteraan Karyawan", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-amber-500" },
         { name: "Dana Sosial", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-rose-500" },
     ] : [];
 
+    const statusBadge = (status: string) => {
+        switch (status) {
+            case "distributed": return <Badge className="bg-emerald-100 text-emerald-800">Sudah Dibagikan</Badge>;
+            case "calculated": return <Badge className="bg-blue-100 text-blue-800">Data Terhitung</Badge>;
+            default: return <Badge variant="outline">Belum Ada Data</Badge>;
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Perhitungan SHU"
-                description="Sisa Hasil Usaha tahun buku"
+                description="Sisa Hasil Usaha — Perhitungan realtime berdasarkan AD-ART Pasal 42"
                 actions={
                     <div className="flex gap-2">
+                        <Button variant="outline" onClick={fetchData} disabled={isLoading}>
+                            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                            Refresh
+                        </Button>
                         <Button variant="outline">
                             <Download className="mr-2 h-4 w-4" />
                             Export
-                        </Button>
-                        <Button onClick={handleCalculate} disabled={isCalculating}>
-                            {isCalculating ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Calculator className="mr-2 h-4 w-4" />
-                            )}
-                            Hitung SHU
                         </Button>
                     </div>
                 }
@@ -197,10 +197,11 @@ export default function SHUCalculationPage() {
                                 <SelectItem value="2026">2026</SelectItem>
                             </SelectContent>
                         </Select>
+                        {shuData && statusBadge(shuData.status)}
                         {shuData && (
-                            <Badge variant={shuData.status === "distributed" ? "default" : shuData.status === "calculated" ? "secondary" : "outline"}>
-                                {shuData.status === "distributed" ? "Sudah Dibagikan" : shuData.status === "calculated" ? "Sudah Dihitung" : "Draft"}
-                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                                ({shuData.memberCount} anggota aktif)
+                            </span>
                         )}
                     </div>
                 </CardContent>
@@ -238,7 +239,7 @@ export default function SHUCalculationPage() {
                                         <TrendingUp className="h-5 w-5 text-red-600 rotate-180" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Total Biaya</p>
+                                        <p className="text-sm text-muted-foreground">Total Biaya (40%)</p>
                                         <p className="text-lg font-bold tabular-nums">
                                             {formatCurrency(shuData.totalExpense)}
                                         </p>
@@ -253,7 +254,7 @@ export default function SHUCalculationPage() {
                                         <Calculator className="h-5 w-5 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">SHU Bersih</p>
+                                        <p className="text-sm text-muted-foreground">SHU Bersih (60%)</p>
                                         <p className="text-xl font-bold tabular-nums text-primary">
                                             {formatCurrency(shuData.netSurplus)}
                                         </p>
@@ -268,12 +269,16 @@ export default function SHUCalculationPage() {
                                         <Users className="h-5 w-5 text-blue-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Anggota</p>
+                                        <p className="text-sm text-muted-foreground">Anggota Aktif</p>
                                         <p className="text-xl font-bold">{shuData.memberCount}</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+
+                    {/* Surplus Breakdown */}
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <Card>
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
@@ -281,7 +286,7 @@ export default function SHUCalculationPage() {
                                         <Users className="h-5 w-5 text-indigo-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Surplus Anggota</p>
+                                        <p className="text-sm text-muted-foreground">Surplus dari Anggota</p>
                                         <p className="text-xl font-bold tabular-nums text-indigo-600">
                                             {formatCurrency(shuData.memberSurplus)}
                                         </p>
@@ -296,7 +301,7 @@ export default function SHUCalculationPage() {
                                         <Users className="h-5 w-5 text-orange-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Surplus Bukan Anggota</p>
+                                        <p className="text-sm text-muted-foreground">Surplus dari Bukan Anggota</p>
                                         <p className="text-xl font-bold tabular-nums text-orange-600">
                                             {formatCurrency(shuData.nonMemberSurplus)}
                                         </p>
@@ -306,22 +311,22 @@ export default function SHUCalculationPage() {
                         </Card>
                     </div>
 
-                    {/* Distribution Breakdown */}
+                    {/* Distribution Breakdown with AD-ART Percentages */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <PieChart className="h-5 w-5" />
-                                Pembagian SHU
+                                Pembagian SHU — Sesuai AD-ART Pasal 42
                             </CardTitle>
                             <CardDescription>
-                                Alokasi SHU sesuai ketentuan koperasi
+                                Alokasi SHU dengan persentase resmi berdasarkan Anggaran Dasar/Anggaran Rumah Tangga Primkoppol
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Tabs defaultValue="anggota" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2 mb-4">
-                                    <TabsTrigger value="anggota">Hak Anggota</TabsTrigger>
-                                    <TabsTrigger value="non-anggota">Hak Non-Anggota</TabsTrigger>
+                                    <TabsTrigger value="anggota">SHU Anggota (100%)</TabsTrigger>
+                                    <TabsTrigger value="non-anggota">SHU Bukan Anggota (100%)</TabsTrigger>
                                 </TabsList>
                                 
                                 <TabsContent value="anggota">
@@ -329,7 +334,7 @@ export default function SHUCalculationPage() {
                                         {memberDistribution.map((fund) => (
                                             <div key={fund.name} className="space-y-2">
                                                 <div className="flex items-center justify-between text-sm">
-                                                    <span>{fund.name} ({fund.percentage}%)</span>
+                                                    <span className="font-medium">{fund.name} <span className="text-muted-foreground font-normal">({fund.percentage}%)</span></span>
                                                     <span className="font-bold tabular-nums text-indigo-700 dark:text-indigo-400">
                                                         {formatCurrency(fund.amount)}
                                                     </span>
@@ -337,6 +342,10 @@ export default function SHUCalculationPage() {
                                                 <Progress value={fund.percentage} className={fund.color} />
                                             </div>
                                         ))}
+                                        <div className="border-t pt-3 flex justify-between font-bold text-sm">
+                                            <span>Total SHU untuk Anggota (Jasa Anggota + Jasa Simpanan)</span>
+                                            <span className="text-emerald-700 tabular-nums">{formatCurrency(shuData.memberDividend)}</span>
+                                        </div>
                                     </div>
                                 </TabsContent>
                                 
@@ -345,7 +354,7 @@ export default function SHUCalculationPage() {
                                         {nonMemberDistribution.map((fund) => (
                                             <div key={fund.name} className="space-y-2">
                                                 <div className="flex items-center justify-between text-sm">
-                                                    <span>{fund.name} ({fund.percentage}%)</span>
+                                                    <span className="font-medium">{fund.name} <span className="text-muted-foreground font-normal">({fund.percentage}%)</span></span>
                                                     <span className="font-bold tabular-nums text-orange-700 dark:text-orange-400">
                                                         {formatCurrency(fund.amount)}
                                                     </span>
@@ -359,12 +368,46 @@ export default function SHUCalculationPage() {
                         </CardContent>
                     </Card>
 
+                    {/* AD-ART Reference Card */}
+                    <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/10 dark:border-blue-800">
+                        <CardHeader>
+                            <CardTitle className="text-base text-blue-800 dark:text-blue-300">📋 Referensi Parameter SHU (AD-ART Pasal 42)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <h4 className="font-semibold text-sm mb-2 text-blue-800 dark:text-blue-300">SHU dari Usaha Anggota</h4>
+                                    <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between"><span>Cadangan</span><span className="font-mono font-bold">30%</span></div>
+                                        <div className="flex justify-between"><span>Jasa Anggota (Usaha)</span><span className="font-mono font-bold">25%</span></div>
+                                        <div className="flex justify-between"><span>Jasa Simpanan (Modal)</span><span className="font-mono font-bold">20%</span></div>
+                                        <div className="flex justify-between"><span>Dana Pengurus & Pengawas</span><span className="font-mono font-bold">10%</span></div>
+                                        <div className="flex justify-between"><span>Dana Pegawai/Karyawan</span><span className="font-mono font-bold">5%</span></div>
+                                        <div className="flex justify-between"><span>Dana Pendidikan</span><span className="font-mono font-bold">5%</span></div>
+                                        <div className="flex justify-between"><span>Dana Sosial</span><span className="font-mono font-bold">5%</span></div>
+                                        <div className="flex justify-between border-t pt-1 font-bold"><span>Total</span><span className="font-mono">100%</span></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-sm mb-2 text-orange-800 dark:text-orange-300">SHU dari Usaha Bukan Anggota</h4>
+                                    <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between"><span>Dana Cadangan</span><span className="font-mono font-bold">60%</span></div>
+                                        <div className="flex justify-between"><span>Dana Pendidikan Koperasi</span><span className="font-mono font-bold">20%</span></div>
+                                        <div className="flex justify-between"><span>Kesejahteraan Karyawan</span><span className="font-mono font-bold">10%</span></div>
+                                        <div className="flex justify-between"><span>Dana Sosial</span><span className="font-mono font-bold">10%</span></div>
+                                        <div className="flex justify-between border-t pt-1 font-bold"><span>Total</span><span className="font-mono">100%</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Member SHU Table */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">Pembagian Jasa Anggota</CardTitle>
+                            <CardTitle className="text-lg">Pembagian SHU per Anggota</CardTitle>
                             <CardDescription>
-                                Total: {formatCurrency(shuData.memberDividend)} untuk {shuData.memberCount} anggota
+                                Total Hak Anggota: {formatCurrency(shuData.memberDividend)} — Jasa Simpanan {formatCurrency(shuData.jasaModalPool)} + Jasa Anggota {formatCurrency(shuData.jasaUsahaPool)} untuk {shuData.memberCount} anggota
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
