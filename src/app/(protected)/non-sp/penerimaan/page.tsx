@@ -139,40 +139,8 @@ export default function PenerimaanNonSPPage() {
             try {
                 await new Promise(resolve => setTimeout(resolve, 500));
 
-                const mockData: NonSPTransaction[] = [
-                    {
-                        id: 1,
-                        transactionNo: "PNR-2026-00001",
-                        transactionDate: "2026-01-25",
-                        category: "admin_fee",
-                        description: "Biaya admin pencairan pinjaman P-2026-001",
-                        amount: 500000,
-                        paymentMethod: "cash",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                    {
-                        id: 2,
-                        transactionNo: "PNR-2026-00002",
-                        transactionDate: "2026-01-24",
-                        category: "service_fee",
-                        description: "Pendapatan jasa fotocopy",
-                        amount: 150000,
-                        paymentMethod: "cash",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                    {
-                        id: 3,
-                        transactionNo: "PNR-2026-00003",
-                        transactionDate: "2026-01-24",
-                        category: "other_income",
-                        description: "Denda keterlambatan angsuran",
-                        amount: 75000,
-                        paymentMethod: "cash",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                ];
-
-                setData(mockData);
+                // TODO: Fetch from database endpoint when ready
+                setData([]);
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {

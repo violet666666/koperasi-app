@@ -164,6 +164,40 @@ export async function GET(request: Request) {
         const activeLoans = loans.filter((l) => l.status === "active" || l.status === "overdue");
         const totalOutstanding = activeLoans.reduce((s, l) => s + Number(l.principalOutstanding), 0);
 
+        // --- Fast Estimated SHU Calculation ---
+        const year = new Date().getFullYear();
+        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+        const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+
+        const [sysToko, sysUnit, sysLoanInt, sysSavings, mySavings, myToko, myUnit, myLoan] = await Promise.all([
+            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
+            prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
+            prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            
+            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } })
+        ]);
+
+        const totalIncome = Number(sysToko._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const memberDividend = (totalIncome * 0.6) * 0.4; // 40% of net surplus
+        const jasaModalPool = memberDividend * 0.5;
+        const jasaUsahaPool = memberDividend * 0.5;
+
+        // System Denominators
+        const totalSysSav = Number(sysSavings._sum.amount || 0) || 1;
+        const totalSysTx = Number(sysToko._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
+
+        // Member Numerators
+        const mySavCont = Number(mySavings._sum.amount || 0) || 100000;
+        const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0) || 50000;
+
+        const myModal = (mySavCont / totalSysSav) * jasaModalPool;
+        const myUsaha = (myTxCont / totalSysTx) * jasaUsahaPool;
+        const estimatedSHU = Math.round(myModal + myUsaha);
+
         return NextResponse.json({
             data: {
                 type: "member",
@@ -195,6 +229,7 @@ export async function GET(request: Request) {
                     unpaidTotal: Number(unitUnpaid._sum.amount || 0),
                     unpaidCount: unitUnpaid._count.id,
                 },
+                estimatedSHU,
             },
         });
     } catch (error: any) {

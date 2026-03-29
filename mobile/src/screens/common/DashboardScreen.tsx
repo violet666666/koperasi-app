@@ -394,6 +394,20 @@ export default function DashboardScreen({ setToken }: any) {
                 color={C.warning}
               />
             </View>
+            <View style={styles.cardRow}>
+              <StatCard
+                label="Tunjangan Kerja"
+                value={formatRp(data.member?.tunlesKinerja || 0)}
+                icon="🏅"
+                color={C.secondary}
+              />
+              <StatCard
+                label="Estimasi SHU"
+                value={formatRp(data.estimatedSHU || 0)}
+                icon="🎉"
+                color="#F59E0B"
+              />
+            </View>
 
             {data.savings?.accounts?.length > 0 && (
               <>

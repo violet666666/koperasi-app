@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/patterns/page-header";
+import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +15,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -61,6 +56,35 @@ interface MemberSHU {
     shuAmount: number;
     percentage: number;
 }
+
+const columns: ColumnDef<MemberSHU>[] = [
+    {
+        accessorKey: "memberNo",
+        header: "NRP",
+        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("memberNo")}</span>,
+    },
+    { accessorKey: "name", header: "Nama" },
+    {
+        accessorKey: "savingsContribution",
+        header: () => <div className="text-right">Kontribusi Simpanan</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("savingsContribution"))}</div>,
+    },
+    {
+        accessorKey: "loanContribution",
+        header: () => <div className="text-right">Kontribusi Pinjaman</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("loanContribution"))}</div>,
+    },
+    {
+        accessorKey: "percentage",
+        header: () => <div className="text-right">%</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{Number(row.getValue("percentage")).toFixed(2)}%</div>,
+    },
+    {
+        accessorKey: "shuAmount",
+        header: () => <div className="text-right">SHU</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums font-bold text-emerald-600">{formatCurrency(row.getValue("shuAmount"))}</div>,
+    },
+];
 
 export default function SHUCalculationPage() {
     const [selectedYear, setSelectedYear] = React.useState<string>("2025");
@@ -264,39 +288,13 @@ export default function SHUCalculationPage() {
                                 Total: {formatCurrency(shuData.memberDividend)} untuk {shuData.memberCount} anggota
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>NRP</TableHead>
-                                        <TableHead>Nama</TableHead>
-                                        <TableHead className="text-right">Kontribusi Simpanan</TableHead>
-                                        <TableHead className="text-right">Kontribusi Pinjaman</TableHead>
-                                        <TableHead className="text-right">%</TableHead>
-                                        <TableHead className="text-right">SHU</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {memberSHU.map((member) => (
-                                        <TableRow key={member.id}>
-                                            <TableCell className="font-mono text-sm">{member.memberNo}</TableCell>
-                                            <TableCell className="font-medium">{member.name}</TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {formatCurrency(member.savingsContribution)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {formatCurrency(member.loanContribution)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {member.percentage.toFixed(2)}%
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums font-bold text-emerald-600">
-                                                {formatCurrency(member.shuAmount)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                        <CardContent>
+                            <DataTable 
+                                columns={columns} 
+                                data={memberSHU} 
+                                searchColumn="name" 
+                                searchPlaceholder="Cari anggota berdasarkan nama..." 
+                            />
                         </CardContent>
                     </Card>
                 </>

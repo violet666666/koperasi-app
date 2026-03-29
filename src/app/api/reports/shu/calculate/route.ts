@@ -57,8 +57,7 @@ export async function GET(request: Request) {
 
         const totalIncome = Number(allTokoSales._sum.totalAmount || 0) + 
                             Number(allUnitTx._sum.amount || 0) + 
-                            Number(allLoanInterest._sum.interestPortion || 0) + 
-                            500000000; // Base income offset for demonstration if new DB is empty
+                            Number(allLoanInterest._sum.interestPortion || 0);
 
         const totalExpense = totalIncome * 0.4; // Assuming 40% expenses
         const netSurplus = totalIncome - totalExpense;
