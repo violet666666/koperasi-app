@@ -8,6 +8,7 @@ import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Select,
     SelectContent,
@@ -141,14 +142,21 @@ export default function SHUCalculationPage() {
         }
     };
 
-    const fundDistribution = shuData && shuData.netSurplus > 0 ? [
-        { name: "Dana Cadangan", amount: shuData.reserveFund, percentage: Number(((shuData.reserveFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-blue-500" },
-        { name: "Jasa Modal Anggota", amount: shuData.jasaModalPool, percentage: Number(((shuData.jasaModalPool/shuData.netSurplus)*100).toFixed(1)), color: "bg-emerald-400" },
-        { name: "Jasa Usaha Anggota", amount: shuData.jasaUsahaPool, percentage: Number(((shuData.jasaUsahaPool/shuData.netSurplus)*100).toFixed(1)), color: "bg-emerald-600" },
-        { name: "Dana Pengurus & Pengawas", amount: shuData.pengurusFund, percentage: Number(((shuData.pengurusFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-indigo-500" },
-        { name: "Kesejahteraan Karyawan", amount: shuData.employeeBonus, percentage: Number(((shuData.employeeBonus/shuData.netSurplus)*100).toFixed(1)), color: "bg-amber-500" },
-        { name: "Dana Pendidikan", amount: shuData.educationFund, percentage: Number(((shuData.educationFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-pink-500" },
-        { name: "Dana Sosial", amount: shuData.socialFund, percentage: Number(((shuData.socialFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-rose-500" },
+    const memberDistribution = shuData && shuData.memberSurplus > 0 ? [
+        { name: "Dana Cadangan", amount: shuData.memberSurplus * 0.25, percentage: 25, color: "bg-blue-500" },
+        { name: "Jasa Usaha Anggota", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-emerald-600" },
+        { name: "Jasa Modal Anggota", amount: shuData.memberSurplus * 0.20, percentage: 20, color: "bg-emerald-400" },
+        { name: "Dana Pengurus & Pengawas", amount: shuData.memberSurplus * 0.075, percentage: 7.5, color: "bg-indigo-500" },
+        { name: "Kesejahteraan Karyawan", amount: shuData.memberSurplus * 0.075, percentage: 7.5, color: "bg-amber-500" },
+        { name: "Dana Pendidikan", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
+        { name: "Dana Sosial", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-rose-500" },
+    ] : [];
+
+    const nonMemberDistribution = shuData && shuData.nonMemberSurplus > 0 ? [
+        { name: "Dana Cadangan", amount: shuData.nonMemberSurplus * 0.60, percentage: 60, color: "bg-blue-500" },
+        { name: "Dana Pendidikan Koperasi", amount: shuData.nonMemberSurplus * 0.20, percentage: 20, color: "bg-pink-500" },
+        { name: "Kesejahteraan Karyawan", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-amber-500" },
+        { name: "Dana Sosial", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-rose-500" },
     ] : [];
 
     return (
@@ -309,19 +317,44 @@ export default function SHUCalculationPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
-                                {fundDistribution.map((fund) => (
-                                    <div key={fund.name} className="space-y-2">
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span>{fund.name} ({fund.percentage}%)</span>
-                                            <span className="font-bold tabular-nums">
-                                                {formatCurrency(fund.amount)}
-                                            </span>
-                                        </div>
-                                        <Progress value={fund.percentage} className={fund.color} />
+                            <Tabs defaultValue="anggota" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 mb-4">
+                                    <TabsTrigger value="anggota">Hak Anggota</TabsTrigger>
+                                    <TabsTrigger value="non-anggota">Hak Non-Anggota</TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="anggota">
+                                    <div className="space-y-4">
+                                        {memberDistribution.map((fund) => (
+                                            <div key={fund.name} className="space-y-2">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span>{fund.name} ({fund.percentage}%)</span>
+                                                    <span className="font-bold tabular-nums text-indigo-700 dark:text-indigo-400">
+                                                        {formatCurrency(fund.amount)}
+                                                    </span>
+                                                </div>
+                                                <Progress value={fund.percentage} className={fund.color} />
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="non-anggota">
+                                    <div className="space-y-4">
+                                        {nonMemberDistribution.map((fund) => (
+                                            <div key={fund.name} className="space-y-2">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span>{fund.name} ({fund.percentage}%)</span>
+                                                    <span className="font-bold tabular-nums text-orange-700 dark:text-orange-400">
+                                                        {formatCurrency(fund.amount)}
+                                                    </span>
+                                                </div>
+                                                <Progress value={fund.percentage} className={fund.color} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
                         </CardContent>
                     </Card>
 
