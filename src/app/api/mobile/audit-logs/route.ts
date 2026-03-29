@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
         const logs = await prisma.auditLog.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            orderBy: { timestamp: "desc" },
             take: limit,
             select: {
                 id: true,
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
                 userName: true,
                 userRole: true,
                 status: true,
-                createdAt: true,
+                timestamp: true,
             },
         });
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
                 userName: log.userName,
                 userRole: log.userRole,
                 status: log.status,
-                timestamp: log.createdAt.toISOString(),
+                timestamp: log.timestamp.toISOString(),
             })),
         });
     } catch (error: any) {

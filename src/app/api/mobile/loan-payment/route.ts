@@ -98,6 +98,7 @@ export async function POST(request: Request) {
                     paymentNo,
                     loanId: Number(loanId),
                     memberId: loan.memberId,
+                    branchId: 1, // Fallback for DB constraints
                     amount: numAmount,
                     principalPortion,
                     interestPortion,

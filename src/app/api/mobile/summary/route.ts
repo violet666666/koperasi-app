@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         if (isOperator || (!memberId && roleName !== "anggota")) {
             const [
                 totalMembers, totalSavings, totalLoans, totalArrears, pendingApprovals,
-                totalTunkin, membersWithTunkin,
+                totalTunkin, membersWithTunkin, totalTabunganWajib,
                 todayDeposits, todayWithdrawals, todayPayments,
             ] = await Promise.all([
                 prisma.member.count({ where: { status: "active", deletedAt: null } }),
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
                     },
                     stats: {
                         totalMembers,
-                        totalSavings: Number(totalSavings._sum.balance || 0) + Number(totalTajib._sum.tabunganWajib || 0),
+                        totalSavings: Number(totalSavings._sum.balance || 0) + Number(totalTabunganWajib._sum.tabunganWajib || 0),
                         totalLoansOutstanding: Number(totalLoans._sum.principalOutstanding || 0),
                         totalArrears: Number(totalArrears._sum.principalOutstanding || 0),
                         pendingApprovals,

@@ -109,6 +109,7 @@ export async function POST(request: Request) {
             data: {
                 applicationNo: `${appPrefix}${Date.now()}-${randomString}`,
                 memberId: user.memberId,
+                branchId: 1, // Fallback DB requirement
                 createdById: user.id,
                 productId: product.id,
                 amount: amount,

@@ -51,6 +51,7 @@ export async function POST(request: Request) {
                     accountId: Number(accountId),
                     memberId: account.memberId,
                     productId: account.productId,
+                    branchId: 1, // Fallback DB constraint
                     type,
                     amount: numAmount,
                     balanceBefore: currentBalance,

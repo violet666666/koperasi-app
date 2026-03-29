@@ -305,11 +305,11 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 
 #### Fase 5a — Kas & Bank + Audit Log
 
-- [ ] **Backend API**: `GET/POST /api/mobile/kas-bank` — Daftar akun kas/bank, saldo, transfer antar akun, pencatatan pengeluaran/penerimaan operasional.
-- [ ] **Backend API**: `GET /api/mobile/audit-logs` — Riwayat aktivitas user (CREATE, UPDATE, LOGIN, DELETE dsb.) dengan pagination & filter.
-- [ ] **Screen Operator**: `KasBankScreen` — Daftar rekening kas/bank + saldo + form transfer cepat + mutasi terakhir.
-- [ ] **Screen Operator**: `AuditLogScreen` — FlatList riwayat aktivitas (icon action, user, modul, deskripsi, waktu).
-- [ ] **Navigasi**: Registrasi menu baru di DashboardScreen Operator & App.tsx.
+- `[x]` **Backend API**: `GET/POST /api/mobile/kas-bank` — Daftar akun kas/bank, saldo, transfer antar akun, pencatatan pengeluaran/penerimaan operasional.
+- `[x]` **Backend API**: `GET /api/mobile/audit-logs` — Riwayat aktivitas user (CREATE, UPDATE, LOGIN, DELETE dsb.) dengan pagination & filter.
+- `[x]` **Screen Operator**: `KasBankScreen` — Daftar rekening kas/bank + saldo + form transfer cepat + mutasi terakhir.
+- `[x]` **Screen Operator**: `AuditLogScreen` — FlatList riwayat aktivitas (icon action, user, modul, deskripsi, waktu).
+- `[x]` **Navigasi**: Registrasi menu baru di DashboardScreen Operator & App.tsx.
 
 #### Fase 5b — Jurnal & Buku Besar (Akuntansi Double-Entry)
 
@@ -422,8 +422,8 @@ Agar aplikasi aman (Verified by Play Protect) dan bisa di-search oleh umum:
 | Kartu Anggota Digital | ✅ | ✅ | ✅ Selesai |
 | Laporan (Simpanan/Pinjaman) | ✅ | ✅ | ✅ Selesai |
 | Tunjangan, Tajib, Gaji, SHU | ✅ | ✅ | ✅ Selesai |
-| Kas & Bank | ✅ | 🔲 | ⏳ Fase 5a |
-| Audit Log | ✅ | 🔲 | ⏳ Fase 5a |
+| Kas & Bank | ✅ | ✅ | ✅ Selesai |
+| Audit Log | ✅ | ✅ | ✅ Selesai |
 | Jurnal & Buku Besar | ✅ | 🔲 | ⏳ Fase 5b |
 | Laporan Keuangan (Neraca/L-R/SHU) | ✅ | 🔲 | ⏳ Fase 5c |
 | Manajemen Aset | ✅ | 🔲 | ⏳ Fase 5d |

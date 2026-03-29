@@ -44,7 +44,6 @@ export async function GET(request: Request) {
 
         // Fetch Latest Transactions
         const latestTransactions = await prisma.cashBankTransaction.findMany({
-            where: { deletedAt: null },
             orderBy: { transactionDate: "desc" },
             take: limit,
             include: { account: { select: { name: true, code: true, type: true } } },
