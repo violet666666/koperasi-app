@@ -309,4 +309,60 @@ Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akunta
 
 ---
 
+## 🚀 FASE 5: APK Production Build & Deployment Publik
+
+### 5.1 — Pra-Syarat Sebelum Build
+
+- [x] **Domain HTTPS Aktif**: `https://www.primkoppol.online` sudah live.
+- [x] **API Mobile Aktif**: Semua endpoint `/api/mobile/*` ter-deploy.
+- [x] **`api.ts` Production URL**: Fallback diubah dari IP lokal ke `https://www.primkoppol.online`.
+- [x] **`app.json` usesCleartextTraffic**: Ditambahkan untuk kompatibilitas Android 9+.
+- [x] **`expo-secure-store` Plugin**: Ditambahkan agar token JWT aman di standalone build.
+
+### 5.2 — Langkah Build APK
+
+```bash
+cd mobile
+npm install
+npx eas login
+npx eas build -p android --profile preview
+# Tunggu ~15-25 menit, download APK dari link yang diberikan
+```
+
+### 5.3 — Troubleshooting Login Gagal
+
+| Gejala | Penyebab | Solusi |
+| --- | --- | --- |
+| Login Gagal / Network Error | APK konek ke localhost | Pastikan fallback = primkoppol.online |
+| ERR_CLEARTEXT | Android blokir HTTP | usesCleartextTraffic + domain HTTPS |
+| Auto logout | JWT expired 24h | Login ulang (by design) |
+| Fetch error | API belum deploy | Deploy ulang web terlebih dahulu |
+
+### 5.4 — Distribusi APK
+
+1. Download `.apk` dari link EAS Build
+2. Rename → `KoperasiPrimkoppol_v1.0.apk`
+3. Bagikan via WhatsApp ke anggota
+4. Install → Login NRP & Password → Selesai
+
+### 5.5 — Paritas Fitur Mobile vs Web (Terkini)
+
+| Fitur | Web | Mobile | Status |
+| --- | --- | --- | --- |
+| Login multi-role | ✅ | ✅ | Selesai |
+| Dashboard (semua role) | ✅ | ✅ | Selesai |
+| Simpanan & Mutasi | ✅ | ✅ | Selesai |
+| Pinjaman & Angsuran | ✅ | ✅ | Selesai |
+| Pengajuan & Approval | ✅ | ✅ | Selesai |
+| POS Kasir | ✅ | ✅ | Selesai |
+| Stok, Pengumuman, Profil | ✅ | ✅ | Selesai |
+| Kartu Anggota Digital | ✅ | ✅ | Selesai |
+| Laporan (Simpanan/Pinjaman) | ✅ | ✅ | Selesai |
+| Tunjangan, Tajib, Gaji, SHU | ✅ | ✅ | Selesai |
+| Import Data / SHU Detail | ✅ | ❌ | Web Only |
+| Akuntansi / Aset / Master | ✅ | ❌ | Web Only |
+
+---
+
 *Dokumen Master Plan & Tracking ini terakhir diperbarui pada **29 Maret 2026**.*
+

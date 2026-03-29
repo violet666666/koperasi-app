@@ -55,6 +55,62 @@ interface ImportResult {
 
 const ITEMS_PER_PAGE = 50;
 
+// ============================================================
+// Smart Sheet Detector: scans all sheets for matching columns
+// ============================================================
+function findBestSheet(workbook: any, type: ImportType): string {
+    const requiredKeywords: Record<ImportType, string[][]> = {
+        tunkin: [["tunkin", "sisa_tunkin", "sisa tunkin", "tunjangan", "tunles", "bersih"]],
+        gaji: [["gaji", "diterima", "bersih", "salary"]],
+        tajib: [["jml", "jumlah", "tajib", "tabungan wajib"]],
+        akun_anggota: [["nrp", "nip"]],
+    };
+
+    const keywords = requiredKeywords[type] || [];
+    const sheetNames = workbook.SheetNames as string[];
+
+    // 1. Try matching sheet name first (e.g. 'TUNKIN', 'POT GAJI', 'TAJIB')
+    const nameHints: Record<ImportType, string[]> = {
+        tunkin: ["tunkin", "tunjangan"],
+        gaji: ["pot gaji", "gaji"],
+        tajib: ["tajib", "tajip", "wajib"],
+        akun_anggota: ["anggota", "member"],
+    };
+    for (const hint of (nameHints[type] || [])) {
+        const match = sheetNames.find(s => s.toUpperCase().includes(hint.toUpperCase()));
+        if (match) return match;
+    }
+
+    // 2. Scan headers of each sheet to find one with matching columns
+    for (const sName of sheetNames) {
+        const ws = workbook.Sheets[sName];
+        const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+        // Check first 20 rows for a header row
+        for (let r = 0; r < Math.min(20, rows.length); r++) {
+            const rowStr = rows[r].map(c => String(c).toLowerCase().trim()).join(" ");
+            // Must have NAMA or NMPEG
+            if (!(rowStr.includes("nama") || rowStr.includes("nmpeg"))) continue;
+            // Check if any required keyword group matches
+            for (const kGroup of keywords) {
+                if (kGroup.some(k => rowStr.includes(k))) {
+                    return sName;
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: last sheet (often the processed/summary sheet)
+    return sheetNames[sheetNames.length - 1];
+}
+
+function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: string): File {
+    const sheetName = findBestSheet(workbook, type);
+    const worksheet = workbook.Sheets[sheetName];
+    const csvString = XLSX.utils.sheet_to_csv(worksheet);
+    const newFileName = originalName.replace(/\.[^/.]+$/, "") + "_converted.csv";
+    return new File([csvString], newFileName, { type: "text/csv" });
+}
+
 export default function ImportDataPage() {
     const [importType, setImportType] = useState<ImportType>("tunkin");
     const [status, setStatus] = useState<ImportStatus>("idle");
@@ -85,34 +141,14 @@ export default function ImportDataPage() {
         setErrorPage(1);
 
         try {
-            // Helper to convert Excel to CSV on the client side
-            const processFileToCSV = async (originalFile: File): Promise<File> => {
-                if (originalFile.name.toLowerCase().endsWith('.csv')) {
-                    return originalFile;
-                }
-                const arrayBuffer = await originalFile.arrayBuffer();
+            let processedFile: File;
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                processedFile = file;
+            } else {
+                const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                
-                let sheetName = workbook.SheetNames[0];
-                
-                if (importType === "gaji") {
-                    const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
-                    if (potGajiSheet) sheetName = potGajiSheet;
-                } else if (importType === "tunkin") {
-                    const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
-                    if (tunkinSheet) sheetName = tunkinSheet;
-                } else if (importType === "tajib") {
-                    const tajibSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TAJIB') || s.toUpperCase().includes('WAJIB'));
-                    if (tajibSheet) sheetName = tajibSheet;
-                }
-                
-                const worksheet = workbook.Sheets[sheetName];
-                const csvString = XLSX.utils.sheet_to_csv(worksheet);
-                const newFileName = originalFile.name.replace(/\.[^/.]+$/, "") + "_converted.csv";
-                return new File([csvString], newFileName, { type: "text/csv" });
-            };
-
-            const processedFile = await processFileToCSV(file);
+                processedFile = convertWorkbookToCSV(workbook, importType, file.name);
+            }
 
             const formData = new FormData();
             formData.append("file", processedFile);
@@ -170,34 +206,14 @@ export default function ImportDataPage() {
         setStatus("importing");
 
         try {
-            // Re-use logic to convert file on commit if necessary
-            const processFileToCSV = async (originalFile: File): Promise<File> => {
-                if (originalFile.name.toLowerCase().endsWith('.csv')) {
-                    return originalFile;
-                }
-                const arrayBuffer = await originalFile.arrayBuffer();
+            let processedFile: File;
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                processedFile = file;
+            } else {
+                const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                
-                let sheetName = workbook.SheetNames[0];
-                
-                if (importType === "gaji") {
-                    const potGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('POT GAJI'));
-                    if (potGajiSheet) sheetName = potGajiSheet;
-                } else if (importType === "tunkin") {
-                    const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
-                    if (tunkinSheet) sheetName = tunkinSheet;
-                } else if (importType === "tajib") {
-                    const tajibSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TAJIB') || s.toUpperCase().includes('WAJIB'));
-                    if (tajibSheet) sheetName = tajibSheet;
-                }
-                
-                const worksheet = workbook.Sheets[sheetName];
-                const csvString = XLSX.utils.sheet_to_csv(worksheet);
-                const newFileName = originalFile.name.replace(/\.[^/.]+$/, "") + "_converted.csv";
-                return new File([csvString], newFileName, { type: "text/csv" });
-            };
-
-            const processedFile = await processFileToCSV(file);
+                processedFile = convertWorkbookToCSV(workbook, importType, file.name);
+            }
 
             const formData = new FormData();
             formData.append("file", processedFile);

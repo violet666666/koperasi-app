@@ -323,7 +323,15 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 async function processTajibImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
-    const tajibIdx = headers.findIndex(h => h.includes("jml") || h.includes("jumlah") || h.includes("tajib") || h.includes("tabungan wajib"));
+    // Use the LAST column matching jml/jumlah (the total column, not an intermediate one)
+    let tajibIdx = -1;
+    for (let i = headers.length - 1; i >= 0; i--) {
+        const h = headers[i];
+        if (h.includes("jml") || h.includes("jumlah") || h.includes("tajib") || h.includes("tabungan wajib") || h.includes("tajip")) {
+            tajibIdx = i;
+            break;
+        }
+    }
 
     if (namaIdx === -1) {
         return {
@@ -585,17 +593,13 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
             continue;
         }
 
-        // Check if member already exists
+        // Check if member already exists — SKIP, do NOT modify existing data
         const existing = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
         if (existing) {
-            // Update salary if gaji column was found and has value
-            if (mode === "commit" && gaji > 0) {
-                await prisma.member.update({ where: { id: existing.id }, data: { salary: gaji } });
-            }
             results.push({
-                row: i + 2, nrp, nama: rawNama, gaji: gaji || undefined,
+                row: i + 2, nrp, nama: rawNama,
                 memberId: existing.id, memberName: existing.name,
-                status: 'valid', reason: null,
+                status: 'valid', reason: 'Sudah terdaftar (dilewati)',
                 isNewMember: false,
                 currentGaji: existing.salary ? Number(existing.salary) : null,
             });
