@@ -148,29 +148,127 @@ Di halaman cetak tersedia 2 pilihan printer:
 
 ### 5.5 Perhitungan Sisa Hasil Usaha (SHU)
 
-Sistem menghitung estimasi SHU secara *realtime* (tanpa harus menunggu Tutup Buku) berdasarkan formulasi AD-ART Pasal 42.
+Sistem menghitung estimasi SHU secara **realtime** (tanpa harus menunggu Tutup Buku) berdasarkan formulasi AD-ART Pasal 42. SHU anggota terdiri dari **2 komponen**: Jasa Simpanan dan Jasa Anggota (Usaha).
 
-**A. Pembagian Pendapatan & Beban**
-1. **Total Pendapatan** = Pendapatan Toko (Anggota & Non-Anggota) + Pendapatan Unit + Pendapatan Bunga Pinjaman.
-2. **Total Beban** = 40% dari Total Pendapatan (sebagai asumsi beban operasional).
-3. **Surplus Anggota** = Porsi Pendapatan Anggota dikurangi porsi Beban secara proporsional.
+#### A. Tabel Pembagian SHU Sesuai AD-ART Pasal 42
 
-**B. Alokasi Surplus Anggota**
-Sesuai AD-ART, Surplus Anggota dialokasikan menjadi beberapa Kolam (Pool) utama:
-- **Jasa Usaha (25%)**: Dibagikan berdasarkan seberapa sering anggota berbelanja/bertransaksi.
-- **Jasa Modal (20%)**: Dibagikan berdasarkan seberapa besar saldo simpanan anggota.
-- *Sisa alokasi lainnya (55%): Dana Cadangan, Pengurus, Pegawai, Pendidikan, dan Sosial (tidak diberikan tunai ke anggota, dikelola koperasi).*
+**SHU dari Usaha untuk Anggota:**
 
-**C. Faktor Penentu SHU Individu (Rumah Tangga Anggota)**
-Nominal SHU yang diterima anggota dihitung spesifik berdasarkan kontribusi pribadi mereka:
-1. **Porsi Jasa Modal**:
-   *(Total Simpanan Pribadi / Total Simpanan Seluruh Anggota) × Total Kolam Jasa Modal*
-   *(Catatan: Total Simpanan mencakup Simpanan Pokok + Tabungan Wajib + Mutasi Simpanan Berjalan)*
-2. **Porsi Jasa Usaha**:
-   *(Total Transaksi Pribadi / Total Transaksi Seluruh Anggota) × Total Kolam Jasa Usaha*
-   *(Catatan: Transaksi mencakup Belanja Toko + Transaksi Cuci Mobil dsb + Pencairan Pinjaman)*
+| No | Alokasi | Persentase | Keterangan |
+| --- | --- | --- | --- |
+| 1 | Cadangan | 30% | Tidak dibagikan, untuk modal koperasi |
+| 2 | Jasa Anggota (Usaha) | 25% | Dibagikan ke anggota berdasarkan transaksi |
+| 3 | Jasa Simpanan (Modal) | 20% | Dibagikan ke anggota berdasarkan saldo tabungan |
+| 4 | Dana Pengurus | 10% | Untuk pengurus dan pengawas koperasi |
+| 5 | Dana Pegawai | 5% | Untuk kesejahteraan karyawan |
+| 6 | Dana Pendidikan | 5% | Untuk kegiatan pendidikan koperasi |
+| 7 | Dana Sosial | 5% | Untuk kegiatan sosial |
 
-**Total Estimasi SHU Anggota** = `Porsi Jasa Modal + Porsi Jasa Usaha`.
+**SHU dari Usaha untuk Bukan Anggota:**
+
+| No | Alokasi | Persentase |
+| --- | --- | --- |
+| 1 | Dana Cadangan | 60% |
+| 2 | Dana Kesejahteraan Pegawai | 10% |
+| 3 | Dana Pendidikan Koperasi | 20% |
+| 4 | Dana Sosial | 10% |
+
+#### B. Komponen 1: Jasa Simpanan (Modal) — 20%
+
+Komponen ini memberikan **imbal hasil atas tabungan/simpanan** anggota.
+
+**Sumber Kolam Dana:**
+
+Kolam Jasa Simpanan dihitung dari **total laba bersih koperasi** (termasuk pendapatan dari non-anggota), karena tabungan anggota-lah yang menjadi **modal kerja** untuk seluruh operasi koperasi.
+
+Jika koperasi belum memiliki pendapatan dari transaksi, sistem tetap menghitung estimasi Jasa Simpanan menggunakan **lantai minimum 6% per tahun** dari total modal simpanan. Ini menjamin nilai SHU tidak pernah Rp 0 selama anggota memiliki tabungan.
+
+**Rumus:**
+
+```text
+Kolam Jasa Simpanan = MAX(
+    Total Laba Bersih Koperasi × 20%,
+    Total Modal Simpanan × 6% × 20%
+)
+
+SHU Jasa Simpanan Saya = (Simpanan Saya / Total Simpanan Semua Anggota) × Kolam
+```
+
+**Yang termasuk "Simpanan Saya":**
+
+- Saldo Simpanan Pokok
+- Saldo Tabungan Wajib (Tajib) bulanan
+- Total setoran Simpanan Sukarela tahun berjalan
+
+#### C. Komponen 2: Jasa Anggota (Usaha) — 25%
+
+Komponen ini memberikan **cashback langsung** dari margin keuntungan setiap transaksi anggota.
+
+**Metode: Exact Margin Cashback**
+
+Sistem membaca secara persis selisih Harga Jual dikurangi Harga Modal (HPP) dari setiap barang yang dibeli anggota, lalu mengalikannya dengan 25%.
+
+**Rumus per Tipe Transaksi:**
+
+```text
+TOKO:
+  Margin per Barang = (Harga Jual - HPP) × Jumlah Barang
+  SHU Toko = Total Margin × 25%
+
+UNIT JASA (Cuci Mobil, Barbershop, dll):
+  Margin Jasa = Total Pembayaran × 80% (estimasi margin jasa)
+  SHU Unit = Margin Jasa × 25%
+
+PINJAMAN:
+  Margin Pinjaman = Total Bunga yang Sudah Dibayar
+  SHU Pinjaman = Margin Pinjaman × 25%
+```
+
+**Total SHU Jasa Anggota Saya** = SHU Toko + SHU Unit + SHU Pinjaman
+
+#### D. Total Estimasi SHU Anggota
+
+```text
+Total SHU Saya = Jasa Simpanan + Jasa Anggota (Usaha)
+```
+
+#### E. Contoh Perhitungan Numerik
+
+Misalkan data anggota Pak Budi:
+
+- Tabungan Wajib (Tajib): Rp 500.000
+- Simpanan Pokok: Rp 200.000
+- Simpanan Sukarela (setoran tahun ini): Rp 300.000
+- Total Simpanan Pak Budi: **Rp 1.000.000**
+- Total Simpanan Seluruh Anggota: **Rp 50.000.000**
+- Pak Budi belanja di Toko: Beli 2 barang seharga @Rp 15.000 (HPP @Rp 10.000)
+- Pak Budi cuci mobil: 1x Rp 35.000
+- Total Laba Bersih Koperasi: Rp 10.000.000
+
+**Jasa Simpanan:**
+
+```text
+Kolam = Rp 10.000.000 × 20% = Rp 2.000.000
+SHU Simpanan Pak Budi = (1.000.000 / 50.000.000) × 2.000.000 = Rp 40.000
+```
+
+**Jasa Anggota (Usaha):**
+
+```text
+Margin Toko = (15.000 - 10.000) × 2 = Rp 10.000
+Margin Cuci Mobil = 35.000 × 80% = Rp 28.000
+Total Margin = Rp 38.000
+SHU Usaha = 38.000 × 25% = Rp 9.500
+```
+
+**Total SHU Pak Budi = Rp 40.000 + Rp 9.500 = Rp 49.500**
+
+#### F. Catatan Penting
+
+1. Estimasi SHU ini bersifat **realtime** dan akan berubah seiring bertambahnya transaksi dan penghasilan koperasi sepanjang tahun buku.
+2. Nilai SHU final yang resmi baru ditetapkan pada **Rapat Anggota Tahunan (RAT)** setelah Tutup Buku.
+3. Anggota yang **baru bergabung** dan belum memiliki simpanan atau transaksi akan melihat SHU Rp 0 — ini normal.
+4. Semakin besar simpanan dan semakin sering bertransaksi, semakin besar SHU yang diperoleh.
 
 ---
 

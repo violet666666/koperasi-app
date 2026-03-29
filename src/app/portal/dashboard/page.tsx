@@ -73,6 +73,8 @@ export default function MemberDashboardPage() {
     // Dynamic month name
     const currentMonthName = format(new Date(), "MMMM", { locale: id });
     const { user } = useAuth();
+    const [showTabunganDetail, setShowTabunganDetail] = React.useState(false);
+    const [showSHUDetail, setShowSHUDetail] = React.useState(false);
 
     type SummaryResponse = {
         data: {
@@ -209,10 +211,13 @@ export default function MemberDashboardPage() {
                 </Card>
             </div>
 
-            {/* Row 2: Tabungan + SHU */}
+            {/* Row 2: Tabungan + SHU (Clickable for detail) */}
             <div className="grid gap-4 md:grid-cols-2">
-                {/* 6. Tabungan Akumulasi */}
-                <Card className="bg-gradient-to-br from-cyan-600 to-teal-800 text-white border-0 shadow-md">
+                {/* 6. Tabungan Akumulasi — Clickable */}
+                <Card
+                    className="bg-gradient-to-br from-cyan-600 to-teal-800 text-white border-0 shadow-md cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    onClick={() => setShowTabunganDetail(true)}
+                >
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">Total Tabungan</CardTitle>
                         <Landmark className="h-4 w-4 opacity-75" />
@@ -235,13 +240,17 @@ export default function MemberDashboardPage() {
                                     <span>Simpanan Sukarela (per {currentMonthName})</span>
                                     <span className="font-semibold">{formatCurrency(simpananSukarela)}</span>
                                 </div>
+                                <p className="text-[10px] opacity-60 mt-1 italic">Ketuk untuk detail →</p>
                             </div>
                         )}
                     </CardContent>
                 </Card>
 
-                {/* 7. SHU Estimasi — Realtime */}
-                <Card className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 shadow-md">
+                {/* 7. SHU Estimasi — Clickable */}
+                <Card
+                    className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 shadow-md cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    onClick={() => setShowSHUDetail(true)}
+                >
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">Estimasi SHU Anda</CardTitle>
                         <TrendingUp className="h-4 w-4 opacity-75" />
@@ -261,11 +270,129 @@ export default function MemberDashboardPage() {
                                     <span>Jasa Modal ({data.estimatedSHU.jasaModalPercent?.toFixed(1)}%)</span>
                                     <span className="font-semibold">{formatCurrency(data.estimatedSHU.jasaModal)}</span>
                                 </div>
+                                <p className="text-[10px] opacity-60 mt-1 italic">Ketuk untuk detail perhitungan →</p>
                             </div>
                         )}
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ===== TABUNGAN DETAIL DIALOG ===== */}
+            {showTabunganDetail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTabunganDetail(false)}>
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-cyan-600 to-teal-800 text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+                            <h2 className="text-lg font-bold">📊 Detail Tabungan Anda</h2>
+                            <button onClick={() => setShowTabunganDetail(false)} className="text-white/80 hover:text-white text-xl font-bold">✕</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-center p-4 bg-teal-50 rounded-lg">
+                                <p className="text-sm text-muted-foreground">Total Tabungan Anda</p>
+                                <p className="text-3xl font-bold text-teal-700">{formatCurrency(totalTabungan)}</p>
+                            </div>
+                            <div className="space-y-3">
+                                <h3 className="font-semibold text-sm text-gray-700 border-b pb-1">Rincian per Produk Simpanan</h3>
+                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                    <div><p className="font-medium text-sm">Tabungan Wajib (Tajib)</p><p className="text-xs text-muted-foreground">Potongan wajib bulanan per {currentMonthName}</p></div>
+                                    <p className="font-bold text-teal-700">{formatCurrency(tabunganWajib)}</p>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                    <div><p className="font-medium text-sm">Simpanan Pokok</p><p className="text-xs text-muted-foreground">Setoran awal saat menjadi anggota</p></div>
+                                    <p className="font-bold text-teal-700">{formatCurrency(simpananPokok)}</p>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                    <div><p className="font-medium text-sm">Simpanan Sukarela</p><p className="text-xs text-muted-foreground">Tabungan sukarela yang bisa ditarik</p></div>
+                                    <p className="font-bold text-teal-700">{formatCurrency(simpananSukarela)}</p>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                                <p className="font-semibold">ℹ️ Catatan Penting:</p>
+                                <p>• Simpanan <strong>Pokok</strong> dan <strong>Wajib</strong> tidak dapat ditarik kecuali saat keluar keanggotaan.</p>
+                                <p>• Simpanan <strong>Sukarela</strong> dapat ditarik kapan saja melalui kasir.</p>
+                                <p>• Semakin besar tabungan Anda, semakin besar <strong>SHU Jasa Simpanan</strong> yang Anda terima.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== SHU DETAIL DIALOG ===== */}
+            {showSHUDetail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSHUDetail(false)}>
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-yellow-500 to-orange-600 text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+                            <h2 className="text-lg font-bold">📈 Detail Estimasi SHU Anda</h2>
+                            <button onClick={() => setShowSHUDetail(false)} className="text-white/80 hover:text-white text-xl font-bold">✕</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-center p-4 bg-orange-50 rounded-lg">
+                                <p className="text-sm text-muted-foreground">Total Estimasi SHU Tahun {new Date().getFullYear()}</p>
+                                <p className="text-3xl font-bold text-orange-700">{formatCurrency(data?.estimatedSHU?.total || 0)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Perhitungan realtime berdasarkan AD-ART Pasal 42</p>
+                            </div>
+
+                            {/* Jasa Simpanan Breakdown */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-blue-50 px-4 py-2 border-b">
+                                    <h3 className="font-semibold text-sm text-blue-800">1. Jasa Simpanan (Modal) — 20%</h3>
+                                </div>
+                                <div className="p-4 space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Simpanan Anda</span><span className="font-mono">{formatCurrency(totalTabungan)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Porsi Anda dari Total</span><span className="font-mono font-semibold">{data?.estimatedSHU?.jasaModalPercent?.toFixed(2) || 0}%</span></div>
+                                    <div className="border-t pt-2 flex justify-between font-semibold">
+                                        <span className="text-blue-700">Estimasi Jasa Simpanan</span>
+                                        <span className="text-blue-700 font-mono">{formatCurrency(data?.estimatedSHU?.jasaModal || 0)}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground italic">Dihitung dari: (Simpanan Anda ÷ Total Simpanan Seluruh Anggota) × Kolam Jasa Simpanan (20% dari laba koperasi)</p>
+                                </div>
+                            </div>
+
+                            {/* Jasa Anggota Breakdown */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-green-50 px-4 py-2 border-b">
+                                    <h3 className="font-semibold text-sm text-green-800">2. Jasa Anggota (Usaha) — 25%</h3>
+                                </div>
+                                <div className="p-4 space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Kontribusi Transaksi Anda</span><span className="font-mono">{data?.estimatedSHU?.jasaUsahaPercent?.toFixed(2) || 0}%</span></div>
+                                    <div className="border-t pt-2 flex justify-between font-semibold">
+                                        <span className="text-green-700">Estimasi Jasa Anggota</span>
+                                        <span className="text-green-700 font-mono">{formatCurrency(data?.estimatedSHU?.jasaUsaha || 0)}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground italic">Dihitung dari: 25% × margin keuntungan transaksi Anda (belanja toko, cuci mobil, angsuran pinjaman)</p>
+                                </div>
+                            </div>
+
+                            {/* AD-ART Reference Table */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-gray-50 px-4 py-2 border-b">
+                                    <h3 className="font-semibold text-sm text-gray-700">Tabel Alokasi SHU (AD-ART Pasal 42)</h3>
+                                </div>
+                                <div className="p-3">
+                                    <table className="w-full text-xs">
+                                        <thead><tr className="border-b"><th className="text-left py-1 font-semibold">Alokasi</th><th className="text-right py-1 font-semibold">%</th><th className="text-right py-1 font-semibold">Untuk</th></tr></thead>
+                                        <tbody>
+                                            <tr className="border-b bg-green-50"><td className="py-1">Jasa Anggota</td><td className="text-right font-mono">25%</td><td className="text-right text-green-700 font-semibold">Anggota ← Anda</td></tr>
+                                            <tr className="border-b bg-blue-50"><td className="py-1">Jasa Simpanan</td><td className="text-right font-mono">20%</td><td className="text-right text-blue-700 font-semibold">Anggota ← Anda</td></tr>
+                                            <tr className="border-b"><td className="py-1">Cadangan</td><td className="text-right font-mono">30%</td><td className="text-right text-muted-foreground">Koperasi</td></tr>
+                                            <tr className="border-b"><td className="py-1">Dana Pengurus</td><td className="text-right font-mono">10%</td><td className="text-right text-muted-foreground">Pengurus</td></tr>
+                                            <tr className="border-b"><td className="py-1">Dana Pegawai</td><td className="text-right font-mono">5%</td><td className="text-right text-muted-foreground">Karyawan</td></tr>
+                                            <tr className="border-b"><td className="py-1">Dana Pendidikan</td><td className="text-right font-mono">5%</td><td className="text-right text-muted-foreground">Koperasi</td></tr>
+                                            <tr><td className="py-1">Dana Sosial</td><td className="text-right font-mono">5%</td><td className="text-right text-muted-foreground">Koperasi</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                                <p className="font-semibold">ℹ️ Catatan:</p>
+                                <p>• Nilai ini adalah <strong>estimasi realtime</strong> — angka resmi ditetapkan saat RAT (Rapat Anggota Tahunan).</p>
+                                <p>• Semakin besar tabungan Anda → semakin besar <strong>Jasa Simpanan</strong>.</p>
+                                <p>• Semakin sering belanja/bertransaksi → semakin besar <strong>Jasa Anggota</strong>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Warning Alert for Loan vs Salary */}
             {!isLoading && salary > 0 && netAfterLoan < 0 && (
