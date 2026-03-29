@@ -37,7 +37,6 @@ interface MemberSavingsRecap {
     id: number;
     memberNo: string;
     name: string;
-    branchName: string;
     simpananPokok: number;
     simpananWajib: number;
     simpananSukarela: number;
@@ -115,7 +114,6 @@ export default function RekapSimpananPage() {
     const exportColumns = [
         { key: "memberNo", header: "NRP" },
         { key: "name", header: "Nama" },
-        { key: "branchName", header: "Cabang" },
         { key: "simpananPokok", header: "Simpanan Pokok", format: formatCurrencyExport },
         { key: "simpananWajib", header: "Simpanan Wajib (Tabungan Wajib)", format: formatCurrencyExport },
         { key: "simpananSukarela", header: "Simpanan Sukarela", format: formatCurrencyExport },
@@ -227,7 +225,6 @@ export default function RekapSimpananPage() {
                                         <TableRow>
                                             <TableHead>NRP</TableHead>
                                             <TableHead>Nama</TableHead>
-                                            <TableHead>Cabang</TableHead>
                                             <TableHead className="text-right">Simpanan Pokok</TableHead>
                                             <TableHead className="text-right">Tabungan Wajib</TableHead>
                                             <TableHead className="text-right">Simpanan Sukarela</TableHead>
@@ -241,7 +238,6 @@ export default function RekapSimpananPage() {
                                                     {row.memberNo}
                                                 </TableCell>
                                                 <TableCell className="font-medium">{row.name}</TableCell>
-                                                <TableCell>{row.branchName}</TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {formatCurrency(row.simpananPokok)}
                                                 </TableCell>
@@ -264,7 +260,7 @@ export default function RekapSimpananPage() {
                                         ))}
                                         {data.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                     Tidak ada data
                                                 </TableCell>
                                             </TableRow>

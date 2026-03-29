@@ -389,10 +389,6 @@ export default function TransaksiUnitPage() {
                                         </span>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 py-2 border-b">
-                                    <div className="text-sm text-muted-foreground">Cabang</div>
-                                    <div className="col-span-2">{member.branch?.name}</div>
-                                </div>
                             </CardContent>
                         </Card>
                     ) : (

@@ -56,7 +56,7 @@ const MOCK_MEMBER: Member = {
     id: 1,
     member_no: "A-001",
     branch_id: 1,
-    branch: { id: 1, code: "PST", name: "Kantor Pusat", is_head_office: true, is_active: true },
+    branch: undefined,
     name: "Budi Santoso",
     nik: "3201234567890001",
     gender: "male",
@@ -408,7 +408,6 @@ export default function AnggotaDetailPage() {
                             <CardTitle className="text-lg">Keanggotaan</CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4 sm:grid-cols-2">
-                            <InfoItem icon={Building} label="Cabang" value={member.branch?.name || "-"} />
                             <InfoItem
                                 icon={Calendar}
                                 label="Tanggal Bergabung"

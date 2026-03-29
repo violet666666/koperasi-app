@@ -7,23 +7,17 @@ import { Topbar } from "./topbar";
 import { BottomNav } from "./bottom-nav";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import type { User, Branch } from "@/types";
+import type { User } from "@/types";
 
 interface AppShellProps {
     children: React.ReactNode;
     user?: User | null;
-    branches?: Branch[];
-    currentBranchId?: number | null;
-    onBranchChange?: (branchId: number | null) => void;
     onLogout?: () => void;
 }
 
 export function AppShell({
     children,
     user,
-    branches = [],
-    currentBranchId,
-    onBranchChange,
     onLogout,
 }: AppShellProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -63,9 +57,6 @@ export function AppShell({
                 {/* Topbar */}
                 <Topbar
                     user={user}
-                    branches={branches}
-                    currentBranchId={currentBranchId}
-                    onBranchChange={onBranchChange}
                     onMenuClick={() => setMobileMenuOpen(true)}
                     onLogout={onLogout}
                 />

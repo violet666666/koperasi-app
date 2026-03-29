@@ -14,13 +14,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+
 import {
     Bell,
     Menu,
@@ -28,17 +22,14 @@ import {
     User,
     Settings,
     LogOut,
-    Building,
+
     ChevronRight,
     Home,
 } from "lucide-react";
-import type { Branch, User as UserType } from "@/types";
+import type { User as UserType } from "@/types";
 
 interface TopbarProps {
     user?: UserType | null;
-    branches?: Branch[];
-    currentBranchId?: number | null;
-    onBranchChange?: (branchId: number | null) => void;
     onMenuClick?: () => void;
     onLogout?: () => void;
     pendingApprovals?: number;
@@ -47,9 +38,6 @@ interface TopbarProps {
 
 export function Topbar({
     user,
-    branches = [],
-    currentBranchId,
-    onBranchChange,
     onMenuClick,
     onLogout,
     pendingApprovals = 0,
@@ -103,29 +91,6 @@ export function Topbar({
 
             {/* Mobile spacer to push items to the right */}
             <div className="flex-1 lg:hidden" />
-
-            {/* Branch Selector (only for users with access to multiple branches) */}
-            {branches.length > 1 && (
-                <Select
-                    value={currentBranchId?.toString() || "all"}
-                    onValueChange={(value) =>
-                        onBranchChange?.(value === "all" ? null : parseInt(value))
-                    }
-                >
-                    <SelectTrigger className="w-[180px] hidden sm:flex">
-                        <Building className="mr-2 h-4 w-4" />
-                        <SelectValue placeholder="Pilih Cabang" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Cabang</SelectItem>
-                        {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id.toString()}>
-                                {branch.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            )}
 
             {/* Search */}
             <Button variant="ghost" size="icon" className="hidden sm:flex">
@@ -243,7 +208,7 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
         neraca: "Neraca",
         "laba-rugi": "Laba Rugi",
         shu: "SHU",
-        cabang: "Cabang",
+
         "produk-simpanan": "Produk Simpanan",
         "produk-pinjaman": "Produk Pinjaman",
         coa: "Chart of Accounts",

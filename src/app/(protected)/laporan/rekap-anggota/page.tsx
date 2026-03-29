@@ -25,7 +25,6 @@ interface MemberSummary {
     memberNo: string;
     name: string;
     phone: string;
-    branch: string;
     status: string;
     joinDate: string;
     totalSavings: number;
@@ -58,10 +57,6 @@ const columns: ColumnDef<MemberSummary>[] = [
     {
         accessorKey: "phone",
         header: "Telepon",
-    },
-    {
-        accessorKey: "branch",
-        header: "Cabang",
     },
     {
         accessorKey: "status",
@@ -109,7 +104,6 @@ const exportColumns: ExportColumn[] = [
     { header: "NRP", key: "memberNo", width: 15 },
     { header: "Nama", key: "name", width: 25 },
     { header: "Telepon", key: "phone", width: 15 },
-    { header: "Cabang", key: "branch", width: 15 },
     { header: "Status", key: "status", width: 12, format: (v) => { const labels: Record<string, string> = { active: "Aktif", inactive: "Tidak Aktif", resigned: "Keluar" }; return labels[v as string] || String(v); } },
     { header: "Tgl Bergabung", key: "joinDate", width: 15, format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID") : "-" },
     { header: "Total Simpanan", key: "totalSavings", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
@@ -142,7 +136,6 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 export default function RekapAnggotaPage() {
-    const [branchFilter, setBranchFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<MemberSummary[]>([]);
     const [stats, setStats] = React.useState<RecapStats>({ total: 0, active: 0, inactive: 0, pending: 0 });
@@ -152,8 +145,7 @@ export default function RekapAnggotaPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                const params = branchFilter !== "all" ? { branchId: parseInt(branchFilter) } : {};
-                const response = await reportsApi.membersRecap(params);
+                const response = await reportsApi.membersRecap({});
                 const data = response.data as unknown as { members: MemberSummary[]; stats: RecapStats };
 
                 if (data.members) {
@@ -173,7 +165,7 @@ export default function RekapAnggotaPage() {
         }
 
         fetchData();
-    }, [branchFilter]);
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -194,21 +186,6 @@ export default function RekapAnggotaPage() {
                     </div>
                 }
             />
-
-            {/* Filters */}
-            <div className="flex items-center gap-4">
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Semua cabang" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Cabang</SelectItem>
-                        <SelectItem value="1">Kantor Pusat</SelectItem>
-                        <SelectItem value="2">Cabang Jakarta</SelectItem>
-                        <SelectItem value="3">Cabang Surabaya</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
 
             {/* Stats */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

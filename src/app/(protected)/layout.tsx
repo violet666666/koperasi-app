@@ -27,7 +27,7 @@ const UNIT_ROUTES: Record<string, string[]> = {
 const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
-    const { user, branches, currentBranchId, setCurrentBranch, logout, isLoading } = useAuth();
+    const { user, logout, isLoading } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
 
@@ -66,9 +66,6 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
         <ErrorBoundary>
             <AppShell
                 user={user}
-                branches={branches}
-                currentBranchId={currentBranchId}
-                onBranchChange={setCurrentBranch}
                 onLogout={logout}
             >
                 {children}

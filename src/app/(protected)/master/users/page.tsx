@@ -48,11 +48,6 @@ interface Role {
     displayName: string;
 }
 
-interface Branch {
-    id: number;
-    code: string;
-    name: string;
-}
 
 // Table columns
 const columns: ColumnDef<UserData>[] = [
@@ -84,11 +79,6 @@ const columns: ColumnDef<UserData>[] = [
         ),
     },
     {
-        accessorKey: "branch",
-        header: "Cabang",
-        cell: ({ row }) => row.original.branch?.name || "Semua Cabang",
-    },
-    {
         accessorKey: "isActive",
         header: "Status",
         cell: ({ row }) => (
@@ -111,13 +101,11 @@ const columns: ColumnDef<UserData>[] = [
 function UserForm({
     user,
     roles,
-    branches,
     onSave,
     onCancel
 }: {
     user?: UserData;
     roles: Role[];
-    branches: Branch[];
     onSave: (data: Partial<UserData> & { password?: string }) => Promise<void>;
     onCancel: () => void;
 }) {
@@ -127,7 +115,6 @@ function UserForm({
         email: user?.email || "",
         password: "",
         roleId: user?.roleId?.toString() || user?.role?.id?.toString() || "",
-        branchId: user?.branchId?.toString() || user?.branch?.id?.toString() || "",
         isActive: user?.isActive ?? true,
     });
 
@@ -140,7 +127,6 @@ function UserForm({
                 email: formData.email,
                 password: formData.password || undefined,
                 roleId: parseInt(formData.roleId),
-                branchId: formData.branchId ? parseInt(formData.branchId) : undefined,
                 isActive: formData.isActive,
             });
         } finally {
@@ -208,25 +194,6 @@ function UserForm({
                         </SelectContent>
                     </Select>
                 </div>
-                <div>
-                    <Label htmlFor="branch">Cabang</Label>
-                    <Select
-                        value={formData.branchId}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, branchId: value }))}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Semua cabang" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Semua Cabang</SelectItem>
-                            {branches.map((branch) => (
-                                <SelectItem key={branch.id} value={branch.id.toString()}>
-                                    {branch.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
             </div>
             <div className="flex items-center gap-2">
                 <Checkbox
@@ -253,7 +220,6 @@ export default function MasterUsersPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [users, setUsers] = React.useState<UserData[]>([]);
     const [roles, setRoles] = React.useState<Role[]>([]);
-    const [branches, setBranches] = React.useState<Branch[]>([]);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingUser, setEditingUser] = React.useState<UserData | undefined>();
 
@@ -262,14 +228,12 @@ export default function MasterUsersPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [usersRes, rolesRes, branchesRes] = await Promise.all([
+                const [usersRes, rolesRes] = await Promise.all([
                     usersApi.list(),
                     usersApi.roles(),
-                    masterApi.branches.list(),
                 ]);
                 setUsers(usersRes.data as unknown as UserData[]);
                 setRoles(rolesRes.data as unknown as Role[]);
-                setBranches(branchesRes.data as unknown as Branch[]);
             } catch (error) {
                 console.error("Failed to fetch data:", error);
             } finally {
@@ -344,7 +308,6 @@ export default function MasterUsersPage() {
                             <UserForm
                                 user={editingUser}
                                 roles={roles}
-                                branches={branches}
                                 onSave={handleSave}
                                 onCancel={() => setDialogOpen(false)}
                             />

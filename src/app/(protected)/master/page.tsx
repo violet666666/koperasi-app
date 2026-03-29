@@ -12,13 +12,6 @@ import {
 
 const masterItems = [
     {
-        title: "Cabang",
-        description: "Kelola data cabang koperasi",
-        href: "/master/cabang",
-        icon: Building,
-        color: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-    },
-    {
         title: "Produk Simpanan",
         description: "Kelola produk simpanan anggota",
         href: "/master/produk-simpanan",
