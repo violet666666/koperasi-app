@@ -42,6 +42,10 @@ import BukuBesarScreen from "./src/screens/operator/BukuBesarScreen";
 import LabaRugiScreen from "./src/screens/operator/LabaRugiScreen";
 import NeracaScreen from "./src/screens/operator/NeracaScreen";
 import LaporanSHUScreen from "./src/screens/operator/LaporanSHUScreen";
+import AsetListScreen from "./src/screens/operator/AsetListScreen";
+import AsetDetailScreen from "./src/screens/operator/AsetDetailScreen";
+import MasterDataHubScreen from "./src/screens/operator/MasterDataHubScreen";
+import ImportDataScreen from "./src/screens/operator/ImportDataScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -189,6 +193,10 @@ export default function App() {
             <Stack.Screen name="LabaRugi" component={LabaRugiScreen} />
             <Stack.Screen name="Neraca" component={NeracaScreen} />
             <Stack.Screen name="LaporanSHU" component={LaporanSHUScreen} />
+            <Stack.Screen name="AsetList" component={AsetListScreen} />
+            <Stack.Screen name="AsetDetail" component={AsetDetailScreen} />
+            <Stack.Screen name="MasterDataHub" component={MasterDataHubScreen} />
+            <Stack.Screen name="ImportData" component={ImportDataScreen} />
 
             {/* ====== Common Sub-screens ====== */}
             <Stack.Screen

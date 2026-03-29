@@ -17,6 +17,30 @@ import C from "../../lib/colors";
 
 const formatRp = (n: number) => "Rp " + (n || 0).toLocaleString("id-ID");
 
+const CollapsibleSection = ({ title, children, defaultExpanded = false, icon }: { title: string, children: any, defaultExpanded?: boolean, icon: string }) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  return (
+    <View style={{ marginBottom: 12, backgroundColor: "white", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "#e2e8f0" }}>
+       <TouchableOpacity 
+          style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: expanded ? 1 : 0, borderBottomColor: "#f1f5f9" }} 
+          onPress={() => setExpanded(!expanded)}
+          activeOpacity={0.7}
+       >
+          <View style={{ backgroundColor: C.primary + "1A", padding: 8, borderRadius: 8, marginRight: 12 }}>
+             <Ionicons name={icon as any} size={20} color={C.primary} />
+          </View>
+          <Text style={{ flex: 1, fontSize: 16, fontWeight: "bold", color: C.foreground }}>{title}</Text>
+          <Ionicons name={expanded ? "chevron-down" : "chevron-forward"} size={20} color={C.mutedForeground} />
+       </TouchableOpacity>
+       {expanded && (
+          <View style={{ padding: 16, backgroundColor: "#f8fafc" }}>
+             {children}
+          </View>
+       )}
+    </View>
+  )
+}
+
 export default function DashboardScreen({ setToken }: any) {
   const navigation = useNavigation<any>();
   const [user, setUser] = useState<any>(null);
@@ -210,119 +234,47 @@ export default function DashboardScreen({ setToken }: any) {
               />
             </View>
 
-            {/* OPERATOR MENU GRID */}
-            <Text style={styles.sectionTitle}>Transaksi & Anggota</Text>
-            <View style={styles.menuGrid}>
-              <MenuItem
-                icon="checkmark-circle-outline"
-                label="Approval"
-                color="#10B981"
-                onPress={() => navigation.navigate("ApprovalFull")}
-              />
-              <MenuItem
-                icon="people-outline"
-                label="Anggota"
-                color={C.info}
-                onPress={() => navigation.navigate("MemberListFull")}
-              />
-              <MenuItem
-                icon="albums-outline"
-                label="Rekening Simpanan"
-                color={C.accent}
-                onPress={() => navigation.navigate("RekeningList")}
-              />
-              <MenuItem
-                icon="cash-outline"
-                label="Input Angsuran"
-                color={C.success}
-                onPress={() => navigation.navigate("MemberListFull")}
-              />
-              <MenuItem
-                icon="list-outline"
-                label="Daftar Pinjaman"
-                color="#7C3AED"
-                onPress={() => navigation.navigate("DaftarPinjaman")}
-              />
-              <MenuItem
-                icon="business-outline"
-                label="Profil Koperasi"
-                color="#0F766E"
-                onPress={() => navigation.navigate("ProfilKoperasi")}
-              />
-            </View>
+            {/* ACCORDION MENUS */}
+            <View style={{ marginTop: 24 }}>
+                <CollapsibleSection title="Pusat Kasir & Toko" icon="storefront" defaultExpanded={false}>
+                    <View style={styles.menuGrid}>
+                        <MenuItem icon="cart-outline" label="Kasir POS" color="#F59E0B" onPress={() => navigation.navigate("KasirHome")} />
+                        <MenuItem icon="cube-outline" label="Stok Barang" color="#0284c7" onPress={() => navigation.navigate("StokAdmin")} />
+                    </View>
+                </CollapsibleSection>
 
-            <Text style={styles.sectionTitle}>Akuntansi & Keuangan</Text>
-            <View style={styles.menuGrid}>
-              <MenuItem
-                icon="book-outline"
-                label="Jurnal Umum"
-                color="#0284c7"
-                onPress={() => navigation.navigate("JurnalDaftar")}
-              />
-              <MenuItem
-                icon="library-outline"
-                label="Buku Besar"
-                color="#4338ca"
-                onPress={() => navigation.navigate("BukuBesar")}
-              />
-              <MenuItem
-                icon="bar-chart-outline"
-                label="Laba Rugi"
-                color="#10B981"
-                onPress={() => navigation.navigate("LabaRugi")}
-              />
-              <MenuItem
-                icon="scale-outline"
-                label="Neraca"
-                color="#D97706"
-                onPress={() => navigation.navigate("Neraca")}
-              />
-              <MenuItem
-                icon="pie-chart-outline"
-                label="Kalkulasi SHU"
-                color="#be185d"
-                onPress={() => navigation.navigate("LaporanSHU")}
-              />
-            </View>
+                <CollapsibleSection title="Anggota & Simpan-Pinjam" icon="people" defaultExpanded={true}>
+                    <View style={styles.menuGrid}>
+                        <MenuItem icon="people-outline" label="Buku Anggota" color={C.info} onPress={() => navigation.navigate("MemberListFull")} />
+                        <MenuItem icon="albums-outline" label="Rekening" color={C.accent} onPress={() => navigation.navigate("RekeningList")} />
+                        <MenuItem icon="checkmark-circle-outline" label="Persetujuan" color="#10B981" onPress={() => navigation.navigate("ApprovalFull")} />
+                        <MenuItem icon="cash-outline" label="Bayar Angsuran" color={C.success} onPress={() => navigation.navigate("MemberListFull")} />
+                        <MenuItem icon="list-outline" label="Daftar Pinjam" color="#7C3AED" onPress={() => navigation.navigate("DaftarPinjaman")} />
+                    </View>
+                </CollapsibleSection>
 
-            <Text style={styles.sectionTitle}>Laporan & Pengaturan</Text>
-            <View style={styles.menuGrid}>
-              <MenuItem
-                icon="pie-chart-outline"
-                label="Laporan Pinjaman"
-                color="#8B5CF6"
-                onPress={() => navigation.navigate("LaporanPinjaman")}
-              />
-              <MenuItem
-                icon="wallet-outline"
-                label="Laporan Simpanan"
-                color="#EC4899"
-                onPress={() => navigation.navigate("LaporanSimpanan")}
-              />
-              <MenuItem
-                icon="card-outline"
-                label="Kas & Bank"
-                color="#10B981"
-                onPress={() => navigation.navigate("KasBankFull")}
-              />
-              <MenuItem
-                icon="list-circle-outline"
-                label="Audit Log"
-                color="#64748B"
-                onPress={() => navigation.navigate("AuditLogFull")}
-              />
-              <MenuItem
-                icon="megaphone-outline"
-                label="Pengumuman"
-                color="#F59E0B"
-                onPress={() => navigation.navigate("Pengumuman")}
-              />
-              <MenuItem
-                icon="key-outline"
-                label="Ganti Password"
-                color="#6B7280"
-                onPress={() => navigation.navigate("ChangePassword")}
-              />
+                <CollapsibleSection title="Akuntansi & Keuangan" icon="calculator" defaultExpanded={false}>
+                    <View style={styles.menuGrid}>
+                        <MenuItem icon="card-outline" label="Kas & Bank" color="#10B981" onPress={() => navigation.navigate("KasBankFull")} />
+                        <MenuItem icon="book-outline" label="Jurnal Umum" color="#0284c7" onPress={() => navigation.navigate("JurnalDaftar")} />
+                        <MenuItem icon="library-outline" label="Buku Besar" color="#4338ca" onPress={() => navigation.navigate("BukuBesar")} />
+                        <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />
+                        <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
+                        <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
+                        <MenuItem icon="server-outline" label="Aset Koperasi" color="#0891b2" onPress={() => navigation.navigate("AsetList")} />
+                    </View>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Administrasi Sistem" icon="settings" defaultExpanded={false}>
+                    <View style={styles.menuGrid}>
+                        <MenuItem icon="options" label="Master Data" color="#ea580c" onPress={() => navigation.navigate("MasterDataHub")} />
+                        <MenuItem icon="cloud-upload-outline" label="Import Data" color="#16a34a" onPress={() => navigation.navigate("ImportData")} />
+                        <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate("Pengumuman")} />
+                        <MenuItem icon="list-circle-outline" label="Audit Log" color="#64748B" onPress={() => navigation.navigate("AuditLogFull")} />
+                        <MenuItem icon="business-outline" label="Profil Usaha" color="#0F766E" onPress={() => navigation.navigate("ProfilKoperasi")} />
+                        <MenuItem icon="key-outline" label="Ganti Sandi" color="#6B7280" onPress={() => navigation.navigate("ChangePassword")} />
+                    </View>
+                </CollapsibleSection>
             </View>
           </>
         )}

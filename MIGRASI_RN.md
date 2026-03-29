@@ -330,29 +330,29 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 
 #### Fase 5d — Manajemen Aset & Inventaris
 
-- [ ] **Backend API**: `GET/POST /api/mobile/assets` — Daftar aset koperasi, detail per aset (nilai buku, akumulasi penyusutan, umur ekonomis), tambah aset baru.
-- [ ] **Screen Operator**: `AsetListScreen` — Daftar aset (FlatList), card per aset: nama, kategori, nilai perolehan vs nilai buku, progress bar penyusutan, status (active/disposed).
-- [ ] **Screen Operator**: `AsetDetailScreen` — Detail aset lengkap + kalkulasi depresiasi berjalan.
+- [x] **Backend API**: `GET/POST /api/mobile/assets` — Daftar aset koperasi, detail per aset (nilai buku, akumulasi penyusutan, umur ekonomis), tambah aset baru.
+- [x] **Screen Operator**: `AsetListScreen` — Daftar aset (FlatList), card per aset: nama, kategori, nilai perolehan vs nilai buku, progress bar penyusutan, status (active/disposed).
+- [x] **Screen Operator**: `AsetDetailScreen` — Detail aset lengkap + kalkulasi depresiasi berjalan.
 
 #### Fase 5e — Master Data, User Management & Import Data
 
-- [ ] **Backend API**: `GET/POST /api/mobile/master-data` — CRUD Produk Simpanan, Produk Pinjaman, dan Bagan Akun (COA).
-- [ ] **Backend API**: `GET/POST /api/mobile/users` — Daftar user + role, tambah/edit user baru, reset password.
-- [ ] **Backend API**: `POST /api/mobile/members/import` — Upload CSV/Excel file data anggota & Tunkin dari smartphone (multipart form data).
-- [ ] **Screen Operator**: `MasterDataHubScreen` — Menu pusat: Produk Simpanan, Produk Pinjaman, COA. Masing-masing masuk ke sub-screen list + create/edit.
-- [ ] **Screen Operator**: `UserManagementScreen` — Daftar user sistem + role badge + form tambah/edit.
-- [ ] **Screen Operator**: `ImportDataScreen` — Pilih file CSV/Excel dari HP via `expo-document-picker`, preview data, konfirmasi upload. Tampilkan hasil (berhasil/gagal/skip).
-- [ ] **Screen Operator**: `PengumumanCRUDScreen` — Buat, edit, dan hapus pengumuman langsung dari HP (tidak lagi hanya read-only).
+- [x] **Backend API**: `GET/POST /api/mobile/master-data` — CRUD Produk Simpanan, Produk Pinjaman, dan Bagan Akun (COA).
+- [x] **Backend API**: `GET/POST /api/mobile/users` — Daftar user + role, tambah/edit user baru, reset password.
+- [x] **Backend API**: `POST /api/mobile/members/import` — Upload CSV/Excel file data anggota & Tunkin dari smartphone (multipart form data).
+- [x] **Screen Operator**: `MasterDataHubScreen` — Menu pusat: Produk Simpanan, Produk Pinjaman, COA. Masing-masing masuk ke sub-screen list + create/edit.
+- [x] **Screen Operator**: `UserManagementScreen` — Daftar user sistem + role badge + form tambah/edit.
+- [x] **Screen Operator**: `ImportDataScreen` — Pilih file CSV/Excel dari HP via `expo-document-picker`, preview data, konfirmasi upload. Tampilkan hasil (berhasil/gagal/skip).
+- [x] **Screen Operator**: `PengumumanCRUDScreen` — Buat, edit, dan hapus pengumuman langsung dari HP (tidak lagi hanya read-only).
 
 #### Fase 5f — Rombak Dashboard Operator & Final QA
 
-- [ ] **DashboardScreen Operator**: Overhaul total menjadi layout **Collapsible Sections** (Kategori Lipat):
+- [x] **DashboardScreen Operator**: Overhaul total menjadi layout **Collapsible Sections** (Kategori Lipat):
   - 📊 **Pusat Kasir & Toko** (Kasir POS, Stok Barang)
   - 👥 **Anggota & Simpan-Pinjam** (Anggota, Rekening, Approval, Input Angsuran, Daftar Pinjaman, Ajukan Pinjaman)
   - 💰 **Akuntansi & Keuangan** (Kas & Bank, Jurnal, Buku Besar, Aset, Laporan Laba Rugi, Neraca, SHU)
   - ⚙️ **Administrasi Sistem** (Master Data, User Management, Import Data, Pengumuman, Audit Log, Profil Koperasi, Ganti Password)
-- [ ] **End-to-End Testing**: Verifikasi navigasi semua screen + otorisasi JWT per role.
-- [ ] **Performance Review**: Monitor API latency untuk query aggregate (jurnal, buku besar, laporan).
+- [x] **End-to-End Testing**: Verifikasi navigasi semua screen + otorisasi JWT per role.
+- [x] **Performance Review**: Monitor API latency untuk query aggregate (jurnal, buku besar, laporan).
 
 ---
 
@@ -426,9 +426,9 @@ Agar aplikasi aman (Verified by Play Protect) dan bisa di-search oleh umum:
 | Audit Log | ✅ | ✅ | ✅ Selesai |
 | Jurnal & Buku Besar | ✅ | ✅ | ✅ Fase 5b Selesai |
 | Laporan Keuangan (Neraca/L-R/SHU) | ✅ | ✅ | ✅ Fase 5c Selesai |
-| Manajemen Aset | ✅ | 🔲 | ⏳ Fase 5d |
-| Master Data & User Management | ✅ | 🔲 | ⏳ Fase 5e |
-| Import Data Anggota & Tunkin | ✅ | 🔲 | ⏳ Fase 5e |
+| Manajemen Aset | ✅ | ✅ | ✅ Fase 5d Selesai |
+| Master Data & User Management | ✅ | ✅ | ✅ Fase 5e Selesai |
+| Import Data Anggota & Tunkin | ✅ | ✅ | ✅ Fase 5e Selesai |
 | Pengumuman CRUD (Create/Edit/Delete) | ✅ | 🔲 | ⏳ Fase 5e |
 
 ---
