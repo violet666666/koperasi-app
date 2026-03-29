@@ -16,7 +16,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const member = await prisma.member.findUnique({
       where: { id: memberId },
       include: {
-        branch: { select: { id: true, name: true, code: true } },
         savingsAccounts: {
           include: { product: { select: { name: true, code: true, type: true } } },
         },
@@ -31,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Anggota tidak ditemukan' }, { status: 404 });
     }
 
-    const totalSavings = member.savingsAccounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
+    const totalSavings = member.savingsAccounts.reduce((sum, acc) => sum + Number(acc.balance), 0) + Number(member.tabunganWajib || 0);
     const totalLoansOutstanding = member.loans.reduce((sum, l) => sum + Number(l.principalOutstanding), 0);
 
     return NextResponse.json({
@@ -50,7 +49,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         status: member.status,
         salary: Number(member.salary || 0),
         tunlesKinerja: Number(member.tunlesKinerja || 0),
-        branch: member.branch,
+        tabunganWajib: Number(member.tabunganWajib || 0),
         totalSavings,
         totalLoansOutstanding,
         savingsAccounts: member.savingsAccounts.map(acc => ({

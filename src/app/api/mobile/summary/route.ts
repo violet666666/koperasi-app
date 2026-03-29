@@ -10,9 +10,8 @@ export async function GET(request: Request) {
     try {
         const user = await prisma.user.findUnique({
             where: { id: Number(mobileUser.id) },
-            include: { member: true, role: true, branch: true },
+            include: { member: true, role: true },
         });
-
         if (!user) {
             return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
         }
@@ -45,7 +44,6 @@ export async function GET(request: Request) {
                     user: {
                         id: user.id, name: user.name, email: user.email,
                         role: user.role.name, roleDisplayName: user.role.displayName,
-                        branch: user.branch?.name,
                     },
                     today: {
                         salesTotal: Number(todaySales._sum.totalAmount || 0),
@@ -77,6 +75,7 @@ export async function GET(request: Request) {
                 prisma.loanApplication.count({ where: { status: "submitted" } }),
                 prisma.member.aggregate({ _sum: { tunlesKinerja: true }, where: { tunlesKinerja: { gt: 0 }, deletedAt: null } }),
                 prisma.member.count({ where: { tunlesKinerja: { gt: 0 }, deletedAt: null } }),
+                prisma.member.aggregate({ _sum: { tabunganWajib: true }, where: { status: "active", deletedAt: null } }),
                 // Today deposits
                 prisma.savingsTransaction.aggregate({
                     _sum: { amount: true }, _count: { id: true },
@@ -100,11 +99,10 @@ export async function GET(request: Request) {
                     user: {
                         id: user.id, name: user.name, email: user.email,
                         role: user.role.name, roleDisplayName: user.role.displayName,
-                        branch: user.branch?.name,
                     },
                     stats: {
                         totalMembers,
-                        totalSavings: Number(totalSavings._sum.balance || 0),
+                        totalSavings: Number(totalSavings._sum.balance || 0) + Number(totalTajib._sum.tabunganWajib || 0),
                         totalLoansOutstanding: Number(totalLoans._sum.principalOutstanding || 0),
                         totalArrears: Number(totalArrears._sum.principalOutstanding || 0),
                         pendingApprovals,
@@ -132,7 +130,6 @@ export async function GET(request: Request) {
                     user: {
                         id: user.id, name: user.name, email: user.email,
                         role: user.role.name, roleDisplayName: user.role.displayName,
-                        branch: user.branch?.name,
                     },
                     member: null,
                     savings: { accounts: [], totalBalance: 0 },
@@ -160,7 +157,7 @@ export async function GET(request: Request) {
             }),
         ]);
 
-        const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0);
+        const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) + Number(user.member.tabunganWajib || 0);
         const activeLoans = loans.filter((l) => l.status === "active" || l.status === "overdue");
         const totalOutstanding = activeLoans.reduce((s, l) => s + Number(l.principalOutstanding), 0);
 
@@ -244,7 +241,7 @@ export async function GET(request: Request) {
                 user: {
                     id: user.id, name: user.name, email: user.email,
                     role: user.role.name, roleDisplayName: user.role.displayName,
-                    nrp: user.member.nrp, branch: user.branch?.name,
+                    nrp: user.member.nrp,
                 },
                 member: {
                     id: user.member.id, memberNo: user.member.memberNo,

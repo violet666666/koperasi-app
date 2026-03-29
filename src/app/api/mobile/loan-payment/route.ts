@@ -28,7 +28,6 @@ export async function GET(request: Request) {
                 tenorMonths: true,
                 status: true,
                 memberId: true,
-                branchId: true,
                 application: { select: { product: { select: { name: true } } } },
             },
         });
@@ -45,7 +44,6 @@ export async function GET(request: Request) {
                 tenor: l.tenorMonths,
                 status: l.status,
                 memberId: l.memberId,
-                branchId: l.branchId,
             })),
         });
     } catch (error) {
@@ -100,7 +98,6 @@ export async function POST(request: Request) {
                     paymentNo,
                     loanId: Number(loanId),
                     memberId: loan.memberId,
-                    branchId: loan.branchId,
                     amount: numAmount,
                     principalPortion,
                     interestPortion,

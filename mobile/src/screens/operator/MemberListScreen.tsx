@@ -11,7 +11,6 @@ interface Member {
   name: string;
   nrp: string | null;
   status: string;
-  branch: string | null;
   totalSavings: number;
   totalLoanOutstanding: number;
 }
@@ -55,7 +54,7 @@ export default function MemberListScreen({ navigation: navProp }: any) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.memberName}>{item.name}</Text>
-            <Text style={styles.memberSub}>{item.nrp || item.memberNo} {item.branch ? `• ${item.branch}` : ''}</Text>
+            <Text style={styles.memberSub}>{item.nrp || item.memberNo}</Text>
           </View>
           <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={C.mutedForeground} />
         </View>

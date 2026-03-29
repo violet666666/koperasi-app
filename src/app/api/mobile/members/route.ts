@@ -32,7 +32,7 @@ export async function GET(request: Request) {
                 name: true,
                 nrp: true,
                 status: true,
-                branch: { select: { name: true } },
+                tabunganWajib: true,
                 savingsAccounts: {
                     where: { status: "active" },
                     select: { balance: true },
@@ -53,8 +53,7 @@ export async function GET(request: Request) {
                 name: m.name,
                 nrp: m.nrp,
                 status: m.status,
-                branch: m.branch?.name,
-                totalSavings: m.savingsAccounts.reduce((s, a) => s + Number(a.balance), 0),
+                totalSavings: m.savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) + Number(m.tabunganWajib || 0),
                 totalLoanOutstanding: m.loans.reduce((s, l) => s + Number(l.principalOutstanding), 0),
             })),
         });

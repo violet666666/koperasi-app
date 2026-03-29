@@ -109,7 +109,6 @@ export async function POST(request: Request) {
             data: {
                 applicationNo: `${appPrefix}${Date.now()}-${randomString}`,
                 memberId: user.memberId,
-                branchId: user.branchId || 1, // Fallback to 1 if no branch
                 createdById: user.id,
                 productId: product.id,
                 amount: amount,

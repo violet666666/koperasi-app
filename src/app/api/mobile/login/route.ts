@@ -93,7 +93,6 @@ export async function POST(request: Request) {
             name: user.name,
             role: user.role.name,
             nrp: user.member?.nrp || null,
-            unitId: user.branchId,
         });
 
         return NextResponse.json({

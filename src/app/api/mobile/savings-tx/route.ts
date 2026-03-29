@@ -51,7 +51,6 @@ export async function POST(request: Request) {
                     accountId: Number(accountId),
                     memberId: account.memberId,
                     productId: account.productId,
-                    branchId: account.branchId,
                     type,
                     amount: numAmount,
                     balanceBefore: currentBalance,

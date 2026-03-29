@@ -62,7 +62,6 @@ export default function MemberDetailScreen({ route, navigation }: any) {
             <InfoRow icon="id-card-outline" label="No. Anggota" value={data.memberNo || '-'} />
             <InfoRow icon="mail-outline" label="Email" value={data.email || '-'} />
             <InfoRow icon="call-outline" label="Telepon" value={data.phone || '-'} />
-            <InfoRow icon="business-outline" label="Satuan Kerja" value={data.branch?.name || '-'} />
             <InfoRow icon="ribbon-outline" label="Kategori" value={data.category || '-'} />
             <InfoRow icon="briefcase-outline" label="Pekerjaan" value={data.occupation || '-'} />
             <InfoRow icon="calendar-outline" label="Tgl Bergabung" value={data.joinDate ? new Date(data.joinDate).toLocaleDateString('id-ID') : '-'} last />

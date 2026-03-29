@@ -266,6 +266,18 @@ export default function DashboardScreen({ setToken }: any) {
                 onPress={() => navigation.navigate("LaporanSimpanan")}
               />
               <MenuItem
+                icon="card-outline"
+                label="Kas & Bank"
+                color="#10B981"
+                onPress={() => navigation.navigate("KasBankFull")}
+              />
+              <MenuItem
+                icon="list-circle-outline"
+                label="Audit Log"
+                color="#64748B"
+                onPress={() => navigation.navigate("AuditLogFull")}
+              />
+              <MenuItem
                 icon="megaphone-outline"
                 label="Pengumuman"
                 color="#F59E0B"

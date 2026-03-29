@@ -34,7 +34,8 @@ import StokScreen from "./src/screens/kasir/StokScreen";
 import DaftarPinjamanScreen from "./src/screens/operator/DaftarPinjamanScreen";
 import RekeningListScreen from "./src/screens/operator/RekeningListScreen";
 import ProfilKoperasiScreen from "./src/screens/operator/ProfilKoperasiScreen";
-
+import KasBankScreen from "./src/screens/operator/KasBankScreen";
+import AuditLogScreen from "./src/screens/operator/AuditLogScreen";
 const Stack = createNativeStackNavigator();
 
 // ========== SPLASH SCREEN ==========
@@ -173,6 +174,8 @@ export default function App() {
               name="ProfilKoperasi"
               component={ProfilKoperasiScreen}
             />
+            <Stack.Screen name="KasBankFull" component={KasBankScreen} />
+            <Stack.Screen name="AuditLogFull" component={AuditLogScreen} />
 
             {/* ====== Common Sub-screens ====== */}
             <Stack.Screen

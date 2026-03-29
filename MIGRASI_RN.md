@@ -291,6 +291,13 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **DashboardScreen Operator**: Menu utama diperluas dan dibagi dua seksi — "Transaksi & Anggota" (Approval, Anggota, Rekening Simpanan, Input Angsuran, Daftar Pinjaman, Profil Koperasi) dan "Laporan & Pengaturan" (Laporan Pinjaman, Laporan Simpanan, Pengumuman, Ganti Password). Total menu operator naik dari 8 → 10 item.
 - [x] **App.tsx**: Registrasi tiga screen baru ke Stack Navigator: `DaftarPinjaman`, `RekeningList`, `ProfilKoperasi`.
 
+### Fase 4g — Arsitektur Single-Entity & Integrasi Tabungan Wajib (NEW UPDATE)
+
+- [ ] **Backend API Sync**: Memastikan seluruh Endpoint API Mobile tidak lagi memanggil/menampilkan field `branchId` atau `branchName` karena sistem telah dirombak menjadi **Single-Entity (100% PRIMKOPPOL LUMAJANG)**.
+- [ ] **Backend API Sync**: Sinkronisasi `/api/mobile/summary` dan API terkait agar agregasi **Total Simpanan** menggabungkan data `SavingsAccount.balance` dengan raw data `Member.tabunganWajib` (hasil import), memastikan Dashboard Mobile sinkron dengan Web (Total Simpanan muncul valid walau belum ada transaksi setoran manual).
+- [ ] **Frontend Mobile Layout**: Menghapus seluruh dropdown cabang dan label Cabang dari Profil Screen, Member Detail Screen, dan Operator Dashboard (jika ada).
+- [ ] **SHU Mobile Adaption**: Menyiapkan logic endpoint `/api/mobile/reports/shu` agar menghitung Jasa Simpanan (Modal) dengan rule *minimum floor 6%* sesuai yang sudah diimplementasikan stabil di versi Web.
+
 ### Fase 5: 100% Web Feature Parity — Modul Akuntansi, Master Data & Audit di Mobile
 
 > Semua fitur yang sebelumnya hanya tersedia di Web kini dijadwalkan masuk ke Mobile App.
@@ -329,10 +336,10 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 
 #### Fase 5e — Master Data, User Management & Import Data
 
-- [ ] **Backend API**: `GET/POST /api/mobile/master-data` — CRUD Produk Simpanan, Produk Pinjaman, Cabang, dan Bagan Akun (COA).
+- [ ] **Backend API**: `GET/POST /api/mobile/master-data` — CRUD Produk Simpanan, Produk Pinjaman, dan Bagan Akun (COA).
 - [ ] **Backend API**: `GET/POST /api/mobile/users` — Daftar user + role, tambah/edit user baru, reset password.
 - [ ] **Backend API**: `POST /api/mobile/members/import` — Upload CSV/Excel file data anggota & Tunkin dari smartphone (multipart form data).
-- [ ] **Screen Operator**: `MasterDataHubScreen` — Menu pusat: Produk Simpanan, Produk Pinjaman, Cabang, COA. Masing-masing masuk ke sub-screen list + create/edit.
+- [ ] **Screen Operator**: `MasterDataHubScreen` — Menu pusat: Produk Simpanan, Produk Pinjaman, COA. Masing-masing masuk ke sub-screen list + create/edit.
 - [ ] **Screen Operator**: `UserManagementScreen` — Daftar user sistem + role badge + form tambah/edit.
 - [ ] **Screen Operator**: `ImportDataScreen` — Pilih file CSV/Excel dari HP via `expo-document-picker`, preview data, konfirmasi upload. Tampilkan hasil (berhasil/gagal/skip).
 - [ ] **Screen Operator**: `PengumumanCRUDScreen` — Buat, edit, dan hapus pengumuman langsung dari HP (tidak lagi hanya read-only).
