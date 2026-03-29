@@ -146,6 +146,32 @@ Di halaman cetak tersedia 2 pilihan printer:
 - Menu `/periode/tutup-buku` otomatis merekap ribuan Jurnal sepanjang periode (bulan/tahun) dan mengunci neraca.
 - Angka yang ditarik Arus Kas dan Laporan Neraca otomatis menjadi Net. Pembagian SHU secara realtime diambil dan dicocokkan dengan AD-ART Pasal 42.
 
+### 5.5 Perhitungan Sisa Hasil Usaha (SHU)
+
+Sistem menghitung estimasi SHU secara *realtime* (tanpa harus menunggu Tutup Buku) berdasarkan formulasi AD-ART Pasal 42.
+
+**A. Pembagian Pendapatan & Beban**
+1. **Total Pendapatan** = Pendapatan Toko (Anggota & Non-Anggota) + Pendapatan Unit + Pendapatan Bunga Pinjaman.
+2. **Total Beban** = 40% dari Total Pendapatan (sebagai asumsi beban operasional).
+3. **Surplus Anggota** = Porsi Pendapatan Anggota dikurangi porsi Beban secara proporsional.
+
+**B. Alokasi Surplus Anggota**
+Sesuai AD-ART, Surplus Anggota dialokasikan menjadi beberapa Kolam (Pool) utama:
+- **Jasa Usaha (25%)**: Dibagikan berdasarkan seberapa sering anggota berbelanja/bertransaksi.
+- **Jasa Modal (20%)**: Dibagikan berdasarkan seberapa besar saldo simpanan anggota.
+- *Sisa alokasi lainnya (55%): Dana Cadangan, Pengurus, Pegawai, Pendidikan, dan Sosial (tidak diberikan tunai ke anggota, dikelola koperasi).*
+
+**C. Faktor Penentu SHU Individu (Rumah Tangga Anggota)**
+Nominal SHU yang diterima anggota dihitung spesifik berdasarkan kontribusi pribadi mereka:
+1. **Porsi Jasa Modal**:
+   *(Total Simpanan Pribadi / Total Simpanan Seluruh Anggota) × Total Kolam Jasa Modal*
+   *(Catatan: Total Simpanan mencakup Simpanan Pokok + Tabungan Wajib + Mutasi Simpanan Berjalan)*
+2. **Porsi Jasa Usaha**:
+   *(Total Transaksi Pribadi / Total Transaksi Seluruh Anggota) × Total Kolam Jasa Usaha*
+   *(Catatan: Transaksi mencakup Belanja Toko + Transaksi Cuci Mobil dsb + Pencairan Pinjaman)*
+
+**Total Estimasi SHU Anggota** = `Porsi Jasa Modal + Porsi Jasa Usaha`.
+
 ---
 
 ## 6. Audit Log (Keamanan & Tracking)

@@ -1,5 +1,7 @@
 # ANGGARAN DASAR (AD) DAN ANGGARAN RUMAH TANGGA (ART)
+
 ## PRIMER KOPERASI KEPOLISIAN RI
+
 ### PRIMKOPPOL RESOR LUMAJANG
 
 > **Badan Hukum:** 1219/PAD/KWK 13/5.1/XI/96 — Tanggal 1 Nopember 1996
@@ -188,7 +190,7 @@ Yang diterima menjadi anggota PRIMKOPPOL adalah:
 - d. Diberhentikan oleh Rapat Anggota atas persetujuan KAPOLRES karena tindakannya yang merugikan PRIMKOPPOL.
 - e. Bilamana PRIMKOPPOL bubar.
 
-2. Pemberhentian atau pemecatan yang dimaksud dalam ayat 1 dilakukan dengan memperhatikan kebijaksanaan KAPOLRES.
+1. Pemberhentian atau pemecatan yang dimaksud dalam ayat 1 dilakukan dengan memperhatikan kebijaksanaan KAPOLRES.
 
 ---
 
@@ -254,7 +256,7 @@ Yang diterima menjadi anggota PRIMKOPPOL adalah:
 - d. Penetapan Pembagian Sisa Hasil Usaha (SHU).
 - e. Pemilihan Pengurus dan Pengawas jika masa jabatannya telah habis.
 
-2. Undangan rapat disertai Laporan Pertanggungjawaban Pengurus harus diterima oleh anggota-anggotanya, Pejabat dan KAPOLRES dalam waktu sekurang-kurangnya **1 (satu) minggu** sebelum Rapat Anggota dimulai.
+1. Undangan rapat disertai Laporan Pertanggungjawaban Pengurus harus diterima oleh anggota-anggotanya, Pejabat dan KAPOLRES dalam waktu sekurang-kurangnya **1 (satu) minggu** sebelum Rapat Anggota dimulai.
 
 ### Pasal 19
 
@@ -578,13 +580,13 @@ Jika anggota berhenti sebagai anggota PRIMKOPPOL berdasarkan:
 
 | Alokasi | Persentase |
 |---|---|
-| Cadangan | 25% |
-| Anggota pemberi penghasilan (jasa usaha) | 30% |
-| Anggota penyimpan (simpanan pokok & wajib) | 20% |
-| Dana pengurus dan pengawas | 7,5% |
-| Dana kesejahteraan pegawai/karyawan | 7,5% |
-| Dana pendidikan koperasi | 5% |
-| Dana sosial | 5% |
+| Jasa Anggota | 25% |
+| Jasa Simpanan | 20% |
+| Cadangan | 30% |
+| Dana Pengurus | 10% |
+| Dana Pegawai | 5% |
+| Dana Pendidikan | 5% |
+| Dana Sosial | 5% |
 
 **3. Pembagian SHU dari usaha untuk bukan anggota:**
 
@@ -596,7 +598,7 @@ Jika anggota berhenti sebagai anggota PRIMKOPPOL berdasarkan:
 | Dana Pendidikan koperasi | 10% |
 | Dana Sosial | 10% |
 
-4. Penggunaan dana pendidikan koperasi dapat diatur oleh pengurus sesuai ketentuan dengan mendengarkan pendapat Dinas Koperasi dan Pimpinan POLRI serta dipertanggungjawabkan terhadap Rapat Anggota.
+1. Penggunaan dana pendidikan koperasi dapat diatur oleh pengurus sesuai ketentuan dengan mendengarkan pendapat Dinas Koperasi dan Pimpinan POLRI serta dipertanggungjawabkan terhadap Rapat Anggota.
 
 ---
 

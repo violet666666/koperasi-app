@@ -122,20 +122,40 @@ export async function GET() {
 
         // System denominators — savings includes deposits + tabungan wajib + simpanan pokok
         const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
-        // Transaction denominator: toko + unit + loans
-        const totalSysTx = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
 
         // My numerators — savings includes deposits + tabungan wajib + simpanan pokok
         const myTabWajib = member.tabunganWajib ? Number(member.tabunganWajib) : 0;
         const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
         const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
-        const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0);
-
+        
+        // 1. Calculate Jasa Modal (Proportional Pool)
         const myModal = (mySavCont / totalSysSavings) * jasaModalPool;
-        const myUsaha = (myTxCont / totalSysTx) * jasaUsahaPool;
+
+        // 2. Calculate Jasa Usaha (Exact Margin Cashback Method)
+        const memberSales = await prisma.storeSaleItem.findMany({
+            where: { sale: { memberId, createdAt: { gte: startDate, lte: endDate } } },
+            include: { product: { select: { costPrice: true } } }
+        });
+        const myTokoMargin = memberSales.reduce((sum, item) => {
+            const cost = Number(item.product.costPrice || 0);
+            const sell = Number(item.unitPrice || 0);
+            return sum + ((sell - cost) * item.quantity);
+        }, 0);
+
+        const myUnitMargin = Number(myUnit._sum.amount || 0) * 0.8; // Assess 80% margin on unit services
+        
+        const myLoanInterestAgg = await prisma.loanPayment.aggregate({
+            where: { memberId, paymentDate: { gte: startDate, lte: endDate } },
+            _sum: { interestPortion: true }
+        });
+        const myLoanMargin = Number(myLoanInterestAgg._sum.interestPortion || 0);
+
+        const myTotalMargin = myTokoMargin + myUnitMargin + myLoanMargin;
+        const myUsaha = myTotalMargin * 0.25; // 25% of member's explicit transaction margin
+
         const estimatedSHUTotal = Math.round(myModal + myUsaha);
         const jasaModalPercent = totalSysSavings > 0 ? (mySavCont / totalSysSavings) * 100 : 0;
-        const jasaUsahaPercent = totalSysTx > 0 ? (myTxCont / totalSysTx) * 100 : 0;
+        const jasaUsahaPercent = totalIncome > 0 ? (myTotalMargin / totalIncome) * 100 : 0;
 
         return NextResponse.json({
             data: {

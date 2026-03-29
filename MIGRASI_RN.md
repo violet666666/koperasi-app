@@ -338,12 +338,28 @@ npx eas build -p android --profile preview
 | Auto logout | JWT expired 24h | Login ulang (by design) |
 | Fetch error | API belum deploy | Deploy ulang web terlebih dahulu |
 
-### 5.4 — Distribusi APK
+### 5.4 — Distribusi APK & Akses Publik
 
-1. Download `.apk` dari link EAS Build
-2. Rename → `KoperasiPrimkoppol_v1.0.apk`
-3. Bagikan via WhatsApp ke anggota
-4. Install → Login NRP & Password → Selesai
+File `.apk` atau `.aab` yang telah di-build bisa didistribusikan agar dapat diakses oleh anggota dan publik dengan 2 metode:
+
+**Opsi 1: Sideload Direct Download (Rekomendasi Internal Koperasi)**
+Paling cepat dan tanpa *review* dari pihak ketiga.
+1. Download file `.apk` dari link Expo EAS Build.
+2. *Rename* file menjadi nama yang mudah dikenali, contoh: `KoperasiPrimkoppol_v1.0.apk`.
+3. Upload file tersebut ke hosting web koperasi (misal buatkan link: `https://www.primkoppol.online/download/app.apk`) atau simpan di Google Drive.
+4. Bagikan link website/Drive tersebut via broadcast WhatsApp grup anggota koperasi. 
+5. Anggota mendownload dan mengizinkan "Install from Unknown Sources" di HP masing-masing.
+6. Install → Login NRP & Password → Selesai.
+
+**Opsi 2: Publikasi ke Google Play Store (Publik & Akses Resmi)**
+Agar aplikasi aman (Verified by Play Protect) dan bisa di-search oleh umum:
+1. Ubah format build menjadi Android App Bundle (`.aab`). Pada `eas.json`, tambah/ubah profil production menjadi `"buildType": "app-bundle"`.
+2. Build ulang paket: `eas build -p android --profile production` (atau nama profil rilis Anda).
+3. Daftarkan institusi koperasi ke **Google Play Console Developer** (Registrasi resmi dikenakan biaya $25 seumur hidup dari Google).
+4. Buat *App Project* baru di console, isi kelengkapannya: Nama App (saran: PRIMKOPPOL Lumajang), Deskripsi, Kuesioner Rating Umur, Grafis/Screenshot UI, dan Link Kebijakan Privasi (WAJIB di-hosting di web koperasi).
+5. Pada menu Release -> Production, uduh/upload file `.aab` terbaru.
+6. *Submit for Review*. Tim Google Play akan mereview kelayakan aplikasi selama 2-7 hari kerja.
+7. Setelah "Approved", aplikasi akan *Live* di Play Store. Anggota cukup mencari nama aplikasi di PlayStore dan otomatis ter-update bila Bapak meng-upload versi `.aab` terbaru di masa depan.
 
 ### 5.5 — Paritas Fitur Mobile vs Web (Terkini)
 
