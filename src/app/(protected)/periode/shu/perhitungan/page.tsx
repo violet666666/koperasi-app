@@ -143,11 +143,11 @@ export default function SHUCalculationPage() {
     };
 
     const memberDistribution = shuData && shuData.memberSurplus > 0 ? [
-        { name: "Dana Cadangan", amount: shuData.memberSurplus * 0.25, percentage: 25, color: "bg-blue-500" },
-        { name: "Jasa Usaha Anggota", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-emerald-600" },
-        { name: "Jasa Modal Anggota", amount: shuData.memberSurplus * 0.20, percentage: 20, color: "bg-emerald-400" },
-        { name: "Dana Pengurus & Pengawas", amount: shuData.memberSurplus * 0.075, percentage: 7.5, color: "bg-indigo-500" },
-        { name: "Kesejahteraan Karyawan", amount: shuData.memberSurplus * 0.075, percentage: 7.5, color: "bg-amber-500" },
+        { name: "Jasa Anggota", amount: shuData.memberSurplus * 0.25, percentage: 25, color: "bg-emerald-600" },
+        { name: "Jasa Simpanan", amount: shuData.memberSurplus * 0.20, percentage: 20, color: "bg-emerald-400" },
+        { name: "Cadangan", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-blue-500" },
+        { name: "Dana Pengurus", amount: shuData.memberSurplus * 0.10, percentage: 10, color: "bg-indigo-500" },
+        { name: "Dana Pegawai", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-amber-500" },
         { name: "Dana Pendidikan", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
         { name: "Dana Sosial", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-rose-500" },
     ] : [];
@@ -194,6 +194,7 @@ export default function SHUCalculationPage() {
                             <SelectContent>
                                 <SelectItem value="2024">2024</SelectItem>
                                 <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2026">2026</SelectItem>
                             </SelectContent>
                         </Select>
                         {shuData && (

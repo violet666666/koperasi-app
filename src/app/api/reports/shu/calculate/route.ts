@@ -76,13 +76,16 @@ export async function GET(request: Request) {
         const netSurplus = memberSurplus + nonMemberSurplus;
 
         // --- AD-ART MEMBER --- (100% of Member Surplus)
-        const mReserveFund = memberSurplus * 0.25;
-        const mJasaUsaha = memberSurplus * 0.30;
-        const mJasaModal = memberSurplus * 0.20;
-        const mPengurus = memberSurplus * 0.075;
-        const mEmployee = memberSurplus * 0.075;
-        const mEducation = memberSurplus * 0.05;
-        const mSocial = memberSurplus * 0.05;
+        // Per lampiran gambar parameter SHU Anggota:
+        // 1. Jasa Anggota 25%, 2. Jasa Simpanan 20%, 3. Cadangan 30%,
+        // 4. Dana Pengurus 10%, 5. Dana Pegawai 5%, 6. Dana Pendidikan 5%, 7. Dana Sosial 5%
+        const mReserveFund = memberSurplus * 0.30;  // Cadangan
+        const mJasaUsaha = memberSurplus * 0.25;    // Jasa Anggota
+        const mJasaModal = memberSurplus * 0.20;    // Jasa Simpanan
+        const mPengurus = memberSurplus * 0.10;     // Dana Pengurus
+        const mEmployee = memberSurplus * 0.05;     // Dana Pegawai
+        const mEducation = memberSurplus * 0.05;    // Dana Pendidikan
+        const mSocial = memberSurplus * 0.05;       // Dana Sosial
 
         // --- AD-ART NON-MEMBER --- (100% of Non-Member Surplus)
         const nmReserveFund = nonMemberSurplus * 0.60;

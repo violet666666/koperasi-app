@@ -31,6 +31,8 @@ import {
     Scissors,
     Building,
     Award,
+    Landmark,
+    TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -92,9 +94,16 @@ export default function MemberDashboardPage() {
     const data = response?.data;
     const salary = data?.member?.salary || 0;
     const tunkin = data?.member?.tunlesKinerja ? Number(data.member.tunlesKinerja) : 0;
+    const tabunganWajib = data?.member?.tabunganWajib ? Number(data.member.tabunganWajib) : 0;
     const totalLoanOutstanding = data?.loans?.totalOutstanding || 0;
     const netAfterLoan = salary - totalLoanOutstanding;
     const hasApprovedLoan = data?.loans?.list?.some((l: any) => l.status === "approved") || false;
+
+    // Savings breakdown by product type
+    const savingsAccounts = data?.savings?.accounts || [];
+    const simpananPokok = savingsAccounts.filter((a: any) => a.product?.type === 'pokok').reduce((s: number, a: any) => s + a.balance, 0);
+    const simpananSukarela = savingsAccounts.filter((a: any) => a.product?.type === 'sukarela' || a.product?.type === 'harian').reduce((s: number, a: any) => s + a.balance, 0);
+    const totalTabungan = tabunganWajib + simpananPokok + simpananSukarela;
 
     return (
         <div className="space-y-6">
@@ -187,6 +196,64 @@ export default function MemberDashboardPage() {
                             {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions?.unpaidTotal || 0)}
                         </div>
                         <p className="text-xs opacity-80 mt-1">{data?.unitTransactions?.unpaidCount || 0} transaksi belum lunas</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Row 2: Tabungan + SHU */}
+            <div className="grid gap-4 md:grid-cols-2">
+                {/* 6. Tabungan Akumulasi */}
+                <Card className="bg-gradient-to-br from-cyan-600 to-teal-800 text-white border-0 shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium opacity-90">Total Tabungan</CardTitle>
+                        <Landmark className="h-4 w-4 opacity-75" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(totalTabungan)}
+                        </div>
+                        {!isLoading && (
+                            <div className="mt-2 space-y-1">
+                                <div className="flex justify-between text-xs opacity-80">
+                                    <span>Tab. Wajib (Bulan Ini)</span>
+                                    <span className="font-semibold">{formatCurrency(tabunganWajib)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs opacity-80">
+                                    <span>Simpanan Pokok</span>
+                                    <span className="font-semibold">{formatCurrency(simpananPokok)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs opacity-80">
+                                    <span>Simpanan Sukarela</span>
+                                    <span className="font-semibold">{formatCurrency(simpananSukarela)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* 7. SHU Estimasi */}
+                <Card className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium opacity-90">Estimasi SHU</CardTitle>
+                        <TrendingUp className="h-4 w-4 opacity-75" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : "Menunggu Perhitungan"}
+                        </div>
+                        <p className="text-xs opacity-80 mt-1">SHU dihitung pada akhir periode (Tutup Buku)</p>
+                        {!isLoading && (
+                            <div className="mt-2 space-y-1">
+                                <div className="flex justify-between text-xs opacity-80">
+                                    <span>Jasa Anggota (25%)</span>
+                                    <span className="font-semibold">—</span>
+                                </div>
+                                <div className="flex justify-between text-xs opacity-80">
+                                    <span>Jasa Simpanan (20%)</span>
+                                    <span className="font-semibold">—</span>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

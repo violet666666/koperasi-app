@@ -310,7 +310,6 @@ export default function AnggotaListPage() {
                 data={filteredMembers}
                 isLoading={isLoading}
                 searchPlaceholder="Cari nama atau no. anggota..."
-                onRowClick={(row) => router.push(`/anggota/${row.id}`)}
                 pageCount={pageCount}
                 pagination={pagination}
                 onPaginationChange={setPagination}
