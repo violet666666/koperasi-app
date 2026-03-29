@@ -365,7 +365,7 @@ export default function ImportDataPage() {
                                 </p>
                             ) : (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong> dan <strong>NAMA</strong>. Anggota yang belum terdaftar akan otomatis dibuatkan akun dengan password = NRP.
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan opsional <strong className="bg-yellow-200">JUMLAH GAJI / DITERIMA</strong>. Anggota baru otomatis dibuatkan akun (password = NRP). NRP digunakan langsung sebagai nomor anggota.
                                 </p>
                             )}
                         </div>

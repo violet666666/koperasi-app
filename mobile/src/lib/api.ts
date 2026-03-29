@@ -12,15 +12,15 @@ import Constants from 'expo-constants';
  */
 function getBaseUrl(): string {
   // ==========================================================
-  // 🔴 PENTING UNTUK BUILD APK: 
-  // Jika Anda membuild APK untuk dipakai di HP lain, ubah 'MANUAL_URL' di bawah ini menjadi IP Wi-Fi laptop Anda (contoh: 'http://192.168.1.15:3000') 
-  // Atau tempel link NGROK Anda (contoh: 'https://xxx.ngrok.app').
+  // 🔴 KONFIGURASI URL API
+  // APK Production otomatis menggunakan domain primkoppol.online
+  // Development (Expo Go) otomatis detect IP laptop
   // ==========================================================
-  const MANUAL_URL = ''; // CONTOH: 'http://192.168.1.5:3000'
+  const MANUAL_URL = ''; // Override manual jika diperlukan
 
   if (MANUAL_URL) return MANUAL_URL;
 
-  // Jika sudah di production build (bukan Expo Go), gunakan domain remote
+  // Production build (APK/AAB): selalu gunakan domain publik
   const isProduction = !__DEV__;
   if (isProduction) {
     return 'https://www.primkoppol.online';
@@ -33,8 +33,8 @@ function getBaseUrl(): string {
     return `http://${ip}:3000`;
   }
 
-  // Fallback default
-  return 'http://192.168.1.9:3000';
+  // Fallback ke domain publik (bukan IP lokal)
+  return 'https://www.primkoppol.online';
 }
 
 const BASE_URL = getBaseUrl();

@@ -144,7 +144,7 @@ function cleanNameForMatch(name: string): string {
 // ==========================================
 // Auto-register member helper
 // ==========================================
-async function autoRegisterMember(nrp: string, nama: string, tx: any) {
+async function autoRegisterMember(nrp: string, nama: string, tx: any, salary?: number) {
     // Find default branch (head office or first available)
     let branch = await tx.branch.findFirst({ where: { isHeadOffice: true, isActive: true } });
     if (!branch) {
@@ -154,47 +154,45 @@ async function autoRegisterMember(nrp: string, nama: string, tx: any) {
         throw new Error("Tidak ada cabang aktif di sistem");
     }
 
-    // Generate memberNo, prioritize nrp
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomId = Math.floor(1000 + Math.random() * 9000);
-    const memberNo = nrp ? nrp.trim() : `MBR${dateStr}${randomId}`;
+    // Use NRP as memberNo — only generate MBR fallback if NRP is missing
+    const memberNo = nrp ? nrp.trim() : `MBR${new Date().toISOString().slice(0,10).replace(/-/g,'')}${Math.floor(1000+Math.random()*9000)}`;
 
     // Check if NRP already in use (edge case)
     const existingNrp = await tx.member.findUnique({ where: { nrp } });
     if (existingNrp) {
+        // If member exists but salary provided, update it
+        if (salary && salary > 0) {
+            await tx.member.update({ where: { id: existingNrp.id }, data: { salary } });
+        }
         return existingNrp;
     }
 
-    // Create member
-    const member = await tx.member.create({
-        data: {
-            memberNo,
-            nrp,
-            name: nama,
-            branchId: branch.id,
-            joinDate: new Date(),
-            status: "active",
-        },
-    });
+    // Create member (with salary if provided)
+    const memberData: any = {
+        memberNo,
+        nrp,
+        name: nama,
+        branchId: branch.id,
+        joinDate: new Date(),
+        status: "active",
+    };
+    if (salary && salary > 0) {
+        memberData.salary = salary;
+    }
+    const member = await tx.member.create({ data: memberData });
 
     // Create user account for login
     const anggotaRole = await tx.role.findUnique({ where: { name: "anggota" } });
     if (anggotaRole) {
         const hashedPassword = await bcrypt.hash(nrp, 10);
-
-        // Check if user email already exists
         const email = `${nrp}@koperasi.local`;
         const existingUser = await tx.user.findUnique({ where: { email } });
         if (!existingUser) {
             await tx.user.create({
                 data: {
-                    name: nama,
-                    email,
-                    password: hashedPassword,
-                    roleId: anggotaRole.id,
-                    branchId: branch.id,
-                    memberId: member.id,
-                    isActive: true,
+                    name: nama, email, password: hashedPassword,
+                    roleId: anggotaRole.id, branchId: branch.id,
+                    memberId: member.id, isActive: true,
                 },
             });
         }
@@ -536,11 +534,12 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 }
 
 // ==========================================
-// Akun Anggota Import (NRP + Nama only)
+// Akun Anggota Import (NRP + Nama + optional Gaji)
 // ==========================================
 async function processAkunAnggotaImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
+    const gajiIdx = headers.findIndex(h => h.includes("jumlah gaji") || h.includes("gaji diterima") || h.includes("gaji") || h.includes("diterima") || h.includes("bersih") || h.includes("salary"));
 
     if (nrpIdx === -1) {
         return {
@@ -560,7 +559,7 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
 
     const allMembers = await prisma.member.findMany({
         where: { deletedAt: null },
-        select: { id: true, name: true, nrp: true, memberNo: true }
+        select: { id: true, name: true, nrp: true, memberNo: true, salary: true }
     });
 
     const results: any[] = [];
@@ -573,12 +572,13 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
 
         const nrp = cleanNrp(row[nrpIdx] || '');
         const rawNama = String(row[namaIdx] || '').trim();
+        const gaji = gajiIdx >= 0 ? cleanNumber(row[gajiIdx] || 0) : 0;
 
         if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
         if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
         if (!nrp) {
             results.push({
-                row: i + 2, nrp: '', nama: rawNama,
+                row: i + 2, nrp: '', nama: rawNama, gaji,
                 status: 'error', reason: 'NRP/NIP kosong, tidak bisa membuat akun',
             });
             failCount++;
@@ -588,11 +588,16 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
         // Check if member already exists
         const existing = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
         if (existing) {
+            // Update salary if gaji column was found and has value
+            if (mode === "commit" && gaji > 0) {
+                await prisma.member.update({ where: { id: existing.id }, data: { salary: gaji } });
+            }
             results.push({
-                row: i + 2, nrp, nama: rawNama,
+                row: i + 2, nrp, nama: rawNama, gaji: gaji || undefined,
                 memberId: existing.id, memberName: existing.name,
                 status: 'valid', reason: null,
                 isNewMember: false,
+                currentGaji: existing.salary ? Number(existing.salary) : null,
             });
             successCount++;
             continue;
@@ -602,13 +607,13 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
         if (mode === "commit") {
             try {
                 const newMember = await prisma.$transaction(async (tx) => {
-                    return await autoRegisterMember(nrp, rawNama, tx);
+                    return await autoRegisterMember(nrp, rawNama, tx, gaji > 0 ? gaji : undefined);
                 });
 
-                allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo });
+                allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary });
 
                 results.push({
-                    row: i + 2, nrp, nama: rawNama,
+                    row: i + 2, nrp, nama: rawNama, gaji: gaji || undefined,
                     memberId: newMember.id, memberName: newMember.name,
                     status: 'valid', reason: null,
                     isNewMember: true,
@@ -617,7 +622,7 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
             } catch (err) {
                 console.error("Auto-register error:", err);
                 results.push({
-                    row: i + 2, nrp, nama: rawNama,
+                    row: i + 2, nrp, nama: rawNama, gaji: gaji || undefined,
                     status: 'error', reason: 'Gagal mendaftarkan: ' + (err instanceof Error ? err.message : 'Unknown'),
                 });
                 failCount++;
@@ -625,7 +630,7 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
         } else {
             // Preview mode
             results.push({
-                row: i + 2, nrp, nama: rawNama,
+                row: i + 2, nrp, nama: rawNama, gaji: gaji || undefined,
                 memberId: null, memberName: `[BARU] ${rawNama}`,
                 status: 'valid', reason: null,
                 isNewMember: true,
@@ -639,5 +644,6 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
         totalRows: results.length,
         success: successCount, failed: failCount,
         preview: results,
+        hasGaji: gajiIdx >= 0,
     };
 }
