@@ -102,13 +102,26 @@ export async function GET() {
             where: { status: "active", deletedAt: null, tunlesKinerja: { not: null } },
         });
 
+        // Total Tabungan Wajib from Member table (imported data)
+        const tabunganWajibStats = await prisma.member.aggregate({
+            _sum: { tabunganWajib: true },
+            _count: { tabunganWajib: true },
+            where: { status: "active", deletedAt: null, tabunganWajib: { not: null, gt: 0 } },
+        });
+
+        const savingsAccountBalance = Number(savingsStats._sum.balance) || 0;
+        const totalTabunganWajib = Number(tabunganWajibStats._sum.tabunganWajib) || 0;
+
         const stats = {
             // Member stats
             totalMembers: totalMembers,
             activeMembers: totalActiveMembers,
 
-            // Financial stats
-            totalSavings: Number(savingsStats._sum.balance) || 0,
+            // Financial stats — combine SavingsAccount balances + tabunganWajib from Member
+            totalSavings: savingsAccountBalance + totalTabunganWajib,
+            totalTabunganWajib: totalTabunganWajib,
+            totalSavingsAccount: savingsAccountBalance,
+            membersWithTabunganWajib: tabunganWajibStats._count.tabunganWajib || 0,
             totalLoansOutstanding: Number(loansStats._sum.principalOutstanding) || 0,
             activeLoansCount: loansStats._count._all || 0,
             totalArrears: Number(arrearsStats._sum.principalOutstanding) || 0,

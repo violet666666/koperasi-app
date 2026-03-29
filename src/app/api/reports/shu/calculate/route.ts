@@ -189,6 +189,8 @@ export async function GET(request: Request) {
                     memberDividend,
                     jasaModalPool,
                     jasaUsahaPool,
+                    totalSavingsCapital,
+                    totalTabunganWajib: Number(sysTajib._sum.tabunganWajib || 0),
                     memberCount: members.length
                 },
                 memberSHU

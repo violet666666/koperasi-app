@@ -20,15 +20,17 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
     Wallet,
     Search,
     Users,
     PiggyBank,
     TrendingUp,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { membersApi, masterApi } from "@/lib/api/services";
 import { ExportButton, formatCurrencyExport } from "@/components/patterns/export-button";
 
 interface MemberSavingsRecap {
@@ -45,61 +47,46 @@ interface MemberSavingsRecap {
 export default function RekapSimpananPage() {
     const [data, setData] = React.useState<MemberSavingsRecap[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [branchFilter, setBranchFilter] = React.useState<string>("all");
     const [searchQuery, setSearchQuery] = React.useState("");
-    const [branches, setBranches] = React.useState<{ id: number; name: string }[]>([]);
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
+    const [page, setPage] = React.useState(1);
+    const [totalPages, setTotalPages] = React.useState(1);
+    const [totals, setTotals] = React.useState({
+        totalPokok: 0,
+        totalWajib: 0,
+        totalSukarela: 0,
+        grandTotal: 0,
+    });
+    const [totalMembers, setTotalMembers] = React.useState(0);
 
-    // Stats
-    const stats = React.useMemo(() => {
-        return {
-            totalMembers: data.length,
-            totalPokok: data.reduce((sum, d) => sum + d.simpananPokok, 0),
-            totalWajib: data.reduce((sum, d) => sum + d.simpananWajib, 0),
-            totalSukarela: data.reduce((sum, d) => sum + d.simpananSukarela, 0),
-            grandTotal: data.reduce((sum, d) => sum + d.total, 0),
-        };
-    }, [data]);
+    // Debounce search
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
-    // Filtered data
-    const filteredData = React.useMemo(() => {
-        return data.filter(d =>
-            d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            d.memberNo.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [data, searchQuery]);
-
-    // Fetch data
+    // Fetch data from real API
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Fetch branches
-                const branchRes = await masterApi.branches.list();
-                setBranches((branchRes.data as any).data || []);
-
-                // Fetch members
-                const params = branchFilter !== "all" ? { branchId: Number(branchFilter) } : {};
-                const membersRes = await membersApi.list(params);
-                const members = (membersRes.data as any).data || [];
-
-                // Simulate savings data for each member
-                const recap: MemberSavingsRecap[] = members.map((member: any) => ({
-                    id: member.id,
-                    memberNo: member.memberNo,
-                    name: member.name,
-                    branchName: member.branch?.name || "-",
-                    simpananPokok: Math.floor(Math.random() * 500000) + 100000,
-                    simpananWajib: Math.floor(Math.random() * 2000000) + 500000,
-                    simpananSukarela: Math.floor(Math.random() * 5000000),
-                    total: 0,
-                }));
-
-                // Calculate totals
-                recap.forEach(r => {
-                    r.total = r.simpananPokok + r.simpananWajib + r.simpananSukarela;
+                const params = new URLSearchParams({
+                    page: String(page),
+                    perPage: "50",
                 });
+                if (debouncedSearch) params.set("search", debouncedSearch);
 
-                setData(recap);
+                const res = await fetch(`/api/reports/savings-recap/members?${params}`);
+                if (!res.ok) throw new Error("Failed to fetch");
+                const json = await res.json();
+
+                setData(json.data || []);
+                setTotalPages(json.meta?.totalPages || 1);
+                setTotalMembers(json.meta?.total || 0);
+                if (json.totals) setTotals(json.totals);
             } catch (error) {
                 console.error("Failed to fetch recap:", error);
             } finally {
@@ -107,14 +94,30 @@ export default function RekapSimpananPage() {
             }
         }
         fetchData();
-    }, [branchFilter]);
+    }, [page, debouncedSearch]);
+
+    // Also fetch grand totals (all members, not just current page)
+    React.useEffect(() => {
+        async function fetchGrandTotals() {
+            try {
+                const res = await fetch(`/api/reports/savings-recap/members?perPage=9999`);
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json.totals) setTotals(json.totals);
+                setTotalMembers(json.meta?.total || 0);
+            } catch {
+                // Silent fail for totals
+            }
+        }
+        if (!debouncedSearch) fetchGrandTotals();
+    }, [debouncedSearch]);
 
     const exportColumns = [
         { key: "memberNo", header: "NRP" },
         { key: "name", header: "Nama" },
         { key: "branchName", header: "Cabang" },
         { key: "simpananPokok", header: "Simpanan Pokok", format: formatCurrencyExport },
-        { key: "simpananWajib", header: "Simpanan Wajib", format: formatCurrencyExport },
+        { key: "simpananWajib", header: "Simpanan Wajib (Tabungan Wajib)", format: formatCurrencyExport },
         { key: "simpananSukarela", header: "Simpanan Sukarela", format: formatCurrencyExport },
         { key: "total", header: "Total", format: formatCurrencyExport },
     ];
@@ -123,13 +126,13 @@ export default function RekapSimpananPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Rekap Simpanan"
-                description="Rekap simpanan per anggota"
+                description="Rekap simpanan per anggota — data real dari database"
                 actions={
                     <ExportButton
                         title="Rekap Simpanan Anggota"
                         filename="rekap_simpanan"
                         columns={exportColumns}
-                        data={filteredData}
+                        data={data}
                     />
                 }
             />
@@ -143,7 +146,7 @@ export default function RekapSimpananPage() {
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Total Anggota</p>
-                            <p className="text-2xl font-bold">{stats.totalMembers}</p>
+                            <p className="text-2xl font-bold">{totalMembers}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -155,7 +158,7 @@ export default function RekapSimpananPage() {
                         <div>
                             <p className="text-sm text-muted-foreground">Simpanan Pokok</p>
                             <p className="text-lg font-bold tabular-nums">
-                                {formatCurrency(stats.totalPokok)}
+                                {formatCurrency(totals.totalPokok)}
                             </p>
                         </div>
                     </CardContent>
@@ -166,9 +169,9 @@ export default function RekapSimpananPage() {
                             <Wallet className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Simpanan Wajib</p>
+                            <p className="text-sm text-muted-foreground">Tabungan Wajib</p>
                             <p className="text-lg font-bold tabular-nums">
-                                {formatCurrency(stats.totalWajib)}
+                                {formatCurrency(totals.totalWajib)}
                             </p>
                         </div>
                     </CardContent>
@@ -181,14 +184,14 @@ export default function RekapSimpananPage() {
                         <div>
                             <p className="text-sm text-muted-foreground">Total Simpanan</p>
                             <p className="text-lg font-bold tabular-nums text-emerald-600">
-                                {formatCurrency(stats.grandTotal)}
+                                {formatCurrency(totals.grandTotal)}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Filters */}
+            {/* Search */}
             <Card>
                 <CardContent className="p-4">
                     <div className="flex flex-wrap gap-4">
@@ -196,26 +199,13 @@ export default function RekapSimpananPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Cari anggota..."
+                                    placeholder="Cari nama atau NRP anggota..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-9"
                                 />
                             </div>
                         </div>
-                        <Select value={branchFilter} onValueChange={setBranchFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filter cabang" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Cabang</SelectItem>
-                                {branches.map((branch) => (
-                                    <SelectItem key={branch.id} value={String(branch.id)}>
-                                        {branch.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -230,51 +220,86 @@ export default function RekapSimpananPage() {
                             ))}
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>NRP</TableHead>
-                                        <TableHead>Nama</TableHead>
-                                        <TableHead>Cabang</TableHead>
-                                        <TableHead className="text-right">Simpanan Pokok</TableHead>
-                                        <TableHead className="text-right">Simpanan Wajib</TableHead>
-                                        <TableHead className="text-right">Simpanan Sukarela</TableHead>
-                                        <TableHead className="text-right">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredData.map((row) => (
-                                        <TableRow key={row.id}>
-                                            <TableCell className="font-mono text-sm">
-                                                {row.memberNo}
-                                            </TableCell>
-                                            <TableCell className="font-medium">{row.name}</TableCell>
-                                            <TableCell>{row.branchName}</TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {formatCurrency(row.simpananPokok)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {formatCurrency(row.simpananWajib)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {formatCurrency(row.simpananSukarela)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums font-bold">
-                                                {formatCurrency(row.total)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {filteredData.length === 0 && (
+                        <>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                                Tidak ada data
-                                            </TableCell>
+                                            <TableHead>NRP</TableHead>
+                                            <TableHead>Nama</TableHead>
+                                            <TableHead>Cabang</TableHead>
+                                            <TableHead className="text-right">Simpanan Pokok</TableHead>
+                                            <TableHead className="text-right">Tabungan Wajib</TableHead>
+                                            <TableHead className="text-right">Simpanan Sukarela</TableHead>
+                                            <TableHead className="text-right">Total</TableHead>
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {data.map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell className="font-mono text-sm">
+                                                    {row.memberNo}
+                                                </TableCell>
+                                                <TableCell className="font-medium">{row.name}</TableCell>
+                                                <TableCell>{row.branchName}</TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {formatCurrency(row.simpananPokok)}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {row.simpananWajib > 0 ? (
+                                                        <span className="text-blue-600 font-medium">
+                                                            {formatCurrency(row.simpananWajib)}
+                                                        </span>
+                                                    ) : (
+                                                        formatCurrency(0)
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {formatCurrency(row.simpananSukarela)}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums font-bold">
+                                                    {formatCurrency(row.total)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {data.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                                    Tidak ada data
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between p-4 border-t">
+                                    <p className="text-sm text-muted-foreground">
+                                        Halaman {page} dari {totalPages} ({totalMembers} anggota)
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={page <= 1}
+                                            onClick={() => setPage(p => p - 1)}
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={page >= totalPages}
+                                            onClick={() => setPage(p => p + 1)}
+                                        >
+                                            Next <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>

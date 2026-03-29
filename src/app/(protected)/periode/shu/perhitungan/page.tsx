@@ -53,6 +53,8 @@ interface SHUCalculation {
     memberDividend: number;
     jasaModalPool: number;
     jasaUsahaPool: number;
+    totalSavingsCapital?: number;
+    totalTabunganWajib?: number;
     memberCount: number;
 }
 
@@ -310,6 +312,33 @@ export default function SHUCalculationPage() {
                             </CardContent>
                         </Card>
                     </div>
+
+                    {/* Savings Capital Info — shown when income is 0 */}
+                    {shuData.totalIncome === 0 && (shuData.totalSavingsCapital || 0) > 0 && (
+                        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-800">
+                            <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30 mt-0.5">
+                                        <PieChart className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="font-medium text-amber-800 dark:text-amber-300">Informasi Modal Simpanan</p>
+                                        <p className="text-sm text-amber-700 dark:text-amber-400">
+                                            Total Modal Simpanan Anggota: <strong>{formatCurrency(shuData.totalSavingsCapital || 0)}</strong>
+                                            {(shuData.totalTabunganWajib || 0) > 0 && (
+                                                <> (termasuk Tabungan Wajib: <strong>{formatCurrency(shuData.totalTabunganWajib || 0)}</strong>)</>   
+                                            )}
+                                        </p>
+                                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                                            ⚠ Jasa Simpanan (Modal) 20% sudah menampilkan nominal karena menggunakan minimum floor 6% dari total modal simpanan.
+                                            Kontainer lain (Cadangan, Pengurus, dll.) belum memiliki nilai karena belum ada pendapatan operasional
+                                            yang tercatat (penjualan toko, transaksi unit, atau pembayaran angsuran pinjaman).
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Distribution Breakdown with AD-ART Percentages */}
                     <Card>

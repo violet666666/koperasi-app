@@ -127,6 +127,10 @@ export default function SimpananTransaksiPage() {
     const [typeFilter, setTypeFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+    const [tabunganWajibInfo, setTabunganWajibInfo] = React.useState<{
+        total: number;
+        count: number;
+    } | null>(null);
 
     // Calculate summary stats
     const stats = React.useMemo(() => {
@@ -153,8 +157,22 @@ export default function SimpananTransaksiPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const response = await savingsApi.transactions({ perPage: 50 });
-                setTransactions(response.data as unknown as Transaction[]);
+                const [txResponse, statsResponse] = await Promise.allSettled([
+                    savingsApi.transactions({ perPage: 50 }),
+                    fetch("/api/dashboard-stats").then(r => r.json()),
+                ]);
+
+                if (txResponse.status === "fulfilled") {
+                    setTransactions(txResponse.value.data as unknown as Transaction[]);
+                }
+
+                if (statsResponse.status === "fulfilled" && statsResponse.value.data) {
+                    const d = statsResponse.value.data;
+                    setTabunganWajibInfo({
+                        total: d.totalTabunganWajib || 0,
+                        count: d.membersWithTabunganWajib || 0,
+                    });
+                }
             } catch (error) {
                 console.error("Failed to fetch transactions:", error);
             } finally {
@@ -186,6 +204,30 @@ export default function SimpananTransaksiPage() {
                     </Button>
                 }
             />
+
+            {/* Tabungan Wajib Info Banner */}
+            {tabunganWajibInfo && tabunganWajibInfo.total > 0 && transactions.length === 0 && (
+                <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/10 dark:border-blue-800">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
+                                <Wallet className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-medium text-blue-800 dark:text-blue-300">
+                                    Total Tabungan Wajib Anggota: {formatCurrency(tabunganWajibInfo.total)}
+                                </p>
+                                <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    Data dari {tabunganWajibInfo.count} anggota (hasil import). Transaksi setoran/penarikan manual akan ditampilkan di tabel bawah.
+                                </p>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/simpanan/rekap">Lihat Rekap</Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Summary Cards */}
             <div className="grid gap-4 sm:grid-cols-3">
