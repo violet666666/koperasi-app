@@ -174,12 +174,12 @@ export async function GET(request: Request) {
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             // System total Tabungan Wajib & Simpanan Pokok (all active members)
             prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
             prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
             
-            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } })
@@ -192,15 +192,19 @@ export async function GET(request: Request) {
         const totalExpense = totalIncome * 0.4;
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
 
-        // Jasa Simpanan Pool (20%) — from TOTAL surplus (member savings fund ALL koperasi ops)
-        const jasaModalPool = totalNetSurplus * 0.20;
+        // Jasa Simpanan Pool (20%) — from TOTAL surplus with minimum floor
+        const totalSysSav = Number(sysSavings._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
+        const totalActiveSavBal = await prisma.savingsAccount.aggregate({
+            where: { status: "active" }, _sum: { balance: true }
+        });
+        const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0) + Number(sysTajib._sum.tabunganWajib || 0);
+        const surplusBasedPool = totalNetSurplus * 0.20;
+        const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20;
+        const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
 
         // Jasa Anggota (25%) — from member transaction surplus only
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
-
-        // System Denominators — include Tajib + Simpanan Pokok
-        const totalSysSav = Number(sysSavings._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
 
         // Member Numerators — include my Tajib + Simpanan Pokok
         const myTabWajib = Number(user.member.tabunganWajib || 0);

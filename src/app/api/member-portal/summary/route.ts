@@ -98,12 +98,12 @@ export async function GET() {
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             // System total Tabungan Wajib & Simpanan Pokok (all active members)
             prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
             prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
             // My contributions
-            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
@@ -116,21 +116,26 @@ export async function GET() {
         const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
 
+        // System denominators — ALL savings: deposit transactions + tabungan wajib + simpanan pokok balances
+        const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
+        // Also get total active savings balances for minimum SHU floor
+        const totalActiveSavingsBalance = await prisma.savingsAccount.aggregate({
+            where: { status: "active" }, _sum: { balance: true }
+        });
+        const totalSavingsCapital = Number(totalActiveSavingsBalance._sum.balance || 0) + Number(sysTajib._sum.tabunganWajib || 0);
+
         // --- Jasa Simpanan Pool (20%) ---
-        // Based on TOTAL koperasi surplus, because member savings fund ALL operations
-        // (both member and non-member activities). Even if no member has shopped at the
-        // store yet, their Tabungan Wajib & Simpanan Pokok are the capital that enables
-        // the koperasi to operate. AD-ART Pasal 42 — Jasa Simpanan 20%.
-        const jasaModalPool = totalNetSurplus * 0.20;
+        // Based on TOTAL koperasi surplus, with a MINIMUM FLOOR based on estimated
+        // 6% annual return on deployed savings capital (member savings fund ALL koperasi ops).
+        // This ensures members with savings always see non-zero SHU even before store/unit income.
+        const surplusBasedPool = totalNetSurplus * 0.20;
+        const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20; // 6% return × 20% Jasa Simpanan
+        const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
 
         // --- Jasa Anggota Pool (25%) ---
         // Based on member transaction surplus only (exact margin method).
-        // AD-ART Pasal 42 — Jasa Anggota 25%.
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
-
-        // System denominators — savings includes deposits + tabungan wajib + simpanan pokok
-        const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
 
         // My numerators — savings includes deposits + tabungan wajib + simpanan pokok
         const myTabWajib = member.tabunganWajib ? Number(member.tabunganWajib) : 0;

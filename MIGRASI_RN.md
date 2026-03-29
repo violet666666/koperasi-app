@@ -291,27 +291,67 @@ Bagian ini difungsikan khusus sebagai log atau penanda histori agar pengembang a
 - [x] **DashboardScreen Operator**: Menu utama diperluas dan dibagi dua seksi — "Transaksi & Anggota" (Approval, Anggota, Rekening Simpanan, Input Angsuran, Daftar Pinjaman, Profil Koperasi) dan "Laporan & Pengaturan" (Laporan Pinjaman, Laporan Simpanan, Pengumuman, Ganti Password). Total menu operator naik dari 8 → 10 item.
 - [x] **App.tsx**: Registrasi tiga screen baru ke Stack Navigator: `DaftarPinjaman`, `RekeningList`, `ProfilKoperasi`.
 
-### Catatan Fitur Web yang Tidak Dimobilkan (By Design)
+### Fase 5: 100% Web Feature Parity — Modul Akuntansi, Master Data & Audit di Mobile
 
-Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akuntansi berat yang lebih cocok dikerjakan di desktop/laptop:
+> Semua fitur yang sebelumnya hanya tersedia di Web kini dijadwalkan masuk ke Mobile App.
+> Strategi UI: tabel data lebar menggunakan **Horizontal ScrollView** + form wizard bertingkat untuk input yang kompleks.
 
-| Fitur Web | Alasan Tidak Dimobilkan |
-| --- | --- |
-| Kas & Bank (Transaksi/Transfer) | Akuntansi berat, perlu layar besar |
-| Non SP (Penerimaan/Pengeluaran) | Akuntansi berat |
-| Jurnal (Buku Besar/Umum/Penyesuaian) | Akuntansi — form tabel kompleks |
-| Aset (Daftar + Penyusutan) | Akuntansi — jarang diakses |
-| Laporan Keuangan (Neraca, Laba Rugi, Arus Kas, SHU) | Tabel besar, perlu Excel/PDF |
-| Master Data (Cabang, COA, Mapping, dll) | Pengaturan admin, 1x setup |
-| User Management | Pengaturan admin |
-| Audit Log | Read-only monitoring |
-| Pengumuman CRUD | Mobile hanya read, buat/edit via web |
+#### Fase 5a — Kas & Bank + Audit Log
+
+- [ ] **Backend API**: `GET/POST /api/mobile/kas-bank` — Daftar akun kas/bank, saldo, transfer antar akun, pencatatan pengeluaran/penerimaan operasional.
+- [ ] **Backend API**: `GET /api/mobile/audit-logs` — Riwayat aktivitas user (CREATE, UPDATE, LOGIN, DELETE dsb.) dengan pagination & filter.
+- [ ] **Screen Operator**: `KasBankScreen` — Daftar rekening kas/bank + saldo + form transfer cepat + mutasi terakhir.
+- [ ] **Screen Operator**: `AuditLogScreen` — FlatList riwayat aktivitas (icon action, user, modul, deskripsi, waktu).
+- [ ] **Navigasi**: Registrasi menu baru di DashboardScreen Operator & App.tsx.
+
+#### Fase 5b — Jurnal & Buku Besar (Akuntansi Double-Entry)
+
+- [ ] **Backend API**: `GET/POST /api/mobile/journals` — Daftar jurnal umum + pembuatan jurnal penyesuaian dengan validasi Debit == Kredit.
+- [ ] **Backend API**: `GET /api/mobile/accounts` — Bagan Akun (Chart of Accounts) untuk pilihan dropdown di form jurnal.
+- [ ] **Screen Operator**: `JurnalDaftarScreen` — Daftar jurnal (FlatList + search + filter periode) dengan Horizontal ScrollView untuk baris Debit/Kredit.
+- [ ] **Screen Operator**: `JurnalInputScreen` — Form input jurnal baru: wizard bertingkat dengan dynamic add-row untuk baris akun Debit/Kredit. Indikator Balance merah/hijau. Konfirmasi 2 tahap sebelum simpan.
+- [ ] **Screen Operator**: `BukuBesarScreen` — Filter per akun + rentang tanggal. Tampilkan mutasi Debit/Kredit beserta saldo berjalan (running balance) dengan Horizontal ScrollView.
+
+#### Fase 5c — Laporan Keuangan Komprehensif (Neraca, Laba Rugi, SHU)
+
+- [ ] **Backend API**: `GET /api/mobile/reports/financial` — Aggregator data Neraca (aset/kewajiban/ekuitas) dan Laba Rugi (pendapatan/beban) per periode.
+- [ ] **Backend API**: `GET /api/mobile/reports/shu-calculator` — Kalkulasi Alokasi SHU per anggota (Jasa Anggota 25%, Jasa Simpanan 20%, Cadangan 30%, dsb.) sesuai AD-ART.
+- [ ] **Screen Operator**: `LabaRugiScreen` — Card pendapatan vs beban + laba bersih. Tabel detail dalam ScrollView.
+- [ ] **Screen Operator**: `NeracaScreen` — Aset = Kewajiban + Ekuitas. Card total + tabel breakdown per akun.
+- [ ] **Screen Operator**: `LaporanSHUScreen` — Ringkasan distribusi SHU koperasi + daftar top anggota penerima SHU.
+- [ ] **Export**: Share as PDF via `expo-print` + `expo-sharing` untuk semua laporan.
+
+#### Fase 5d — Manajemen Aset & Inventaris
+
+- [ ] **Backend API**: `GET/POST /api/mobile/assets` — Daftar aset koperasi, detail per aset (nilai buku, akumulasi penyusutan, umur ekonomis), tambah aset baru.
+- [ ] **Screen Operator**: `AsetListScreen` — Daftar aset (FlatList), card per aset: nama, kategori, nilai perolehan vs nilai buku, progress bar penyusutan, status (active/disposed).
+- [ ] **Screen Operator**: `AsetDetailScreen` — Detail aset lengkap + kalkulasi depresiasi berjalan.
+
+#### Fase 5e — Master Data, User Management & Import Data
+
+- [ ] **Backend API**: `GET/POST /api/mobile/master-data` — CRUD Produk Simpanan, Produk Pinjaman, Cabang, dan Bagan Akun (COA).
+- [ ] **Backend API**: `GET/POST /api/mobile/users` — Daftar user + role, tambah/edit user baru, reset password.
+- [ ] **Backend API**: `POST /api/mobile/members/import` — Upload CSV/Excel file data anggota & Tunkin dari smartphone (multipart form data).
+- [ ] **Screen Operator**: `MasterDataHubScreen` — Menu pusat: Produk Simpanan, Produk Pinjaman, Cabang, COA. Masing-masing masuk ke sub-screen list + create/edit.
+- [ ] **Screen Operator**: `UserManagementScreen` — Daftar user sistem + role badge + form tambah/edit.
+- [ ] **Screen Operator**: `ImportDataScreen` — Pilih file CSV/Excel dari HP via `expo-document-picker`, preview data, konfirmasi upload. Tampilkan hasil (berhasil/gagal/skip).
+- [ ] **Screen Operator**: `PengumumanCRUDScreen` — Buat, edit, dan hapus pengumuman langsung dari HP (tidak lagi hanya read-only).
+
+#### Fase 5f — Rombak Dashboard Operator & Final QA
+
+- [ ] **DashboardScreen Operator**: Overhaul total menjadi layout **Collapsible Sections** (Kategori Lipat):
+  - 📊 **Pusat Kasir & Toko** (Kasir POS, Stok Barang)
+  - 👥 **Anggota & Simpan-Pinjam** (Anggota, Rekening, Approval, Input Angsuran, Daftar Pinjaman, Ajukan Pinjaman)
+  - 💰 **Akuntansi & Keuangan** (Kas & Bank, Jurnal, Buku Besar, Aset, Laporan Laba Rugi, Neraca, SHU)
+  - ⚙️ **Administrasi Sistem** (Master Data, User Management, Import Data, Pengumuman, Audit Log, Profil Koperasi, Ganti Password)
+- [ ] **End-to-End Testing**: Verifikasi navigasi semua screen + otorisasi JWT per role.
+- [ ] **Performance Review**: Monitor API latency untuk query aggregate (jurnal, buku besar, laporan).
 
 ---
 
-## 🚀 FASE 5: APK Production Build & Deployment Publik
+## 🚀 FASE 6: APK Production Build & Deployment Publik
 
-### 5.1 — Pra-Syarat Sebelum Build
+### 6.1 — Pra-Syarat Sebelum Build
 
 - [x] **Domain HTTPS Aktif**: `https://www.primkoppol.online` sudah live.
 - [x] **API Mobile Aktif**: Semua endpoint `/api/mobile/*` ter-deploy.
@@ -319,7 +359,7 @@ Fitur-fitur berikut **sengaja tidak dimobilkan** karena merupakan operasi akunta
 - [x] **`app.json` usesCleartextTraffic**: Ditambahkan untuk kompatibilitas Android 9+.
 - [x] **`expo-secure-store` Plugin**: Ditambahkan agar token JWT aman di standalone build.
 
-### 5.2 — Langkah Build APK
+### 6.2 — Langkah Build APK
 
 ```bash
 cd mobile
@@ -329,7 +369,7 @@ npx eas build -p android --profile preview
 # Tunggu ~15-25 menit, download APK dari link yang diberikan
 ```
 
-### 5.3 — Troubleshooting Login Gagal
+### 6.3 — Troubleshooting Login Gagal
 
 | Gejala | Penyebab | Solusi |
 | --- | --- | --- |
@@ -338,7 +378,7 @@ npx eas build -p android --profile preview
 | Auto logout | JWT expired 24h | Login ulang (by design) |
 | Fetch error | API belum deploy | Deploy ulang web terlebih dahulu |
 
-### 5.4 — Distribusi APK & Akses Publik
+### 6.4 — Distribusi APK & Akses Publik
 
 File `.apk` atau `.aab` yang telah di-build bisa didistribusikan agar dapat diakses oleh anggota dan publik dengan 2 metode:
 
@@ -361,24 +401,29 @@ Agar aplikasi aman (Verified by Play Protect) dan bisa di-search oleh umum:
 6. *Submit for Review*. Tim Google Play akan mereview kelayakan aplikasi selama 2-7 hari kerja.
 7. Setelah "Approved", aplikasi akan *Live* di Play Store. Anggota cukup mencari nama aplikasi di PlayStore dan otomatis ter-update bila Bapak meng-upload versi `.aab` terbaru di masa depan.
 
-### 5.5 — Paritas Fitur Mobile vs Web (Terkini)
+### 6.5 — Paritas Fitur Mobile vs Web (Target 100%)
 
 | Fitur | Web | Mobile | Status |
 | --- | --- | --- | --- |
-| Login multi-role | ✅ | ✅ | Selesai |
-| Dashboard (semua role) | ✅ | ✅ | Selesai |
-| Simpanan & Mutasi | ✅ | ✅ | Selesai |
-| Pinjaman & Angsuran | ✅ | ✅ | Selesai |
-| Pengajuan & Approval | ✅ | ✅ | Selesai |
-| POS Kasir | ✅ | ✅ | Selesai |
-| Stok, Pengumuman, Profil | ✅ | ✅ | Selesai |
-| Kartu Anggota Digital | ✅ | ✅ | Selesai |
-| Laporan (Simpanan/Pinjaman) | ✅ | ✅ | Selesai |
-| Tunjangan, Tajib, Gaji, SHU | ✅ | ✅ | Selesai |
-| Import Data / SHU Detail | ✅ | ❌ | Web Only |
-| Akuntansi / Aset / Master | ✅ | ❌ | Web Only |
+| Login multi-role | ✅ | ✅ | ✅ Selesai |
+| Dashboard (semua role) | ✅ | ✅ | ✅ Selesai |
+| Simpanan & Mutasi | ✅ | ✅ | ✅ Selesai |
+| Pinjaman & Angsuran | ✅ | ✅ | ✅ Selesai |
+| Pengajuan & Approval | ✅ | ✅ | ✅ Selesai |
+| POS Kasir | ✅ | ✅ | ✅ Selesai |
+| Stok, Pengumuman, Profil | ✅ | ✅ | ✅ Selesai |
+| Kartu Anggota Digital | ✅ | ✅ | ✅ Selesai |
+| Laporan (Simpanan/Pinjaman) | ✅ | ✅ | ✅ Selesai |
+| Tunjangan, Tajib, Gaji, SHU | ✅ | ✅ | ✅ Selesai |
+| Kas & Bank | ✅ | 🔲 | ⏳ Fase 5a |
+| Audit Log | ✅ | 🔲 | ⏳ Fase 5a |
+| Jurnal & Buku Besar | ✅ | 🔲 | ⏳ Fase 5b |
+| Laporan Keuangan (Neraca/L-R/SHU) | ✅ | 🔲 | ⏳ Fase 5c |
+| Manajemen Aset | ✅ | 🔲 | ⏳ Fase 5d |
+| Master Data & User Management | ✅ | 🔲 | ⏳ Fase 5e |
+| Import Data Anggota & Tunkin | ✅ | 🔲 | ⏳ Fase 5e |
+| Pengumuman CRUD (Create/Edit/Delete) | ✅ | 🔲 | ⏳ Fase 5e |
 
 ---
 
-*Dokumen Master Plan & Tracking ini terakhir diperbarui pada **29 Maret 2026**.*
-
+*Dokumen Master Plan & Tracking ini terakhir diperbarui pada **30 Maret 2026**.*
