@@ -198,8 +198,8 @@ export async function GET(request: Request) {
         const totalSysTx = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
 
         // Member Numerators
-        const mySavCont = Number(mySavings._sum.amount || 0) || 100000;
-        const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0) || 50000;
+        const mySavCont = Number(mySavings._sum.amount || 0);
+        const myTxCont = Number(myToko._sum.totalAmount || 0) + Number(myUnit._sum.amount || 0) + Number(myLoan._sum.totalAmount || 0);
 
         const myModal = (mySavCont / totalSysSav) * jasaModalPool;
         const myUsaha = (myTxCont / totalSysTx) * jasaUsahaPool;
@@ -217,6 +217,7 @@ export async function GET(request: Request) {
                     id: user.member.id, memberNo: user.member.memberNo,
                     name: user.member.name, salary: Number(user.member.salary || 0),
                     tunlesKinerja: Number(user.member.tunlesKinerja || 0),
+                    tabunganWajib: Number(user.member.tabunganWajib || 0),
                 },
                 savings: {
                     accounts: savingsAccounts.map((a) => ({

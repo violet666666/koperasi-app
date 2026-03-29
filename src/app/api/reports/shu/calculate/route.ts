@@ -112,14 +112,14 @@ export async function GET(request: Request) {
                 if (tx.type === 'in') savingsContribution += Number(tx.amount);
             });
             // Also include their base balance
-            if (savingsContribution === 0) savingsContribution = 100000; 
+            // Removed logical dummy fallback to represent real calculations
 
             // Transaction contribution (Store + Unit + Loans)
             let loanContribution = 0;
             m.loans.forEach(l => { loanContribution += Number(l.totalAmount); });
             m.storeSales.forEach(s => { loanContribution += Number(s.totalAmount); });
             m.unitTransactions.forEach(u => { loanContribution += Number(u.amount); });
-            if (loanContribution === 0) loanContribution = 50000; // small base
+            // Removed dummy fallback to reflect true AD-ART zero contribution
 
             totalSystemSavings += savingsContribution;
             totalSystemTransactions += loanContribution;

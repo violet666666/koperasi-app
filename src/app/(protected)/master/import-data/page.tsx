@@ -23,7 +23,7 @@ import {
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji" | "akun_anggota";
+type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -32,12 +32,14 @@ interface PreviewRow {
     nama: string;
     tunkin?: number;
     gaji?: number;
+    tajib?: number;
     memberId?: number;
     memberName?: string;
     status: "valid" | "error";
     reason: string | null;
     currentTunkin?: number | null;
     currentGaji?: number | null;
+    currentTajib?: number | null;
     isNewMember?: boolean;
 }
 
@@ -99,6 +101,9 @@ export default function ImportDataPage() {
                 } else if (importType === "tunkin") {
                     const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
                     if (tunkinSheet) sheetName = tunkinSheet;
+                } else if (importType === "tajib") {
+                    const tajibSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TAJIB') || s.toUpperCase().includes('WAJIB'));
+                    if (tajibSheet) sheetName = tajibSheet;
                 }
                 
                 const worksheet = workbook.Sheets[sheetName];
@@ -181,6 +186,9 @@ export default function ImportDataPage() {
                 } else if (importType === "tunkin") {
                     const tunkinSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TUNKIN') || s.toUpperCase().includes('TUNJANGAN'));
                     if (tunkinSheet) sheetName = tunkinSheet;
+                } else if (importType === "tajib") {
+                    const tajibSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('TAJIB') || s.toUpperCase().includes('WAJIB'));
+                    if (tajibSheet) sheetName = tajibSheet;
                 }
                 
                 const worksheet = workbook.Sheets[sheetName];
@@ -283,6 +291,9 @@ export default function ImportDataPage() {
                                         <SelectItem value="gaji">
                                             Gaji Bersih
                                         </SelectItem>
+                                        <SelectItem value="tajib">
+                                            Tabungan Wajib Per Bulan
+                                        </SelectItem>
                                         <SelectItem value="akun_anggota">
                                             Import Akun Anggota (NRP + Nama)
                                         </SelectItem>
@@ -343,6 +354,10 @@ export default function ImportDataPage() {
                             {importType === "tunkin" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">SISA_TUNKIN</strong> (atau TUNKIN/TUNJANGAN).
+                                </p>
+                            ) : importType === "tajib" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem membaca <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">JML</strong> / JUMLAH.
                                 </p>
                             ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
@@ -514,10 +529,10 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Tajib Baru" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : "Gaji Saat Ini"}
+                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Tajib Saat Ini" : "Gaji Saat Ini"}
                                                 </TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -536,11 +551,13 @@ export default function ImportDataPage() {
                                                         ) : r.memberName}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono">
-                                                        {formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : (r.gaji || 0))}
+                                                        {formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0))}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
                                                         {importType === "tunkin"
                                                             ? (r.currentTunkin != null ? formatCurrency(r.currentTunkin) : "-")
+                                                            : importType === "tajib"
+                                                            ? (r.currentTajib != null ? formatCurrency(r.currentTajib) : "-")
                                                             : (r.currentGaji != null ? formatCurrency(r.currentGaji) : "-")
                                                         }
                                                     </TableCell>

@@ -408,6 +408,20 @@ export default function DashboardScreen({ setToken }: any) {
                 color="#F59E0B"
               />
             </View>
+            <View style={styles.cardRow}>
+              <StatCard
+                label={`Tabungan Wajib Bulan ${new Date().toLocaleString('id-ID', { month: 'long' })}`}
+                value={formatRp(data.member?.tabunganWajib || 0)}
+                icon="💵"
+                color={C.primary}
+              />
+              <StatCard
+                label="Gaji Bersih"
+                value={formatRp(data.member?.salary || 0)}
+                icon="🏦"
+                color={C.success}
+              />
+            </View>
 
             {data.savings?.accounts?.length > 0 && (
               <>

@@ -72,10 +72,13 @@ export async function POST(request: Request) {
 
         // Auto-generate memberNo if not provided
         if (!data.memberNo) {
-            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const randomId = Math.floor(1000 + Math.random() * 9000); // 4 digit random
-            // Provide the generated memberNo to the data payload so Prisma accepts it as required in Schema
-            data.memberNo = `MBR${dateStr}${randomId}`;
+            if (data.nrp && data.nrp.trim() !== '') {
+                data.memberNo = data.nrp.trim();
+            } else {
+                const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                const randomId = Math.floor(1000 + Math.random() * 9000);
+                data.memberNo = `MBR${dateStr}${randomId}`;
+            }
         }
 
         // Check for duplicate member number

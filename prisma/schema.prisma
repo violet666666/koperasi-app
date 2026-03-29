@@ -230,6 +230,7 @@ model Member {
   category          String?   // Polri, PNS, Karyawan, etc.
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
   tunlesKinerja     Decimal?  @map("tunles_kinerja") @db.Decimal(15, 2) // Tunjangan Kinerja (Tunkin)
+  tabunganWajib     Decimal?  @map("tabungan_wajib") @db.Decimal(15, 2) // Tabungan Wajib per bulan
   status            String    @default("active") // active, inactive, resigned
   resignedDate      DateTime? @map("resigned_date") @db.Date
   resignationReason String?   @map("resignation_reason")

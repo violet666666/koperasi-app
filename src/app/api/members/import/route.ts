@@ -69,6 +69,9 @@ export async function POST(request: Request) {
             case "gaji":
                 result = await processGajiImport(headers, dataRows, mode);
                 break;
+            case "tajib":
+                result = await processTajibImport(headers, dataRows, mode);
+                break;
             case "akun_anggota":
                 result = await processAkunAnggotaImport(headers, dataRows, mode);
                 break;
@@ -151,10 +154,10 @@ async function autoRegisterMember(nrp: string, nama: string, tx: any) {
         throw new Error("Tidak ada cabang aktif di sistem");
     }
 
-    // Generate memberNo
+    // Generate memberNo, prioritize nrp
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomId = Math.floor(1000 + Math.random() * 9000);
-    const memberNo = `MBR${dateStr}${randomId}`;
+    const memberNo = nrp ? nrp.trim() : `MBR${dateStr}${randomId}`;
 
     // Check if NRP already in use (edge case)
     const existingNrp = await tx.member.findUnique({ where: { nrp } });
@@ -309,6 +312,109 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 
     return {
         mode, type: "tunkin",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
+        preview: results,
+        allResults: mode === "commit" ? results : undefined,
+    };
+}
+
+// ==========================================
+// Tajib Import (Tabungan Wajib)
+// ==========================================
+async function processTajibImport(headers: string[], dataRows: string[][], mode: string) {
+    const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
+    const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
+    const tajibIdx = headers.findIndex(h => h.includes("jml") || h.includes("jumlah") || h.includes("tajib") || h.includes("tabungan wajib"));
+
+    if (namaIdx === -1) {
+        return {
+            success: 0, failed: 0,
+            error: "Kolom NAMA atau NMPEG tidak ditemukan di header file.",
+            preview: [],
+        };
+    }
+
+    if (tajibIdx === -1) {
+        return {
+            success: 0, failed: 0,
+            error: "Kolom Jumlah ('JML', 'JUMLAH', 'TAJIB') tidak ditemukan di header file.",
+            preview: [],
+        };
+    }
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, nrp: true, memberNo: true, tabunganWajib: true }
+    });
+
+    const results: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length === 0) continue;
+
+        const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
+        const rawNama = String(row[namaIdx] || '').trim();
+        
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
+
+        const tajib = cleanNumber(row[tajibIdx] || 0);
+        const csvCleanName = cleanNameForMatch(rawNama);
+
+        let matches: any[] = [];
+        
+        if (nrp) matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
+        if (matches.length === 0) matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => {
+                const dbName = cleanNameForMatch(m.name);
+                return (dbName.includes(csvCleanName) || csvCleanName.includes(dbName)) && csvCleanName.length >= 5;
+            });
+        }
+
+        if (matches.length === 0) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama, tajib,
+                status: 'error', reason: 'Anggota tdk ditemukan',
+            });
+            failCount++;
+            continue;
+        }
+
+        if (matches.length > 1) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama, tajib,
+                status: 'error', reason: 'Ada 2+ kembaran nama, NRP dibutuhkan'
+            });
+            failCount++;
+            continue;
+        }
+
+        const member = matches[0];
+
+        if (mode === "commit") {
+            await prisma.member.update({
+                where: { id: member.id },
+                data: { tabunganWajib: tajib },
+            });
+            member.tabunganWajib = tajib as any;
+        }
+
+        results.push({
+            row: i + 2, nrp: member.nrp || nrp, nama: rawNama, tajib,
+            memberId: member.id, memberName: member.name,
+            status: 'valid', reason: null,
+            currentTajib: member.tabunganWajib ? Number(member.tabunganWajib) : null,
+        });
+        successCount++;
+    }
+
+    return {
+        mode, type: "tajib",
         totalRows: results.length,
         success: successCount, failed: failCount,
         preview: results,
