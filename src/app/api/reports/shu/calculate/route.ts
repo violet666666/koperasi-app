@@ -81,16 +81,18 @@ export async function GET(request: Request) {
         // 4. Dana Pengurus 10%, 5. Dana Pegawai 5%, 6. Dana Pendidikan 5%, 7. Dana Sosial 5%
         const mReserveFund = memberSurplus * 0.30;  // Cadangan
         const mJasaUsaha = memberSurplus * 0.25;    // Jasa Anggota
-        const mJasaModal = memberSurplus * 0.20;    // Jasa Simpanan
         const mPengurus = memberSurplus * 0.10;     // Dana Pengurus
         const mEmployee = memberSurplus * 0.05;     // Dana Pegawai
         const mEducation = memberSurplus * 0.05;    // Dana Pendidikan
         const mSocial = memberSurplus * 0.05;       // Dana Sosial
 
+        // Jasa Simpanan: uses TOTAL net surplus (member savings fund ALL koperasi ops)
+        const mJasaModal = netSurplus * 0.20;       // Jasa Simpanan
+
         // --- AD-ART NON-MEMBER --- (100% of Non-Member Surplus)
         const nmReserveFund = nonMemberSurplus * 0.60;
         const nmEmployee = nonMemberSurplus * 0.10;
-        const nmEducation = nonMemberSurplus * 0.20; // Type in AD-ART is 10%+10% combined
+        const nmEducation = nonMemberSurplus * 0.20;
         const nmSocial = nonMemberSurplus * 0.10;
 
         // --- TOTAL FUNDS FOR DISTRIBUTION ---
@@ -99,10 +101,10 @@ export async function GET(request: Request) {
         const employeeBonus = mEmployee + nmEmployee;
         const socialFund = mSocial + nmSocial;
         const pengurusFund = mPengurus;
-        
+
         const jasaModalPool = mJasaModal;
         const jasaUsahaPool = mJasaUsaha;
-        const memberDividend = jasaModalPool + jasaUsahaPool; // For backward-compatibility sum
+        const memberDividend = jasaModalPool + jasaUsahaPool;
 
         // Calculate individual member contributions
         let totalSystemSavings = 0;

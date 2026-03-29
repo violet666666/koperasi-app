@@ -113,12 +113,21 @@ export async function GET() {
         const memberIncome = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
         const nonMemberIncome = Number(sysTokoNonMember._sum.totalAmount || 0);
         const totalIncome = memberIncome + nonMemberIncome;
-        const totalExpense = totalIncome * 0.4;
+        const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
+        const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
+
+        // --- Jasa Simpanan Pool (20%) ---
+        // Based on TOTAL koperasi surplus, because member savings fund ALL operations
+        // (both member and non-member activities). Even if no member has shopped at the
+        // store yet, their Tabungan Wajib & Simpanan Pokok are the capital that enables
+        // the koperasi to operate. AD-ART Pasal 42 — Jasa Simpanan 20%.
+        const jasaModalPool = totalNetSurplus * 0.20;
+
+        // --- Jasa Anggota Pool (25%) ---
+        // Based on member transaction surplus only (exact margin method).
+        // AD-ART Pasal 42 — Jasa Anggota 25%.
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
-
-        const jasaModalPool = memberSurplus * 0.20; // 20% Jasa Simpanan/Modal
-        const jasaUsahaPool = memberSurplus * 0.25; // 25% Jasa Usaha/Anggota
 
         // System denominators — savings includes deposits + tabungan wajib + simpanan pokok
         const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;

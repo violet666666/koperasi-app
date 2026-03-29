@@ -190,11 +190,14 @@ export async function GET(request: Request) {
         const totalIncome = memberIncome + nonMemberIncome;
 
         const totalExpense = totalIncome * 0.4;
+        const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
+
+        // Jasa Simpanan Pool (20%) — from TOTAL surplus (member savings fund ALL koperasi ops)
+        const jasaModalPool = totalNetSurplus * 0.20;
+
+        // Jasa Anggota (25%) — from member transaction surplus only
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
-
-        const jasaModalPool = memberSurplus * 0.20; // 20% from Member Surplus
-        const jasaUsahaPool = memberSurplus * 0.25; // 25% from Member Surplus
 
         // System Denominators — include Tajib + Simpanan Pokok
         const totalSysSav = Number(sysSavings._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
