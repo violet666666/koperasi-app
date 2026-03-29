@@ -169,8 +169,9 @@ export async function GET(request: Request) {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysToko, sysUnit, sysLoanInt, sysSavings, mySavings, myToko, myUnit, myLoan] = await Promise.all([
-            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavings, mySavings, myToko, myUnit, myLoan] = await Promise.all([
+            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
+            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             prisma.savingsTransaction.aggregate({ where: { type: "in", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
@@ -181,14 +182,20 @@ export async function GET(request: Request) {
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } })
         ]);
 
-        const totalIncome = Number(sysToko._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
-        const memberDividend = (totalIncome * 0.6) * 0.4; // 40% of net surplus
-        const jasaModalPool = memberDividend * 0.5;
-        const jasaUsahaPool = memberDividend * 0.5;
+        const memberIncome = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const nonMemberIncome = Number(sysTokoNonMember._sum.totalAmount || 0);
+        const totalIncome = memberIncome + nonMemberIncome;
+
+        const totalExpense = totalIncome * 0.4;
+        const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
+        const memberSurplus = memberIncome - memberExpense;
+
+        const jasaModalPool = memberSurplus * 0.20; // 20% from Member Surplus
+        const jasaUsahaPool = memberSurplus * 0.30; // 30% from Member Surplus
 
         // System Denominators
         const totalSysSav = Number(sysSavings._sum.amount || 0) || 1;
-        const totalSysTx = Number(sysToko._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
+        const totalSysTx = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0) || 1;
 
         // Member Numerators
         const mySavCont = Number(mySavings._sum.amount || 0) || 100000;

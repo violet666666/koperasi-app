@@ -34,16 +34,27 @@ import { toast } from "sonner";
 interface SHUCalculation {
     year: number;
     status: "draft" | "calculated" | "distributed";
+    
     totalIncome: number;
     totalExpense: number;
     netSurplus: number;
-    reserveFund: number;        // 20%
-    educationFund: number;      // 5%
-    employeeBonus: number;      // 10%
-    memberDividend: number;     // 40%
-    developmentFund: number;    // 25%
+
+    memberIncome: number;
+    memberExpense: number;
+    memberSurplus: number;
+    nonMemberIncome: number;
+    nonMemberExpense: number;
+    nonMemberSurplus: number;
+
+    reserveFund: number;
+    educationFund: number;
+    employeeBonus: number;
+    pengurusFund: number;
+    socialFund: number;
+    memberDividend: number;
+    jasaModalPool: number;
+    jasaUsahaPool: number;
     memberCount: number;
-    distributedAt?: string;
 }
 
 interface MemberSHU {
@@ -53,6 +64,8 @@ interface MemberSHU {
     savingsContribution: number;
     loanContribution: number;
     totalContribution: number;
+    modalPortion: number;
+    usahaPortion: number;
     shuAmount: number;
     percentage: number;
 }
@@ -128,12 +141,14 @@ export default function SHUCalculationPage() {
         }
     };
 
-    const fundDistribution = shuData ? [
-        { name: "Dana Cadangan", amount: shuData.reserveFund, percentage: 20, color: "bg-blue-500" },
-        { name: "Jasa Anggota", amount: shuData.memberDividend, percentage: 40, color: "bg-emerald-500" },
-        { name: "Dana Pengembangan", amount: shuData.developmentFund, percentage: 25, color: "bg-purple-500" },
-        { name: "Bonus Karyawan", amount: shuData.employeeBonus, percentage: 10, color: "bg-amber-500" },
-        { name: "Dana Pendidikan", amount: shuData.educationFund, percentage: 5, color: "bg-pink-500" },
+    const fundDistribution = shuData && shuData.netSurplus > 0 ? [
+        { name: "Dana Cadangan", amount: shuData.reserveFund, percentage: Number(((shuData.reserveFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-blue-500" },
+        { name: "Jasa Modal Anggota", amount: shuData.jasaModalPool, percentage: Number(((shuData.jasaModalPool/shuData.netSurplus)*100).toFixed(1)), color: "bg-emerald-400" },
+        { name: "Jasa Usaha Anggota", amount: shuData.jasaUsahaPool, percentage: Number(((shuData.jasaUsahaPool/shuData.netSurplus)*100).toFixed(1)), color: "bg-emerald-600" },
+        { name: "Dana Pengurus & Pengawas", amount: shuData.pengurusFund, percentage: Number(((shuData.pengurusFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-indigo-500" },
+        { name: "Kesejahteraan Karyawan", amount: shuData.employeeBonus, percentage: Number(((shuData.employeeBonus/shuData.netSurplus)*100).toFixed(1)), color: "bg-amber-500" },
+        { name: "Dana Pendidikan", amount: shuData.educationFund, percentage: Number(((shuData.educationFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-pink-500" },
+        { name: "Dana Sosial", amount: shuData.socialFund, percentage: Number(((shuData.socialFund/shuData.netSurplus)*100).toFixed(1)), color: "bg-rose-500" },
     ] : [];
 
     return (
@@ -246,6 +261,36 @@ export default function SHUCalculationPage() {
                                     <div>
                                         <p className="text-sm text-muted-foreground">Anggota</p>
                                         <p className="text-xl font-bold">{shuData.memberCount}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-indigo-100 p-3 dark:bg-indigo-900/30">
+                                        <Users className="h-5 w-5 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Surplus Anggota</p>
+                                        <p className="text-xl font-bold tabular-nums text-indigo-600">
+                                            {formatCurrency(shuData.memberSurplus)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-orange-100 p-3 dark:bg-orange-900/30">
+                                        <Users className="h-5 w-5 text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Surplus Bukan Anggota</p>
+                                        <p className="text-xl font-bold tabular-nums text-orange-600">
+                                            {formatCurrency(shuData.nonMemberSurplus)}
+                                        </p>
                                     </div>
                                 </div>
                             </CardContent>

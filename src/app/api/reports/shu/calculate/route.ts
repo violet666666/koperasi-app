@@ -37,37 +37,69 @@ export async function GET(request: Request) {
         });
 
         // Calculate total cooperative income/expense (simplified for SHU demo based on real DB values)
-        // 1. Toko Sales Income
-        const allTokoSales = await prisma.storeSale.aggregate({
-            where: { createdAt: { gte: startDate, lte: endDate } },
+        // 1. Toko Sales Income (Member vs Non-Member)
+        const tokoSalesMember = await prisma.storeSale.aggregate({
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } },
+            _sum: { totalAmount: true }
+        });
+        const tokoSalesNonMember = await prisma.storeSale.aggregate({
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: null },
             _sum: { totalAmount: true }
         });
         
-        // 2. Unit Transactions Income
+        // 2. Unit Transactions Income (Member only)
         const allUnitTx = await prisma.unitTransaction.aggregate({
             where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true },
             _sum: { amount: true }
         });
 
-        // 3. Loan Interest Income
+        // 3. Loan Interest Income (Member only)
         const allLoanInterest = await prisma.loanPayment.aggregate({
             where: { paymentDate: { gte: startDate, lte: endDate } },
             _sum: { interestPortion: true }
         });
 
-        const totalIncome = Number(allTokoSales._sum.totalAmount || 0) + 
-                            Number(allUnitTx._sum.amount || 0) + 
-                            Number(allLoanInterest._sum.interestPortion || 0);
+        const memberIncome = Number(tokoSalesMember._sum.totalAmount || 0) + 
+                             Number(allUnitTx._sum.amount || 0) + 
+                             Number(allLoanInterest._sum.interestPortion || 0);
+                             
+        const nonMemberIncome = Number(tokoSalesNonMember._sum.totalAmount || 0);
 
-        const totalExpense = totalIncome * 0.4; // Assuming 40% expenses
-        const netSurplus = totalIncome - totalExpense;
+        const totalIncome = memberIncome + nonMemberIncome;
 
-        // AD-ART Allocation
-        const reserveFund = netSurplus * 0.20;
-        const developmentFund = netSurplus * 0.25;
-        const employeeBonus = netSurplus * 0.10;
-        const educationFund = netSurplus * 0.05;
-        const memberDividend = netSurplus * 0.40; // 40% untuk Jasa Anggota
+        // Expense Allocation (Assumption: Pro-rated across incomes)
+        const totalExpense = totalIncome * 0.4; // Assuming 40% expenses total
+        const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
+        const nonMemberExpense = totalIncome > 0 ? (nonMemberIncome / totalIncome) * totalExpense : 0;
+        const memberSurplus = memberIncome - memberExpense;
+        const nonMemberSurplus = nonMemberIncome - nonMemberExpense;
+        const netSurplus = memberSurplus + nonMemberSurplus;
+
+        // --- AD-ART MEMBER --- (100% of Member Surplus)
+        const mReserveFund = memberSurplus * 0.25;
+        const mJasaUsaha = memberSurplus * 0.30;
+        const mJasaModal = memberSurplus * 0.20;
+        const mPengurus = memberSurplus * 0.075;
+        const mEmployee = memberSurplus * 0.075;
+        const mEducation = memberSurplus * 0.05;
+        const mSocial = memberSurplus * 0.05;
+
+        // --- AD-ART NON-MEMBER --- (100% of Non-Member Surplus)
+        const nmReserveFund = nonMemberSurplus * 0.60;
+        const nmEmployee = nonMemberSurplus * 0.10;
+        const nmEducation = nonMemberSurplus * 0.20; // Type in AD-ART is 10%+10% combined
+        const nmSocial = nonMemberSurplus * 0.10;
+
+        // --- TOTAL FUNDS FOR DISTRIBUTION ---
+        const reserveFund = mReserveFund + nmReserveFund;
+        const educationFund = mEducation + nmEducation;
+        const employeeBonus = mEmployee + nmEmployee;
+        const socialFund = mSocial + nmSocial;
+        const pengurusFund = mPengurus;
+        
+        const jasaModalPool = mJasaModal;
+        const jasaUsahaPool = mJasaUsaha;
+        const memberDividend = jasaModalPool + jasaUsahaPool; // For backward-compatibility sum
 
         // Calculate individual member contributions
         let totalSystemSavings = 0;
@@ -104,9 +136,7 @@ export async function GET(request: Request) {
             };
         });
 
-        // Calculate 50% Jasa Modal / 50% Jasa Usaha from Member Dividend
-        const jasaModalPool = memberDividend * 0.50;
-        const jasaUsahaPool = memberDividend * 0.50;
+        // Calculation is handled above with jasaModalPool and jasaUsahaPool
 
         const memberSHU = rawMemberStats.map(m => {
             const modalPortion = totalSystemSavings > 0 ? (m.savingsContribution / totalSystemSavings) * jasaModalPool : 0;
@@ -129,11 +159,20 @@ export async function GET(request: Request) {
                     totalIncome,
                     totalExpense,
                     netSurplus,
+                    memberIncome,
+                    memberExpense,
+                    memberSurplus,
+                    nonMemberIncome,
+                    nonMemberExpense,
+                    nonMemberSurplus,
                     reserveFund,
                     educationFund,
                     employeeBonus,
+                    pengurusFund,
+                    socialFund,
                     memberDividend,
-                    developmentFund,
+                    jasaModalPool,
+                    jasaUsahaPool,
                     memberCount: members.length
                 },
                 memberSHU
