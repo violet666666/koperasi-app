@@ -197,7 +197,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'potongan') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman') {
                 processedFile = file;
             } else {
                 const arrayBuffer = await file.arrayBuffer();

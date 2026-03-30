@@ -22,6 +22,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Download, Printer, PieChart, Users, Percent } from "lucide-react";
+import { ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
 
@@ -51,6 +53,39 @@ interface SHUData {
     memberShu: MemberSHU[];
     memberSharePercent: number;
 }
+
+const columns: ColumnDef<MemberSHU>[] = [
+    {
+        accessorKey: "memberNo",
+        header: "NRP",
+        cell: ({ row }) => <span className="font-mono">{row.getValue("memberNo")}</span>,
+    },
+    {
+        accessorKey: "name",
+        header: "Nama",
+        cell: ({ row }) => <span className="font-medium">{row.getValue("name")}</span>,
+    },
+    {
+        accessorKey: "savingsContribution",
+        header: () => <div className="text-right">Simpanan</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("savingsContribution"))}</div>,
+    },
+    {
+        accessorKey: "loanContribution",
+        header: () => <div className="text-right">Pinjaman</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("loanContribution"))}</div>,
+    },
+    {
+        accessorKey: "totalContribution",
+        header: () => <div className="text-right">Total</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("totalContribution"))}</div>,
+    },
+    {
+        accessorKey: "shuShare",
+        header: () => <div className="text-right font-bold">SHU</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums font-bold text-emerald-600">{formatCurrency(row.getValue("shuShare"))}</div>,
+    },
+];
 
 export default function LaporanSHUPage() {
     const [period, setPeriod] = React.useState("2026");
@@ -270,53 +305,14 @@ export default function LaporanSHUPage() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground mb-4">
-                                Jasa anggota sebesar {formatCurrency(totalMemberShuShare)} dibagikan berdasarkan kontribusi simpanan dan pinjaman.
+                                Jasa anggota sebesar <strong>{formatCurrency(totalMemberShuShare)}</strong> dibagikan berdasarkan kontribusi simpanan dan pinjaman anggota aktif (Total Nilai Poin Transaksi: <strong>{formatCurrency(totalMemberContribution)}</strong>).
                             </p>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>NRP</TableHead>
-                                            <TableHead>Nama</TableHead>
-                                            <TableHead className="text-right">Simpanan</TableHead>
-                                            <TableHead className="text-right">Pinjaman</TableHead>
-                                            <TableHead className="text-right">Total</TableHead>
-                                            <TableHead className="text-right">SHU</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.memberShu?.length > 0 ? (
-                                            <>
-                                                {data.memberShu.map((member) => (
-                                                    <TableRow key={member.memberNo}>
-                                                        <TableCell className="font-mono">{member.memberNo}</TableCell>
-                                                        <TableCell className="font-medium">{member.name}</TableCell>
-                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.savingsContribution)}</TableCell>
-                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.loanContribution)}</TableCell>
-                                                        <TableCell className="text-right tabular-nums">{formatCurrency(member.totalContribution)}</TableCell>
-                                                        <TableCell className="text-right tabular-nums font-bold text-emerald-600">
-                                                            {formatCurrency(member.shuShare)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                <TableRow className="bg-muted/50">
-                                                    <TableCell colSpan={4} className="font-bold">TOTAL</TableCell>
-                                                    <TableCell className="text-right tabular-nums font-bold">{formatCurrency(totalMemberContribution)}</TableCell>
-                                                    <TableCell className="text-right tabular-nums font-bold text-emerald-600">
-                                                        {formatCurrency(totalMemberShuShare)}
-                                                    </TableCell>
-                                                </TableRow>
-                                            </>
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                                    Tidak ada data SHU anggota
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <DataTable 
+                                columns={columns} 
+                                data={data.memberShu || []} 
+                                searchColumn="name" 
+                                searchPlaceholder="Cari anggota berdasarkan nama..." 
+                            />
                         </CardContent>
                     </Card>
                 </div>
