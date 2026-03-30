@@ -209,7 +209,8 @@ export default function PinjamanListPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const response = await loansApi.list({ perPage: 50 });
+                // Fetch all loans so the client-side DataTable can paginate through all 279+ data
+                const response = await loansApi.list({ perPage: 5000 });
                 setLoans(response.data as unknown as Loan[]);
                 const meta = response.meta as any;
                 if (meta?.stats) {
