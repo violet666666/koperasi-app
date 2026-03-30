@@ -122,6 +122,13 @@ export async function POST(request: Request) {
             select: { id: true, name: true, nrp: true, memberNo: true }
         });
 
+        // Members who already have active/overdue loans in the DB
+        const existingActiveLoans = await prisma.loan.findMany({
+            where: { status: { in: ['active', 'overdue'] } },
+            select: { memberId: true }
+        });
+        const membersWithActiveLoans = new Set(existingActiveLoans.map(l => l.memberId));
+
         const defaultProduct = await prisma.loanProduct.findFirst();
         const defaultBranch = await prisma.branch.findFirst();
 
@@ -168,6 +175,17 @@ export async function POST(request: Request) {
                 results.push({
                     row: i + 1, nrp, nama, gaji: 0,
                     status: 'error', reason: 'Anggota tidak ditemukan di sistem'
+                });
+                failCount++;
+                continue;
+            }
+
+            const matchId = match.id;
+            // Prevent duplicate migration: if this member already has an active loan, skip them!
+            if (membersWithActiveLoans.has(matchId)) {
+                results.push({
+                    row: i + 1, nrp: match.nrp, nama: match.name, gaji: 0,
+                    status: 'error', reason: 'Sudah memiliki pinjaman aktif di sistem (Duplikat)'
                 });
                 failCount++;
                 continue;

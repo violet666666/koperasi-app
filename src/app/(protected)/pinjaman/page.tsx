@@ -271,7 +271,7 @@ export default function PinjamanListPage() {
                             <TrendingUp className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Outstanding</p>
+                            <p className="text-sm text-muted-foreground">Total Pinjaman</p>
                             <p className="text-xl font-bold tabular-nums">
                                 {formatCurrency(stats.totalOutstanding)}
                             </p>
