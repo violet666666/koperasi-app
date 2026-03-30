@@ -169,6 +169,7 @@ export default function AnggotaDetailPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [member, setMember] = React.useState<Member | null>(null);
     const [summary, setSummary] = React.useState<MemberSummary | null>(null);
+    const [sejahteraHistory, setSejahteraHistory] = React.useState<any[]>([]);
 
     // Data loading
     React.useEffect(() => {
@@ -227,6 +228,15 @@ export default function AnggotaDetailPage() {
                     net_position: 0,
                     estimasi_shu: 1500000,
                 });
+
+                // Fetch Tabungan Sejahtera
+                try {
+                    const sejahteraRes = await fetch(`/api/members/${params.id}/sejahtera`);
+                    if (sejahteraRes.ok) {
+                        const sejData = await sejahteraRes.json();
+                        setSejahteraHistory(sejData.data || []);
+                    }
+                } catch(e) { console.error("Failed to fetch sejahtera:", e); }
 
             } catch (error) {
                 console.error("Failed to fetch member:", error);
@@ -327,6 +337,7 @@ export default function AnggotaDetailPage() {
                     <TabsTrigger value="profil">Profil</TabsTrigger>
                     <TabsTrigger value="simpanan">Simpanan</TabsTrigger>
                     <TabsTrigger value="pinjaman">Pinjaman</TabsTrigger>
+                    <TabsTrigger value="sejahtera">Tab. Sejahtera</TabsTrigger>
                     <TabsTrigger value="transaksi">Transaksi</TabsTrigger>
                 </TabsList>
 
@@ -526,6 +537,47 @@ export default function AnggotaDetailPage() {
                             </Button>
                         )}
                     </div>
+                </TabsContent>
+
+                {/* Tabungan Sejahtera Tab */}
+                <TabsContent value="sejahtera">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Riwayat Tabungan Sejahtera</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {sejahteraHistory.length > 0 ? (
+                                <div className="border rounded-md overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-muted text-muted-foreground">
+                                            <tr>
+                                                <th className="px-4 py-2 font-medium">Bulan</th>
+                                                <th className="px-4 py-2 font-medium text-right">Tahun</th>
+                                                <th className="px-4 py-2 font-medium text-right text-emerald-600">Kas Masuk (KM)</th>
+                                                <th className="px-4 py-2 font-medium text-right text-red-600">Kas Keluar (KK)</th>
+                                                <th className="px-4 py-2 font-medium text-right">Saldo Akhir</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {sejahteraHistory.map((h, i) => (
+                                                <tr key={i} className="hover:bg-muted/50">
+                                                    <td className="px-4 py-2">{new Date(2000, h.bulan - 1).toLocaleString('id-ID', { month: 'long' })}</td>
+                                                    <td className="px-4 py-2 text-right">{h.tahun}</td>
+                                                    <td className="px-4 py-2 text-right text-emerald-600">+{formatCurrency(h.kasMasuk)}</td>
+                                                    <td className="px-4 py-2 text-right text-red-600">-{formatCurrency(h.kasKeluar)}</td>
+                                                    <td className="px-4 py-2 text-right font-medium">{formatCurrency(h.saldoAkhir)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">
+                                    Belum ada data riwayat Tabungan Sejahtera untuk anggota ini.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* Transactions Tab */}

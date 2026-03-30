@@ -252,8 +252,31 @@ model Member {
   unitTransactions    UnitTransaction[]
   storeSales          StoreSale[]
   receipts            Receipt[]
+  tabunganSejahteraHistory TabunganSejahteraHistory[]
 
   @@map("members")
+}
+
+// =================================================================
+// TABUNGAN SEJAHTERA (Historical Data Only)
+// =================================================================
+
+model TabunganSejahteraHistory {
+  id        Int      @id @default(autoincrement())
+  memberId  Int      @map("member_id")
+  tahun     Int
+  bulan     Int      // 1-12
+  kasMasuk   Decimal   @default(0) @map("kas_masuk") @db.Decimal(15, 2)
+  kasKeluar  Decimal   @default(0) @map("kas_keluar") @db.Decimal(15, 2)
+  saldoAkhir Decimal   @default(0) @map("saldo_akhir") @db.Decimal(15, 2)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  member    Member   @relation(fields: [memberId], references: [id])
+
+  // Optional: Add index or unique block
+  @@unique([memberId, tahun, bulan])
+  @@map("tabungan_sejahtera_history")
 }
 
 // =================================================================

@@ -414,6 +414,14 @@ export default function DashboardScreen({ setToken }: any) {
                 color={C.primary}
               />
               <StatCard
+                label="Tabungan Sejahtera"
+                value={formatRp(data.savings?.sejahteraBalance || 0)}
+                icon="🌟"
+                color="#0891b2"
+              />
+            </View>
+            <View style={styles.cardRow}>
+              <StatCard
                 label="Gaji Bersih"
                 value={formatRp(data.member?.salary || 0)}
                 icon="🏦"

@@ -139,7 +139,7 @@ export async function GET(request: Request) {
             });
         }
 
-        const [savingsAccounts, loans, unitUnpaid] = await Promise.all([
+        const [savingsAccounts, loans, unitUnpaid, latestSejahtera] = await Promise.all([
             prisma.savingsAccount.findMany({
                 where: { memberId, status: "active" },
                 include: { product: { select: { name: true, type: true } } },
@@ -155,6 +155,13 @@ export async function GET(request: Request) {
                 where: { memberId, isPaid: false },
                 _sum: { amount: true }, _count: { id: true },
             }),
+            prisma.tabunganSejahteraHistory.findFirst({
+                where: { memberId },
+                orderBy: [
+                    { tahun: 'desc' },
+                    { bulan: 'desc' }
+                ]
+            })
         ]);
 
         const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) + Number(user.member.tabunganWajib || 0);
@@ -254,6 +261,7 @@ export async function GET(request: Request) {
                         id: a.id, accountNo: a.accountNo, balance: Number(a.balance), product: a.product,
                     })),
                     totalBalance: totalSavingsBalance,
+                    sejahteraBalance: latestSejahtera ? Number(latestSejahtera.saldoAkhir) : 0,
                 },
                 loans: {
                     list: loans.map((l) => ({
