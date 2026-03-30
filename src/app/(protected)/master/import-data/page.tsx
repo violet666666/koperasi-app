@@ -111,11 +111,59 @@ function findBestSheet(workbook: any, type: ImportType): string {
 }
 
 function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: string): File {
+    if (type === "potongan") {
+        // Multi-sheet merge: combine all sheets into one CSV with BULAN column
+        return mergeMultiSheetToCSV(workbook, originalName);
+    }
     const sheetName = findBestSheet(workbook, type);
     const worksheet = workbook.Sheets[sheetName];
     const csvString = XLSX.utils.sheet_to_csv(worksheet);
     const newFileName = originalName.replace(/\.[^/.]+$/, "") + "_converted.csv";
     return new File([csvString], newFileName, { type: "text/csv" });
+}
+
+function mergeMultiSheetToCSV(workbook: any, originalName: string): File {
+    const monthMap: Record<string, string> = {
+        'januari': '1', 'jan': '1', 'february': '2', 'februari': '2', 'feb': '2',
+        'maret': '3', 'mar': '3', 'march': '3', 'april': '4', 'apr': '4',
+        'mei': '5', 'may': '5', 'juni': '6', 'jun': '6', 'juli': '7', 'jul': '7',
+        'agustus': '8', 'aug': '8', 'september': '9', 'sep': '9',
+        'oktober': '10', 'okt': '10', 'oct': '10', 'november': '11', 'nov': '11',
+        'desember': '12', 'des': '12', 'dec': '12',
+    };
+    
+    const allRows: string[][] = [];
+    // Header row
+    allRows.push(['NRP', 'TAJIB', 'BARANG', 'SP', 'JUMLAH', 'NAMA', 'BULAN']);
+    
+    for (const sheetName of workbook.SheetNames) {
+        const monthNum = monthMap[sheetName.toLowerCase().trim()] || String(workbook.SheetNames.indexOf(sheetName) + 1);
+        const ws = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as string[][];
+        
+        for (const row of rows) {
+            const col0 = String(row[0] || '').trim();
+            if (!col0) continue;
+            // Skip header rows (col 1 contains "TAJIB")
+            if (String(row[1] || '').toUpperCase().includes('TAJIB')) continue;
+            // Must have numeric NRP
+            if (!/\d/.test(col0)) continue;
+            
+            allRows.push([
+                col0,
+                String(row[1] || ''),
+                String(row[2] || ''),
+                String(row[3] || ''),
+                String(row[4] || ''),
+                String(row[5] || ''),
+                monthNum
+            ]);
+        }
+    }
+    
+    const csv = allRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const newFileName = originalName.replace(/\.[^/.]+$/, "") + "_merged.csv";
+    return new File([csv], newFileName, { type: "text/csv" });
 }
 
 export default function ImportDataPage() {

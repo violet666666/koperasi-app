@@ -5,16 +5,15 @@ import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // ====================================================================
-// BARANG PRIMKOPPOL.XLSX FORMAT:
-// 3 Sheets: Januari, feb, maret (each = 1 month)
-// Row 0 = Header: ["", "TAJIB", "BARANG", "SP", "JUMLAH", "NAMA"]
-// Row 1+: Data:
-//   col 0: NRP (e.g. "84041976" or long NIP "198601062025212008")
-//   col 1: TAJIB — Tabungan Wajib (usually 100,000)
-//   col 2: BARANG — Potongan pembelian toko koperasi
-//   col 3: SP — Angsuran Simpan Pinjam
-//   col 4: JUMLAH — Total (TAJIB + BARANG + SP)
-//   col 5: NAMA — Nama anggota
+// BARANG PRIMKOPPOL - POTONGAN GAJI BULANAN
+// After frontend CSV merge, format is:
+//   col 0: NRP
+//   col 1: TAJIB (usually 100,000)
+//   col 2: BARANG (toko credit payment)
+//   col 3: SP (loan installment)
+//   col 4: JUMLAH (total)
+//   col 5: NAMA
+//   col 6: BULAN (month number, added by frontend multi-sheet merger)
 // ====================================================================
 
 export async function POST(request: Request) {
@@ -30,8 +29,10 @@ export async function POST(request: Request) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const workbook = XLSX.read(buffer, { type: 'buffer' });
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
 
-        if (workbook.SheetNames.length === 0) {
+        if (rows.length < 2) {
             return NextResponse.json({ message: "File kosong" }, { status: 400 });
         }
 
@@ -40,136 +41,106 @@ export async function POST(request: Request) {
             select: { id: true, name: true, nrp: true, memberNo: true, tabunganWajib: true }
         });
 
-        let totalSuccess = 0;
+        const memberTajibMap = new Map<number, { tajib: number; months: number; name: string }>();
         let totalFail = 0;
         const allResults: any[] = [];
-        const commitUpdates: { memberId: number; tajibTotal: number; months: number }[] = [];
-        const memberTajibMap = new Map<number, { tajib: number; months: number }>();
+        const processedRows = new Set<string>(); // NRP+BULAN dedup
 
-        // Process each sheet (each sheet = 1 month)
-        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
-            "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const nrpRaw = String(row[0] || '').trim();
+            if (!nrpRaw) continue;
 
-        for (let sheetIdx = 0; sheetIdx < workbook.SheetNames.length; sheetIdx++) {
-            const sheetName = workbook.SheetNames[sheetIdx];
-            const ws = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+            // Skip header rows
+            if (nrpRaw.toUpperCase() === 'NRP' || String(row[1] || '').toUpperCase().includes('TAJIB')) continue;
 
-            if (rows.length < 2) continue;
+            const nrp = cleanNrp(nrpRaw);
+            const tajib = cleanNumber(row[1]);
+            const barang = cleanNumber(row[2]);
+            const sp = cleanNumber(row[3]);
+            const jumlah = cleanNumber(row[4]);
+            const nama = String(row[5] || '').trim();
+            const bulan = String(row[6] || '').trim();
 
-            // Detect if row 0 is header (col 0 empty, col 1 contains "TAJIB")
-            const isHeader = String(rows[0][1] || '').toUpperCase().includes("TAJIB");
-            const startRow = isHeader ? 1 : 0;
+            if (tajib <= 0 && barang <= 0 && sp <= 0) continue;
 
-            for (let i = startRow; i < rows.length; i++) {
-                const row = rows[i];
-                const nrpRaw = String(row[0] || '').trim();
-                if (!nrpRaw) continue;
+            // Dedup by NRP+BULAN
+            const dedupKey = `${nrp}-${bulan}`;
+            if (processedRows.has(dedupKey)) continue;
+            processedRows.add(dedupKey);
 
-                const nrp = cleanNrp(nrpRaw);
-                const tajib = cleanNumber(row[1]);
-                const barang = cleanNumber(row[2]);
-                const sp = cleanNumber(row[3]);
-                const jumlah = cleanNumber(row[4]);
-                const nama = String(row[5] || '').trim();
-
-                // Skip rows with no meaningful data
-                if (tajib <= 0 && barang <= 0 && sp <= 0) continue;
-
-                // Match member by NRP
-                let match = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
-                if (!match && nama) {
-                    const cleanNama = cleanNameForMatch(nama);
-                    const matches = allMembers.filter(m => {
-                        const mClean = cleanNameForMatch(m.name);
-                        return mClean === cleanNama || mClean.includes(cleanNama) || cleanNama.includes(mClean);
-                    });
-                    if (matches.length === 1) match = matches[0];
-                }
-
-                if (!match) {
-                    allResults.push({
-                        row: i + 1, nrp, nama, sheet: sheetName,
-                        tajib, barang, sp, jumlah,
-                        status: 'error', reason: `Anggota tidak ditemukan`
-                    });
-                    totalFail++;
-                    continue;
-                }
-
-                // Accumulate TAJIB for this member across sheets
-                const existing = memberTajibMap.get(match.id);
-                if (existing) {
-                    existing.tajib += tajib;
-                    existing.months += 1;
-                } else {
-                    memberTajibMap.set(match.id, { tajib, months: 1 });
-                }
-
-                allResults.push({
-                    row: i + 1,
-                    nrp: match.nrp || match.memberNo || nrp,
-                    nama: match.name,
-                    sheet: sheetName,
-                    tajib, barang, sp, jumlah,
-                    status: 'valid',
-                    reason: `${sheetName}: Tajib ${tajib.toLocaleString('id-ID')}` +
-                        (barang > 0 ? ` + Barang ${barang.toLocaleString('id-ID')}` : '') +
-                        (sp > 0 ? ` + SP ${sp.toLocaleString('id-ID')}` : '')
+            // Match member
+            let match = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+            if (!match && nama) {
+                const cleanNama = cleanNameForMatch(nama);
+                const matches = allMembers.filter(m => {
+                    const mClean = cleanNameForMatch(m.name);
+                    return mClean === cleanNama || mClean.startsWith(cleanNama) || cleanNama.startsWith(mClean);
                 });
-                totalSuccess++;
+                if (matches.length === 1) match = matches[0];
+            }
+
+            if (!match) {
+                allResults.push({
+                    row: i + 1, nrp, nama,
+                    status: 'error', reason: `Anggota tidak ditemukan`
+                });
+                totalFail++;
+                continue;
+            }
+
+            // Accumulate TAJIB per member
+            const existing = memberTajibMap.get(match.id);
+            if (existing) {
+                existing.tajib += tajib;
+                existing.months += 1;
+            } else {
+                memberTajibMap.set(match.id, { tajib, months: 1, name: match.name });
             }
         }
 
         // Build summary per member for preview
         const memberSummary: any[] = [];
-        const processedMembers = new Set<number>();
-        for (const r of allResults) {
-            if (r.status !== 'valid') continue;
-            const member = allMembers.find(m => (m.nrp || m.memberNo) === r.nrp);
-            if (!member || processedMembers.has(member.id)) continue;
-            processedMembers.add(member.id);
-
-            const accumulated = memberTajibMap.get(member.id);
+        for (const [memberId, data] of memberTajibMap.entries()) {
+            const member = allMembers.find(m => m.id === memberId);
+            if (!member) continue;
             memberSummary.push({
-                row: r.row,
-                nrp: r.nrp,
-                nama: r.nama,
-                memberName: r.nama,
+                row: 0,
+                nrp: member.nrp || member.memberNo,
+                nama: member.name,
+                memberName: member.name,
                 status: 'valid',
-                gaji: accumulated?.tajib || 0, // Total TAJIB across all months (for UI)
-                currentGaji: Number(member.tabunganWajib || 0), // Current tabunganWajib in DB
-                reason: `${accumulated?.months || 0} bulan data, TAJIB total: Rp ${(accumulated?.tajib || 0).toLocaleString('id-ID')}`,
-                mutasiCount: accumulated?.months || 0,
+                gaji: data.tajib,
+                currentGaji: Number(member.tabunganWajib || 0),
+                reason: `${data.months} bulan, TAJIB: Rp ${data.tajib.toLocaleString('id-ID')}`,
+                mutasiCount: data.months,
             });
         }
 
-        // Also include errors in the preview
-        const errorResults = allResults.filter(r => r.status === 'error');
         // Deduplicate errors by NRP
         const seenErrorNrps = new Set<string>();
-        const uniqueErrors = errorResults.filter(r => {
+        const uniqueErrors = allResults.filter(r => {
+            if (r.status !== 'error') return false;
             if (seenErrorNrps.has(r.nrp)) return false;
             seenErrorNrps.add(r.nrp);
             return true;
         });
 
         if (mode === "commit" && memberTajibMap.size > 0) {
-            await prisma.$transaction(async (tx) => {
-                for (const [memberId, data] of memberTajibMap.entries()) {
-                    // Add TAJIB to existing tabunganWajib
-                    await tx.member.update({
+            // Direct batch updates — NO wrapping transaction (avoids timeout)
+            const BATCH_SIZE = 50;
+            const memberEntries = [...memberTajibMap.entries()];
+            
+            for (let batchStart = 0; batchStart < memberEntries.length; batchStart += BATCH_SIZE) {
+                const batch = memberEntries.slice(batchStart, batchStart + BATCH_SIZE);
+                await Promise.all(batch.map(([memberId, data]) =>
+                    prisma.member.update({
                         where: { id: memberId },
-                        data: {
-                            tabunganWajib: {
-                                increment: data.tajib
-                            }
-                        }
-                    });
-                }
-            });
+                        data: { tabunganWajib: { increment: data.tajib } }
+                    })
+                ));
+            }
 
-            // Audit log
             try {
                 const session = await auth();
                 const reqInfo = extractRequestInfo(request);
@@ -178,8 +149,8 @@ export async function POST(request: Request) {
                     ...userInfo, ...reqInfo,
                     action: "IMPORT",
                     module: "Anggota",
-                    description: `Import potongan gaji (Barang Primkoppol): ${memberTajibMap.size} anggota, ${workbook.SheetNames.length} bulan. TAJIB diakumulasi ke tabunganWajib.`,
-                    newData: { memberCount: memberTajibMap.size, sheets: workbook.SheetNames },
+                    description: `Import potongan gaji (Barang): ${memberTajibMap.size} anggota, TAJIB diakumulasi.`,
+                    newData: { memberCount: memberTajibMap.size },
                 });
             } catch (e) { }
         }
@@ -189,7 +160,6 @@ export async function POST(request: Request) {
                 totalRows: memberSummary.length + uniqueErrors.length,
                 success: memberSummary.length,
                 failed: uniqueErrors.length,
-                sheetsProcessed: workbook.SheetNames,
                 preview: [...memberSummary, ...uniqueErrors.map(e => ({
                     row: e.row, nrp: e.nrp, nama: e.nama,
                     status: 'error', reason: e.reason,
