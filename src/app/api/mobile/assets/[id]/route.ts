@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
     try {
-        const id = parseInt(params.id);
+        const { id: idStr } = await params;
+        const id = parseInt(idStr);
         if (isNaN(id)) return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
 
         const asset = await prisma.asset.findUnique({
