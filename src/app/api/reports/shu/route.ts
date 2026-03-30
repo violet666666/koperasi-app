@@ -117,6 +117,7 @@ export async function GET(request: Request) {
                 id: true,
                 memberNo: true,
                 name: true,
+                tabunganWajib: true,
                 savingsAccounts: {
                     where: { status: "active" },
                     include: { product: { select: { type: true } } },
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
         const memberData = members.map((m) => {
             const savingsBalance = m.savingsAccounts
                 .filter((sa) => sa.product.type === "pokok" || sa.product.type === "wajib")
-                .reduce((sum, sa) => sum + toNum(sa.balance), 0);
+                .reduce((sum, sa) => sum + toNum(sa.balance), 0) + Number(m.tabunganWajib || 0);
 
             const interestPaid = m.loanPayments.reduce(
                 (sum, lp) => sum + toNum(lp.interestPortion),
