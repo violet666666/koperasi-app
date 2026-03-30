@@ -36,33 +36,21 @@ export async function POST(request: Request) {
         // ====================================================================
         // ACTUAL FILE FORMAT (TAB.SEJAHTERA 2025):
         // Row 0: "TABUNGAN SEJAHTERA PER 31 DESEMBER 2025"
-        // Row 1: (empty)
-        // Row 2: NO | NAMA | (empty) | SALDO | JANUARI | (empty) | SALDO  | PEBRUARI | ...
-        // Row 3: REG |      |        | AWAL  | KK      | KM     | AKHIR  | KK       | KM | AKHIR | ...
-        // Row 4: (empty)
-        // Row 5: 0001 | NGATEMAN | | 634,700 | | | 634,700 | | | 634,700 | ...
+        // Row 2: NO | NAMA | (empty) | SALDO | JANUARI | ... | SALDO  | ...
+        // Row 3: REG |      |        | AWAL  | KK      | KM | AKHIR  | ...
+        // Row 5+: 0001 | NGATEMAN | | 634,700 | | | 634,700 | ...
         //
-        // Column mapping:
-        //   col 0: NO REG (NOT NRP! e.g. "0001", "0008")
-        //   col 1: NAMA
-        //   col 2: Alias/keterangan (sometimes blank, sometimes "FAISOL", "TAB KANTOR")
-        //   col 3: SALDO AWAL
-        //   col 4: JAN KK
-        //   col 5: JAN KM
-        //   col 6: SALDO AKHIR JAN
-        //   col 7: FEB KK
-        //   col 8: FEB KM
-        //   col 9: SALDO AKHIR FEB
-        //   ... pattern repeats every 3 cols per month
-        //
-        // File may only have 4 months (18 cols) or up to 12 months
+        // col 0: NO REG (NOT NRP! e.g. "0001")
+        // col 1: NAMA
+        // col 2: Alias/keterangan (sometimes blank/other name)
+        // col 3: SALDO AWAL
+        // col 4+: KK, KM, SALDO per month (3 cols each)
         // ====================================================================
 
-        // Find the data start row: look for a row where col[0] looks like a reg number
+        // Find the data start row
         let startIndex = -1;
         for (let i = 0; i < Math.min(15, rows.length); i++) {
             const col0 = String(rows[i][0]).trim();
-            // NO REG values are like "0001", "0008" — padded numbers
             if (col0 && /^\d{2,}$/.test(col0) && !isNaN(Number(col0))) {
                 startIndex = i;
                 break;
@@ -73,8 +61,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Gagal menemukan baris data. Pastikan format file Tab Sejahtera benar (NO REG di kolom pertama)." }, { status: 400 });
         }
 
-        // Detect how many months are in the file based on column count
-        // Formula: 4 base cols (NO_REG, NAMA, ALIAS, SALDO_AWAL) + (3 cols per month)
+        // Detect how many months based on column count
         const maxCols = rows[startIndex]?.length || 18;
         const availableMonths = Math.min(12, Math.floor((maxCols - 4) / 3));
         
@@ -86,39 +73,46 @@ export async function POST(request: Request) {
         let failCount = 0;
         const results: any[] = [];
         const commitData: any[] = [];
+        
+        // Track which memberIds have already been matched to prevent duplicates
+        const matchedMemberIds = new Set<number>();
+        // Track commitData keys to prevent duplicate month entries
+        const commitKeys = new Set<string>();
 
         for (let i = 0; i < dataRows.length; i++) {
             const row = dataRows[i];
             
             const regNo = String(row[0] || '').trim();
-            if (!regNo || isNaN(Number(regNo))) continue; // Skip empty/header rows
+            if (!regNo || isNaN(Number(regNo))) continue;
             
-            // col 1 = NAMA (primary identifier)
             const nama = String(row[1] || '').trim();
-            // col 2 = alias (sometimes alternate name)
             const alias = String(row[2] || '').trim();
             
             if (!nama) continue;
             
-            // Match by NAMA (since this file uses NO REG, not NRP)
+            // Match by NAMA — STRICT first (exact match only)
             const cleanNama = cleanNameForMatch(nama);
             let match = allMembers.find(m => cleanNameForMatch(m.name) === cleanNama);
             
-            // Try partial match
-            if (!match) {
+            // Only try partial match if no exact match, and require minimum 4 chars
+            if (!match && cleanNama.length >= 4) {
                 const matches = allMembers.filter(m => {
                     const mClean = cleanNameForMatch(m.name);
-                    return mClean.includes(cleanNama) || cleanNama.includes(mClean);
+                    // Only match if the Excel name is a prefix of DB name or vice versa
+                    // AND the match hasn't been claimed by another row
+                    return (mClean.startsWith(cleanNama) || cleanNama.startsWith(mClean)) 
+                        && !matchedMemberIds.has(m.id);
                 });
                 if (matches.length === 1) match = matches[0];
             }
             
-            // Try with alias
-            if (!match && alias) {
+            // Try with alias (col 2) — exact match only
+            if (!match && alias && alias.length >= 3) {
                 const cleanAlias = cleanNameForMatch(alias);
                 const matches = allMembers.filter(m => {
                     const mClean = cleanNameForMatch(m.name);
-                    return mClean === cleanAlias || mClean.includes(cleanAlias) || cleanAlias.includes(mClean);
+                    return (mClean === cleanAlias || mClean.startsWith(cleanAlias) || cleanAlias.startsWith(mClean))
+                        && !matchedMemberIds.has(m.id);
                 });
                 if (matches.length === 1) match = matches[0];
             }
@@ -131,31 +125,43 @@ export async function POST(request: Request) {
                 failCount++;
                 continue;
             }
+            
+            // Prevent same member being matched twice
+            if (matchedMemberIds.has(match.id)) {
+                results.push({
+                    row: i + startIndex + 1, nrp: regNo, nama,
+                    status: 'error', reason: `Anggota "${match.name}" sudah di-match oleh baris lain (duplikat)`
+                });
+                failCount++;
+                continue;
+            }
+            matchedMemberIds.add(match.id);
 
-            // Loop through available months only (not hardcoded 12)
+            // Loop through available months
             const memberMutations = [];
             let rowHasData = false;
 
             for (let month = 1; month <= availableMonths; month++) {
-                // Month 1 (Jan): KK=col4, KM=col5, SALDO=col6
-                // Month 2 (Feb): KK=col7, KM=col8, SALDO=col9
-                // Formula: baseIdx = 4 + ((month - 1) * 3)
                 const baseIdx = 4 + ((month - 1) * 3);
                 
-                const kk = cleanNumber(row[baseIdx]);     // Kas Keluar
-                const km = cleanNumber(row[baseIdx + 1]);  // Kas Masuk
-                const saldo = cleanNumber(row[baseIdx + 2]); // Saldo Akhir
+                const kk = cleanNumber(row[baseIdx]);
+                const km = cleanNumber(row[baseIdx + 1]);
+                const saldo = cleanNumber(row[baseIdx + 2]);
                 
                 if (kk > 0 || km > 0 || saldo > 0) {
-                    rowHasData = true;
-                    memberMutations.push({
-                        memberId: match.id,
-                        tahun: year,
-                        bulan: month,
-                        kasMasuk: km,
-                        kasKeluar: kk,
-                        saldoAkhir: saldo
-                    });
+                    const key = `${match.id}-${year}-${month}`;
+                    if (!commitKeys.has(key)) {
+                        commitKeys.add(key);
+                        rowHasData = true;
+                        memberMutations.push({
+                            memberId: match.id,
+                            tahun: year,
+                            bulan: month,
+                            kasMasuk: km,
+                            kasKeluar: kk,
+                            saldoAkhir: saldo
+                        });
+                    }
                 }
             }
 
@@ -175,21 +181,24 @@ export async function POST(request: Request) {
         }
 
         if (mode === "commit" && commitData.length > 0) {
-            await prisma.$transaction(async (tx) => {
-                // Delete existing records for the same year to prevent duplicates
-                const memberIds = [...new Set(commitData.map(d => d.memberId))];
-                await tx.tabunganSejahteraHistory.deleteMany({
-                    where: {
-                        tahun: year,
-                        memberId: { in: memberIds }
-                    }
-                });
-                
-                // insert many
-                await tx.tabunganSejahteraHistory.createMany({
-                    data: commitData
-                });
+            // Delete existing records first (outside the insert transaction)
+            const memberIds = [...new Set(commitData.map(d => d.memberId))];
+            await prisma.tabunganSejahteraHistory.deleteMany({
+                where: {
+                    tahun: year,
+                    memberId: { in: memberIds }
+                }
             });
+            
+            // Insert in batches of 100 to avoid timeout
+            const BATCH_SIZE = 100;
+            for (let batchStart = 0; batchStart < commitData.length; batchStart += BATCH_SIZE) {
+                const batch = commitData.slice(batchStart, batchStart + BATCH_SIZE);
+                await prisma.tabunganSejahteraHistory.createMany({
+                    data: batch,
+                    skipDuplicates: true, // Safety net to skip any remaining duplicates
+                });
+            }
             
             // log
             try {
