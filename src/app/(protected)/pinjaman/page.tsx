@@ -193,21 +193,16 @@ export default function PinjamanListPage() {
     const [statusFilter, setStatusFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [loans, setLoans] = React.useState<Loan[]>([]);
+    const [globalStats, setGlobalStats] = React.useState<{ activeCount: number, totalOutstanding: number, paidOffCount: number }>({ activeCount: 0, totalOutstanding: 0, paidOffCount: 0 });
 
-    // Calculate summary stats
+    // Calculate summary stats (now fetched from backend)
     const stats = React.useMemo(() => {
-        const active = loans.filter((l) => l.status === "active");
-        const totalOutstanding = active.reduce(
-            (sum, l) => sum + Number(l.principalOutstanding || 0) + Number(l.interestOutstanding || 0),
-            0
-        );
-
         return {
-            activeCount: active.length,
-            totalOutstanding,
-            paidOffThisMonth: loans.filter((l) => l.status === "paid_off").length,
+            activeCount: globalStats.activeCount,
+            totalOutstanding: globalStats.totalOutstanding,
+            paidOffThisMonth: globalStats.paidOffCount,
         };
-    }, [loans]);
+    }, [globalStats]);
 
     // Fetch data from API
     React.useEffect(() => {
@@ -216,6 +211,14 @@ export default function PinjamanListPage() {
                 setIsLoading(true);
                 const response = await loansApi.list({ perPage: 50 });
                 setLoans(response.data as unknown as Loan[]);
+                const meta = response.meta as any;
+                if (meta?.stats) {
+                    setGlobalStats({
+                        activeCount: meta.stats.activeCount || 0,
+                        totalOutstanding: meta.stats.totalOutstanding || 0,
+                        paidOffCount: meta.stats.paidOffCount || 0,
+                    });
+                }
             } catch (error) {
                 console.error("Failed to fetch loans:", error);
             } finally {

@@ -22,7 +22,7 @@ export async function GET(request: Request) {
             ...(status && { status }),
         };
 
-        const [loans, total] = await Promise.all([
+        const [loans, total, activeStats, paidOffCount] = await Promise.all([
             prisma.loan.findMany({
                 where,
                 include: {
@@ -34,6 +34,12 @@ export async function GET(request: Request) {
                 take: query.perPage,
             }),
             prisma.loan.count({ where }),
+            prisma.loan.aggregate({
+                _sum: { principalOutstanding: true, interestOutstanding: true },
+                _count: { _all: true },
+                where: { ...where, status: "active" }
+            }),
+            prisma.loan.count({ where: { ...where, status: "paid_off" } })
         ]);
 
         return NextResponse.json({
@@ -43,6 +49,11 @@ export async function GET(request: Request) {
                 perPage: query.perPage,
                 total,
                 totalPages: Math.ceil(total / query.perPage),
+                stats: {
+                    totalOutstanding: Number(activeStats._sum.principalOutstanding || 0) + Number(activeStats._sum.interestOutstanding || 0),
+                    activeCount: activeStats._count._all || 0,
+                    paidOffCount: paidOffCount || 0
+                }
             },
         });
     } catch (error) {

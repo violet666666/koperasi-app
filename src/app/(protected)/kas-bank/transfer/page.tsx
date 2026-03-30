@@ -19,13 +19,14 @@ import { toast } from "sonner";
 import { Loader2, Save, ArrowRight, Wallet, Building } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
-// Mock accounts
-const MOCK_ACCOUNTS = [
-    { id: 1, code: "K-001", name: "Kas Besar", type: "cash", balance: 25000000 },
-    { id: 2, code: "K-002", name: "Kas Kecil", type: "cash", balance: 5000000 },
-    { id: 3, code: "B-001", name: "Bank BCA", type: "bank", balance: 150000000 },
-    { id: 4, code: "B-002", name: "Bank Mandiri", type: "bank", balance: 85000000 },
-];
+// Will map from API response
+type AccountType = {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
+    currentBalance: string | number;
+};
 
 export default function TransferKasBankPage() {
     const router = useRouter();
@@ -38,8 +39,27 @@ export default function TransferKasBankPage() {
         transaction_date: new Date().toISOString().split("T")[0],
     });
 
-    const fromAccount = MOCK_ACCOUNTS.find((a) => a.id.toString() === formData.from_account_id);
-    const toAccount = MOCK_ACCOUNTS.find((a) => a.id.toString() === formData.to_account_id);
+    const [accounts, setAccounts] = React.useState<AccountType[]>([]);
+    
+    React.useEffect(() => {
+        async function fetchAccounts() {
+            try {
+                const res = await fetch("/api/cash-bank/accounts");
+                if (res.ok) {
+                    const json = await res.json();
+                    setAccounts(json.data || []);
+                }
+            } catch (error) {
+                toast.error("Gagal memuat daftar akun");
+            }
+        }
+        fetchAccounts();
+    }, []);
+
+    const fromAccount = accounts.find((a) => a.id.toString() === formData.from_account_id);
+    const toAccount = accounts.find((a) => a.id.toString() === formData.to_account_id);
+    
+    const getBalance = (acc?: AccountType) => acc ? Number(acc.currentBalance || 0) : 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,24 +80,38 @@ export default function TransferKasBankPage() {
             return;
         }
 
-        if (fromAccount && amount > fromAccount.balance) {
-            toast.error(`Saldo tidak mencukupi. Saldo tersedia: ${formatCurrency(fromAccount.balance)}`);
+        const fromBal = getBalance(fromAccount);
+        if (fromAccount && amount > fromBal) {
+            toast.error(`Saldo tidak mencukupi. Saldo tersedia: ${formatCurrency(fromBal)}`);
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const res = await fetch("/api/cash-bank/transfers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fromAccountId: Number(formData.from_account_id),
+                    toAccountId: Number(formData.to_account_id),
+                    amount,
+                    description: formData.description,
+                    transactionDate: formData.transaction_date ? new Date(formData.transaction_date).toISOString() : new Date().toISOString(),
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || "Gagal melakukan transfer");
+
             toast.success("Transfer berhasil dilakukan");
             router.push("/kas-bank");
-        } catch (error) {
-            toast.error("Gagal melakukan transfer");
+        } catch (error: any) {
+            toast.error(error.message || "Gagal melakukan transfer");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const availableToAccounts = MOCK_ACCOUNTS.filter((a) => a.id.toString() !== formData.from_account_id);
+    const availableToAccounts = accounts.filter((a) => a.id.toString() !== formData.from_account_id);
 
     return (
         <div className="space-y-6">
@@ -106,7 +140,7 @@ export default function TransferKasBankPage() {
                                             <SelectValue placeholder="Pilih akun sumber" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {MOCK_ACCOUNTS.map((account) => (
+                                            {accounts.map((account) => (
                                                 <SelectItem key={account.id} value={account.id.toString()}>
                                                     <div className="flex items-center gap-2">
                                                         {account.type === "cash" ? (
@@ -122,7 +156,7 @@ export default function TransferKasBankPage() {
                                     </Select>
                                     {fromAccount && (
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            Saldo: <span className="font-medium">{formatCurrency(fromAccount.balance)}</span>
+                                            Saldo: <span className="font-medium">{formatCurrency(getBalance(fromAccount))}</span>
                                         </p>
                                     )}
                                 </div>
@@ -158,7 +192,7 @@ export default function TransferKasBankPage() {
                                     </Select>
                                     {toAccount && (
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            Saldo: <span className="font-medium">{formatCurrency(toAccount.balance)}</span>
+                                            Saldo: <span className="font-medium">{formatCurrency(getBalance(toAccount))}</span>
                                         </p>
                                     )}
                                 </div>
@@ -222,7 +256,7 @@ export default function TransferKasBankPage() {
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Saldo Sebelum</span>
-                                                <span className="tabular-nums">{formatCurrency(fromAccount.balance)}</span>
+                                                <span className="tabular-nums">{formatCurrency(getBalance(fromAccount))}</span>
                                             </div>
                                             <div className="flex justify-between text-amber-600">
                                                 <span>Dikurangi</span>
@@ -231,7 +265,7 @@ export default function TransferKasBankPage() {
                                             <hr />
                                             <div className="flex justify-between font-medium">
                                                 <span>Saldo Setelah</span>
-                                                <span className="tabular-nums">{formatCurrency(fromAccount.balance - (parseFloat(formData.amount) || 0))}</span>
+                                                <span className="tabular-nums">{formatCurrency(getBalance(fromAccount) - (parseFloat(formData.amount) || 0))}</span>
                                             </div>
                                         </div>
 
@@ -246,7 +280,7 @@ export default function TransferKasBankPage() {
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Saldo Sebelum</span>
-                                                <span className="tabular-nums">{formatCurrency(toAccount.balance)}</span>
+                                                <span className="tabular-nums">{formatCurrency(getBalance(toAccount))}</span>
                                             </div>
                                             <div className="flex justify-between text-emerald-600">
                                                 <span>Ditambah</span>
@@ -255,7 +289,7 @@ export default function TransferKasBankPage() {
                                             <hr />
                                             <div className="flex justify-between font-medium">
                                                 <span>Saldo Setelah</span>
-                                                <span className="tabular-nums">{formatCurrency(toAccount.balance + (parseFloat(formData.amount) || 0))}</span>
+                                                <span className="tabular-nums">{formatCurrency(getBalance(toAccount) + (parseFloat(formData.amount) || 0))}</span>
                                             </div>
                                         </div>
                                     </>
