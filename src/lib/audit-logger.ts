@@ -36,7 +36,9 @@ export type AuditModule =
     | "User"
     | "Pengumuman"
     | "System"
-    | "Period";
+    | "Period"
+    | "Tabungan_Sejahtera"
+    | "Loan_Migrasi";
 
 export interface AuditLogParams {
     // User info

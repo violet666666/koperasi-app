@@ -392,6 +392,14 @@ export default function ImportDataPage() {
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH.
                                 </p>
+                            ) : importType === "sejahtera" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Upload file <strong>TAB. SEJAHTERA (.xlsx)</strong>. Format: <strong>NO REG</strong>, <strong>NAMA</strong>, <strong>SALDO AWAL</strong>, lalu <strong className="bg-yellow-200">KK, KM, SALDO AKHIR</strong> per bulan. Pencocokan anggota via <strong>NAMA</strong> (bukan NRP). Jumlah bulan otomatis terdeteksi dari kolom file.
+                                </p>
+                            ) : importType === "migrasi_pinjaman" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Upload file <strong>RINCIAN PIUTANG SP (.xlsx)</strong>. Sistem otomatis mendeteksi kolom <strong>NRP</strong>, <strong>PINJAM</strong>, <strong>SELAMA</strong>, <strong>ANGSURAN</strong>, dan <strong className="bg-yellow-200">SISA SALDO</strong> terbaru. Data per satker (header berulang) otomatis diproses. Hanya pinjaman dengan sisa &gt; 0 yang dimigrasi. <strong>Tidak mempengaruhi Kas/Jurnal.</strong>
+                                </p>
                             ) : (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan membaca kolom <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan opsional <strong className="bg-yellow-200">JUMLAH GAJI / DITERIMA</strong>. Anggota baru otomatis dibuatkan akun (password = NRP). NRP digunakan langsung sebagai nomor anggota.
