@@ -86,29 +86,35 @@ export async function POST(request: Request) {
             if (!regNo || isNaN(Number(regNo))) continue;
             
             const nama = String(row[1] || '').trim();
-            const alias = String(row[2] || '').trim();
+            const aliasOrNrp = String(row[2] || '').trim();
             
             if (!nama) continue;
             
-            // Match by NAMA — STRICT first (exact match only)
-            const cleanNama = cleanNameForMatch(nama);
-            let match = allMembers.find(m => cleanNameForMatch(m.name) === cleanNama);
-            
-            // Only try partial match if no exact match, and require minimum 4 chars
-            if (!match && cleanNama.length >= 4) {
-                const matches = allMembers.filter(m => {
-                    const mClean = cleanNameForMatch(m.name);
-                    // Only match if the Excel name is a prefix of DB name or vice versa
-                    // AND the match hasn't been claimed by another row
-                    return (mClean.startsWith(cleanNama) || cleanNama.startsWith(mClean)) 
-                        && !matchedMemberIds.has(m.id);
-                });
-                if (matches.length === 1) match = matches[0];
+            // 1. Try matching by NRP first (if user updated the file to include NRP in col 0 or col 2)
+            let match = allMembers.find(m => m.nrp === regNo || m.memberNo === regNo);
+            if (!match && aliasOrNrp && /\d{4,}/.test(aliasOrNrp)) {
+                match = allMembers.find(m => m.nrp === aliasOrNrp || m.memberNo === aliasOrNrp);
             }
             
-            // Try with alias (col 2) — exact match only
-            if (!match && alias && alias.length >= 3) {
-                const cleanAlias = cleanNameForMatch(alias);
+            // 2. Match by NAMA — STRICT exact match
+            if (!match) {
+                const cleanNama = cleanNameForMatch(nama);
+                match = allMembers.find(m => cleanNameForMatch(m.name) === cleanNama);
+                
+                // 3. Try partial name match if no exact match (min 4 chars)
+                if (!match && cleanNama.length >= 4) {
+                    const matches = allMembers.filter(m => {
+                        const mClean = cleanNameForMatch(m.name);
+                        return (mClean.startsWith(cleanNama) || cleanNama.startsWith(mClean)) 
+                            && !matchedMemberIds.has(m.id);
+                    });
+                    if (matches.length === 1) match = matches[0];
+                }
+            }
+            
+            // 4. Try with alias if not matched by name/NRP (exact match only)
+            if (!match && aliasOrNrp && aliasOrNrp.length >= 3 && !/\d/.test(aliasOrNrp)) {
+                const cleanAlias = cleanNameForMatch(aliasOrNrp);
                 const matches = allMembers.filter(m => {
                     const mClean = cleanNameForMatch(m.name);
                     return (mClean === cleanAlias || mClean.startsWith(cleanAlias) || cleanAlias.startsWith(mClean))

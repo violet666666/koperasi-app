@@ -74,14 +74,16 @@ function StatusBadge({ status }: { status: string }) {
 
 // Progress component for loan repayment
 function RepaymentProgress({ loan }: { loan: Loan }) {
-    const totalPaid = (loan.principalPaid || 0) + (loan.interestPaid || 0);
-    const totalAmount = loan.totalAmount || loan.principalAmount;
-    const percentage = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+    const totalPaid = Number(loan.principalPaid || 0) + Number(loan.interestPaid || 0);
+    const totalAmount = Number(loan.totalAmount || loan.principalAmount || 0);
+    const MathPercentage = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+    // cap at 100 on UI just in case
+    const percentage = MathPercentage > 100 ? 100 : MathPercentage;
 
     return (
         <div className="w-24">
             <Progress value={percentage} className="h-2" />
-            <span className="text-xs text-muted-foreground">{percentage}%</span>
+            <span className="text-xs text-muted-foreground">{MathPercentage}%</span>
         </div>
     );
 }
@@ -122,7 +124,7 @@ const columns: ColumnDef<Loan>[] = [
         header: "Pokok",
         cell: ({ row }) => (
             <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("principalAmount"))}
+                {formatCurrency(Number(row.getValue("principalAmount") || 0))}
             </span>
         ),
     },
@@ -131,7 +133,7 @@ const columns: ColumnDef<Loan>[] = [
         header: "Sisa Pokok",
         cell: ({ row }) => (
             <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("principalOutstanding"))}
+                {formatCurrency(Number(row.getValue("principalOutstanding") || 0))}
             </span>
         ),
     },
@@ -196,7 +198,7 @@ export default function PinjamanListPage() {
     const stats = React.useMemo(() => {
         const active = loans.filter((l) => l.status === "active");
         const totalOutstanding = active.reduce(
-            (sum, l) => sum + (l.principalOutstanding || 0) + (l.interestOutstanding || 0),
+            (sum, l) => sum + Number(l.principalOutstanding || 0) + Number(l.interestOutstanding || 0),
             0
         );
 
