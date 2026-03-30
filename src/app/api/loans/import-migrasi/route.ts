@@ -232,59 +232,65 @@ export async function POST(request: Request) {
             const userInfo = extractUserFromSession(session);
             const adminId = userInfo.userId || 1;
 
-            await prisma.$transaction(async (tx) => {
-                for (const data of commitData) {
-                    const today = new Date();
+            // Process in batches of 20 to avoid transaction timeout
+            const BATCH_SIZE = 20;
+            for (let batchStart = 0; batchStart < commitData.length; batchStart += BATCH_SIZE) {
+                const batch = commitData.slice(batchStart, batchStart + BATCH_SIZE);
+                
+                await prisma.$transaction(async (tx) => {
+                    for (const data of batch) {
+                        const today = new Date();
 
-                    const applicationNo = generateLoanNo();
-                    const app = await tx.loanApplication.create({
-                        data: {
-                            applicationNo,
-                            memberId: data.memberId,
-                            branchId: defaultBranch.id,
-                            productId: defaultProduct.id,
-                            amount: data.principalAmount,
-                            tenorMonths: data.tenorMonths,
-                            purpose: "Migrasi Pinjaman SP Lama",
-                            status: "disbursed",
-                            deductionSource: "gaji",
-                            createdById: adminId,
-                            approvedAt: today,
-                            approvedById: adminId,
-                        }
-                    });
+                        const applicationNo = generateLoanNo();
+                        const app = await tx.loanApplication.create({
+                            data: {
+                                applicationNo,
+                                memberId: data.memberId,
+                                branchId: defaultBranch.id,
+                                productId: defaultProduct.id,
+                                amount: data.principalAmount,
+                                tenorMonths: data.tenorMonths,
+                                purpose: "Migrasi Pinjaman SP Lama",
+                                status: "disbursed",
+                                deductionSource: "gaji",
+                                createdById: adminId,
+                                approvedAt: today,
+                                approvedById: adminId,
+                            }
+                        });
 
-                    await tx.loan.create({
-                        data: {
-                            loanNo: 'LN-' + applicationNo,
-                            applicationId: app.id,
-                            memberId: data.memberId,
-                            branchId: defaultBranch.id,
-                            productSnapshot: JSON.parse(JSON.stringify(defaultProduct)),
-                            principalAmount: data.principalAmount,
-                            interestAmount: 0,
-                            totalAmount: data.principalAmount,
-                            adminFee: 0,
-                            disbursedAmount: data.principalAmount,
-                            tenorMonths: data.tenorMonths,
-                            interestRate: 0,
-                            interestMethod: defaultProduct.interestMethod,
-                            monthlyInstallment: data.monthlyInstallment,
-                            principalPaid: data.principalPaid,
-                            interestPaid: 0,
-                            lateFeePaid: 0,
-                            principalOutstanding: data.principalOutstanding,
-                            interestOutstanding: 0,
-                            disbursementDate: today,
-                            firstDueDate: new Date(today.getFullYear(), today.getMonth() + 1, 1),
-                            lastDueDate: new Date(today.getFullYear(), today.getMonth() + data.tenorMonths, 1),
-                            status: "active",
-                            disbursedById: adminId,
-                            // NO disbursementJournalId = no journal = no cash impact
-                        }
-                    });
-                }
-            });
+                        await tx.loan.create({
+                            data: {
+                                loanNo: 'LN-' + applicationNo,
+                                applicationId: app.id,
+                                memberId: data.memberId,
+                                branchId: defaultBranch.id,
+                                productSnapshot: JSON.parse(JSON.stringify(defaultProduct)),
+                                principalAmount: data.principalAmount,
+                                interestAmount: 0,
+                                totalAmount: data.principalAmount,
+                                adminFee: 0,
+                                disbursedAmount: data.principalAmount,
+                                tenorMonths: data.tenorMonths,
+                                interestRate: 0,
+                                interestMethod: defaultProduct.interestMethod,
+                                monthlyInstallment: data.monthlyInstallment,
+                                principalPaid: data.principalPaid,
+                                interestPaid: 0,
+                                lateFeePaid: 0,
+                                principalOutstanding: data.principalOutstanding,
+                                interestOutstanding: 0,
+                                disbursementDate: today,
+                                firstDueDate: new Date(today.getFullYear(), today.getMonth() + 1, 1),
+                                lastDueDate: new Date(today.getFullYear(), today.getMonth() + data.tenorMonths, 1),
+                                status: "active",
+                                disbursedById: adminId,
+                                // NO disbursementJournalId = no journal = no cash impact
+                            }
+                        });
+                    }
+                }, { timeout: 60000 }); // 60 second timeout per batch
+            }
 
             try {
                 const reqInfo = extractRequestInfo(request);
