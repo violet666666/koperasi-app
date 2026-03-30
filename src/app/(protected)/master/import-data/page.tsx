@@ -567,7 +567,11 @@ export default function ImportDataPage() {
                                                         ) : r.memberName}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono">
-                                                        {formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0))}
+                                                        {importType === "akun_anggota" && r.isNewMember === false ? (
+                                                            <Badge variant="outline" className="text-[10px] text-muted-foreground font-normal border-dashed">Dilewati</Badge>
+                                                        ) : (
+                                                            formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0))
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
                                                         {importType === "tunkin"
