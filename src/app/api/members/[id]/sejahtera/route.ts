@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth();
@@ -12,7 +12,8 @@ export async function GET(
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const memberId = parseInt(params.id);
+        const { id } = await params;
+        const memberId = parseInt(id);
         if (isNaN(memberId)) {
             return NextResponse.json({ message: "Invalid member ID" }, { status: 400 });
         }
