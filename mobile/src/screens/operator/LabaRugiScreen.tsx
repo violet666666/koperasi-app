@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { C } from "../common/colors";
+import C from "../../lib/colors";
 import api from "../../lib/api";
 
 type FinancialDataResponse = {

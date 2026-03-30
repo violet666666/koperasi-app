@@ -410,12 +410,22 @@ export default function PengajuanPinjamanPage() {
                                     <div>Angsuran Bunga ({selectedProductData.interestRate / 12}%):</div>
                                     <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100)))}</div>
                                     <div className="col-span-2 border-t border-emerald-200 my-1"></div>
-                                    <div className="font-semibold text-emerald-900">Total Potongan Gaji:</div>
+                                    <div className="font-semibold text-emerald-900">Total Potongan Gaji/Bulan:</div>
                                     <div className="text-right font-bold text-lg text-emerald-900 tabular-nums">
                                         {formatCurrency(
                                             Math.ceil(parseFloat(amount) / parseInt(tenor)) + 
                                             Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100))
                                         )}
+                                    </div>
+                                </div>
+                                <div className="border-t border-emerald-200 my-2"></div>
+                                <div className="grid grid-cols-2 gap-2 text-sm text-violet-800">
+                                    <div className="font-semibold">Biaya Jasa Primkoppol (1%):</div>
+                                    <div className="text-right font-bold tabular-nums">
+                                        {formatCurrency(Math.ceil(parseFloat(amount) * 0.01))}
+                                    </div>
+                                    <div className="col-span-2 text-xs opacity-80">
+                                        *Biaya jasa/admin 1% ini cukup dibayarkan 1x dan akan dipotong langsung di awal saat pencairan pinjaman.
                                     </div>
                                 </div>
                                 <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">

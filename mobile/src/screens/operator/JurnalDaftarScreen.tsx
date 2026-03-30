@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C } from "../common/colors";
+import C from "../../lib/colors";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 

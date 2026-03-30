@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { C } from "../common/colors";
+import C from "../../lib/colors";
 import api from "../../lib/api";
 
 type Account = {
