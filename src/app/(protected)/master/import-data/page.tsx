@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     Download,
     Loader2,
+    Wallet,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
@@ -329,10 +330,29 @@ export default function ImportDataPage() {
                 title="Import & Export Data"
                 description="Upload file CSV untuk update data anggota secara massal"
                 actions={
-                    <Button variant="outline" onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Data Anggota
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={async () => {
+                            try {
+                                toast.info("Membuka rekening simpanan...");
+                                const res = await fetch("/api/members/provision-accounts", { method: "POST" });
+                                const json = await res.json();
+                                if (res.ok) {
+                                    toast.success(json.message);
+                                } else {
+                                    toast.error(json.message || "Gagal membuka rekening");
+                                }
+                            } catch (e) {
+                                toast.error("Gagal menghubungi server");
+                            }
+                        }}>
+                            <Wallet className="mr-2 h-4 w-4" />
+                            Buka Rekening Simpanan
+                        </Button>
+                        <Button variant="outline" onClick={handleExport}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Export Data Anggota
+                        </Button>
+                    </div>
                 }
             />
 

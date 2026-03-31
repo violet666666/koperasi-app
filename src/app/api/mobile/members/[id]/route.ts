@@ -52,12 +52,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         tabunganWajib: Number(member.tabunganWajib || 0),
         totalSavings,
         totalLoansOutstanding,
-        savingsAccounts: member.savingsAccounts.map(acc => ({
-          id: acc.id,
-          accountNo: acc.accountNo,
-          balance: Number(acc.balance),
-          product: acc.product,
-        })),
+        savingsAccounts: [
+          // Real savings accounts from DB
+          ...member.savingsAccounts.map(acc => ({
+            id: acc.id,
+            accountNo: acc.accountNo,
+            balance: Number(acc.balance),
+            product: acc.product,
+          })),
+          // Virtual entry for Tabungan Wajib (stored on member record directly)
+          ...(Number(member.tabunganWajib || 0) > 0 ? [{
+            id: -1,
+            accountNo: `TAJIB-${member.id}`,
+            balance: Number(member.tabunganWajib),
+            product: { name: 'Tabungan Wajib (TAJIB)', code: 'TAJIB', type: 'wajib' },
+          }] : []),
+        ],
       }
     });
   } catch (error) {
