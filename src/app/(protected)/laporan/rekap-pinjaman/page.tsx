@@ -113,7 +113,7 @@ const columns: ColumnDef<LoanRecap>[] = [
 
 export default function RekapPinjamanPage() {
     const [isLoading, setIsLoading] = React.useState(true);
-    const [period, setPeriod] = React.useState("2025-01");
+    const [period, setPeriod] = React.useState("2026");
     const [data, setData] = React.useState<LoanRecap[]>([]);
 
     // Fetch data from API
@@ -216,12 +216,12 @@ export default function RekapPinjamanPage() {
             <div className="flex items-center gap-4">
                 <Select value={period} onValueChange={setPeriod}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Pilih periode" />
+                        <SelectValue placeholder="Pilih tahun" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="2025-01">Januari 2025</SelectItem>
-                        <SelectItem value="2024-12">Desember 2024</SelectItem>
-                        <SelectItem value="2024-11">November 2024</SelectItem>
+                        <SelectItem value="2026">Tahun 2026</SelectItem>
+                        <SelectItem value="2025">Tahun 2025</SelectItem>
+                        <SelectItem value="2024">Tahun 2024</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

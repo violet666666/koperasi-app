@@ -6,71 +6,58 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
-        const productId = searchParams.get("productId");
 
-        const where = {
-            ...(branchId && { branchId: parseInt(branchId) }),
-            ...(productId && { productId: parseInt(productId) }),
-        };
-
-        // Get savings products summary
+        // 1. Get all savings products
         const products = await prisma.savingsProduct.findMany({
             where: { deletedAt: null },
+            select: { id: true, code: true, name: true, type: true },
         });
 
-        // Get savings accounts grouped by product
+        // 2. Get savings accounts grouped by product (for totalMembers & currentBalance)
         const accountsByProduct = await prisma.savingsAccount.groupBy({
             by: ["productId"],
-            where,
+            where: {
+                ...(branchId && { branchId: parseInt(branchId) }),
+            },
             _count: { id: true },
             _sum: { balance: true },
         });
 
-        const productSummary = products.map((product) => {
-            const stats = accountsByProduct.find((a) => a.productId === product.id);
-            return {
-                productId: product.id,
-                productCode: product.code,
-                productName: product.name,
-                accountCount: stats?._count.id || 0,
-                totalBalance: Number(stats?._sum.balance || 0),
-            };
-        });
-
-        // Get transaction summary
-        const transactionSummary = await prisma.savingsTransaction.groupBy({
-            by: ["type"],
+        // 3. Get savings transactions grouped by product + type (for totalDeposit & totalWithdrawal)
+        const transactionsByProduct = await prisma.savingsTransaction.groupBy({
+            by: ["productId", "type"],
             where: {
                 ...(branchId && { branchId: parseInt(branchId) }),
-                createdAt: {
-                    gte: new Date(new Date().getFullYear(), 0, 1),
-                },
             },
-            _count: { id: true },
             _sum: { amount: true },
         });
 
-        const deposits = transactionSummary.find((t) => t.type === "deposit");
-        const withdrawals = transactionSummary.find((t) => t.type === "withdrawal");
+        // 4. Build response per product
+        const productSummary = products.map((product) => {
+            const accountStats = accountsByProduct.find((a) => a.productId === product.id);
+            
+            // Get deposit total for this product
+            const depositStats = transactionsByProduct.find(
+                (t) => t.productId === product.id && t.type === "deposit"
+            );
+            // Get withdrawal total for this product
+            const withdrawalStats = transactionsByProduct.find(
+                (t) => t.productId === product.id && t.type === "withdrawal"
+            );
 
-        const recap = {
-            branchId: branchId ? parseInt(branchId) : null,
-            totalBalance: productSummary.reduce((sum, p) => sum + p.totalBalance, 0),
-            totalAccounts: productSummary.reduce((sum, p) => sum + p.accountCount, 0),
-            byProduct: productSummary,
-            transactions: {
-                deposits: {
-                    count: deposits?._count.id || 0,
-                    amount: Number(deposits?._sum.amount || 0),
-                },
-                withdrawals: {
-                    count: withdrawals?._count.id || 0,
-                    amount: Number(withdrawals?._sum.amount || 0),
-                },
-            },
-        };
+            return {
+                productCode: product.code,
+                productName: product.name,
+                productType: product.type,
+                totalMembers: accountStats?._count.id || 0,
+                totalDeposit: Number(depositStats?._sum.amount || 0),
+                totalWithdrawal: Number(withdrawalStats?._sum.amount || 0),
+                currentBalance: Number(accountStats?._sum.balance || 0),
+            };
+        });
 
-        return NextResponse.json({ data: recap });
+        // Filter out products with zero data if desired, or show all
+        return NextResponse.json({ data: { products: productSummary } });
     } catch (error) {
         console.error("GET /api/reports/savings-recap error:", error);
         return NextResponse.json(

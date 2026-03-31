@@ -7,69 +7,74 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
 
-        const where = {
-            ...(branchId && { branchId: parseInt(branchId) }),
-        };
+        // 1. Get all loan products
+        const loanProducts = await prisma.loanProduct.findMany({
+            where: { isActive: true },
+            select: { id: true, code: true, name: true, interestRate: true },
+        });
 
-        // Get loan summary by status
-        const loansByStatus = await prisma.loan.groupBy({
-            by: ["status"],
-            where,
-            _count: { id: true },
-            _sum: {
+        // 2. Get all loans joined with their application to know the productId
+        const loans = await prisma.loan.findMany({
+            where: {
+                ...(branchId && { branchId: parseInt(branchId) }),
+            },
+            select: {
+                id: true,
                 principalAmount: true,
                 principalOutstanding: true,
                 principalPaid: true,
+                disbursedAmount: true,
+                status: true,
+                application: {
+                    select: { productId: true },
+                },
             },
         });
 
-        // Get applications summary
-        const applicationsByStatus = await prisma.loanApplication.groupBy({
-            by: ["status"],
-            where,
-            _count: { id: true },
-            _sum: { amount: true },
+        // 3. Group loans by productId
+        const loansByProduct: Record<number, typeof loans> = {};
+        for (const loan of loans) {
+            const pid = loan.application.productId;
+            if (!loansByProduct[pid]) loansByProduct[pid] = [];
+            loansByProduct[pid].push(loan);
+        }
+
+        // 4. Build per-product summary
+        const productSummary = loanProducts.map((product) => {
+            const productLoans = loansByProduct[product.id] || [];
+            
+            const totalLoans = productLoans.length;
+            const totalDisbursed = productLoans.reduce(
+                (sum, l) => sum + Number(l.disbursedAmount || l.principalAmount || 0), 0
+            );
+            const totalOutstanding = productLoans.reduce(
+                (sum, l) => sum + Number(l.principalOutstanding || 0), 0
+            );
+            const totalPaid = productLoans.reduce(
+                (sum, l) => sum + Number(l.principalPaid || 0), 0
+            );
+
+            // Collectibility ratio: principalPaid / principalAmount * 100
+            const totalPrincipal = productLoans.reduce(
+                (sum, l) => sum + Number(l.principalAmount || 0), 0
+            );
+            const collectibilityRatio = totalPrincipal > 0
+                ? Math.round((totalPaid / totalPrincipal) * 100)
+                : 0;
+
+            return {
+                productCode: product.code,
+                productName: product.name,
+                interestRate: Number(product.interestRate),
+                totalLoans,
+                totalDisbursed,
+                totalOutstanding,
+                totalPaid,
+                collectibilityRatio,
+            };
         });
 
-        const activeLoans = loansByStatus.find((l) => l.status === "active");
-        const paidOffLoans = loansByStatus.find((l) => l.status === "paid_off");
-        const overdueLoans = loansByStatus.find((l) => l.status === "overdue");
-
-        const pendingApps = applicationsByStatus.find((a) => a.status === "submitted");
-        const approvedApps = applicationsByStatus.find((a) => a.status === "approved");
-
-        const recap = {
-            branchId: branchId ? parseInt(branchId) : null,
-            activeLoans: {
-                count: activeLoans?._count.id || 0,
-                principalAmount: Number(activeLoans?._sum.principalAmount || 0),
-                outstandingAmount: Number(activeLoans?._sum.principalOutstanding || 0),
-                paidAmount: Number(activeLoans?._sum.principalPaid || 0),
-            },
-            paidOffLoans: {
-                count: paidOffLoans?._count.id || 0,
-                principalAmount: Number(paidOffLoans?._sum.principalAmount || 0),
-            },
-            overdueLoans: {
-                count: overdueLoans?._count.id || 0,
-                outstandingAmount: Number(overdueLoans?._sum.principalOutstanding || 0),
-            },
-            applications: {
-                pending: {
-                    count: pendingApps?._count.id || 0,
-                    amount: Number(pendingApps?._sum.amount || 0),
-                },
-                approved: {
-                    count: approvedApps?._count.id || 0,
-                    amount: Number(approvedApps?._sum.amount || 0),
-                },
-            },
-            collectibilityRate: activeLoans ?
-                ((Number(activeLoans._sum.principalPaid || 0) / Number(activeLoans._sum.principalAmount || 1)) * 100).toFixed(2) + "%" :
-                "N/A",
-        };
-
-        return NextResponse.json({ data: recap });
+        return NextResponse.json({ data: { products: productSummary } });
     } catch (error) {
         console.error("GET /api/reports/loans-recap error:", error);
         return NextResponse.json(

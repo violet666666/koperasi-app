@@ -91,6 +91,8 @@ export async function processDataReset(options: {
         module: "Pengaturan",
         description: `Reset Data Eksekusi. Toko: ${resetStoreData}, Keuangan: ${resetFinancialData}, Anggota: ${resetMemberData}`,
         status: "success",
+        userName: "System Admin",
+        userRole: "admin",
       }
     });
 
