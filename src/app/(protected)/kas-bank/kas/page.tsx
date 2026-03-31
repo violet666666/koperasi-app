@@ -151,8 +151,7 @@ export default function TransaksiKasPage() {
 
     // Stats
     const stats = React.useMemo(() => {
-        const cashAccounts = accounts.filter(a => a.code.startsWith("KAS") || a.name.toLowerCase().includes("kas"));
-        const totalBalance = cashAccounts.reduce((sum, a) => sum + a.currentBalance, 0);
+        const totalBalance = accounts.reduce((sum, a) => sum + Number(a.currentBalance), 0);
         const todayIn = transactions
             .filter(t => t.type === "in" && new Date(t.transactionDate).toDateString() === new Date().toDateString())
             .reduce((sum, t) => sum + t.amount, 0);
