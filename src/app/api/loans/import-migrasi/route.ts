@@ -9,6 +9,69 @@ function generateLoanNo() {
     return 'SP-' + Date.now().toString(36) + '-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 }
 
+function parseIndonesianDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    let cleanStr = String(dateStr).trim().toUpperCase();
+    if (!cleanStr) return null;
+
+    if (!isNaN(Number(cleanStr))) {
+        const serial = Number(cleanStr);
+        if (serial > 10000 && serial < 100000) {
+            const excelEpoch = new Date(Math.round((serial - 25569) * 86400 * 1000));
+            return excelEpoch;
+        }
+    }
+
+    const monthMap: Record<string, number> = {
+        'JAN': 0, 'JANUARI': 0,
+        'FEB': 1, 'FEBRUARI': 1, 'F3B': 1,
+        'MAR': 2, 'MRT': 2, 'MARET': 2,
+        'APR': 3, 'APRIL': 3,
+        'MEI': 4,
+        'JUN': 5, 'JUNI': 5,
+        'JUL': 6, 'JULI': 6,
+        'AGS': 7, 'AGUSTUS': 7, 'AGU': 7,
+        'SEP': 8, 'SEPT': 8, 'SEPTEMBER': 8,
+        'OKT': 9, 'OKTOBER': 9,
+        'NOV': 10, 'NOVEMBER': 10,
+        'DES': 11, 'DESEMBER': 11
+    };
+
+    const parts = cleanStr.split(/[\s\-/,]+/);
+    if (parts.length === 0) return null;
+
+    let day = 1;
+    let month = -1;
+    let year = -1;
+
+    for (const part of parts) {
+        if (/^\d{4}$/.test(part)) {
+            year = parseInt(part, 10);
+        } else if (/^\d{1,2}$/.test(part)) {
+            const val = parseInt(part, 10);
+            if (val > 12 || (val <= 12 && month !== -1 && day === 1 && val > 0)) { 
+                day = val;
+            } else if (val <= 12 && month === -1 && year !== -1) {
+                month = val - 1;
+            } else if (val <= 12 && month === -1) {
+                day = val;
+            }
+        } else {
+            for (const [key, val] of Object.entries(monthMap)) {
+                if (part.includes(key)) {
+                    month = val;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (year === -1) return null;
+    if (month === -1) month = 0;
+
+    return new Date(Date.UTC(year, month, day));
+}
+
 export async function POST(request: Request) {
     try {
         const formData: any = await request.formData();
@@ -93,6 +156,7 @@ export async function POST(request: Request) {
         const namaIdx = headers.findIndex(h => h.includes("NAMA"));
         const pinjamIdx = headers.findIndex(h => h === "PINJAM" || h === "PINJAMAN");
         const selamaIdx = headers.findIndex(h => h === "SELAMA" || h === "TENOR");
+        const tglIdx = headers.findIndex(h => h.includes("TGL") || h.includes("TANGGAL"));
 
         // ANGSURAN is in sub-header row (row 10)
         let angsuranIdx = -1;
@@ -142,10 +206,11 @@ export async function POST(request: Request) {
         const defaultBranch = await prisma.branch.findFirst();
 
         // ====================================================================
-        // 2-PASS SCANNING: Forward-fill blank NRPs + Multi-period loans
+        // 2-PASS SCANNING: Forward-fill blank NRPs ONLY IF NAME MATCHES
         // ====================================================================
-        const dataRows: { rowIdx: number; row: string[], prevNrp: string }[] = [];
+        const dataRows: { rowIdx: number; row: string[], prevNrp: string, prevName: string }[] = [];
         let lastSeenNrp = '';
+        let lastSeenName = '';
 
         for (let i = firstHeaderIdx + 2; i < rows.length; i++) {
             const row = rows[i];
@@ -161,9 +226,12 @@ export async function POST(request: Request) {
             const nama = String(row[namaIdx] || '').trim();
             if (!nama) continue; // Must have a name
 
-            if (nrpRaw) lastSeenNrp = nrpRaw;
+            if (nrpRaw) {
+                lastSeenNrp = nrpRaw;
+                lastSeenName = nama;
+            }
 
-            dataRows.push({ rowIdx: i, row, prevNrp: lastSeenNrp });
+            dataRows.push({ rowIdx: i, row, prevNrp: lastSeenNrp, prevName: lastSeenName });
         }
 
         let successCount = 0;
@@ -171,14 +239,21 @@ export async function POST(request: Request) {
         const results: any[] = [];
         const commitData: any[] = [];
 
-        for (const { rowIdx, row, prevNrp } of dataRows) {
+        for (const { rowIdx, row, prevNrp, prevName } of dataRows) {
             let nrp = cleanNrp(String(row[nrpIdx] || ''));
             const nama = String(row[namaIdx] || '').trim();
 
             if (!nrp && nama && prevNrp) {
-                // Forward fill if adjacent row has NRP. This handles Book2's "empty NO" rows cleanly.
-                nrp = prevNrp;
+                // Forward fill ONLY IF name roughly matches last seen name
+                const cleanCurrent = cleanNameForMatch(nama);
+                const cleanPrev = cleanNameForMatch(prevName);
+                if (cleanCurrent === cleanPrev || cleanCurrent.includes(cleanPrev) || cleanPrev.includes(cleanCurrent)) {
+                    nrp = prevNrp;
+                }
             }
+
+            const rawTgl = tglIdx >= 0 ? String(row[tglIdx] || '') : '';
+            const parsedDate = parseIndonesianDate(rawTgl) || new Date();
 
             // Parse financial values across all possible periods (2025 + Jan/Feb/Mar 2026)
             const pinjamOld = cleanNumber(row[pinjamIdx]);
@@ -230,7 +305,9 @@ export async function POST(request: Request) {
                     monthlyInstallment: computedInstallment,
                     principalOutstanding,
                     principalPaid,
-                    bs
+                    bs,
+                    applicationDate: parsedDate,
+                    rawTgl
                 });
                 continue;
             }
@@ -243,7 +320,7 @@ export async function POST(request: Request) {
                 gaji: totalPinjam,      // UI: "Pokok Pinjaman"
                 currentGaji: sisaMaret, // UI: "Sisa Pokok" 
                 status: 'valid',
-                reason: `Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln${bsText}, Dibayar Rp ${principalPaid.toLocaleString('id-ID')}`
+                reason: `Tgl ${rawTgl ? rawTgl.trim() : 'Auto'}, Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln${bsText}, Dibayar Rp ${principalPaid.toLocaleString('id-ID')}`
             });
             successCount++;
 
@@ -254,7 +331,9 @@ export async function POST(request: Request) {
                 monthlyInstallment: computedInstallment,
                 principalOutstanding,
                 principalPaid,
-                bs
+                bs,
+                applicationDate: parsedDate,
+                rawTgl
             });
             successCount++;
         }
@@ -272,6 +351,7 @@ export async function POST(request: Request) {
                 await prisma.$transaction(async (tx) => {
                     for (const data of batch) {
                         const today = new Date();
+                        const applicationDate = new Date(data.applicationDate || today);
                         let activeMemberId = data.memberId;
 
                         // Auto-create new members
@@ -339,7 +419,8 @@ export async function POST(request: Request) {
                                 status: "disbursed",
                                 deductionSource: "gaji",
                                 createdById: adminId,
-                                approvedAt: today,
+                                createdAt: applicationDate,
+                                approvedAt: applicationDate,
                                 approvedById: adminId,
                             }
                         });
@@ -365,9 +446,9 @@ export async function POST(request: Request) {
                                 lateFeePaid: 0,
                                 principalOutstanding: data.principalOutstanding,
                                 interestOutstanding: 0,
-                                disbursementDate: today,
-                                firstDueDate: new Date(today.getFullYear(), today.getMonth() + 1, 1),
-                                lastDueDate: new Date(today.getFullYear(), today.getMonth() + data.tenorMonths, 1),
+                                disbursementDate: applicationDate,
+                                firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
+                                lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + data.tenorMonths, 1),
                                 status: "active",
                                 disbursedById: adminId,
                                 // NO disbursementJournalId = no journal = no cash impact
