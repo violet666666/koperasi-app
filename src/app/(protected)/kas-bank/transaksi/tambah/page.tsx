@@ -40,7 +40,7 @@ export default function TambahTransaksiKasBankPage() {
         async function fetchAccounts() {
             try {
                 const res = await cashBankApi.accounts();
-                const accountData = (res.data as any).data || res.data;
+                const accountData = (res as any).data || [];
                 setAccounts(accountData as CashBankAccount[]);
             } catch (error) {
                 toast.error("Gagal memuat daftar akun kas/bank");

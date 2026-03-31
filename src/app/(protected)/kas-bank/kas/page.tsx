@@ -167,15 +167,15 @@ export default function TransaksiKasPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Fetch cash accounts
+                // Fetch accounts
                 const accountsRes = await cashBankApi.accounts();
-                const allAccounts = (accountsRes.data as any).data || [];
+                const allAccounts = (accountsRes as any).data || [];
                 setAccounts(allAccounts);
 
                 // Fetch transactions
                 const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
                 const txRes = await cashBankApi.transactions({ ...params });
-                setTransactions((txRes.data as any).data || []);
+                setTransactions(((txRes as any).data || []) as CashTransaction[]);
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {
@@ -205,7 +205,7 @@ export default function TransaksiKasPage() {
             setFormData({ accountId: "", amount: "", category: "operational", description: "" });
             // Refresh data
             const txRes = await cashBankApi.transactions({});
-            setTransactions((txRes.data as any).data || []);
+            setTransactions(((txRes as any).data || []) as CashTransaction[]);
         } catch (error) {
             toast.error("Gagal mencatat transaksi");
         } finally {

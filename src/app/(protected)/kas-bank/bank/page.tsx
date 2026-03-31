@@ -165,7 +165,7 @@ export default function TransaksiBankPage() {
             try {
                 // Fetch bank accounts
                 const accountsRes = await cashBankApi.accounts();
-                const bankAccounts = ((accountsRes.data as any).data || []).filter(
+                const bankAccounts = ((accountsRes as any).data || []).filter(
                     (a: any) => a.type === "bank"
                 );
                 setAccounts(bankAccounts);
@@ -173,7 +173,7 @@ export default function TransaksiBankPage() {
                 // Fetch transactions
                 const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
                 const txRes = await cashBankApi.transactions({ ...params, type: "bank" });
-                setTransactions((txRes.data as any).data || []);
+                setTransactions(((txRes as any).data || []) as BankTransaction[]);
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {
@@ -203,7 +203,7 @@ export default function TransaksiBankPage() {
             setFormData({ accountId: "", amount: "", category: "operational", referenceNo: "", description: "" });
             // Refresh data
             const txRes = await cashBankApi.transactions({});
-            setTransactions((txRes.data as any).data || []);
+            setTransactions(((txRes as any).data || []) as BankTransaction[]);
         } catch (error) {
             toast.error("Gagal mencatat transaksi");
         } finally {
