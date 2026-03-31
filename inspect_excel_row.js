@@ -15,13 +15,21 @@ for (let i = 0; i < Math.min(15, rows.length); i++) {
     }
 }
 
+function cleanNumber(raw) {
+    if (raw === undefined || raw === null || raw === "") return 0;
+    if (typeof raw === 'number') return raw;
+    const cleaned = String(raw).replace(/[^0-9.\-]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+}
+
 const targetNrp = "73040054";
 for (let i = firstHeaderIdx + 1; i < rows.length; i++) {
     const nrp = String(rows[i][3]).trim();
     if (nrp.includes(targetNrp)) {
         console.log("ROW", i+1, "NRP:", nrp, "NAMA:", rows[i][1]);
-        console.log("Col 5 (PINJAM):", rows[i][5]);
-        console.log("Col 22 (JML TERBAYAR):", rows[i][22]);
-        console.log("Col 23 (SISA SALDO):", rows[i][23]);
+        console.log("Col 5 (PINJAM):", rows[i][5], "=> clean:", cleanNumber(rows[i][5]));
+        console.log("Col 22 (JML TERBAYAR):", rows[i][22], "=> clean:", cleanNumber(rows[i][22]));
+        console.log("Col 23 (SISA SALDO):", rows[i][23], "=> clean:", cleanNumber(rows[i][23]));
     }
 }

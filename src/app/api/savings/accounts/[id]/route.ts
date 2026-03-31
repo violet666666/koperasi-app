@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-export async function GET(request: Request, context: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     try {
-        const { id } = context.params;
+        const { id } = await context.params;
         const account = await prisma.savingsAccount.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -20,14 +20,14 @@ export async function GET(request: Request, context: { params: { id: string } })
     }
 }
 
-export async function PUT(request: Request, context: { params: { id: string } }) {
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
     try {
         const session = await auth();
         if (!session?.user || session.user.role === "anggota") {
             return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
         }
 
-        const { id } = context.params;
+        const { id } = await context.params;
         const body = await request.json();
         const { status } = body;
 
@@ -42,14 +42,14 @@ export async function PUT(request: Request, context: { params: { id: string } })
     }
 }
 
-export async function DELETE(request: Request, context: { params: { id: string } }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
     try {
         const session = await auth();
         if (!session?.user || session.user.role === "anggota") {
             return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
         }
 
-        const { id } = context.params;
+        const { id } = await context.params;
 
         const account = await prisma.savingsAccount.findUnique({
             where: { id: parseInt(id) },
