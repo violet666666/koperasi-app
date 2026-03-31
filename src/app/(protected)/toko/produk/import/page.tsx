@@ -17,6 +17,7 @@ import {
     AlertTriangle,
     Loader2,
     ArrowLeft,
+    Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
@@ -204,12 +205,32 @@ export default function TokoProdukImportPage() {
                 title="Import Produk Toko"
                 description="Upload file Excel (.xlsx/.csv) untuk menambah stok / memperbarui / memasukkan produk baru secara massal."
                 actions={
-                    <Button variant="outline" asChild>
-                        <Link href="/toko/produk">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Kembali ke Produk
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="destructive" onClick={async () => {
+                            if (!confirm('PERINGATAN: Semua produk toko akan dihapus!\n\nAnda yakin ingin menghapus semua produk untuk import ulang?')) return;
+                            try {
+                                toast.info('Menghapus semua produk...');
+                                const res = await fetch('/api/toko/products/reset', { method: 'DELETE' });
+                                const json = await res.json();
+                                if (res.ok) {
+                                    toast.success(json.message);
+                                } else {
+                                    toast.error(json.message || 'Gagal menghapus');
+                                }
+                            } catch (e) {
+                                toast.error('Gagal menghubungi server');
+                            }
+                        }}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Reset Semua Produk
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/toko/produk">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Kembali ke Produk
+                            </Link>
+                        </Button>
+                    </div>
                 }
             />
 

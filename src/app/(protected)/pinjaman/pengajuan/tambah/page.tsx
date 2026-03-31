@@ -20,27 +20,36 @@ import { toast } from "sonner";
 import { Loader2, Save, Search, Calculator } from "lucide-react";
 import { formatCurrency, INTEREST_METHODS } from "@/lib/constants";
 
-// Mock members
-const MOCK_MEMBERS = [
-    { id: 1, member_no: "A-001", name: "Budi Santoso", savings_balance: 5000000 },
-    { id: 2, member_no: "A-002", name: "Siti Aminah", savings_balance: 3500000 },
-    { id: 3, member_no: "A-003", name: "Joko Widodo", savings_balance: 2200000 },
-];
+interface LoanProduct {
+    id: number;
+    code: string;
+    name: string;
+    interest_method: string;
+    interest_rate: number;
+    min_amount: number;
+    max_amount: number;
+    min_tenor: number;
+    max_tenor: number;
+    admin_fee_type: string;
+    admin_fee_value: number;
+}
 
-// Mock loan products
-const MOCK_PRODUCTS = [
-    { id: 1, code: "PJM-REG", name: "Pinjaman Reguler", interest_method: "flat", interest_rate: 1.5, min_amount: 1000000, max_amount: 50000000, min_tenor: 3, max_tenor: 24, admin_fee_type: "percent", admin_fee_value: 1 },
-    { id: 2, code: "PJM-USAHA", name: "Pinjaman Usaha", interest_method: "annuity", interest_rate: 1.2, min_amount: 5000000, max_amount: 100000000, min_tenor: 6, max_tenor: 36, admin_fee_type: "percent", admin_fee_value: 1 },
-    { id: 3, code: "PJM-DARURAT", name: "Pinjaman Darurat", interest_method: "flat", interest_rate: 2.0, min_amount: 500000, max_amount: 10000000, min_tenor: 1, max_tenor: 12, admin_fee_type: "fixed", admin_fee_value: 50000 },
-];
+interface MemberResult {
+    id: number;
+    member_no: string;
+    name: string;
+    savings_balance: number;
+}
 
 export default function TambahPengajuanPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState("");
-    const [selectedMember, setSelectedMember] = React.useState<typeof MOCK_MEMBERS[0] | null>(null);
-    const [selectedProduct, setSelectedProduct] = React.useState<typeof MOCK_PRODUCTS[0] | null>(null);
+    const [selectedMember, setSelectedMember] = React.useState<MemberResult | null>(null);
+    const [selectedProduct, setSelectedProduct] = React.useState<LoanProduct | null>(null);
+    const [products, setProducts] = React.useState<LoanProduct[]>([]);
+    const [searchResults, setSearchResults] = React.useState<MemberResult[]>([]);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -60,20 +69,57 @@ export default function TambahPengajuanPage() {
         monthly: number;
     } | null>(null);
 
+    // Fetch loan products from DB
+    React.useEffect(() => {
+        const loadProducts = async () => {
+            try {
+                const res = await fetch("/api/loans/products");
+                if (res.ok) {
+                    const json = await res.json();
+                    setProducts(json.data || []);
+                }
+            } catch (e) {
+                // Fallback: use safe defaults
+                setProducts([{
+                    id: 1, code: "PR", name: "Pinjaman Reguler",
+                    interest_method: "flat", interest_rate: 0,
+                    min_amount: 1000000, max_amount: 20000000,
+                    min_tenor: 1, max_tenor: 36,
+                    admin_fee_type: "percent", admin_fee_value: 1,
+                }]);
+            }
+        };
+        loadProducts();
+    }, []);
+
     // Auto-select member from URL params
     React.useEffect(() => {
         const memberId = searchParams.get("member_id");
         if (memberId) {
-            const member = MOCK_MEMBERS.find((m) => m.id === parseInt(memberId));
-            if (member) setSelectedMember(member);
+            const loadMember = async () => {
+                try {
+                    const res = await fetch(`/api/members/${memberId}`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        const m = json.data;
+                        setSelectedMember({
+                            id: m.id,
+                            member_no: m.memberNo || m.nrp,
+                            name: m.name,
+                            savings_balance: 0,
+                        });
+                    }
+                } catch (e) { /* silent */ }
+            };
+            loadMember();
         }
     }, [searchParams]);
 
     // Update selected product when product_id changes
     React.useEffect(() => {
-        const product = MOCK_PRODUCTS.find((p) => p.id.toString() === formData.product_id);
+        const product = products.find((p) => p.id.toString() === formData.product_id);
         setSelectedProduct(product || null);
-    }, [formData.product_id]);
+    }, [formData.product_id, products]);
 
     // Calculate loan details
     React.useEffect(() => {
@@ -84,14 +130,13 @@ export default function TambahPengajuanPage() {
 
         const principal = parseFloat(formData.amount);
         const tenor = parseInt(formData.tenor_months);
-        const rate = selectedProduct.interest_rate / 100;
 
-        // Logika Baru: 1% Biaya Jasa ditambahkan ke Total Pinjaman (bukan dipotong di awal)
+        // Logika: 1% Biaya Jasa ditambahkan ke Total Pinjaman
         const admin_fee = principal * 0.01;
-        const interest = admin_fee; // Menjadi interest/bunga agar te-record ke pembagian SHU
+        const interest = admin_fee;
         const total = principal + admin_fee;
         const monthly = total / tenor;
-        const disbursed = principal; // Dana cair utuh sesuai pengajuan
+        const disbursed = principal; // Dana cair utuh
 
         setCalculation({
             principal,
@@ -112,15 +157,27 @@ export default function TambahPengajuanPage() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleMemberSearch = () => {
-        const member = MOCK_MEMBERS.find(
-            (m) => m.member_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        if (member) {
-            setSelectedMember(member);
-        } else {
-            toast.error("Anggota tidak ditemukan");
+    const handleMemberSearch = async () => {
+        if (!searchQuery.trim()) return;
+        try {
+            const res = await fetch(`/api/members?search=${encodeURIComponent(searchQuery)}&limit=5`);
+            if (res.ok) {
+                const json = await res.json();
+                const members = (json.data || []).map((m: any) => ({
+                    id: m.id, member_no: m.memberNo || m.nrp, name: m.name, savings_balance: 0,
+                }));
+                if (members.length === 1) {
+                    setSelectedMember(members[0]);
+                    setSearchResults([]);
+                } else if (members.length > 1) {
+                    setSearchResults(members);
+                } else {
+                    toast.error("Anggota tidak ditemukan");
+                    setSearchResults([]);
+                }
+            }
+        } catch (e) {
+            toast.error("Gagal mencari anggota");
         }
     };
 
@@ -137,12 +194,40 @@ export default function TambahPengajuanPage() {
             return;
         }
 
+        const amt = parseFloat(formData.amount);
+        const tnr = parseInt(formData.tenor_months);
+
+        if (selectedProduct && amt > selectedProduct.max_amount) {
+            toast.error(`Jumlah melebihi plafon maks ${formatCurrency(selectedProduct.max_amount)}`);
+            return;
+        }
+        if (selectedProduct && tnr > selectedProduct.max_tenor) {
+            toast.error(`Tenor melebihi maks ${selectedProduct.max_tenor} bulan`);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            toast.success("Pengajuan pinjaman berhasil dibuat");
-            router.push("/pinjaman");
+            const res = await fetch("/api/loans/applications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    memberId: selectedMember.id,
+                    productId: parseInt(formData.product_id),
+                    amount: amt,
+                    tenorMonths: tnr,
+                    purpose: formData.purpose || "Keperluan pribadi",
+                }),
+            });
+
+            const json = await res.json();
+            if (res.ok) {
+                toast.success("Pengajuan pinjaman berhasil dibuat");
+                router.push("/pinjaman/pengajuan");
+            } else {
+                toast.error(json.message || "Gagal membuat pengajuan");
+            }
         } catch (error) {
             toast.error("Gagal membuat pengajuan");
             console.error(error);
@@ -224,7 +309,7 @@ export default function TambahPengajuanPage() {
                                             <SelectValue placeholder="Pilih produk" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {MOCK_PRODUCTS.map((product) => (
+                                            {products.map((product: LoanProduct) => (
                                                 <SelectItem key={product.id} value={product.id.toString()}>
                                                     <div className="flex flex-col">
                                                         <span>{product.name}</span>
