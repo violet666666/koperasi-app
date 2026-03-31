@@ -96,10 +96,10 @@ export async function POST(request: Request) {
             );
         }
 
-        // Hitung angsuran per bulan (Pokok saja) & Biaya Administrasi
+        // Hitung angsuran per bulan (Pokok + 1% Jasa Admin dikapitalisasi)
         const adminFee = amount * 0.01; // Biaya jasa 1%
-        const monthlyPrincipal = amount / tenor;
-        const monthlyInstallment = monthlyPrincipal;
+        const totalPiutang = amount + adminFee;
+        const monthlyInstallment = totalPiutang / tenor;
 
         // Buat aplikasi pinjaman
         const appPrefix = "APP-MOBILE-";
@@ -143,6 +143,7 @@ export async function POST(request: Request) {
             data: {
                 id: application.id,
                 amount: amount,
+                totalPiutang: totalPiutang, // Koperasi Piutang Koperasi
                 tenor: tenor,
                 monthlyInstallment: Math.round(monthlyInstallment),
                 status: "submitted",

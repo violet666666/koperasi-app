@@ -44,7 +44,9 @@ export default function LoanApplicationScreen({ navigation }: any) {
     const amt = parseFloat(amount);
     const tnr = parseInt(tenor);
     if (!amt || !tnr) return 0;
-    return Math.round(amt / tnr); // Pokok saja, tanpa bunga per bulan
+    const fee = Math.round(amt * 0.01);
+    const totalPiutang = amt + fee;
+    return Math.round(totalPiutang / tnr); 
   };
 
   const adminFee = () => {
@@ -80,7 +82,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
     Alert.alert(
       'Konfirmasi Pengajuan',
-      `Pinjaman ${selectedProduct.name}\nJumlah: ${formatRp(amt)}\nTenor: ${tnr} bulan\nBiaya Jasa (1%): ${formatRp(adminFee())}\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
+      `Pinjaman: ${selectedProduct.name}\nTerima Bersih: ${formatRp(amt)}\nTotal Hutang (Pokok+1%): ${formatRp(amt + adminFee())}\nTenor: ${tnr} bulan\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -175,12 +177,12 @@ export default function LoanApplicationScreen({ navigation }: any) {
           {/* Preview */}
           {selectedProduct && amount && tenor && (
             <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Estimasi Angsuran</Text>
-              <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())} / bulan</Text>
+              <Text style={styles.previewTitle}>Terima Bersih: {formatRp(parseFloat(amount) || 0)}</Text>
+              <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())} / bln</Text>
               <Text style={styles.previewNote}>
-                Angsuran Pokok Saja (Bunga 0%)
+                Total Hutang = Pokok + 1% Jasa Admin ({formatRp((parseFloat(amount)||0) + adminFee())})
                 {'\n'}
-                Terpotong biaya jasa admin 1%: {formatRp(adminFee())}
+                Dibayar selama {tenor} bulan
               </Text>
             </View>
           )}
