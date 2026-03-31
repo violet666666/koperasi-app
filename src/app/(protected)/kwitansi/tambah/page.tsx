@@ -54,8 +54,10 @@ export default function TambahKwitansiPage() {
         setIsSearching(true);
         try {
             const response = await memberLookupApi.byNrp(formData.nrp);
-            if (response.data) {
-                setMember(response.data);
+            // API returns { data: Member[] } (array), pick the first match
+            const members = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
+            if (members.length > 0) {
+                setMember(members[0]);
                 toast.success("Anggota ditemukan");
             } else {
                 setMember(null);
@@ -273,7 +275,7 @@ export default function TambahKwitansiPage() {
                                     <div className="col-span-2">{member.nrp || "-"}</div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 py-2 border-b">
-                                    <div className="text-sm text-muted-foreground">NRP</div>
+                                    <div className="text-sm text-muted-foreground">No. Anggota</div>
                                     <div className="col-span-2">{member.memberNo}</div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 py-2 border-b">

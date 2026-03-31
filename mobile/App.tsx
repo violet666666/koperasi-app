@@ -48,6 +48,7 @@ import MasterDataHubScreen from "./src/screens/operator/MasterDataHubScreen";
 import ImportDataScreen from "./src/screens/operator/ImportDataScreen";
 import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
 import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
+import BukuKasScreen from "./src/screens/operator/BukuKasScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -201,6 +202,7 @@ export default function App() {
             <Stack.Screen name="ImportData" component={ImportDataScreen} />
             <Stack.Screen name="KwitansiList" component={KwitansiListScreen} />
             <Stack.Screen name="KwitansiForm" component={KwitansiFormScreen} />
+            <Stack.Screen name="BukuKasList" component={BukuKasScreen} />
 
             {/* ====== Common Sub-screens ====== */}
             <Stack.Screen

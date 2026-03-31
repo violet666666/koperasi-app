@@ -91,6 +91,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 icon: Building,
                 permission: "manage_kas_bank",
                 children: [
+                    { title: "Buku Kas", href: "/kas-bank/buku-kas" },
                     { title: "Transaksi Kas", href: "/kas-bank/kas" },
                     { title: "Transaksi Bank", href: "/kas-bank/bank" },
                     { title: "Transfer", href: "/kas-bank/transfer" },
