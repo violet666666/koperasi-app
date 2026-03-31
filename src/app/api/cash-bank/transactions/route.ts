@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createCashBankTransactionSchema, paginationSchema } from "@/lib/validations";
+import { auth } from "@/lib/auth";
 
 // Helper to generate transaction number
 function generateTransactionNo(type: string): string {
@@ -75,6 +76,22 @@ export async function GET(request: Request) {
 // POST /api/cash-bank/transactions
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        const userId = session?.user?.id ? parseInt(session.user.id) : undefined;
+        
+        let finalUserId = userId;
+        if (!finalUserId) {
+             const firstUser = await prisma.user.findFirst({ where: { isActive: true } });
+             if (firstUser) finalUserId = firstUser.id;
+        }
+
+        if (!finalUserId) {
+             return NextResponse.json(
+                 { message: "Unauthorized. User ID not found." },
+                 { status: 401 }
+             );
+        }
+
         const body = await request.json();
         const data = createCashBankTransactionSchema.parse(body);
 
@@ -116,7 +133,7 @@ export async function POST(request: Request) {
                 balanceAfter,
                 description: data.description,
                 transactionDate: data.transactionDate,
-                createdById: 1, // TODO: Get from session
+                createdById: finalUserId,
             },
             include: {
                 account: true,
