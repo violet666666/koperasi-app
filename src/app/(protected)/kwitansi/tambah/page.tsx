@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Save, Search } from "lucide-react";
 import { receiptsApi, memberLookupApi, type Member } from "@/lib/api/services";
+import { PAYMENT_METHODS } from "@/lib/terbilang";
 
 export default function TambahKwitansiPage() {
     const router = useRouter();
@@ -206,8 +207,9 @@ export default function TambahKwitansiPage() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="cash">Tunai</SelectItem>
-                                        <SelectItem value="bank_transfer">Transfer Bank</SelectItem>
+                                        {PAYMENT_METHODS.map((m) => (
+                                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
