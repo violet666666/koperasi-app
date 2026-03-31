@@ -96,10 +96,15 @@ const columns: ColumnDef<CashTransaction>[] = [
         header: "Kategori",
         cell: ({ row }) => {
             const categories: Record<string, string> = {
-                operational: "Operasional",
-                savings: "Simpanan",
-                loan: "Pinjaman",
-                other: "Lainnya",
+                simpanan_pokok: "Simpanan Pokok",
+                simpanan_wajib: "Simpanan Wajib",
+                simpanan_sukarela: "Simpanan Sukarela",
+                angsuran_pokok: "Angsuran Pinjaman",
+                jasa_pinjaman: "Jasa Pinjaman",
+                pencairan_pinjaman: "Pencairan Pinjaman",
+                biaya_operasional: "Operasional",
+                transfer: "Transfer",
+                lainnya: "Lainnya",
             };
             return categories[row.getValue("category") as string] || row.getValue("category");
         },
@@ -145,7 +150,7 @@ export default function TransaksiKasPage() {
     const [formData, setFormData] = React.useState({
         accountId: "",
         amount: "",
-        category: "operational",
+        category: "biaya_operasional",
         description: "",
     });
 
@@ -198,11 +203,13 @@ export default function TransaksiKasPage() {
                 accountId: Number(formData.accountId),
                 type: transactionType,
                 amount: Number(formData.amount),
+                category: formData.category,
                 description: formData.description,
+                transactionDate: new Date().toISOString(),
             });
             toast.success("Transaksi berhasil dicatat");
             setDialogOpen(false);
-            setFormData({ accountId: "", amount: "", category: "operational", description: "" });
+            setFormData({ accountId: "", amount: "", category: "biaya_operasional", description: "" });
             // Refresh data
             const txRes = await cashBankApi.transactions({});
             setTransactions(((txRes as any).data || []) as CashTransaction[]);
@@ -280,10 +287,15 @@ export default function TransaksiKasPage() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="operational">Operasional</SelectItem>
-                                                <SelectItem value="savings">Simpanan</SelectItem>
-                                                <SelectItem value="loan">Pinjaman</SelectItem>
-                                                <SelectItem value="other">Lainnya</SelectItem>
+                                                <SelectItem value="biaya_operasional">Operasional</SelectItem>
+                                                <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
+                                                <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
+                                                <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
+                                                <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
+                                                <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
+                                                <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
+                                                <SelectItem value="transfer">Transfer</SelectItem>
+                                                <SelectItem value="lainnya">Lainnya</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
