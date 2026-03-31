@@ -167,7 +167,7 @@ export const createCashBankTransactionSchema = z.object({
     ]).optional(),
     amount: z.number().positive(),
     description: z.string().optional(),
-    transactionDate: z.string().transform((s) => new Date(s)),
+    transactionDate: z.string().optional().default(new Date().toISOString()).transform((s) => new Date(s)),
 });
 
 // Transfer validation schemas

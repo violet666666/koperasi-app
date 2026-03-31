@@ -1,67 +1,120 @@
-# Koperasi Digital System
+# Koperasi Digital — Primkoppol Resor Lumajang
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.1-black?style=for-the-badge&logo=next.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-6.0-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Expo](https://img.shields.io/badge/Expo-52-000020?style=for-the-badge&logo=expo&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-0.76-61DAFB?style=for-the-badge&logo=react&logoColor=white)
 
-A modern, comprehensive digital cooperative (Koperasi) management system built with Next.js 16, TypeScript, and Prisma. Designed to streamline operations for multi-branch cooperatives including member management, savings, loans, and accounting.
+Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL Polres Lumajang**. Dibangun dengan Next.js 16, TypeScript, dan Prisma untuk platform web, serta Expo/React Native untuk platform mobile (Android & iOS).
 
-## 🚀 Key Features
+## 🌐 Live Demo
 
-### 👥 Member Management
-- Complete member lifecycle management (Registration, Active, Inactive, Resigned)
-- Detailed member profiles with savings and loan history
-- Multi-branch support for member grouping
+- **Web App**: [https://www.primkoppol.online](https://www.primkoppol.online)
+- **Mobile APK**: Build via EAS (lihat [panduan mobile](#-mobile-app))
 
-### 💰 Savings (Simpanan)
-- Support for multiple savings products (Pokok, Wajib, Sukarela)
-- Real-time transaction processing (Deposits & Withdrawals)
-- Automatic transaction logging and balance updates
+## ✨ Highlights
 
-### 💸 Loans (Pinjaman)
-- Flexible loan product configuration (Interest rates, Tenor, Fees)
-- Full loan lifecycle: Application -> Approval -> Disbursement -> Repayment
-- Automated installment schedule generation
-- Late fee calculation and tracking
+- 📊 **160+ halaman & 90+ API endpoint** — fitur koperasi paling lengkap
+- 📱 **Mobile app native** (Android & iOS) dengan fitur paritas penuh
+- 🏦 **Akuntansi double-entry** — Jurnal, Buku Besar, Neraca, Laba Rugi
+- 💰 **SHU realtime** — Kalkulasi otomatis sesuai AD-ART Pasal 42
+- 🛒 **POS Kasir** — Toko retail dengan skema kredit potong gaji
+- 📄 **Import Excel** — Migrasi data anggota, pinjaman, Tunkin, Gaji
+- 🔐 **4 level role** — Operator, Admin, Kasir, Anggota
+- 📝 **Audit trail** — Logging aksi append-only dengan IP & User Agent
 
-### 📊 Accounting & Finance
-- Double-entry bookkeeping system
-- Customizable Chart of Accounts (COA)
-- Cash & Bank management including transfers
-- Real-time financial reports:
-  - Balance Sheet (Neraca)
-  - Profit & Loss (Laba Rugi)
-  - SHU (Sisa Hasil Usaha)
+---
 
-### 🛡️ Security & Access Control
-- Role-Based Access Control (Admin, Manager, Teller)
-- Secure authentication with NextAuth.js
-- Audit trails for sensitive actions
+## 🚀 Fitur Utama
+
+### 👥 Manajemen Anggota
+- Siklus lengkap: pendaftaran, aktif, non-aktif, pensiun
+- Profil detail dengan histori simpanan & pinjaman
+- Import massal dari Excel/CSV (NAMA, NRP, TUNKIN, GAJI)
+- Buku anggota & kartu anggota digital
+
+### 💰 Simpanan
+- 4 produk simpanan: Pokok, Wajib, Sukarela, Sejahtera
+- Transaksi realtime: setoran & penarikan
+- Running balance otomatis per rekening
+- Rekap simpanan per produk & per anggota
+
+### 💸 Pinjaman
+- Bunga 0% + biaya administrasi 1% (Biaya Jasa Primkoppol)
+- Flow: Pengajuan → Review → Approval → Pencairan → Angsuran
+- Import migrasi data pinjaman SP lama dari Excel
+- Jadwal angsuran otomatis, parser tanggal Bahasa Indonesia
+- Auto-create akun anggota baru (NRP format `NO-NRP-XXXX`)
+
+### 📊 Akuntansi & Keuangan
+- Chart of Accounts (CoA) — Bagan Akun kustom
+- Jurnal Umum, Buku Besar, Jurnal Penyesuaian
+- Kas & Bank: transaksi, transfer, buku kas
+- Kwitansi: cetak A4 (arsip) / Thermal 80mm (kasir)
+- Aset koperasi dengan penyusutan otomatis
+
+### 📈 Laporan
+- Neraca (Laporan Posisi Keuangan)
+- Laba Rugi
+- Arus Kas
+- Rekapitulasi Simpanan, Pinjaman, Anggota
+- Simulasi SHU realtime sesuai AD-ART
+
+### 🛒 Toko / Unit Usaha
+- Kasir POS dengan barcode dan lookup NRP
+- Pembayaran Tunai atau Kredit (Potong Gaji)
+- Manajemen stok & persediaan
+- Import produk massal
+
+### 📱 Mobile App (Expo / React Native)
+- Fitur paritas 100% dengan web untuk setiap role
+- Bottom navigation kontekstual per role (4 tab)
+- Pull-to-refresh, splash screen, secure token storage
+- Dashboard operator: ringkasan, aktivitas, collapsible menu
+- Dashboard anggota: simpanan, pinjaman, tunkin, SHU, gaji
+- Kasir POS, stok barang, approval pinjaman
+
+### 🔐 Keamanan
+- NextAuth.js v5 dengan session management
+- Role-Based Access Control (4 level)
+- Audit Log append-only (IP, User Agent, diff sebelum/sesudah)
+- Konfirmasi "RESET-DATA" untuk operasi destruktif
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
-- **Language:** [TypeScript](https://www.typescriptlang.org/)
-- **Database:** PostgreSQL with [Prisma ORM](https://www.prisma.io/)
-- **Auth:** [NextAuth.js v5](https://authjs.dev/)
-- **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
-- **UI Components:** [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
-- **State Management:** [React Query](https://tanstack.com/query/latest)
-- **Forms:** React Hook Form + Zod Validation
+| Layer | Teknologi |
+|-------|-----------|
+| **Web Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
+| **Mobile Framework** | [Expo 52](https://expo.dev/) + [React Native](https://reactnative.dev/) |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) |
+| **Database** | PostgreSQL + [Prisma ORM 6.19](https://www.prisma.io/) |
+| **Auth** | [NextAuth.js v5](https://authjs.dev/) |
+| **Styling (Web)** | [Tailwind CSS 4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
+| **Styling (Mobile)** | React Native StyleSheet |
+| **State Management** | React Query + SWR |
+| **Forms** | React Hook Form + Zod Validation |
+| **Excel Parsing** | [xlsx (SheetJS)](https://sheetjs.com/) |
+| **Mobile Build** | [EAS Build](https://docs.expo.dev/build/introduction/) |
+
+---
 
 ## 📦 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - PostgreSQL Database
+- (Mobile) Expo CLI & EAS CLI
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/koperasi-app.git
+   git clone https://github.com/violet666666/koperasi-app.git
    cd koperasi-app
    ```
 
@@ -77,7 +130,7 @@ A modern, comprehensive digital cooperative (Koperasi) management system built w
    DATABASE_URL="postgresql://user:password@localhost:5432/koperasi_db"
 
    # Auth
-   AUTH_SECRET="your-super-secret-key" # Generate with: npx auth secret
+   AUTH_SECRET="your-super-secret-key"
    NEXTAUTH_URL="http://localhost:3000"
 
    # App
@@ -86,10 +139,7 @@ A modern, comprehensive digital cooperative (Koperasi) management system built w
 
 4. **Database Setup**
    ```bash
-   # Push schema to database
    npx prisma db push
-
-   # Seed initial data (Admin user, Branches, COA defaults)
    npm run db:seed
    ```
 
@@ -98,25 +148,73 @@ A modern, comprehensive digital cooperative (Koperasi) management system built w
    npm run dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000) to view the application.
+   Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 📱 Mobile App
+
+### Setup Mobile Development
+
+```bash
+cd mobile
+npm install
+```
+
+### Run Development (Expo Go)
+
+```bash
+npx expo start
+```
+
+### Build APK (Android)
+
+```bash
+npx eas build --platform android --profile preview
+```
+
+### Build for App Store (iOS)
+
+```bash
+npx eas build --platform ios --profile production
+```
+
+---
 
 ## 📖 Documentation
 
-For a detailed user guide covering all workflows (Members, Loans, Savings, Accounting), please refer to the **[USER_GUIDE.md](USER_GUIDE.md)** file included in this repository.
+Panduan lengkap penggunaan seluruh fitur tersedia di **[USER_GUIDE.md](USER_GUIDE.md)**, termasuk:
+- Daftar akun login & role
+- Panduan per role (Operator, Admin, Kasir, Anggota)
+- Detail fitur per modul (40+ modul)
+- Alur import & migrasi data
+- Perhitungan SHU sesuai AD-ART Pasal 42
+- Panduan mobile app
 
-## 🧪 Testing
+## 🧪 Build & Test
 
 ```bash
-# Run linting
+# Production build
+npm run build
+
+# Lint check
 npm run lint
 
-# Build for production
-npm run build
+# Prisma Studio (Database GUI)
+npx prisma studio
 ```
 
-## 🤝 Contributing
+## 📊 Project Stats
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+| Metric | Count |
+|--------|-------|
+| Web Pages | 160+ |
+| API Endpoints | 90+ |
+| Mobile Screens | 31 |
+| Database Models | 25+ |
+| Total Routes | 250+ |
+
+## 🤝 Contributing
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
@@ -127,3 +225,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Built with ❤️ for Koperasi PRIMKOPPOL Polres Lumajang**

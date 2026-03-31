@@ -381,8 +381,13 @@ export async function POST(request: Request) {
 
                                 if (!existingUser) {
                                     const passwordHash = await bcrypt.hash("123", 10);
-                                    const memberRole = await tx.role.findFirst({ where: { name: "member" } });
-                                    const roleId = memberRole ? memberRole.id : 2;
+                                    // Role name in seed is "anggota", not "member"
+                                    const memberRole = await tx.role.findFirst({ where: { name: "anggota" } });
+                                    if (!memberRole) {
+                                        // Skip creating user if no role found — just create member
+                                        activeMemberId = newMember.id;
+                                        continue;
+                                    }
 
                                     existingUser = await tx.user.create({
                                         data: {
@@ -390,7 +395,7 @@ export async function POST(request: Request) {
                                             password: passwordHash,
                                             name: data.newMemberName,
                                             isActive: true,
-                                            roleId: roleId,
+                                            roleId: memberRole.id,
                                             branchId: defaultBranch.id,
                                             memberId: newMember.id
                                         }
