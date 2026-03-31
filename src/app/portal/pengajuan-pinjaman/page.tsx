@@ -72,7 +72,11 @@ export default function PengajuanPinjamanPage() {
             const productsRes = await fetch("/api/master/loan-products");
             if (productsRes.ok) {
                 const productsData = await productsRes.json();
-                setLoanProducts(productsData.data || []);
+                const products = productsData.data || [];
+                setLoanProducts(products);
+                if (products.length > 0) {
+                    setSelectedProduct(String(products[0].id));
+                }
             }
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -106,7 +110,7 @@ export default function PengajuanPinjamanPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    productId: parseInt(selectedProduct),
+                    productId: selectedProduct ? parseInt(selectedProduct) : 1, // Fallback to 1 if no product exists
                     amount: parseFloat(amount),
                     tenorMonths: parseInt(tenor),
                     purpose,
@@ -391,20 +395,20 @@ export default function PengajuanPinjamanPage() {
                         </div>
 
                         {/* Estimated Monthly Installment */}
-                        {amount && tenor && selectedProductData && (
+                        {amount && tenor && (
                             <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
                                 <p className="text-sm font-semibold text-emerald-800">Estimasi Angsuran Per Bulan</p>
                                 <div className="grid grid-cols-2 gap-2 text-sm text-emerald-700">
                                     <div>Angsuran Pokok:</div>
                                     <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) / parseInt(tenor)))}</div>
-                                    <div>Angsuran Bunga ({selectedProductData.interestRate / 12}%):</div>
-                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100)))}</div>
+                                    <div>Angsuran Bunga (0.3%):</div>
+                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * 0.003))}</div>
                                     <div className="col-span-2 border-t border-emerald-200 my-1"></div>
                                     <div className="font-semibold text-emerald-900">Total Potongan Gaji/Bulan:</div>
                                     <div className="text-right font-bold text-lg text-emerald-900 tabular-nums">
                                         {formatCurrency(
                                             Math.ceil(parseFloat(amount) / parseInt(tenor)) + 
-                                            Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 12 / 100))
+                                            Math.ceil(parseFloat(amount) * 0.003)
                                         )}
                                     </div>
                                 </div>
