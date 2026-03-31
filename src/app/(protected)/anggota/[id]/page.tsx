@@ -208,18 +208,24 @@ export default function AnggotaDetailPage() {
                 };
                 setMember(memberData);
 
-                // Use the summary returned from the API, or fallback to 0 if an older format
+                // Map camelCase API -> snake_case frontend
+                const loansData = apiData.summary?.loans || {};
                 setSummary({
                     member_id: memberData.id,
                     member_no: memberData.member_no,
                     name: memberData.name,
-                    savings: apiData.summary?.savings || {
-                        total: 0,
-                        by_type: []
+                    savings: {
+                        total: apiData.summary?.savings?.total || 0,
+                        by_type: apiData.summary?.savings?.byType || [],
                     },
-                    loans: apiData.summary?.loans || {
-                        active_count: 0,
-                        total_outstanding: 0,
+                    loans: {
+                        active_count: loansData.activeCount || 0,
+                        total_outstanding: loansData.totalOutstanding || 0,
+                        total_principal_outstanding: loansData.totalPrincipalOutstanding || 0,
+                        total_interest_outstanding: loansData.totalInterestOutstanding || 0,
+                        next_installment: loansData.nextInstallment || null,
+                        overdue_amount: loansData.overdueAmount || 0,
+                        overdue_days: loansData.overdueDays || 0,
                     },
                     net_position: apiData.summary?.netPosition || 0,
                     estimasi_shu: apiData.summary?.estimasi_shu || 0,

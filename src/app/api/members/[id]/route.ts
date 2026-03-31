@@ -19,9 +19,7 @@ export async function GET(request: Request, { params }: Params) {
                         product: true,
                     },
                 },
-                loans: {
-                    where: { status: "active" },
-                },
+                loans: true,
             },
         });
 
@@ -51,17 +49,57 @@ export async function GET(request: Request, { params }: Params) {
             });
         }
 
-        const activeLoans = member.loans.filter((l) => l.status === "active");
+        const activeLoans = member.loans.filter((l) => l.status === "active" || l.status === "overdue");
         const totalOutstanding = activeLoans.reduce(
             (sum, l) => sum + Number(l.principalOutstanding) + Number(l.interestOutstanding),
             0
         );
+        const totalPrincipalOutstanding = activeLoans.reduce(
+            (sum, l) => sum + Number(l.principalOutstanding), 0
+        );
+        const totalInterestOutstanding = activeLoans.reduce(
+            (sum, l) => sum + Number(l.interestOutstanding), 0
+        );
 
-        // Calculate estimasi_shu
-        // For accurate real-time SHU, we can just fetch the shuAmount if needed, but since it's an estimate, 
-        // we can fetch the dynamically calculated SHU from reports route or calculate it here.
-        // Doing a quick fetch to the same logic or just estimating 0 if no transactions.
-        let estimasi_shu = 0; // It will be 0 natively unless there's income, consistent with the rest of the app.
+        // Overdue info
+        const overdueLoans = member.loans.filter((l) => l.status === "overdue");
+        const overdueAmount = overdueLoans.reduce(
+            (sum, l) => sum + Number(l.principalOutstanding) + Number(l.interestOutstanding), 0
+        );
+        let overdueDays = 0;
+        if (overdueLoans.length > 0) {
+            const now = new Date();
+            overdueLoans.forEach(l => {
+                if (l.maturityDate) {
+                    const diff = Math.floor((now.getTime() - new Date(l.maturityDate).getTime()) / (1000 * 60 * 60 * 24));
+                    if (diff > overdueDays) overdueDays = diff;
+                }
+            });
+        }
+
+        // Next installment — find from LoanSchedule
+        let nextInstallment = null;
+        if (activeLoans.length > 0) {
+            const today = new Date();
+            const schedule = await prisma.loanSchedule.findFirst({
+                where: {
+                    loanId: { in: activeLoans.map(l => l.id) },
+                    status: { in: ["pending", "partial", "overdue"] },
+                    dueDate: { gte: today },
+                },
+                orderBy: { dueDate: "asc" },
+            });
+            if (schedule) {
+                nextInstallment = {
+                    loan_id: schedule.loanId,
+                    due_date: schedule.dueDate.toISOString(),
+                    amount: Number(schedule.principalAmount) + Number(schedule.interestAmount),
+                };
+            }
+        }
+
+        // Estimasi SHU = 0 by default (will be nonzero when SHU reports run)
+        const estimasi_shu = 0;
 
         return NextResponse.json({ 
             data: {
@@ -74,6 +112,11 @@ export async function GET(request: Request, { params }: Params) {
                     loans: {
                         activeCount: activeLoans.length,
                         totalOutstanding,
+                        totalPrincipalOutstanding,
+                        totalInterestOutstanding,
+                        nextInstallment,
+                        overdueAmount,
+                        overdueDays,
                     },
                     netPosition: totalSavings - totalOutstanding,
                     estimasi_shu,
