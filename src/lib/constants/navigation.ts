@@ -68,6 +68,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 icon: Wallet,
                 permission: "manage_simpanan",
                 children: [
+                    { title: "Rekening Anggota", href: "/simpanan/rekening" },
                     { title: "Transaksi Simpanan", href: "/simpanan/transaksi" },
                     { title: "Rekap Simpanan", href: "/simpanan/rekap" },
                 ],

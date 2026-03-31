@@ -331,23 +331,7 @@ export default function ImportDataPage() {
                 description="Upload file CSV untuk update data anggota secara massal"
                 actions={
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={async () => {
-                            try {
-                                toast.info("Membuka rekening simpanan...");
-                                const res = await fetch("/api/members/provision-accounts", { method: "POST" });
-                                const json = await res.json();
-                                if (res.ok) {
-                                    toast.success(json.message);
-                                } else {
-                                    toast.error(json.message || "Gagal membuka rekening");
-                                }
-                            } catch (e) {
-                                toast.error("Gagal menghubungi server");
-                            }
-                        }}>
-                            <Wallet className="mr-2 h-4 w-4" />
-                            Buka Rekening Simpanan
-                        </Button>
+                        {/* Buka Rekening Simpanan button removed as per PR to migrate to manual CRUD */}
                         <Button variant="outline" onClick={handleExport}>
                             <Download className="mr-2 h-4 w-4" />
                             Export Data Anggota
