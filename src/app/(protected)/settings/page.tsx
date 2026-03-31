@@ -28,7 +28,11 @@ import {
     Download,
     Upload,
     RefreshCw,
+    AlertTriangle,
+    Trash2
 } from "lucide-react";
+import { processDataReset } from "@/lib/actions/reset.action";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AppSettings {
     // General
@@ -54,6 +58,13 @@ export default function SettingsPage() {
     const [settings, setSettings] = React.useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
+    
+    // States for Data Reset
+    const [resetStoreData, setResetStoreData] = React.useState(false);
+    const [resetFinancialData, setResetFinancialData] = React.useState(false);
+    const [resetMemberData, setResetMemberData] = React.useState(false);
+    const [resetConfirmation, setResetConfirmation] = React.useState("");
+    const [isResetting, setIsResetting] = React.useState(false);
 
     // Fetch settings
     React.useEffect(() => {
@@ -107,6 +118,42 @@ export default function SettingsPage() {
         toast.success("Backup berhasil dibuat");
     };
 
+    const handleResetData = async () => {
+        if (resetConfirmation !== "RESET-DATA") {
+            toast.error("Kata kunci konfirmasi tidak cocok.");
+            return;
+        }
+        
+        if (!resetStoreData && !resetFinancialData && !resetMemberData) {
+            toast.error("Pilih minimal satu tipe data yang akan dihapus.");
+            return;
+        }
+
+        setIsResetting(true);
+        try {
+            const result = await processDataReset({
+                resetStoreData,
+                resetFinancialData,
+                resetMemberData
+            });
+
+            if (result.success) {
+                toast.success(result.message);
+                // Reset inputs
+                setResetStoreData(false);
+                setResetFinancialData(false);
+                setResetMemberData(false);
+                setResetConfirmation("");
+            } else {
+                toast.error(result.error);
+            }
+        } catch (error) {
+            toast.error("Terjadi kesalahan saat memproses reset data.");
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -139,7 +186,7 @@ export default function SettingsPage() {
 
             {settings && (
                 <Tabs defaultValue="general" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+                    <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
                         <TabsTrigger value="general">
                             <Settings className="mr-2 h-4 w-4 hidden sm:inline" />
                             Umum
@@ -155,6 +202,10 @@ export default function SettingsPage() {
                         <TabsTrigger value="backup">
                             <Database className="mr-2 h-4 w-4 hidden sm:inline" />
                             Backup
+                        </TabsTrigger>
+                        <TabsTrigger value="reset">
+                            <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
+                            <span className="text-red-500 font-medium">Reset Data</span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -384,6 +435,101 @@ export default function SettingsPage() {
                                         <Button variant="outline">
                                             <Upload className="mr-2 h-4 w-4" />
                                             Restore
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Reset Data Settings */}
+                    <TabsContent value="reset">
+                        <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/10">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2 text-red-600 dark:text-red-400">
+                                    <AlertTriangle className="h-5 w-5" />
+                                    Danger Zone: Reset & Hapus Data
+                                </CardTitle>
+                                <CardDescription className="text-red-600/80 dark:text-red-400/80 border-l-4 border-red-500 pl-4 py-2 mt-2 bg-red-100 dark:bg-red-900/30">
+                                    Peringatan! Proses ini bersifat permanen dan tidak dapat dikembalikan. Data yang dihapus akan musnah selamanya. Gunakan fitur ini hanya saat ingin melakukan pembersihan awal atau import data ulang secara massal.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-store" 
+                                            checked={resetStoreData}
+                                            onCheckedChange={(checked) => setResetStoreData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-store" className="font-semibold text-base cursor-pointer">Reset Data Toko</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Produk, Transaksi Penjualan, dan Riwayat Penjualan Toko.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-financial" 
+                                            checked={resetFinancialData}
+                                            onCheckedChange={(checked) => setResetFinancialData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-financial" className="font-semibold text-base cursor-pointer">Reset Data Keuangan & Transaksi</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Pinjaman, Jurnal, Transaksi Rekening, Transaksi Simpanan, Tagihan, Kwitansi, dan Mutasi Kas/Bank. (Saldo Kas/Bank akan di-reset menjadi 0).</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background opacity-90">
+                                        <Checkbox 
+                                            id="reset-member" 
+                                            checked={resetMemberData}
+                                            onCheckedChange={(checked) => {
+                                                if (checked && !resetFinancialData) {
+                                                    toast.warning("Centang 'Data Keuangan' terlebih dahulu", {
+                                                        description: "Data Anggota memiliki ikatan dengan Data Keuangan/Pinjaman/Simpanan."
+                                                    });
+                                                    setResetFinancialData(true);
+                                                }
+                                                setResetMemberData(checked as boolean);
+                                            }}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-member" className="font-semibold text-base cursor-pointer">Reset Data Anggota</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Profil Anggota beserta Akun Simpanan mereka. Membutuhkan izin penghapusan Data Keuangan.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 mt-6 border-t border-red-200">
+                                    <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-md space-y-4 border border-red-100 dark:border-red-900/50">
+                                        <Label className="text-red-700 dark:text-red-400 font-semibold mb-2 block">Konfirmasi Penghapusan</Label>
+                                        <p className="text-sm text-red-600/80 dark:text-red-400/80 mb-2">
+                                            Untuk melanjutkan, ketik <strong>RESET-DATA</strong> di kotak di bawah ini.
+                                        </p>
+                                        <Input
+                                            value={resetConfirmation}
+                                            onChange={(e) => setResetConfirmation(e.target.value)}
+                                            placeholder="Ketik RESET-DATA"
+                                            className="max-w-md border-red-300 focus-visible:ring-red-500"
+                                        />
+                                        
+                                        <Button 
+                                            variant="destructive" 
+                                            onClick={handleResetData}
+                                            disabled={
+                                                isResetting || 
+                                                resetConfirmation !== "RESET-DATA" || 
+                                                (!resetStoreData && !resetFinancialData && !resetMemberData)
+                                            }
+                                            className="w-full sm:w-auto mt-4"
+                                        >
+                                            {isResetting ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                            )}
+                                            {isResetting ? "Sedang Menghapus Data..." : "Eksekusi Hapus Data Terpilih"}
                                         </Button>
                                     </div>
                                 </div>
