@@ -86,13 +86,12 @@ export default function TambahPengajuanPage() {
         const tenor = parseInt(formData.tenor_months);
         const rate = selectedProduct.interest_rate / 100;
 
-        // Bunga dihapus (0%) sesuai kebijakan Koperasi Primkoppol Lumajang
-        let interest = 0;
-        let monthly = principal / tenor;
-
-        const total = principal;
-        const admin_fee = principal * 0.01; // Biaya jasa 1% tetap
-        const disbursed = principal - admin_fee;
+        // Logika Baru: 1% Biaya Jasa ditambahkan ke Total Pinjaman (bukan dipotong di awal)
+        const admin_fee = principal * 0.01;
+        const interest = admin_fee; // Menjadi interest/bunga agar te-record ke pembagian SHU
+        const total = principal + admin_fee;
+        const monthly = total / tenor;
+        const disbursed = principal; // Dana cair utuh sesuai pengajuan
 
         setCalculation({
             principal,
@@ -325,8 +324,8 @@ export default function TambahPengajuanPage() {
                                                 <span className="font-medium tabular-nums">{formatCurrency(calculation.principal)}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Total Bunga (0%)</span>
-                                                <span className="font-medium tabular-nums">{formatCurrency(calculation.interest)}</span>
+                                                <span className="text-muted-foreground">Biaya Jasa (1%)</span>
+                                                <span className="font-medium tabular-nums text-red-600">+ {formatCurrency(calculation.admin_fee)}</span>
                                             </div>
                                             <Separator />
                                             <div className="flex justify-between">
@@ -339,11 +338,7 @@ export default function TambahPengajuanPage() {
 
                                         <div className="space-y-3">
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Biaya Jasa Admin (1%)</span>
-                                                <span className="font-medium tabular-nums text-red-600">- {formatCurrency(calculation.admin_fee)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="font-semibold">Dana Cair</span>
+                                                <span className="font-semibold">Dana Cair (Diterima)</span>
                                                 <span className="text-lg font-bold text-emerald-600 tabular-nums">{formatCurrency(calculation.disbursed)}</span>
                                             </div>
                                         </div>
@@ -357,7 +352,7 @@ export default function TambahPengajuanPage() {
                                         </div>
 
                                         <p className="text-xs text-muted-foreground text-center">
-                                            Pinjaman Tanpa Bunga - Potongan Jasa 1% di Awal
+                                            Pinjaman Tanpa Bunga - Biaya Jasa 1% ditambahkan ke Angsuran
                                         </p>
                                     </div>
                                 ) : (

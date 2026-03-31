@@ -208,25 +208,21 @@ export default function AnggotaDetailPage() {
                 };
                 setMember(memberData);
 
-                // Construct summary object (placeholder until summary endpoint exists)
+                // Use the summary returned from the API, or fallback to 0 if an older format
                 setSummary({
                     member_id: memberData.id,
                     member_no: memberData.member_no,
                     name: memberData.name,
-                    savings: {
+                    savings: apiData.summary?.savings || {
                         total: 0,
                         by_type: []
                     },
-                    loans: {
+                    loans: apiData.summary?.loans || {
                         active_count: 0,
                         total_outstanding: 0,
-                        total_principal_outstanding: 0,
-                        total_interest_outstanding: 0,
-                        overdue_amount: 0,
-                        overdue_days: 0
                     },
-                    net_position: 0,
-                    estimasi_shu: 1500000,
+                    net_position: apiData.summary?.netPosition || 0,
+                    estimasi_shu: apiData.summary?.estimasi_shu || 0,
                 });
 
                 // Fetch Tabungan Sejahtera

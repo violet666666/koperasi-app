@@ -28,10 +28,11 @@ export async function POST(request: Request, { params }: Params) {
         const tenorMonths = application.tenorMonths;
         const interestRate = 0; // Fixed 0%
         
-        const totalInterest = 0;
-        const totalAmount = principalAmount;
-        const monthlyInstallment = Math.round(principalAmount / tenorMonths);
         const adminFee = Math.round(principalAmount * 0.01); // Biaya jasa 1% dari total pinjaman
+        const totalInterest = adminFee; // 1% dimasukkan ke bunganya agar terhitung sebagai pendapatan Koperasi
+        const totalAmount = principalAmount + adminFee;
+        const monthlyInstallment = Math.round(totalAmount / tenorMonths);
+        const disbursedAmount = principalAmount; // Dana cair diterima utuh
 
         // Transaction Block for Disbursement
         const result = await prisma.$transaction(async (tx) => {
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: Params) {
                     interestAmount: totalInterest,
                     totalAmount,
                     adminFee,
-                    disbursedAmount: principalAmount - adminFee,
+                    disbursedAmount,
                     tenorMonths,
                     interestRate,
                     interestMethod: product.interestMethod,
@@ -81,18 +82,20 @@ export async function POST(request: Request, { params }: Params) {
                     loanId: newLoan.id,
                     installmentNo: i,
                     dueDate,
-                    principalAmount: Math.round(principalAmount / tenorMonths),
-                    interestAmount: Math.round(totalInterest / tenorMonths),
-                    totalAmount: monthlyInstallment,
+                    principalAmount: Math.floor(principalAmount / tenorMonths),
+                    interestAmount: Math.floor(totalInterest / tenorMonths),
+                    totalAmount: Math.floor(totalAmount / tenorMonths),
                     status: "pending"
                 });
             }
             // Fix last installment rounding
-            const installedPrincipal = Math.round(principalAmount / tenorMonths) * tenorMonths;
-            if (installedPrincipal !== principalAmount) {
-                schedules[tenorMonths - 1].principalAmount += (principalAmount - installedPrincipal);
-                schedules[tenorMonths - 1].totalAmount = schedules[tenorMonths - 1].principalAmount + schedules[tenorMonths - 1].interestAmount;
-            }
+            const installedPrincipal = Math.floor(principalAmount / tenorMonths) * tenorMonths;
+            const installedInterest = Math.floor(totalInterest / tenorMonths) * tenorMonths;
+            
+            schedules[tenorMonths - 1].principalAmount += (principalAmount - installedPrincipal);
+            schedules[tenorMonths - 1].interestAmount += (totalInterest - installedInterest);
+            schedules[tenorMonths - 1].totalAmount = schedules[tenorMonths - 1].principalAmount + schedules[tenorMonths - 1].interestAmount;
+
             await tx.loanSchedule.createMany({ data: schedules });
 
             // 4. Create Kvintasi (Receipt) for Disbursement

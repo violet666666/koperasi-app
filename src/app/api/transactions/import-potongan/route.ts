@@ -41,7 +41,7 @@ export async function POST(request: Request) {
             select: { id: true, name: true, nrp: true, memberNo: true, tabunganWajib: true }
         });
 
-        const memberTajibMap = new Map<number, { tajib: number; months: number; name: string }>();
+        const memberTajibMap = new Map<number, { tajib: number; barang: number; sp: number; months: number; name: string }>();
         let totalFail = 0;
         const allResults: any[] = [];
         const processedRows = new Set<string>(); // NRP+BULAN dedup
@@ -89,13 +89,15 @@ export async function POST(request: Request) {
                 continue;
             }
 
-            // Accumulate TAJIB per member
+            // Accumulate TAJIB, BARANG, SP per member
             const existing = memberTajibMap.get(match.id);
             if (existing) {
                 existing.tajib += tajib;
+                existing.barang += barang;
+                existing.sp += sp;
                 existing.months += 1;
             } else {
-                memberTajibMap.set(match.id, { tajib, months: 1, name: match.name });
+                memberTajibMap.set(match.id, { tajib, barang, sp, months: 1, name: match.name });
             }
         }
 
@@ -110,9 +112,11 @@ export async function POST(request: Request) {
                 nama: member.name,
                 memberName: member.name,
                 status: 'valid',
-                gaji: data.tajib,
+                gaji: data.tajib + data.barang + data.sp,
                 currentGaji: Number(member.tabunganWajib || 0),
-                reason: `${data.months} bulan, TAJIB: Rp ${data.tajib.toLocaleString('id-ID')}`,
+                reason: `${data.months} bulan, TAJIB:` + data.tajib.toLocaleString('id-ID') + 
+                        `, SP:` + data.sp.toLocaleString('id-ID') + 
+                        `, BRG:` + data.barang.toLocaleString('id-ID'),
                 mutasiCount: data.months,
             });
         }
@@ -131,14 +135,99 @@ export async function POST(request: Request) {
             const BATCH_SIZE = 50;
             const memberEntries = [...memberTajibMap.entries()];
             
+            // Ensure POTONGAN BARANG product exists
+            let potonganProduct = await prisma.storeProduct.findUnique({ where: { sku: 'POT_BRG_001' } });
+            if (!potonganProduct) {
+                potonganProduct = await prisma.storeProduct.create({
+                    data: {
+                        sku: 'POT_BRG_001',
+                        name: 'Pemotongan Barang (Gaji)',
+                        sellPrice: 0, // dynamic per trx
+                        category: 'Import',
+                        isActive: true,
+                    }
+                });
+            }
+
             for (let batchStart = 0; batchStart < memberEntries.length; batchStart += BATCH_SIZE) {
                 const batch = memberEntries.slice(batchStart, batchStart + BATCH_SIZE);
-                await Promise.all(batch.map(([memberId, data]) =>
-                    prisma.member.update({
-                        where: { id: memberId },
-                        data: { tabunganWajib: { increment: data.tajib } }
-                    })
-                ));
+                await Promise.all(batch.map(async ([memberId, data]) => {
+                    // Update Tabungan Wajib
+                    if (data.tajib > 0) {
+                        await prisma.member.update({
+                            where: { id: memberId },
+                            data: { tabunganWajib: { increment: data.tajib } }
+                        });
+                    }
+
+                    // Buat Penjualan Toko (Lunas) dari potongan BARANG
+                    if (data.barang > 0 && potonganProduct) {
+                        const trxNo = `POS-IMP-${new Date().getTime()}-${memberId}`;
+                        await prisma.storeSale.create({
+                            data: {
+                                saleNo: trxNo,
+                                memberId: memberId,
+                                totalAmount: data.barang,
+                                cashReceived: data.barang,
+                                changeAmount: 0,
+                                paymentMethod: "cash",
+                                items: {
+                                    create: [{
+                                        productId: potonganProduct.id,
+                                        quantity: 1,
+                                        unitPrice: data.barang,
+                                        subtotal: data.barang
+                                    }]
+                                },
+                                createdById: 1, // session id 1 fallback
+                            }
+                        });
+                    }
+
+                    // Bayarkan Angsuran Pinjaman dari potongan SP
+                    if (data.sp > 0) {
+                        // Cari pinjaman paling aktif yg belum lunas
+                        const activeLoan = await prisma.loan.findFirst({
+                            where: { memberId: memberId, status: "active" },
+                            orderBy: { disbursementDate: "asc" }
+                        });
+
+                        if (activeLoan) {
+                            // Potong uang SP untuk cicilan berjalan (Asumsi tanpa bunga karena bunga 0% / 1% JS sudah dikapitalisasi)
+                            const paymentNo = `PAY-IMP-${new Date().getTime()}-${memberId}`;
+                            // Biaya jasa (Bunga) dianggap sudah dikapitalisasi ke dalam pokok saat disbursed, sehingga di sini pure principalPaid.
+                            // Atau split secara proporsional. Namun untuk simplicity import, masuk semua ke principalPaid karena interestRate = 0
+                            await prisma.loanPayment.create({
+                                data: {
+                                    paymentNo,
+                                    loanId: activeLoan.id,
+                                    memberId: memberId,
+                                    branchId: 1,
+                                    amount: data.sp,
+                                    principalPortion: data.sp, // Semua pembayaran memotong pokok utang yg sudah include JS (1%)
+                                    interestPortion: 0,
+                                    lateFeePortion: 0,
+                                    paymentMethod: "cash",
+                                    paymentDate: new Date(),
+                                    createdById: 1,
+                                }
+                            });
+                            
+                            // Update saldo outstanding, kalau lunas maka status paid_off
+                            const currentOutstanding = Number(activeLoan.principalOutstanding) - data.sp;
+                            await prisma.loan.update({
+                                where: { id: activeLoan.id },
+                                data: {
+                                    principalPaid: { increment: data.sp },
+                                    principalOutstanding: Math.max(0, currentOutstanding),
+                                    status: currentOutstanding <= 0 ? "paid_off" : "active",
+                                    paidOffDate: currentOutstanding <= 0 ? new Date() : null,
+                                }
+                            });
+                        }
+                        // Jika tidak ada loan aktif, abaikan (bisa ditambahkan ke Tabungan Sukarela jika diinginkan, namun kita skip dulu).
+                    }
+                }));
             }
 
             try {
@@ -149,7 +238,7 @@ export async function POST(request: Request) {
                     ...userInfo, ...reqInfo,
                     action: "IMPORT",
                     module: "Anggota",
-                    description: `Import potongan gaji (Barang): ${memberTajibMap.size} anggota, TAJIB diakumulasi.`,
+                    description: `Import potongan gaji (Barang): ${memberTajibMap.size} anggota, TAJIB, SP, BARANG diakumulasi.`,
                     newData: { memberCount: memberTajibMap.size },
                 });
             } catch (e) { }

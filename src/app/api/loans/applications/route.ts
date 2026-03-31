@@ -168,11 +168,10 @@ export async function POST(request: Request) {
                 0
             );
 
-            // Calculate new loan monthly installment
-            const interestRate = Number(product.interestRate);
-            const monthlyInterest = (data.amount * interestRate) / 100 / 12;
-            const monthlyPrincipal = data.amount / data.tenorMonths;
-            const newInstallment = monthlyPrincipal + monthlyInterest;
+            // Calculate new loan monthly installment with new Koperasi rule (1% admin fee capitalization)
+            const adminFee = data.amount * 0.01;
+            const totalLoan = data.amount + adminFee;
+            const newInstallment = totalLoan / data.tenorMonths;
 
             const salaryRemainder = salary - existingInstallments - newInstallment;
             const MIN_SALARY_REMAINDER = 2000000; // Rp 2.000.000

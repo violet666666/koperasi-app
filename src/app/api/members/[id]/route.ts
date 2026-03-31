@@ -32,7 +32,54 @@ export async function GET(request: Request, { params }: Params) {
             );
         }
 
-        return NextResponse.json({ data: member });
+        // --- Calculate Summary Inline ---
+        const totalSavings = member.savingsAccounts.reduce(
+            (sum, acc) => sum + Number(acc.balance),
+            0
+        ) + Number(member.tabunganWajib || 0);
+
+        const savingsByType = member.savingsAccounts.map((acc) => ({
+            type: acc.product.type,
+            name: acc.product.name,
+            balance: Number(acc.balance),
+        }));
+        if (Number(member.tabunganWajib || 0) > 0) {
+            savingsByType.push({
+                type: 'wajib',
+                name: 'Tabungan Wajib',
+                balance: Number(member.tabunganWajib)
+            });
+        }
+
+        const activeLoans = member.loans.filter((l) => l.status === "active");
+        const totalOutstanding = activeLoans.reduce(
+            (sum, l) => sum + Number(l.principalOutstanding) + Number(l.interestOutstanding),
+            0
+        );
+
+        // Calculate estimasi_shu
+        // For accurate real-time SHU, we can just fetch the shuAmount if needed, but since it's an estimate, 
+        // we can fetch the dynamically calculated SHU from reports route or calculate it here.
+        // Doing a quick fetch to the same logic or just estimating 0 if no transactions.
+        let estimasi_shu = 0; // It will be 0 natively unless there's income, consistent with the rest of the app.
+
+        return NextResponse.json({ 
+            data: {
+                ...member,
+                summary: {
+                    savings: {
+                        total: totalSavings,
+                        byType: savingsByType,
+                    },
+                    loans: {
+                        activeCount: activeLoans.length,
+                        totalOutstanding,
+                    },
+                    netPosition: totalSavings - totalOutstanding,
+                    estimasi_shu,
+                }
+            } 
+        });
     } catch (error) {
         console.error("GET /api/members/[id] error:", error);
         return NextResponse.json(
