@@ -65,6 +65,8 @@ export default function SettingsPage() {
     const [resetSavingsData, setResetSavingsData] = React.useState(false);
     const [resetJournalData, setResetJournalData] = React.useState(false);
     const [resetMemberData, setResetMemberData] = React.useState(false);
+    const [resetTunkinData, setResetTunkinData] = React.useState(false);
+    const [resetGajiData, setResetGajiData] = React.useState(false);
     const [resetConfirmation, setResetConfirmation] = React.useState("");
     const [isResetting, setIsResetting] = React.useState(false);
 
@@ -126,7 +128,7 @@ export default function SettingsPage() {
             return;
         }
         
-        if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData) {
+        if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData) {
             toast.error("Pilih minimal satu tipe data yang akan dihapus.");
             return;
         }
@@ -138,7 +140,9 @@ export default function SettingsPage() {
                 resetLoanData,
                 resetSavingsData,
                 resetJournalData,
-                resetMemberData
+                resetMemberData,
+                resetTunkinData,
+                resetGajiData
             });
 
             if (result.success) {
@@ -528,6 +532,31 @@ export default function SettingsPage() {
                                         <div className="space-y-1">
                                             <Label htmlFor="reset-member" className="font-semibold text-base cursor-pointer">Reset Data Anggota</Label>
                                             <p className="text-sm text-muted-foreground">Menghapus semua Profil Anggota beserta Akun Simpanan mereka. Membutuhkan izin penghapusan Data Pinjaman & Simpanan.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Data Tunkin & Gaji Partial Resets */}
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-tunkin" 
+                                            checked={resetTunkinData}
+                                            onCheckedChange={(checked) => setResetTunkinData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-tunkin" className="font-semibold text-base cursor-pointer">Kosongkan Saldo Tunkin</Label>
+                                            <p className="text-sm text-muted-foreground">Mereset/mengosongkan nilai Tunjangan Kinerja menjadi Rp 0 untuk seluruh anggota aktif.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-gaji" 
+                                            checked={resetGajiData}
+                                            onCheckedChange={(checked) => setResetGajiData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-gaji" className="font-semibold text-base cursor-pointer">Kosongkan Saldo Gaji</Label>
+                                            <p className="text-sm text-muted-foreground">Mereset/mengosongkan nilai Gaji Bersih menjadi Rp 0 untuk seluruh anggota aktif.</p>
                                         </div>
                                     </div>
                                 </div>

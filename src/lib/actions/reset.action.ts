@@ -9,11 +9,13 @@ export async function processDataReset(options: {
   resetSavingsData: boolean;
   resetJournalData: boolean;
   resetMemberData: boolean;
+  resetTunkinData?: boolean;
+  resetGajiData?: boolean;
 }) {
   try {
-    const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData } = options;
+    const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData, resetTunkinData, resetGajiData } = options;
 
-    if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData) {
+    if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData) {
       return { success: false, error: "Tidak ada data yang dipilih untuk di-reset." };
     }
 
@@ -84,6 +86,21 @@ export async function processDataReset(options: {
       operations.push(prisma.savingsAccount.deleteMany({}));
       // Finally, delete Members
       operations.push(prisma.member.deleteMany({}));
+    }
+
+    // 4. Data Tunkin & Gaji (Partial Member updates)
+    if (resetTunkinData && !resetMemberData) {
+        operations.push(prisma.member.updateMany({
+            where: { deletedAt: null, tunlesKinerja: { not: null } },
+            data: { tunlesKinerja: 0 }
+        }));
+    }
+
+    if (resetGajiData && !resetMemberData) {
+        operations.push(prisma.member.updateMany({
+            where: { deletedAt: null, salary: { not: null } },
+            data: { salary: 0 }
+        }));
     }
 
     if (operations.length > 0) {
