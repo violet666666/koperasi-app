@@ -50,11 +50,11 @@ export async function POST(request: Request) {
         const namaIdx = headers.findIndex(h => h.includes("nama"));
         const rakIdx = headers.findIndex(h => h === "rak" || h === "kategori" || h === "category");
         const stockGdgIdx = headers.findIndex(h => h.includes("gdg") || h.includes("gudang"));
-        const stockTokoIdx = headers.findIndex(h => h.includes("toko") && !h.includes("total"));
+        const stockTokoIdx = headers.findIndex(h => h.includes("toko") && !h.includes("total") && !h.includes("harga"));
         const totalStockIdx = headers.findIndex(h => h.includes("total") || h === "stock");
-        const satuanIdx = headers.findIndex(h => h === "sat" || h.includes("satuan"));
-        // sometimes @ harga sat is parsed as just strings, let's catch it.
-        const hargaJualIdx = headers.findIndex(h => h.includes("harga") || h.includes("@") || h.includes("sat") && h !== "sat" && !h.includes("satuan"));
+        const satuanIdx = headers.findIndex(h => h === "sat" || (h.includes("satuan") && !h.includes("harga")));
+        // Detect harga jual: "@ harga sat" or "harga jual" — must NOT collide with satuanIdx
+        const hargaJualIdx = headers.findIndex(h => h.includes("@") || (h.includes("harga") && !h.includes("pokok")));
         const hargaPokokIdx = headers.findIndex(h => h.includes("pokok") || h.includes("hpp") || h === "hrgpokok");
 
         if (kodeIdx === -1 || namaIdx === -1) {
