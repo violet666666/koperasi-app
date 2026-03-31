@@ -26,8 +26,8 @@ export function BottomNav() {
 
     return (
         <>
-            <div className="h-16 lg:hidden" aria-hidden="true" /> {/* Spacer for scroll safely */}
-            <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <div className="h-16 lg:hidden print:hidden" aria-hidden="true" /> {/* Spacer for scroll safely */}
+            <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                 <div className="flex h-16 items-center justify-around px-2">
                     {bottomNavigation.map((item) => {
                         const Icon = item.icon;

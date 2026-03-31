@@ -49,7 +49,7 @@ export function AppShell({
             {/* Main Content Area */}
             <div
                 className={cn(
-                    "flex flex-1 flex-col",
+                    "flex flex-1 flex-col print:!pl-0",
                     sidebarCollapsed ? "lg:pl-16" : "lg:pl-64",
                     "transition-all duration-300"
                 )}
@@ -62,7 +62,7 @@ export function AppShell({
                 />
 
                 {/* Page Content */}
-                <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6" style={{ paddingBottom: 'max(5rem, calc(4rem + env(safe-area-inset-bottom, 0px)))' }}>{children}</main>
+                <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 print:!p-0 print:!m-0" style={{ paddingBottom: 'max(5rem, calc(4rem + env(safe-area-inset-bottom, 0px)))' }}>{children}</main>
             </div>
 
             {/* Bottom Navigation (Mobile) */}

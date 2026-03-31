@@ -41,7 +41,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
     return (
         <aside
             className={cn(
-                "flex h-full flex-col bg-sidebar text-sidebar-foreground",
+                "flex h-full flex-col bg-sidebar text-sidebar-foreground print:hidden",
                 isCollapsed ? "w-16" : "w-64",
                 "transition-all duration-300 ease-in-out",
                 className
