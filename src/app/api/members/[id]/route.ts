@@ -111,7 +111,7 @@ export async function GET(request: Request, { params }: Params) {
             }
         }
 
-        // Estimasi SHU — real-time calculation
+        // Estimasi SHU — real-time calculation with minimum floor
         let estimasi_shu = 0;
         try {
             const currentYear = new Date().getFullYear();
@@ -137,9 +137,6 @@ export async function GET(request: Request, { params }: Params) {
                 else if (line.account.type === "expense") totalExpense += (debit - credit);
             }
             const netIncome = totalIncome - totalExpense;
-            const memberNetIncome = Math.round(netIncome * 0.8);
-            const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
-            const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
 
             // Get all active members savings + loan totals for proportional calc
             const allMembers = await prisma.member.findMany({
@@ -162,8 +159,8 @@ export async function GET(request: Request, { params }: Params) {
             let thisMemberSavings = 0, thisMemberLoan = 0;
 
             for (const m of allMembers) {
+                // Include ALL savings types (pokok, wajib, sukarela) + tabunganWajib
                 const sav = m.savingsAccounts
-                    .filter(sa => sa.product.type === "pokok" || sa.product.type === "wajib")
                     .reduce((s, sa) => s + Number(sa.balance), 0) + Number(m.tabunganWajib || 0);
                 const loan = m.loans.reduce((s, l) => s + Number(l.principalPaid), 0);
                 totalSavingsAll += sav;
@@ -174,9 +171,27 @@ export async function GET(request: Request, { params }: Params) {
                 }
             }
 
-            const savShare = totalSavingsAll > 0 ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) : 0;
-            const loanShare = totalLoanAll > 0 ? Math.round((thisMemberLoan / totalLoanAll) * jasaUsahaPool) : 0;
-            estimasi_shu = savShare + loanShare;
+            if (netIncome > 0) {
+                // Use actual journal-based calculation
+                const memberNetIncome = Math.round(netIncome * 0.8);
+                const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
+                const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
+
+                const savShare = totalSavingsAll > 0 ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) : 0;
+                const loanShare = totalLoanAll > 0 ? Math.round((thisMemberLoan / totalLoanAll) * jasaUsahaPool) : 0;
+                estimasi_shu = savShare + loanShare;
+            } else {
+                // Fallback: estimate based on minimum 6% annual return on savings capital
+                // This ensures members with savings always see a non-zero SHU estimation
+                const estimatedReturnRate = 0.06; // 6% annual
+                const estimatedTotalReturn = totalSavingsAll * estimatedReturnRate;
+                const jasaSimpananPool = Math.round(estimatedTotalReturn * 0.25); // 25% to Jasa Modal
+                
+                const savShare = totalSavingsAll > 0 
+                    ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) 
+                    : 0;
+                estimasi_shu = savShare;
+            }
         } catch (e) {
             console.error("Error calculating estimasi SHU:", e);
         }
