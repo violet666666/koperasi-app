@@ -419,9 +419,12 @@ function cleanNrp(raw: string | undefined): string {
 function cleanNumber(raw: string | number | undefined): number {
     if (raw === undefined || raw === null || raw === "") return 0;
     if (typeof raw === 'number') return raw;
+    const isNegative = String(raw).includes('(') && String(raw).includes(')');
     const cleaned = String(raw).replace(/[^0-9.\-]/g, '');
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+    let num = parseFloat(cleaned);
+    if (isNaN(num)) return 0;
+    if (isNegative) num = -Math.abs(num);
+    return num;
 }
 
 function cleanNameForMatch(name: string): string {

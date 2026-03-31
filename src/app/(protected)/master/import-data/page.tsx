@@ -20,6 +20,7 @@ import {
     Download,
     Loader2,
     Wallet,
+    Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
@@ -173,6 +174,7 @@ export default function ImportDataPage() {
     const [file, setFile] = useState<File | null>(null);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isResetting, setIsResetting] = useState(false);
     
     // Pagination states
     const [validPage, setValidPage] = useState(1);
@@ -314,6 +316,21 @@ export default function ImportDataPage() {
         setErrorPage(1);
     }, []);
 
+    const handleResetTunkin = async () => {
+        if (!confirm("YAKIN? Ini akan mengenolkan (Rp 0) data seluruh Tunkin anggota aktif yang terdaftar! Tindakan ini cocok dilakukan sebelum import ulang Tunkin.")) return;
+        setIsResetting(true);
+        try {
+            const res = await fetch("/api/members/reset-tunkin", { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Gagal mereset Tunkin");
+            toast.success(data.message);
+        } catch (e: any) {
+            toast.error(e.message);
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     const validRows = result?.preview.filter(r => r.status === "valid") || [];
     const errorRows = result?.preview.filter(r => r.status === "error") || [];
 
@@ -331,7 +348,12 @@ export default function ImportDataPage() {
                 description="Upload file CSV untuk update data anggota secara massal"
                 actions={
                     <div className="flex gap-2">
-                        {/* Buka Rekening Simpanan button removed as per PR to migrate to manual CRUD */}
+                        {importType === "tunkin" && (
+                            <Button variant="destructive" onClick={handleResetTunkin} disabled={isResetting}>
+                                {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                Kosongkan Tunkin
+                            </Button>
+                        )}
                         <Button variant="outline" onClick={handleExport}>
                             <Download className="mr-2 h-4 w-4" />
                             Export Data Anggota
@@ -661,18 +683,25 @@ export default function ImportDataPage() {
                                                         ) : importType === "migrasi_pinjaman" || importType === "potongan" ? (
                                                             formatCurrency(r.gaji || 0)
                                                         ) : (
-                                                            formatCurrency(importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0))
+                                                            (() => {
+                                                                const val = importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0);
+                                                                return val < 0 ? (
+                                                                    <span className="text-red-600 font-bold bg-red-50 px-1 py-0.5 rounded">{formatCurrency(val)}</span>
+                                                                ) : formatCurrency(val);
+                                                            })()
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
                                                         {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" ? (
                                                             <span className="text-xs">{r.reason}</span>
-                                                        ) : importType === "tunkin"
-                                                            ? (r.currentTunkin != null ? formatCurrency(r.currentTunkin) : "-")
-                                                            : importType === "tajib"
-                                                            ? (r.currentTajib != null ? formatCurrency(r.currentTajib) : "-")
-                                                            : (r.currentGaji != null ? formatCurrency(r.currentGaji) : "-")
-                                                        }
+                                                        ) : (() => {
+                                                            const val = importType === "tunkin" ? r.currentTunkin : importType === "tajib" ? r.currentTajib : r.currentGaji;
+                                                            return val != null ? (
+                                                                val < 0 ? (
+                                                                    <span className="text-red-600 font-bold bg-red-50 px-1 py-0.5 rounded">{formatCurrency(val)}</span>
+                                                                ) : formatCurrency(val)
+                                                            ) : "-";
+                                                        })()}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

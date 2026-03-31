@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 
+function parseMobileNumber(raw: any): number {
+    if (raw === undefined || raw === null || raw === "") return 0;
+    if (typeof raw === 'number') return raw;
+    const str = String(raw).trim();
+    const isNegative = str.includes('(') && str.includes(')');
+    const cleaned = str.replace(/[^0-9.\-]/g, '');
+    let num = parseFloat(cleaned);
+    if (isNaN(num)) return 0;
+    if (isNegative) num = -Math.abs(num);
+    return num;
+}
+
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
@@ -41,7 +53,7 @@ export async function POST(request: Request) {
                 // Determine if updating member data or just tunkin
                 if (type === "tunkin_only") {
                     const rawTunkin = row["tunkin"] || row["Tunkin"] || row["TUNKIN"] || "0";
-                    const tunkinVal = typeof rawTunkin === 'string' ? parseFloat(rawTunkin.replace(/[^0-9.-]+/g, "")) : rawTunkin;
+                    const tunkinVal = parseMobileNumber(rawTunkin);
 
                     const exist = await prisma.member.findFirst({ where: { memberNo: nrpStr } });
                     if (exist) {
@@ -59,8 +71,8 @@ export async function POST(request: Request) {
                     const rawSalary = row["gaji"] || row["Gaji"] || "0";
                     const rawTunkin = row["tunkin"] || row["Tunkin"] || "0";
                     
-                    const salaryVal = typeof rawSalary === 'string' ? parseFloat(rawSalary.replace(/[^0-9.-]+/g, "")) : rawSalary;
-                    const tunkinVal = typeof rawTunkin === 'string' ? parseFloat(rawTunkin.replace(/[^0-9.-]+/g, "")) : rawTunkin;
+                    const salaryVal = parseMobileNumber(rawSalary);
+                    const tunkinVal = parseMobileNumber(rawTunkin);
 
                     const exist = await prisma.member.findFirst({ where: { memberNo: nrpStr } });
                     if (exist) {
