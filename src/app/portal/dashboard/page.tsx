@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
 
 function getUnitIcon(unitType: string) {
     switch (unitType) {
@@ -120,7 +121,7 @@ export default function MemberDashboardPage() {
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">Selamat Datang, {user?.name?.split(' ')[0]}!</h1>
-                <p className="text-muted-foreground">Dashboard anggota Primkoppol</p>
+                <p className="text-muted-foreground">Dashboard anggota PRIMKOPPOL Resor Lumajang</p>
             </div>
 
             {/* Loan Approved Notification */}
@@ -137,46 +138,64 @@ export default function MemberDashboardPage() {
             {/* 4 Main Stat Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 {/* 1. Gaji Bersih */}
-                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Gaji Bersih</CardTitle>
-                        <DollarSign className="h-4 w-4 opacity-75" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
-                        </div>
-                        <p className="text-xs opacity-80 mt-1">Gaji pokok per bulan</p>
-                    </CardContent>
-                </Card>
+                <InfoCardWrapper
+                    tooltip="Gaji bersih Anda yang tercatat di sistem koperasi."
+                    detailTitle="Gaji Bersih"
+                    detailDescription={"Menampilkan gaji pokok bersih Anda per bulan yang sudah didata oleh admin/operator koperasi.\n\nGaji ini digunakan sebagai salah satu dasar perhitungan kelayakan pinjaman. Sesuai AD-ART 2026, sisa gaji setelah dikurangi angsuran harus minimal Rp 2.000.000.\n\nJika angka ini belum terisi atau salah, silakan hubungi operator koperasi untuk diperbarui."}
+                >
+                    <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium opacity-90">Gaji Bersih</CardTitle>
+                            <DollarSign className="h-4 w-4 opacity-75" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
+                            </div>
+                            <p className="text-xs opacity-80 mt-1">Gaji pokok per bulan</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
 
                 {/* 1b. Tunjangan Kinerja (Tunkin) */}
-                <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Tunjangan Kinerja</CardTitle>
-                        <Award className="h-4 w-4 opacity-75" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : tunkin > 0 ? formatCurrency(tunkin) : "Belum diisi"}
-                        </div>
-                        <p className="text-xs opacity-80 mt-1">Tunkin bulan berjalan</p>
-                    </CardContent>
-                </Card>
+                <InfoCardWrapper
+                    tooltip="Tunjangan Kinerja (Tunkin) Anda bulan ini."
+                    detailTitle="Tunjangan Kinerja (Tunkin)"
+                    detailDescription={"Menampilkan Tunjangan Kinerja (Tunkin/Tukin) Anda bulan berjalan.\n\nTunkin dapat digunakan sebagai sumber pemotongan angsuran pinjaman, selain gaji pokok. Saat mengajukan pinjaman, Anda bisa memilih apakah angsuran dipotong dari Gaji atau Tunkin.\n\nJika angka ini belum terisi, hubungi operator koperasi untuk pembaruan data."}
+                >
+                    <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-md">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium opacity-90">Tunjangan Kinerja</CardTitle>
+                            <Award className="h-4 w-4 opacity-75" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : tunkin > 0 ? formatCurrency(tunkin) : "Belum diisi"}
+                            </div>
+                            <p className="text-xs opacity-80 mt-1">Tunkin bulan berjalan</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
 
                 {/* 2. Pinjaman Berlangsung */}
-                <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Pinjaman Berlangsung</CardTitle>
-                        <CreditCard className="h-4 w-4 opacity-75" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(totalLoanOutstanding)}
-                        </div>
-                        <p className="text-xs opacity-80 mt-1">{data?.loans?.activeCount || 0} pinjaman aktif</p>
-                    </CardContent>
-                </Card>
+                <InfoCardWrapper
+                    tooltip="Total sisa pinjaman Anda yang masih berjalan."
+                    detailTitle="Pinjaman Berlangsung"
+                    detailDescription={"Menampilkan total sisa pokok pinjaman Anda yang statusnya masih aktif (belum lunas).\n\nAnda bisa memiliki maksimal 2 pinjaman berjalan sekaligus (1 potong gaji + 1 potong tunkin).\n\nAngka ini berkurang setiap bulan seiring pembayaran angsuran Anda.\n\nJika Anda melakukan Bayar Sendiri (BS), sisa pinjaman akan turun lebih cepat dan angsuran bulanan akan dihitung ulang."}
+                >
+                    <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-md">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium opacity-90">Pinjaman Berlangsung</CardTitle>
+                            <CreditCard className="h-4 w-4 opacity-75" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(totalLoanOutstanding)}
+                            </div>
+                            <p className="text-xs opacity-80 mt-1">{data?.loans?.activeCount || 0} pinjaman aktif</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
 
                 {/* 3. Pengajuan Pinjaman (Warning) */}
                 <Link href="/portal/pengajuan-pinjaman">
@@ -197,18 +216,24 @@ export default function MemberDashboardPage() {
                 </Link>
 
                 {/* 4. Tagihan / Bill Payment */}
-                <Card className="bg-gradient-to-br from-red-500 to-red-700 text-white border-0 shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium opacity-90">Tagihan Unit</CardTitle>
-                        <Wallet className="h-4 w-4 opacity-75" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions?.unpaidTotal || 0)}
-                        </div>
-                        <p className="text-xs opacity-80 mt-1">{data?.unitTransactions?.unpaidCount || 0} transaksi belum lunas</p>
-                    </CardContent>
-                </Card>
+                <InfoCardWrapper
+                    tooltip="Total tagihan belanja unit koperasi Anda yang belum lunas."
+                    detailTitle="Tagihan Unit"
+                    detailDescription={"Menampilkan total tagihan dari seluruh unit layanan koperasi (Toko, Cuci Mobil, Fitness, dll) yang statusnya masih belum dibayar.\n\nTagihan ini biasanya dilunasi melalui potongan gaji bulanan atau pembayaran langsung ke kasir.\n\nUntuk melihat rincian tagihan per unit, lihat bagian 'Ringkasan Per Unit' di bawah."}
+                >
+                    <Card className="bg-gradient-to-br from-red-500 to-red-700 text-white border-0 shadow-md">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium opacity-90">Tagihan Unit</CardTitle>
+                            <Wallet className="h-4 w-4 opacity-75" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions?.unpaidTotal || 0)}
+                            </div>
+                            <p className="text-xs opacity-80 mt-1">{data?.unitTransactions?.unpaidCount || 0} transaksi belum lunas</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
             </div>
 
             {/* Row 2: Tabungan + SHU (Clickable for detail) */}
@@ -412,7 +437,7 @@ export default function MemberDashboardPage() {
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>History Transaksi / Bill Payment</CardTitle>
-                            <CardDescription>Riwayat transaksi Anda di seluruh unit Primkoppol</CardDescription>
+                            <CardDescription>Riwayat transaksi Anda di seluruh unit PRIMKOPPOL</CardDescription>
                         </div>
                         <Link href="/portal/transaksi" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
                             Lihat Semua <ArrowRight className="h-4 w-4" />

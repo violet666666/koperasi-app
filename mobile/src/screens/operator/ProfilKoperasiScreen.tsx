@@ -38,8 +38,8 @@ interface KoperasiProfile {
 }
 
 const DEFAULT_PROFILE: KoperasiProfile = {
-  name: "PRIMKOPPOL Polres Lumajang",
-  legalName: "Primer Koperasi Kepolisian Polres Lumajang",
+  name: "PRIMKOPPOL Resor Lumajang",
+  legalName: "Primer Koperasi Kepolisian Resor Lumajang",
   registrationNumber: "518/BH/KDK.9/III/2005",
   taxId: "01.234.567.8-012.345",
   establishedDate: "2005-03-15",
@@ -51,7 +51,7 @@ const DEFAULT_PROFILE: KoperasiProfile = {
   email: "primkoppol@polreslumajang.go.id",
   website: "https://primkoppol-polreslumajang.go.id",
   description:
-    "Koperasi simpan pinjam yang melayani anggota kepolisian Polres Lumajang dan jajarannya untuk meningkatkan kesejahteraan anggota melalui layanan simpanan dan pinjaman.",
+    "Koperasi simpan pinjam yang melayani anggota kepolisian Resor Lumajang dan jajarannya untuk meningkatkan kesejahteraan anggota melalui layanan simpanan dan pinjaman.",
   totalMembers: 0,
   totalSavings: 0,
   totalLoans: 0,

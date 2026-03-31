@@ -51,7 +51,10 @@ interface Loan {
     interestOutstanding?: number;
     totalAmount?: number;
     tenorMonths?: number;
+    monthlyInstallment?: number;
+    disbursementDate?: string;
     status: string;
+    _count?: { schedules: number };
 }
 
 // Status badge component
@@ -88,7 +91,7 @@ function RepaymentProgress({ loan }: { loan: Loan }) {
     );
 }
 
-// Table columns
+// Table columns — enriched with 6 key loan parameters per operator requirement
 const columns: ColumnDef<Loan>[] = [
     {
         accessorKey: "loanNo",
@@ -96,7 +99,7 @@ const columns: ColumnDef<Loan>[] = [
         cell: ({ row }) => (
             <Link
                 href={`/pinjaman/${row.original.id}`}
-                className="font-mono text-sm text-primary hover:underline"
+                className="font-mono text-xs text-primary hover:underline"
             >
                 {row.getValue("loanNo")}
             </Link>
@@ -109,30 +112,76 @@ const columns: ColumnDef<Loan>[] = [
             <div>
                 <Link
                     href={`/anggota/${row.original.memberId}`}
-                    className="font-medium hover:underline"
+                    className="font-medium hover:underline text-sm"
                 >
                     {row.original.member?.name || "-"}
                 </Link>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                     {row.original.member?.memberNo}
                 </div>
             </div>
         ),
     },
     {
+        accessorKey: "disbursementDate",
+        header: "Tgl Pinjam",
+        cell: ({ row }) => {
+            const date = row.getValue("disbursementDate") as string | undefined;
+            return date ? (
+                <span className="text-xs tabular-nums">
+                    {new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+            ) : <span className="text-muted-foreground text-xs">-</span>;
+        },
+    },
+    {
         accessorKey: "principalAmount",
-        header: "Pokok",
+        header: "Plafond",
         cell: ({ row }) => (
-            <span className="font-medium tabular-nums">
+            <span className="font-medium tabular-nums text-sm">
                 {formatCurrency(Number(row.getValue("principalAmount") || 0))}
             </span>
         ),
     },
     {
+        accessorKey: "tenorMonths",
+        header: "Tenor",
+        cell: ({ row }) => {
+            const tenor = row.getValue("tenorMonths") as number | undefined;
+            return tenor ? <span className="text-sm tabular-nums">{tenor} bln</span> : <span className="text-muted-foreground text-xs">-</span>;
+        },
+    },
+    {
+        id: "paidInstallments",
+        header: "Angsuran Ke",
+        cell: ({ row }) => {
+            const paid = row.original._count?.schedules || 0;
+            const tenor = row.original.tenorMonths || 0;
+            return (
+                <span className="text-sm tabular-nums">
+                    <span className="font-semibold text-emerald-600">{paid}</span>
+                    <span className="text-muted-foreground">/{tenor}</span>
+                </span>
+            );
+        },
+    },
+    {
+        accessorKey: "monthlyInstallment",
+        header: "Angsuran/Bln",
+        cell: ({ row }) => {
+            const installment = Number(row.getValue("monthlyInstallment") || 0);
+            return installment > 0 ? (
+                <span className="font-medium tabular-nums text-sm text-primary">
+                    {formatCurrency(installment)}
+                </span>
+            ) : <span className="text-muted-foreground text-xs">-</span>;
+        },
+    },
+    {
         accessorKey: "principalOutstanding",
-        header: "Sisa Pokok",
+        header: "Sisa Pinjaman",
         cell: ({ row }) => (
-            <span className="font-medium tabular-nums">
+            <span className="font-semibold tabular-nums text-sm text-red-600">
                 {formatCurrency(Number(row.getValue("principalOutstanding") || 0))}
             </span>
         ),

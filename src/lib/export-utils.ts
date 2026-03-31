@@ -178,7 +178,7 @@ export function generateReceiptPDF(receipt: ReceiptData) {
     // ---- KOP SURAT ----
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("KOPERASI PRIMKOPPOL POLRES LUMAJANG", pageWidth / 2, y + 5, { align: "center" });
+    doc.text("KOPERASI PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y + 5, { align: "center" });
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text("Badan Hukum No: ....../BH/M.KUKM/........", pageWidth / 2, y + 11, { align: "center" });
@@ -390,7 +390,7 @@ export function generateReceiptPDF(receipt: ReceiptData) {
     doc.setFont("helvetica", "italic");
     doc.setTextColor(150);
     doc.text(
-        "Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi Primkoppol Polres Lumajang.",
+        "Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi PRIMKOPPOL Resor Lumajang.",
         pageWidth / 2,
         doc.internal.pageSize.getHeight() - 15,
         { align: "center" }
@@ -429,7 +429,7 @@ export function generateThermalReceiptPDF(receipt: ReceiptData) {
     doc.text("KOPERASI PRIMKOPPOL", pageWidth / 2, y, { align: "center" });
     y += 5;
     doc.setFontSize(10);
-    doc.text("POLRES LUMAJANG", pageWidth / 2, y, { align: "center" });
+    doc.text("RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
     
     y += 8;
     doc.setLineDashPattern([1, 1], 0);

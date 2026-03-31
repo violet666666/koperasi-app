@@ -51,7 +51,7 @@ export default function AnggotaCardScreen({ navigation }: any) {
                 <Ionicons name="shield-checkmark" size={28} color={C.accent} />
                 <View>
                   <Text style={styles.orgName}>PRIMKOPPOL</Text>
-                  <Text style={styles.orgSub}>Koperasi Primer Kepolisian</Text>
+                  <Text style={styles.orgSub}>Resor Lumajang</Text>
                 </View>
               </View>
             </View>

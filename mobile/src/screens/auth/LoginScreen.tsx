@@ -95,7 +95,7 @@ export default function LoginScreen({ setToken }: any) {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.title}>PRIMKOPPOL LUMAJANG</Text>
+            <Text style={styles.title}>PRIMKOPPOL RESOR LUMAJANG</Text>
           </View>
 
           {/* Form Card */}

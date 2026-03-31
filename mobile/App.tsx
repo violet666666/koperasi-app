@@ -64,7 +64,7 @@ function SplashScreen() {
           resizeMode="contain"
         />
         <Text style={splashStyles.title}>PRIMKOPPOL</Text>
-        <Text style={splashStyles.subtitle}>Koperasi Primer Kepolisian</Text>
+        <Text style={splashStyles.subtitle}>Resor Lumajang</Text>
       </View>
       <View style={splashStyles.bottom}>
         <ActivityIndicator size="small" color="#D4AF37" />

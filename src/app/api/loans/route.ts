@@ -28,6 +28,7 @@ export async function GET(request: Request) {
                 include: {
                     member: { select: { id: true, memberNo: true, name: true } },
                     branch: { select: { id: true, name: true } },
+                    _count: { select: { schedules: { where: { status: { in: ["paid"] } } } } },
                 },
                 orderBy: { createdAt: "desc" },
                 skip: (query.page - 1) * query.perPage,

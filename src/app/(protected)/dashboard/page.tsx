@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
+import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
 
 interface DashboardStats {
     totalAnggota: number;
@@ -266,99 +267,141 @@ export default function DashboardPage() {
 
             {/* Stats Grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <StatsCard
-                    title="Total Anggota"
-                    value={stats.totalAnggota.toLocaleString("id-ID")}
-                    subtitle="anggota aktif"
-                    icon={Users}
-                    trend={5.2}
-                    trendLabel="vs bulan lalu"
-                    color="primary"
-                    isLoading={isLoading}
-                />
-                <StatsCard
-                    title="Total Simpanan"
-                    value={formatCurrency(stats.totalSimpanan)}
-                    icon={Wallet}
-                    trend={8.1}
-                    trendLabel="vs bulan lalu"
-                    color="success"
-                    isLoading={isLoading}
-                />
-                <StatsCard
-                    title="Total Pinjaman Aktif"
-                    value={formatCurrency(stats.totalPinjaman)}
-                    icon={CreditCard}
-                    trend={3.4}
-                    trendLabel="vs bulan lalu"
-                    color="primary"
-                    isLoading={isLoading}
-                />
-                <StatsCard
-                    title="Total Tunkin"
-                    value={formatCurrency(stats.totalTunkin)}
-                    subtitle={`${stats.membersWithTunkin} anggota`}
-                    icon={Award}
-                    color="primary"
-                    isLoading={isLoading}
-                />
-                <StatsCard
-                    title="Tunggakan"
-                    value={formatCurrency(stats.tunggakan)}
-                    subtitle="perlu perhatian"
-                    icon={AlertCircle}
-                    color="danger"
-                    isLoading={isLoading}
-                />
+                <InfoCardWrapper
+                    tooltip="Jumlah seluruh anggota aktif terdaftar di PRIMKOPPOL Resor Lumajang."
+                    detailTitle="Total Anggota"
+                    detailDescription={"Menampilkan jumlah anggota yang terdaftar dengan status aktif di dalam sistem.\n\nAnggota baru dapat didaftarkan melalui menu Anggota → Tambah Anggota, atau melalui fitur Import Data.\n\nAnggota yang sudah tidak aktif (resign, pensiun) tidak dihitung dalam angka ini."}
+                >
+                    <StatsCard
+                        title="Total Anggota"
+                        value={stats.totalAnggota.toLocaleString("id-ID")}
+                        subtitle="anggota aktif"
+                        icon={Users}
+                        color="primary"
+                        isLoading={isLoading}
+                    />
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Akumulasi seluruh simpanan anggota (Pokok + Wajib + Sukarela)."
+                    detailTitle="Total Simpanan"
+                    detailDescription={"Menampilkan total seluruh dana simpanan anggota yang tersimpan di koperasi, meliputi:\n\n• Simpanan Pokok — Dibayar sekali saat pendaftaran\n• Simpanan Wajib (Tabungan Wajib) — Dibayar rutin setiap bulan melalui potongan gaji\n• Simpanan Sukarela — Setoran bebas oleh anggota\n\nSemakin tinggi simpanan, semakin besar porsi SHU yang diterima anggota di akhir tahun."}
+                >
+                    <StatsCard
+                        title="Total Simpanan"
+                        value={formatCurrency(stats.totalSimpanan)}
+                        icon={Wallet}
+                        color="success"
+                        isLoading={isLoading}
+                    />
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Total sisa kewajiban pinjaman anggota yang masih berjalan."
+                    detailTitle="Total Pinjaman Aktif"
+                    detailDescription={"Menampilkan total sisa pokok pinjaman seluruh anggota yang statusnya masih 'Aktif' (belum lunas).\n\nAngka ini mencerminkan piutang koperasi kepada anggota. Setiap bulan, angka ini akan berkurang seiring pembayaran angsuran oleh anggota.\n\nJika anggota melakukan Bayar Sendiri (BS / pelunasan sebagian ekstra), angka ini akan turun lebih cepat."}
+                >
+                    <StatsCard
+                        title="Total Pinjaman Aktif"
+                        value={formatCurrency(stats.totalPinjaman)}
+                        icon={CreditCard}
+                        color="primary"
+                        isLoading={isLoading}
+                    />
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Total Tunjangan Kinerja (Tunkin) seluruh anggota yang tercatat."
+                    detailTitle="Total Tunkin"
+                    detailDescription={"Menampilkan total Tunjangan Kinerja (Tunkin) seluruh anggota yang sudah didata.\n\nTunkin digunakan sebagai salah satu sumber pemotongan angsuran pinjaman, selain gaji pokok. Anggota dapat memilih sumber pemotongan saat mengajukan pinjaman sesuai ketentuan AD-ART 2026."}
+                >
+                    <StatsCard
+                        title="Total Tunkin"
+                        value={formatCurrency(stats.totalTunkin)}
+                        subtitle={`${stats.membersWithTunkin} anggota`}
+                        icon={Award}
+                        color="primary"
+                        isLoading={isLoading}
+                    />
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Total tunggakan angsuran yang sudah jatuh tempo dan belum dibayar."
+                    detailTitle="Tunggakan"
+                    detailDescription={"Menampilkan total angsuran pinjaman yang sudah melewati tanggal jatuh tempo namun belum dilunasi.\n\nTunggakan perlu diperhatikan karena memengaruhi kesehatan keuangan koperasi. Anggota yang menunggak sebaiknya segera dihubungi untuk menyelesaikan kewajiban.\n\nAngka Rp 0 berarti seluruh anggota membayar tepat waktu."}
+                >
+                    <StatsCard
+                        title="Tunggakan"
+                        value={formatCurrency(stats.tunggakan)}
+                        subtitle="perlu perhatian"
+                        icon={AlertCircle}
+                        color="danger"
+                        isLoading={isLoading}
+                    />
+                </InfoCardWrapper>
             </div>
 
             {/* Today's Activity */}
             <div className="grid gap-4 lg:grid-cols-3">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Simpanan Hari Ini</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-32" />
-                        ) : (
-                            <p className="text-2xl font-bold text-emerald-600">
-                                {formatCurrency(stats.simpananHariIni)}
-                            </p>
-                        )}
-                        <p className="text-sm text-muted-foreground">{stats.simpananHariIniCount} transaksi</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Pencairan Hari Ini</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-32" />
-                        ) : (
-                            <p className="text-2xl font-bold text-blue-600">
-                                {formatCurrency(stats.pencairanHariIni)}
-                            </p>
-                        )}
-                        <p className="text-sm text-muted-foreground">{stats.pencairanHariIniCount} pencairan</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Angsuran Hari Ini</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-32" />
-                        ) : (
-                            <p className="text-2xl font-bold text-amber-600">
-                                {formatCurrency(stats.angsuranHariIni)}
-                            </p>
-                        )}
-                        <p className="text-sm text-muted-foreground">{stats.angsuranHariIniCount} pembayaran</p>
-                    </CardContent>
-                </Card>
+                <InfoCardWrapper
+                    tooltip="Total setoran simpanan yang masuk hari ini."
+                    detailTitle="Simpanan Hari Ini"
+                    detailDescription={"Menampilkan total dana simpanan (setoran) yang masuk pada hari ini.\n\nTermasuk setoran Simpanan Pokok, Wajib, maupun Sukarela dari seluruh anggota yang bertransaksi hari ini.\n\nUntuk melihat rincian transaksi, buka menu Simpanan → Transaksi."}
+                >
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Simpanan Hari Ini</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? (
+                                <Skeleton className="h-8 w-32" />
+                            ) : (
+                                <p className="text-2xl font-bold text-emerald-600">
+                                    {formatCurrency(stats.simpananHariIni)}
+                                </p>
+                            )}
+                            <p className="text-sm text-muted-foreground">{stats.simpananHariIniCount} transaksi</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Total pencairan pinjaman yang dikeluarkan hari ini."
+                    detailTitle="Pencairan Hari Ini"
+                    detailDescription={"Menampilkan total dana pinjaman yang telah dicairkan kepada anggota pada hari ini.\n\nPencairan terjadi setelah pengajuan pinjaman disetujui dan dana diberikan kepada peminjam. Angka ini mencerminkan arus kas keluar koperasi hari ini."}
+                >
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Pencairan Hari Ini</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? (
+                                <Skeleton className="h-8 w-32" />
+                            ) : (
+                                <p className="text-2xl font-bold text-blue-600">
+                                    {formatCurrency(stats.pencairanHariIni)}
+                                </p>
+                            )}
+                            <p className="text-sm text-muted-foreground">{stats.pencairanHariIniCount} pencairan</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
+                <InfoCardWrapper
+                    tooltip="Total pembayaran angsuran pinjaman yang diterima hari ini."
+                    detailTitle="Angsuran Hari Ini"
+                    detailDescription={"Menampilkan total pembayaran angsuran pinjaman yang diterima dari anggota pada hari ini.\n\nTermasuk pembayaran angsuran rutin maupun Bayar Sendiri (BS) / pembayaran ekstra pokok.\n\nUntuk mencatat pembayaran angsuran, buka menu Pinjaman → Bayar Angsuran."}
+                >
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Angsuran Hari Ini</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? (
+                                <Skeleton className="h-8 w-32" />
+                            ) : (
+                                <p className="text-2xl font-bold text-amber-600">
+                                    {formatCurrency(stats.angsuranHariIni)}
+                                </p>
+                            )}
+                            <p className="text-sm text-muted-foreground">{stats.angsuranHariIniCount} pembayaran</p>
+                        </CardContent>
+                    </Card>
+                </InfoCardWrapper>
             </div>
 
             {/* Main Content Grid */}

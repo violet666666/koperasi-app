@@ -87,7 +87,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
             </style>
           </head>
           <body>
-            <div class="header">KOPERASI PRIMKOPPOL</div>
+            <div class="header">KOPERASI PRIMKOPPOL RESOR LUMAJANG</div>
             <div class="sub">
               Tgl: ${new Date().toLocaleString('id-ID')}<br/>
               Metode: ${method.toUpperCase()}<br/>

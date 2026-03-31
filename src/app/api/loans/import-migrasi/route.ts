@@ -109,7 +109,13 @@ export async function POST(request: Request) {
             }
         }
 
-        console.log(`SP Import: sheet="${sheetName}", headerRow=${firstHeaderIdx}, NRP=${nrpIdx}, NAMA=${namaIdx}, PINJAM=${pinjamIdx}, SELAMA=${selamaIdx}, ANGSURAN=${angsuranIdx}, SISA_SALDO=${saldoIdx}`);
+        // Find BS (Bayar Sendiri) column in sub-headers
+        let bsIdx = -1;
+        for (let j = 7; j < subHeaders.length; j++) {
+            if (subHeaders[j] === "BS") { bsIdx = j; break; }
+        }
+
+        console.log(`SP Import: sheet="${sheetName}", headerRow=${firstHeaderIdx}, NRP=${nrpIdx}, NAMA=${namaIdx}, PINJAM=${pinjamIdx}, SELAMA=${selamaIdx}, ANGSURAN=${angsuranIdx}, BS=${bsIdx}, SISA_SALDO=${saldoIdx}`);
 
         if (nrpIdx === -1 || pinjamIdx === -1 || saldoIdx === -1) {
             return NextResponse.json({ 
@@ -122,43 +128,53 @@ export async function POST(request: Request) {
             select: { id: true, name: true, nrp: true, memberNo: true }
         });
 
-        // Members who already have active/overdue loans in the DB
-        const existingActiveLoans = await prisma.loan.findMany({
-            where: { status: { in: ['active', 'overdue'] } },
-            select: { memberId: true }
-        });
-        const membersWithActiveLoans = new Set(existingActiveLoans.map(l => l.memberId));
-
         const defaultProduct = await prisma.loanProduct.findFirst();
         const defaultBranch = await prisma.branch.findFirst();
 
+        // ====================================================================
+        // 2-PASS SCANNING: Forward-fill blank NRPs for second loans
+        // ====================================================================
+        // Pass 1: Build Name -> NRP lookup from rows that have both
+        const nameToNrpMap = new Map<string, string>();
+        const dataRows: { rowIdx: number; row: string[] }[] = [];
+
+        for (let i = firstHeaderIdx + 2; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row) continue;
+            const col0 = String(row[0] || '').trim().toUpperCase();
+            if (!col0 || col0 === "JUMLAH" || col0 === "NO" || isNaN(Number(col0))) continue;
+
+            const nrpRaw = cleanNrp(String(row[nrpIdx] || ''));
+            const nama = String(row[namaIdx] || '').trim();
+            if (!nama) continue;
+
+            dataRows.push({ rowIdx: i, row });
+
+            if (nrpRaw) {
+                const nameKey = cleanNameForMatch(nama);
+                if (!nameToNrpMap.has(nameKey)) {
+                    nameToNrpMap.set(nameKey, nrpRaw);
+                }
+            }
+        }
+
+        // Pass 2: Process all data rows, forward-filling blank NRPs
         let successCount = 0;
         let failCount = 0;
         const results: any[] = [];
         const commitData: any[] = [];
-        const processedNrps = new Set<string>(); // Prevent duplicates
 
-        // Process ALL rows after first header, skipping non-data rows
-        for (let i = firstHeaderIdx + 2; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row) continue;
-
-            const col0 = String(row[0] || '').trim().toUpperCase();
-            
-            // Skip: empty rows, JUMLAH subtotal rows, satker label rows, repeated header rows
-            if (!col0) continue;
-            if (col0 === "JUMLAH" || col0 === "NO") continue; // subtotal or repeated header
-            if (isNaN(Number(col0))) continue; // satker names like "SIWAS", "SIPROPAM"
-
-            const nrpRaw = String(row[nrpIdx] || '').trim();
-            let nrp = cleanNrp(nrpRaw);
+        for (const { rowIdx, row } of dataRows) {
+            let nrp = cleanNrp(String(row[nrpIdx] || ''));
             const nama = String(row[namaIdx] || '').trim();
-            
-            if (!nrp && !nama) continue;
 
-            // Skip duplicate NRP (same person appears in multiple satker sections with same data)
-            if (nrp && processedNrps.has(nrp)) continue;
-            if (nrp) processedNrps.add(nrp);
+            // Forward-fill: if NRP is blank, resolve from Name->NRP map
+            if (!nrp && nama) {
+                const nameKey = cleanNameForMatch(nama);
+                nrp = nameToNrpMap.get(nameKey) || '';
+            }
+
+            if (!nrp && !nama) continue;
 
             // Match member
             let match = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
@@ -173,19 +189,8 @@ export async function POST(request: Request) {
 
             if (!match) {
                 results.push({
-                    row: i + 1, nrp, nama, gaji: 0,
+                    row: rowIdx + 1, nrp, nama, gaji: 0,
                     status: 'error', reason: 'Anggota tidak ditemukan di sistem'
-                });
-                failCount++;
-                continue;
-            }
-
-            const matchId = match.id;
-            // Prevent duplicate migration: if this member already has an active loan, skip them!
-            if (membersWithActiveLoans.has(matchId)) {
-                results.push({
-                    row: i + 1, nrp: match.nrp, nama: match.name, gaji: 0,
-                    status: 'error', reason: 'Sudah memiliki pinjaman aktif di sistem (Duplikat)'
                 });
                 failCount++;
                 continue;
@@ -195,15 +200,15 @@ export async function POST(request: Request) {
             const pinjam = cleanNumber(row[pinjamIdx]);
             const selama = cleanNumber(row[selamaIdx]);
             const angsuran = angsuranIdx >= 0 ? cleanNumber(row[angsuranIdx]) : 0;
+            const bs = bsIdx >= 0 ? cleanNumber(row[bsIdx]) : 0;
             const sisaSaldo = cleanNumber(row[saldoIdx]);
 
             // Skip members with no active loan (PINJAM empty or SISA empty/0)
-            if (pinjam <= 0 && sisaSaldo <= 0) continue; // No loan at all for this member
+            if (pinjam <= 0 && sisaSaldo <= 0) continue;
             
             if (pinjam <= 0) {
-                // Has sisa but no pinjam — might be data issue
                 results.push({
-                    row: i + 1, nrp: match.nrp || nrp, nama: match.name, gaji: 0,
+                    row: rowIdx + 1, nrp: match.nrp || nrp, nama: match.name, gaji: 0,
                     status: 'error', reason: `Ada sisa saldo (${sisaSaldo.toLocaleString('id-ID')}) tapi kolom PINJAM kosong`
                 });
                 failCount++;
@@ -211,9 +216,8 @@ export async function POST(request: Request) {
             }
 
             if (sisaSaldo <= 0) {
-                // Had a loan but already paid off
                 results.push({
-                    row: i + 1, nrp: match.nrp || nrp, nama: match.name, gaji: pinjam,
+                    row: rowIdx + 1, nrp: match.nrp || nrp, nama: match.name, gaji: pinjam,
                     status: 'error', reason: 'Sudah lunas (sisa Rp 0)'
                 });
                 failCount++;
@@ -224,23 +228,25 @@ export async function POST(request: Request) {
             const principalPaid = pinjam > principalOutstanding ? pinjam - principalOutstanding : 0;
             const computedInstallment = angsuran > 0 ? angsuran : (selama > 0 ? Math.ceil(pinjam / selama) : 0);
 
+            const bsText = bs > 0 ? `, BS Rp ${bs.toLocaleString('id-ID')}` : '';
             results.push({
-                row: i + 1,
+                row: rowIdx + 1,
                 nrp: match.nrp || match.memberNo || nrp,
                 nama: match.name,
                 gaji: pinjam,           // UI: "Pokok Pinjaman"
                 currentGaji: sisaSaldo, // UI: "Sisa Pokok" 
                 status: 'valid',
-                reason: `Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln, Sudah bayar Rp ${principalPaid.toLocaleString('id-ID')}`
+                reason: `Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln${bsText}, Dibayar Rp ${principalPaid.toLocaleString('id-ID')}`
             });
 
             commitData.push({
                 memberId: match.id,
                 principalAmount: pinjam,
-                tenorMonths: selama || 60, // default 60 if missing
+                tenorMonths: selama || 60,
                 monthlyInstallment: computedInstallment,
                 principalOutstanding,
-                principalPaid
+                principalPaid,
+                bs
             });
             successCount++;
         }

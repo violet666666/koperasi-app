@@ -39,7 +39,7 @@ export default function LaporanSimpananScreen({ navigation: navProp }: any) {
         <html>
           <body style="font-family: Helvetica, Arial, sans-serif; padding: 20px;">
             <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="margin: 0; color: #1A2A44;">KOPERASI PRIMKOPPOL</h2>
+              <h2 style="margin: 0; color: #1A2A44;">KOPERASI PRIMKOPPOL RESOR LUMAJANG</h2>
               <p style="margin: 5px 0;">Laporan Agregasi Simpanan</p>
               <hr style="border: 1px solid #D4AF37; margin-top: 10px;" />
             </div>

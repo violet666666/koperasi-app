@@ -169,7 +169,7 @@ export default function CetakKwitansiPage() {
 
                     {/* ---- KOP SURAT / HEADER ---- */}
                     <div className="text-center mb-1">
-                        <h2 className="text-2xl font-bold tracking-tight uppercase">KOPERASI PRIMKOPPOL POLRES LUMAJANG</h2>
+                        <h2 className="text-2xl font-bold tracking-tight uppercase">KOPERASI PRIMKOPPOL RESOR LUMAJANG</h2>
                         <p className="text-xs text-muted-foreground">Badan Hukum No: ....../BH/M.KUKM/........</p>
                         <p className="text-xs text-muted-foreground">Alamat: Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</p>
                     </div>
@@ -326,7 +326,7 @@ export default function CetakKwitansiPage() {
                     {/* ---- FOOTER ---- */}
                     <div className="text-center mt-4">
                         <p className="text-[10px] text-muted-foreground">
-                            Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi Primkoppol Polres Lumajang.
+                            Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi PRIMKOPPOL Resor Lumajang.
                         </p>
                     </div>
 

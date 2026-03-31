@@ -129,7 +129,7 @@ export default function KartuAnggotaPage() {
             doc.text("KOPERASI PRIMKOPPOL", 16, 6);
             doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
-            doc.text("POLRES LUMAJANG", 16, 10);
+            doc.text("RESOR LUMAJANG", 16, 10);
 
             // Separator line
             doc.setDrawColor(200, 200, 255);
@@ -247,7 +247,7 @@ export default function KartuAnggotaPage() {
                                     </div>
                                     <div className="text-left">
                                         <h4 className="text-white font-bold text-[14px] leading-tight tracking-wide">KOPERASI PRIMKOPPOL</h4>
-                                        <p className="text-blue-200 text-[9px] tracking-widest mt-0.5">POLRES LUMAJANG</p>
+                                        <p className="text-blue-200 text-[9px] tracking-widest mt-0.5">RESOR LUMAJANG</p>
                                     </div>
                                 </div>
                             </div>

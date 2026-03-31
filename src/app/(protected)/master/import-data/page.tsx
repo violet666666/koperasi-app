@@ -199,7 +199,7 @@ export default function ImportDataPage() {
         try {
             let processedFile: File;
             if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman') {
-                processedFile = file;
+                processedFile = file; // These APIs read .xlsx natively
             } else {
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
