@@ -149,11 +149,12 @@ export async function POST(request: Request) {
             );
         }
 
-        // Get member salary and existing active loan installments
+        // Get member salary, tunkin, and existing active loan installments
         const memberFull = await prisma.member.findUnique({
             where: { id: data.memberId },
             select: {
                 salary: true,
+                tunlesKinerja: true,
                 loans: {
                     where: { status: "active" },
                     select: { monthlyInstallment: true },
@@ -161,35 +162,41 @@ export async function POST(request: Request) {
             },
         });
 
-        if (memberFull?.salary) {
-            const salary = Number(memberFull.salary);
-            const existingInstallments = memberFull.loans.reduce(
-                (sum, loan) => sum + Number(loan.monthlyInstallment),
-                0
-            );
+        if (memberFull) {
+            // Determine which income source to check based on deductionSource
+            const incomeSource = data.deductionSource === "tunkin" ? Number(memberFull.tunlesKinerja || 0) : Number(memberFull.salary || 0);
+            const sourceLabel = data.deductionSource === "tunkin" ? "Tunjangan Kinerja" : "Gaji";
 
-            // Calculate new loan monthly installment with new Koperasi rule (1% admin fee capitalization)
-            const adminFee = data.amount * 0.01;
-            const totalLoan = data.amount + adminFee;
-            const newInstallment = totalLoan / data.tenorMonths;
-
-            const salaryRemainder = salary - existingInstallments - newInstallment;
-            const MIN_SALARY_REMAINDER = 2000000; // Rp 2.000.000
-
-            if (salaryRemainder < MIN_SALARY_REMAINDER) {
-                return NextResponse.json(
-                    {
-                        message: `Sesuai AD-ART Pasal 26, sisa gaji setelah pemotongan angsuran minimal Rp 2.000.000. Sisa gaji Anda: Rp ${Math.round(salaryRemainder).toLocaleString("id-ID")}`,
-                        details: {
-                            salary,
-                            existingInstallments: Math.round(existingInstallments),
-                            newInstallment: Math.round(newInstallment),
-                            salaryRemainder: Math.round(salaryRemainder),
-                            minimumRequired: MIN_SALARY_REMAINDER,
-                        },
-                    },
-                    { status: 400 }
+            if (incomeSource > 0) {
+                const existingInstallments = memberFull.loans.reduce(
+                    (sum, loan) => sum + Number(loan.monthlyInstallment),
+                    0
                 );
+
+                // Calculate new loan monthly installment (Flat 1% per month)
+                const interestPerMonth = data.amount * 0.01;
+                const totalInterest = interestPerMonth * data.tenorMonths;
+                const totalLoan = data.amount + totalInterest;
+                const newInstallment = totalLoan / data.tenorMonths;
+
+                const incomeRemainder = incomeSource - existingInstallments - newInstallment;
+                const MIN_INCOME_REMAINDER = 2000000; // Rp 2.000.000
+
+                if (incomeRemainder < MIN_INCOME_REMAINDER) {
+                    return NextResponse.json(
+                        {
+                            message: `Sesuai AD-ART Pasal 26, sisa ${sourceLabel} setelah pemotongan angsuran minimal Rp 2.000.000. Sisa ${sourceLabel} Anda: Rp ${Math.round(incomeRemainder).toLocaleString("id-ID")}`,
+                            details: {
+                                incomeSource,
+                                existingInstallments: Math.round(existingInstallments),
+                                newInstallment: Math.round(newInstallment),
+                                incomeRemainder: Math.round(incomeRemainder),
+                                minimumRequired: MIN_INCOME_REMAINDER,
+                            },
+                        },
+                        { status: 400 }
+                    );
+                }
             }
         }
 
@@ -203,6 +210,7 @@ export async function POST(request: Request) {
                 tenorMonths: data.tenorMonths,
                 purpose: data.purpose,
                 collateralDescription: data.collateralDescription,
+                deductionSource: data.deductionSource,
                 notes: data.notes,
                 status: "draft",
                 createdById: 1, // TODO: Get from session

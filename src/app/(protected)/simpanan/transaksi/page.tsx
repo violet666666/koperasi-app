@@ -132,25 +132,12 @@ export default function SimpananTransaksiPage() {
         count: number;
     } | null>(null);
 
-    // Calculate summary stats
-    const stats = React.useMemo(() => {
-        const today = new Date().toISOString().split("T")[0];
-        const todayTrx = transactions.filter((t) => t.transactionDate?.startsWith(today));
-
-        const totalDeposit = todayTrx
-            .filter((t) => t.type === "deposit")
-            .reduce((sum, t) => sum + t.amount, 0);
-        const totalWithdrawal = todayTrx
-            .filter((t) => t.type === "withdrawal")
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        return {
-            todayDeposit: totalDeposit,
-            todayWithdrawal: totalWithdrawal,
-            todayNet: totalDeposit - totalWithdrawal,
-            todayCount: todayTrx.length,
-        };
-    }, [transactions]);
+    const [stats, setStats] = React.useState({
+        todayDeposit: 0,
+        todayWithdrawal: 0,
+        todayNet: 0,
+        todayCount: 0,
+    });
 
     // Fetch data from API
     React.useEffect(() => {
@@ -171,6 +158,12 @@ export default function SimpananTransaksiPage() {
                     setTabunganWajibInfo({
                         total: d.totalTabunganWajib || 0,
                         count: d.membersWithTabunganWajib || 0,
+                    });
+                    setStats({
+                        todayDeposit: d.todayDeposits || 0,
+                        todayWithdrawal: d.todayWithdrawals || 0,
+                        todayNet: (d.todayDeposits || 0) - (d.todayWithdrawals || 0),
+                        todayCount: (d.todayDepositsCount || 0) + (d.todayWithdrawalsCount || 0),
                     });
                 }
             } catch (error) {

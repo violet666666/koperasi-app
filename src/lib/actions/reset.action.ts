@@ -5,18 +5,20 @@ import { revalidatePath } from "next/cache";
 
 export async function processDataReset(options: {
   resetStoreData: boolean;
-  resetFinancialData: boolean;
+  resetLoanData: boolean;
+  resetSavingsData: boolean;
+  resetJournalData: boolean;
   resetMemberData: boolean;
 }) {
   try {
-    const { resetStoreData, resetFinancialData, resetMemberData } = options;
+    const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData } = options;
 
-    if (!resetStoreData && !resetFinancialData && !resetMemberData) {
+    if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData) {
       return { success: false, error: "Tidak ada data yang dipilih untuk di-reset." };
     }
 
-    if (resetMemberData && !resetFinancialData) {
-      return { success: false, error: "Harap centang Data Kas & Keuangan terlebih dahulu sebelum mereset Data Anggota." };
+    if (resetMemberData && ( !resetLoanData || !resetSavingsData )) {
+      return { success: false, error: "Harap centang Data Pinjaman dan Data Simpanan terlebih dahulu sebelum mereset Data Anggota." };
     }
 
     // We use Prisma Transactions to ensure atomic deletion and avoid foreign key violations.
@@ -35,23 +37,27 @@ export async function processDataReset(options: {
       operations.push(prisma.storeProduct.deleteMany({}));
     }
 
-    // 2. Data Kas & Keuangan (Transaksi)
-    if (resetFinancialData) {
-      // Pinjaman
+    // 2. Data Pinjaman
+    if (resetLoanData) {
       operations.push(prisma.loanPaymentAllocation.deleteMany({}));
       operations.push(prisma.loanPayment.deleteMany({}));
       operations.push(prisma.loanSchedule.deleteMany({}));
       operations.push(prisma.loan.deleteMany({}));
       operations.push(prisma.loanApplication.deleteMany({}));
+    }
 
-      // Simpanan transactions
+    // 3. Data Simpanan
+    if (resetSavingsData) {
       operations.push(prisma.savingsTransaction.deleteMany({}));
-
-      // Unit Transactions
-      operations.push(prisma.unitTransaction.deleteMany({}));
-
+      
       // Tabungan Sejahtera 
       operations.push(prisma.tabunganSejahteraHistory.deleteMany({}));
+    }
+
+    // 4. Data Jurnal Akuntansi dan Kas Bank
+    if (resetJournalData) {
+      // Unit Transactions
+      operations.push(prisma.unitTransaction.deleteMany({}));
       
       // Receipts
       operations.push(prisma.receipt.deleteMany({}));
@@ -89,7 +95,7 @@ export async function processDataReset(options: {
       data: {
         action: "DELETE",
         module: "Pengaturan",
-        description: `Reset Data Eksekusi. Toko: ${resetStoreData}, Keuangan: ${resetFinancialData}, Anggota: ${resetMemberData}`,
+        description: `Reset Data Eksekusi. Toko: ${resetStoreData}, Pinjam: ${resetLoanData}, Simpan: ${resetSavingsData}, Jurnal: ${resetJournalData}, Anggota: ${resetMemberData}`,
         status: "success",
         userName: "System Admin",
         userRole: "admin",

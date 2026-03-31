@@ -57,6 +57,7 @@ export default function TambahPengajuanPage() {
         amount: "",
         tenor_months: "",
         purpose: "",
+        deductionSource: "gaji",
     });
 
     // Calculation state
@@ -231,6 +232,7 @@ export default function TambahPengajuanPage() {
                     amount: amt,
                     tenorMonths: tnr,
                     purpose: formData.purpose || "Keperluan pribadi",
+                    deductionSource: formData.deductionSource,
                 }),
             });
 
@@ -371,6 +373,22 @@ export default function TambahPengajuanPage() {
                                         placeholder="Jelaskan tujuan penggunaan pinjaman..."
                                         rows={3}
                                     />
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="deductionSource">Sumber Pemotongan Angsuran *</Label>
+                                    <Select
+                                        value={formData.deductionSource}
+                                        onValueChange={(value) => handleSelectChange("deductionSource", value)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih sumber potongan" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="gaji">Potongan Gaji</SelectItem>
+                                            <SelectItem value="tunkin">Potongan Tunjangan Kinerja (Tunkin)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </CardContent>
                         </Card>

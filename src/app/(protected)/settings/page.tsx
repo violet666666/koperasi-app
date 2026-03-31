@@ -61,7 +61,9 @@ export default function SettingsPage() {
     
     // States for Data Reset
     const [resetStoreData, setResetStoreData] = React.useState(false);
-    const [resetFinancialData, setResetFinancialData] = React.useState(false);
+    const [resetLoanData, setResetLoanData] = React.useState(false);
+    const [resetSavingsData, setResetSavingsData] = React.useState(false);
+    const [resetJournalData, setResetJournalData] = React.useState(false);
     const [resetMemberData, setResetMemberData] = React.useState(false);
     const [resetConfirmation, setResetConfirmation] = React.useState("");
     const [isResetting, setIsResetting] = React.useState(false);
@@ -124,7 +126,7 @@ export default function SettingsPage() {
             return;
         }
         
-        if (!resetStoreData && !resetFinancialData && !resetMemberData) {
+        if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData) {
             toast.error("Pilih minimal satu tipe data yang akan dihapus.");
             return;
         }
@@ -133,7 +135,9 @@ export default function SettingsPage() {
         try {
             const result = await processDataReset({
                 resetStoreData,
-                resetFinancialData,
+                resetLoanData,
+                resetSavingsData,
+                resetJournalData,
                 resetMemberData
             });
 
@@ -141,7 +145,9 @@ export default function SettingsPage() {
                 toast.success(result.message);
                 // Reset inputs
                 setResetStoreData(false);
-                setResetFinancialData(false);
+                setResetLoanData(false);
+                setResetSavingsData(false);
+                setResetJournalData(false);
                 setResetMemberData(false);
                 setResetConfirmation("");
             } else {
@@ -470,13 +476,37 @@ export default function SettingsPage() {
                                     
                                     <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
                                         <Checkbox 
-                                            id="reset-financial" 
-                                            checked={resetFinancialData}
-                                            onCheckedChange={(checked) => setResetFinancialData(checked as boolean)}
+                                            id="reset-loan" 
+                                            checked={resetLoanData}
+                                            onCheckedChange={(checked) => setResetLoanData(checked as boolean)}
                                         />
                                         <div className="space-y-1">
-                                            <Label htmlFor="reset-financial" className="font-semibold text-base cursor-pointer">Reset Data Keuangan & Transaksi</Label>
-                                            <p className="text-sm text-muted-foreground">Menghapus semua Pinjaman, Jurnal, Transaksi Rekening, Transaksi Simpanan, Tagihan, Kwitansi, dan Mutasi Kas/Bank. (Saldo Kas/Bank akan di-reset menjadi 0).</p>
+                                            <Label htmlFor="reset-loan" className="font-semibold text-base cursor-pointer">Reset Data Pinjaman</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Pengajuan, Pinjaman Aktif, Jadwal Angsuran, dan Pembayaran Pinjaman.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-savings" 
+                                            checked={resetSavingsData}
+                                            onCheckedChange={(checked) => setResetSavingsData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-savings" className="font-semibold text-base cursor-pointer">Reset Data Simpanan</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Transaksi Setoran dan Penarikan Simpanan, serta Riwayat Tabungan Sejahtera.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-journal" 
+                                            checked={resetJournalData}
+                                            onCheckedChange={(checked) => setResetJournalData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-journal" className="font-semibold text-base cursor-pointer">Reset Data Jurnal & Kas Bank</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Mutasi Kas/Bank, Kwitansi, Jurnal Akuntansi, dan Transaksi Unit. Saldo Kas/Bank di-reset menjadi 0.</p>
                                         </div>
                                     </div>
 
@@ -485,18 +515,19 @@ export default function SettingsPage() {
                                             id="reset-member" 
                                             checked={resetMemberData}
                                             onCheckedChange={(checked) => {
-                                                if (checked && !resetFinancialData) {
-                                                    toast.warning("Centang 'Data Keuangan' terlebih dahulu", {
-                                                        description: "Data Anggota memiliki ikatan dengan Data Keuangan/Pinjaman/Simpanan."
+                                                if (checked && (!resetLoanData || !resetSavingsData)) {
+                                                    toast.warning("Centang 'Data Pinjaman' dan 'Data Simpanan' terlebih dahulu", {
+                                                        description: "Data Anggota memiliki ikatan dengan Pengajuan/Simpanan/Pinjaman."
                                                     });
-                                                    setResetFinancialData(true);
+                                                    setResetLoanData(true);
+                                                    setResetSavingsData(true);
                                                 }
                                                 setResetMemberData(checked as boolean);
                                             }}
                                         />
                                         <div className="space-y-1">
                                             <Label htmlFor="reset-member" className="font-semibold text-base cursor-pointer">Reset Data Anggota</Label>
-                                            <p className="text-sm text-muted-foreground">Menghapus semua Profil Anggota beserta Akun Simpanan mereka. Membutuhkan izin penghapusan Data Keuangan.</p>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Profil Anggota beserta Akun Simpanan mereka. Membutuhkan izin penghapusan Data Pinjaman & Simpanan.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -520,7 +551,7 @@ export default function SettingsPage() {
                                             disabled={
                                                 isResetting || 
                                                 resetConfirmation !== "RESET-DATA" || 
-                                                (!resetStoreData && !resetFinancialData && !resetMemberData)
+                                                (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData)
                                             }
                                             className="w-full sm:w-auto mt-4"
                                         >

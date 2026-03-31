@@ -40,7 +40,9 @@ export async function GET(
         // Calculate some basic stats if member exists
         let stats = null;
         if (user.member) {
-            const totalSimpanan = user.member.savingsAccounts.reduce((sum, account) => sum + Number(account.balance), 0);
+            const tabunganWajib = Number(user.member.tabunganWajib || 0);
+            const savingsAccountTotal = user.member.savingsAccounts.reduce((sum, account) => sum + Number(account.balance), 0);
+            const totalSimpanan = savingsAccountTotal + tabunganWajib;
             const totalPinjaman = user.member.loans.reduce((sum, loan) => sum + Number(loan.principalAmount), 0);
             const sisaPinjaman = user.member.loans.reduce((sum, loan) => sum + Number(loan.principalOutstanding), 0);
             

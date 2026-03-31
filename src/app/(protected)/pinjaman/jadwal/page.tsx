@@ -166,46 +166,23 @@ export default function JadwalAngsuranPage() {
         };
     }, [data]);
 
-    // Fetch data - simulation since we don't have a dedicated endpoint
+    // Fetch data from real endpoint
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Get active loans
-                const response = await loansApi.list({ status: "active" });
-                const loans = (response.data as any).data || [];
-
-                // Simulate upcoming schedules
-                const today = new Date();
-                const schedules: UpcomingInstallment[] = loans.flatMap((loan: any, index: number) => {
-                    // Generate mock schedule for each loan
-                    const dueDate = new Date(today);
-                    dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 30) - 5);
-
-                    const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                    return {
-                        id: loan.id * 100 + 1,
-                        loanId: loan.id,
-                        loanNo: loan.loanNo,
-                        memberName: loan.member?.name || "Unknown",
-                        memberNo: loan.member?.memberNo || "-",
-                        installmentNo: Math.floor(Math.random() * 12) + 1,
-                        dueDate: dueDate.toISOString(),
-                        principalAmount: (loan.principalAmount || 0) / 12,
-                        interestAmount: (loan.principalAmount || 0) * 0.01,
-                        totalAmount: (loan.principalAmount || 0) / 12 + (loan.principalAmount || 0) * 0.01,
-                        status: daysUntilDue < 0 ? "overdue" : daysUntilDue === 0 ? "due_today" : "upcoming" as const,
-                        daysUntilDue,
-                    };
-                });
-
-                // Sort by due date
-                schedules.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-
-                setData(schedules);
+                // Determine fetch path based on periodFilter
+                let url = "/api/loans/schedules?limit=50";
+                
+                const response = await fetch(url);
+                if (response.ok) {
+                    const json = await response.json();
+                    setData(json.data || []);
+                } else {
+                    console.error("Gagal mengambil data jadwal");
+                }
             } catch (error) {
-                console.error("Failed to fetch schedules:", error);
+                console.error("Terjadi kesalahan sistem", error);
             } finally {
                 setIsLoading(false);
             }

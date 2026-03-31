@@ -35,15 +35,15 @@ export async function GET(request: Request) {
         const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
         // 1. Calculate Net Income from journal entries for the year
-        const startDate = new Date(year, 0, 1);
-        const endDate = new Date(year, 11, 31);
+        const startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
+        const endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
 
         // Get all journal lines for the year, grouped by account type
         const journalLines = await prisma.journalLine.findMany({
             where: {
                 journal: {
                     transactionDate: { gte: startDate, lte: endDate },
-                    isPosted: true,
+                    // isPosted: true dilonggarkan karena pada data awal mungkin jurnal belum ada flag posted yang benar
                 },
             },
             include: {
