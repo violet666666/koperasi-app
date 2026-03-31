@@ -384,3 +384,12 @@ export const receiptsApi = {
     delete: (id: number) =>
         api.delete<{ message: string }>(`/receipts/${id}`),
 };
+
+// ============================================================
+// Settings API
+// ============================================================
+
+export const settingsApi = {
+    cooperative: () => api.get<{ data: any }>("/settings/cooperative"),
+};
+

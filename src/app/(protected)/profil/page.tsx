@@ -73,32 +73,36 @@ export default function ProfilAnggotaPage() {
     const [passwordError, setPasswordError] = React.useState("");
 
     // Fetch profile (would use current logged-in user)
+    // Fetch profile
     React.useEffect(() => {
         async function fetchData() {
+            if (!session?.user?.id) return;
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                const response = await fetch(`/api/users/${session.user.id}`);
+                const { data: userData } = await response.json();
 
-                // Mock data - would be current user's profile
+                if (!userData) throw new Error("User not found");
+
                 setProfile({
-                    id: session?.user?.id ? Number(session.user.id) : 1,
-                    memberNo: isOperator ? "OP-001" : "A-001",
-                    name: isOperator ? "Operator" : (session?.user?.name || "AKBP Budi Santoso, S.I.K."),
-                    nrp: "75020458",
-                    rank: isOperator ? "" : "AKBP",
-                    unit: "Polres Lumajang",
-                    nik: "3175041201780001",
-                    phone: "08123456789",
-                    email: session?.user?.email || "budi.santoso@polri.go.id",
-                    address: isOperator ? "" : "Jl. Sudirman No. 123, RT 05/RW 02",
-                    city: "Kabupaten Lumajang",
-                    province: "Jawa Timur",
-                    joinDate: "2010-03-15",
-                    status: "active",
-                    totalSimpanan: 45000000,
-                    totalPinjaman: 150000000,
-                    sisaPinjaman: 75000000,
-                    estimasiSHU: 1250000,
+                    id: userData.id,
+                    memberNo: userData.member?.memberNo || (isOperator ? "OP-001" : "-"),
+                    name: userData.member?.name || userData.name,
+                    nrp: userData.member?.nrp || "-",
+                    rank: userData.member?.category || (isOperator ? "Operator" : "-"),
+                    unit: userData.branch?.name || "-",
+                    nik: userData.member?.nik || "-",
+                    phone: userData.member?.phone || userData.phone || "-",
+                    email: userData.member?.email || userData.email || "-",
+                    address: userData.member?.address || "-",
+                    city: userData.member?.city || "-",
+                    province: userData.member?.province || "-",
+                    joinDate: userData.member?.joinDate || userData.createdAt,
+                    status: userData.member?.status || (userData.isActive ? "active" : "inactive"),
+                    totalSimpanan: userData.stats?.totalSimpanan || 0,
+                    totalPinjaman: userData.stats?.totalPinjaman || 0,
+                    sisaPinjaman: userData.stats?.sisaPinjaman || 0,
+                    estimasiSHU: userData.stats?.estimasiSHU || 0,
                 });
             } catch (error) {
                 console.error("Failed to fetch:", error);
@@ -107,7 +111,7 @@ export default function ProfilAnggotaPage() {
             }
         }
         fetchData();
-    }, []);
+    }, [session?.user?.id, isOperator]);
 
     // Handle save
     const handleSave = async () => {

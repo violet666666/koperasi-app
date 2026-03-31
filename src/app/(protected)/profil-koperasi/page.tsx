@@ -21,6 +21,7 @@ import {
     Loader2,
     Upload,
 } from "lucide-react";
+import { settingsApi } from "@/lib/api/services";
 
 interface CooperativeProfile {
     name: string;
@@ -51,27 +52,9 @@ export default function ProfilKoperasiPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data
-                setProfile({
-                    name: "PRIMKOPPOL Polres Lumajang",
-                    legalName: "Primer Koperasi Kepolisian Polres Lumajang",
-                    registrationNumber: "518/BH/KDK.9/III/2005",
-                    taxId: "01.234.567.8-012.345",
-                    establishedDate: "2005-03-15",
-                    address: "Jl. Alun-Alun Utara No. 1",
-                    city: "Kabupaten Lumajang",
-                    province: "Jawa Timur",
-                    postalCode: "67316",
-                    phone: "(0334) 881110",
-                    email: "primkoppol@polreslumajang.go.id",
-                    website: "https://primkoppol-polreslumajang.go.id",
-                    logoUrl: "",
-                    description: "Koperasi simpan pinjam yang melayani anggota kepolisian Polres Lumajang dan jajarannya untuk meningkatkan kesejahteraan anggota melalui layanan simpanan dan pinjaman.",
-                    totalMembers: 2500,
-                    totalAssets: 15000000000,
-                });
+                const response = await settingsApi.cooperative();
+                const data = response.data as unknown as CooperativeProfile;
+                setProfile(data);
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {

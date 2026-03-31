@@ -182,7 +182,7 @@ export const createTransferSchema = z.object({
 // Query parameter schemas
 export const paginationSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
-    perPage: z.coerce.number().int().positive().max(100).default(15),
+    perPage: z.coerce.number().int().positive().max(10000).default(15),
     search: z.string().optional(),
     sortBy: z.string().optional(),
     sortOrder: z.enum(["asc", "desc"]).default("asc"),
