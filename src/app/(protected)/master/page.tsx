@@ -26,7 +26,7 @@ const masterItems = [
         color: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
     },
     {
-        title: "Chart of Accounts",
+        title: "Bagan Akun",
         description: "Kelola bagan akun akuntansi",
         href: "/master/coa",
         icon: BookOpen,

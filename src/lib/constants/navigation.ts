@@ -249,7 +249,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 children: [
                     { title: "Produk Simpanan", href: "/master/produk-simpanan" },
                     { title: "Produk Pinjaman", href: "/master/produk-pinjaman" },
-                    { title: "Chart of Accounts", href: "/master/coa" },
+                    { title: "Bagan Akun", href: "/master/coa" },
                     { title: "Mapping Jurnal", href: "/master/mapping-jurnal" },
                     { title: "Parameter SHU", href: "/master/parameter-shu" },
                     { title: "Saldo Awal", href: "/master/saldo-awal" },

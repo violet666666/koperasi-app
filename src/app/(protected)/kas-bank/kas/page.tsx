@@ -170,14 +170,12 @@ export default function TransaksiKasPage() {
             try {
                 // Fetch cash accounts
                 const accountsRes = await cashBankApi.accounts();
-                const cashAccounts = ((accountsRes.data as any).data || []).filter(
-                    (a: any) => a.type === "cash"
-                );
-                setAccounts(cashAccounts);
+                const allAccounts = (accountsRes.data as any).data || [];
+                setAccounts(allAccounts);
 
                 // Fetch transactions
                 const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
-                const txRes = await cashBankApi.transactions({ ...params, type: "cash" });
+                const txRes = await cashBankApi.transactions({ ...params });
                 setTransactions((txRes.data as any).data || []);
             } catch (error) {
                 console.error("Failed to fetch:", error);

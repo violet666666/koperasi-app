@@ -211,7 +211,7 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
 
         "produk-simpanan": "Produk Simpanan",
         "produk-pinjaman": "Produk Pinjaman",
-        coa: "Chart of Accounts",
+        coa: "Bagan Akun",
         "mapping-jurnal": "Mapping Jurnal",
         "parameter-shu": "Parameter SHU",
         "saldo-awal": "Saldo Awal",
