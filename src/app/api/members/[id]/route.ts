@@ -70,8 +70,8 @@ export async function GET(request: Request, { params }: Params) {
         if (overdueLoans.length > 0) {
             const now = new Date();
             overdueLoans.forEach(l => {
-                if (l.maturityDate) {
-                    const diff = Math.floor((now.getTime() - new Date(l.maturityDate).getTime()) / (1000 * 60 * 60 * 24));
+                if (l.lastDueDate) {
+                    const diff = Math.floor((now.getTime() - new Date(l.lastDueDate).getTime()) / (1000 * 60 * 60 * 24));
                     if (diff > overdueDays) overdueDays = diff;
                 }
             });
