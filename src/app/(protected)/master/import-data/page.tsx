@@ -36,7 +36,7 @@ interface PreviewRow {
     tajib?: number;
     memberId?: number;
     memberName?: string;
-    status: "valid" | "error";
+    status: "valid" | "error" | "new_member";
     reason: string | null;
     currentTunkin?: number | null;
     currentGaji?: number | null;
@@ -641,12 +641,17 @@ export default function ImportDataPage() {
                                                     <TableCell className="font-mono text-xs">{r.nrp}</TableCell>
                                                     <TableCell className="text-xs">{r.nama}</TableCell>
                                                     <TableCell className="text-xs font-medium">
-                                                        {r.isNewMember ? (
+                                                        {r.status === "new_member" ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-yellow-100 text-yellow-800 border-yellow-300">Akan Didaftarkan</Badge>
+                                                                {r.nama}
+                                                            </span>
+                                                        ) : r.isNewMember ? (
                                                             <span className="flex items-center gap-1">
                                                                 <Badge variant="secondary" className="text-[10px] px-1 py-0 bg-emerald-100 text-emerald-700">BARU</Badge>
                                                                 {r.memberName}
                                                             </span>
-                                                        ) : r.memberName}
+                                                        ) : (r.memberName || r.nama)}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono">
                                                         {importType === "akun_anggota" && r.isNewMember === false ? (

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 function generateLoanNo() {
@@ -105,8 +106,17 @@ export async function POST(request: Request) {
             const h = (headers[j] || '').toUpperCase();
             const sh = (subHeaders[j] || '').toUpperCase();
             if (h.includes("SISA") || sh.includes("SISA SALDO") || sh.includes("SISA")) {
-                saldoIdx = j; // Keep updating — last one wins (most recent period)
+                saldoIdx = j; // Keep updating — last one wins (moest recent period)
             }
+        }
+
+        // Find extra period columns (Jan, Feb, Mrt 2026)
+        let pinjamJanIdx = -1, pinjamFebIdx = -1, pinjamMrtIdx = -1;
+        for (let j = 0; j < Math.max(headers.length, subHeaders.length); j++) {
+            const sh = (subHeaders[j] || '').toUpperCase();
+            if (sh.includes("PINJAM JAN")) pinjamJanIdx = j;
+            if (sh.includes("PINJAM FEB")) pinjamFebIdx = j;
+            if (sh.includes("PINJAM MRT")) pinjamMrtIdx = j;
         }
 
         // Find BS (Bayar Sendiri) column in sub-headers
@@ -132,53 +142,64 @@ export async function POST(request: Request) {
         const defaultBranch = await prisma.branch.findFirst();
 
         // ====================================================================
-        // 2-PASS SCANNING: Forward-fill blank NRPs for second loans
+        // 2-PASS SCANNING: Forward-fill blank NRPs + Multi-period loans
         // ====================================================================
-        // Pass 1: Build Name -> NRP lookup from rows that have both
-        const nameToNrpMap = new Map<string, string>();
-        const dataRows: { rowIdx: number; row: string[] }[] = [];
+        const dataRows: { rowIdx: number; row: string[], prevNrp: string }[] = [];
+        let lastSeenNrp = '';
 
         for (let i = firstHeaderIdx + 2; i < rows.length; i++) {
             const row = rows[i];
             if (!row) continue;
             const col0 = String(row[0] || '').trim().toUpperCase();
-            if (!col0 || col0 === "JUMLAH" || col0 === "NO" || isNaN(Number(col0))) continue;
+            if (col0 === "JUMLAH" || col0 === "NO") continue;
+            
+            // Allow empty col0 if it belongs to an extension row (same member, dual loan)
+            // But skip rows that are completely garbage/header separators
+            if (col0 && isNaN(Number(col0)) && col0.length > 5 && !col0.includes('JUMLAH')) continue;
 
-            const nrpRaw = cleanNrp(String(row[nrpIdx] || ''));
+            let nrpRaw = cleanNrp(String(row[nrpIdx] || ''));
             const nama = String(row[namaIdx] || '').trim();
-            if (!nama) continue;
+            if (!nama) continue; // Must have a name
 
-            dataRows.push({ rowIdx: i, row });
+            if (nrpRaw) lastSeenNrp = nrpRaw;
 
-            if (nrpRaw) {
-                const nameKey = cleanNameForMatch(nama);
-                if (!nameToNrpMap.has(nameKey)) {
-                    nameToNrpMap.set(nameKey, nrpRaw);
-                }
-            }
+            dataRows.push({ rowIdx: i, row, prevNrp: lastSeenNrp });
         }
 
-        // Pass 2: Process all data rows, forward-filling blank NRPs
         let successCount = 0;
         let failCount = 0;
         const results: any[] = [];
         const commitData: any[] = [];
 
-        for (const { rowIdx, row } of dataRows) {
+        for (const { rowIdx, row, prevNrp } of dataRows) {
             let nrp = cleanNrp(String(row[nrpIdx] || ''));
             const nama = String(row[namaIdx] || '').trim();
 
-            // Forward-fill: if NRP is blank, resolve from Name->NRP map
-            if (!nrp && nama) {
-                const nameKey = cleanNameForMatch(nama);
-                nrp = nameToNrpMap.get(nameKey) || '';
+            if (!nrp && nama && prevNrp) {
+                // Forward fill if adjacent row has NRP. This handles Book2's "empty NO" rows cleanly.
+                nrp = prevNrp;
             }
 
-            if (!nrp && !nama) continue;
+            // Parse financial values across all possible periods (2025 + Jan/Feb/Mar 2026)
+            const pinjamOld = cleanNumber(row[pinjamIdx]);
+            const pinjamJan = pinjamJanIdx >= 0 ? cleanNumber(row[pinjamJanIdx]) : 0;
+            const pinjamFeb = pinjamFebIdx >= 0 ? cleanNumber(row[pinjamFebIdx]) : 0;
+            const pinjamMrt = pinjamMrtIdx >= 0 ? cleanNumber(row[pinjamMrtIdx]) : 0;
+            
+            const totalPinjam = pinjamOld + pinjamJan + pinjamFeb + pinjamMrt;
+            
+            const selama = cleanNumber(row[selamaIdx]);
+            const angsuran = angsuranIdx >= 0 ? cleanNumber(row[angsuranIdx]) : 0;
+            const bs = bsIdx >= 0 ? cleanNumber(row[bsIdx]) : 0;
+            const sisaMaret = cleanNumber(row[saldoIdx]); // "SISA SALDO PER MARET 26"
 
-            // Match member
-            let match = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
-            if (!match && nama) {
+            // Skip members with no active loan entirely
+            if (sisaMaret <= 0) continue;
+
+            // Match member by NRP or Name
+            let match = nrp ? allMembers.find(m => m.nrp === nrp || m.memberNo === nrp) : undefined;
+            if (!match && !nrp && nama) {
+                // Try to find entirely by Name for rows that truly have no NRP
                 const cleanNama = cleanNameForMatch(nama);
                 const matches = allMembers.filter(m => {
                     const mClean = cleanNameForMatch(m.name);
@@ -187,61 +208,48 @@ export async function POST(request: Request) {
                 if (matches.length === 1) match = matches[0];
             }
 
-            if (!match) {
-                results.push({
-                    row: rowIdx + 1, nrp, nama, gaji: 0,
-                    status: 'error', reason: 'Anggota tidak ditemukan di sistem'
-                });
-                failCount++;
-                continue;
-            }
-
-            // Read loan data
-            const pinjam = cleanNumber(row[pinjamIdx]);
-            const selama = cleanNumber(row[selamaIdx]);
-            const angsuran = angsuranIdx >= 0 ? cleanNumber(row[angsuranIdx]) : 0;
-            const bs = bsIdx >= 0 ? cleanNumber(row[bsIdx]) : 0;
-            const sisaSaldo = cleanNumber(row[saldoIdx]);
-
-            // Skip members with no active loan (PINJAM empty or SISA empty/0)
-            if (pinjam <= 0 && sisaSaldo <= 0) continue;
-            
-            if (pinjam <= 0) {
-                results.push({
-                    row: rowIdx + 1, nrp: match.nrp || nrp, nama: match.name, gaji: 0,
-                    status: 'error', reason: `Ada sisa saldo (${sisaSaldo.toLocaleString('id-ID')}) tapi kolom PINJAM kosong`
-                });
-                failCount++;
-                continue;
-            }
-
-            if (sisaSaldo <= 0) {
-                results.push({
-                    row: rowIdx + 1, nrp: match.nrp || nrp, nama: match.name, gaji: pinjam,
-                    status: 'error', reason: 'Sudah lunas (sisa Rp 0)'
-                });
-                failCount++;
-                continue;
-            }
-
-            const principalOutstanding = sisaSaldo;
-            const principalPaid = pinjam > principalOutstanding ? pinjam - principalOutstanding : 0;
-            const computedInstallment = angsuran > 0 ? angsuran : (selama > 0 ? Math.ceil(pinjam / selama) : 0);
-
+            const principalOutstanding = sisaMaret;
+            const principalPaid = totalPinjam > principalOutstanding ? totalPinjam - principalOutstanding : 0;
+            const computedInstallment = angsuran > 0 ? angsuran : (selama > 0 ? Math.ceil(totalPinjam / selama) : 0);
             const bsText = bs > 0 ? `, BS Rp ${bs.toLocaleString('id-ID')}` : '';
+            
+            if (!match) {
+                // NEW MEMBER AUTO-CREATION logic (handled in commit phase)
+                const candidateEmail = nama.toLowerCase().replace(/[^a-z0-9]/g, '') + '@koperasi.com';
+                results.push({
+                    row: rowIdx + 1, nrp: '', nama: nama, gaji: totalPinjam,
+                    status: 'new_member', reason: `Akan buat akun: ${candidateEmail}`
+                });
+                successCount++;
+                commitData.push({
+                    isNewMember: true,
+                    newMemberName: nama,
+                    newMemberEmail: candidateEmail,
+                    principalAmount: totalPinjam,
+                    tenorMonths: selama || 60,
+                    monthlyInstallment: computedInstallment,
+                    principalOutstanding,
+                    principalPaid,
+                    bs
+                });
+                continue;
+            }
+
+            // Normal matching row
             results.push({
                 row: rowIdx + 1,
                 nrp: match.nrp || match.memberNo || nrp,
                 nama: match.name,
-                gaji: pinjam,           // UI: "Pokok Pinjaman"
-                currentGaji: sisaSaldo, // UI: "Sisa Pokok" 
+                gaji: totalPinjam,      // UI: "Pokok Pinjaman"
+                currentGaji: sisaMaret, // UI: "Sisa Pokok" 
                 status: 'valid',
                 reason: `Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln${bsText}, Dibayar Rp ${principalPaid.toLocaleString('id-ID')}`
             });
+            successCount++;
 
             commitData.push({
                 memberId: match.id,
-                principalAmount: pinjam,
+                principalAmount: totalPinjam,
                 tenorMonths: selama || 60,
                 monthlyInstallment: computedInstallment,
                 principalOutstanding,
@@ -264,12 +272,65 @@ export async function POST(request: Request) {
                 await prisma.$transaction(async (tx) => {
                     for (const data of batch) {
                         const today = new Date();
+                        let activeMemberId = data.memberId;
+
+                        // Auto-create new members
+                        if (data.isNewMember && data.newMemberName && data.newMemberEmail) {
+                            const passwordHash = await bcrypt.hash("123", 10);
+                            
+                            // Check if user already exists (just in case)
+                            let newUser = await tx.user.findUnique({
+                                where: { email: data.newMemberEmail }
+                            });
+
+                            if (!newUser) {
+                                // Default member role is likely ID 2 based on seed, but better to query
+                                const memberRole = await tx.role.findFirst({ where: { name: "member" } });
+                                const roleId = memberRole ? memberRole.id : 2;
+
+                                newUser = await tx.user.create({
+                                    data: {
+                                        email: data.newMemberEmail,
+                                        password: passwordHash,
+                                        name: data.newMemberName,
+                                        isActive: true,
+                                        roleId: roleId,
+                                        branchId: defaultBranch.id
+                                    }
+                                });
+                            }
+
+                            // Create the member
+                            const generatedNrp = 'NEW-' + Date.now().toString().slice(-6);
+                            const memberNo = 'M-' + Date.now().toString().slice(-6);
+
+                            const newMember = await tx.member.create({
+                                data: {
+                                    memberNo: memberNo,
+                                    name: data.newMemberName,
+                                    nrp: generatedNrp,
+                                    status: "active",
+                                    branchId: defaultBranch.id,
+                                    joinDate: new Date()
+                                }
+                            });
+
+                            // Link the user back to the new member
+                            await tx.user.update({
+                                where: { id: newUser.id },
+                                data: { memberId: newMember.id }
+                            });
+
+                            activeMemberId = newMember.id;
+                        }
+
+                        if (!activeMemberId) continue;
 
                         const applicationNo = generateLoanNo();
                         const app = await tx.loanApplication.create({
                             data: {
                                 applicationNo,
-                                memberId: data.memberId,
+                                memberId: activeMemberId,
                                 branchId: defaultBranch.id,
                                 productId: defaultProduct.id,
                                 amount: data.principalAmount,
@@ -287,7 +348,7 @@ export async function POST(request: Request) {
                             data: {
                                 loanNo: 'LN-' + applicationNo,
                                 applicationId: app.id,
-                                memberId: data.memberId,
+                                memberId: activeMemberId,
                                 branchId: defaultBranch.id,
                                 productSnapshot: JSON.parse(JSON.stringify(defaultProduct)),
                                 principalAmount: data.principalAmount,
