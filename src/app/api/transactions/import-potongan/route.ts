@@ -135,6 +135,15 @@ export async function POST(request: Request) {
             const BATCH_SIZE = 50;
             const memberEntries = [...memberTajibMap.entries()];
             
+            // Resolve createdById to prevent FK constraint violation
+            const session = await auth();
+            const userInfo = extractUserFromSession(session);
+            let createdById = userInfo.userId;
+            if (!createdById) {
+                const firstUser = await prisma.user.findFirst();
+                createdById = firstUser?.id || 1;
+            }
+
             // Ensure POTONGAN BARANG product exists
             let potonganProduct = await prisma.storeProduct.findUnique({ where: { sku: 'POT_BRG_001' } });
             if (!potonganProduct) {
@@ -179,7 +188,7 @@ export async function POST(request: Request) {
                                         subtotal: data.barang
                                     }]
                                 },
-                                createdById: 1, // session id 1 fallback
+                                createdById: createdById, 
                             }
                         });
                     }
@@ -209,7 +218,7 @@ export async function POST(request: Request) {
                                     lateFeePortion: 0,
                                     paymentMethod: "cash",
                                     paymentDate: new Date(),
-                                    createdById: 1,
+                                    createdById: createdById,
                                 }
                             });
                             
