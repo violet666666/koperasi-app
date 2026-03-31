@@ -276,22 +276,12 @@ export default function PengajuanPinjamanPage() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Loan Product */}
-                        <div className="space-y-2">
-                            <Label htmlFor="product">Produk Pinjaman *</Label>
-                            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih produk pinjaman" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {loanProducts.map((product) => (
-                                        <SelectItem key={product.id} value={String(product.id)}>
-                                            {product.name} — Bunga {product.interestRate / 12}% / bln ({product.interestRate}% / thn)
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {/* Loan Product - Hidden as requested */}
+                        <input
+                            type="hidden"
+                            name="product"
+                            value={selectedProduct}
+                        />
 
                         {/* Amount */}
                         <div className="space-y-2">

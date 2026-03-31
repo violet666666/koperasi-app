@@ -153,6 +153,18 @@ export const CASH_BANK_TRANSACTION_TYPES = {
     out: { label: "Keluar", color: "warning" },
 } as const;
 
+export const CASH_BANK_CATEGORIES = {
+    simpanan_pokok: { label: "Simpanan Pokok", type: "in" },
+    simpanan_wajib: { label: "Simpanan Wajib", type: "in" },
+    simpanan_sukarela: { label: "Simpanan Sukarela", type: "in" },
+    angsuran_pokok: { label: "Angsuran Pokok", type: "in" },
+    jasa_pinjaman: { label: "Jasa/Bunga Pinjaman", type: "in" },
+    pencairan_pinjaman: { label: "Pencairan Pinjaman", type: "out" },
+    biaya_operasional: { label: "Biaya Operasional", type: "out" },
+    transfer: { label: "Transfer Antar Kas/Bank", type: "both" },
+    lainnya: { label: "Lain-lain", type: "both" },
+} as const;
+
 // =================================================================
 // Product Types
 // =================================================================

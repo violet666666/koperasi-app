@@ -18,29 +18,45 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Save, ArrowUpCircle, ArrowDownCircle, Wallet, Building } from "lucide-react";
-import { formatCurrency } from "@/lib/constants";
-
-// Mock accounts
-const MOCK_ACCOUNTS = [
-    { id: 1, code: "K-001", name: "Kas Besar", type: "cash", balance: 25000000 },
-    { id: 2, code: "K-002", name: "Kas Kecil", type: "cash", balance: 5000000 },
-    { id: 3, code: "B-001", name: "Bank BCA", type: "bank", balance: 150000000 },
-    { id: 4, code: "B-002", name: "Bank Mandiri", type: "bank", balance: 85000000 },
-];
+import { formatCurrency, CASH_BANK_CATEGORIES } from "@/lib/constants";
+import { cashBankApi, CashBankAccount } from "@/lib/api";
 
 export default function TambahTransaksiKasBankPage() {
     const router = useRouter();
+    const [accounts, setAccounts] = React.useState<CashBankAccount[]>([]);
+    const [isLoadingAccounts, setIsLoadingAccounts] = React.useState(true);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [formData, setFormData] = React.useState({
         account_id: "",
         type: "in" as "in" | "out",
+        category: "",
         amount: "",
         description: "",
         reference_no: "",
         transaction_date: new Date().toISOString().split("T")[0],
     });
 
-    const selectedAccount = MOCK_ACCOUNTS.find((a) => a.id.toString() === formData.account_id);
+    React.useEffect(() => {
+        async function fetchAccounts() {
+            try {
+                const res = await cashBankApi.accounts();
+                const accountData = (res.data as any).data || res.data;
+                setAccounts(accountData as CashBankAccount[]);
+            } catch (error) {
+                toast.error("Gagal memuat daftar akun kas/bank");
+            } finally {
+                setIsLoadingAccounts(false);
+            }
+        }
+        fetchAccounts();
+    }, []);
+
+    const selectedAccount = accounts.find((a) => a.id.toString() === formData.account_id);
+    
+    // Filter categories based on transaction type
+    const availableCategories = Object.entries(CASH_BANK_CATEGORIES).filter(
+        ([_, cat]) => cat.type === formData.type || cat.type === "both"
+    );
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,15 +73,20 @@ export default function TambahTransaksiKasBankPage() {
         }
 
         // Check balance for outgoing transactions
-        if (formData.type === "out" && selectedAccount && amount > selectedAccount.balance) {
-            toast.error(`Saldo tidak mencukupi. Saldo tersedia: ${formatCurrency(selectedAccount.balance)}`);
+        if (formData.type === "out" && selectedAccount && amount > selectedAccount.currentBalance) {
+            toast.error(`Saldo tidak mencukupi. Saldo tersedia: ${formatCurrency(selectedAccount.currentBalance)}`);
             return;
         }
 
         setIsSubmitting(true);
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await cashBankApi.createTransaction({
+                accountId: parseInt(formData.account_id),
+                type: formData.type,
+                category: formData.category || undefined,
+                amount,
+                description: formData.description,
+            });
 
             toast.success(
                 formData.type === "in"
@@ -107,7 +128,7 @@ export default function TambahTransaksiKasBankPage() {
                                         <SelectValue placeholder="Pilih akun" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {MOCK_ACCOUNTS.map((account) => (
+                                        {accounts.map((account) => (
                                             <SelectItem key={account.id} value={account.id.toString()}>
                                                 <div className="flex items-center gap-2">
                                                     {account.type === "cash" ? (
@@ -124,7 +145,7 @@ export default function TambahTransaksiKasBankPage() {
                                 </Select>
                                 {selectedAccount && (
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        Saldo saat ini: <span className="font-medium">{formatCurrency(selectedAccount.balance)}</span>
+                                        Saldo saat ini: <span className="font-medium">{formatCurrency(selectedAccount.currentBalance)}</span>
                                     </p>
                                 )}
                             </div>
@@ -141,17 +162,38 @@ export default function TambahTransaksiKasBankPage() {
                                         <RadioGroupItem value="in" id="type-in" />
                                         <Label htmlFor="type-in" className="flex items-center gap-2 font-normal cursor-pointer">
                                             <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
-                                            Masuk
+                                            Masuk (Debit)
                                         </Label>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <RadioGroupItem value="out" id="type-out" />
                                         <Label htmlFor="type-out" className="flex items-center gap-2 font-normal cursor-pointer">
                                             <ArrowDownCircle className="h-4 w-4 text-amber-500" />
-                                            Keluar
+                                            Keluar (Kredit)
                                         </Label>
                                     </div>
                                 </RadioGroup>
+                            </div>
+
+                            {/* Category Selection */}
+                            <div>
+                                <Label htmlFor="category">Kategori Transaksi</Label>
+                                <Select
+                                    value={formData.category}
+                                    onValueChange={(value) => setFormData((p) => ({ ...p, category: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih kategori" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Tanpa Kategori</SelectItem>
+                                        {availableCategories.map(([key, cat]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {cat.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             {/* Amount */}
@@ -222,7 +264,7 @@ export default function TambahTransaksiKasBankPage() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Saldo Sebelum</span>
-                                            <span className="font-medium tabular-nums">{formatCurrency(selectedAccount.balance)}</span>
+                                            <span className="font-medium tabular-nums">{formatCurrency(selectedAccount.currentBalance)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">
@@ -238,8 +280,8 @@ export default function TambahTransaksiKasBankPage() {
                                             <span className="font-bold tabular-nums">
                                                 {formatCurrency(
                                                     formData.type === "in"
-                                                        ? selectedAccount.balance + (parseFloat(formData.amount) || 0)
-                                                        : selectedAccount.balance - (parseFloat(formData.amount) || 0)
+                                                        ? Number(selectedAccount.currentBalance) + (parseFloat(formData.amount) || 0)
+                                                        : Number(selectedAccount.currentBalance) - (parseFloat(formData.amount) || 0)
                                                 )}
                                             </span>
                                         </div>

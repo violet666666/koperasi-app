@@ -24,7 +24,7 @@ import {
     Building,
     ArrowLeftRight,
 } from "lucide-react";
-import { formatCurrency, CASH_BANK_TRANSACTION_TYPES } from "@/lib/constants";
+import { formatCurrency, CASH_BANK_TRANSACTION_TYPES, CASH_BANK_CATEGORIES } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api";
 
 // Types
@@ -45,6 +45,7 @@ interface CashBankTransaction {
     accountId: number;
     account?: { code: string; name: string };
     type: "in" | "out";
+    category?: keyof typeof CASH_BANK_CATEGORIES;
     amount: number;
     balanceBefore: number;
     balanceAfter: number;
@@ -85,69 +86,64 @@ function AccountCard({ account }: { account: CashBankAccount }) {
 // Transaction columns
 const transactionColumns: ColumnDef<CashBankTransaction>[] = [
     {
-        accessorKey: "transactionNo",
-        header: "No. Transaksi",
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>,
-    },
-    {
-        accessorKey: "account",
-        header: "Akun",
-        cell: ({ row }) => (
-            <div>
-                <p className="font-medium">{row.original.account?.name || "-"}</p>
-                <p className="text-xs text-muted-foreground">{row.original.account?.code}</p>
-            </div>
-        ),
-    },
-    {
-        accessorKey: "type",
-        header: "Jenis",
+        accessorKey: "transactionDate",
+        header: "Tgl",
         cell: ({ row }) => {
-            const type = row.getValue("type") as "in" | "out";
-            const config = CASH_BANK_TRANSACTION_TYPES[type];
+            const dateValue = row.getValue("transactionDate");
+            if (!dateValue) return "-";
+            return new Date(dateValue as string).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+        },
+    },
+    {
+        accessorKey: "transactionNo",
+        header: "No. Bukti",
+        cell: ({ row }) => <span className="font-mono text-sm font-medium text-muted-foreground">{row.getValue("transactionNo")}</span>,
+    },
+    {
+        accessorKey: "description",
+        header: "Keterangan & Kategori",
+        cell: ({ row }) => {
+            const catStr = row.original.category;
+            const categoryObj = catStr ? CASH_BANK_CATEGORIES[catStr] : null;
+
             return (
-                <div className="flex items-center gap-2">
-                    {type === "in" ? (
-                        <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                        <ArrowDownCircle className="h-4 w-4 text-amber-500" />
+                <div className="max-w-[250px]" title={row.getValue("description")}>
+                    <p className="font-medium truncate whitespace-normal leading-tight text-sm">{row.getValue("description") || "-"}</p>
+                    {categoryObj && (
+                        <Badge variant="outline" className="text-[10px] mt-1 uppercase tracking-wider">
+                            {categoryObj.label}
+                        </Badge>
                     )}
-                    <span className={type === "in" ? "text-emerald-600" : "text-amber-600"}>
-                        {config.label}
-                    </span>
                 </div>
             );
         },
     },
     {
-        accessorKey: "amount",
-        header: "Jumlah",
+        id: "masuk",
+        header: "Masuk (Debit)",
         cell: ({ row }) => {
             const type = row.original.type;
-            const amount = row.getValue("amount") as number;
-            return (
-                <span className={`font-medium tabular-nums ${type === "in" ? "text-emerald-600" : "text-amber-600"}`}>
-                    {type === "in" ? "+" : "-"}{formatCurrency(amount)}
-                </span>
-            );
+            const amount = row.original.amount;
+            if (type !== "in") return <span className="text-muted-foreground">-</span>;
+            return <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(amount)}</span>;
         },
     },
     {
-        accessorKey: "description",
-        header: "Keterangan",
-        cell: ({ row }) => (
-            <div className="max-w-[200px] truncate" title={row.getValue("description")}>
-                {row.getValue("description") || "-"}
-            </div>
-        ),
+        id: "keluar",
+        header: "Keluar (Kredit)",
+        cell: ({ row }) => {
+            const type = row.original.type;
+            const amount = row.original.amount;
+            if (type !== "out") return <span className="text-muted-foreground">-</span>;
+            return <span className="font-semibold text-destructive tabular-nums">{formatCurrency(amount)}</span>;
+        },
     },
     {
-        accessorKey: "transactionDate",
-        header: "Tanggal",
+        accessorKey: "balanceAfter",
+        header: "Saldo",
         cell: ({ row }) => {
-            const dateValue = row.getValue("transactionDate");
-            if (!dateValue) return "-";
-            return new Date(dateValue as string).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+            const balance = row.getValue("balanceAfter") as number;
+            return <span className="font-bold tabular-nums text-primary">{formatCurrency(balance)}</span>;
         },
     },
 ];
@@ -197,7 +193,7 @@ export default function KasBankPage() {
     const filteredTransactions = React.useMemo(() => {
         return transactions.filter((trx) => {
             const accountMatch = accountFilter === "all" || trx.accountId.toString() === accountFilter;
-            const typeMatch = typeFilter === "all" || trx.type === typeFilter;
+            const typeMatch = typeFilter === "all" || trx.category === typeFilter || (trx.category == null && typeFilter === "lainnya");
             return accountMatch && typeMatch;
         });
     }, [transactions, accountFilter, typeFilter]);
@@ -316,13 +312,14 @@ export default function KasBankPage() {
                         </Select>
 
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-[150px]">
-                                <SelectValue placeholder="Jenis" />
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Kategori" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Semua Jenis</SelectItem>
-                                <SelectItem value="in">Masuk</SelectItem>
-                                <SelectItem value="out">Keluar</SelectItem>
+                                <SelectItem value="all">Semua Kategori</SelectItem>
+                                {Object.entries(CASH_BANK_CATEGORIES).map(([key, val]) => (
+                                    <SelectItem key={key} value={key}>{val.label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

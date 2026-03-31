@@ -118,7 +118,7 @@ function AccountForm({
         code: account?.code || "",
         name: account?.name || "",
         type: account?.type || "asset",
-        parentId: account?.parentId?.toString() || "",
+        parentId: account?.parentId?.toString() || "none",
         isDetail: account?.isDetail ?? true,
         normalBalance: account?.normalBalance || "debit",
         isActive: account?.isActive ?? true,
@@ -132,8 +132,8 @@ function AccountForm({
         try {
             await onSave({
                 ...formData,
-                parentId: formData.parentId ? parseInt(formData.parentId) : undefined,
-                level: formData.parentId ? (accounts.find((a) => a.id.toString() === formData.parentId)?.level || 0) + 1 : 1,
+                parentId: formData.parentId && formData.parentId !== "none" ? parseInt(formData.parentId) : null,
+                level: formData.parentId && formData.parentId !== "none" ? (accounts.find((a) => a.id.toString() === formData.parentId)?.level || 0) + 1 : 1,
             } as Partial<Account>);
         } finally {
             setIsLoading(false);
@@ -189,7 +189,7 @@ function AccountForm({
                             <SelectValue placeholder="Pilih akun induk" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Tidak ada (Level 1)</SelectItem>
+                            <SelectItem value="none">Tidak ada (Level 1)</SelectItem>
                             {parentAccounts.map((acc) => (
                                 <SelectItem key={acc.id} value={acc.id.toString()}>
                                     {acc.code} - {acc.name}
@@ -311,7 +311,7 @@ export default function MasterCOAPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Chart of Accounts"
+                title="Bagan Akun (COA)"
                 description="Kelola bagan akun akuntansi koperasi"
                 backHref="/master"
                 actions={

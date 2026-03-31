@@ -23,13 +23,15 @@ export async function GET(request: Request) {
         const accountId = searchParams.get("accountId");
         const branchId = searchParams.get("branchId");
         const type = searchParams.get("type");
+        const category = searchParams.get("category");
         const dateFrom = searchParams.get("dateFrom");
         const dateTo = searchParams.get("dateTo");
 
-        const where = {
+        const where: any = {
             ...(accountId && { accountId: parseInt(accountId) }),
             ...(branchId && { branchId: parseInt(branchId) }),
             ...(type && { type }),
+            ...(category && { category }),
             ...(dateFrom && dateTo && {
                 transactionDate: {
                     gte: new Date(dateFrom),

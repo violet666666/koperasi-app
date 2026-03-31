@@ -154,7 +154,17 @@ export const createLoanPaymentSchema = z.object({
 export const createCashBankTransactionSchema = z.object({
     accountId: z.number().int().positive(),
     type: z.enum(["in", "out"]),
-    category: z.enum(["operational", "savings", "loan", "transfer", "other"]).optional(),
+    category: z.enum([
+        "simpanan_pokok",
+        "simpanan_wajib",
+        "simpanan_sukarela",
+        "angsuran_pokok",
+        "jasa_pinjaman",
+        "pencairan_pinjaman",
+        "biaya_operasional",
+        "transfer",
+        "lainnya"
+    ]).optional(),
     amount: z.number().positive(),
     description: z.string().optional(),
     transactionDate: z.string().transform((s) => new Date(s)),
