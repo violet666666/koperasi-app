@@ -91,14 +91,14 @@ export async function processDataReset(options: {
     // 4. Data Tunkin & Gaji (Partial Member updates)
     if (resetTunkinData && !resetMemberData) {
         operations.push(prisma.member.updateMany({
-            where: { deletedAt: null, tunlesKinerja: { not: null } },
+            where: { deletedAt: null },
             data: { tunlesKinerja: 0 }
         }));
     }
 
     if (resetGajiData && !resetMemberData) {
         operations.push(prisma.member.updateMany({
-            where: { deletedAt: null, salary: { not: null } },
+            where: { deletedAt: null },
             data: { salary: 0 }
         }));
     }
