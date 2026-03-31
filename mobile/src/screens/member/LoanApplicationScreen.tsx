@@ -31,7 +31,11 @@ export default function LoanApplicationScreen({ navigation }: any) {
     const loadProducts = async () => {
       try {
         const res = await api.get('/api/mobile/loan-apply');
-        setProducts(res.data.data || []);
+        const prods = res.data.data || [];
+        setProducts(prods);
+        if (prods.length > 0 && !selectedProduct) {
+            setSelectedProduct(prods[0]);
+        }
       } catch (err) {
         console.log('Load products error:', err);
       }
@@ -66,47 +70,44 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
   const handleSubmit = async () => {
     if (!selectedProduct) {
-      Alert.alert('Peringatan', 'Pilih jenis pinjaman terlebih dahulu');
+      Alert.alert('Peringatan', 'Sistem sedang memuat konfigurasi pinjaman. Cobalah beberapa saat lagi.');
       return;
     }
+    if (!amount || !tenor || !purpose) {
+      Alert.alert('Peringatan', 'Lengkapi semua data');
+      return;
+    }
+
     const amt = parseFloat(amount);
     const tnr = parseInt(tenor);
-    if (!amt || amt <= 0) {
-      Alert.alert('Peringatan', 'Masukkan jumlah pinjaman yang valid');
-      return;
-    }
-    if (!tnr || tnr <= 0) {
-      Alert.alert('Peringatan', 'Masukkan tenor yang valid');
-      return;
-    }
+
     if (amt > selectedProduct.maxAmount) {
-      Alert.alert('Peringatan', `Jumlah melebihi plafon maks ${formatRp(selectedProduct.maxAmount)}`);
+      Alert.alert('Limit', `Jumlah melebihi plafon maksimal ${formatRp(selectedProduct.maxAmount)}`);
       return;
     }
     if (tnr > selectedProduct.maxTenor) {
-      Alert.alert('Peringatan', `Tenor melebihi maks ${selectedProduct.maxTenor} bulan`);
+      Alert.alert('Limit', `Tenor maksimal ${selectedProduct.maxTenor} bulan`);
       return;
     }
 
     Alert.alert(
       'Konfirmasi Pengajuan',
-      `Pinjaman: ${selectedProduct.name}\nPlafon: ${formatRp(amt)}\nPotongan Resiko (2%): -${formatRp(adminFee())}\nTerima Bersih: ${formatRp(disbursedAmount())}\nTenor: ${tnr} bulan\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
+      `Anda akan mengajukan pinjaman sebesar ${formatRp(amt)} dengan angsuran ~${formatRp(monthlyInstallment())}/bulan selama ${tnr} bulan.\n\nDana cair dibayar sebesar ${formatRp(disbursedAmount())} setelah potongan resiko 2%.`,
       [
         { text: 'Batal', style: 'cancel' },
         {
-          text: 'Ajukan',
+          text: 'Ajukan Sekarang',
           onPress: async () => {
             setLoading(true);
             try {
-              const res = await api.post('/api/mobile/loan-apply', {
-                loanProductId: selectedProduct.id,
+              await api.post('/api/mobile/loan-apply', {
+                productId: selectedProduct.id,
                 amount: amt,
-                tenor: tnr,
-                purpose: purpose || 'Keperluan pribadi',
+                tenorMonths: tnr,
+                purpose,
               });
-              Alert.alert('Berhasil ✅', res.data.message, [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
+              Alert.alert('Berhasil', 'Pengajuan pinjaman berhasil dibuat dan menunggu persetujuan.');
+              navigation.goBack();
             } catch (err: any) {
               Alert.alert('Gagal', err.response?.data?.message || 'Gagal mengajukan pinjaman');
             } finally {
@@ -130,23 +131,21 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
-          {/* Pilih Produk */}
-          <Text style={styles.label}>Jenis Pinjaman</Text>
-          <View style={styles.productList}>
-            {products.map((p) => (
-              <TouchableOpacity
-                key={p.id}
-                style={[styles.productCard, selectedProduct?.id === p.id && styles.productSelected]}
-                onPress={() => setSelectedProduct(p)}
-              >
-                <Text style={[styles.productName, selectedProduct?.id === p.id && { color: C.accent }]}>
-                  {p.name}
-                </Text>
-                <Text style={styles.productInfo}>Bunga 1% /bln • Potong Resiko 2%</Text>
-                <Text style={styles.productInfo}>Plafon maks {formatRp(p.maxAmount)} • Tenor {p.maxTenor} bulan</Text>
-              </TouchableOpacity>
-            ))}
-            {products.length === 0 && <Text style={styles.emptyText}>Memuat produk pinjaman...</Text>}
+          {/* Info Banner Konfigurasi Pinjaman (pengganti pilih produk) */}
+          <View style={[styles.productCard, { backgroundColor: C.infoBg, borderColor: C.info, borderWidth: 1, marginBottom: 16 }]}>
+            <Text style={[styles.productName, { color: C.info }]}>Aturan Pinjaman Koperasi</Text>
+            <Text style={[styles.productInfo, { color: '#000' }]}>• Bunga Pinjaman: 1% Flat / bulan</Text>
+            <Text style={[styles.productInfo, { color: '#000' }]}>• Potongan Resiko: 2% (di depan)</Text>
+            {selectedProduct && (
+              <Text style={[styles.productInfo, { color: '#000', marginTop: 4 }]}>
+                (Max. Pinjaman {formatRp(selectedProduct.maxAmount)} | Tenor {selectedProduct.maxTenor} bln)
+              </Text>
+            )}
+            {!selectedProduct && (
+              <Text style={[styles.productInfo, { color: '#EF4444', marginTop: 4 }]}>
+                Memuat konfigurasi sistem...
+              </Text>
+            )}
           </View>
 
           {/* Jumlah */}

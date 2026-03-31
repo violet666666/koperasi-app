@@ -46,6 +46,8 @@ import AsetListScreen from "./src/screens/operator/AsetListScreen";
 import AsetDetailScreen from "./src/screens/operator/AsetDetailScreen";
 import MasterDataHubScreen from "./src/screens/operator/MasterDataHubScreen";
 import ImportDataScreen from "./src/screens/operator/ImportDataScreen";
+import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
+import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -197,6 +199,8 @@ export default function App() {
             <Stack.Screen name="AsetDetail" component={AsetDetailScreen} />
             <Stack.Screen name="MasterDataHub" component={MasterDataHubScreen} />
             <Stack.Screen name="ImportData" component={ImportDataScreen} />
+            <Stack.Screen name="KwitansiList" component={KwitansiListScreen} />
+            <Stack.Screen name="KwitansiForm" component={KwitansiFormScreen} />
 
             {/* ====== Common Sub-screens ====== */}
             <Stack.Screen

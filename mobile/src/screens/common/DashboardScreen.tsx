@@ -256,6 +256,7 @@ export default function DashboardScreen({ setToken }: any) {
                 <CollapsibleSection title="Akuntansi & Keuangan" icon="calculator" defaultExpanded={false}>
                     <View style={styles.menuGrid}>
                         <MenuItem icon="card-outline" label="Kas & Bank" color="#10B981" onPress={() => navigation.navigate("KasBankFull")} />
+                        <MenuItem icon="receipt-outline" label="Kwitansi" color="#f97316" onPress={() => navigation.navigate("KwitansiList")} />
                         <MenuItem icon="book-outline" label="Jurnal Umum" color="#0284c7" onPress={() => navigation.navigate("JurnalDaftar")} />
                         <MenuItem icon="library-outline" label="Buku Besar" color="#4338ca" onPress={() => navigation.navigate("BukuBesar")} />
                         <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />

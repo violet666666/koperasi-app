@@ -76,21 +76,31 @@ export default function TambahPengajuanPage() {
                 const res = await fetch("/api/loans/products");
                 if (res.ok) {
                     const json = await res.json();
-                    setProducts(json.data || []);
+                    const prodData = json.data || [];
+                    setProducts(prodData);
+                    if (prodData.length > 0 && !formData.product_id) {
+                        setFormData((prev) => ({ ...prev, product_id: String(prodData[0].id) }));
+                        setSelectedProduct(prodData[0]);
+                    }
                 }
             } catch (e) {
                 // Fallback: use safe defaults
-                setProducts([{
+                const defaultProd = {
                     id: 1, code: "PR", name: "Pinjaman Reguler",
                     interest_method: "flat", interest_rate: 0,
                     min_amount: 1000000, max_amount: 20000000,
                     min_tenor: 1, max_tenor: 36,
                     admin_fee_type: "percent", admin_fee_value: 1,
-                }]);
+                };
+                setProducts([defaultProd]);
+                if (!formData.product_id) {
+                    setFormData((prev) => ({ ...prev, product_id: String(defaultProd.id) }));
+                    setSelectedProduct(defaultProd);
+                }
             }
         };
         loadProducts();
-    }, []);
+    }, [formData.product_id]);
 
     // Auto-select member from URL params
     React.useEffect(() => {
@@ -302,35 +312,7 @@ export default function TambahPengajuanPage() {
                                 <CardTitle className="text-lg">Detail Pinjaman</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div>
-                                    <Label htmlFor="product_id">Produk Pinjaman *</Label>
-                                    <Select
-                                        value={formData.product_id}
-                                        onValueChange={(value) => handleSelectChange("product_id", value)}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Pilih produk" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {products.map((product: LoanProduct) => (
-                                                <SelectItem key={product.id} value={product.id.toString()}>
-                                                    <div className="flex flex-col">
-                                                        <span>{product.name}</span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            Bunga 0% - Biaya Jasa 1%
-                                                        </span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {selectedProduct && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Min: {formatCurrency(selectedProduct.min_amount)} - Max: {formatCurrency(selectedProduct.max_amount)} | Tenor: {selectedProduct.min_tenor}-{selectedProduct.max_tenor} bulan
-                                        </p>
-                                    )}
-                                </div>
-
+                                {/* Form Input - Produk Pinjaman di-hide karena sudah auto-select via AD-ART logic */}
                                 <div>
                                     <Label htmlFor="amount">Jumlah Pinjaman *</Label>
                                     <div className="relative">
