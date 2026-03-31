@@ -39,17 +39,28 @@ interface MemberSHU {
     name: string;
     savingsContribution: number;
     loanContribution: number;
+    purchaseContribution: number;
     totalContribution: number;
     shuShare: number;
 }
 
+interface IncomeExpenseDetail {
+    code: string;
+    name: string;
+    amount: number;
+}
+
 interface SHUData {
     totalShu: number;
+    totalIncome: number;
+    totalExpense: number;
     memberNetIncome: number;
     nonMemberNetIncome: number;
     period: string;
     allocationsMember: SHUAllocation[];
     allocationsNonMember: SHUAllocation[];
+    incomeDetails: IncomeExpenseDetail[];
+    expenseDetails: IncomeExpenseDetail[];
     memberShu: MemberSHU[];
     memberSharePercent: number;
 }
@@ -74,6 +85,11 @@ const columns: ColumnDef<MemberSHU>[] = [
         accessorKey: "loanContribution",
         header: () => <div className="text-right">Pinjaman</div>,
         cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("loanContribution"))}</div>,
+    },
+    {
+        accessorKey: "purchaseContribution",
+        header: () => <div className="text-right">Belanja</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("purchaseContribution"))}</div>,
     },
     {
         accessorKey: "totalContribution",
@@ -180,7 +196,15 @@ export default function LaporanSHUPage() {
                                 </div>
                             </div>
                             {/* Detailed Net Income split */}
-                            <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total Pendapatan</p>
+                                    <p className="text-xl font-semibold text-emerald-600">{formatCurrency(data.totalIncome || 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total Beban</p>
+                                    <p className="text-xl font-semibold text-red-600">{formatCurrency(data.totalExpense || 0)}</p>
+                                </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">SHU dari Anggota (80%)</p>
                                     <p className="text-xl font-semibold">{formatCurrency(data.memberNetIncome)}</p>
@@ -192,6 +216,46 @@ export default function LaporanSHUPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Income & Expense Breakdown */}
+                    {((data.incomeDetails && data.incomeDetails.length > 0) || (data.expenseDetails && data.expenseDetails.length > 0)) && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            {data.incomeDetails && data.incomeDetails.length > 0 && (
+                                <Card className="border-emerald-200">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-base text-emerald-700">📈 Rincian Pendapatan</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            {data.incomeDetails.map((item) => (
+                                                <div key={item.code} className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">{item.code} — {item.name}</span>
+                                                    <span className="font-medium tabular-nums text-emerald-600">{formatCurrency(item.amount)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                            {data.expenseDetails && data.expenseDetails.length > 0 && (
+                                <Card className="border-red-200">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-base text-red-700">📉 Rincian Beban</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            {data.expenseDetails.map((item) => (
+                                                <div key={item.code} className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">{item.code} — {item.name}</span>
+                                                    <span className="font-medium tabular-nums text-red-600">{formatCurrency(item.amount)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    )}
 
                     {/* Allocation Table */}
                     <Card>

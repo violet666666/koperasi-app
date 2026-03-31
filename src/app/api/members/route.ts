@@ -26,6 +26,7 @@ export async function GET(request: Request) {
                 OR: [
                     { name: { contains: query.search, mode: "insensitive" as const } },
                     { memberNo: { contains: query.search, mode: "insensitive" as const } },
+                    { nrp: { contains: query.search, mode: "insensitive" as const } },
                     { nik: { contains: query.search, mode: "insensitive" as const } },
                 ],
             }),

@@ -4,14 +4,14 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 
 const SHU_ALLOCATIONS_MEMBER = [
-    { key: "jasa_modal", label: "Jasa Simpanan (Modal)", percentage: 20 },
-    { key: "jasa_pelayanan_simpan_pinjam", label: "Jasa Usaha Anggota", percentage: 25 },
-    { key: "cadangan", label: "Cadangan Koperasi", percentage: 30 },
-    { key: "pengurus", label: "Jasa Pengurus", percentage: 10 },
-    { key: "kesejahteraan_karyawan", label: "Kesejahteraan Karyawan", percentage: 5 },
+    { key: "jasa_modal", label: "Jasa Modal (Simpanan)", percentage: 25 },
+    { key: "jasa_pelayanan", label: "Jasa Pelayanan (Pinjaman)", percentage: 25 },
+    { key: "pengurus", label: "Dana Pengurus", percentage: 10 },
+    { key: "pegawai", label: "Dana Pegawai", percentage: 10 },
+    { key: "pembangunan", label: "Dana Pembangunan DK", percentage: 10 },
+    { key: "audit", label: "Dana Audit", percentage: 10 },
     { key: "pendidikan", label: "Dana Pendidikan", percentage: 5 },
-    { key: "sosial", label: "Dana Sosial", percentage: 2.5 },
-    { key: "pembangunan", label: "Dana Pembangunan DK", percentage: 2.5 },
+    { key: "sosial", label: "Dana Sosial", percentage: 5 },
 ];
 
 function toNum(d: Decimal | number): number {
@@ -72,15 +72,19 @@ export async function GET(request: Request) {
                     where: { status: "active" },
                     include: { product: { select: { type: true } } },
                 },
+                loans: {
+                    where: { status: { in: ["active", "overdue", "paid_off"] } },
+                    select: { principalPaid: true },
+                },
                 loanPayments: {
                     where: { paymentDate: { gte: startDate, lte: endDate } },
-                    select: { interestPortion: true },
+                    select: { principalPortion: true, interestPortion: true },
                 },
             },
         });
 
         let totalSavingsAll = 0;
-        let totalInterestPaidAll = 0;
+        let totalLoanContribAll = 0;
 
         const memberData = members.map((m) => {
             const savingsAccountBalance = m.savingsAccounts
@@ -90,17 +94,20 @@ export async function GET(request: Request) {
             // Integrasikan tabunganWajib eks-sistem
             const totalSimpanan = savingsAccountBalance + toNum(m.tabunganWajib || 0);
 
-            const interestPaid = m.loanPayments.reduce((sum, lp) => sum + toNum(lp.interestPortion), 0);
+            // Loan contribution: principalPaid (karena bunga 0%)
+            const paymentContrib = m.loanPayments.reduce((sum, lp) => sum + toNum(lp.principalPortion) + toNum(lp.interestPortion), 0);
+            const loanPrincipalPaid = m.loans.reduce((sum, l) => sum + toNum(l.principalPaid), 0);
+            const loanContrib = Math.max(paymentContrib, loanPrincipalPaid);
             
             totalSavingsAll += totalSimpanan;
-            totalInterestPaidAll += interestPaid;
+            totalLoanContribAll += loanContrib;
 
             return {
                 id: m.id,
                 memberNo: m.memberNo,
                 name: m.name,
                 totalSavings: totalSimpanan,
-                totalInterestPaid: interestPaid,
+                totalLoanContrib: loanContrib,
                 jasaModalRawProp: 0,
                 jasaUsahaProp: 0,
                 totalShu: 0,
@@ -108,39 +115,17 @@ export async function GET(request: Request) {
         });
 
         const allocationModal = allocations.find(a => a.key === "jasa_modal")?.amount || 0;
-        const allocationUsaha = allocations.find(a => a.key === "jasa_pelayanan_simpan_pinjam")?.amount || 0;
-
-        // Terapkan Rule 6% Floor Rate Web Apps
-        const interestRateMin = 0.06;
-        let deficitJasaModal = 0;
+        const allocationUsaha = allocations.find(a => a.key === "jasa_pelayanan")?.amount || 0;
 
         memberData.forEach((m) => {
             if (totalSavingsAll > 0) {
-                const proportionalShare = (m.totalSavings / totalSavingsAll) * allocationModal;
-                const minimumShare = m.totalSavings * interestRateMin;
-                
-                m.jasaModalRawProp = Math.max(proportionalShare, minimumShare);
-                // Hitung defisit yg harus ditambal Cadangan jika pro rata kurang dari 6%
-                if (minimumShare > proportionalShare) {
-                    deficitJasaModal += (minimumShare - proportionalShare);
-                }
+                m.jasaModalRawProp = Math.round((m.totalSavings / totalSavingsAll) * allocationModal);
             }
-            if (totalInterestPaidAll > 0) {
-                m.jasaUsahaProp = Math.round((m.totalInterestPaid / totalInterestPaidAll) * allocationUsaha);
+            if (totalLoanContribAll > 0) {
+                m.jasaUsahaProp = Math.round((m.totalLoanContrib / totalLoanContribAll) * allocationUsaha);
             }
-            m.totalShu = Math.round(m.jasaModalRawProp + m.jasaUsahaProp);
+            m.totalShu = m.jasaModalRawProp + m.jasaUsahaProp;
         });
-
-        // Potong alokasi Cadangan jika menambal floor 6%
-        const cadanganIndex = allocations.findIndex(a => a.key === "cadangan");
-        if (cadanganIndex !== -1 && deficitJasaModal > 0) {
-            allocations[cadanganIndex].amount = Math.max(0, allocations[cadanganIndex].amount - Math.round(deficitJasaModal));
-        }
-        
-        const jasaModalIndex = allocations.findIndex(a => a.key === "jasa_modal");
-        if (jasaModalIndex !== -1 && deficitJasaModal > 0) {
-           allocations[jasaModalIndex].amount += Math.round(deficitJasaModal);
-        }
 
         memberData.sort((a, b) => b.totalShu - a.totalShu);
         const topMembers = memberData.slice(0, 10);
@@ -153,7 +138,7 @@ export async function GET(request: Request) {
                 topMembers,
                 summary: {
                     totalSavingsAll,
-                    totalInterestPaidAll,
+                    totalLoanContribAll,
                 }
             }
         });

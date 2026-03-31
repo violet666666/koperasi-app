@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// GET /api/members/lookup
+// GET /api/members/lookup?q=xxx — Fuzzy search for members by NRP, name, or memberNo
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -11,14 +11,24 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const nrp = searchParams.get("nrp");
+        const q = searchParams.get("q") || searchParams.get("nrp") || "";
 
-        if (!nrp) {
-            return NextResponse.json({ message: "NRP is required" }, { status: 400 });
+        if (!q || q.trim().length < 1) {
+            return NextResponse.json({ message: "Parameter pencarian (q) diperlukan", data: [] }, { status: 400 });
         }
 
-        const member = await prisma.member.findUnique({
-            where: { nrp },
+        const searchTerm = q.trim();
+
+        const members = await prisma.member.findMany({
+            where: {
+                status: "active",
+                deletedAt: null,
+                OR: [
+                    { nrp: { contains: searchTerm, mode: "insensitive" } },
+                    { memberNo: { contains: searchTerm, mode: "insensitive" } },
+                    { name: { contains: searchTerm, mode: "insensitive" } },
+                ],
+            },
             select: {
                 id: true,
                 memberNo: true,
@@ -35,16 +45,11 @@ export async function GET(request: Request) {
                     },
                 },
             },
+            orderBy: { name: "asc" },
+            take: 20,
         });
 
-        if (!member) {
-            return NextResponse.json(
-                { message: `Anggota dengan NRP ${nrp} tidak ditemukan` },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ data: member });
+        return NextResponse.json({ data: members });
     } catch (error) {
         console.error("GET /api/members/lookup error:", error);
         return NextResponse.json(

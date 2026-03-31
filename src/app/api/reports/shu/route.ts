@@ -23,7 +23,8 @@ const SHU_ALLOCATIONS_NON_MEMBER = [
     { key: "sosial", label: "Dana Sosial", percentage: 10, description: "Dana Sosial Koperasi" },
 ];
 
-function toNum(d: Decimal | number): number {
+function toNum(d: Decimal | number | null | undefined): number {
+    if (d === null || d === undefined) return 0;
     return typeof d === "number" ? d : Number(d);
 }
 
@@ -53,6 +54,8 @@ export async function GET(request: Request) {
         // Aggregate income and expenses
         let totalIncome = 0;
         let totalExpense = 0;
+        const incomeDetails: { code: string; name: string; amount: number }[] = [];
+        const expenseDetails: { code: string; name: string; amount: number }[] = [];
         const incomeAccounts: Record<string, { code: string; name: string; amount: number }> = {};
         const expenseAccounts: Record<string, { code: string; name: string; amount: number }> = {};
 
@@ -62,7 +65,6 @@ export async function GET(request: Request) {
             const credit = toNum(line.credit);
 
             if (account.type === "income") {
-                // Income normal balance is credit
                 const amount = credit - debit;
                 totalIncome += amount;
                 if (!incomeAccounts[account.code]) {
@@ -70,7 +72,6 @@ export async function GET(request: Request) {
                 }
                 incomeAccounts[account.code].amount += amount;
             } else if (account.type === "expense") {
-                // Expense normal balance is debit
                 const amount = debit - credit;
                 totalExpense += amount;
                 if (!expenseAccounts[account.code]) {
@@ -80,11 +81,17 @@ export async function GET(request: Request) {
             }
         }
 
+        // Build income/expense detail arrays
+        for (const key of Object.keys(incomeAccounts)) {
+            incomeDetails.push(incomeAccounts[key]);
+        }
+        for (const key of Object.keys(expenseAccounts)) {
+            expenseDetails.push(expenseAccounts[key]);
+        }
+
         const netIncome = totalIncome - totalExpense; // This is the SHU
 
         // 2. Calculate allocations per AD-ART Pasal 42
-        // Default assumption: 80% income from members, 20% from non-members for display purposes
-        // Real implementation should split Net Income based on exact Journal types
         const memberNetIncome = Math.round(netIncome * 0.8);
         const nonMemberNetIncome = Math.round(netIncome * 0.2);
 
@@ -105,12 +112,10 @@ export async function GET(request: Request) {
         }));
 
         // 3. Calculate per-member SHU
-        // Jasa Modal (25%) — proportional to simpanan pokok + wajib balance
-        // Jasa Pelayanan (25%) — proportional to loan interest paid/admin fee paid
         const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
         const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
 
-        // Get active members with their savings and loan data
+        // Get active members with their savings, loan data, AND shop purchases
         const members = await prisma.member.findMany({
             where: { status: "active", deletedAt: null },
             select: {
@@ -122,58 +127,117 @@ export async function GET(request: Request) {
                     where: { status: "active" },
                     include: { product: { select: { type: true } } },
                 },
+                loans: {
+                    where: { status: { in: ["active", "overdue", "paid_off"] } },
+                    select: { principalPaid: true, principalAmount: true },
+                },
                 loanPayments: {
                     where: {
                         paymentDate: { gte: startDate, lte: endDate },
                     },
-                    select: { interestPortion: true },
+                    select: { principalPortion: true, interestPortion: true },
                 },
             },
         });
 
+        // Get shop purchase totals per member (Belanja)
+        let memberPurchases: Record<number, number> = {};
+        try {
+            const sales = await prisma.storeSale.findMany({
+                where: {
+                    createdAt: { gte: startDate, lte: endDate },
+                    memberId: { not: null },
+                },
+                select: { memberId: true, totalAmount: true },
+            });
+            for (const sale of sales) {
+                if (sale.memberId) {
+                    memberPurchases[sale.memberId] = (memberPurchases[sale.memberId] || 0) + toNum(sale.totalAmount);
+                }
+            }
+        } catch (e) {
+            // Sale model might not exist yet — gracefully fallback
+            console.log("Sale model not available for SHU belanja calculation");
+        }
+
+        // Also get UnitTransaction totals per member
+        try {
+            const unitTx = await prisma.unitTransaction.findMany({
+                where: {
+                    transactionDate: { gte: startDate, lte: endDate },
+                },
+                select: { memberId: true, amount: true },
+            });
+            for (const tx of unitTx) {
+                memberPurchases[tx.memberId] = (memberPurchases[tx.memberId] || 0) + toNum(tx.amount);
+            }
+        } catch (e) {
+            console.log("UnitTransaction query error for SHU calculation");
+        }
+
         // Calculate totals for proportional distribution
         let totalSavingsAll = 0;
-        let totalInterestPaidAll = 0;
+        let totalLoanContribAll = 0;
+        let totalPurchasesAll = 0;
 
         const memberData = members.map((m) => {
+            // Savings: pokok + wajib accounts + tabunganWajib field
             const savingsBalance = m.savingsAccounts
                 .filter((sa) => sa.product.type === "pokok" || sa.product.type === "wajib")
                 .reduce((sum, sa) => sum + toNum(sa.balance), 0) + Number(m.tabunganWajib || 0);
 
-            const interestPaid = m.loanPayments.reduce(
-                (sum, lp) => sum + toNum(lp.interestPortion),
-                0
+            // Loan contribution: principalPaid across ALL loans (since interest is 0%, bunga tidak relevan)
+            // Use actual payments if available, otherwise use loan.principalPaid
+            const paymentContrib = m.loanPayments.reduce(
+                (sum, lp) => sum + toNum(lp.principalPortion) + toNum(lp.interestPortion), 0
             );
+            const loanPrincipalPaid = m.loans.reduce(
+                (sum, l) => sum + toNum(l.principalPaid), 0
+            );
+            // Use whichever is larger (payments this year vs total principalPaid)
+            const loanContrib = Math.max(paymentContrib, loanPrincipalPaid);
+
+            // Purchases (Belanja)
+            const purchases = memberPurchases[m.id] || 0;
 
             totalSavingsAll += savingsBalance;
-            totalInterestPaidAll += interestPaid;
+            totalLoanContribAll += loanContrib;
+            totalPurchasesAll += purchases;
 
             return {
                 memberNo: m.memberNo,
                 name: m.name,
                 savingsBalance,
-                interestPaid,
+                loanContrib,
+                purchases,
             };
         });
 
         // Distribute SHU to each member
+        // Jasa Modal (25%): proportional to savings
+        // Jasa Usaha (25%): proportional to loan payments + purchases (total transaksi)
         const memberShu = memberData.map((m) => {
             const savingsContribution =
                 totalSavingsAll > 0
                     ? Math.round((m.savingsBalance / totalSavingsAll) * jasaSimpananPool)
                     : 0;
+            
+            const totalTransaksi = m.loanContrib + m.purchases;
+            const totalTransaksiAll = totalLoanContribAll + totalPurchasesAll;
             const loanContribution =
-                totalInterestPaidAll > 0
-                    ? Math.round((m.interestPaid / totalInterestPaidAll) * jasaUsahaPool)
+                totalTransaksiAll > 0
+                    ? Math.round((totalTransaksi / totalTransaksiAll) * jasaUsahaPool)
                     : 0;
-            const totalContribution = m.savingsBalance + m.interestPaid;
+            
+            const totalContribution = m.savingsBalance + totalTransaksi;
             const shuShare = savingsContribution + loanContribution;
 
             return {
                 memberNo: m.memberNo,
                 name: m.name,
-                savingsContribution: savingsContribution,
-                loanContribution: loanContribution,
+                savingsContribution,
+                loanContribution,
+                purchaseContribution: m.purchases,
                 totalContribution,
                 shuShare,
             };
@@ -189,6 +253,8 @@ export async function GET(request: Request) {
             memberSharePercent: 50, // 25% jasa usaha + 25% jasa simpanan
             allocationsMember,
             allocationsNonMember,
+            incomeDetails: incomeDetails.sort((a, b) => b.amount - a.amount),
+            expenseDetails: expenseDetails.sort((a, b) => b.amount - a.amount),
             memberShu: memberShu.sort((a, b) => b.shuShare - a.shuShare),
         };
 

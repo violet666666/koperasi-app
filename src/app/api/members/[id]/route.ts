@@ -77,7 +77,7 @@ export async function GET(request: Request, { params }: Params) {
             });
         }
 
-        // Next installment — find from LoanSchedule
+        // Next installment — find from LoanSchedule, with fallback for migration loans
         let nextInstallment = null;
         if (activeLoans.length > 0) {
             const today = new Date();
@@ -95,11 +95,91 @@ export async function GET(request: Request, { params }: Params) {
                     due_date: schedule.dueDate.toISOString(),
                     amount: Number(schedule.principalAmount) + Number(schedule.interestAmount),
                 };
+            } else {
+                // Fallback: compute from loan data when no schedule exists (migration loans)
+                const primaryLoan = activeLoans[0];
+                const installment = Number(primaryLoan.monthlyInstallment);
+                if (installment > 0) {
+                    // Next month 1st as due date
+                    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                    nextInstallment = {
+                        loan_id: primaryLoan.id,
+                        due_date: nextMonth.toISOString(),
+                        amount: installment,
+                    };
+                }
             }
         }
 
-        // Estimasi SHU = 0 by default (will be nonzero when SHU reports run)
-        const estimasi_shu = 0;
+        // Estimasi SHU — real-time calculation
+        let estimasi_shu = 0;
+        try {
+            const currentYear = new Date().getFullYear();
+            const yearStart = new Date(currentYear, 0, 1);
+            const yearEnd = new Date(currentYear, 11, 31);
+
+            // Get journal net income for current year
+            const journalLines = await prisma.journalLine.findMany({
+                where: {
+                    journal: {
+                        transactionDate: { gte: yearStart, lte: yearEnd },
+                        isPosted: true,
+                    },
+                },
+                include: { account: { select: { type: true } } },
+            });
+
+            let totalIncome = 0, totalExpense = 0;
+            for (const line of journalLines) {
+                const debit = Number(line.debit);
+                const credit = Number(line.credit);
+                if (line.account.type === "income") totalIncome += (credit - debit);
+                else if (line.account.type === "expense") totalExpense += (debit - credit);
+            }
+            const netIncome = totalIncome - totalExpense;
+            const memberNetIncome = Math.round(netIncome * 0.8);
+            const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
+            const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
+
+            // Get all active members savings + loan totals for proportional calc
+            const allMembers = await prisma.member.findMany({
+                where: { status: "active", deletedAt: null },
+                select: {
+                    id: true,
+                    tabunganWajib: true,
+                    savingsAccounts: {
+                        where: { status: "active" },
+                        include: { product: { select: { type: true } } },
+                    },
+                    loans: {
+                        where: { status: { in: ["active", "overdue", "paid_off"] } },
+                        select: { principalPaid: true },
+                    },
+                },
+            });
+
+            let totalSavingsAll = 0, totalLoanAll = 0;
+            let thisMemberSavings = 0, thisMemberLoan = 0;
+
+            for (const m of allMembers) {
+                const sav = m.savingsAccounts
+                    .filter(sa => sa.product.type === "pokok" || sa.product.type === "wajib")
+                    .reduce((s, sa) => s + Number(sa.balance), 0) + Number(m.tabunganWajib || 0);
+                const loan = m.loans.reduce((s, l) => s + Number(l.principalPaid), 0);
+                totalSavingsAll += sav;
+                totalLoanAll += loan;
+                if (m.id === member.id) {
+                    thisMemberSavings = sav;
+                    thisMemberLoan = loan;
+                }
+            }
+
+            const savShare = totalSavingsAll > 0 ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) : 0;
+            const loanShare = totalLoanAll > 0 ? Math.round((thisMemberLoan / totalLoanAll) * jasaUsahaPool) : 0;
+            estimasi_shu = savShare + loanShare;
+        } catch (e) {
+            console.error("Error calculating estimasi SHU:", e);
+        }
 
         return NextResponse.json({ 
             data: {
