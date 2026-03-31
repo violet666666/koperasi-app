@@ -44,16 +44,24 @@ export default function LoanApplicationScreen({ navigation }: any) {
     const amt = parseFloat(amount);
     const tnr = parseInt(tenor);
     if (!amt || !tnr) return 0;
-    const fee = Math.round(amt * 0.01);
-    const totalPiutang = amt + fee;
-    return Math.round(totalPiutang / tnr); 
+    
+    // Bunga 1% per bulan flat
+    const interestPerMonth = Math.round(amt * 0.01);
+    const principalPerMonth = Math.round(amt / tnr);
+    return principalPerMonth + interestPerMonth;
   };
 
   const adminFee = () => {
     if (!amount) return 0;
     const amt = parseFloat(amount);
     if (!amt) return 0;
-    return Math.round(amt * 0.01); // 1% admin fee
+    return Math.round(amt * 0.02); // Potongan Resiko 2%
+  };
+
+  const disbursedAmount = () => {
+    const amt = parseFloat(amount);
+    if (!amt) return 0;
+    return amt - adminFee(); // Disbursed: Plafon - Potongan Resiko
   };
 
   const handleSubmit = async () => {
@@ -82,7 +90,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
     Alert.alert(
       'Konfirmasi Pengajuan',
-      `Pinjaman: ${selectedProduct.name}\nTerima Bersih: ${formatRp(amt)}\nTotal Hutang (Pokok+1%): ${formatRp(amt + adminFee())}\nTenor: ${tnr} bulan\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
+      `Pinjaman: ${selectedProduct.name}\nPlafon: ${formatRp(amt)}\nPotongan Resiko (2%): -${formatRp(adminFee())}\nTerima Bersih: ${formatRp(disbursedAmount())}\nTenor: ${tnr} bulan\nAngsuran: ~${formatRp(monthlyInstallment())}/bln\n\nLanjutkan?`,
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -134,7 +142,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
                 <Text style={[styles.productName, selectedProduct?.id === p.id && { color: C.accent }]}>
                   {p.name}
                 </Text>
-                <Text style={styles.productInfo}>Bunga 0% • Biaya Jasa 1%</Text>
+                <Text style={styles.productInfo}>Bunga 1% /bln • Potong Resiko 2%</Text>
                 <Text style={styles.productInfo}>Plafon maks {formatRp(p.maxAmount)} • Tenor {p.maxTenor} bulan</Text>
               </TouchableOpacity>
             ))}
@@ -177,12 +185,14 @@ export default function LoanApplicationScreen({ navigation }: any) {
           {/* Preview */}
           {selectedProduct && amount && tenor && (
             <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Terima Bersih: {formatRp(parseFloat(amount) || 0)}</Text>
-              <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())} / bln</Text>
+              <Text style={styles.previewTitle}>Terima Bersih (Plafon - 2% Resiko)</Text>
+              <Text style={[styles.previewAmount, { color: '#4ADE80' }]}>{formatRp(disbursedAmount())}</Text>
+              <Text style={[styles.previewNote, { marginTop: 16 }]}>
+                Angsuran per Bulan (Selama {tenor} bln)
+              </Text>
+              <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())}</Text>
               <Text style={styles.previewNote}>
-                Total Hutang = Pokok + 1% Jasa Admin ({formatRp((parseFloat(amount)||0) + adminFee())})
-                {'\n'}
-                Dibayar selama {tenor} bulan
+                Rincian = Angsuran Pokok + Bunga Flat 1%/bln
               </Text>
             </View>
           )}

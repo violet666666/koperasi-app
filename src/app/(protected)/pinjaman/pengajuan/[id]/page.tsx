@@ -77,9 +77,13 @@ export default function PengajuanDetailPage() {
     }
 
     const { status, amount, tenorMonths, member, product, loan } = data;
-    const interestPerMonth = Number(product.interestRate) / 12;
+    
+    // Perhitungan logika baru
+    const interestPerMonth = 1; // 1% flat per bulan
     const estimationPokok = Math.round(Number(amount) / tenorMonths);
-    const estimationBunga = Math.round(Number(amount) * (interestPerMonth / 100));
+    const estimationBunga = Math.round(Number(amount) * 0.01);
+    const adminFee = Math.round(Number(amount) * 0.02); // 2% Risk deduction
+    const disbursed = Number(amount) - adminFee;
 
     return (
         <div className="space-y-6">
@@ -126,18 +130,34 @@ export default function PengajuanDetailPage() {
                                 <p className="font-medium">{tenorMonths} Bulan</p>
                             </div>
                             <div className="col-span-2 mt-4 p-4 border rounded-md bg-muted/50">
-                                <p className="font-semibold mb-2">Estimasi Potong Gaji (Per Bulan)</p>
+                                <p className="font-semibold mb-2">Simulasi Angsuran (Per Bulan)</p>
                                 <div className="flex justify-between text-sm">
                                     <span>Angsuran Pokok</span>
                                     <span>{formatCurrency(estimationPokok)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span>Angsuran Bunga ({interestPerMonth}% per bulan)</span>
+                                    <span>Bunga Flat (1% per bulan)</span>
                                     <span>{formatCurrency(estimationBunga)}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-primary mt-2 pt-2 border-t">
-                                    <span>Total Potongan</span>
+                                    <span>Total Tagihan per Bulan</span>
                                     <span>{formatCurrency(estimationPokok + estimationBunga)}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="col-span-2 mt-2 p-4 border rounded-md bg-emerald-50 border-emerald-200">
+                                <p className="font-semibold mb-2 text-emerald-800">Rincian Pencairan Bersih</p>
+                                <div className="flex justify-between text-sm text-emerald-700">
+                                    <span>Plafon Pinjaman</span>
+                                    <span>{formatCurrency(Number(amount))}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-emerald-700">
+                                    <span>Potongan Resiko (2%)</span>
+                                    <span>- {formatCurrency(adminFee)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-emerald-900 mt-2 pt-2 border-t border-emerald-300">
+                                    <span>Dana Cair Diterima</span>
+                                    <span>{formatCurrency(disbursed)}</span>
                                 </div>
                             </div>
                         </CardContent>

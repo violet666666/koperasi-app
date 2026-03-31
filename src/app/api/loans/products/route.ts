@@ -15,13 +15,13 @@ export async function GET() {
                 code: p.code,
                 name: p.name,
                 interest_method: p.interestMethod,
-                interest_rate: 0, // 0% interest per Primkoppol policy
+                interest_rate: 1, // 1% flat per month
                 min_amount: Number(p.minAmount),
                 max_amount: Number(p.maxAmount),
                 min_tenor: p.minTenorMonths,
                 max_tenor: p.maxTenorMonths,
-                admin_fee_type: p.adminFeeType,
-                admin_fee_value: Number(p.adminFeeValue),
+                admin_fee_type: "percent",
+                admin_fee_value: 2, // 2% risk reduction upfront
             })),
         });
     } catch (error) {

@@ -131,12 +131,15 @@ export default function TambahPengajuanPage() {
         const principal = parseFloat(formData.amount);
         const tenor = parseInt(formData.tenor_months);
 
-        // Logika: 1% Biaya Jasa ditambahkan ke Total Pinjaman
-        const admin_fee = principal * 0.01;
-        const interest = admin_fee;
-        const total = principal + admin_fee;
-        const monthly = total / tenor;
-        const disbursed = principal; // Dana cair utuh
+        // Logika Baru (Sesuai Atasan)
+        // Bunga = 1% Flat per bulan dari Plafon
+        // Potongan Resiko = 2% dari Plafon, dipotong di depan
+        const admin_fee = principal * 0.02; // Potongan resiko 2%
+        const interestPerMonth = principal * 0.01; // Bunga 1% per bulan
+        const interest = interestPerMonth * tenor;
+        const total = principal + interest;
+        const monthly = total / tenor; // (Pokok/Tenor) + Bunga per bulan
+        const disbursed = principal - admin_fee; // Dana cair bersih
 
         setCalculation({
             principal,
@@ -405,39 +408,41 @@ export default function TambahPengajuanPage() {
                                     <div className="space-y-4">
                                         <div className="space-y-3">
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Pokok Pinjaman</span>
+                                                <span className="text-muted-foreground">Plafon Pinjaman</span>
                                                 <span className="font-medium tabular-nums">{formatCurrency(calculation.principal)}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Biaya Jasa (1%)</span>
-                                                <span className="font-medium tabular-nums text-red-600">+ {formatCurrency(calculation.admin_fee)}</span>
+                                                <span className="text-muted-foreground">Potongan Resiko (2%)</span>
+                                                <span className="font-medium tabular-nums text-red-600">- {formatCurrency(calculation.admin_fee)}</span>
                                             </div>
                                             <Separator />
                                             <div className="flex justify-between">
-                                                <span className="font-semibold">Total Pinjaman</span>
-                                                <span className="text-lg font-bold tabular-nums">{formatCurrency(calculation.total)}</span>
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between">
-                                                <span className="font-semibold">Dana Cair (Diterima)</span>
+                                                <span className="font-semibold">Dana Cair (Bersih)</span>
                                                 <span className="text-lg font-bold text-emerald-600 tabular-nums">{formatCurrency(calculation.disbursed)}</span>
                                             </div>
                                         </div>
 
                                         <Separator />
 
-                                        <div className="rounded-lg bg-primary/10 p-4 text-center">
-                                            <p className="text-sm text-muted-foreground">Angsuran per Bulan</p>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Angsuran Pokok /bln</span>
+                                                <span className="tabular-nums">{formatCurrency(calculation.principal / parseInt(formData.tenor_months))}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Bunga (1%) /bln</span>
+                                                <span className="tabular-nums">{formatCurrency(calculation.interest / parseInt(formData.tenor_months))}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-lg bg-primary/10 p-4 text-center mt-2">
+                                            <p className="text-sm text-muted-foreground">Total Angsuran per Bulan</p>
                                             <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(calculation.monthly)}</p>
-                                            <p className="text-xs text-muted-foreground">x {formData.tenor_months} bulan</p>
+                                            <p className="text-xs text-muted-foreground">Selama {formData.tenor_months} bulan</p>
                                         </div>
 
                                         <p className="text-xs text-muted-foreground text-center">
-                                            Pinjaman Tanpa Bunga - Biaya Jasa 1% ditambahkan ke Angsuran
+                                            (Plafon - 2% Resiko) | Bunga Flat 1%/bln
                                         </p>
                                     </div>
                                 ) : (

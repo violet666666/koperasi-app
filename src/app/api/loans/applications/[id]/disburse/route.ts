@@ -23,16 +23,18 @@ export async function POST(request: Request, { params }: Params) {
         }
 
         const product = application.product;
-        // Bunga Pinjaman dihapus (0%) sesuai kebijakan Koperasi Primkoppol Lumajang
+        // Bunga Pinjaman: 1% Flat per bulan dari Plafon
+        // Potongan Resiko: 2% dari Plafon, potong di depan saat pencairan
         const principalAmount = Number(application.amount);
         const tenorMonths = application.tenorMonths;
-        const interestRate = 0; // Fixed 0%
+        const interestRate = 1; // 1%
         
-        const adminFee = Math.round(principalAmount * 0.01); // Biaya jasa 1% dari total pinjaman
-        const totalInterest = adminFee; // 1% dimasukkan ke bunganya agar terhitung sebagai pendapatan Koperasi
-        const totalAmount = principalAmount + adminFee;
-        const monthlyInstallment = Math.round(totalAmount / tenorMonths);
-        const disbursedAmount = principalAmount; // Dana cair diterima utuh
+        const adminFee = Math.round(principalAmount * 0.02); // 2% Potongan Resiko
+        const interestPerMonth = Math.round(principalAmount * 0.01); // Bunga 1% per bulan
+        const totalInterest = interestPerMonth * tenorMonths; 
+        const totalAmount = principalAmount + totalInterest;
+        const monthlyInstallment = Math.round(principalAmount / tenorMonths) + interestPerMonth;
+        const disbursedAmount = principalAmount - adminFee; // Dana bersih cair
 
         // Transaction Block for Disbursement
         const result = await prisma.$transaction(async (tx) => {
@@ -105,9 +107,9 @@ export async function POST(request: Request, { params }: Params) {
                     receiptNo: `KWT-PJM-${dateStr}-${receiptRandom}`,
                     type: "pinjaman",
                     memberId: application.memberId,
-                    amount: principalAmount,
+                    amount: disbursedAmount,
                     receivedFrom: application.member.name,
-                    description: `Pencairan Pinjaman (Kwitansi Bukti Penghadapan) untuk ${application.member.name} sejumlah ${principalAmount}`,
+                    description: `Pencairan Pinjaman Bersih (Setelah Potong Resiko) untuk ${application.member.name} sejumlah ${disbursedAmount}`,
                     paymentMethod: "cash",
                     receiptDate: new Date(),
                     createdById: 1, // session id
