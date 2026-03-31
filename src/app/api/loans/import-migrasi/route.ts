@@ -356,52 +356,54 @@ export async function POST(request: Request) {
 
                         // Auto-create new members
                         if (data.isNewMember && data.newMemberName && data.newMemberEmail) {
-                            const passwordHash = await bcrypt.hash("123", 10);
-                            
-                            // Check if user already exists (just in case)
-                            let newUser = await tx.user.findUnique({
-                                where: { email: data.newMemberEmail }
+                            let existingUser = await tx.user.findUnique({
+                                where: { email: data.newMemberEmail },
                             });
 
-                            if (!newUser) {
-                                // Default member role is likely ID 2 based on seed, but better to query
-                                const memberRole = await tx.role.findFirst({ where: { name: "member" } });
-                                const roleId = memberRole ? memberRole.id : 2;
+                            if (existingUser && existingUser.memberId) {
+                                // User and member already exist from a previous or same batch processing
+                                activeMemberId = existingUser.memberId;
+                            } else {
+                                // We need to create at least the member or both
+                                const generatedNrp = 'NO-NRP-' + Date.now().toString().slice(-4) + Math.floor(Math.random() * 100).toString().padStart(2, '0');
+                                const memberNo = 'M-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100).toString();
 
-                                newUser = await tx.user.create({
+                                const newMember = await tx.member.create({
                                     data: {
-                                        email: data.newMemberEmail,
-                                        password: passwordHash,
+                                        memberNo: memberNo,
                                         name: data.newMemberName,
-                                        isActive: true,
-                                        roleId: roleId,
-                                        branchId: defaultBranch.id
+                                        nrp: generatedNrp,
+                                        status: "active",
+                                        branchId: defaultBranch.id,
+                                        joinDate: new Date()
                                     }
                                 });
-                            }
 
-                            // Create the member
-                            const generatedNrp = 'NEW-' + Date.now().toString().slice(-6);
-                            const memberNo = 'M-' + Date.now().toString().slice(-6);
+                                if (!existingUser) {
+                                    const passwordHash = await bcrypt.hash("123", 10);
+                                    const memberRole = await tx.role.findFirst({ where: { name: "member" } });
+                                    const roleId = memberRole ? memberRole.id : 2;
 
-                            const newMember = await tx.member.create({
-                                data: {
-                                    memberNo: memberNo,
-                                    name: data.newMemberName,
-                                    nrp: generatedNrp,
-                                    status: "active",
-                                    branchId: defaultBranch.id,
-                                    joinDate: new Date()
+                                    existingUser = await tx.user.create({
+                                        data: {
+                                            email: data.newMemberEmail,
+                                            password: passwordHash,
+                                            name: data.newMemberName,
+                                            isActive: true,
+                                            roleId: roleId,
+                                            branchId: defaultBranch.id,
+                                            memberId: newMember.id
+                                        }
+                                    });
+                                } else {
+                                    await tx.user.update({
+                                        where: { id: existingUser.id },
+                                        data: { memberId: newMember.id }
+                                    });
                                 }
-                            });
 
-                            // Link the user back to the new member
-                            await tx.user.update({
-                                where: { id: newUser.id },
-                                data: { memberId: newMember.id }
-                            });
-
-                            activeMemberId = newMember.id;
+                                activeMemberId = newMember.id;
+                            }
                         }
 
                         if (!activeMemberId) continue;
