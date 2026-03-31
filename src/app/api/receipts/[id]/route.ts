@@ -137,3 +137,53 @@ export async function PUT(
         );
     }
 }
+
+// DELETE /api/receipts/[id] - Delete receipt
+export async function DELETE(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        if (session.user.role === "anggota") {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
+        const { id } = await params;
+
+        const existing = await prisma.receipt.findUnique({
+            where: { id: parseInt(id) },
+        });
+
+        if (!existing) {
+            return NextResponse.json(
+                { message: "Kwitansi tidak ditemukan" },
+                { status: 404 }
+            );
+        }
+
+        // Only draft or void receipts can be deleted
+        if (existing.status === "printed") {
+            return NextResponse.json(
+                { message: "Kwitansi yang sudah dicetak tidak dapat dihapus. Batalkan (void) terlebih dahulu." },
+                { status: 400 }
+            );
+        }
+
+        await prisma.receipt.delete({
+            where: { id: parseInt(id) },
+        });
+
+        return NextResponse.json({ message: "Kwitansi berhasil dihapus" });
+    } catch (error) {
+        console.error("DELETE /api/receipts/[id] error:", error);
+        return NextResponse.json(
+            { message: "Failed to delete receipt" },
+            { status: 500 }
+        );
+    }
+}

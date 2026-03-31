@@ -380,4 +380,7 @@ export const receiptsApi = {
 
     update: (id: number, data: Record<string, unknown>) =>
         api.put<{ data: Receipt }>(`/receipts/${id}`, data),
+
+    delete: (id: number) =>
+        api.delete<{ message: string }>(`/receipts/${id}`),
 };
