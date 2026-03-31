@@ -23,7 +23,8 @@ export async function POST(request: Request) {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+        // raw:true preserves barcode numbers (prevents 8992775001011 → 8.99278E+12)
+        let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: "" }) as any[][];
 
         // Filter out empty rows
         rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
@@ -80,7 +81,10 @@ export async function POST(request: Request) {
 
             const skuVal = row[kodeIdx];
             const nameVal = row[namaIdx];
-            const sku = skuVal !== undefined && skuVal !== null ? String(skuVal).trim() : '';
+            // Convert number to string without scientific notation (barcode preservation)
+            const sku = skuVal !== undefined && skuVal !== null
+                ? (typeof skuVal === 'number' ? (Number.isInteger(skuVal) ? skuVal.toFixed(0) : String(skuVal)) : String(skuVal).trim())
+                : '';
             const name = nameVal !== undefined && nameVal !== null ? String(nameVal).trim() : '';
             
             if (!sku || !name || name.toUpperCase() === 'NAMA BARANG') continue;

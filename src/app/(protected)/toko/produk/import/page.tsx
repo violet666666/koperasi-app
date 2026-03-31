@@ -93,12 +93,30 @@ export default function TokoProdukImportPage() {
             } else {
                 toast.info("Mengkonversi file Excel ke CSV...");
                 const arrayBuffer = await file.arrayBuffer();
-                const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: false });
+                // IMPORTANT: raw:true preserves barcode numbers (prevents 8992775001011 → 8.99278E+12)
+                const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true });
                 const sheetName = workbook.SheetNames[0];
-                const csvString = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                const sheet = workbook.Sheets[sheetName];
+                
+                // Custom CSV conversion that formats numbers without scientific notation
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' }) as any[][];
+                const csvLines = rows.map((row: any[]) =>
+                    row.map((cell: any) => {
+                        if (cell === null || cell === undefined) return '';
+                        if (typeof cell === 'number') {
+                            // Preserve full number (no scientific notation for barcodes)
+                            return Number.isInteger(cell) ? (cell as number).toFixed(0) : String(cell);
+                        }
+                        // Escape commas in string values
+                        const str = String(cell);
+                        return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+                    }).join(',')
+                );
+                const csvString = csvLines.join('\n');
+                
                 const blob = new Blob([csvString], { type: 'text/csv' });
                 processedFile = new File([blob], file.name.replace(/\.(xlsx?|xls)$/i, '.csv'), { type: 'text/csv' });
-                toast.info(`File dikonversi: ${(blob.size / 1024).toFixed(0)} KB (${csvString.split('\n').length - 1} baris)`);
+                toast.info(`File dikonversi: ${(blob.size / 1024).toFixed(0)} KB (${csvLines.length - 1} baris data)`);
             }
 
             if (mode === "commit") {
