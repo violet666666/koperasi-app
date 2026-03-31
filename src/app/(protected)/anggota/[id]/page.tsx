@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
     Pencil,
     Wallet,
@@ -50,6 +51,30 @@ interface MemberSummary {
 }
 import { formatCurrency, MEMBER_STATUS } from "@/lib/constants";
 import { membersApi } from "@/lib/api/services";
+
+// Loan detail from API
+interface LoanDetail {
+    id: number;
+    loanNo: string;
+    disbursementDate: string;
+    firstDueDate: string;
+    lastDueDate: string;
+    paidOffDate: string | null;
+    principalAmount: number;
+    interestRate: number;
+    tenorMonths: number;
+    monthlyInstallment: number;
+    principalPaid: number;
+    interestPaid: number;
+    totalPaid: number;
+    principalOutstanding: number;
+    interestOutstanding: number;
+    totalKewajiban: number;
+    paidInstallments: number;
+    remainingInstallments: number;
+    progressPercent: number;
+    status: string;
+}
 
 // Mock data
 const MOCK_MEMBER: Member = {
@@ -169,6 +194,7 @@ export default function AnggotaDetailPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [member, setMember] = React.useState<Member | null>(null);
     const [summary, setSummary] = React.useState<MemberSummary | null>(null);
+    const [loanDetails, setLoanDetails] = React.useState<LoanDetail[]>([]);
     const [sejahteraHistory, setSejahteraHistory] = React.useState<any[]>([]);
 
     // Data loading
@@ -230,6 +256,16 @@ export default function AnggotaDetailPage() {
                     net_position: apiData.summary?.netPosition || 0,
                     estimasi_shu: apiData.summary?.estimasi_shu || 0,
                 });
+
+                // Set loan details
+                setLoanDetails((apiData.loanDetails || []).map((l: any) => ({
+                    ...l,
+                    disbursementDate: l.disbursementDate,
+                    firstDueDate: l.firstDueDate,
+                    lastDueDate: l.lastDueDate,
+                    paidOffDate: l.paidOffDate,
+                })));
+
 
                 // Fetch Tabungan Sejahtera
                 try {
@@ -488,42 +524,136 @@ export default function AnggotaDetailPage() {
 
                 {/* Loans Tab */}
                 <TabsContent value="pinjaman" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Pinjaman Aktif</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {summary.loans.active_count > 0 ? (
-                                <div className="space-y-4">
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Sisa Pokok</p>
-                                            <p className="text-lg font-bold tabular-nums">
-                                                {formatCurrency(summary.loans.total_principal_outstanding)}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Sisa Bunga</p>
-                                            <p className="text-lg font-bold tabular-nums">
-                                                {formatCurrency(summary.loans.total_interest_outstanding)}
-                                            </p>
-                                        </div>
+                    {/* Ringkasan Total */}
+                    {summary.loans.active_count > 0 && (
+                        <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-0">
+                            <CardContent className="p-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div>
+                                        <p className="text-blue-200 text-xs uppercase tracking-wider font-medium">Pinjaman Aktif</p>
+                                        <p className="text-2xl font-bold">{summary.loans.active_count}</p>
                                     </div>
-                                    <Separator />
-                                    <div className="flex items-center justify-between">
-                                        <p className="font-semibold">Total Kewajiban</p>
-                                        <p className="text-xl font-bold text-primary tabular-nums">
-                                            {formatCurrency(summary.loans.total_outstanding)}
-                                        </p>
+                                    <div>
+                                        <p className="text-blue-200 text-xs uppercase tracking-wider font-medium">Sisa Pokok</p>
+                                        <p className="text-2xl font-bold tabular-nums">{formatCurrency(summary.loans.total_principal_outstanding)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-blue-200 text-xs uppercase tracking-wider font-medium">Sisa Bunga</p>
+                                        <p className="text-2xl font-bold tabular-nums">{formatCurrency(summary.loans.total_interest_outstanding)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-blue-200 text-xs uppercase tracking-wider font-medium">Total Kewajiban</p>
+                                        <p className="text-2xl font-bold tabular-nums">{formatCurrency(summary.loans.total_outstanding)}</p>
                                     </div>
                                 </div>
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">
-                                    Tidak ada pinjaman aktif
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Per-Loan Detail Cards */}
+                    {loanDetails.length > 0 ? (
+                        loanDetails.map((loan) => {
+                            const statusConfig: Record<string, { label: string; class: string }> = {
+                                active: { label: "Aktif", class: "bg-blue-100 text-blue-800" },
+                                overdue: { label: "Menunggak", class: "bg-red-100 text-red-800" },
+                                paid_off: { label: "Lunas", class: "bg-emerald-100 text-emerald-800" },
+                                written_off: { label: "Dihapusbukukan", class: "bg-gray-100 text-gray-800" },
+                            };
+                            const st = statusConfig[loan.status] || { label: loan.status, class: "bg-gray-100 text-gray-800" };
+
+                            return (
+                                <Card key={loan.id} className="overflow-hidden">
+                                    {/* Color bar top */}
+                                    <div className={`h-1.5 w-full ${
+                                        loan.status === 'active' ? 'bg-blue-500' :
+                                        loan.status === 'paid_off' ? 'bg-emerald-500' :
+                                        loan.status === 'overdue' ? 'bg-red-500' : 'bg-gray-300'
+                                    }`} />
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="text-base font-bold">Pinjaman #{loan.loanNo}</CardTitle>
+                                            <Badge className={`${st.class} border-0 text-xs uppercase font-semibold`}>
+                                                {st.label}
+                                            </Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        {/* Detail Grid — like the Excel screenshot */}
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm">
+                                                <tbody className="divide-y">
+                                                    <tr className="bg-muted/40">
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium w-1/3">Tanggal Pinjam</td>
+                                                        <td className="px-4 py-2.5 font-semibold">
+                                                            {new Date(loan.disbursementDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Jumlah Pinjaman</td>
+                                                        <td className="px-4 py-2.5 font-bold text-lg tabular-nums">{formatCurrency(loan.principalAmount)}</td>
+                                                    </tr>
+                                                    <tr className="bg-muted/40">
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Jangka Waktu (Tenor)</td>
+                                                        <td className="px-4 py-2.5 font-semibold">{loan.tenorMonths} bulan</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Angsuran / Bulan</td>
+                                                        <td className="px-4 py-2.5 font-bold text-primary tabular-nums">{formatCurrency(loan.monthlyInstallment)}</td>
+                                                    </tr>
+                                                    <tr className="bg-muted/40">
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Angsuran Terbayar</td>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="font-bold text-emerald-600">{loan.paidInstallments}x</span>
+                                                            <span className="text-muted-foreground"> dari {loan.tenorMonths}x</span>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Sisa Angsuran</td>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="font-bold text-amber-600">{loan.remainingInstallments}x</span>
+                                                            <span className="text-muted-foreground"> angsuran lagi</span>
+                                                        </td>
+                                                    </tr>
+                                                    <tr className="bg-muted/40">
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Total Sudah Dibayar</td>
+                                                        <td className="px-4 py-2.5 font-semibold text-emerald-600 tabular-nums">{formatCurrency(loan.totalPaid)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2.5 text-muted-foreground font-medium">Sisa Kewajiban</td>
+                                                        <td className="px-4 py-2.5 font-bold text-red-600 tabular-nums text-lg">{formatCurrency(loan.totalKewajiban)}</td>
+                                                    </tr>
+                                                    {loan.paidOffDate && (
+                                                        <tr className="bg-emerald-50">
+                                                            <td className="px-4 py-2.5 text-emerald-700 font-medium">Tanggal Lunas</td>
+                                                            <td className="px-4 py-2.5 font-semibold text-emerald-700">
+                                                                {new Date(loan.paidOffDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Progress Bar */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Progress Pembayaran</span>
+                                                <span className="font-bold">{loan.progressPercent}%</span>
+                                            </div>
+                                            <Progress value={loan.progressPercent} className="h-3 bg-slate-100" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
+                    ) : (
+                        <Card>
+                            <CardContent className="py-12 text-center">
+                                <CreditCard className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <p className="text-muted-foreground">Tidak ada data pinjaman</p>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>

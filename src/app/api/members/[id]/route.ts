@@ -181,9 +181,62 @@ export async function GET(request: Request, { params }: Params) {
             console.error("Error calculating estimasi SHU:", e);
         }
 
+        // Compute per-loan detail with installment info
+        const loanDetails = member.loans.map((loan) => {
+            const principalAmount = Number(loan.principalAmount);
+            const principalPaid = Number(loan.principalPaid);
+            const principalOutstanding = Number(loan.principalOutstanding);
+            const interestOutstanding = Number(loan.interestOutstanding);
+            const monthlyInstallment = Number(loan.monthlyInstallment);
+            const tenorMonths = loan.tenorMonths;
+
+            // Calculate installment progress
+            let paidInstallments = 0;
+            let remainingInstallments = tenorMonths;
+            if (monthlyInstallment > 0) {
+                paidInstallments = Math.round(principalPaid / (principalAmount / tenorMonths));
+                remainingInstallments = Math.max(0, tenorMonths - paidInstallments);
+            }
+            // If loan is paid off
+            if (loan.status === "paid_off") {
+                paidInstallments = tenorMonths;
+                remainingInstallments = 0;
+            }
+
+            const totalPaid = principalPaid + Number(loan.interestPaid);
+            const totalKewajiban = principalOutstanding + interestOutstanding;
+            const progressPercent = principalAmount > 0 
+                ? Math.min(100, Math.round((principalPaid / principalAmount) * 100))
+                : 0;
+
+            return {
+                id: loan.id,
+                loanNo: loan.loanNo,
+                disbursementDate: loan.disbursementDate,
+                firstDueDate: loan.firstDueDate,
+                lastDueDate: loan.lastDueDate,
+                paidOffDate: loan.paidOffDate,
+                principalAmount,
+                interestRate: Number(loan.interestRate),
+                tenorMonths,
+                monthlyInstallment,
+                principalPaid,
+                interestPaid: Number(loan.interestPaid),
+                totalPaid,
+                principalOutstanding,
+                interestOutstanding,
+                totalKewajiban,
+                paidInstallments,
+                remainingInstallments,
+                progressPercent,
+                status: loan.status,
+            };
+        });
+
         return NextResponse.json({ 
             data: {
                 ...member,
+                loanDetails,
                 summary: {
                     savings: {
                         total: totalSavings,

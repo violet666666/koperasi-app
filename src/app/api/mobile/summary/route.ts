@@ -147,8 +147,10 @@ export async function GET(request: Request) {
             prisma.loan.findMany({
                 where: { memberId },
                 select: {
-                    id: true, loanNo: true, principalAmount: true, principalOutstanding: true,
-                    interestOutstanding: true, monthlyInstallment: true, status: true, disbursementDate: true,
+                    id: true, loanNo: true, principalAmount: true, principalPaid: true, interestPaid: true,
+                    principalOutstanding: true, interestOutstanding: true, monthlyInstallment: true,
+                    tenorMonths: true, status: true, disbursementDate: true, firstDueDate: true,
+                    lastDueDate: true, paidOffDate: true,
                 },
             }),
             prisma.unitTransaction.aggregate({
@@ -265,8 +267,10 @@ export async function GET(request: Request) {
                 },
                 loans: {
                     list: loans.map((l) => ({
-                        ...l, principalAmount: Number(l.principalAmount), principalOutstanding: Number(l.principalOutstanding),
+                        ...l, principalAmount: Number(l.principalAmount), principalPaid: Number(l.principalPaid),
+                        interestPaid: Number(l.interestPaid), principalOutstanding: Number(l.principalOutstanding),
                         interestOutstanding: Number(l.interestOutstanding), monthlyInstallment: Number(l.monthlyInstallment),
+                        tenorMonths: l.tenorMonths,
                     })),
                     activeCount: activeLoans.length,
                     totalOutstanding,
