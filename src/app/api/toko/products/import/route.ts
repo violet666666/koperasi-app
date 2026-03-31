@@ -64,9 +64,9 @@ export async function POST(request: Request) {
             );
         }
 
+        // Include ALL products (even soft-deleted) to correctly identify updates vs new
         const existingProducts = await prisma.storeProduct.findMany({
-            where: { deletedAt: null },
-            select: { id: true, sku: true, name: true, stock: true, stockGdg: true, stockToko: true, sellPrice: true }
+            select: { id: true, sku: true, name: true, stock: true, stockGdg: true, stockToko: true, sellPrice: true, deletedAt: true }
         });
 
         const results: any[] = [];
@@ -162,6 +162,7 @@ export async function POST(request: Request) {
                             costPrice: item.costPrice, sellPrice: item.sellPrice,
                             stock: item.stock, stockGdg: item.stockGdg,
                             stockToko: item.stockToko, unit: item.unit,
+                            deletedAt: null, isActive: true, // Restore soft-deleted products
                         },
                         create: {
                             sku: item.sku, name: item.name, category: item.category,

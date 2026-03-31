@@ -128,21 +128,37 @@ export default function TokoProdukImportPage() {
             formData.append("file", processedFile);
             formData.append("mode", mode);
 
+            console.log(`[Import] Sending ${mode} request, file size: ${processedFile.size} bytes, name: ${processedFile.name}`);
+
             const res = await fetch("/api/toko/products/import", {
                 method: "POST",
                 body: formData,
             });
 
+            console.log(`[Import] Response status: ${res.status}, ok: ${res.ok}`);
+
             let json;
             try {
                 const text = await res.text();
+                console.log(`[Import] Response length: ${text.length} chars, first 500: ${text.substring(0, 500)}`);
                 json = JSON.parse(text);
             } catch (err) {
+                console.error("[Import] Failed to parse response:", err);
                 setError("Server menolak file ini. Pastikan ukuran file tidak melebihi batas.");
                 toast.error("Gagal memproses file di server.");
                 setStatus(isPreview ? "idle" : "previewing");
                 return;
             }
+
+            console.log("[Import] Parsed result:", {
+                mode: json?.data?.mode,
+                totalRows: json?.data?.totalRows,
+                success: json?.data?.success,
+                failed: json?.data?.failed,
+                previewCount: json?.data?.preview?.length,
+                error: json?.data?.error,
+                message: json?.message,
+            });
 
             if (!res.ok) {
                 setError(json?.message || "Gagal memproses file");
