@@ -125,16 +125,11 @@ export async function POST(request: Request) {
             }
 
             if (mode === "commit") {
-                upsertMap.set(sku, prisma.storeProduct.upsert({
-                    where: { sku },
-                    update: {
-                        name, category, costPrice, sellPrice, stock, stockGdg, stockToko, unit
-                    },
-                    create: {
-                        sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, unit,
-                        minStock: Math.max(Math.ceil(stock * 0.1), 5)
-                    }
-                }));
+                upsertMap.set(sku, {
+                    sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, unit,
+                    minStock: Math.max(Math.ceil(stock * 0.1), 5),
+                    isNew,
+                });
             }
 
             successCount++;
@@ -150,12 +145,29 @@ export async function POST(request: Request) {
         results.push(...finalResults);
 
         if (mode === "commit" && upsertMap.size > 0) {
-            // Run exactly one promise per unique SKU, in batches of 50
-            const upserts = Array.from(upsertMap.values());
-            const BATCH_SIZE = 50;
-            for (let i = 0; i < upserts.length; i += BATCH_SIZE) {
-                const batch = upserts.slice(i, i + BATCH_SIZE);
-                await Promise.all(batch);
+            // Execute upserts in sequential batches to avoid flooding DB
+            const items = Array.from(upsertMap.values());
+            const BATCH_SIZE = 100;
+            for (let i = 0; i < items.length; i += BATCH_SIZE) {
+                const batch = items.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map((item: any) =>
+                    prisma.storeProduct.upsert({
+                        where: { sku: item.sku },
+                        update: {
+                            name: item.name, category: item.category,
+                            costPrice: item.costPrice, sellPrice: item.sellPrice,
+                            stock: item.stock, stockGdg: item.stockGdg,
+                            stockToko: item.stockToko, unit: item.unit,
+                        },
+                        create: {
+                            sku: item.sku, name: item.name, category: item.category,
+                            costPrice: item.costPrice, sellPrice: item.sellPrice,
+                            stock: item.stock, stockGdg: item.stockGdg,
+                            stockToko: item.stockToko, unit: item.unit,
+                            minStock: item.minStock,
+                        },
+                    })
+                ));
             }
         }
 

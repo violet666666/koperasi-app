@@ -86,8 +86,27 @@ export default function TokoProdukImportPage() {
         }
 
         try {
+            // Client-side: Convert XLS/XLSX → CSV to reduce file size (avoids Vercel 4.5MB limit)
+            let processedFile: File;
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                processedFile = file;
+            } else {
+                toast.info("Mengkonversi file Excel ke CSV...");
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: false });
+                const sheetName = workbook.SheetNames[0];
+                const csvString = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                const blob = new Blob([csvString], { type: 'text/csv' });
+                processedFile = new File([blob], file.name.replace(/\.(xlsx?|xls)$/i, '.csv'), { type: 'text/csv' });
+                toast.info(`File dikonversi: ${(blob.size / 1024).toFixed(0)} KB (${csvString.split('\n').length - 1} baris)`);
+            }
+
+            if (mode === "commit") {
+                toast.info("Menyimpan data ke database... Mohon tunggu, proses ini bisa memakan waktu untuk 1000+ produk.");
+            }
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", processedFile);
             formData.append("mode", mode);
 
             const res = await fetch("/api/toko/products/import", {
@@ -100,7 +119,7 @@ export default function TokoProdukImportPage() {
                 const text = await res.text();
                 json = JSON.parse(text);
             } catch (err) {
-                setError("Server menolak file ini. Pastikan ukuran file tidak melebihi batas (4.5 MB).");
+                setError("Server menolak file ini. Pastikan ukuran file tidak melebihi batas.");
                 toast.error("Gagal memproses file di server.");
                 setStatus(isPreview ? "idle" : "previewing");
                 return;
@@ -123,7 +142,7 @@ export default function TokoProdukImportPage() {
             setResult(json.data);
 
             if (isPreview) {
-                toast.success("File berhasil dibaca. Silakan verifikasi data di bawah.");
+                toast.success(`File berhasil dibaca: ${json.data.success} valid, ${json.data.failed} error.`);
                 setStatus("previewing");
             } else {
                 toast.success(`Berhasil menyimpan ${json.data.success} produk ke database.`);
