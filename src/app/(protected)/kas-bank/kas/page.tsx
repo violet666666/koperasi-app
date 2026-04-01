@@ -38,7 +38,18 @@ import {
     TrendingUp,
     TrendingDown,
     Loader2,
+    MoreHorizontal,
+    Pencil,
+    Trash2,
 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api/services";
 
@@ -51,6 +62,7 @@ interface CashTransaction {
     description: string;
     transactionDate: string;
     balanceAfter: number;
+    accountId: number;
 }
 
 interface CashAccount {
@@ -60,96 +72,36 @@ interface CashAccount {
     currentBalance: number;
 }
 
-const columns: ColumnDef<CashTransaction>[] = [
-    {
-        accessorKey: "transactionDate",
-        header: "Tanggal",
-        cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
-    },
-    {
-        accessorKey: "transactionNo",
-        header: "No. Transaksi",
-        cell: ({ row }) => (
-            <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
-        ),
-    },
-    {
-        accessorKey: "type",
-        header: "Jenis",
-        cell: ({ row }) => {
-            const type = row.getValue("type") as string;
-            return type === "in" ? (
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30">
-                    <ArrowUpCircle className="mr-1 h-3 w-3" />
-                    Masuk
-                </Badge>
-            ) : (
-                <Badge variant="destructive">
-                    <ArrowDownCircle className="mr-1 h-3 w-3" />
-                    Keluar
-                </Badge>
-            );
-        },
-    },
-    {
-        accessorKey: "category",
-        header: "Kategori",
-        cell: ({ row }) => {
-            const categories: Record<string, string> = {
-                simpanan_pokok: "Simpanan Pokok",
-                simpanan_wajib: "Simpanan Wajib",
-                simpanan_sukarela: "Simpanan Sukarela",
-                angsuran_pokok: "Angsuran Pinjaman",
-                jasa_pinjaman: "Jasa Pinjaman",
-                pencairan_pinjaman: "Pencairan Pinjaman",
-                biaya_operasional: "Operasional",
-                transfer: "Transfer",
-                lainnya: "Lainnya",
-            };
-            return categories[row.getValue("category") as string] || row.getValue("category");
-        },
-    },
-    {
-        accessorKey: "description",
-        header: "Keterangan",
-    },
-    {
-        accessorKey: "amount",
-        header: "Jumlah",
-        cell: ({ row }) => {
-            const type = row.original.type;
-            const amount = row.getValue("amount") as number;
-            return (
-                <span className={`font-bold tabular-nums ${type === "in" ? "text-emerald-600" : "text-red-600"}`}>
-                    {type === "in" ? "+" : "-"}{formatCurrency(amount)}
-                </span>
-            );
-        },
-    },
-    {
-        accessorKey: "balanceAfter",
-        header: "Saldo",
-        cell: ({ row }) => (
-            <span className="font-medium tabular-nums">
-                {formatCurrency(row.getValue("balanceAfter"))}
-            </span>
-        ),
-    },
-];
-
 export default function TransaksiKasPage() {
     const [transactions, setTransactions] = React.useState<CashTransaction[]>([]);
     const [accounts, setAccounts] = React.useState<CashAccount[]>([]);
     const [selectedAccount, setSelectedAccount] = React.useState<string>("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    
+    // Create Mode
     const [transactionType, setTransactionType] = React.useState<"in" | "out">("in");
+    
+    // Edit & Delete states
+    const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+    const [editingTx, setEditingTx] = React.useState<CashTransaction | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+    const [txToDelete, setTxToDelete] = React.useState<CashTransaction | null>(null);
+    
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    // Form state
+    // Create Form state
     const [formData, setFormData] = React.useState({
         accountId: "",
         amount: "",
+        category: "biaya_operasional",
+        description: "",
+    });
+
+    // Edit Form state
+    const [editFormData, setEditFormData] = React.useState({
+        amount: "",
+        type: "in" as "in" | "out",
         category: "biaya_operasional",
         description: "",
     });
@@ -159,39 +111,36 @@ export default function TransaksiKasPage() {
         const totalBalance = accounts.reduce((sum, a) => sum + Number(a.currentBalance), 0);
         const todayIn = transactions
             .filter(t => t.type === "in" && new Date(t.transactionDate).toDateString() === new Date().toDateString())
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + Number(t.amount), 0);
         const todayOut = transactions
             .filter(t => t.type === "out" && new Date(t.transactionDate).toDateString() === new Date().toDateString())
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + Number(t.amount), 0);
 
         return { totalBalance, todayIn, todayOut };
     }, [accounts, transactions]);
 
-    // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                // Fetch accounts
-                const accountsRes = await cashBankApi.accounts();
-                const allAccounts = (accountsRes as any).data || [];
-                setAccounts(allAccounts);
+    const fetchData = React.useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const accountsRes = await cashBankApi.accounts();
+            const allAccounts = (accountsRes as any).data || [];
+            setAccounts(allAccounts);
 
-                // Fetch transactions
-                const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
-                const txRes = await cashBankApi.transactions({ ...params });
-                setTransactions(((txRes as any).data || []) as CashTransaction[]);
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
-            }
+            const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
+            const txRes = await cashBankApi.transactions({ ...params });
+            setTransactions(((txRes as any).data || []) as CashTransaction[]);
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
     }, [selectedAccount]);
 
-    // Handle submit
-    const handleSubmit = async () => {
+    React.useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleCreateSubmit = async () => {
         if (!formData.accountId || !formData.amount) {
             toast.error("Lengkapi data transaksi");
             return;
@@ -210,15 +159,170 @@ export default function TransaksiKasPage() {
             toast.success("Transaksi berhasil dicatat");
             setDialogOpen(false);
             setFormData({ accountId: "", amount: "", category: "biaya_operasional", description: "" });
-            // Refresh data
-            const txRes = await cashBankApi.transactions({});
-            setTransactions(((txRes as any).data || []) as CashTransaction[]);
+            await fetchData();
         } catch (error) {
             toast.error("Gagal mencatat transaksi");
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const handleEditSave = async () => {
+        if (!editingTx || !editFormData.amount) return;
+        setIsSubmitting(true);
+        try {
+            await cashBankApi.updateTransaction(editingTx.id, {
+                type: editFormData.type,
+                amount: Number(editFormData.amount),
+                category: editFormData.category,
+                description: editFormData.description,
+            });
+            toast.success("Transaksi berhasil diubah & saldo terkalkulasi");
+            setEditDialogOpen(false);
+            setEditingTx(null);
+            await fetchData();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Gagal mengubah transaksi");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!txToDelete) return;
+        setIsSubmitting(true);
+        try {
+            await cashBankApi.deleteTransaction(txToDelete.id);
+            toast.success("Transaksi dihapus & saldo dikalkulasi ulang");
+            setDeleteDialogOpen(false);
+            setTxToDelete(null);
+            await fetchData();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Gagal menghapus transaksi");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const openEditDialog = (tx: CashTransaction) => {
+        setEditingTx(tx);
+        setEditFormData({
+            type: tx.type,
+            amount: String(tx.amount),
+            category: tx.category || "lainnya",
+            description: tx.description || "",
+        });
+        setEditDialogOpen(true);
+    };
+
+    const openDeleteDialog = (tx: CashTransaction) => {
+        setTxToDelete(tx);
+        setDeleteDialogOpen(true);
+    };
+
+    const columns: ColumnDef<CashTransaction>[] = React.useMemo(() => [
+        {
+            accessorKey: "transactionDate",
+            header: "Tanggal",
+            cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
+        },
+        {
+            accessorKey: "transactionNo",
+            header: "No. Transaksi",
+            cell: ({ row }) => (
+                <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
+            ),
+        },
+        {
+            accessorKey: "type",
+            header: "Jenis",
+            cell: ({ row }) => {
+                const type = row.getValue("type") as string;
+                return type === "in" ? (
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30">
+                        <ArrowUpCircle className="mr-1 h-3 w-3" />
+                        Masuk
+                    </Badge>
+                ) : (
+                    <Badge variant="destructive">
+                        <ArrowDownCircle className="mr-1 h-3 w-3" />
+                        Keluar
+                    </Badge>
+                );
+            },
+        },
+        {
+            accessorKey: "category",
+            header: "Kategori",
+            cell: ({ row }) => {
+                const categories: Record<string, string> = {
+                    simpanan_pokok: "Simpanan Pokok",
+                    simpanan_wajib: "Simpanan Wajib",
+                    simpanan_sukarela: "Simpanan Sukarela",
+                    angsuran_pokok: "Angsuran Pinjaman",
+                    jasa_pinjaman: "Jasa Pinjaman",
+                    pencairan_pinjaman: "Pencairan Pinjaman",
+                    biaya_operasional: "Operasional",
+                    transfer: "Transfer",
+                    lainnya: "Lainnya",
+                };
+                return categories[row.getValue("category") as string] || row.getValue("category");
+            },
+        },
+        {
+            accessorKey: "description",
+            header: "Keterangan",
+        },
+        {
+            accessorKey: "amount",
+            header: "Jumlah",
+            cell: ({ row }) => {
+                const type = row.original.type;
+                const amount = row.getValue("amount") as number;
+                return (
+                    <span className={`font-bold tabular-nums ${type === "in" ? "text-emerald-600" : "text-red-600"}`}>
+                        {type === "in" ? "+" : "-"}{formatCurrency(amount)}
+                    </span>
+                );
+            },
+        },
+        {
+            accessorKey: "balanceAfter",
+            header: "Saldo",
+            cell: ({ row }) => (
+                <span className="font-medium tabular-nums">
+                    {formatCurrency(row.getValue("balanceAfter"))}
+                </span>
+            ),
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => {
+                const tx = row.original;
+                return (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Aksi Operator</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditDialog(tx)}>
+                                <Pencil className="mr-2 h-4 w-4 text-blue-500" />
+                                Edit Transaksi
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openDeleteDialog(tx)}>
+                                <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                                Hapus (Resync)
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                );
+            },
+        },
+    ], []);
 
     return (
         <div className="space-y-6">
@@ -312,7 +416,7 @@ export default function TransaksiKasPage() {
                                     <Button variant="outline" onClick={() => setDialogOpen(false)}>
                                         Batal
                                     </Button>
-                                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                    <Button onClick={handleCreateSubmit} disabled={isSubmitting}>
                                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Simpan
                                     </Button>
@@ -322,6 +426,98 @@ export default function TransaksiKasPage() {
                     </div>
                 }
             />
+
+            {/* Edit Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Mutasi Kas</DialogTitle>
+                        <DialogDescription>Awas! Perubahan nominal akan dikalkulasi ulang pada saldo berantai.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div>
+                            <Label>Jenis</Label>
+                            <Select
+                                value={editFormData.type}
+                                onValueChange={(v: "in" | "out") => setEditFormData(prev => ({ ...prev, type: v }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="in">Kas Masuk</SelectItem>
+                                    <SelectItem value="out">Kas Keluar</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Jumlah Baru</Label>
+                            <Input
+                                type="number"
+                                value={editFormData.amount}
+                                onChange={(e) => setEditFormData(prev => ({ ...prev, amount: e.target.value }))}
+                            />
+                        </div>
+                        <div>
+                            <Label>Kategori</Label>
+                            <Select
+                                value={editFormData.category}
+                                onValueChange={(v) => setEditFormData(prev => ({ ...prev, category: v }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="biaya_operasional">Operasional</SelectItem>
+                                    <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
+                                    <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
+                                    <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
+                                    <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
+                                    <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
+                                    <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
+                                    <SelectItem value="transfer">Transfer</SelectItem>
+                                    <SelectItem value="lainnya">Lainnya</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Keterangan Baru</Label>
+                            <Textarea
+                                value={editFormData.description}
+                                onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Batal</Button>
+                        <Button onClick={handleEditSave} disabled={isSubmitting}>
+                           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                           Simpan Pembaruan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Hapus & Sinkronisasi Ulang Kas</DialogTitle>
+                        <DialogDescription className="text-red-600 font-medium pt-2">
+                            Peringatan: Menghapus {txToDelete?.transactionNo} akan memaksa sistem untuk 
+                            menghitung dan merevisi ulang seluruh {txToDelete?.type === "in" ? "pengurangan" : "penambahan"} 
+                            saldo sebelum & sesudah pada BUKU BESAR secara masif.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Batal</Button>
+                        <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Hapus & Sinkronkan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Stats Cards */}
             <div className="grid gap-4 sm:grid-cols-3">

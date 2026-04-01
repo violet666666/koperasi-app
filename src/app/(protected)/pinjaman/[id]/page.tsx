@@ -67,7 +67,7 @@ export default function PinjamanDetailPage() {
             try {
                 setIsLoading(true);
                 const res = await loansApi.get(Number(params.id));
-                const fetchedLoan = res.data;
+                const fetchedLoan = res.data as any;
                 setLoan({
                      ...fetchedLoan,
                      productSnapshot: typeof fetchedLoan.productSnapshot === 'string' 

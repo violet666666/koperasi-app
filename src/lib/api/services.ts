@@ -215,6 +215,12 @@ export const cashBankApi = {
     createTransaction: (data: { accountId: number; type: string; category?: string; amount: number; description?: string; transactionDate?: string }) =>
         api.post("/cash-bank/transactions", data),
 
+    updateTransaction: (id: number, data: { type: string; category?: string; amount: number; description?: string }) =>
+        api.put(`/cash-bank/transactions/${id}`, data),
+
+    deleteTransaction: (id: number) =>
+        api.delete(`/cash-bank/transactions/${id}`),
+
     transfer: (data: { fromAccountId: number; toAccountId: number; amount: number }) =>
         api.post("/cash-bank/transfers", data),
 };
