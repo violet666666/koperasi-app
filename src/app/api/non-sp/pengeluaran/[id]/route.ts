@@ -4,13 +4,14 @@ import { auth } from "@/lib/auth";
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const session = await auth();
         // Skip auth check for dev if active session false
         
-        const journalId = parseInt(params.id);
+        const journalId = parseInt(resolvedParams.id);
         if (isNaN(journalId)) {
             return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
         }

@@ -154,3 +154,23 @@ Fitur *Search* pada halaman "Buku Anggota" (`/anggota/buku`) belum terkoneksi ke
 - Memastikan halaman *Laporan SHU* secara otomatis menyedot transaksi Jurnal yang baru diproduksi oleh layanan Operasi Non-SP. 
 - Menambahkan baris validasi `.data` ke extraction layer di semua halaman laporan (Rekap Simpanan, Rekap Pinjaman) dan memperbaiki algoritma `.slice()` yang merusak Dashboard.
 - Meracik operasi kalkulasi Bunga Pinjaman (`row.getValue("interestRate") / 12`) untuk memastikan UI memunculkan `0.3%/bln` walaupun backend database menyimpan suku bunga flat 3.6%.
+
+---
+
+## 6. Restriksi Input Portal Pinjaman Koperasi
+**Lokasi Update:** `src/app/portal/pengajuan-pinjaman/page.tsx`
+**Prioritas:** Mencegah user mengibuli sistem batasan nominal.
+- Komponen *Input Type Number* diberikan proteksi *onChange*.
+- Secara manual mencegat angka *val > 20000000* dan mengembalikannya mentok ke '20000000'. (Berlaku juga untuk tenor batas 36 bulan).
+
+## 7. Next.js 15 Compatibility Build Fail (Type Mismatch Params)
+**Lokasi Update:** `src/app/api/non-sp/penerimaan/[id]/route.ts`, `src/app/api/non-sp/pengeluaran/[id]/route.ts`
+**Masalah:** Muncul Error di vercel/npm build dengan pesan *`Property 'id' is missing in type 'Promise<{ id: string }>'`*.
+**Perbaikan:** Route Handler NextJS 15+ yang memiliki properti `params` kini harus didefinisikan sebagai *Promise* lalu di- *`await`*. Telah dilakukan asinkronasi ekstraksi parameter `id` tersebut di backend Non-SP.
+
+## 8. Fitur Spesial: Import Integrasi Riwayat Kas Dari Excel
+**Fitur Baru Ditambahkan:** `POST /api/kas-bank/import` & Komponen Upload di `kas-bank/page.tsx`.
+**Konsep Analisis:**
+- File `BUKU KAS JANUARI - MARET.xlsx` menggunakan *free-text* "Uraian" dalam format berantakan tanpa Account ID.
+- Skrip saya membangun algoritma Regex/Filtering Uraian untuk secara cerdas (*Smart Detection*) mendeteksi apakah suatu baris tergolong Biaya Administrasi, Angsuran Pinjaman (*"angsur"*), atau Pencairan ("*pencairan*", *"pinjam"*).
+- Hanya menyedot **TANGGAL**, **DEBET**, **KREDIT** untuk mendaftarkan mutasi ke dalam UI Tabel Kas Bank di sisi Koperasi *(Tidak memengaruhi saldo akun milik Anggota, karena Bapak sudah mengunggah laporan utuh 'Buku 2' dari tabel simpan/pinjam terpisah. Jika import Kas Excel ini memotong saldo anggota lagi, maka data akan berisiko ganda/dobel)*.

@@ -308,7 +308,14 @@ export default function PengajuanPinjamanPage() {
                                 type="number"
                                 placeholder="Maks: Rp 20.000.000"
                                 value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (val <= 20000000) {
+                                        setAmount(e.target.value);
+                                    } else {
+                                        setAmount("20000000"); // Auto cap to 20M
+                                    }
+                                }}
                                 min={0}
                                 max={20000000}
                                 required
@@ -323,7 +330,14 @@ export default function PengajuanPinjamanPage() {
                                 type="number"
                                 placeholder="Maks: 36 Bulan"
                                 value={tenor}
-                                onChange={(e) => setTenor(e.target.value)}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (val <= 36) {
+                                        setTenor(e.target.value);
+                                    } else {
+                                        setTenor("36"); // Auto cap to 36
+                                    }
+                                }}
                                 min={1}
                                 max={36}
                                 required

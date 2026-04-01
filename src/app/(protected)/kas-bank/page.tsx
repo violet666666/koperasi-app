@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import {
     Select,
     SelectContent,
@@ -23,6 +27,8 @@ import {
     Wallet,
     Building,
     ArrowLeftRight,
+    FileUp,
+    Loader2
 } from "lucide-react";
 import { formatCurrency, CASH_BANK_TRANSACTION_TYPES, CASH_BANK_CATEGORIES } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api";
@@ -154,6 +160,10 @@ export default function KasBankPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [accounts, setAccounts] = React.useState<CashBankAccount[]>([]);
     const [transactions, setTransactions] = React.useState<CashBankTransaction[]>([]);
+    const [uploadDialog, setUploadDialog] = React.useState(false);
+    const [uploading, setUploading] = React.useState(false);
+    const [selectedUploadFile, setSelectedUploadFile] = React.useState<File | null>(null);
+    const [selectedUploadAccount, setSelectedUploadAccount] = React.useState("");
 
     // Calculate totals
     const totals = React.useMemo(() => {
@@ -217,6 +227,91 @@ export default function KasBankPage() {
                                 Transaksi Baru
                             </Link>
                         </Button>
+                        <Dialog open={uploadDialog} onOpenChange={setUploadDialog}>
+                            <DialogTrigger asChild>
+                                <Button variant="secondary">
+                                    <FileUp className="mr-2 h-4 w-4" />
+                                    Import Buku Kas
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Import Buku Kas (Excel)</DialogTitle>
+                                    <DialogDescription>
+                                        Pilih akun bank/kas yang sesuai dengan buku kas rekap Excel. 
+                                        Format wajib mengandung kolom: Tanggal, Uraian, Debet, Kredit.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Akun Kas/Bank Tujuan</Label>
+                                        <Select
+                                            value={selectedUploadAccount}
+                                            onValueChange={setSelectedUploadAccount}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih akun..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {accounts.map(acc => (
+                                                    <SelectItem key={acc.id} value={acc.id.toString()}>
+                                                        {acc.name} ({acc.code}) - {formatCurrency(acc.currentBalance)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>File Excel (.xlsx)</Label>
+                                        <Input
+                                            type="file"
+                                            accept=".xlsx, .xls"
+                                            onChange={(e) => {
+                                                if (e.target.files && e.target.files[0]) {
+                                                    setSelectedUploadFile(e.target.files[0]);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setUploadDialog(false)} disabled={uploading}>
+                                        Batal
+                                    </Button>
+                                    <Button
+                                        disabled={!selectedUploadFile || !selectedUploadAccount || uploading}
+                                        onClick={async () => {
+                                            if (!selectedUploadFile || !selectedUploadAccount) return;
+                                            setUploading(true);
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append("file", selectedUploadFile);
+                                                formData.append("mode", "commit");
+                                                formData.append("accountId", selectedUploadAccount);
+                                                
+                                                const res = await fetch("/api/cash-bank/import", {
+                                                    method: "POST",
+                                                    body: formData,
+                                                });
+                                                const json = await res.json();
+                                                if (!res.ok) throw new Error(json.message || "Gagal upload");
+                                                
+                                                toast.success(`Berhasil mengimpor ${json.data.success} transaksi dari excel!`);
+                                                setUploadDialog(false);
+                                                window.location.reload(); // Reload immediately to see changes
+                                            } catch (err: any) {
+                                                toast.error(err.message || "Terjadi kesalahan saat upload");
+                                            } finally {
+                                                setUploading(false);
+                                            }
+                                        }}
+                                    >
+                                        {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Upload & Proses
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 }
             />

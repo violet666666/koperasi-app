@@ -1,0 +1,224 @@
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import * as XLSX from "xlsx";
+import { auth } from "@/lib/auth";
+
+// Helper to generate transaction number
+function generateTransactionNo(type: string): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const prefix = type === "in" ? "CBM" : "CBK"; // Masuk / Keluar
+    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+    return `${prefix}-${year}-${random}`;
+}
+
+function cleanNumber(raw: string | number | undefined | null): number {
+    if (raw === undefined || raw === null || raw === "") return 0;
+    if (typeof raw === 'number') return raw;
+    const isNegative = String(raw).includes('(') && String(raw).includes(')');
+    const cleaned = String(raw).replace(/[^0-9.\-]/g, '');
+    let num = parseFloat(cleaned);
+    if (isNaN(num)) return 0;
+    if (isNegative) num = -Math.abs(num);
+    return num;
+}
+
+// POST /api/cash-bank/import
+export async function POST(request: Request) {
+    try {
+        const formData: any = await request.formData();
+        const file = formData.get("file") as File | null;
+        const mode = (formData.get("mode") as string) || "preview"; // preview, commit
+        const accountIdStr = formData.get("accountId") as string;
+
+        if (!file) {
+            return NextResponse.json({ message: "File wajib diupload" }, { status: 400 });
+        }
+        
+        let accountId: number | undefined;
+        if (mode === "commit") {
+             if (!accountIdStr) {
+                 return NextResponse.json({ message: "Akun Kas/Bank tujuan wajib dipilih" }, { status: 400 });
+             }
+             accountId = parseInt(accountIdStr, 10);
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        
+        const results: any[] = [];
+        let successCount = 0;
+        let failCount = 0;
+        
+        // Loop through all sheets
+        for (const sheetName of workbook.SheetNames) {
+            const worksheet = workbook.Sheets[sheetName];
+            let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" }) as any[][];
+            
+            // Filter non-empty rows
+            rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
+            if (rows.length === 0) continue;
+
+            // Find header
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(20, rows.length); i++) {
+                const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
+                if (rowStr.includes("tanggal") && rowStr.includes("uraian") && rowStr.includes("debet") && rowStr.includes("kredit")) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                // Skip sheet if no header found
+                continue;
+            }
+
+            const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
+            const dataRows = rows.slice(headerRowIndex + 1);
+            
+            const tglIdx = headers.findIndex(h => h.includes("tanggal"));
+            const uraianIdx = headers.findIndex(h => h.includes("uraian"));
+            const debetIdx = headers.findIndex(h => h.includes("debet"));
+            const kreditIdx = headers.findIndex(h => h.includes("kredit"));
+
+            let currentValDate = new Date();
+
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (row.length === 0) continue;
+
+                let rawTgl = row[tglIdx];
+                let uraian = String(row[uraianIdx] || "").trim();
+                let debet = cleanNumber(row[debetIdx]);
+                let kredit = cleanNumber(row[kreditIdx]);
+
+                // Update floating date
+                if (rawTgl && String(rawTgl).trim() !== "") {
+                     // Try to parse Date. Native js Date parser usually works if format is somewhat standard.
+                     // Often Excel stores dates as serial numbers if raw: false isn't perfect, but we assume readable here due to xlsx default parsing.
+                    const d = new Date(rawTgl);
+                    if (!isNaN(d.getTime())) {
+                        currentValDate = d;
+                    }
+                }
+
+                // Filtering: Skip "Saldo bulan lalu" or completely empty DEBET/KREDIT
+                if (uraian.toLowerCase().includes("saldo bulan lalu") || uraian.toLowerCase() === "saldo") {
+                    continue;
+                }
+                if (debet === 0 && kredit === 0) {
+                    continue;
+                }
+
+                // Determine type and category using Regex
+                let txType = "in";
+                let txAmount = debet;
+                if (kredit > 0 && debet === 0) {
+                    txType = "out";
+                    txAmount = kredit;
+                }
+
+                let category = "other";
+                const checkString = uraian.toLowerCase();
+                if (checkString.includes("angsur")) category = "loan_payment";
+                else if (checkString.includes("simpanan") || checkString.includes("wajib") || checkString.includes("pokok") || checkString.includes("sukarela")) {
+                     category = "deposit";
+                     if (txType === "out") category = "withdrawal";
+                }
+                else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
+                     if (txType === "out") category = "loan_disbursement";
+                }
+                
+                results.push({
+                    sheet: sheetName,
+                    row: i + headerRowIndex + 2,
+                    transactionDate: new Date(currentValDate).toISOString(),
+                    description: uraian,
+                    type: txType,
+                    amount: txAmount,
+                    category: category,
+                    status: 'valid'
+                });
+                successCount++;
+            }
+        }
+        
+        if (mode === "commit" && accountId) {
+             const session = await auth();
+             const userId = session?.user?.id ? parseInt(session.user.id) : 1; // Fallback to 1
+
+             // Start Transaction execution
+             try {
+                 await prisma.$transaction(async (tx) => {
+                     const account = await tx.cashBankAccount.findUnique({
+                         where: { id: accountId }
+                     });
+                     
+                     if (!account) throw new Error("Akun gagal ditemukan");
+                     
+                     let currentBalance = Number(account.currentBalance);
+
+                     for (const res of results) {
+                         const balanceAfter = res.type === "in" 
+                            ? currentBalance + res.amount 
+                            : currentBalance - res.amount;
+
+                         await tx.cashBankTransaction.create({
+                             data: {
+                                 transactionNo: generateTransactionNo(res.type),
+                                 accountId: accountId,
+                                 branchId: account.branchId,
+                                 type: res.type,
+                                 category: res.category,
+                                 amount: res.amount,
+                                 description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
+                                 balanceBefore: currentBalance,
+                                 balanceAfter: balanceAfter,
+                                 transactionDate: new Date(res.transactionDate),
+                                 createdById: userId
+                             }
+                         });
+                         
+                         currentBalance = balanceAfter;
+                     }
+                     
+                     await tx.cashBankAccount.update({
+                         where: { id: accountId },
+                         data: { currentBalance }
+                     });
+                 });
+             } catch (err: any) {
+                 return NextResponse.json({ message: err.message || "Gagal import transaksi" }, { status: 400 });
+             }
+             
+             return NextResponse.json({
+                 data: {
+                     mode: "commit",
+                     success: successCount,
+                     failed: failCount,
+                     totalRows: results.length
+                 }
+             });
+        }
+
+        // Return preview data
+        return NextResponse.json({
+             data: {
+                  mode: "preview",
+                  success: successCount,
+                  failed: failCount,
+                  totalRows: results.length,
+                  preview: results.slice(0, 100) // max 100 for preview
+             }
+        });
+
+    } catch (error) {
+        console.error("POST /api/cash-bank/import error:", error);
+        return NextResponse.json(
+            { message: "Gagal memproses import data Excel." },
+            { status: 500 }
+        );
+    }
+}
