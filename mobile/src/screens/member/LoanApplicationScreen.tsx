@@ -49,8 +49,8 @@ export default function LoanApplicationScreen({ navigation }: any) {
     const tnr = parseInt(tenor);
     if (!amt || !tnr) return 0;
     
-    // Bunga 1% per bulan flat
-    const interestPerMonth = Math.round(amt * 0.01);
+    // Bunga 0.3% per bulan flat
+    const interestPerMonth = Math.round(amt * 0.003);
     const principalPerMonth = Math.round(amt / tnr);
     return principalPerMonth + interestPerMonth;
   };
@@ -134,11 +134,11 @@ export default function LoanApplicationScreen({ navigation }: any) {
           {/* Info Banner Konfigurasi Pinjaman (pengganti pilih produk) */}
           <View style={[styles.productCard, { backgroundColor: C.infoBg, borderColor: C.info, borderWidth: 1, marginBottom: 16 }]}>
             <Text style={[styles.productName, { color: C.info }]}>Aturan Pinjaman Koperasi</Text>
-            <Text style={[styles.productInfo, { color: '#000' }]}>• Bunga Pinjaman: 1% Flat / bulan</Text>
+            <Text style={[styles.productInfo, { color: '#000' }]}>• Bunga Pinjaman: 0.3% Flat / bulan</Text>
             <Text style={[styles.productInfo, { color: '#000' }]}>• Potongan Resiko: 2% (di depan)</Text>
             {selectedProduct && (
               <Text style={[styles.productInfo, { color: '#000', marginTop: 4 }]}>
-                (Max. Pinjaman {formatRp(selectedProduct.maxAmount)} | Tenor {selectedProduct.maxTenor} bln)
+                (Max. Pinjaman {formatRp(20000000)} | Tenor 36 bln)
               </Text>
             )}
             {!selectedProduct && (
@@ -154,8 +154,12 @@ export default function LoanApplicationScreen({ navigation }: any) {
             style={styles.input}
             keyboardType="numeric"
             value={amount}
-            onChangeText={setAmount}
-            placeholder="Contoh: 5000000"
+            onChangeText={(val) => {
+              const num = Number(val);
+              if (num > 20000000) setAmount("20000000");
+              else setAmount(val);
+            }}
+            placeholder="Maks: Rp 20.000.000"
             placeholderTextColor="#94A3B8"
           />
 
@@ -165,8 +169,12 @@ export default function LoanApplicationScreen({ navigation }: any) {
             style={styles.input}
             keyboardType="numeric"
             value={tenor}
-            onChangeText={setTenor}
-            placeholder="Contoh: 12"
+            onChangeText={(val) => {
+              const num = Number(val);
+              if (num > 36) setTenor("36");
+              else setTenor(val);
+            }}
+            placeholder="Maks: 36 Bulan"
             placeholderTextColor="#94A3B8"
           />
 
@@ -191,7 +199,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
               </Text>
               <Text style={styles.previewAmount}>{formatRp(monthlyInstallment())}</Text>
               <Text style={styles.previewNote}>
-                Rincian = Angsuran Pokok + Bunga Flat 1%/bln
+                Rincian = Angsuran Pokok + Bunga Flat 0.3%/bln
               </Text>
             </View>
           )}
