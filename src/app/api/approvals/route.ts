@@ -5,13 +5,12 @@ import prisma from "@/lib/prisma";
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const status = searchParams.get("status") || "pending";
         const branchId = searchParams.get("branchId");
 
-        // Get pending loan applications
+        // Get ALL loan applications (since frontend splits them by status into pending/history)
+        // If there's a huge volume, we'd need pagination, but for now fetch recent.
         const loanApplications = await prisma.loanApplication.findMany({
             where: {
-                status: status === "pending" ? "submitted" : { in: ["approved", "rejected"] },
                 ...(branchId && { branchId: parseInt(branchId) }),
             },
             include: {
@@ -20,21 +19,23 @@ export async function GET(request: Request) {
                 product: { select: { id: true, code: true, name: true } },
             },
             orderBy: { submittedAt: "desc" },
+            take: 100, // Limit to recent 100 so it doesn't overload
         });
 
         const approvals = loanApplications.map((app) => ({
             id: app.id,
-            type: "loan_application" as const,
+            requestType: "loan_application",
+            referenceId: app.id,
             referenceNo: app.applicationNo,
-            title: `Pengajuan Pinjaman ${app.product.name}`,
-            description: `${app.member.name} - Rp ${Number(app.amount).toLocaleString("id-ID")}`,
+            description: `Pengajuan Pinjaman ${app.product.name} oleh ${app.member.name}`,
             amount: Number(app.amount),
-            status: app.status,
-            submittedAt: app.submittedAt,
-            approvedAt: app.approvedAt,
-            rejectedAt: app.rejectedAt,
-            member: app.member,
-            branch: app.branch,
+            branchId: app.branchId || 1,
+            // the frontend expects 'pending', 'approved', or 'rejected'
+            status: app.status === "submitted" ? "pending" : app.status,
+            requestedBy: app.member,
+            requestedAt: app.submittedAt,
+            processedAt: app.approvedAt || app.rejectedAt || undefined,
+            notes: app.rejectionReason || undefined
         }));
 
         return NextResponse.json({ data: approvals });
