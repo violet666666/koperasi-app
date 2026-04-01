@@ -138,3 +138,19 @@ Fitur *Search* pada halaman "Buku Anggota" (`/anggota/buku`) belum terkoneksi ke
 - API ini melakukan Query ke Tabel Keanggotaan, menghubungkannya ke Tabel *Savings Account* (Setoran/Penarikan) dan *Loans* (Pencairan/Angsuran).
 - API akan melebur seluruh transaksi Simpan Pinjam milik satu anggota tersebut ke dalam rentetan *General Ledger* (Buku Besar) Transaksi tunggal yang diurutkan sesuai tanggal.
 - Kini jika operator memasukkan NRP atau Nomor Anggota, hasil Buku Kas yang keluar adalah data real-time milik anggota yang bersangkutan.
+
+---
+
+## 5. Sinkronisasi Data Laporan (SHU, Rekap) & Non-SP
+**Lokasi Update:** `src/app/api/non-sp/*`, `src/app/(protected)/non-sp/*`, `src/app/(protected)/laporan/*`, `src/app/(protected)/dashboard/page.tsx`
+**Masalah Sebelumnya:**
+1. Laporan SHU merasa "kurang lengkap" datanya karena fitur **Pengeluaran Non-S/P** dan **Penerimaan Non-S/P** 100% fiktif / menggunakan data mock sehingga tidak memengaruhi laporan.
+2. Laporan Rekap Simpanan & Rekap Pinjaman *(Data Kosong)* gagal memunculkan data akibat kekeliruan pembacaan struktur response bersarang `response.data` dari library Axios/Fetch (nesting extraction crash).
+3. Laporan Rekap Pinjaman menyatakan bunga "3.6%/bln" padahal yang benar di sistem flat adalah 3.6% pertahun atau "0.3%/bln".
+4. Tanda "Menunggu Persetujuan" (Dashboard vs Approval History) kadang bentrok bahkan memicu layar *Crash (terjadi kesalahan)* akibat ekstraksi `[...pendingRes.data]` yang menganggap objek sebagai array.
+
+**Solusi & Perbaikan:**
+- Meniadakan seluruh *Mock Data* fiktif pada halaman Pengeluaran dan Penerimaan Non-SP, lalu membuat API Baru yang murni terhubung sebagai **Pencatatan Jurnal Baru**. Hal ini secara otomatis mendaftarkan setiap "Pengeluaran" / "Penerimaan" masuk ke dalam Buku Besar (General Ledger).
+- Memastikan halaman *Laporan SHU* secara otomatis menyedot transaksi Jurnal yang baru diproduksi oleh layanan Operasi Non-SP. 
+- Menambahkan baris validasi `.data` ke extraction layer di semua halaman laporan (Rekap Simpanan, Rekap Pinjaman) dan memperbaiki algoritma `.slice()` yang merusak Dashboard.
+- Meracik operasi kalkulasi Bunga Pinjaman (`row.getValue("interestRate") / 12`) untuk memastikan UI memunculkan `0.3%/bln` walaupun backend database menyimpan suku bunga flat 3.6%.

@@ -107,8 +107,10 @@ export default function RekapSimpananPage() {
             setIsLoading(true);
             try {
                 const response = await reportsApi.savingsRecap();
-                const reportData = response.data as unknown as { products: SavingsRecap[] };
-                setData(reportData.products || []);
+                // Extract deeply nested data matching the backend response structure
+                const axiosData = response.data as any;
+                const reportData = axiosData.data;
+                setData(reportData?.products || []);
             } catch (error) {
                 console.error("Failed to fetch savings recap:", error);
                 setData([]);

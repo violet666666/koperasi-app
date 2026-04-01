@@ -66,7 +66,11 @@ const columns: ColumnDef<LoanRecap>[] = [
     {
         accessorKey: "interestRate",
         header: "Bunga",
-        cell: ({ row }) => <span className="tabular-nums">{row.getValue("interestRate")}%/bln</span>,
+        cell: ({ row }) => {
+            const yearlyInterest = Number(row.getValue("interestRate"));
+            const monthlyInterest = (yearlyInterest / 12).toFixed(1);
+            return <span className="tabular-nums">{monthlyInterest}%/bln</span>;
+        },
     },
     {
         accessorKey: "totalLoans",
@@ -122,8 +126,10 @@ export default function RekapPinjamanPage() {
             setIsLoading(true);
             try {
                 const response = await reportsApi.loansRecap();
-                const reportData = response.data as unknown as { products: LoanRecap[] };
-                setData(reportData.products || []);
+                // Extract deeply nested data matching the backend response structure
+                const axiosData = response.data as any;
+                const reportData = axiosData.data;
+                setData(reportData?.products || []);
             } catch (error) {
                 console.error("Failed to fetch loans recap:", error);
                 setData([]);

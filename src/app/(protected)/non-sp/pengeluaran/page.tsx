@@ -35,6 +35,7 @@ import {
     TrendingDown,
     Receipt,
     Loader2,
+    Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -49,156 +50,181 @@ interface NonSPTransaction {
     createdBy: { id: number; name: string };
 }
 
-const EXPENSE_CATEGORIES: Record<string, string> = {
-    operational: "Biaya Operasional",
-    salary: "Gaji Karyawan",
-    utility: "Listrik/Air/Telepon",
-    rent: "Sewa Gedung",
-    maintenance: "Pemeliharaan",
-    supplies: "Perlengkapan Kantor",
-    marketing: "Promosi & Pemasaran",
-    other_expense: "Biaya Lain-lain",
-};
-
-const columns: ColumnDef<NonSPTransaction>[] = [
-    {
-        accessorKey: "transactionDate",
-        header: "Tanggal",
-        cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
-    },
-    {
-        accessorKey: "transactionNo",
-        header: "No. Transaksi",
-        cell: ({ row }) => (
-            <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
-        ),
-    },
-    {
-        accessorKey: "category",
-        header: "Kategori",
-        cell: ({ row }) => (
-            <Badge variant="outline">
-                {EXPENSE_CATEGORIES[row.getValue("category") as string] || row.getValue("category")}
-            </Badge>
-        ),
-    },
-    {
-        accessorKey: "description",
-        header: "Keterangan",
-        cell: ({ row }) => (
-            <div className="max-w-xs truncate">{row.getValue("description")}</div>
-        ),
-    },
-    {
-        accessorKey: "amount",
-        header: "Jumlah",
-        cell: ({ row }) => (
-            <span className="font-bold tabular-nums text-red-600">
-                -{formatCurrency(row.getValue("amount"))}
-            </span>
-        ),
-    },
-    {
-        accessorKey: "paymentMethod",
-        header: "Metode",
-        cell: ({ row }) => {
-            const method = row.getValue("paymentMethod") as string;
-            return method === "cash" ? "Tunai" : "Transfer";
-        },
-    },
-];
+interface Account {
+    id: number;
+    code: string;
+    name: string;
+}
 
 export default function PengeluaranNonSPPage() {
     const [data, setData] = React.useState<NonSPTransaction[]>([]);
+    const [expenseAccounts, setExpenseAccounts] = React.useState<Account[]>([]);
+    const [assetAccounts, setAssetAccounts] = React.useState<Account[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Form state
     const [formData, setFormData] = React.useState({
-        category: "",
+        categoryAccountId: "",
         amount: "",
         description: "",
-        paymentMethod: "cash",
+        paymentAccountId: "",
     });
+
+    const columns: ColumnDef<NonSPTransaction>[] = [
+        {
+            accessorKey: "transactionDate",
+            header: "Tanggal",
+            cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
+        },
+        {
+            accessorKey: "transactionNo",
+            header: "No. Transaksi",
+            cell: ({ row }) => (
+                <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
+            ),
+        },
+        {
+            accessorKey: "category",
+            header: "Kategori Beban",
+            cell: ({ row }) => (
+                <Badge variant="outline">
+                    {row.getValue("category")}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: "description",
+            header: "Keterangan",
+            cell: ({ row }) => (
+                <div className="max-w-xs truncate">{row.getValue("description")}</div>
+            ),
+        },
+        {
+            accessorKey: "paymentMethod",
+            header: "Sumber Dana",
+            cell: ({ row }) => (
+                <span className="text-sm font-medium">{row.getValue("paymentMethod")}</span>
+            ),
+        },
+        {
+            accessorKey: "amount",
+            header: "Jumlah",
+            cell: ({ row }) => (
+                <span className="font-bold tabular-nums text-red-600">
+                    -{formatCurrency(row.getValue("amount"))}
+                </span>
+            ),
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => {
+                const tx = row.original;
+                return (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={async () => {
+                            if (!confirm("Hapus pengeluaran ini? Laporan SHU akan otomatis disesuaikan.")) return;
+                            try {
+                                const res = await fetch(`/api/non-sp/pengeluaran/${tx.id}`, {
+                                    method: "DELETE"
+                                });
+                                if (!res.ok) throw new Error("Gagal menghapus");
+                                toast.success("Transaksi dihapus");
+                                loadData();
+                            } catch (e) {
+                                toast.error("Gagal menghapus transaksi");
+                            }
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                );
+            },
+        },
+    ];
 
     // Stats
     const stats = React.useMemo(() => {
-        const today = new Date().toDateString();
+        const today = new Date().toISOString().split("T")[0];
         return {
             total: data.length,
             totalAmount: data.reduce((sum, d) => sum + d.amount, 0),
             todayAmount: data
-                .filter(d => new Date(d.transactionDate).toDateString() === today)
+                .filter(d => d.transactionDate.startsWith(today))
                 .reduce((sum, d) => sum + d.amount, 0),
         };
     }, [data]);
 
-    // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const mockData: NonSPTransaction[] = [
-                    {
-                        id: 1,
-                        transactionNo: "PKL-2026-00001",
-                        transactionDate: "2026-01-25",
-                        category: "utility",
-                        description: "Pembayaran listrik bulan Januari",
-                        amount: 2500000,
-                        paymentMethod: "transfer",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                    {
-                        id: 2,
-                        transactionNo: "PKL-2026-00002",
-                        transactionDate: "2026-01-24",
-                        category: "supplies",
-                        description: "Pembelian ATK",
-                        amount: 750000,
-                        paymentMethod: "cash",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                    {
-                        id: 3,
-                        transactionNo: "PKL-2026-00003",
-                        transactionDate: "2026-01-24",
-                        category: "maintenance",
-                        description: "Service AC kantor",
-                        amount: 500000,
-                        paymentMethod: "cash",
-                        createdBy: { id: 1, name: "Admin" },
-                    },
-                ];
-
-                setData(mockData);
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            const [trxRes, expRes, astRes] = await Promise.all([
+                fetch("/api/non-sp/pengeluaran"),
+                fetch("/api/master/accounts?type=expense"),
+                fetch("/api/master/accounts?type=asset")
+            ]);
+            
+            if (trxRes.ok) {
+                const trxJson = await trxRes.json();
+                setData(trxJson.data || []);
             }
+            if (expRes.ok) {
+                const expJson = await expRes.json();
+                setExpenseAccounts(expJson.data || []);
+            }
+            if (astRes.ok) {
+                const astJson = await astRes.json();
+                // We typically only want Kas/Bank for payments, assume codes starting with 11 are cash/bank equivalents
+                const liquidAssets = (astJson.data || []).filter((a: Account) => a.code.startsWith("11"));
+                setAssetAccounts(liquidAssets);
+            }
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+            toast.error("Gagal memuat data");
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
+    };
+
+    React.useEffect(() => {
+        loadData();
     }, []);
 
     // Handle submit
     const handleSubmit = async () => {
-        if (!formData.category || !formData.amount) {
+        if (!formData.categoryAccountId || !formData.amount || !formData.paymentAccountId) {
             toast.error("Lengkapi data pengeluaran");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Pengeluaran berhasil dicatat");
+            const res = await fetch("/api/non-sp/pengeluaran", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    categoryAccountId: formData.categoryAccountId,
+                    paymentAccountId: formData.paymentAccountId,
+                    amount: formData.amount,
+                    description: formData.description,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Gagal mencatat pengeluaran");
+            }
+
+            toast.success("Pengeluaran berhasil dicatat (Jurnal dibuat)");
             setDialogOpen(false);
-            setFormData({ category: "", amount: "", description: "", paymentMethod: "cash" });
-        } catch (error) {
-            toast.error("Gagal mencatat pengeluaran");
+            setFormData({ categoryAccountId: "", amount: "", description: "", paymentAccountId: "" });
+            loadData();
+        } catch (error: any) {
+            toast.error(error.message || "Gagal mencatat pengeluaran");
         } finally {
             setIsSubmitting(false);
         }
@@ -208,7 +234,7 @@ export default function PengeluaranNonSPPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Pengeluaran Non S/P"
-                description="Biaya di luar simpan pinjam"
+                description="Biaya di luar operasional simpan pinjam (Otomatis masuk Jurnal & SHU)"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
@@ -226,44 +252,48 @@ export default function PengeluaranNonSPPage() {
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div>
-                                    <Label>Kategori</Label>
+                                    <Label>Akun Kategori Beban</Label>
                                     <Select
-                                        value={formData.category}
-                                        onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}
+                                        value={formData.categoryAccountId}
+                                        onValueChange={(v) => setFormData(prev => ({ ...prev, categoryAccountId: v }))}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Pilih kategori" />
+                                            <SelectValue placeholder="Pilih akun beban..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => (
-                                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                                            {expenseAccounts.map((acc) => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.code} - {acc.name}</SelectItem>
+                                            ))}
+                                            {expenseAccounts.length === 0 && (
+                                                <SelectItem value="none" disabled>Tidak ada data Akun Beban (COA)</SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Sumber Dana (Kas/Bank)</Label>
+                                    <Select
+                                        value={formData.paymentAccountId}
+                                        onValueChange={(v) => setFormData(prev => ({ ...prev, paymentAccountId: v }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih sumber dana..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {assetAccounts.map((acc) => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.code} - {acc.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div>
-                                    <Label>Jumlah</Label>
+                                    <Label>Jumlah Pengeuaran</Label>
                                     <Input
                                         type="number"
                                         placeholder="0"
                                         value={formData.amount}
                                         onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                                     />
-                                </div>
-                                <div>
-                                    <Label>Metode Pembayaran</Label>
-                                    <Select
-                                        value={formData.paymentMethod}
-                                        onValueChange={(v) => setFormData(prev => ({ ...prev, paymentMethod: v }))}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="cash">Tunai</SelectItem>
-                                            <SelectItem value="transfer">Transfer Bank</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                                 <div>
                                     <Label>Keterangan</Label>
@@ -275,12 +305,12 @@ export default function PengeluaranNonSPPage() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
                                     Batal
                                 </Button>
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Simpan
+                                    Simpan Transaksi
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

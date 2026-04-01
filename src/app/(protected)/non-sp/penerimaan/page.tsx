@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { DataTable } from "@/components/patterns/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -34,8 +34,8 @@ import {
     ArrowUpCircle,
     TrendingUp,
     Receipt,
-    Calendar,
     Loader2,
+    Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -50,121 +50,181 @@ interface NonSPTransaction {
     createdBy: { id: number; name: string };
 }
 
-const INCOME_CATEGORIES: Record<string, string> = {
-    admin_fee: "Biaya Administrasi",
-    interest_income: "Pendapatan Bunga",
-    rental_income: "Pendapatan Sewa",
-    service_fee: "Pendapatan Jasa",
-    other_income: "Pendapatan Lain-lain",
-};
-
-const columns: ColumnDef<NonSPTransaction>[] = [
-    {
-        accessorKey: "transactionDate",
-        header: "Tanggal",
-        cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
-    },
-    {
-        accessorKey: "transactionNo",
-        header: "No. Transaksi",
-        cell: ({ row }) => (
-            <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
-        ),
-    },
-    {
-        accessorKey: "category",
-        header: "Kategori",
-        cell: ({ row }) => (
-            <Badge variant="outline">
-                {INCOME_CATEGORIES[row.getValue("category") as string] || row.getValue("category")}
-            </Badge>
-        ),
-    },
-    {
-        accessorKey: "description",
-        header: "Keterangan",
-        cell: ({ row }) => (
-            <div className="max-w-xs truncate">{row.getValue("description")}</div>
-        ),
-    },
-    {
-        accessorKey: "amount",
-        header: "Jumlah",
-        cell: ({ row }) => (
-            <span className="font-bold tabular-nums text-emerald-600">
-                +{formatCurrency(row.getValue("amount"))}
-            </span>
-        ),
-    },
-    {
-        accessorKey: "paymentMethod",
-        header: "Metode",
-        cell: ({ row }) => {
-            const method = row.getValue("paymentMethod") as string;
-            return method === "cash" ? "Tunai" : "Transfer";
-        },
-    },
-];
+interface Account {
+    id: number;
+    code: string;
+    name: string;
+}
 
 export default function PenerimaanNonSPPage() {
     const [data, setData] = React.useState<NonSPTransaction[]>([]);
+    const [incomeAccounts, setIncomeAccounts] = React.useState<Account[]>([]);
+    const [assetAccounts, setAssetAccounts] = React.useState<Account[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Form state
     const [formData, setFormData] = React.useState({
-        category: "",
+        categoryAccountId: "",
         amount: "",
         description: "",
-        paymentMethod: "cash",
+        paymentAccountId: "",
     });
+
+    const columns: ColumnDef<NonSPTransaction>[] = [
+        {
+            accessorKey: "transactionDate",
+            header: "Tanggal",
+            cell: ({ row }) => new Date(row.getValue("transactionDate")).toLocaleDateString("id-ID"),
+        },
+        {
+            accessorKey: "transactionNo",
+            header: "No. Transaksi",
+            cell: ({ row }) => (
+                <span className="font-mono text-sm">{row.getValue("transactionNo")}</span>
+            ),
+        },
+        {
+            accessorKey: "category",
+            header: "Kategori Pendapatan",
+            cell: ({ row }) => (
+                <Badge variant="outline">
+                    {row.getValue("category")}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: "description",
+            header: "Keterangan",
+            cell: ({ row }) => (
+                <div className="max-w-xs truncate">{row.getValue("description")}</div>
+            ),
+        },
+        {
+            accessorKey: "paymentMethod",
+            header: "Tujuan Dana",
+            cell: ({ row }) => (
+                <span className="text-sm font-medium">{row.getValue("paymentMethod")}</span>
+            ),
+        },
+        {
+            accessorKey: "amount",
+            header: "Jumlah",
+            cell: ({ row }) => (
+                <span className="font-bold tabular-nums text-emerald-600">
+                    +{formatCurrency(row.getValue("amount"))}
+                </span>
+            ),
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => {
+                const tx = row.original;
+                return (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={async () => {
+                            if (!confirm("Hapus penerimaan ini? Laporan SHU akan otomatis disesuaikan.")) return;
+                            try {
+                                const res = await fetch(`/api/non-sp/penerimaan/${tx.id}`, {
+                                    method: "DELETE"
+                                });
+                                if (!res.ok) throw new Error("Gagal menghapus");
+                                toast.success("Transaksi dihapus");
+                                loadData();
+                            } catch (e) {
+                                toast.error("Gagal menghapus transaksi");
+                            }
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                );
+            },
+        },
+    ];
 
     // Stats
     const stats = React.useMemo(() => {
-        const today = new Date().toDateString();
+        const today = new Date().toISOString().split("T")[0];
         return {
             total: data.length,
             totalAmount: data.reduce((sum, d) => sum + d.amount, 0),
             todayAmount: data
-                .filter(d => new Date(d.transactionDate).toDateString() === today)
+                .filter(d => d.transactionDate.startsWith(today))
                 .reduce((sum, d) => sum + d.amount, 0),
         };
     }, [data]);
 
-    // Fetch data
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // TODO: Fetch from database endpoint when ready
-                setData([]);
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            const [trxRes, incRes, astRes] = await Promise.all([
+                fetch("/api/non-sp/penerimaan"),
+                fetch("/api/master/accounts?type=income"),
+                fetch("/api/master/accounts?type=asset")
+            ]);
+            
+            if (trxRes.ok) {
+                const trxJson = await trxRes.json();
+                setData(trxJson.data || []);
             }
+            if (incRes.ok) {
+                const incJson = await incRes.json();
+                setIncomeAccounts(incJson.data || []);
+            }
+            if (astRes.ok) {
+                const astJson = await astRes.json();
+                // 11 is the general prefix for Kas/Bank mapping
+                const liquidAssets = (astJson.data || []).filter((a: Account) => a.code.startsWith("11"));
+                setAssetAccounts(liquidAssets);
+            }
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+            toast.error("Gagal memuat data");
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
+    };
+
+    React.useEffect(() => {
+        loadData();
     }, []);
 
     // Handle submit
     const handleSubmit = async () => {
-        if (!formData.category || !formData.amount) {
+        if (!formData.categoryAccountId || !formData.amount || !formData.paymentAccountId) {
             toast.error("Lengkapi data penerimaan");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Penerimaan berhasil dicatat");
+            const res = await fetch("/api/non-sp/penerimaan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    categoryAccountId: formData.categoryAccountId,
+                    paymentAccountId: formData.paymentAccountId,
+                    amount: formData.amount,
+                    description: formData.description,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Gagal mencatat penerimaan");
+            }
+
+            toast.success("Penerimaan berhasil dicatat (Jurnal dibuat)");
             setDialogOpen(false);
-            setFormData({ category: "", amount: "", description: "", paymentMethod: "cash" });
-        } catch (error) {
-            toast.error("Gagal mencatat penerimaan");
+            setFormData({ categoryAccountId: "", amount: "", description: "", paymentAccountId: "" });
+            loadData();
+        } catch (error: any) {
+            toast.error(error.message || "Gagal mencatat penerimaan");
         } finally {
             setIsSubmitting(false);
         }
@@ -174,7 +234,7 @@ export default function PenerimaanNonSPPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Penerimaan Non S/P"
-                description="Pendapatan di luar simpan pinjam"
+                description="Pendapatan di luar operasional simpan pinjam (Otomatis masuk Jurnal & SHU)"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
@@ -192,44 +252,48 @@ export default function PenerimaanNonSPPage() {
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div>
-                                    <Label>Kategori</Label>
+                                    <Label>Akun Kategori Pendapatan</Label>
                                     <Select
-                                        value={formData.category}
-                                        onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}
+                                        value={formData.categoryAccountId}
+                                        onValueChange={(v) => setFormData(prev => ({ ...prev, categoryAccountId: v }))}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Pilih kategori" />
+                                            <SelectValue placeholder="Pilih akun pendapatan..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {Object.entries(INCOME_CATEGORIES).map(([key, label]) => (
-                                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                                            {incomeAccounts.map((acc) => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.code} - {acc.name}</SelectItem>
+                                            ))}
+                                            {incomeAccounts.length === 0 && (
+                                                <SelectItem value="none" disabled>Tidak ada data Akun Pendapatan (COA)</SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Tujuan Dana (Kas/Bank)</Label>
+                                    <Select
+                                        value={formData.paymentAccountId}
+                                        onValueChange={(v) => setFormData(prev => ({ ...prev, paymentAccountId: v }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih tujuan dana..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {assetAccounts.map((acc) => (
+                                                <SelectItem key={acc.id} value={acc.id.toString()}>{acc.code} - {acc.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div>
-                                    <Label>Jumlah</Label>
+                                    <Label>Jumlah Penerimaan</Label>
                                     <Input
                                         type="number"
                                         placeholder="0"
                                         value={formData.amount}
                                         onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                                     />
-                                </div>
-                                <div>
-                                    <Label>Metode Pembayaran</Label>
-                                    <Select
-                                        value={formData.paymentMethod}
-                                        onValueChange={(v) => setFormData(prev => ({ ...prev, paymentMethod: v }))}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="cash">Tunai</SelectItem>
-                                            <SelectItem value="transfer">Transfer Bank</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                                 <div>
                                     <Label>Keterangan</Label>
@@ -241,12 +305,12 @@ export default function PenerimaanNonSPPage() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
                                     Batal
                                 </Button>
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Simpan
+                                    Simpan Transaksi
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -282,8 +346,8 @@ export default function PenerimaanNonSPPage() {
                 </Card>
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30">
-                            <TrendingUp className="h-5 w-5 text-blue-600" />
+                        <div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30">
+                            <TrendingUp className="h-5 w-5 text-emerald-600" />
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Total Penerimaan</p>

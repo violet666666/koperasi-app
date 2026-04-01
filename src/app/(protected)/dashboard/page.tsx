@@ -229,10 +229,10 @@ export default function DashboardPage() {
                     });
                 }
 
-                // Process pending approvals
                 let approvals: PendingApproval[] = [];
                 if (approvalsRes.status === "fulfilled") {
-                    const data = approvalsRes.value.data as any[];
+                    const resData = approvalsRes.value.data as any;
+                    const data = Array.isArray(resData?.data) ? resData.data : (Array.isArray(resData) ? resData : []);
                     approvals = data.slice(0, 3).map((item: any) => ({
                         id: item.id,
                         type: (item.requestType || item.type) === "loan_application" ? "Pinjaman" : "Lainnya",

@@ -169,12 +169,13 @@ export default function ApprovalPage() {
                     approvalsApi.list("history")
                 ]);
                 const combined = [
-                    ...(pendingRes.data as unknown as ApprovalItem[]),
-                    ...(historyRes.data as unknown as ApprovalItem[])
+                    ...((pendingRes.data as any).data || []),
+                    ...((historyRes.data as any).data || [])
                 ];
                 setApprovals(combined);
             } catch (error) {
                 console.error("Failed to fetch approvals:", error);
+                setApprovals([]);
             } finally {
                 setIsLoading(false);
             }
