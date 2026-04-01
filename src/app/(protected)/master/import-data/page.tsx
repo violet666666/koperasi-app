@@ -72,6 +72,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
         sejahtera: [[]],
         migrasi_pinjaman: [["pinjam", "selama", "angsuran", "saldo"]],
         potongan: [["tajib", "barang"]],
+        buku_kas: [[]],
     };
 
     const keywords = requiredKeywords[type] || [];
@@ -86,6 +87,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
         sejahtera: [],
         migrasi_pinjaman: ["pinjam", "piutang", "rincian"],
         potongan: ["barang", "potongan"],
+        buku_kas: [],
     };
     for (const hint of (nameHints[type] || [])) {
         const match = sheetNames.find(s => s.toUpperCase().includes(hint.toUpperCase()));
