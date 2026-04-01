@@ -209,7 +209,7 @@ export interface CashBankAccount {
 export const cashBankApi = {
     accounts: () => api.get<{ data: CashBankAccount[] }>("/cash-bank/accounts"),
 
-    transactions: (params?: { accountId?: number; type?: string }) =>
+    transactions: (params?: { accountId?: number; type?: string; perPage?: number; page?: number }) =>
         api.get<PaginatedResponse<unknown>>("/cash-bank/transactions", { params }),
 
     createTransaction: (data: { accountId: number; type: string; category?: string; amount: number; description?: string; transactionDate?: string }) =>

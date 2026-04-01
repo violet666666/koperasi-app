@@ -147,13 +147,13 @@ export default function TransaksiBankPage() {
 
     // Stats
     const stats = React.useMemo(() => {
-        const totalBalance = accounts.reduce((sum, a) => sum + a.currentBalance, 0);
+        const totalBalance = accounts.reduce((sum, a) => sum + Number(a.currentBalance), 0);
         const todayIn = transactions
             .filter(t => t.type === "in" && new Date(t.transactionDate).toDateString() === new Date().toDateString())
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + Number(t.amount), 0);
         const todayOut = transactions
             .filter(t => t.type === "out" && new Date(t.transactionDate).toDateString() === new Date().toDateString())
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + Number(t.amount), 0);
 
         return { totalBalance, todayIn, todayOut, accountCount: accounts.length };
     }, [accounts, transactions]);
@@ -171,8 +171,8 @@ export default function TransaksiBankPage() {
                 setAccounts(bankAccounts);
 
                 // Fetch transactions
-                const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
-                const txRes = await cashBankApi.transactions({ ...params, type: "bank" });
+                const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount), perPage: 9999 } : { perPage: 9999 };
+                const txRes = await cashBankApi.transactions({ ...params });
                 setTransactions(((txRes as any).data || []) as BankTransaction[]);
             } catch (error) {
                 console.error("Failed to fetch:", error);
@@ -202,7 +202,7 @@ export default function TransaksiBankPage() {
             setDialogOpen(false);
             setFormData({ accountId: "", amount: "", category: "operational", referenceNo: "", description: "" });
             // Refresh data
-            const txRes = await cashBankApi.transactions({});
+            const txRes = await cashBankApi.transactions({ perPage: 9999 });
             setTransactions(((txRes as any).data || []) as BankTransaction[]);
         } catch (error) {
             toast.error("Gagal mencatat transaksi");

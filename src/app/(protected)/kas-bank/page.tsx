@@ -179,7 +179,7 @@ export default function KasBankPage() {
                 setIsLoading(true);
                 const [accountsRes, transactionsRes] = await Promise.allSettled([
                     cashBankApi.accounts(),
-                    cashBankApi.transactions(),
+                    cashBankApi.transactions({ perPage: 9999 }),
                 ]);
 
                 if (accountsRes.status === "fulfilled") {

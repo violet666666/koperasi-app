@@ -254,6 +254,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Mapping Jurnal", href: "/master/mapping-jurnal" },
                     { title: "Parameter SHU", href: "/master/parameter-shu" },
                     { title: "Saldo Awal", href: "/master/saldo-awal" },
+                    { title: "Master Kas & Bank", href: "/master/kas-bank" },
                     { title: "Import & Export Data", href: "/master/import-data" },
                 ],
             },

@@ -126,7 +126,7 @@ export default function TransaksiKasPage() {
             const allAccounts = (accountsRes as any).data || [];
             setAccounts(allAccounts);
 
-            const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount) } : {};
+            const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount), perPage: 9999 } : { perPage: 9999 };
             const txRes = await cashBankApi.transactions({ ...params });
             setTransactions(((txRes as any).data || []) as CashTransaction[]);
         } catch (error) {
