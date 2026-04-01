@@ -21,7 +21,7 @@ export async function GET(request: Request) {
                 ]
             },
             include: {
-                savings: {
+                savingsAccounts: {
                     include: {
                         transactions: {
                             orderBy: { transactionDate: "asc" }
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
         }
 
         // Total Simpanan
-        const totalSimpanan = member.savings.reduce((sum, acc) => sum + Number(acc.balance), 0);
+        const totalSimpanan = member.savingsAccounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
         
         // Sisa Pinjaman
         const sisaPinjaman = member.loans.reduce((sum, loan) => sum + Number(loan.principalOutstanding), 0);
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         let txList = [];
 
         // 1. Savings Transactions
-        for (const account of member.savings) {
+        for (const account of member.savingsAccounts) {
             for (const tx of account.transactions) {
                 const amount = Number(tx.amount);
                 const isDeposit = tx.type === "deposit";
