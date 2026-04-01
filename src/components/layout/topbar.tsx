@@ -215,7 +215,7 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
         "mapping-jurnal": "Mapping Jurnal",
         "parameter-shu": "Parameter SHU",
         "saldo-awal": "Saldo Awal",
-        "profil-koperasi": "Profil Koperasi",
+        "profil-koperasi": "Profil PRIMKOPPOL",
         "tutup-buku": "Tutup Buku",
         kartu: "Kartu Anggota",
         buku: "Buku Anggota",

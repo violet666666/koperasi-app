@@ -81,7 +81,7 @@ export default function TambahProdukPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Tambah Produk"
-                description="Tambah produk baru ke toko koperasi"
+                description="Tambah produk baru ke toko PRIMKOPPOL"
                 backHref="/toko/produk"
             />
 

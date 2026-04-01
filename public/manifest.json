@@ -1,7 +1,7 @@
 {
-    "name": "Koperasi Digital",
-    "short_name": "Koperasi",
-    "description": "Sistem Manajemen Koperasi Simpan Pinjam",
+    "name": "PRIMKOPPOL Resor Lumajang",
+    "short_name": "PRIMKOPPOL",
+    "description": "Sistem Manajemen PRIMKOPPOL Resor Lumajang",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#F8FAFC",
@@ -72,7 +72,7 @@
         {
             "name": "Dashboard",
             "short_name": "Dashboard",
-            "description": "Lihat ringkasan koperasi",
+            "description": "Lihat ringkasan PRIMKOPPOL",
             "url": "/dashboard",
             "icons": [
                 {

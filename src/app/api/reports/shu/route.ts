@@ -9,18 +9,18 @@ const SHU_ALLOCATIONS_MEMBER = [
     { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Imbalan jasa pengurus" },
     { key: "pegawai", label: "Dana Pegawai", percentage: 10, description: "Kesejahteraan pegawai/karyawan" },
     { key: "pembangunan", label: "Dana Pembangunan Daerah Kerja", percentage: 10, description: "Pembangunan daerah kerja" },
-    { key: "audit", label: "Dana Audit", percentage: 10, description: "Biaya audit koperasi" },
-    { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan perkoperasian" },
+    { key: "audit", label: "Dana Audit", percentage: 10, description: "Biaya audit PRIMKOPPOL" },
+    { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan PRIMKOPPOL" },
     { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Kegiatan sosial" },
 ];
 
 // AD-ART Pasal 42 — SHU Allocation for Non-Member revenue
 const SHU_ALLOCATIONS_NON_MEMBER = [
-    { key: "cadangan", label: "Dana Cadangan", percentage: 60, description: "Dana cadangan koperasi" },
+    { key: "cadangan", label: "Dana Cadangan", percentage: 60, description: "Dana cadangan PRIMKOPPOL" },
     { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Imbalan jasa pengurus" },
     { key: "pegawai", label: "Dana Pegawai", percentage: 10, description: "Kesejahteraan pegawai/karyawan" },
-    { key: "pendidikan1", label: "Dana Pendidikan", percentage: 10, description: "Dana Pendidikan Koperasi" },
-    { key: "sosial", label: "Dana Sosial", percentage: 10, description: "Dana Sosial Koperasi" },
+    { key: "pendidikan1", label: "Dana Pendidikan", percentage: 10, description: "Dana Pendidikan PRIMKOPPOL" },
+    { key: "sosial", label: "Dana Sosial", percentage: 10, description: "Dana Sosial PRIMKOPPOL" },
 ];
 
 function toNum(d: Decimal | number | null | undefined): number {

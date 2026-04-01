@@ -139,9 +139,9 @@ export default function MemberDashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 {/* 1. Gaji Bersih */}
                 <InfoCardWrapper
-                    tooltip="Gaji bersih Anda yang tercatat di sistem koperasi."
+                    tooltip="Gaji bersih Anda yang tercatat di sistem PRIMKOPPOL."
                     detailTitle="Gaji Bersih"
-                    detailDescription={"Menampilkan gaji pokok bersih Anda per bulan yang sudah didata oleh admin/operator koperasi.\n\nGaji ini digunakan sebagai salah satu dasar perhitungan kelayakan pinjaman. Sesuai AD-ART 2026, sisa gaji setelah dikurangi angsuran harus minimal Rp 2.000.000.\n\nJika angka ini belum terisi atau salah, silakan hubungi operator koperasi untuk diperbarui."}
+                    detailDescription={"Menampilkan gaji pokok bersih Anda per bulan yang sudah didata oleh admin/operator PRIMKOPPOL.\n\nGaji ini digunakan sebagai salah satu dasar perhitungan kelayakan pinjaman. Sesuai AD-ART 2026, sisa gaji setelah dikurangi angsuran harus minimal Rp 2.000.000.\n\nJika angka ini belum terisi atau salah, silakan hubungi operator PRIMKOPPOL untuk diperbarui."}
                 >
                     <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -161,7 +161,7 @@ export default function MemberDashboardPage() {
                 <InfoCardWrapper
                     tooltip="Tunjangan Kinerja (Tunkin) Anda bulan ini."
                     detailTitle="Tunjangan Kinerja (Tunkin)"
-                    detailDescription={"Menampilkan Tunjangan Kinerja (Tunkin/Tukin) Anda bulan berjalan.\n\nTunkin dapat digunakan sebagai sumber pemotongan angsuran pinjaman, selain gaji pokok. Saat mengajukan pinjaman, Anda bisa memilih apakah angsuran dipotong dari Gaji atau Tunkin.\n\nJika angka ini belum terisi, hubungi operator koperasi untuk pembaruan data."}
+                    detailDescription={"Menampilkan Tunjangan Kinerja (Tunkin/Tukin) Anda bulan berjalan.\n\nTunkin dapat digunakan sebagai sumber pemotongan angsuran pinjaman, selain gaji pokok. Saat mengajukan pinjaman, Anda bisa memilih apakah angsuran dipotong dari Gaji atau Tunkin.\n\nJika angka ini belum terisi, hubungi operator PRIMKOPPOL untuk pembaruan data."}
                 >
                     <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -217,9 +217,9 @@ export default function MemberDashboardPage() {
 
                 {/* 4. Tagihan / Bill Payment */}
                 <InfoCardWrapper
-                    tooltip="Total tagihan belanja unit koperasi Anda yang belum lunas."
+                    tooltip="Total tagihan belanja unit PRIMKOPPOL Anda yang belum lunas."
                     detailTitle="Tagihan Unit"
-                    detailDescription={"Menampilkan total tagihan dari seluruh unit layanan koperasi (Toko, Cuci Mobil, Fitness, dll) yang statusnya masih belum dibayar.\n\nTagihan ini biasanya dilunasi melalui potongan gaji bulanan atau pembayaran langsung ke kasir.\n\nUntuk melihat rincian tagihan per unit, lihat bagian 'Ringkasan Per Unit' di bawah."}
+                    detailDescription={"Menampilkan total tagihan dari seluruh unit layanan PRIMKOPPOL (Toko, Cuci Mobil, Fitness, dll) yang statusnya masih belum dibayar.\n\nTagihan ini biasanya dilunasi melalui potongan gaji bulanan atau pembayaran langsung ke kasir.\n\nUntuk melihat rincian tagihan per unit, lihat bagian 'Ringkasan Per Unit' di bawah."}
                 >
                     <Card className="bg-gradient-to-br from-red-500 to-red-700 text-white border-0 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">

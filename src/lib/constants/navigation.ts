@@ -192,7 +192,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
         title: "TOKO",
         items: [
             {
-                title: "Toko Koperasi",
+                title: "Toko PRIMKOPPOL",
                 href: "/toko",
                 icon: ShoppingBag,
                 permission: "manage_toko",
@@ -264,7 +264,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 permission: "user_management",
             },
             {
-                title: "Profil Koperasi",
+                title: "Profil PRIMKOPPOL",
                 href: "/profil-koperasi",
                 icon: Building2,
                 permission: "edit_profil",

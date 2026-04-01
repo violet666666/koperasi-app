@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
         if (!user?.memberId || !user.member) {
             return NextResponse.json(
-                { message: "Hanya anggota koperasi yang dapat mengajukan pinjaman" },
+                { message: "Hanya anggota PRIMKOPPOL yang dapat mengajukan pinjaman" },
                 { status: 403 }
             );
         }

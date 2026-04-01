@@ -87,8 +87,8 @@ export const API_ENDPOINTS = {
 // =================================================================
 
 export const APP_NAME = "PRIMKOPPOL LUMAJANG";
-export const APP_SHORT_NAME = "Koperasi";
-export const APP_DESCRIPTION = "Sistem Manajemen Koperasi Simpan Pinjam";
+export const APP_SHORT_NAME = "PRIMKOPPOL";
+export const APP_DESCRIPTION = "Sistem Manajemen PRIMKOPPOL Resor Lumajang";
 
 // =================================================================
 // Pagination

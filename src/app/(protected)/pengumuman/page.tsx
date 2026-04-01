@@ -282,7 +282,7 @@ export default function PengumumanPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Pengumuman"
-                description="Kelola pengumuman dan berita koperasi"
+                description="Kelola pengumuman dan berita PRIMKOPPOL"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={(open) => {
                         setDialogOpen(open);
@@ -298,7 +298,7 @@ export default function PengumumanPage() {
                             <DialogHeader>
                                 <DialogTitle>{editItem ? "Edit Pengumuman" : "Buat Pengumuman Baru"}</DialogTitle>
                                 <DialogDescription>
-                                    {editItem ? "Ubah detail pengumuman" : "Buat pengumuman untuk anggota koperasi"}
+                                    {editItem ? "Ubah detail pengumuman" : "Buat pengumuman untuk anggota PRIMKOPPOL"}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">

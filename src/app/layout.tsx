@@ -24,14 +24,14 @@ export const metadata: Metadata = {
     default: "PRIMKOPPOL LUMAJANG",
     template: "%s | PRIMKOPPOL LUMAJANG",
   },
-  description: "Sistem Manajemen Koperasi Simpan Pinjam",
-  keywords: ["koperasi", "simpan pinjam", "anggota", "pinjaman", "simpanan"],
+  description: "Sistem Manajemen PRIMKOPPOL Resor Lumajang",
+  keywords: ["primkoppol", "koperasi polisi", "simpan pinjam", "anggota", "pinjaman", "simpanan"],
   authors: [{ name: "PRIMKOPPOL LUMAJANG" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Koperasi",
+    title: "PRIMKOPPOL",
   },
   formatDetection: {
     telephone: false,

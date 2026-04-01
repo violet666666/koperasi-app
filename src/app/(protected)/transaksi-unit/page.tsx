@@ -173,7 +173,7 @@ export default function TransaksiUnitPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Input Transaksi Unit"
-                description="Catat mutasi transaksi dari berbagai unit koperasi"
+                description="Catat mutasi transaksi dari berbagai unit PRIMKOPPOL"
                 actions={(
                     <Button variant="outline" asChild>
                         <Link href="/transaksi-unit/riwayat">

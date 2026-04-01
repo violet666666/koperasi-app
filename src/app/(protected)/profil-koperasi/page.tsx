@@ -69,7 +69,7 @@ export default function ProfilKoperasiPage() {
         setIsSaving(true);
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Profil koperasi berhasil disimpan");
+            toast.success("Profil PRIMKOPPOL berhasil disimpan");
         } catch (error) {
             toast.error("Gagal menyimpan profil");
         } finally {
@@ -84,7 +84,7 @@ export default function ProfilKoperasiPage() {
     if (isLoading) {
         return (
             <div className="space-y-6">
-                <PageHeader title="Profil Koperasi" description="Informasi koperasi" />
+                <PageHeader title="Profil PRIMKOPPOL" description="Informasi PRIMKOPPOL Resor Lumajang" />
                 <Card>
                     <CardContent className="p-6">
                         <Skeleton className="h-96 w-full" />
@@ -97,8 +97,8 @@ export default function ProfilKoperasiPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Profil Koperasi"
-                description="Kelola informasi dan identitas koperasi"
+                title="Profil PRIMKOPPOL"
+                description="Kelola informasi dan identitas PRIMKOPPOL"
                 actions={
                     <Button onClick={handleSave} disabled={isSaving}>
                         {isSaving ? (
@@ -248,7 +248,7 @@ export default function ProfilKoperasiPage() {
                                     value={profile.description}
                                     onChange={(e) => handleChange("description", e.target.value)}
                                     rows={4}
-                                    placeholder="Deskripsi singkat tentang koperasi..."
+                                    placeholder="Deskripsi singkat tentang PRIMKOPPOL..."
                                 />
                             </CardContent>
                         </Card>

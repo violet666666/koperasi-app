@@ -146,13 +146,13 @@ export default function SHUCalculationPage() {
         { name: "Cadangan", amount: shuData.memberSurplus * 0.30, percentage: 30, color: "bg-indigo-500" },
         { name: "Dana Pengurus & Pengawas", amount: shuData.memberSurplus * 0.10, percentage: 10, color: "bg-violet-500" },
         { name: "Dana Pegawai/Karyawan", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-amber-500" },
-        { name: "Dana Pendidikan Koperasi", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
+        { name: "Dana Pendidikan PRIMKOPPOL", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-pink-500" },
         { name: "Dana Sosial", amount: shuData.memberSurplus * 0.05, percentage: 5, color: "bg-rose-500" },
     ] : [];
 
     const nonMemberDistribution = shuData ? [
         { name: "Dana Cadangan", amount: shuData.nonMemberSurplus * 0.60, percentage: 60, color: "bg-indigo-500" },
-        { name: "Dana Pendidikan Koperasi", amount: shuData.nonMemberSurplus * 0.20, percentage: 20, color: "bg-pink-500" },
+        { name: "Dana Pendidikan PRIMKOPPOL", amount: shuData.nonMemberSurplus * 0.20, percentage: 20, color: "bg-pink-500" },
         { name: "Kesejahteraan Karyawan", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-amber-500" },
         { name: "Dana Sosial", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-rose-500" },
     ] : [];
@@ -421,7 +421,7 @@ export default function SHUCalculationPage() {
                                     <h4 className="font-semibold text-sm mb-2 text-orange-800 dark:text-orange-300">SHU dari Usaha Bukan Anggota</h4>
                                     <div className="space-y-1 text-sm">
                                         <div className="flex justify-between"><span>Dana Cadangan</span><span className="font-mono font-bold">60%</span></div>
-                                        <div className="flex justify-between"><span>Dana Pendidikan Koperasi</span><span className="font-mono font-bold">20%</span></div>
+                                        <div className="flex justify-between"><span>Dana Pendidikan PRIMKOPPOL</span><span className="font-mono font-bold">20%</span></div>
                                         <div className="flex justify-between"><span>Kesejahteraan Karyawan</span><span className="font-mono font-bold">10%</span></div>
                                         <div className="flex justify-between"><span>Dana Sosial</span><span className="font-mono font-bold">10%</span></div>
                                         <div className="flex justify-between border-t pt-1 font-bold"><span>Total</span><span className="font-mono">100%</span></div>

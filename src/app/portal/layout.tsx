@@ -75,7 +75,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                                 <div className="flex h-12 w-12 items-center justify-center bg-white/10 p-1 rounded-lg shrink-0">
                                     <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm transform scale-110" />
                                 </div>
-                                <span className="hidden sm:inline-block">Koperasi<span className="text-white/70">.</span>Digital</span>
+                                <span className="hidden sm:inline-block">PRIMKOPPOL<span className="text-white/70">.</span>Digital</span>
                             </Link>
                         </div>
 
@@ -143,7 +143,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                                     <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm transform scale-110" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold">Koperasi<span className="text-primary">.</span>Digital</h2>
+                                    <h2 className="text-xl font-bold">PRIMKOPPOL<span className="text-primary">.</span>Digital</h2>
                                     <p className="text-white/60 text-xs mt-0.5">Portal Anggota</p>
                                 </div>
                             </div>

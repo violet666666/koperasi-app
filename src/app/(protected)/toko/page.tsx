@@ -77,8 +77,8 @@ export default function TokoPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Toko Koperasi"
-                description="Kelola toko/sembako koperasi"
+                title="Toko PRIMKOPPOL"
+                description="Kelola toko/sembako PRIMKOPPOL"
             />
 
             {/* Stats */}

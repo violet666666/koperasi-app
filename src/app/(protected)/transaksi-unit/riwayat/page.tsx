@@ -135,14 +135,14 @@ export default function RiwayatTransaksiUnitPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Riwayat Transaksi Unit"
-                description="Monitor semua transaksi dari unit-unit koperasi"
+                description="Monitor semua transaksi dari unit-unit PRIMKOPPOL"
                 actions={(
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => exportToExcel((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi")}>
                             <Download className="mr-2 h-4 w-4" />
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - Koperasi Primkoppol", "Riwayat_Transaksi_Unit")}>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - PRIMKOPPOL Resor Lumajang", "Riwayat_Transaksi_Unit")}>
                             <FileText className="mr-2 h-4 w-4" />
                             PDF
                         </Button>

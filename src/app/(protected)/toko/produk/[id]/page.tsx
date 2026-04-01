@@ -41,7 +41,7 @@ export default function DetailProdukPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title={product?.name || `Produk #${productId}`} description="Detail produk toko koperasi" backHref="/toko/produk" />
+            <PageHeader title={product?.name || `Produk #${productId}`} description="Detail produk toko PRIMKOPPOL" backHref="/toko/produk" />
             <Card>
                 <CardHeader>
                     <CardTitle>{product?.name || "Produk"}</CardTitle>

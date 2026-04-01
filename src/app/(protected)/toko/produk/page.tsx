@@ -165,7 +165,7 @@ export default function TokoProdukPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Produk Toko"
-                description="Kelola produk toko koperasi"
+                description="Kelola produk toko PRIMKOPPOL"
                 actions={
                     <div className="flex items-center gap-2">
                         <Button variant="outline" asChild>

@@ -298,7 +298,7 @@ export default function PinjamanListPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Pinjaman"
-                description="Kelola pinjaman anggota koperasi"
+                description="Kelola pinjaman anggota PRIMKOPPOL"
                 actions={
                     <Button asChild>
                         <Link href="/pinjaman/pengajuan/tambah">

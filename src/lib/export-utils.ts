@@ -390,7 +390,7 @@ export function generateReceiptPDF(receipt: ReceiptData) {
     doc.setFont("helvetica", "italic");
     doc.setTextColor(150);
     doc.text(
-        "Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi PRIMKOPPOL Resor Lumajang.",
+        "Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh PRIMKOPPOL Resor Lumajang.",
         pageWidth / 2,
         doc.internal.pageSize.getHeight() - 15,
         { align: "center" }
@@ -426,7 +426,7 @@ export function generateThermalReceiptPDF(receipt: ReceiptData) {
     // Header
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("KOPERASI PRIMKOPPOL", pageWidth / 2, y, { align: "center" });
+    doc.text("PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
     y += 5;
     doc.setFontSize(10);
     doc.text("RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });

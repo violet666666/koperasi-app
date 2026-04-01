@@ -56,7 +56,7 @@ export default function LoginPage() {
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
                 <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 p-4 shadow-lg drop-shadow-md border border-slate-200 dark:border-slate-700">
-                    <img src="/LogoPrimkoppol.png" alt="Logo Koperasi" className="h-full w-full object-contain drop-shadow-sm transform scale-[2.2]" />
+                    <img src="/LogoPrimkoppol.png" alt="Logo PRIMKOPPOL" className="h-full w-full object-contain drop-shadow-sm transform scale-[2.2]" />
                 </div>
                 <div className="flex flex-col space-y-2 text-center items-center">
                     <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL LUMAJANG</h1>
@@ -90,7 +90,7 @@ export default function LoginPage() {
                             <Input
                                 id="email"
                                 type="text"
-                                placeholder="email@koperasi.com atau NRP Anda"
+                                placeholder="email@primkoppol.com atau NRP Anda"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
