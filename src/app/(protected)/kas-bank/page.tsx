@@ -167,8 +167,8 @@ export default function KasBankPage() {
 
     // Calculate totals
     const totals = React.useMemo(() => {
-        const cashTotal = accounts.filter((a) => a.type === "cash").reduce((sum, a) => sum + a.currentBalance, 0);
-        const bankTotal = accounts.filter((a) => a.type === "bank").reduce((sum, a) => sum + a.currentBalance, 0);
+        const cashTotal = accounts.filter((a) => a.type === "cash").reduce((sum, a) => sum + Number(a.currentBalance), 0);
+        const bankTotal = accounts.filter((a) => a.type === "bank").reduce((sum, a) => sum + Number(a.currentBalance), 0);
         return { cash: cashTotal, bank: bankTotal, total: cashTotal + bankTotal };
     }, [accounts]);
 
