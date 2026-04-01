@@ -164,35 +164,43 @@ export async function POST(request: Request) {
                      if (!account) throw new Error("Akun gagal ditemukan");
                      
                      let currentBalance = Number(account.currentBalance);
+                     const txDataList = [];
 
                      for (const res of results) {
                          const balanceAfter = res.type === "in" 
                             ? currentBalance + res.amount 
                             : currentBalance - res.amount;
 
-                         await tx.cashBankTransaction.create({
-                             data: {
-                                 transactionNo: generateTransactionNo(res.type),
-                                 accountId: accountId,
-                                 branchId: account.branchId,
-                                 type: res.type,
-                                 category: res.category,
-                                 amount: res.amount,
-                                 description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
-                                 balanceBefore: currentBalance,
-                                 balanceAfter: balanceAfter,
-                                 transactionDate: new Date(res.transactionDate),
-                                 createdById: userId
-                             }
+                         txDataList.push({
+                             transactionNo: generateTransactionNo(res.type),
+                             accountId: accountId,
+                             branchId: account.branchId,
+                             type: res.type,
+                             category: res.category,
+                             amount: res.amount,
+                             description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
+                             balanceBefore: currentBalance,
+                             balanceAfter: balanceAfter,
+                             transactionDate: new Date(res.transactionDate),
+                             createdById: userId
                          });
                          
                          currentBalance = balanceAfter;
+                     }
+                     
+                     if (txDataList.length > 0) {
+                         await tx.cashBankTransaction.createMany({
+                             data: txDataList
+                         });
                      }
                      
                      await tx.cashBankAccount.update({
                          where: { id: accountId },
                          data: { currentBalance }
                      });
+                 }, {
+                     maxWait: 10000,
+                     timeout: 60000 // 60 seconds timeout specifically for large excel files
                  });
              } catch (err: any) {
                  return NextResponse.json({ message: err.message || "Gagal import transaksi" }, { status: 400 });

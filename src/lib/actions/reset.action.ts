@@ -11,11 +11,12 @@ export async function processDataReset(options: {
   resetMemberData: boolean;
   resetTunkinData?: boolean;
   resetGajiData?: boolean;
+  resetKasBankData?: boolean;
 }) {
   try {
-    const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData, resetTunkinData, resetGajiData } = options;
+    const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData, resetTunkinData, resetGajiData, resetKasBankData } = options;
 
-    if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData) {
+    if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData && !resetKasBankData) {
       return { success: false, error: "Tidak ada data yang dipilih untuk di-reset." };
     }
 
@@ -56,7 +57,7 @@ export async function processDataReset(options: {
       operations.push(prisma.tabunganSejahteraHistory.deleteMany({}));
     }
 
-    // 4. Data Jurnal Akuntansi dan Kas Bank
+    // 4. Data Jurnal Akuntansi
     if (resetJournalData) {
       // Unit Transactions
       operations.push(prisma.unitTransaction.deleteMany({}));
@@ -64,17 +65,17 @@ export async function processDataReset(options: {
       // Receipts
       operations.push(prisma.receipt.deleteMany({}));
       
-      // Kas & Bank Transactions
-      operations.push(prisma.cashBankTransaction.deleteMany({}));
-      
       // Journals
       operations.push(prisma.journalLine.deleteMany({}));
       operations.push(prisma.journal.deleteMany({}));
 
       // Approvals
       operations.push(prisma.approvalRequest.deleteMany({}));
-      
-      // Reset CashBank balance to 0 instead of deleting the master account
+    }
+
+    // 5. Data Kas Bank
+    if (resetKasBankData) {
+      operations.push(prisma.cashBankTransaction.deleteMany({}));
       operations.push(prisma.cashBankAccount.updateMany({
         data: { currentBalance: 0 }
       }));

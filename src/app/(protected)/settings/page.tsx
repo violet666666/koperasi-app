@@ -67,6 +67,7 @@ export default function SettingsPage() {
     const [resetMemberData, setResetMemberData] = React.useState(false);
     const [resetTunkinData, setResetTunkinData] = React.useState(false);
     const [resetGajiData, setResetGajiData] = React.useState(false);
+    const [resetKasBankData, setResetKasBankData] = React.useState(false);
     const [resetConfirmation, setResetConfirmation] = React.useState("");
     const [isResetting, setIsResetting] = React.useState(false);
 
@@ -128,7 +129,7 @@ export default function SettingsPage() {
             return;
         }
         
-        if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData) {
+        if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData && !resetKasBankData) {
             toast.error("Pilih minimal satu tipe data yang akan dihapus.");
             return;
         }
@@ -142,7 +143,8 @@ export default function SettingsPage() {
                 resetJournalData,
                 resetMemberData,
                 resetTunkinData,
-                resetGajiData
+                resetGajiData,
+                resetKasBankData
             });
 
             if (result.success) {
@@ -153,6 +155,7 @@ export default function SettingsPage() {
                 setResetSavingsData(false);
                 setResetJournalData(false);
                 setResetMemberData(false);
+                setResetKasBankData(false);
                 setResetConfirmation("");
             } else {
                 toast.error(result.error);
@@ -509,8 +512,20 @@ export default function SettingsPage() {
                                             onCheckedChange={(checked) => setResetJournalData(checked as boolean)}
                                         />
                                         <div className="space-y-1">
-                                            <Label htmlFor="reset-journal" className="font-semibold text-base cursor-pointer">Reset Data Jurnal & Kas Bank</Label>
-                                            <p className="text-sm text-muted-foreground">Menghapus semua Mutasi Kas/Bank, Kwitansi, Jurnal Akuntansi, dan Transaksi Unit. Saldo Kas/Bank di-reset menjadi 0.</p>
+                                            <Label htmlFor="reset-journal" className="font-semibold text-base cursor-pointer">Reset Data Jurnal Akuntansi</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus semua Kwitansi, Jurnal Umum/Penyesuaian, dan Transaksi Unit Koperasi.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 p-4 border rounded-md bg-white dark:bg-background">
+                                        <Checkbox 
+                                            id="reset-kasbank" 
+                                            checked={resetKasBankData}
+                                            onCheckedChange={(checked) => setResetKasBankData(checked as boolean)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="reset-kasbank" className="font-semibold text-base cursor-pointer text-blue-700 dark:text-blue-400">Reset Data Kas & Bank</Label>
+                                            <p className="text-sm text-muted-foreground">Menghapus seluruh rekaman Mutasi Kas & Bank (termasuk hasil dari <strong>Import Buku Kas Excel</strong>). Saldo Kas/Bank akan dikembalikan berstatus 0.</p>
                                         </div>
                                     </div>
 
@@ -580,7 +595,7 @@ export default function SettingsPage() {
                                             disabled={
                                                 isResetting || 
                                                 resetConfirmation !== "RESET-DATA" || 
-                                                (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData)
+                                                (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData && !resetKasBankData)
                                             }
                                             className="w-full sm:w-auto mt-4"
                                         >
