@@ -221,7 +221,10 @@ export function DataTable<TData, TValue>({
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id}>
+                                            <TableHead 
+                                                key={header.id}
+                                                className={header.column.id === "actions" ? "sticky right-0 bg-background sm:static sm:bg-transparent sm:shadow-none shadow-[-4px_0_12px_rgba(0,0,0,0.05)] z-10" : ""}
+                                            >
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(
@@ -255,7 +258,10 @@ export function DataTable<TData, TValue>({
                                         onClick={() => onRowClick?.(row.original)}
                                     >
                                         {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
+                                            <TableCell 
+                                                key={cell.id}
+                                                className={cell.column.id === "actions" ? "sticky right-0 bg-background sm:static sm:bg-transparent sm:shadow-none shadow-[-4px_0_12px_rgba(0,0,0,0.05)] z-10" : ""}
+                                            >
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                             </TableCell>
                                         ))}

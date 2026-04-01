@@ -37,4 +37,17 @@ Algoritma "Delete Khusus" yang akan saya tanamkan:
 4. API akan menghitung ulang seluruh `balanceBefore` dan `balanceAfter` dari transaksi-transaksi tersebut.
 5. Transaksi A dihapus total dari database.
 
-Tunggu sebentar, saya sedang memprogram API perombakan saldo masif ini ke dalam server!
+**Status Terbaru (1 Jam Berlalu):** FITUR SUDAH BERHASIL DIBUAT DENGAN SEMPURNA!
+
+---
+
+## 📱 3. Bug UX: Tombol "Titik Tiga" (Aksi) Tidak Muncul di HP / PWA
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Akar Masalah:**
+Pada layar HP yang kecil (terutama *Web App / PWA*), tabel data memiliki lebih dari 7 kolom. Hal ini membuat tabel otomatis memanjang ke kanan dan bersembunyi (Sistem *Responsiveness Horizontal Scroll*).
+Celakanya, tombol "Titik Tiga" (Edit/Delete) yang baru saja saya buat posisinya berada di ujung paling kanan, sehingga tertutup dan seolah "hilang" jika pengguna HP tidak menggeser tabel ke arah kiri.
+
+**Solusi & Tindakan:**
+Saya telah menyuntikkan kode CSS khusus tingkat atas (`sticky right-0 bg-background shadow-[-4px_0_12px_rgba(0,0,0,0.05)] z-10`) ke dalam inti *Component DataTable* Koperasi.
+**Hasilnya:** Kini, sesempit apapun layar HP/PWA Bapak, kolom *Action* "Titik Tiga" tersebut akan **terkunci rapat (mengapung) di sebelah kanan layar**, menyerupai tombol menu layaknya aplikasi Android modern! Pengalaman user dijamin tetap *proper* dan intuitif tanpa harus repot scroll-scroll menggeser tabel.
