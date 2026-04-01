@@ -230,7 +230,7 @@ export default function DaftarAsetPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Daftar Aset"
-                description="Kelola aset tetap koperasi"
+                description="Kelola aset tetap PRIMKOPPOL"
                 actions={
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>

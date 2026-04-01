@@ -328,7 +328,7 @@ export default function MasterProdukSimpananPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Produk Simpanan"
-                description="Kelola produk simpanan koperasi"
+                description="Kelola produk simpanan PRIMKOPPOL"
                 backHref="/master"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

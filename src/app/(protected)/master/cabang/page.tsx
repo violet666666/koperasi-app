@@ -254,7 +254,7 @@ export default function MasterCabangPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Data Cabang"
-                description="Kelola data cabang koperasi"
+                description="Kelola data cabang PRIMKOPPOL"
                 backHref="/master"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -268,7 +268,7 @@ export default function MasterCabangPage() {
                             <DialogHeader>
                                 <DialogTitle>{editingBranch ? "Edit Cabang" : "Tambah Cabang Baru"}</DialogTitle>
                                 <DialogDescription>
-                                    {editingBranch ? "Perbarui informasi cabang" : "Buat cabang baru untuk koperasi"}
+                                    {editingBranch ? "Perbarui informasi cabang" : "Buat cabang baru untuk PRIMKOPPOL"}
                                 </DialogDescription>
                             </DialogHeader>
                             <BranchForm

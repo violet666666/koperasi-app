@@ -130,7 +130,7 @@ export default function BukuKasPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Buku Kas"
-                description="Catatan kas masuk dan keluar koperasi dengan saldo berjalan"
+                description="Catatan kas masuk dan keluar PRIMKOPPOL dengan saldo berjalan"
                 backHref="/kas-bank"
                 actions={
                     <div className="flex gap-2 print:hidden">

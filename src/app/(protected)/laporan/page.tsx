@@ -15,7 +15,7 @@ import {
 const reportItems = [
     {
         title: "Neraca",
-        description: "Laporan posisi keuangan koperasi",
+        description: "Laporan posisi keuangan PRIMKOPPOL",
         href: "/laporan/neraca",
         icon: FileSpreadsheet,
         color: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
@@ -76,7 +76,7 @@ export default function LaporanPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Laporan"
-                description="Akses berbagai laporan keuangan dan operasional koperasi"
+                description="Akses berbagai laporan keuangan dan operasional PRIMKOPPOL"
             />
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

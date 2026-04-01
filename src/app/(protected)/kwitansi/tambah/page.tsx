@@ -117,7 +117,7 @@ export default function TambahKwitansiPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Buat Kwitansi Baru"
-                description="Buat draft kwitansi untuk transaksi koperasi"
+                description="Buat draft kwitansi untuk transaksi PRIMKOPPOL"
                 backHref="/kwitansi"
             />
 

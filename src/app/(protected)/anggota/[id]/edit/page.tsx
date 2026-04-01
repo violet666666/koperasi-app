@@ -148,7 +148,7 @@ export default function EditAnggotaPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Edit Data Anggota"
-                description="Perbarui informasi lengkap anggota koperasi"
+                description="Perbarui informasi lengkap anggota PRIMKOPPOL"
                 backHref={`/anggota/${memberId}`}
             />
 

@@ -92,7 +92,7 @@ export default function TambahAnggotaPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Tambah Anggota Baru"
-                description="Daftarkan anggota baru ke sistem koperasi"
+                description="Daftarkan anggota baru ke sistem PRIMKOPPOL"
                 backHref="/anggota"
             />
 

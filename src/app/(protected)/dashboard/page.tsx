@@ -284,7 +284,7 @@ export default function DashboardPage() {
                 <InfoCardWrapper
                     tooltip="Akumulasi seluruh simpanan anggota (Pokok + Wajib + Sukarela)."
                     detailTitle="Total Simpanan"
-                    detailDescription={"Menampilkan total seluruh dana simpanan anggota yang tersimpan di koperasi, meliputi:\n\n• Simpanan Pokok — Dibayar sekali saat pendaftaran\n• Simpanan Wajib (Tabungan Wajib) — Dibayar rutin setiap bulan melalui potongan gaji\n• Simpanan Sukarela — Setoran bebas oleh anggota\n\nSemakin tinggi simpanan, semakin besar porsi SHU yang diterima anggota di akhir tahun."}
+                    detailDescription={"Menampilkan total seluruh dana simpanan anggota yang tersimpan di PRIMKOPPOL, meliputi:\n\n• Simpanan Pokok — Dibayar sekali saat pendaftaran\n• Simpanan Wajib (Tabungan Wajib) — Dibayar rutin setiap bulan melalui potongan gaji\n• Simpanan Sukarela — Setoran bebas oleh anggota\n\nSemakin tinggi simpanan, semakin besar porsi SHU yang diterima anggota di akhir tahun."}
                 >
                     <StatsCard
                         title="Total Simpanan"
@@ -297,7 +297,7 @@ export default function DashboardPage() {
                 <InfoCardWrapper
                     tooltip="Total sisa kewajiban pinjaman anggota yang masih berjalan."
                     detailTitle="Total Pinjaman Aktif"
-                    detailDescription={"Menampilkan total sisa pokok pinjaman seluruh anggota yang statusnya masih 'Aktif' (belum lunas).\n\nAngka ini mencerminkan piutang koperasi kepada anggota. Setiap bulan, angka ini akan berkurang seiring pembayaran angsuran oleh anggota.\n\nJika anggota melakukan Bayar Sendiri (BS / pelunasan sebagian ekstra), angka ini akan turun lebih cepat."}
+                    detailDescription={"Menampilkan total sisa pokok pinjaman seluruh anggota yang statusnya masih 'Aktif' (belum lunas).\n\nAngka ini mencerminkan piutang PRIMKOPPOL kepada anggota. Setiap bulan, angka ini akan berkurang seiring pembayaran angsuran oleh anggota.\n\nJika anggota melakukan Bayar Sendiri (BS / pelunasan sebagian ekstra), angka ini akan turun lebih cepat."}
                 >
                     <StatsCard
                         title="Total Pinjaman Aktif"
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                 <InfoCardWrapper
                     tooltip="Total tunggakan angsuran yang sudah jatuh tempo dan belum dibayar."
                     detailTitle="Tunggakan"
-                    detailDescription={"Menampilkan total angsuran pinjaman yang sudah melewati tanggal jatuh tempo namun belum dilunasi.\n\nTunggakan perlu diperhatikan karena memengaruhi kesehatan keuangan koperasi. Anggota yang menunggak sebaiknya segera dihubungi untuk menyelesaikan kewajiban.\n\nAngka Rp 0 berarti seluruh anggota membayar tepat waktu."}
+                    detailDescription={"Menampilkan total angsuran pinjaman yang sudah melewati tanggal jatuh tempo namun belum dilunasi.\n\nTunggakan perlu diperhatikan karena memengaruhi kesehatan keuangan PRIMKOPPOL. Anggota yang menunggak sebaiknya segera dihubungi untuk menyelesaikan kewajiban.\n\nAngka Rp 0 berarti seluruh anggota membayar tepat waktu."}
                 >
                     <StatsCard
                         title="Tunggakan"
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                 <InfoCardWrapper
                     tooltip="Total pencairan pinjaman yang dikeluarkan hari ini."
                     detailTitle="Pencairan Hari Ini"
-                    detailDescription={"Menampilkan total dana pinjaman yang telah dicairkan kepada anggota pada hari ini.\n\nPencairan terjadi setelah pengajuan pinjaman disetujui dan dana diberikan kepada peminjam. Angka ini mencerminkan arus kas keluar koperasi hari ini."}
+                    detailDescription={"Menampilkan total dana pinjaman yang telah dicairkan kepada anggota pada hari ini.\n\nPencairan terjadi setelah pengajuan pinjaman disetujui dan dana diberikan kepada peminjam. Angka ini mencerminkan arus kas keluar PRIMKOPPOL hari ini."}
                 >
                     <Card>
                         <CardHeader className="pb-2">

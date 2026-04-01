@@ -41,10 +41,10 @@ export default function ParameterSHUPage() {
 
                 // Mock data - Standard cooperative SHU distribution
                 setParameters([
-                    { id: "dana_cadangan", name: "Dana Cadangan", description: "Untuk pengembangan dan penguatan modal koperasi", percentage: 25, icon: <Building2 className="h-5 w-5" /> },
+                    { id: "dana_cadangan", name: "Dana Cadangan", description: "Untuk pengembangan dan penguatan modal PRIMKOPPOL", percentage: 25, icon: <Building2 className="h-5 w-5" /> },
                     { id: "jasa_anggota", name: "Jasa Anggota", description: "Dibagikan berdasarkan partisipasi simpanan", percentage: 25, icon: <Users className="h-5 w-5" /> },
                     { id: "jasa_modal", name: "Jasa Modal", description: "Dibagikan berdasarkan kontribusi modal", percentage: 20, icon: <Percent className="h-5 w-5" /> },
-                    { id: "dana_pengurus", name: "Dana Pengurus", description: "Untuk pengurus dan pengawas koperasi", percentage: 10, icon: <Users className="h-5 w-5" /> },
+                    { id: "dana_pengurus", name: "Dana Pengurus", description: "Untuk pengurus dan pengawas PRIMKOPPOL", percentage: 10, icon: <Users className="h-5 w-5" /> },
                     { id: "dana_pendidikan", name: "Dana Pendidikan", description: "Untuk pelatihan dan edukasi anggota", percentage: 5, icon: <BookOpen className="h-5 w-5" /> },
                     { id: "dana_sosial", name: "Dana Sosial", description: "Untuk kegiatan sosial dan bantuan anggota", percentage: 5, icon: <HeartHandshake className="h-5 w-5" /> },
                     { id: "dana_pembangunan", name: "Dana Pembangunan Daerah", description: "Kontribusi untuk pembangunan wilayah kerja", percentage: 5, icon: <Building2 className="h-5 w-5" /> },

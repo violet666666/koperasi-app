@@ -202,7 +202,7 @@ export default function KasBankPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Kas & Bank"
-                description="Kelola kas tunai dan rekening bank koperasi"
+                description="Kelola kas tunai dan rekening bank PRIMKOPPOL"
                 actions={
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>

@@ -126,7 +126,7 @@ export default function KartuAnggotaPage() {
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text("KOPERASI PRIMKOPPOL", 16, 6);
+            doc.text("PRIMKOPPOL RESOR LUMAJANG", 16, 6);
             doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
             doc.text("RESOR LUMAJANG", 16, 10);

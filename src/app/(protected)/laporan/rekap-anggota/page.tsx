@@ -171,7 +171,7 @@ export default function RekapAnggotaPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Rekap Anggota"
-                description="Rangkuman data seluruh anggota koperasi"
+                description="Rangkuman data seluruh anggota PRIMKOPPOL"
                 backHref="/laporan"
                 actions={
                     <div className="flex gap-2">
@@ -179,7 +179,7 @@ export default function RekapAnggotaPage() {
                             <Download className="mr-2 h-4 w-4" />
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF(members as unknown as Record<string, unknown>[], exportColumns, "Rekap Anggota - Koperasi Primkoppol", "Rekap_Anggota")}>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(members as unknown as Record<string, unknown>[], exportColumns, "Rekap Anggota - PRIMKOPPOL Resor Lumajang", "Rekap_Anggota")}>
                             <FileText className="mr-2 h-4 w-4" />
                             PDF
                         </Button>

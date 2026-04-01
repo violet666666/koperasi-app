@@ -269,7 +269,7 @@ export default function KwitansiPage() {
         exportToPDF(
             receipts as unknown as Record<string, unknown>[],
             exportColumns,
-            "Daftar Kwitansi - Koperasi Primkoppol",
+            "Daftar Kwitansi - PRIMKOPPOL Resor Lumajang",
             "Daftar_Kwitansi",
             { subtitle: `Per ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}` }
         );

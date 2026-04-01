@@ -312,7 +312,7 @@ export default function MasterCOAPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Bagan Akun (COA)"
-                description="Kelola bagan akun akuntansi koperasi"
+                description="Kelola bagan akun akuntansi PRIMKOPPOL"
                 backHref="/master"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

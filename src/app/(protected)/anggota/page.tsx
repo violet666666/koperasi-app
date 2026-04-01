@@ -281,7 +281,7 @@ export default function AnggotaListPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Daftar Anggota"
-                description="Kelola data anggota koperasi"
+                description="Kelola data anggota PRIMKOPPOL"
                 actions={
                     <Button asChild>
                         <Link href="/anggota/tambah">

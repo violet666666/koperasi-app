@@ -157,7 +157,7 @@ function UserForm({
                             value={formData.email}
                             onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                             className="pl-10"
-                            placeholder="email@koperasi.id"
+                            placeholder="email@primkoppol.id"
                             required
                         />
                     </div>

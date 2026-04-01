@@ -34,7 +34,7 @@ const masterItems = [
     },
     {
         title: "Pengaturan Umum",
-        description: "Konfigurasi sistem koperasi",
+        description: "Konfigurasi sistem PRIMKOPPOL",
         href: "/master/pengaturan",
         icon: Settings,
         color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -53,7 +53,7 @@ export default function MasterDataPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Master Data"
-                description="Kelola data dasar sistem koperasi"
+                description="Kelola data dasar sistem PRIMKOPPOL"
             />
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

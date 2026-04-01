@@ -379,7 +379,7 @@ export default function MasterProdukPinjamanPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Produk Pinjaman"
-                description="Kelola produk pinjaman koperasi"
+                description="Kelola produk pinjaman PRIMKOPPOL"
                 backHref="/master"
                 actions={
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

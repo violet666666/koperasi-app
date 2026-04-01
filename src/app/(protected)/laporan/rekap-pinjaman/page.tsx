@@ -153,7 +153,7 @@ export default function RekapPinjamanPage() {
                             <Download className="mr-2 h-4 w-4" />
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF(data as unknown as Record<string, unknown>[], loanExportColumns, "Rekap Pinjaman - Koperasi Primkoppol", "Rekap_Pinjaman")}>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(data as unknown as Record<string, unknown>[], loanExportColumns, "Rekap Pinjaman - PRIMKOPPOL Resor Lumajang", "Rekap_Pinjaman")}>
                             <FileText className="mr-2 h-4 w-4" />
                             PDF
                         </Button>
