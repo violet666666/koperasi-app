@@ -21,11 +21,13 @@ import {
     Loader2,
     Wallet,
     Trash2,
+    ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan";
+type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -405,24 +407,48 @@ export default function ImportDataPage() {
                                         <SelectItem value="potongan">
                                             Potongan Gaji Bulanan (Barang Primkoppol)
                                         </SelectItem>
+                                        <SelectItem value="buku_kas">
+                                            Buku Kas / Keuangan (Transaksi Bank & Tunai)
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">File Excel/CSV</label>
-                                <input
-                                    type="file"
-                                    accept=".csv,.txt,.xlsx,.xls"
-                                    onChange={handleFileChange}
-                                    className="block w-full text-sm text-muted-foreground
-                                        file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                                        file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground
-                                        hover:file:bg-primary/90 cursor-pointer"
-                                />
-                            </div>
+                            
+                            {importType !== "buku_kas" && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">File Excel/CSV</label>
+                                    <input
+                                        type="file"
+                                        accept=".csv,.txt,.xlsx,.xls"
+                                        onChange={handleFileChange}
+                                        className="block w-full text-sm text-muted-foreground
+                                            file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
+                                            file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground
+                                            hover:file:bg-primary/90 cursor-pointer"
+                                    />
+                                </div>
+                            )}
                         </div>
 
-                        {file && (
+                        {importType === "buku_kas" && (
+                            <div className="rounded-lg border p-6 bg-blue-50 dark:bg-blue-950/20 text-center space-y-4 my-2">
+                                <Wallet className="h-12 w-12 text-blue-500 mx-auto" />
+                                <div>
+                                    <h3 className="font-semibold text-lg text-blue-800 dark:text-blue-300">Import Terintegrasi di Modul Keuangan</h3>
+                                    <p className="text-sm text-blue-700/80 dark:text-blue-400/80 mt-1 max-w-lg mx-auto leading-relaxed">
+                                        Untuk menjaga presisi arus kas dan memudahkan rekonsiliasi akuntansi (seperti pemilihan brankas akun tujuan sebelum di-upload), **Sistem Import Buku Kas** diletakkan langsung di dalam pusat modul Kas & Bank.
+                                    </p>
+                                </div>
+                                <Button asChild size="lg" className="mt-4">
+                                    <Link href="/kas-bank">
+                                        Menuju Halaman Kas & Bank Koperasi
+                                        <ArrowRight className="ml-2 h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </div>
+                        )}
+
+                        {file && importType !== "buku_kas" && (
                             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
                                 <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
                                 <div className="flex-1">
@@ -455,6 +481,7 @@ export default function ImportDataPage() {
                             </Alert>
                         )}
 
+                        {importType !== "buku_kas" && (
                         <div className="rounded-lg border p-4 bg-blue-50 dark:bg-blue-950/20">
                             <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
                                 📋 Format CSV yang didukung:
@@ -489,6 +516,7 @@ export default function ImportDataPage() {
                                 </p>
                             )}
                         </div>
+                        )}
                         <div className="rounded-lg border p-4 bg-amber-50 dark:bg-amber-950/20">
                             <p className="text-xs text-amber-700 dark:text-amber-400">
                                 💡 <strong>Tips:</strong> Jika anggota belum terdaftar di sistem, gunakan tipe <strong>&quot;Import Akun Anggota&quot;</strong> terlebih dahulu untuk mendaftarkan anggota baru, lalu baru import data Tunkin/Gaji. Anggota juga bisa didaftarkan manual melalui menu Anggota → Tambah Anggota.
