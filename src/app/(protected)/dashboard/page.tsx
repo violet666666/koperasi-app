@@ -235,11 +235,11 @@ export default function DashboardPage() {
                     const data = approvalsRes.value.data as any[];
                     approvals = data.slice(0, 3).map((item: any) => ({
                         id: item.id,
-                        type: item.type === "loan_application" ? "Pinjaman" : "Lainnya",
+                        type: (item.requestType || item.type) === "loan_application" ? "Pinjaman" : "Lainnya",
                         title: item.title || item.description,
                         amount: item.amount || 0,
-                        date: item.submittedAt
-                            ? new Date(item.submittedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                        date: item.submittedAt || item.requestedAt
+                            ? new Date(item.submittedAt || item.requestedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
                             : "-",
                     }));
                 }

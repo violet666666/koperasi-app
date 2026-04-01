@@ -57,22 +57,23 @@ const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; co
 };
 
 // Status badge component
-function StatusBadge({ status }: { status: keyof typeof APPROVAL_STATUS }) {
-    const config = APPROVAL_STATUS[status];
-    const icons = {
+function StatusBadge({ status }: { status: string }) {
+    const config = (APPROVAL_STATUS as Record<string, any>)[status] || { label: status, color: "secondary" };
+    const icons: Record<string, any> = {
         pending: Clock,
         approved: Check,
         rejected: X,
     };
-    const Icon = icons[status];
+    const Icon = icons[status] || Clock;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
         warning: "secondary",
         success: "default",
         destructive: "destructive",
+        secondary: "secondary",
     };
 
     return (
-        <Badge variant={variants[config.color]} className="gap-1">
+        <Badge variant={variants[config.color] || "secondary"} className="gap-1 capitalize">
             <Icon className="h-3 w-3" />
             {config.label}
         </Badge>
