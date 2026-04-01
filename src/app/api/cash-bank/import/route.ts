@@ -120,15 +120,20 @@ export async function POST(request: Request) {
                     txAmount = kredit;
                 }
 
-                let category = "other";
+                let category = "lainnya";
                 const checkString = uraian.toLowerCase();
-                if (checkString.includes("angsur")) category = "loan_payment";
-                else if (checkString.includes("simpanan") || checkString.includes("wajib") || checkString.includes("pokok") || checkString.includes("sukarela")) {
-                     category = "deposit";
-                     if (txType === "out") category = "withdrawal";
-                }
-                else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
-                     if (txType === "out") category = "loan_disbursement";
+                
+                if (checkString.includes("angsur")) {
+                     category = "angsuran_pokok";
+                } else if (checkString.includes("simpan") || checkString.includes("tabung")) {
+                     if (checkString.includes("pokok")) category = "simpanan_pokok";
+                     else if (checkString.includes("wajib")) category = "simpanan_wajib";
+                     else category = "simpanan_sukarela";
+                     if (txType === "out") category = "lainnya";
+                } else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
+                     if (txType === "out") category = "pencairan_pinjaman";
+                } else if (checkString.includes("gaji") || checkString.includes("pengurus") || checkString.includes("karyawan")) {
+                     if (txType === "out") category = "biaya_operasional";
                 }
                 
                 results.push({
