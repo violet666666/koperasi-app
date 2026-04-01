@@ -21,8 +21,8 @@ export async function GET(request: Request) {
                 name: p.name,
                 interestRate: 0, // 0% per kebijakan Koperasi Primkoppol Lumajang
                 adminFee: 1, // 1%
-                maxAmount: Number(p.maxAmount),
-                maxTenor: p.maxTenorMonths || 12,
+                maxAmount: Math.min(Number(p.maxAmount), 20000000),
+                maxTenor: Math.min(p.maxTenorMonths || 36, 36),
                 description: "Biaya jasa admin pemotongan sebesar 1% di awal.",
             })),
         });
@@ -72,14 +72,30 @@ export async function POST(request: Request) {
 
         if (amount > Number(product.maxAmount)) {
             return NextResponse.json(
-                { message: `Jumlah melebihi plafon maksimum ${Number(product.maxAmount).toLocaleString('id-ID')}` },
+                { message: `Jumlah melebihi plafon maksimum produk Rp ${Number(product.maxAmount).toLocaleString('id-ID')}` },
+                { status: 400 }
+            );
+        }
+
+        const AD_ART_MAX_LOAN = 20000000;
+        if (amount > AD_ART_MAX_LOAN) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 26, maksimal pinjaman adalah Rp 20.000.000` },
                 { status: 400 }
             );
         }
 
         if (product.maxTenorMonths && tenor > product.maxTenorMonths) {
             return NextResponse.json(
-                { message: `Tenor melebihi maksimum ${product.maxTenorMonths} bulan` },
+                { message: `Tenor melebihi maksimum produk ${product.maxTenorMonths} bulan` },
+                { status: 400 }
+            );
+        }
+
+        const AD_ART_MAX_TENOR = 36;
+        if (tenor > AD_ART_MAX_TENOR) {
+            return NextResponse.json(
+                { message: `Sesuai AD-ART Pasal 26, maksimal tenor adalah 36 bulan` },
                 { status: 400 }
             );
         }

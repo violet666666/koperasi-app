@@ -66,27 +66,19 @@ export default function BukuAnggotaPage() {
 
         setIsLoading(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Mock data
-            setData({
-                memberId: 1,
-                memberNo: "A-001",
-                name: "AKBP Budi Santoso, S.I.K.",
-                totalSimpanan: 45000000,
-                sisaPinjaman: 75000000,
-                transactions: [
-                    { id: 1, date: "2026-01-02", type: "simpanan", description: "Simpanan Wajib Januari", debit: 0, credit: 500000, balance: 45500000 },
-                    { id: 2, date: "2026-01-05", type: "angsuran", description: "Angsuran Pinjaman #PJ-2025-001", debit: 2500000, credit: 0, balance: 43000000 },
-                    { id: 3, date: "2026-01-10", type: "simpanan", description: "Simpanan Sukarela", debit: 0, credit: 2000000, balance: 45000000 },
-                    { id: 4, date: "2025-12-28", type: "angsuran", description: "Angsuran Pinjaman #PJ-2025-001", debit: 2500000, credit: 0, balance: 42500000 },
-                    { id: 5, date: "2025-12-15", type: "penarikan", description: "Penarikan Simpanan Sukarela", debit: 5000000, credit: 0, balance: 45000000 },
-                    { id: 6, date: "2025-12-02", type: "simpanan", description: "Simpanan Wajib Desember", debit: 0, credit: 500000, balance: 50000000 },
-                    { id: 7, date: "2025-11-25", type: "pinjaman", description: "Pencairan Pinjaman #PJ-2025-001", debit: 0, credit: 100000000, balance: 49500000 },
-                ],
-            });
+            const res = await fetch(`/api/members/book?q=${encodeURIComponent(searchQuery.trim())}`);
+            const json = await res.json();
+            
+            if (!res.ok) {
+                toast.error(json.message || "Anggota tidak ditemukan");
+                setData(null);
+                return;
+            }
+            
+            setData(json.data);
         } catch (error) {
-            toast.error("Anggota tidak ditemukan");
+            toast.error("Terjadi kesalahan saat mencari anggota");
+            setData(null);
         } finally {
             setIsLoading(false);
         }

@@ -104,6 +104,19 @@ export default function PengajuanPinjamanPage() {
             return;
         }
 
+        const parsedAmount = parseFloat(amount);
+        const parsedTenor = parseInt(tenor);
+
+        if (parsedAmount > 20000000) {
+            toast.error("Sesuai AD-ART Pasal 26, maksimal pinjaman adalah Rp 20.000.000");
+            return;
+        }
+
+        if (parsedTenor > 36) {
+            toast.error("Sesuai AD-ART Pasal 26, maksimal tenor adalah 36 bulan");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const res = await fetch("/api/member-portal/loan-application", {
@@ -293,10 +306,11 @@ export default function PengajuanPinjamanPage() {
                             <Input
                                 id="amount"
                                 type="number"
-                                placeholder="Contoh: 5000000"
+                                placeholder="Maks: Rp 20.000.000"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                                 min={0}
+                                max={20000000}
                                 required
                             />
                         </div>
@@ -307,11 +321,11 @@ export default function PengajuanPinjamanPage() {
                             <Input
                                 id="tenor"
                                 type="number"
-                                placeholder="Contoh: 12"
+                                placeholder="Maks: 36 Bulan"
                                 value={tenor}
                                 onChange={(e) => setTenor(e.target.value)}
                                 min={1}
-                                max={60}
+                                max={36}
                                 required
                             />
                         </div>

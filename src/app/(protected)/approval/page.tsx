@@ -164,8 +164,15 @@ export default function ApprovalPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const response = await approvalsApi.list();
-                setApprovals(response.data as unknown as ApprovalItem[]);
+                const [pendingRes, historyRes] = await Promise.all([
+                    approvalsApi.list("pending"),
+                    approvalsApi.list("history")
+                ]);
+                const combined = [
+                    ...(pendingRes.data as unknown as ApprovalItem[]),
+                    ...(historyRes.data as unknown as ApprovalItem[])
+                ];
+                setApprovals(combined);
             } catch (error) {
                 console.error("Failed to fetch approvals:", error);
             } finally {

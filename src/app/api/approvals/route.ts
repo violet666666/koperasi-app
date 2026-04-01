@@ -9,11 +9,21 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
 
-        // Get ALL loan applications (since frontend splits them by status into pending/history)
+        const statusParam = searchParams.get("status");
+
+        let statusFilter = {};
+        if (statusParam === "pending") {
+            statusFilter = { status: "submitted" };
+        } else if (statusParam === "history") {
+            statusFilter = { status: { in: ["approved", "rejected", "disbursed", "cancelled"] } };
+        }
+
+        // Get loan applications
         // If there's a huge volume, we'd need pagination, but for now fetch recent.
         const loanApplications = await prisma.loanApplication.findMany({
             where: {
                 ...(branchId && { branchId: parseInt(branchId) }),
+                ...statusFilter
             },
             include: {
                 member: { select: { id: true, memberNo: true, name: true } },

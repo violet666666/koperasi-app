@@ -92,3 +92,49 @@ Namun, pengguna yang terbiasa mengakses fitur melalui **menu titik tiga** pada D
 
 **Solusi & Tindakan:**
 Menambahkan opsi **"Cetak Kartu"** (dengan ikon Kartu ID) langsung ke dalam menu dropdown aksi pada setiap baris anggota di halaman Daftar Anggota.
+
+---
+
+## 📬 7. Bug: Halaman Approval Kosong & Dashboard Menampilkan Data Acak
+
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Akar Masalah:**
+Terdapat celah logika (*flaw*) pada pengambilan data / pagination:
+1. API `/api/approvals` mengambil 100 data transaksi terbaru **tanpa mempedulikan status**.
+2. Jika ada 100 transaksi pinjaman yang sudah Cair duluan, maka 2 transaksi yang berstatus "Submitted" akan tenggelam dan tidak terkirim ke *Frontend*.
+3. Sistem antarmuka `ApprovalPage` kemudian men-filter `"pending"` dari 100 data tersebut, sehingga hasilnya selalu **kosong**. 
+4. Namun, Dashboard mengambil 3 data teratas tanpa filter, sehingga menampilkan data sembarangan seolah itu adalah "Menunggu Persetujuan".
+
+**Solusi & Tindakan:**
+- API Backend telah diperbaiki untuk langsung membaca parameter `?status=pending` sehingga mengembalikan data yang benar-benar berstatus "submitted" (pending).
+- Halaman Approval sekarang melakukan panggil API paralel: 1 untuk "pending" (agar tidak tenggelam), dan 1 untuk "history".
+- Hasilnya sinkron: Angka dan Notifikasi di Dashboard 100% sama persis dengan yang ada di dalam menu Approval.
+
+---
+
+## 🛑 8. Bug/Miss: Pengajuan Pinjaman Tidak Menerapkan Limit 20 Juta
+
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Akar Masalah:**
+Limit plafon maksimal pinjaman (Sesuai AD-ART Psl. 26: 20 Juta) dan Tenor (Maksimal 36 Bulan) belum dikunci (*Hard-locked*) baik di form Front-End Portal PWA Anggota maupun di celah Endpoint API *Mobile Apps*. Sistem masih mengikuti konfigurasi dari Master Data Produk secara buta, yang berpotensi *bypass* jika konfigurasinya salah.
+
+**Solusi & Tindakan:**
+- Menyuntikkan validasi *Hardcoded* di `POST /api/mobile/loan-apply` (API Eksternal).
+- Memodifikasi Form Portal Web Member (`/portal/pengajuan-pinjaman/page.tsx`) dengan limit `max={20000000}` dan `max={36}` langsung di sisi antarmuka, dilengkapi pop-up validasi.
+
+---
+
+## 📖 9. Bug: Pencarian Buku Transaksi Anggota Selalu Sama (Hardcoded)
+
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Akar Masalah:**
+Fitur *Search* pada halaman "Buku Anggota" (`/anggota/buku`) belum terkoneksi ke Database sama sekali. Sistem menggunakan fungsi `setTimeout` dan variabel *Mock Data* palsu "AKBP Budi Santoso" peninggalan *Template UI*.
+
+**Solusi & Tindakan:**
+- Dibuatkan Endpoint *Real-Database API* baru: `GET /api/members/book?q={pencarian}`.
+- API ini melakukan Query ke Tabel Keanggotaan, menghubungkannya ke Tabel *Savings Account* (Setoran/Penarikan) dan *Loans* (Pencairan/Angsuran).
+- API akan melebur seluruh transaksi Simpan Pinjam milik satu anggota tersebut ke dalam rentetan *General Ledger* (Buku Besar) Transaksi tunggal yang diurutkan sesuai tanggal.
+- Kini jika operator memasukkan NRP atau Nomor Anggota, hasil Buku Kas yang keluar adalah data real-time milik anggota yang bersangkutan.
