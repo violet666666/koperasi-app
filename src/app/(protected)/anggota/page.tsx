@@ -25,7 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, MoreHorizontal, Eye, Pencil, Trash2, CreditCard } from "lucide-react";
+import { Plus, MoreHorizontal, Eye, Pencil, Trash2, CreditCard, IdCard } from "lucide-react";
 import { MEMBER_STATUS } from "@/lib/constants";
 import { membersApi, masterApi, type Member as ApiMember } from "@/lib/api";
 
@@ -91,6 +91,10 @@ function ActionsDropdown({
                 <DropdownMenuItem onClick={() => router.push(`/anggota/buku/${member.id}`)}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     Buku Anggota
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/anggota/kartu`)}>
+                    <IdCard className="mr-2 h-4 w-4" />
+                    Cetak Kartu
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

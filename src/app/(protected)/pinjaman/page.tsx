@@ -155,11 +155,19 @@ const columns: ColumnDef<Loan>[] = [
         id: "paidInstallments",
         header: "Angsuran Ke",
         cell: ({ row }) => {
-            const paid = row.original._count?.schedules || 0;
+            const schedulesPaid = row.original._count?.schedules || 0;
             const tenor = row.original.tenorMonths || 0;
+            // For migrated loans that have no LoanSchedule records,
+            // calculate paid installments from principalPaid / monthlyInstallment
+            let paidCount = schedulesPaid;
+            if (paidCount === 0 && Number(row.original.principalPaid || 0) > 0 && Number(row.original.monthlyInstallment || 0) > 0) {
+                paidCount = Math.round(Number(row.original.principalPaid) / Number(row.original.monthlyInstallment));
+            }
+            // Clamp to tenor
+            if (tenor > 0 && paidCount > tenor) paidCount = tenor;
             return (
                 <span className="text-sm tabular-nums">
-                    <span className="font-semibold text-emerald-600">{paid}</span>
+                    <span className="font-semibold text-emerald-600">{paidCount}</span>
                     <span className="text-muted-foreground">/{tenor}</span>
                 </span>
             );
