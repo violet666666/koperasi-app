@@ -549,7 +549,7 @@ export function generateKasirReceiptPDF(receipt: KasirReceiptData) {
     // Header section
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("PRIMKOPPOL LUMAJANG", pageWidth / 2, y, { align: "center" });
+    doc.text("PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
 
     y += 4;
     doc.setFontSize(7);

@@ -246,7 +246,7 @@ export default function DashboardPage() {
             <div>
                 <h1 className="text-2xl font-bold">Dashboard</h1>
                 <p className="text-muted-foreground">
-                    Selamat datang kembali! Berikut ringkasan aktivitas PRIMKOPPOL LUMAJANG.
+                    Selamat datang kembali! Berikut ringkasan aktivitas PRIMKOPPOL RESOR LUMAJANG.
                 </p>
             </div>
 

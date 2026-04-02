@@ -59,7 +59,7 @@ export default function LoginPage() {
                     <img src="/LogoPrimkoppol.png" alt="Logo PRIMKOPPOL" className="h-full w-full object-contain drop-shadow-sm transform scale-[2.2]" />
                 </div>
                 <div className="flex flex-col space-y-2 text-center items-center">
-                    <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL LUMAJANG</h1>
+                    <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL RESOR LUMAJANG</h1>
                     <p className="text-sm text-muted-foreground">
                         Sistem Informasi Koperasi
                     </p>
@@ -154,7 +154,7 @@ export default function LoginPage() {
 
             {/* Footer */}
             <div className="text-center text-xs text-muted-foreground mt-8">
-                © 2025 PRIMKOPPOL LUMAJANG. All rights reserved.
+                © 2025 PRIMKOPPOL RESOR LUMAJANG. All rights reserved.
             </div>
         </main>
     );

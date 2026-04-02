@@ -263,10 +263,10 @@ export default function BukuKasPage() {
 
             {/* Print Header (only visible when printing) */}
             <div className="hidden print:flex items-center gap-4 mb-6">
-                <div className="bg-slate-900 p-2 rounded-lg flex-shrink-0" style={{ width: "80px", height: "80px" }}>
-                    <img 
-                        src="/LogoPrimkoppol.png" 
-                        alt="Logo Primkoppol" 
+                <div className="bg-slate-900 p-2 rounded-lg flex-shrink-0" style={{ width: "160px", height: "160px" }}>
+                    <img
+                        src="/LogoPrimkoppol.png"
+                        alt="Logo Primkoppol"
                         className="w-full h-full object-contain"
                     />
                 </div>
@@ -401,25 +401,25 @@ export default function BukuKasPage() {
                                             );
                                         })
                                     )}
-                                        {/* Footer Summary */}
-                                        {entries.length > 0 && (
-                                            <TableRow className="bg-muted/60 font-bold hover:bg-muted/60 print:break-inside-avoid">
-                                                <TableCell colSpan={3} className="text-right">
-                                                    TOTAL
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums text-emerald-600">
-                                                    {formatCurrency(data?.totalDebit || 0)}
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums text-red-600">
-                                                    {formatCurrency(data?.totalCredit || 0)}
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums text-primary font-bold">
-                                                    {formatCurrency(data?.closingBalance || 0)}
-                                                </TableCell>
-                                                <TableCell className="print:hidden" />
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
+                                    {/* Footer Summary */}
+                                    {entries.length > 0 && (
+                                        <TableRow className="bg-muted/60 font-bold hover:bg-muted/60 print:break-inside-avoid">
+                                            <TableCell colSpan={3} className="text-right">
+                                                TOTAL
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums text-emerald-600">
+                                                {formatCurrency(data?.totalDebit || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums text-red-600">
+                                                {formatCurrency(data?.totalCredit || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums text-primary font-bold">
+                                                {formatCurrency(data?.closingBalance || 0)}
+                                            </TableCell>
+                                            <TableCell className="print:hidden" />
+                                        </TableRow>
+                                    )}
+                                </TableBody>
                             </Table>
                         </div>
                     </CardContent>

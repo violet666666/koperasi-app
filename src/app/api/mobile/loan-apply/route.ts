@@ -19,7 +19,7 @@ export async function GET(request: Request) {
                 id: p.id,
                 code: p.code,
                 name: p.name,
-                interestRate: 0, // 0% per kebijakan Koperasi Primkoppol Lumajang
+                interestRate: 0, // 0% per kebijakan Koperasi PRIMKOPPOL RESOR LUMAJANG
                 adminFee: 1, // 1%
                 maxAmount: Math.min(Number(p.maxAmount), 20000000),
                 maxTenor: Math.min(p.maxTenorMonths || 36, 36),

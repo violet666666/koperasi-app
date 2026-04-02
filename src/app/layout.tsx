@@ -21,12 +21,12 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PRIMKOPPOL LUMAJANG",
-    template: "%s | PRIMKOPPOL LUMAJANG",
+    default: "PRIMKOPPOL RESOR LUMAJANG",
+    template: "%s | PRIMKOPPOL RESOR LUMAJANG",
   },
   description: "Sistem Manajemen PRIMKOPPOL Resor Lumajang",
   keywords: ["primkoppol", "koperasi polisi", "simpan pinjam", "anggota", "pinjaman", "simpanan"],
-  authors: [{ name: "PRIMKOPPOL LUMAJANG" }],
+  authors: [{ name: "PRIMKOPPOL RESOR LUMAJANG" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -37,16 +37,16 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "PRIMKOPPOL LUMAJANG",
-    description: "Sistem Informasi Manajemen PRIMKOPPOL LUMAJANG",
+    title: "PRIMKOPPOL RESOR LUMAJANG",
+    description: "Sistem Informasi Manajemen PRIMKOPPOL RESOR LUMAJANG",
     url: "https://koperasi.xertusai.com",
-    siteName: "PRIMKOPPOL LUMAJANG",
+    siteName: "PRIMKOPPOL RESOR LUMAJANG",
     images: [
       {
         url: "/og-image-primkoppol.png",
         width: 1200,
         height: 630,
-        alt: "PRIMKOPPOL LUMAJANG",
+        alt: "PRIMKOPPOL RESOR LUMAJANG",
       },
     ],
     locale: "id_ID",
@@ -54,8 +54,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "PRIMKOPPOL LUMAJANG",
-    description: "Sistem Informasi Manajemen PRIMKOPPOL LUMAJANG",
+    title: "PRIMKOPPOL RESOR LUMAJANG",
+    description: "Sistem Informasi Manajemen PRIMKOPPOL RESOR LUMAJANG",
     images: ["/og-image-primkoppol.png"],
   },
 };

@@ -83,7 +83,7 @@ export function PwaInstallPrompt() {
                         <Smartphone className="h-5 w-5" />
                     </div>
                     <div className="flex-1">
-                        <p className="font-semibold text-sm">Aplikasi PRIMKOPPOL LUMAJANG</p>
+                        <p className="font-semibold text-sm">Aplikasi PRIMKOPPOL RESOR LUMAJANG</p>
                         <p className="text-xs text-muted-foreground">Install untuk akses lebih cepat dan notifikasi</p>
                     </div>
                     <button

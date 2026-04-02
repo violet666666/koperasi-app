@@ -94,7 +94,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             {!isCollapsed && (
                 <div className="border-t border-sidebar-border p-4">
                     <p className="text-xs text-sidebar-foreground/60">
-                        © 2025 PRIMKOPPOL LUMAJANG
+                        © 2025 PRIMKOPPOL RESOR LUMAJANG
                     </p>
                 </div>
             )}
