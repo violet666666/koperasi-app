@@ -230,3 +230,26 @@ Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELE
   - Mobile: `LaporanSHUScreen.tsx` (Net Income label)
   - Mobile: `MasterDataHubScreen.tsx` (menu pengumuman)
 - **Status:** ✅ SELESAI — Seluruh UI konsisten menggunakan "PRIMKOPPOL" / "PRIMKOPPOL LUMAJANG".
+
+### G. Bug: Saldo Awal Minus Hingga Rp 191 Juta Setelah Import Buku Kas
+
+- **Gejala:** Laporan `Buku Kas` menampilkan Saldo Awal yang sangat tidak masuk akal (contoh: `-Rp 191.087.400`) segera setelah user mengunggah import Dokumen Excel Kas Bank. Sedangkan pada Excel, Saldo Awal bernilai `23.441.576`.
+- **Akar Masalah (Tiga Faktor Beruntun):**
+  1. *Filter "Saldo bulan lalu" Sengaja Di-Skip*. Kode import menghindari setiap baris Excel yang bernama "saldo awal" atau "saldo bulan lalu". Akibatnya 23 Juta tersebut hangus/tidak tercatat.
+  2. *Default Floating Date Ke Hari Ini*. Baris masuk (Deposit/Debet) pada bagian atas tabel Excel yang *TANGGAL*-nya dikosongkan malah ter-default menjadi hari ini (misal April 2026), sehingga tidak tercatat di Buku Kas bulan Januari.
+  3. *Native Date Parser JS yang Menghancurkan Angka*. Jika TANGGAL diisi angka bulat seperti `"2"`, fungsi `new Date("2")` pada JavaScript menganggapnya sebagai "Tahun 2001". Semua transaksi dengan tanggal bulat ("2", "3", dsb yang didominasi oleh KREDIT/Pengeluaran) ditarik mundur ke tahun 2001. Karena tahun 2001 berada *sebelum* periode bulan yang ditanyakan (Jan-2026), seluruh angka minus pengeluaran tersebut menjebol masuk ke kalkulasi `Saldo Awal` yang berakhir minus Ratusan Juta.
+- **Tindakan yang Dilakukan:** 
+  1. Menyesuaikan logika `src/app/api/cash-bank/import/route.ts` dengan penarikan regex Tahun dan Bulan dari Nama Sheet.
+  2. Angka hari (cth: "2") cukup dibaca sebagai integer dan ditaruh pada argumen hari di `new Date(Year, Month, Day)`.
+  3. Baris berisi "saldo bulan lalu" tidak lagi di-skip, melainkan dimasukkan sengaja pada `-1 Hari` dari batas bulan berjalan (cth: 31 Desember 2025). Hal ini agar dengan otomatis masuk sebagai akumulasi total saldo awal.
+- **Status:** ✅ SELESAI — Logika Import teratasi, user hanya perlu mengulangi import untuk mendapat Saldo Buku Kas bersih.
+
+### H. Bug/UX: Transaksi Kas Bank "Hilang" Setelah Perbaikan Tanggal, Hanya Menampilkan Saldo Total
+
+- **Gejala:** Setelah update script import (Poin G) diterapkan, data tabel pada halaman `Buku Kas` yang sebelumnya memunculkan semua transaksi tiba-tiba menjadi kosong (hanya menampilkan "Tidak ada transaksi pada periode ini"), tetapi Saldo Total-nya terbaca besar.
+- **Akar Masalah:** Ini **bukan bug**, melainkan perbaikan *Side-effect*. 
+  1. Sebelum sistem diperbaiki, semua transaksi bapak (yang tanggalnya kosong di Excel) secara acak dicatat oleh sistem ke *Bulan Berjalan (April)* saat Bapak menekan tombol Import hari ini. Karena secara *default* saat halaman web dibuka filter menunjuk ke bulan berjalan (April), maka transaksi yang salah bulan tersebut **muncul**.
+  2. Begitu sistem **diperbaiki**, seluruh transaksi dengan sangat presisi masuk ke **Bulan Januari, Februari, dan Maret**.
+  3. Konsekuensinya, karena filter default halaman web menunjuk ke bulan **April** (dan memang tidak ada transaksi di April), tabel pun menjadi kosong. Total saldo tetap besar karena saldo berlanjut secara akumulatif dari Januari-Maret.
+- **Tindakan yang Dilakukan:**  Telah dijelaskan secara fungsional. Tidak ada perubahan *backend* yang diperlukan lagi karena sistem sekarang beroperasi sangat akurat seperti kalender asli. Bapak hanya perlu mengklik *Drop-down Filter* dan mengubahnya ke **Bulan: Januari** untuk melihat seluruh transaksi yang diimport.
+- **Status:** ✅ SELESAI — Secara bersamaan, CSS Logo Print pada Buku Kas juga telah dirubah menjadi *Rounded-Full* (Circular) dengan Background Gelap agar teks logo terbaca sempurna saat dicetak PDF.
