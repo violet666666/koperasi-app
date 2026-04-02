@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,8 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
 import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
+import { CashFlowChart } from "@/components/patterns/cash-flow-chart";
+import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
 
 interface DashboardStats {
     totalAnggota: number;
@@ -36,13 +38,7 @@ interface DashboardStats {
     membersWithTunkin: number;
 }
 
-interface PendingApproval {
-    id: number;
-    type: string;
-    title: string;
-    amount: number;
-    date: string;
-}
+
 
 // Stats Card Component
 function StatsCard({
@@ -54,6 +50,7 @@ function StatsCard({
     trendLabel,
     color = "primary",
     isLoading = false,
+    href,
 }: {
     title: string;
     value: string;
@@ -63,6 +60,7 @@ function StatsCard({
     trendLabel?: string;
     color?: "primary" | "success" | "warning" | "danger";
     isLoading?: boolean;
+    href?: string;
 }) {
     const colorClasses = {
         primary: "bg-primary/10 text-primary",
@@ -71,8 +69,8 @@ function StatsCard({
         danger: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
     };
 
-    return (
-        <Card className="stats-card">
+    const content = (
+        <Card className={`stats-card ${href && !isLoading ? 'hover:shadow-md hover:border-primary/50 cursor-pointer transition-all' : ''}`}>
             <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                     <div className="space-y-2">
@@ -92,9 +90,7 @@ function StatsCard({
                                 ) : (
                                     <TrendingDown className="h-3 w-3 text-red-500" />
                                 )}
-                                <span
-                                    className={trend >= 0 ? "text-emerald-600" : "text-red-600"}
-                                >
+                                <span className={trend >= 0 ? "text-emerald-600" : "text-red-600"}>
                                     {trend >= 0 ? "+" : ""}
                                     {trend}%
                                 </span>
@@ -104,13 +100,19 @@ function StatsCard({
                             </div>
                         )}
                     </div>
-                    <div className={`rounded-lg p-3 ${colorClasses[color]}`}>
+                    <div className={`rounded-lg p-3 ${colorClasses[color || "primary"]}`}>
                         <Icon className="h-5 w-5" />
                     </div>
                 </div>
             </CardContent>
         </Card>
     );
+
+    if (href && !isLoading) {
+        return <Link href={href}>{content}</Link>;
+    }
+    
+    return content;
 }
 
 // Quick Action Card
@@ -143,37 +145,26 @@ function QuickActionCard({
     );
 }
 
-// Pending Approval Item
-function ApprovalItem({
-    type,
-    title,
-    amount,
-    date,
-}: {
-    type: string;
-    title: string;
-    amount: number;
-    date: string;
-}) {
+// Local Approval Item Component for Dashboard
+function DashboardApprovalCard({ item, onClick }: { item: FullApprovalItem, onClick: () => void }) {
+    const isLoan = item.requestType === "loan_application";
     return (
-        <div className="flex items-center justify-between border-b py-3 last:border-0">
+        <div 
+            onClick={onClick}
+            className="flex items-center justify-between border-b py-3 last:border-0 cursor-pointer hover:bg-muted/50 px-2 rounded-md transition-colors"
+        >
             <div className="space-y-1">
-                <p className="text-sm font-medium">{title}</p>
+                <p className="text-sm font-medium">{item.description}</p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="rounded bg-muted px-1.5 py-0.5">{type}</span>
-                    <span>{date}</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 border">{isLoan ? "Pinjaman" : "Lainnya"}</span>
+                    <span>{new Date(item.requestedAt || new Date()).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
                 </div>
             </div>
-            <div className="text-right">
-                <p className="font-medium tabular-nums">{formatCurrency(amount)}</p>
-                <div className="flex gap-1 mt-1">
-                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                        Tolak
-                    </Button>
-                    <Button size="sm" className="h-7 px-2 text-xs">
-                        Setuju
-                    </Button>
-                </div>
+            <div className="text-right flex items-center gap-3">
+                <p className="font-medium tabular-nums">{formatCurrency(item.amount || 0)}</p>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs ml-2 text-primary hidden md:inline-flex rounded-full bg-primary/10 hover:bg-primary/20">
+                    Buka Rincian <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
             </div>
         </div>
     );
@@ -196,64 +187,58 @@ export default function DashboardPage() {
         totalTunkin: 0,
         membersWithTunkin: 0,
     });
-    const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+    const [pendingApprovals, setPendingApprovals] = useState<FullApprovalItem[]>([]);
+    
+    // Approval Dialog State
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [selectedApproval, setSelectedApproval] = useState<FullApprovalItem | null>(null);
+
+    const fetchDashboardData = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+
+            // Fetch data in parallel
+            const [statsRes, approvalsRes] = await Promise.allSettled([
+                fetch("/api/dashboard-stats").then((res) => res.json()),
+                approvalsApi.list("pending"),
+            ]);
+
+            if (statsRes.status === "fulfilled" && statsRes.value.data) {
+                const data = statsRes.value.data;
+                setStats({
+                    totalAnggota: data.totalMembers || 0,
+                    totalSimpanan: data.totalSavings || 0,
+                    totalPinjaman: data.totalLoansOutstanding || 0,
+                    tunggakan: data.totalArrears || 0,
+                    simpananHariIni: data.todayDeposits || 0,
+                    simpananHariIniCount: data.todayDepositsCount || 0,
+                    pencairanHariIni: data.todayWithdrawals || 0,
+                    pencairanHariIniCount: data.todayWithdrawalsCount || 0,
+                    angsuranHariIni: data.todayPayments || 0,
+                    angsuranHariIniCount: data.todayPaymentsCount || 0,
+                    pendingApproval: data.pendingApprovals || 0,
+                    totalTunkin: data.totalTunkin || 0,
+                    membersWithTunkin: data.membersWithTunkin || 0,
+                });
+            }
+
+            let approvals: FullApprovalItem[] = [];
+            if (approvalsRes.status === "fulfilled") {
+                const resData = approvalsRes.value.data as any;
+                approvals = Array.isArray(resData?.data) ? resData.data : (Array.isArray(resData) ? resData : []);
+            }
+
+            setPendingApprovals(approvals);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        async function fetchDashboardData() {
-            try {
-                setIsLoading(true);
-
-                // Fetch data in parallel - now including dashboard stats
-                const [statsRes, approvalsRes] = await Promise.allSettled([
-                    fetch("/api/dashboard-stats").then((res) => res.json()),
-                    approvalsApi.list("pending"),
-                ]);
-
-                // Process dashboard stats from new API
-                if (statsRes.status === "fulfilled" && statsRes.value.data) {
-                    const data = statsRes.value.data;
-                    setStats({
-                        totalAnggota: data.totalMembers || 0,
-                        totalSimpanan: data.totalSavings || 0,
-                        totalPinjaman: data.totalLoansOutstanding || 0,
-                        tunggakan: data.totalArrears || 0,
-                        simpananHariIni: data.todayDeposits || 0,
-                        simpananHariIniCount: data.todayDepositsCount || 0,
-                        pencairanHariIni: data.todayWithdrawals || 0,
-                        pencairanHariIniCount: data.todayWithdrawalsCount || 0,
-                        angsuranHariIni: data.todayPayments || 0,
-                        angsuranHariIniCount: data.todayPaymentsCount || 0,
-                        pendingApproval: data.pendingApprovals || 0,
-                        totalTunkin: data.totalTunkin || 0,
-                        membersWithTunkin: data.membersWithTunkin || 0,
-                    });
-                }
-
-                let approvals: PendingApproval[] = [];
-                if (approvalsRes.status === "fulfilled") {
-                    const resData = approvalsRes.value.data as any;
-                    const data = Array.isArray(resData?.data) ? resData.data : (Array.isArray(resData) ? resData : []);
-                    approvals = data.slice(0, 3).map((item: any) => ({
-                        id: item.id,
-                        type: (item.requestType || item.type) === "loan_application" ? "Pinjaman" : "Lainnya",
-                        title: item.title || item.description,
-                        amount: item.amount || 0,
-                        date: item.submittedAt || item.requestedAt
-                            ? new Date(item.submittedAt || item.requestedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
-                            : "-",
-                    }));
-                }
-
-                setPendingApprovals(approvals);
-            } catch (error) {
-                console.error("Failed to fetch dashboard data:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-
         fetchDashboardData();
-    }, []);
+    }, [fetchDashboardData]);
 
     return (
         <div className="space-y-6">
@@ -279,6 +264,7 @@ export default function DashboardPage() {
                         icon={Users}
                         color="primary"
                         isLoading={isLoading}
+                        href="/master/users"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper
@@ -292,6 +278,7 @@ export default function DashboardPage() {
                         icon={Wallet}
                         color="success"
                         isLoading={isLoading}
+                        href="/simpanan/rekening"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper
@@ -305,6 +292,7 @@ export default function DashboardPage() {
                         icon={CreditCard}
                         color="primary"
                         isLoading={isLoading}
+                        href="/laporan/rekap-pinjaman"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper
@@ -333,6 +321,7 @@ export default function DashboardPage() {
                         icon={AlertCircle}
                         color="danger"
                         isLoading={isLoading}
+                        href="/pinjaman/jadwal"
                     />
                 </InfoCardWrapper>
             </div>
@@ -404,6 +393,11 @@ export default function DashboardPage() {
                 </InfoCardWrapper>
             </div>
 
+            {/* Cash Flow Chart */}
+            <div className="grid grid-cols-1">
+                <CashFlowChart />
+            </div>
+
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Quick Actions */}
@@ -457,8 +451,15 @@ export default function DashboardPage() {
                             </div>
                         ) : pendingApprovals.length > 0 ? (
                             <div className="space-y-1">
-                                {pendingApprovals.map((item) => (
-                                    <ApprovalItem key={item.id} {...item} />
+                                {pendingApprovals.slice(0, 4).map((item) => (
+                                    <DashboardApprovalCard 
+                                        key={item.id} 
+                                        item={item} 
+                                        onClick={() => {
+                                            setSelectedApproval(item);
+                                            setDialogOpen(true);
+                                        }} 
+                                    />
                                 ))}
                             </div>
                         ) : (
@@ -469,6 +470,14 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+            
+            {/* Direct Approval Modal */}
+            <ApprovalDialog 
+                open={dialogOpen} 
+                onOpenChange={setDialogOpen} 
+                approval={selectedApproval} 
+                onSuccess={fetchDashboardData} 
+            />
         </div>
     );
 }

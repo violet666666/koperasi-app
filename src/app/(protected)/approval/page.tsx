@@ -7,18 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+
 import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
+import { ApprovalDialog, ApprovalItem } from "@/components/patterns/approval-dialog";
 import {
     Check,
     X,
@@ -31,22 +23,7 @@ import {
 import { formatCurrency, APPROVAL_STATUS } from "@/lib/constants";
 import { approvalsApi, loansApi } from "@/lib/api";
 
-// Approval item type
-interface ApprovalItem {
-    id: number;
-    requestType: string;
-    referenceId: number;
-    referenceNo: string;
-    description: string;
-    amount?: number;
-    branchId: number;
-    status: "pending" | "approved" | "rejected";
-    requestedBy?: { id: number; name: string };
-    requestedAt: string;
-    processedBy?: { id: number; name: string };
-    processedAt?: string;
-    notes?: string;
-}
+
 
 // Request type icons and labels
 const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -148,9 +125,6 @@ export default function ApprovalPage() {
     const [approvals, setApprovals] = React.useState<ApprovalItem[]>([]);
     const [selectedApproval, setSelectedApproval] = React.useState<ApprovalItem | null>(null);
     const [dialogOpen, setDialogOpen] = React.useState(false);
-    const [dialogAction, setDialogAction] = React.useState<"approve" | "reject" | null>(null);
-    const [notes, setNotes] = React.useState("");
-    const [processing, setProcessing] = React.useState(false);
 
     // Counts
     const counts = React.useMemo(() => ({
@@ -184,50 +158,22 @@ export default function ApprovalPage() {
         fetchData();
     }, []);
 
-    // Handle action click
-    const handleAction = (approval: ApprovalItem, action: "approve" | "reject") => {
-        setSelectedApproval(approval);
-        setDialogAction(action);
-        setNotes("");
-        setDialogOpen(true);
-    };
-
-    // Process approval
-    const processApproval = async () => {
-        if (!selectedApproval || !dialogAction) return;
-
-        setProcessing(true);
+    const fetchApprovals = async () => {
         try {
-            // Call the appropriate API based on request type
-            if (selectedApproval.requestType === "loan_application") {
-                if (dialogAction === "approve") {
-                    await loansApi.approve(selectedApproval.referenceId, notes);
-                } else {
-                    await loansApi.reject(selectedApproval.referenceId, notes);
-                }
-            }
-
-            // Update local state
-            setApprovals((prev) =>
-                prev.map((a) =>
-                    a.id === selectedApproval.id
-                        ? { ...a, status: dialogAction === "approve" ? "approved" : "rejected", notes }
-                        : a
-                )
-            );
-
-            toast.success(
-                dialogAction === "approve"
-                    ? "Pengajuan berhasil disetujui"
-                    : "Pengajuan berhasil ditolak"
-            );
-            setDialogOpen(false);
+            const [pendingRes, historyRes] = await Promise.all([
+                approvalsApi.list("pending"),
+                approvalsApi.list("history")
+            ]);
+            const combined = [
+                ...((pendingRes as any).data || []),
+                ...((historyRes as any).data || [])
+            ];
+            setApprovals(combined);
         } catch (error) {
-            toast.error("Gagal memproses pengajuan");
-        } finally {
-            setProcessing(false);
+            console.error("Failed to fetch approvals:", error);
         }
     };
+
 
     // Pending approvals only
     const pendingApprovals = approvals.filter((a) => a.status === "pending");
@@ -240,11 +186,8 @@ export default function ApprovalPage() {
             id: "actions",
             cell: ({ row }) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={() => handleAction(row.original, "approve")}>
-                        <Check className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleAction(row.original, "reject")}>
-                        <X className="h-4 w-4" />
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedApproval(row.original); setDialogOpen(true); }}>
+                        Review
                     </Button>
                 </div>
             ),
@@ -326,71 +269,12 @@ export default function ApprovalPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Approval Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {dialogAction === "approve" ? "Setujui Pengajuan" : "Tolak Pengajuan"}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {selectedApproval?.description}
-                            {selectedApproval?.amount && (
-                                <span className="block mt-2 text-lg font-bold text-foreground">
-                                    {formatCurrency(selectedApproval.amount)}
-                                </span>
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="notes">
-                                Catatan {dialogAction === "reject" && <span className="text-red-500">*</span>}
-                            </Label>
-                            <Textarea
-                                id="notes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder={
-                                    dialogAction === "reject"
-                                        ? "Berikan alasan penolakan..."
-                                        : "Catatan tambahan (opsional)"
-                                }
-                                rows={3}
-                            />
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={processing}>
-                            Batal
-                        </Button>
-                        <Button
-                            variant={dialogAction === "approve" ? "default" : "destructive"}
-                            onClick={processApproval}
-                            disabled={processing || (dialogAction === "reject" && !notes.trim())}
-                        >
-                            {processing ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Memproses...
-                                </>
-                            ) : dialogAction === "approve" ? (
-                                <>
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Setujui
-                                </>
-                            ) : (
-                                <>
-                                    <X className="mr-2 h-4 w-4" />
-                                    Tolak
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ApprovalDialog 
+                open={dialogOpen} 
+                onOpenChange={setDialogOpen} 
+                approval={selectedApproval} 
+                onSuccess={fetchApprovals} 
+            />
         </div>
     );
 }

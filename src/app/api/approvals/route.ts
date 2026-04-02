@@ -47,7 +47,14 @@ export async function GET(request: Request) {
             requestedBy: app.member,
             requestedAt: app.submittedAt,
             processedAt: app.approvedAt || app.rejectedAt || undefined,
-            notes: app.rejectionReason || undefined
+            notes: app.rejectionReason || undefined,
+            metadata: {
+                tenorMonths: app.tenorMonths,
+                purpose: app.purpose,
+                deductionSource: app.deductionSource,
+                productName: app.product.name,
+                memberNo: app.member.memberNo,
+            }
         }));
 
         return NextResponse.json({ data: approvals });
