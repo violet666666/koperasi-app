@@ -264,7 +264,7 @@ export default function DashboardPage() {
                         icon={Users}
                         color="primary"
                         isLoading={isLoading}
-                        href="/master/users"
+                        href="/anggota"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper
@@ -278,7 +278,7 @@ export default function DashboardPage() {
                         icon={Wallet}
                         color="success"
                         isLoading={isLoading}
-                        href="/simpanan/rekening"
+                        href="/simpanan/rekap"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper

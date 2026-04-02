@@ -150,7 +150,10 @@ export default function SimpananTransaksiPage() {
                 ]);
 
                 if (txResponse.status === "fulfilled") {
-                    setTransactions(txResponse.value.data as unknown as Transaction[]);
+                    const txResult = txResponse.value as any;
+                    // The API client returns { data: [...], meta: {...} } directly
+                    const txArray = Array.isArray(txResult) ? txResult : (txResult?.data || []);
+                    setTransactions(txArray as Transaction[]);
                 }
 
                 if (statsResponse.status === "fulfilled" && statsResponse.value.data) {

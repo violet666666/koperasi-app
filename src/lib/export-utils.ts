@@ -519,7 +519,129 @@ export function generateThermalReceiptPDF(receipt: ReceiptData) {
 }
 
 // ============================================================
-// Helper Functions
+// Kasir Retail Receipt PDF Generator (58mm Thermal)
+// ============================================================
+
+export interface KasirReceiptData {
+    saleNo: string;
+    saleDate: string;
+    customerName?: string;
+    cashierName: string;
+    items: {
+        name: string;
+        quantity: number;
+        price: number;
+        subtotal: number;
+    }[];
+    totalAmount: number;
+    paymentMethod: string;
+    cashReceived?: number;
+    changeAmount?: number;
+}
+
+export function generateKasirReceiptPDF(receipt: KasirReceiptData) {
+    // 58mm thermal format for POS printers
+    const pageWidth = 58;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageWidth, 200] });
+    const margin = 3;
+    let y = 8;
+
+    // Header section
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("PRIMKOPPOL LUMAJANG", pageWidth / 2, y, { align: "center" });
+
+    y += 4;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("Jl. Alun-alun Timur No. 1", pageWidth / 2, y, { align: "center" });
+    
+    y += 4;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 4;
+    
+    // Receipt Info section
+    doc.setFontSize(6);
+    doc.text(`No : ${receipt.saleNo}`, margin, y);
+    y += 3;
+    doc.text(`Tgl: ${new Date(receipt.saleDate).toLocaleString("id-ID")}`, margin, y);
+    y += 3;
+    doc.text(`Ksr: ${receipt.cashierName}`, margin, y);
+    if (receipt.customerName) {
+        y += 3;
+        doc.text(`Plg: ${receipt.customerName}`, margin, y);
+    }
+    
+    y += 4;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 4;
+
+    // Items Section
+    doc.setFontSize(6);
+    receipt.items.forEach(item => {
+        // Item Name
+        const splitName = doc.splitTextToSize(item.name, pageWidth - margin * 2);
+        doc.text(splitName, margin, y);
+        y += splitName.length * 3;
+        
+        // Qty x Price = Subtotal
+        doc.text(`${item.quantity} x ${formatRupiah(item.price)}`, margin + 2, y);
+        doc.text(formatRupiah(item.subtotal), pageWidth - margin, y, { align: "right" });
+        y += 4;
+    });
+
+    y += 1;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 5;
+    
+    // Amount Totals Section
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL", margin, y);
+    doc.text(formatRupiah(receipt.totalAmount), pageWidth - margin, y, { align: "right" });
+
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "normal");
+    y += 4;
+    doc.text(`Metode: ${getReceiptPaymentLabel(receipt.paymentMethod)}`, margin, y);
+    doc.text(formatRupiah(receipt.cashReceived || receipt.totalAmount), pageWidth - margin, y, { align: "right" });
+
+    if (receipt.paymentMethod === "cash" && receipt.changeAmount !== undefined) {
+        y += 4;
+        doc.text("Kembalian", margin, y);
+        doc.text(formatRupiah(receipt.changeAmount), pageWidth - margin, y, { align: "right" });
+    }
+
+    y += 4;
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineDashPattern([], 0);
+
+    y += 6;
+
+    // Footer section
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "italic");
+    doc.text("Terima kasih atas belanja Anda", pageWidth / 2, y, { align: "center" });
+    y += 3;
+    doc.text("Barang yang sudah dibeli", pageWidth / 2, y, { align: "center" });
+    y += 3;
+    doc.text("tidak dapat ditukar/dikembalikan", pageWidth / 2, y, { align: "center" });
+
+    // Force automatic clipping to content height if supported, or just save the fixed format.
+    doc.save(`Struk_Kasir_${receipt.saleNo}.pdf`);
+}
+
+// ============================================================
 // ============================================================
 
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {

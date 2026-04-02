@@ -1,53 +1,46 @@
 ﻿Γû▓ Next.js 16.1.4 (Turbopack)
 - Environments: .env
 
-npx : ΓÜá The "middleware" file convention 
-is deprecated. Please use "proxy" instead. 
-Learn more: https://nextjs.org/docs/messages/
-middleware-to-proxy
+npx : ΓÜá The "middleware" file convention is deprecated. Please use 
+"proxy" instead. Learn more: 
+https://nextjs.org/docs/messages/middleware-to-proxy
 At line:1 char:1
-+ npx next build 2>&1 | Out-File -FilePath 
-C:\Users\Acer\Downloads\kope ...
++ npx next build 2>&1 | Out-File -FilePath "C:\Users\Acer\Downloads\kop 
+...
 + ~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified:  
-   (ΓÜá The "middle...leware-to-proxy:Strin  
-  g) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandE 
-   rror
+    + CategoryInfo          : NotSpecified: (ΓÜá The "middle...leware-to 
+   -proxy:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
  
   Creating an optimized production build ...
-Γ£ô Compiled successfully in 18.2s
+Γ£ô Compiled successfully in 68s
   Running TypeScript ...
   Collecting page data using 7 workers ...
-  Generating static pages using 7 workers (0/116) ...
-ΓÜá metadataBase property in metadata export 
-is not set for resolving social open graph 
-or twitter images, using 
-"http://localhost:3000". See https://nextjs.o
-rg/docs/app/api-reference/functions/generate-
-metadata#metadatabase
-ΓÜá metadataBase property in metadata export 
-is not set for resolving social open graph 
-or twitter images, using 
-"http://localhost:3000". See https://nextjs.o
-rg/docs/app/api-reference/functions/generate-
-metadata#metadatabase
-ΓÜá metadataBase property in metadata export 
-is not set for resolving social open graph 
-or twitter images, using 
-"http://localhost:3000". See https://nextjs.o
-rg/docs/app/api-reference/functions/generate-
-metadata#metadatabase
-  Generating static pages using 7 workers (29/116) 
-ΓÜá metadataBase property in metadata export 
-is not set for resolving social open graph 
-or twitter images, using 
-"http://localhost:3000". See https://nextjs.o
-rg/docs/app/api-reference/functions/generate-
-metadata#metadatabase
-  Generating static pages using 7 workers (58/116) 
-  Generating static pages using 7 workers (87/116) 
-Γ£ô Generating static pages using 7 workers (116/116) in 2.3s
+  Generating static pages using 7 workers (0/163) ...
+ΓÜá metadataBase property in metadata export is not set for resolving 
+social open graph or twitter images, using "http://localhost:3000". See h
+ttps://nextjs.org/docs/app/api-reference/functions/generate-metadata#meta
+database
+ΓÜá metadataBase property in metadata export is not set for resolving 
+social open graph or twitter images, using "http://localhost:3000". See h
+ttps://nextjs.org/docs/app/api-reference/functions/generate-metadata#meta
+database
+ΓÜá metadataBase property in metadata export is not set for resolving 
+social open graph or twitter images, using "http://localhost:3000". See h
+ttps://nextjs.org/docs/app/api-reference/functions/generate-metadata#meta
+database
+ΓÜá metadataBase property in metadata export is not set for resolving 
+social open graph or twitter images, using "http://localhost:3000". See h
+ttps://nextjs.org/docs/app/api-reference/functions/generate-metadata#meta
+database
+  Generating static pages using 7 workers (40/163) 
+ΓÜá metadataBase property in metadata export is not set for resolving 
+social open graph or twitter images, using "http://localhost:3000". See h
+ttps://nextjs.org/docs/app/api-reference/functions/generate-metadata#meta
+database
+  Generating static pages using 7 workers (81/163) 
+  Generating static pages using 7 workers (122/163) 
+Γ£ô Generating static pages using 7 workers (163/163) in 3.4s
   Finalizing page optimization ...
 
 Route (app)
@@ -65,7 +58,10 @@ Route (app)
 Γö£ ╞Æ /api/audit-logs
 Γö£ ╞Æ /api/auth/[...nextauth]
 Γö£ ╞Æ /api/cash-bank/accounts
+Γö£ ╞Æ /api/cash-bank/book
+Γö£ ╞Æ /api/cash-bank/import
 Γö£ ╞Æ /api/cash-bank/transactions
+Γö£ ╞Æ /api/cash-bank/transactions/[id]
 Γö£ ╞Æ /api/cash-bank/transfers
 Γö£ ╞Æ /api/dashboard-stats
 Γö£ ╞Æ /api/journals
@@ -78,10 +74,17 @@ Route (app)
 Γö£ ╞Æ /api/loans/applications/[id]/disburse
 Γö£ ╞Æ /api/loans/applications/[id]/reject
 Γö£ ╞Æ /api/loans/applications/[id]/submit
+Γö£ ╞Æ /api/loans/import-migrasi
+Γö£ ╞Æ /api/loans/products
+Γö£ ╞Æ /api/loans/schedules
 Γö£ ╞Æ /api/master/accounts
+Γö£ ╞Æ /api/master/accounts/[id]
 Γö£ ╞Æ /api/master/branches
 Γö£ ╞Æ /api/master/branches/[id]
+Γö£ ╞Æ /api/master/cash-bank
+Γö£ ╞Æ /api/master/cash-bank/[id]
 Γö£ ╞Æ /api/master/loan-products
+Γö£ ╞Æ /api/master/loan-products/[id]
 Γö£ ╞Æ /api/master/savings-products
 Γö£ ╞Æ /api/master/savings-products/[id]
 Γö£ ╞Æ /api/member-portal/loan-application
@@ -90,9 +93,46 @@ Route (app)
 Γö£ ╞Æ /api/member-portal/transactions
 Γö£ ╞Æ /api/members
 Γö£ ╞Æ /api/members/[id]
+Γö£ ╞Æ /api/members/[id]/sejahtera
+Γö£ ╞Æ /api/members/book
 Γö£ ╞Æ /api/members/export
 Γö£ ╞Æ /api/members/import
 Γö£ ╞Æ /api/members/lookup
+Γö£ ╞Æ /api/members/reset-tunkin
+Γö£ ╞Æ /api/mobile/accounts
+Γö£ ╞Æ /api/mobile/approvals
+Γö£ ╞Æ /api/mobile/assets
+Γö£ ╞Æ /api/mobile/assets/[id]
+Γö£ ╞Æ /api/mobile/audit-logs
+Γö£ ╞Æ /api/mobile/buku-kas
+Γö£ ╞Æ /api/mobile/change-password
+Γö£ ╞Æ /api/mobile/journals
+Γö£ ╞Æ /api/mobile/kas-bank
+Γö£ ╞Æ /api/mobile/ledger
+Γö£ ╞Æ /api/mobile/loan-apply
+Γö£ ╞Æ /api/mobile/loan-payment
+Γö£ ╞Æ /api/mobile/loans
+Γö£ ╞Æ /api/mobile/loans-operator
+Γö£ ╞Æ /api/mobile/login
+Γö£ ╞Æ /api/mobile/master-data
+Γö£ ╞Æ /api/mobile/members
+Γö£ ╞Æ /api/mobile/members/[id]
+Γö£ ╞Æ /api/mobile/members/import
+Γö£ ╞Æ /api/mobile/pengumuman
+Γö£ ╞Æ /api/mobile/push-token
+Γö£ ╞Æ /api/mobile/reports/financial
+Γö£ ╞Æ /api/mobile/reports/loans
+Γö£ ╞Æ /api/mobile/reports/savings
+Γö£ ╞Æ /api/mobile/reports/shu-calculator
+Γö£ ╞Æ /api/mobile/savings-accounts
+Γö£ ╞Æ /api/mobile/savings-tx
+Γö£ ╞Æ /api/mobile/summary
+Γö£ ╞Æ /api/mobile/toko
+Γö£ ╞Æ /api/mobile/transactions
+Γö£ ╞Æ /api/non-sp/penerimaan
+Γö£ ╞Æ /api/non-sp/penerimaan/[id]
+Γö£ ╞Æ /api/non-sp/pengeluaran
+Γö£ ╞Æ /api/non-sp/pengeluaran/[id]
 Γö£ ╞Æ /api/pengumuman
 Γö£ ╞Æ /api/pengumuman/[id]
 Γö£ ╞Æ /api/permissions
@@ -103,16 +143,25 @@ Route (app)
 Γö£ ╞Æ /api/reports/members-recap
 Γö£ ╞Æ /api/reports/neraca
 Γö£ ╞Æ /api/reports/savings-recap
+Γö£ ╞Æ /api/reports/savings-recap/members
 Γö£ ╞Æ /api/reports/shu
 Γö£ ╞Æ /api/reports/shu/calculate
 Γö£ ╞Æ /api/roles
+Γö£ ╞Æ /api/savings/accounts
+Γö£ ╞Æ /api/savings/accounts/[id]
 Γö£ ╞Æ /api/savings/transactions
+Γö£ ╞Æ /api/sejahtera/import
+Γö£ ╞Æ /api/settings/cooperative
 Γö£ ╞Æ /api/toko/products
+Γö£ ╞Æ /api/toko/products/import
+Γö£ ╞Æ /api/toko/products/reset
 Γö£ ╞Æ /api/toko/sales
 Γö£ ╞Æ /api/toko/stats
+Γö£ ╞Æ /api/transactions/import-potongan
 Γö£ ╞Æ /api/unit-transactions
 Γö£ ╞Æ /api/user/password
 Γö£ ╞Æ /api/users
+Γö£ ╞Æ /api/users/[id]
 Γö£ Γùï /approval
 Γö£ Γùï /aset
 Γö£ ╞Æ /aset/[id]
@@ -128,11 +177,13 @@ Route (app)
 Γö£ Γùï /jurnal/umum
 Γö£ Γùï /kas-bank
 Γö£ Γùï /kas-bank/bank
+Γö£ Γùï /kas-bank/buku-kas
 Γö£ Γùï /kas-bank/kas
 Γö£ Γùï /kas-bank/transaksi/tambah
 Γö£ Γùï /kas-bank/transfer
 Γö£ Γùï /kwitansi
 Γö£ ╞Æ /kwitansi/[id]/cetak
+Γö£ ╞Æ /kwitansi/[id]/edit
 Γö£ Γùï /kwitansi/tambah
 Γö£ Γùï /laporan
 Γö£ Γùï /laporan/arus-kas
@@ -147,6 +198,7 @@ Route (app)
 Γö£ Γùï /master/cabang
 Γö£ Γùï /master/coa
 Γö£ Γùï /master/import-data
+Γö£ Γùï /master/kas-bank
 Γö£ Γùï /master/mapping-jurnal
 Γö£ Γùï /master/parameter-shu
 Γö£ Γùï /master/produk-pinjaman
@@ -156,6 +208,7 @@ Route (app)
 Γö£ Γùï /non-sp/penerimaan
 Γö£ Γùï /non-sp/pengeluaran
 Γö£ Γùï /pengumuman
+Γö£ Γùï /periode/shu
 Γö£ Γùï /periode/shu/distribusi
 Γö£ Γùï /periode/shu/perhitungan
 Γö£ Γùï /periode/tutup-buku
@@ -178,6 +231,7 @@ Route (app)
 Γö£ Γùï /settings
 Γö£ Γùï /simpanan
 Γö£ Γùï /simpanan/rekap
+Γö£ Γùï /simpanan/rekening
 Γö£ Γùï /simpanan/transaksi
 Γö£ Γùï /simpanan/transaksi/tambah
 Γö£ Γùï /toko
@@ -185,6 +239,7 @@ Route (app)
 Γö£ Γùï /toko/persediaan
 Γö£ Γùï /toko/produk
 Γö£ ╞Æ /toko/produk/[id]
+Γö£ Γùï /toko/produk/import
 Γö£ Γùï /toko/produk/tambah
 Γö£ Γùï /transaksi-unit
 Γöö Γùï /transaksi-unit/riwayat

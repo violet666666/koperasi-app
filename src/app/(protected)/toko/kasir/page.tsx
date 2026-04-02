@@ -20,6 +20,7 @@ import {
     Receipt, User, Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
 
 interface Product { id: number; sku: string; name: string; price: number; stock: number; }
 interface CartItem { product: Product; quantity: number; }
@@ -31,8 +32,10 @@ export default function KasirPage() {
     const [cart, setCart] = React.useState<CartItem[]>([]);
     const [customerName, setCustomerName] = React.useState("");
     const [paymentAmount, setPaymentAmount] = React.useState("");
+    const [changeAmount, setChangeAmount] = React.useState(0);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
+    const [lastReceipt, setLastReceipt] = React.useState<KasirReceiptData | null>(null);
 
     // Credit payment state
     const [showCreditDialog, setShowCreditDialog] = React.useState(false);
@@ -132,6 +135,28 @@ export default function KasirPage() {
             } else {
                 toast.success(`Transaksi kredit ${json.data.saleNo} berhasil! Potong gaji anggota ${selectedMember?.name}`);
             }
+
+            // Generate receipt automatically and enable re-print
+            const receiptData: KasirReceiptData = {
+                saleNo: json.data.saleNo,
+                saleDate: new Date().toISOString(),
+                customerName: method === "credit" ? selectedMember?.name : customerName,
+                cashierName: "Kasir Toko",
+                items: cart.map(item => ({
+                    name: item.product.name,
+                    quantity: item.quantity,
+                    price: item.product.price,
+                    subtotal: item.product.price * item.quantity
+                })),
+                totalAmount: subtotal,
+                paymentMethod: method,
+                cashReceived: method === "cash" ? Number(paymentAmount) : undefined,
+                changeAmount: json.data.changeAmount
+            };
+            setLastReceipt(receiptData);
+            
+            // Auto trigger pdf download/print window for 58mm POS thermal
+            generateKasirReceiptPDF(receiptData);
 
             setCart([]);
             setPaymentAmount("");
@@ -282,8 +307,9 @@ export default function KasirPage() {
                                 Bayar Kredit (Potong Gaji)
                             </Button>
 
-                            <Button variant="outline" className="w-full" disabled={cart.length === 0}>
-                                <Receipt className="mr-2 h-4 w-4" />Cetak Struk
+                            <Button variant="outline" className="w-full" disabled={!lastReceipt}
+                                onClick={() => lastReceipt && generateKasirReceiptPDF(lastReceipt)}>
+                                <Receipt className="mr-2 h-4 w-4" />Cetak Struk Transaksi Terakhir
                             </Button>
                         </CardContent>
                     </Card>

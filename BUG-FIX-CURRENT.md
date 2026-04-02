@@ -174,3 +174,21 @@ Fitur *Search* pada halaman "Buku Anggota" (`/anggota/buku`) belum terkoneksi ke
 - File `BUKU KAS JANUARI - MARET.xlsx` menggunakan *free-text* "Uraian" dalam format berantakan tanpa Account ID.
 - Skrip saya membangun algoritma Regex/Filtering Uraian untuk secara cerdas (*Smart Detection*) mendeteksi apakah suatu baris tergolong Biaya Administrasi, Angsuran Pinjaman (*"angsur"*), atau Pencairan ("*pencairan*", *"pinjam"*).
 - Hanya menyedot **TANGGAL**, **DEBET**, **KREDIT** untuk mendaftarkan mutasi ke dalam UI Tabel Kas Bank di sisi Koperasi *(Tidak memengaruhi saldo akun milik Anggota, karena Bapak sudah mengunggah laporan utuh 'Buku 2' dari tabel simpan/pinjam terpisah. Jika import Kas Excel ini memotong saldo anggota lagi, maka data akan berisiko ganda/dobel)*.
+
+---
+
+## 9. Penyelidikan & Pencatatan Bug Kritis (April 2026)
+
+Berikut adalah daftar temuan Bug / Potensi Error yang baru saja dicatat untuk diamati dan diselidiki mendalam:
+
+**A. Disparitas (Perbedaan) Saldo Kas vs Buku Kas**
+- **Gejala:** Terdapat perbedaan nominal saldo antara Halaman `/kas-bank/kas` dan `/kas-bank/buku-kas`.
+- **Akar Analisis Teoritis:** Tampilan `Kas Bank` mengambil field `currentBalance` yang berakumulasi *Real-time* sejak pertama kali Koperasi berdiri. Sedangkan `Buku Kas` beroperasi berbasis *Range Waktu* (Bulan/Tahun spesifik) dan merujuk pada `openingBalance` bulan tersebut. Kemungkinan terjadinya perbedaan (Desync) ada pada fungsi import excel, dimana histori mutasi *Debet/Kredit* dimasukkan, tetapi gagal me-*trigger* pembaruan `openingBalance` di bulan-bulan sebelumnya (Historical Rollback). Evaluasi lanjutan terhadap Prisma ORM `CashBankAccount` mutlak diperlukan.
+
+**B. Data Simpanan Tidak Tampil (Kosong)**
+- **Gejala:** Halaman `/simpanan/rekening` dan `/simpanan/transaksi` tidak menampilkan list data apapun (kosong/empty state) padahal sistem telah diinjeksi migrasi saldo dari excel.
+- **Tindakan Lanjutan:** Verifikasi endpoint API `/api/savings/accounts` dan `/api/savings/transactions`. Cek apakah `Prisma.SavingsAccount.findMany()` gagal melakuakan relasi relasional ke tabel `Member` atau tabel tersebut gagal terisi di migrasi pertama.
+
+**C. Laporan Pinjaman & Jadwal Pinjaman Kosong**
+- **Gejala:** Halaman `/laporan/rekap-pinjaman` dan `/pinjaman/jadwal` tidak memunculkan data tabel.
+- **Tindakan Lanjutan:** Halaman Jadwal (`LoanSchedule`) kemungkinan kosong memang karena sistem migrasi sebelumnya hanya membuat satu 'gelondong' piutang tanpa memecahnya per bulan ke dalam jadwal. Untuk Laporan Rekap, perlu diperiksa apakah *query logic* dari Prisma melakukan pengecualian (exclude) pada status pinjaman tertentu yang mengakibatkan data *Disbursed/Active* tidak tertarik jatuh tempo.

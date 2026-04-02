@@ -126,9 +126,8 @@ export default function RekapPinjamanPage() {
             setIsLoading(true);
             try {
                 const response = await reportsApi.loansRecap();
-                // Extract deeply nested data matching the backend response structure
-                const axiosData = response.data as any;
-                const reportData = axiosData.data;
+                // ApiClient returns JSON directly: { data: { products: [...] } }
+                const reportData = (response as any)?.data;
                 setData(reportData?.products || []);
             } catch (error) {
                 console.error("Failed to fetch loans recap:", error);

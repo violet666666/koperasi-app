@@ -14,6 +14,7 @@ import { receiptsApi } from "@/lib/api/services";
 import { generateReceiptPDF, generateThermalReceiptPDF, type ReceiptData } from "@/lib/export-utils";
 import { terbilang, getPaymentMethodLabel, PAYMENT_METHODS } from "@/lib/terbilang";
 import Link from "next/link";
+import Image from "next/image";
 
 interface ReceiptDetail {
     id: number;
@@ -164,14 +165,27 @@ export default function CetakKwitansiPage() {
             />
 
             {/* ============= RECEIPT PREVIEW (Format Resmi Koperasi) ============= */}
-            <Card className="max-w-2xl mx-auto print:shadow-none print:border-2 print:border-black">
+            <Card className="max-w-2xl mx-auto print:shadow-none print:border-2 print:border-black transform print:scale-[0.98] origin-top">
                 <CardContent className="p-8">
 
                     {/* ---- KOP SURAT / HEADER ---- */}
-                    <div className="text-center mb-1">
-                        <h2 className="text-2xl font-bold tracking-tight uppercase">KOPERASI PRIMKOPPOL RESOR LUMAJANG</h2>
-                        <p className="text-xs text-muted-foreground">Badan Hukum No: ....../BH/M.KUKM/........</p>
-                        <p className="text-xs text-muted-foreground">Alamat: Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</p>
+                    <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 mb-2 justify-center">
+                        {/* Logo Container */}
+                        <div className="bg-zinc-950 rounded-xl p-2.5 shrink-0 flex items-center justify-center" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
+                            <Image 
+                                src="/LogoPrimkoppol.png" 
+                                alt="Logo PRIMKOPPOL" 
+                                width={60} 
+                                height={60} 
+                                className="object-contain"
+                            />
+                        </div>
+                        {/* Text Header */}
+                        <div className="text-center sm:text-left">
+                            <h2 className="text-2xl font-bold tracking-tight uppercase print:text-xl">KOPERASI PRIMKOPPOL RESOR LUMAJANG</h2>
+                            <p className="text-xs text-muted-foreground">Badan Hukum No: ....../BH/M.KUKM/........</p>
+                            <p className="text-xs text-muted-foreground">Alamat: Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</p>
+                        </div>
                     </div>
                     <div className="border-b-4 border-double border-foreground my-3" />
 
