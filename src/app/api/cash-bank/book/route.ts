@@ -45,29 +45,15 @@ export async function GET(request: Request) {
         // Calculate opening balance (total of all transactions before this period)
         let openingBalance = 0;
 
+        const priorWhere: Record<string, unknown> = {
+            transactionDate: { lt: startDate },
+        };
         if (accountId && accountId !== "all") {
-            // Get the account's current balance and work backwards, or sum all prior transactions
-            const priorTransactions = await prisma.cashBankTransaction.findMany({
-                where: {
-                    accountId: parseInt(accountId),
-                    transactionDate: { lt: startDate },
-                },
-                select: {
-                    type: true,
-                    amount: true,
-                },
-            });
+            priorWhere.accountId = parseInt(accountId);
+        }
 
-            // If no prior transactions, try to get the first transaction's balanceBefore
-            if (priorTransactions.length > 0) {
-                // Sum up: in = +, out = -
-                openingBalance = priorTransactions.reduce((sum, tx) => {
-                    const amt = Number(tx.amount);
-                    return sum + (tx.type === "in" ? amt : -amt);
-                }, 0);
-            }
-
-            // Alternative: get the last transaction before this period for accurate balance
+        // Try to get the last transaction before this period for accurate balance
+        if (accountId && accountId !== "all") {
             const lastPriorTx = await prisma.cashBankTransaction.findFirst({
                 where: {
                     accountId: parseInt(accountId),
@@ -82,7 +68,27 @@ export async function GET(request: Request) {
 
             if (lastPriorTx) {
                 openingBalance = Number(lastPriorTx.balanceAfter);
+            } else {
+                // Sum up prior transactions: in = +, out = -
+                const priorTransactions = await prisma.cashBankTransaction.findMany({
+                    where: priorWhere,
+                    select: { type: true, amount: true },
+                });
+                openingBalance = priorTransactions.reduce((sum, tx) => {
+                    const amt = Number(tx.amount);
+                    return sum + (tx.type === "in" ? amt : -amt);
+                }, 0);
             }
+        } else {
+            // "All accounts" mode — sum all prior transactions across all accounts
+            const priorTransactions = await prisma.cashBankTransaction.findMany({
+                where: priorWhere,
+                select: { type: true, amount: true },
+            });
+            openingBalance = priorTransactions.reduce((sum, tx) => {
+                const amt = Number(tx.amount);
+                return sum + (tx.type === "in" ? amt : -amt);
+            }, 0);
         }
 
         // Fetch transactions for the period

@@ -91,7 +91,7 @@ export default function AnggotaCardScreen({ navigation }: any) {
 
             {/* Footer */}
             <View style={styles.cardFooter}>
-              <Text style={styles.footerText}>Berlaku selama menjadi anggota aktif koperasi</Text>
+              <Text style={styles.footerText}>Berlaku selama menjadi anggota aktif PRIMKOPPOL</Text>
               <Text style={styles.footerDate}>Diterbitkan: {new Date().toLocaleDateString('id-ID')}</Text>
             </View>
           </View>

@@ -276,7 +276,7 @@ export default function KwitansiListScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Kwitansi</Text>
-            <Text style={styles.headerSub}>Kelola dan monitoring kwitansi koperasi</Text>
+            <Text style={styles.headerSub}>Kelola dan monitoring kwitansi PRIMKOPPOL</Text>
           </View>
         </View>
 

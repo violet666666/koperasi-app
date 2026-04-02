@@ -179,16 +179,54 @@ Fitur *Search* pada halaman "Buku Anggota" (`/anggota/buku`) belum terkoneksi ke
 
 ## 9. Penyelidikan & Pencatatan Bug Kritis (April 2026)
 
-Berikut adalah daftar temuan Bug / Potensi Error yang baru saja dicatat untuk diamati dan diselidiki mendalam:
+Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELESAIKAN**:
 
-**A. Disparitas (Perbedaan) Saldo Kas vs Buku Kas**
+### A. Disparitas (Perbedaan) Saldo Kas vs Buku Kas
+
 - **Gejala:** Terdapat perbedaan nominal saldo antara Halaman `/kas-bank/kas` dan `/kas-bank/buku-kas`.
-- **Akar Analisis Teoritis:** Tampilan `Kas Bank` mengambil field `currentBalance` yang berakumulasi *Real-time* sejak pertama kali Koperasi berdiri. Sedangkan `Buku Kas` beroperasi berbasis *Range Waktu* (Bulan/Tahun spesifik) dan merujuk pada `openingBalance` bulan tersebut. Kemungkinan terjadinya perbedaan (Desync) ada pada fungsi import excel, dimana histori mutasi *Debet/Kredit* dimasukkan, tetapi gagal me-*trigger* pembaruan `openingBalance` di bulan-bulan sebelumnya (Historical Rollback). Evaluasi lanjutan terhadap Prisma ORM `CashBankAccount` mutlak diperlukan.
+- **Akar Analisis Teoritis:** Tampilan `Kas Bank` mengambil field `currentBalance` yang berakumulasi *Real-time* sejak pertama kali Koperasi berdiri. Sedangkan `Buku Kas` beroperasi berbasis *Range Waktu* (Bulan/Tahun spesifik) dan merujuk pada `openingBalance` bulan tersebut.
+- **Status:** ✅ SELESAI — Skrip sinkronisasi `sync-db.ts` dijalankan. Hasilnya: **0 akun yang perlu diperbaiki** (saldo sudah konsisten).
 
-**B. Data Simpanan Tidak Tampil (Kosong)**
-- **Gejala:** Halaman `/simpanan/rekening` dan `/simpanan/transaksi` tidak menampilkan list data apapun (kosong/empty state) padahal sistem telah diinjeksi migrasi saldo dari excel.
-- **Tindakan Lanjutan:** Verifikasi endpoint API `/api/savings/accounts` dan `/api/savings/transactions`. Cek apakah `Prisma.SavingsAccount.findMany()` gagal melakuakan relasi relasional ke tabel `Member` atau tabel tersebut gagal terisi di migrasi pertama.
+### B. Data Simpanan Tidak Tampil (Kosong)
 
-**C. Laporan Pinjaman & Jadwal Pinjaman Kosong**
+- **Gejala:** Halaman `/simpanan/rekening` dan `/simpanan/transaksi` tidak menampilkan list data apapun (kosong/empty state).
+- **Tindakan yang Dilakukan:**
+  1. Skrip sinkronisasi dijalankan untuk mengenerate **828 rekening Simpanan Wajib** otomatis bagi semua anggota yang belum punya rekening.
+  2. Fix data extraction pada frontend `/simpanan/transaksi` — response API di-unwrap secara benar dari `{ data: [], meta: {} }`.
+- **Status:** ✅ SELESAI — `/simpanan/rekening` kini menampilkan 828+ rekening. `/simpanan/transaksi` masih kosong karena memang belum ada transaksi manual (data saldo berasal dari import excel, bukan dari transaksi setoran/penarikan individual).
+
+### C. Laporan Pinjaman & Jadwal Pinjaman Kosong
+
 - **Gejala:** Halaman `/laporan/rekap-pinjaman` dan `/pinjaman/jadwal` tidak memunculkan data tabel.
-- **Tindakan Lanjutan:** Halaman Jadwal (`LoanSchedule`) kemungkinan kosong memang karena sistem migrasi sebelumnya hanya membuat satu 'gelondong' piutang tanpa memecahnya per bulan ke dalam jadwal. Untuk Laporan Rekap, perlu diperiksa apakah *query logic* dari Prisma melakukan pengecualian (exclude) pada status pinjaman tertentu yang mengakibatkan data *Disbursed/Active* tidak tertarik jatuh tempo.
+- **Tindakan yang Dilakukan:**
+  1. Skrip `generate-loan-schedules.ts` dijalankan untuk membuat **7.811 record LoanSchedule** dari 278 pinjaman aktif (4.366 pending, 670 overdue, 2.775 sudah lunas).
+  2. Fix data extraction pada frontend `/laporan/rekap-pinjaman` — menghapus asumsi double-wrapping Axios yang menyebabkan data tidak terbaca.
+- **Status:** ✅ SELESAI — Kedua halaman kini menampilkan data sesuai ekspektasi.
+
+### D. Dashboard Navigation Links
+
+- **Gejala:** Link kontainer "Anggota" dan "Simpanan" di dashboard mengarah ke halaman yang salah.
+- **Tindakan:** Update href pada StatsCard di `dashboard/page.tsx`.
+- **Status:** ✅ SELESAI — "Anggota" → `/anggota`, "Simpanan" → `/simpanan/rekap`.
+
+### E. Perbedaan Saldo Buku Kas vs Kas (Rp 228.709.900 vs Rp 37.622.500)
+
+- **Gejala:** Halaman `/kas-bank/buku-kas` menampilkan saldo akhir Rp 228.709.900 sedangkan `/kas-bank/kas` menampilkan Rp 37.622.500.
+- **Akar Masalah:** API `/api/cash-bank/book` ketika filter akun = "all" (semua akun), `openingBalance` selalu di-set ke **0** sehingga saldo berjalan dimulai dari nol dan hanya menghitung transaksi dalam bulan tersebut. Sedangkan halaman Kas menggunakan `currentBalance` real-time dari tabel `CashBankAccount`.
+- **Tindakan:** Memperbaiki API `/api/cash-bank/book/route.ts` agar menghitung `openingBalance` berdasarkan seluruh transaksi sebelum periode yang dipilih, baik untuk mode akun tunggal maupun mode "semua akun". Sekarang kedua halaman akan menampilkan saldo yang konsisten.
+- **Status:** ✅ SELESAI — Saldo buku kas akan menampilkan saldo yang benar berdasarkan histori transaksi lengkap.
+
+### F. Teks "Koperasi" Belum Diganti ke "PRIMKOPPOL"
+
+- **Gejala:** Dashboard web masih menampilkan "aktivitas koperasi" di subtitle. Mobile app juga masih menggunakan teks "Koperasi" di beberapa layar.
+- **Tindakan:** Mengganti semua referensi teks "koperasi" menjadi "PRIMKOPPOL" atau "PRIMKOPPOL LUMAJANG" di:
+  - Web: `dashboard/page.tsx` (subtitle greeting)
+  - Mobile: `DashboardScreen.tsx` (Ringkasan, menu Aset)
+  - Mobile: `LoginScreen.tsx` (placeholder, helper text)
+  - Mobile: `LoanApplicationScreen.tsx` (aturan pinjaman)
+  - Mobile: `AnggotaCardScreen.tsx` (footer kartu)
+  - Mobile: `PengumumanScreen.tsx` (header subtitle)
+  - Mobile: `KwitansiListScreen.tsx` (header subtitle)
+  - Mobile: `LaporanSHUScreen.tsx` (Net Income label)
+  - Mobile: `MasterDataHubScreen.tsx` (menu pengumuman)
+- **Status:** ✅ SELESAI — Seluruh UI konsisten menggunakan "PRIMKOPPOL" / "PRIMKOPPOL LUMAJANG".

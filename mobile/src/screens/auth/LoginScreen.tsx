@@ -112,7 +112,7 @@ export default function LoginScreen({ setToken }: any) {
               />
               <TextInput
                 style={styles.input}
-                placeholder="NRP / Email Koperasi"
+                placeholder="NRP / Email PRIMKOPPOL"
                 placeholderTextColor="#94A3B8"
                 value={identifier}
                 onChangeText={setIdentifier}
@@ -182,7 +182,7 @@ export default function LoginScreen({ setToken }: any) {
           </View>
 
           <Text style={styles.helperText}>
-            Gunakan NRP atau Email sesuai akun portal Web Koperasi.
+            Gunakan NRP atau Email sesuai akun portal Web PRIMKOPPOL.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

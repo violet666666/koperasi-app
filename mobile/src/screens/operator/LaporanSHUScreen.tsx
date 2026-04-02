@@ -68,7 +68,7 @@ export default function LaporanSHUScreen({ navigation }: any) {
       {/* Summary Card Ovelapping Header */}
       <View style={{ paddingHorizontal: 20, marginTop: -40 }}>
         <View style={{ backgroundColor: "white", borderRadius: 16, padding: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 8, alignItems: "center" }}>
-          <Text style={{ fontSize: 14, color: C.mutedForeground }}>Estimasi Total Net Income Koperasi</Text>
+          <Text style={{ fontSize: 14, color: C.mutedForeground }}>Estimasi Total Net Income PRIMKOPPOL</Text>
           <Text style={{ fontSize: 32, fontWeight: "bold", color: C.primary, marginVertical: 8 }}>
             {formatRupiah(data.netIncome)}
           </Text>

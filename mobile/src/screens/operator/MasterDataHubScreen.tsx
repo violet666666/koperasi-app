@@ -49,7 +49,7 @@ export default function MasterDataHubScreen({ navigation }: any) {
     },
     {
       id: "announcements",
-      title: "Pengumuman Koperasi",
+      title: "Pengumuman PRIMKOPPOL",
       icon: "megaphone",
       color: "#db2777",
       bgColor: "#fce7f3", // pink

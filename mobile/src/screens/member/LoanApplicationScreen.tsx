@@ -133,7 +133,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
           {/* Info Banner Konfigurasi Pinjaman (pengganti pilih produk) */}
           <View style={[styles.productCard, { backgroundColor: C.infoBg, borderColor: C.info, borderWidth: 1, marginBottom: 16 }]}>
-            <Text style={[styles.productName, { color: C.info }]}>Aturan Pinjaman Koperasi</Text>
+            <Text style={[styles.productName, { color: C.info }]}>Aturan Pinjaman PRIMKOPPOL</Text>
             <Text style={[styles.productInfo, { color: '#000' }]}>• Bunga Pinjaman: 0.3% Flat / bulan</Text>
             <Text style={[styles.productInfo, { color: '#000' }]}>• Potongan Resiko: 2% (di depan)</Text>
             {selectedProduct && (

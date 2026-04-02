@@ -157,7 +157,7 @@ export default function DashboardScreen({ setToken }: any) {
         {/* ===== OPERATOR DASHBOARD ===== */}
         {isOperator && (
           <>
-            <Text style={styles.sectionTitle}>Ringkasan Koperasi</Text>
+            <Text style={styles.sectionTitle}>Ringkasan PRIMKOPPOL</Text>
             <View style={styles.cardRow}>
               <StatCard
                 label="Total Anggota"
@@ -263,7 +263,7 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />
                         <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
                         <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
-                        <MenuItem icon="server-outline" label="Aset Koperasi" color="#0891b2" onPress={() => navigation.navigate("AsetList")} />
+                        <MenuItem icon="server-outline" label="Aset PRIMKOPPOL" color="#0891b2" onPress={() => navigation.navigate("AsetList")} />
                     </View>
                 </CollapsibleSection>
 

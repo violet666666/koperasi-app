@@ -80,7 +80,7 @@ export default function PengumumanScreen({ navigation: navProp }: any) {
           )}
           <View>
             <Text style={styles.headerTitle}>📢 Pengumuman</Text>
-            <Text style={styles.headerSub}>Informasi & berita koperasi terbaru</Text>
+            <Text style={styles.headerSub}>Informasi & berita PRIMKOPPOL terbaru</Text>
           </View>
         </View>
       </View>
