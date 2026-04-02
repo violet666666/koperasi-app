@@ -96,18 +96,35 @@ export async function POST(request: Request) {
             }
             
             let sheetYear = new Date().getFullYear();
+            const currentYear = new Date().getFullYear();
             const yearMatch = sheetName.match(/\b(20\d{2})\b/);
-            if (yearMatch) {
+            if (yearMatch && Math.abs(parseInt(yearMatch[1], 10) - currentYear) <= 2) {
                 sheetYear = parseInt(yearMatch[1], 10);
             } else {
-                // Try finding it in the first few rows
-                for (let r = 0; r < Math.min(50, dataRows.length); r++) {
-                    const rowStr = dataRows[r].join(" ");
-                    const yM = rowStr.match(/\b(20\d{2})\b/);
-                    if (yM) {
-                        sheetYear = parseInt(yM[1], 10);
-                        break;
+                // Try extracting year from file name
+                const fileYearMatch = file.name.match(/\b(20\d{2})\b/);
+                if (fileYearMatch && Math.abs(parseInt(fileYearMatch[1], 10) - currentYear) <= 2) {
+                    sheetYear = parseInt(fileYearMatch[1], 10);
+                } else {
+                    // Try finding a recent year in the first few rows of data
+                    let foundYear = false;
+                    for (let r = 0; r < Math.min(50, dataRows.length); r++) {
+                        const rowStr = dataRows[r].join(" ");
+                        // Match all year candidates and pick only recent ones
+                        const allYears = rowStr.match(/\b(20\d{2})\b/g);
+                        if (allYears) {
+                            for (const ym of allYears) {
+                                const candidate = parseInt(ym, 10);
+                                if (Math.abs(candidate - currentYear) <= 2) {
+                                    sheetYear = candidate;
+                                    foundYear = true;
+                                    break;
+                                }
+                            }
+                            if (foundYear) break;
+                        }
                     }
+                    // If still not found, default to current year
                 }
             }
 

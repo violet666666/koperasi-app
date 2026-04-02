@@ -79,7 +79,7 @@ const MONTHS = [
 export default function BukuKasPage() {
     const now = new Date();
     const [selectedAccount, setSelectedAccount] = React.useState("all");
-    const [selectedMonth, setSelectedMonth] = React.useState(String(now.getMonth() + 1));
+    const [selectedMonth, setSelectedMonth] = React.useState("all");
     const [selectedYear, setSelectedYear] = React.useState(String(now.getFullYear()));
     const [selectedCategory, setSelectedCategory] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
@@ -167,6 +167,7 @@ export default function BukuKasPage() {
                                 <SelectValue placeholder="Bulan" />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="all">Semua Bulan</SelectItem>
                                 {MONTHS.map((m) => (
                                     <SelectItem key={m.value} value={m.value}>
                                         {m.label}

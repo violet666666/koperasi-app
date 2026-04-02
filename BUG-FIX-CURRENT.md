@@ -244,12 +244,22 @@ Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELE
   3. Baris berisi "saldo bulan lalu" tidak lagi di-skip, melainkan dimasukkan sengaja pada `-1 Hari` dari batas bulan berjalan (cth: 31 Desember 2025). Hal ini agar dengan otomatis masuk sebagai akumulasi total saldo awal.
 - **Status:** ✅ SELESAI — Logika Import teratasi, user hanya perlu mengulangi import untuk mendapat Saldo Buku Kas bersih.
 
-### H. Bug/UX: Transaksi Kas Bank "Hilang" Setelah Perbaikan Tanggal, Hanya Menampilkan Saldo Total
+### H. Bug/UX: Transaksi Kas Bank "Hilang" — Default Filter Bulan Berjalan Kosong
 
-- **Gejala:** Setelah update script import (Poin G) diterapkan, data tabel pada halaman `Buku Kas` yang sebelumnya memunculkan semua transaksi tiba-tiba menjadi kosong (hanya menampilkan "Tidak ada transaksi pada periode ini"), tetapi Saldo Total-nya terbaca besar.
-- **Akar Masalah:** Ini **bukan bug**, melainkan perbaikan *Side-effect*. 
-  1. Sebelum sistem diperbaiki, semua transaksi bapak (yang tanggalnya kosong di Excel) secara acak dicatat oleh sistem ke *Bulan Berjalan (April)* saat Bapak menekan tombol Import hari ini. Karena secara *default* saat halaman web dibuka filter menunjuk ke bulan berjalan (April), maka transaksi yang salah bulan tersebut **muncul**.
-  2. Begitu sistem **diperbaiki**, seluruh transaksi dengan sangat presisi masuk ke **Bulan Januari, Februari, dan Maret**.
-  3. Konsekuensinya, karena filter default halaman web menunjuk ke bulan **April** (dan memang tidak ada transaksi di April), tabel pun menjadi kosong. Total saldo tetap besar karena saldo berlanjut secara akumulatif dari Januari-Maret.
-- **Tindakan yang Dilakukan:**  Telah dijelaskan secara fungsional. Tidak ada perubahan *backend* yang diperlukan lagi karena sistem sekarang beroperasi sangat akurat seperti kalender asli. Bapak hanya perlu mengklik *Drop-down Filter* dan mengubahnya ke **Bulan: Januari** untuk melihat seluruh transaksi yang diimport.
-- **Status:** ✅ SELESAI — Secara bersamaan, CSS Logo Print pada Buku Kas juga telah dirubah menjadi *Rounded-Full* (Circular) dengan Background Gelap agar teks logo terbaca sempurna saat dicetak PDF.
+- **Gejala:** Halaman `Buku Kas` selalu menampilkan "Tidak ada transaksi" saat pertama dibuka karena default filter ke bulan berjalan (April) yang kosong.
+- **Akar Masalah:** Default filter bulan berjalan tidak cocok karena data import hanya ada di Januari-Maret.
+- **Tindakan yang Dilakukan:**
+  1. Menambahkan opsi **"Semua Bulan"** pada dropdown filter Bulan di halaman Buku Kas.
+  2. Mengubah default filter menjadi **"Semua Bulan"** (`month=all`) sehingga saat pertama kali dibuka, seluruh transaksi dari semua bulan langsung tampil.
+  3. Backend API `/api/cash-bank/book` diperluas untuk mendukung parameter `month=all` yang menampilkan semua transaksi dalam satu tahun.
+- **Status:** ✅ SELESAI — Halaman kini selalu menampilkan data pada kunjungan pertama. CSS Logo Print juga telah dirubah menjadi *Rounded-Full* (Circular).
+
+### I. Bug: Data Import Bulan Maret Masuk ke Tahun 2005 (Salah Tahun)
+
+- **Gejala:** Transaksi dari Sheet "MRT" (Maret) tidak muncul di Buku Kas bulan Maret 2026. Setelah investigasi di database, ditemukan bahwa transaksi tersebut tercatat dengan tanggal **Maret 2005** bukan Maret 2026.
+- **Akar Masalah:** Script import menggunakan regex `(20\d{2})` untuk mendeteksi tahun dari isi Sheet. Sheet MRT memuat uraian seperti "RAT **2005**", "THR **2005**", "SHU anggota primkopol **2005**" — ini referensi kegiatan tahun lalu, bukan tahun transaksi sebenarnya. Regex menangkap "2005" pertama dan menggunakannya sebagai tahun seluruh transaksi di sheet tersebut.
+- **Tindakan yang Dilakukan:**
+  1. Menambahkan filter `Math.abs(candidate - currentYear) <= 2` pada regex year detection. Hanya tahun yang terletak dalam jarak ±2 dari tahun sekarang yang dianggap valid.
+  2. Menambahkan fallback deteksi tahun dari **nama file Excel** (contoh: "BUKU KAS JANUARI - MARET (2).xlsx" — tidak ada tahun di sini, tapi sumber prioritas kedua sebelum scanning data rows).
+  3. Jika tidak ada tahun valid ditemukan di manapun, fallback ke `currentYear`.
+- **Status:** ✅ SELESAI — Data Maret akan masuk ke tahun yang benar setelah re-import. Perlu **reset data + import ulang** untuk menerapkan perbaikan.

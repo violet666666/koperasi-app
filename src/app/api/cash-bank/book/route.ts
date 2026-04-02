@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 
 // GET /api/cash-bank/book — Buku Kas (Cash Book) report
 // Returns transactions for a specific account and period with running balance
+// Supports month=all to show all months, or month=1-12 for specific month
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -13,18 +14,30 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const accountId = searchParams.get("accountId");
-        const month = searchParams.get("month"); // 1-12
+        const month = searchParams.get("month"); // 1-12 or "all"
         const year = searchParams.get("year");
         const category = searchParams.get("category");
 
-        // Default to current month/year
         const now = new Date();
         const filterYear = year ? parseInt(year) : now.getFullYear();
-        const filterMonth = month ? parseInt(month) : now.getMonth() + 1;
+        const isAllMonths = month === "all" || !month;
 
         // Build date range for the period
-        const startDate = new Date(filterYear, filterMonth - 1, 1);
-        const endDate = new Date(filterYear, filterMonth, 0); // Last day of month
+        let startDate: Date;
+        let endDate: Date;
+        let periodLabel: string;
+
+        if (isAllMonths) {
+            // All months for the selected year
+            startDate = new Date(filterYear, 0, 1); // Jan 1
+            endDate = new Date(filterYear, 11, 31, 23, 59, 59, 999); // Dec 31
+            periodLabel = `Tahun ${filterYear}`;
+        } else {
+            const filterMonth = parseInt(month!);
+            startDate = new Date(filterYear, filterMonth - 1, 1);
+            endDate = new Date(filterYear, filterMonth, 0, 23, 59, 59, 999);
+            periodLabel = new Date(filterYear, filterMonth - 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+        }
 
         // Build where condition
         const where: Record<string, unknown> = {
@@ -69,7 +82,6 @@ export async function GET(request: Request) {
             if (lastPriorTx) {
                 openingBalance = Number(lastPriorTx.balanceAfter);
             } else {
-                // Sum up prior transactions: in = +, out = -
                 const priorTransactions = await prisma.cashBankTransaction.findMany({
                     where: priorWhere,
                     select: { type: true, amount: true },
@@ -80,7 +92,7 @@ export async function GET(request: Request) {
                 }, 0);
             }
         } else {
-            // "All accounts" mode — sum all prior transactions across all accounts
+            // "All accounts" mode
             const priorTransactions = await prisma.cashBankTransaction.findMany({
                 where: priorWhere,
                 select: { type: true, amount: true },
@@ -155,12 +167,18 @@ export async function GET(request: Request) {
             orderBy: { code: "asc" },
         });
 
+        // Find the latest transaction date for smart default month detection
+        const latestTx = await prisma.cashBankTransaction.findFirst({
+            orderBy: { transactionDate: "desc" },
+            select: { transactionDate: true },
+        });
+
         return NextResponse.json({
             data: {
                 period: {
-                    month: filterMonth,
+                    month: isAllMonths ? 0 : parseInt(month!),
                     year: filterYear,
-                    label: `${new Date(filterYear, filterMonth - 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`,
+                    label: periodLabel,
                 },
                 openingBalance,
                 closingBalance,
@@ -168,6 +186,7 @@ export async function GET(request: Request) {
                 totalCredit,
                 entries,
                 accounts,
+                latestTransactionDate: latestTx?.transactionDate?.toISOString() || null,
             },
         });
     } catch (error) {
