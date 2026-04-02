@@ -83,7 +83,35 @@ export async function POST(request: Request) {
             const debetIdx = headers.findIndex(h => h.includes("debet"));
             const kreditIdx = headers.findIndex(h => h.includes("kredit"));
 
-            let currentValDate = new Date();
+            // Determine Year and Month from Sheet Name or data
+            let sheetMonth = new Date().getMonth();
+            const monthNames = ["JAN", "FEB", "PEB", "MAR", "MRT", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "NOV", "DES"];
+            const monthIndexes = [0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11];
+            
+            for (let m = 0; m < monthNames.length; m++) {
+                 if (sheetName.toUpperCase().includes(monthNames[m])) {
+                     sheetMonth = monthIndexes[m];
+                     break;
+                 }
+            }
+            
+            let sheetYear = new Date().getFullYear();
+            const yearMatch = sheetName.match(/\b(20\d{2})\b/);
+            if (yearMatch) {
+                sheetYear = parseInt(yearMatch[1], 10);
+            } else {
+                // Try finding it in the first few rows
+                for (let r = 0; r < Math.min(50, dataRows.length); r++) {
+                    const rowStr = dataRows[r].join(" ");
+                    const yM = rowStr.match(/\b(20\d{2})\b/);
+                    if (yM) {
+                        sheetYear = parseInt(yM[1], 10);
+                        break;
+                    }
+                }
+            }
+
+            let currentValDate = new Date(sheetYear, sheetMonth, 1);
 
             for (let i = 0; i < dataRows.length; i++) {
                 const row = dataRows[i];
@@ -96,21 +124,21 @@ export async function POST(request: Request) {
 
                 // Update floating date
                 if (rawTgl && String(rawTgl).trim() !== "") {
-                     // Try to parse Date. Native js Date parser usually works if format is somewhat standard.
-                     // Often Excel stores dates as serial numbers if raw: false isn't perfect, but we assume readable here due to xlsx default parsing.
-                    const d = new Date(rawTgl);
-                    if (!isNaN(d.getTime())) {
-                        currentValDate = d;
-                    }
+                     const dateStr = String(rawTgl).trim();
+                     if (!isNaN(Number(dateStr)) && Number(dateStr) >= 1 && Number(dateStr) <= 31) {
+                         // Day of the month
+                         currentValDate = new Date(sheetYear, sheetMonth, Number(dateStr));
+                     } else {
+                         // Try to parse full date
+                         const d = new Date(dateStr);
+                         if (!isNaN(d.getTime())) {
+                             currentValDate = d;
+                         }
+                     }
                 }
 
-                // Filtering: Skip "Saldo bulan lalu" or completely empty DEBET/KREDIT
-                if (uraian.toLowerCase().includes("saldo bulan lalu") || uraian.toLowerCase() === "saldo") {
-                    continue;
-                }
-                if (debet === 0 && kredit === 0) {
-                    continue;
-                }
+                const checkString = uraian.toLowerCase();
+                const isSaldoAwal = checkString.includes("saldo bulan") || checkString === "saldo" || checkString.includes("saldo awal");
 
                 // Determine type and category using Regex
                 let txType = "in";
@@ -120,8 +148,31 @@ export async function POST(request: Request) {
                     txAmount = kredit;
                 }
 
+                if (isSaldoAwal) {
+                    // Set to the end of the previous month so it acts as opening balance
+                    // e.g. for January (month 0), day 0 gives December 31 of prior year
+                    const dt = new Date(sheetYear, sheetMonth, 0);
+                    
+                    results.push({
+                        sheet: sheetName,
+                        row: i + headerRowIndex + 2,
+                        transactionDate: dt.toISOString(),
+                        description: uraian,
+                        type: txType,
+                        amount: txAmount,
+                        category: "lainnya",
+                        status: 'valid'
+                    });
+                    successCount++;
+                    continue;
+                }
+
+                // Filtering: Skip completely empty DEBET/KREDIT
+                if (debet === 0 && kredit === 0) {
+                    continue;
+                }
+
                 let category = "lainnya";
-                const checkString = uraian.toLowerCase();
                 
                 if (checkString.includes("angsur")) {
                      category = "angsuran_pokok";
