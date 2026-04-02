@@ -128,19 +128,21 @@ export default function BukuKasPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Buku Kas"
-                description="Catatan kas masuk dan keluar PRIMKOPPOL dengan saldo berjalan"
-                backHref="/kas-bank"
-                actions={
-                    <div className="flex gap-2 print:hidden">
-                        <Button variant="outline" size="sm" onClick={handlePrint}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            Cetak
-                        </Button>
-                    </div>
-                }
-            />
+            <div className="print:hidden">
+                <PageHeader
+                    title="Buku Kas"
+                    description="Catatan kas masuk dan keluar PRIMKOPPOL dengan saldo berjalan"
+                    backHref="/kas-bank"
+                    actions={
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={handlePrint}>
+                                <Printer className="mr-2 h-4 w-4" />
+                                Cetak
+                            </Button>
+                        </div>
+                    }
+                />
+            </div>
 
             {/* Filters */}
             <Card className="print:hidden">
@@ -204,7 +206,7 @@ export default function BukuKasPage() {
             </Card>
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-4 print:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-4 print:hidden">
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
                         <div className="rounded-lg bg-blue-100 p-2.5 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
@@ -260,12 +262,21 @@ export default function BukuKasPage() {
             </div>
 
             {/* Print Header (only visible when printing) */}
-            <div className="hidden print:block text-center mb-4">
-                <h1 className="text-xl font-bold">BUKU KAS</h1>
-                <h2 className="text-lg">KOPERASI PRIMKOPPOL LUMAJANG</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Periode: {data?.period?.label || "-"}
-                </p>
+            <div className="hidden print:flex items-center gap-4 mb-6">
+                <div className="bg-slate-900 p-2 rounded-lg flex-shrink-0" style={{ width: "80px", height: "80px" }}>
+                    <img 
+                        src="/LogoPrimkoppol.png" 
+                        alt="Logo Primkoppol" 
+                        className="w-full h-full object-contain"
+                    />
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold text-black">BUKU KAS</h1>
+                    <h2 className="text-lg font-bold text-black">PRIMKOPPOL RESOR LUMAJANG</h2>
+                    <p className="text-sm font-medium text-black mt-1">
+                        Periode: {data?.period?.label || "-"}
+                    </p>
+                </div>
             </div>
 
             {/* Buku Kas Table */}
@@ -278,8 +289,8 @@ export default function BukuKasPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <Card>
-                    <CardContent className="p-0">
+                <Card className="print:border-0 print:shadow-none">
+                    <CardContent className="p-0 print:p-0">
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -390,28 +401,25 @@ export default function BukuKasPage() {
                                             );
                                         })
                                     )}
-                                </TableBody>
-
-                                {/* Footer Summary */}
-                                {entries.length > 0 && (
-                                    <TableFooter>
-                                        <TableRow className="bg-muted/60 font-bold">
-                                            <TableCell colSpan={3} className="text-right">
-                                                TOTAL
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums text-emerald-600">
-                                                {formatCurrency(data?.totalDebit || 0)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums text-red-600">
-                                                {formatCurrency(data?.totalCredit || 0)}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums text-primary">
-                                                {formatCurrency(data?.closingBalance || 0)}
-                                            </TableCell>
-                                            <TableCell className="print:hidden" />
-                                        </TableRow>
-                                    </TableFooter>
-                                )}
+                                        {/* Footer Summary */}
+                                        {entries.length > 0 && (
+                                            <TableRow className="bg-muted/60 font-bold hover:bg-muted/60 print:break-inside-avoid">
+                                                <TableCell colSpan={3} className="text-right">
+                                                    TOTAL
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums text-emerald-600">
+                                                    {formatCurrency(data?.totalDebit || 0)}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums text-red-600">
+                                                    {formatCurrency(data?.totalCredit || 0)}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums text-primary font-bold">
+                                                    {formatCurrency(data?.closingBalance || 0)}
+                                                </TableCell>
+                                                <TableCell className="print:hidden" />
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
                             </Table>
                         </div>
                     </CardContent>
