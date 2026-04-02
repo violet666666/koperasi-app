@@ -169,8 +169,8 @@ export default function ApprovalPage() {
                     approvalsApi.list("history")
                 ]);
                 const combined = [
-                    ...((pendingRes.data as any).data || []),
-                    ...((historyRes.data as any).data || [])
+                    ...((pendingRes as any).data || []),
+                    ...((historyRes as any).data || [])
                 ];
                 setApprovals(combined);
             } catch (error) {
