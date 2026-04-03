@@ -59,37 +59,88 @@ export async function GET(request: Request) {
         const incomeAccounts: Record<string, { code: string; name: string; amount: number }> = {};
         const expenseAccounts: Record<string, { code: string; name: string; amount: number }> = {};
 
-        for (const line of journalLines) {
-            const { account } = line;
-            const debit = toNum(line.debit);
-            const credit = toNum(line.credit);
+        if (journalLines.length > 0) {
+            for (const line of journalLines) {
+                const { account } = line;
+                const debit = toNum(line.debit);
+                const credit = toNum(line.credit);
 
-            if (account.type === "income") {
-                const amount = credit - debit;
-                totalIncome += amount;
-                if (!incomeAccounts[account.code]) {
-                    incomeAccounts[account.code] = { code: account.code, name: account.name, amount: 0 };
+                if (account.type === "income") {
+                    const amount = credit - debit;
+                    totalIncome += amount;
+                    if (!incomeAccounts[account.code]) {
+                        incomeAccounts[account.code] = { code: account.code, name: account.name, amount: 0 };
+                    }
+                    incomeAccounts[account.code].amount += amount;
+                } else if (account.type === "expense") {
+                    const amount = debit - credit;
+                    totalExpense += amount;
+                    if (!expenseAccounts[account.code]) {
+                        expenseAccounts[account.code] = { code: account.code, name: account.name, amount: 0 };
+                    }
+                    expenseAccounts[account.code].amount += amount;
                 }
-                incomeAccounts[account.code].amount += amount;
-            } else if (account.type === "expense") {
-                const amount = debit - credit;
-                totalExpense += amount;
-                if (!expenseAccounts[account.code]) {
-                    expenseAccounts[account.code] = { code: account.code, name: account.name, amount: 0 };
+            }
+
+            // Build income/expense detail arrays
+            for (const key of Object.keys(incomeAccounts)) {
+                incomeDetails.push(incomeAccounts[key]);
+            }
+            for (const key of Object.keys(expenseAccounts)) {
+                expenseDetails.push(expenseAccounts[key]);
+            }
+        } else {
+            // FALLBACK: If no formal journal entries exist, derive Income/Expense from CashBank and StoreSales
+            
+            // 1. Get Expenses mostly from Biaya Operasional
+            const expensesTx = await prisma.cashBankTransaction.findMany({
+                where: { transactionDate: { gte: startDate, lte: endDate }, category: "biaya_operasional" }
+            });
+            let cbExpenseTotal = 0;
+            expensesTx.forEach(tx => cbExpenseTotal += toNum(tx.amount));
+            totalExpense += cbExpenseTotal;
+            if (cbExpenseTotal > 0) {
+                expenseDetails.push({ code: "CB-EXP", name: "Biaya Operasional (Kas & Bank)", amount: cbExpenseTotal });
+            }
+
+            // 2. Derive Income from "Lainnya" transactions that are inward and aren't obviously capital/liabilities
+            const incomeTx = await prisma.cashBankTransaction.findMany({
+                where: { 
+                    transactionDate: { gte: startDate, lte: endDate }, 
+                    category: "lainnya",
+                    type: "in"
                 }
-                expenseAccounts[account.code].amount += amount;
+            });
+            let cbIncomeTotal = 0;
+            incomeTx.forEach(tx => {
+                const desc = (tx.description || "").toLowerCase();
+                // Exclude common descriptors for equity/liability/asset transfers
+                if (!desc.includes("saldo") && !desc.includes("simpan") && !desc.includes("potongan") && !desc.includes("ansuran") && !desc.includes("sp")) {
+                    cbIncomeTotal += toNum(tx.amount);
+                }
+            });
+            totalIncome += cbIncomeTotal;
+            if (cbIncomeTotal > 0) {
+                incomeDetails.push({ code: "CB-INC", name: "Pendapatan Lainnya (Kas & Bank)", amount: cbIncomeTotal });
+            }
+
+            // 3. Add Store Sales Gross Revenue as Income (Fallback since COGS might not be calculated properly without journals)
+            try {
+                const storeSalesInc = await prisma.storeSale.aggregate({
+                    where: { createdAt: { gte: startDate, lte: endDate } },
+                    _sum: { totalAmount: true }
+                });
+                const storeIncTotal = toNum(storeSalesInc._sum.totalAmount);
+                if (storeIncTotal > 0) {
+                    totalIncome += storeIncTotal;
+                    incomeDetails.push({ code: "ST-INC", name: "Pendapatan Toko / Minimarket", amount: storeIncTotal });
+                }
+            } catch (e) {
+                // Ignore if StoreSale table doesn't exist
             }
         }
 
-        // Build income/expense detail arrays
-        for (const key of Object.keys(incomeAccounts)) {
-            incomeDetails.push(incomeAccounts[key]);
-        }
-        for (const key of Object.keys(expenseAccounts)) {
-            expenseDetails.push(expenseAccounts[key]);
-        }
-
-        const netIncome = totalIncome - totalExpense; // This is the SHU
+        const netIncome = Math.max(0, totalIncome - totalExpense); // This is the SHU, ensure it's not negative for distribution
 
         // 2. Calculate allocations per AD-ART Pasal 42
         const memberNetIncome = Math.round(netIncome * 0.8);
