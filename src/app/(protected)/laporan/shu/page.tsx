@@ -57,7 +57,7 @@ interface SHUData {
     memberNetIncome: number;
     nonMemberNetIncome: number;
     period: string;
-    month: number; // 0 = all months
+    month: number;
     periodLabel: string;
     allocationsMember: SHUAllocation[];
     allocationsNonMember: SHUAllocation[];
@@ -110,12 +110,12 @@ const columns: ColumnDef<MemberSHU>[] = [
     },
     {
         accessorKey: "totalContribution",
-        header: () => <div className="text-right">Total</div>,
+        header: () => <div className="text-right">Total Kontribusi</div>,
         cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("totalContribution"))}</div>,
     },
     {
         accessorKey: "shuShare",
-        header: () => <div className="text-right font-bold">SHU</div>,
+        header: () => <div className="text-right font-bold">SHU Diterima</div>,
         cell: ({ row }) => <div className="text-right tabular-nums font-bold text-emerald-600">{formatCurrency(row.getValue("shuShare"))}</div>,
     },
 ];
@@ -127,7 +127,6 @@ export default function LaporanSHUPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<SHUData | null>(null);
 
-    // Dynamic year options: 5 years back to 1 year forward
     const yearOptions = React.useMemo(() => {
         const years: string[] = [];
         for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
@@ -136,7 +135,6 @@ export default function LaporanSHUPage() {
         return years;
     }, []);
 
-    // Fetch SHU data from API
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
@@ -155,14 +153,12 @@ export default function LaporanSHUPage() {
                 setIsLoading(false);
             }
         }
-
         fetchData();
     }, [selectedYear, selectedMonth]);
 
     const totalMemberContribution = data?.memberShu?.reduce((sum, m) => sum + m.totalContribution, 0) || 0;
     const totalMemberShuShare = data?.memberShu?.reduce((sum, m) => sum + m.shuShare, 0) || 0;
 
-    // Computed period display label
     const periodDisplay = data?.periodLabel
         || (selectedMonth !== "all"
             ? `${MONTHS.find(m => m.value === selectedMonth)?.label} ${selectedYear}`
@@ -172,26 +168,44 @@ export default function LaporanSHUPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Laporan SHU"
-                description="Sisa Hasil Usaha dan pembagian ke anggota"
-                backHref="/laporan"
-                actions={
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => window.print()}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            Cetak
-                        </Button>
-                        <Button variant="outline" size="sm">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export
-                        </Button>
-                    </div>
-                }
-            />
+            {/* ===== PRINT HEADER — only visible when printing ===== */}
+            <div className="hidden print:flex items-center gap-5 mb-6">
+                <div className="bg-slate-900 rounded-full flex items-center justify-center flex-shrink-0" style={{ width: "100px", height: "100px", padding: "10px" }}>
+                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold text-black">LAPORAN SHU (SISA HASIL USAHA)</h1>
+                    <h2 className="text-lg font-bold text-black">PRIMKOPPOL RESOR LUMAJANG</h2>
+                    <p className="text-sm font-medium text-black mt-1">Periode: {periodDisplay}</p>
+                    {isMonthlyView && (
+                        <p className="text-xs text-gray-600 mt-0.5">⚠ Proyeksi Bulanan — SHU resmi dibagi setahun sekali saat RAT</p>
+                    )}
+                </div>
+            </div>
 
-            {/* Period Selector */}
-            <div className="flex flex-wrap items-center gap-3">
+            {/* ===== SCREEN HEADER — hidden when printing ===== */}
+            <div className="print:hidden">
+                <PageHeader
+                    title="Laporan SHU"
+                    description="Sisa Hasil Usaha dan pembagian ke anggota"
+                    backHref="/laporan"
+                    actions={
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => window.print()}>
+                                <Printer className="mr-2 h-4 w-4" />
+                                Cetak
+                            </Button>
+                            <Button variant="outline" size="sm">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </div>
+                    }
+                />
+            </div>
+
+            {/* Period Selector — hidden when printing */}
+            <div className="print:hidden flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />
                     <span>Filter Periode:</span>
@@ -232,11 +246,11 @@ export default function LaporanSHUPage() {
             ) : data ? (
                 <div className="space-y-6">
                     {/* SHU Summary */}
-                    <Card>
+                    <Card className="print:border print:border-gray-300 print:shadow-none">
                         <CardContent className="p-6">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className="rounded-lg bg-primary/10 p-4 text-primary">
+                                    <div className="rounded-lg bg-primary/10 p-4 text-primary print:hidden">
                                         <PieChart className="h-8 w-8" />
                                     </div>
                                     <div>
@@ -245,7 +259,7 @@ export default function LaporanSHUPage() {
                                         </p>
                                         <p className="text-3xl font-bold tabular-nums">{formatCurrency(data.totalShu)}</p>
                                         {isMonthlyView && (
-                                            <p className="text-xs text-muted-foreground mt-1">
+                                            <p className="text-xs text-muted-foreground mt-1 print:block">
                                                 ⚠ SHU resmi dibagi setahun sekali saat RAT. Ini adalah proyeksi perbulan.
                                             </p>
                                         )}
@@ -262,7 +276,6 @@ export default function LaporanSHUPage() {
                                     </div>
                                 </div>
                             </div>
-                            {/* Detailed Net Income split */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Total Pendapatan</p>
@@ -288,9 +301,9 @@ export default function LaporanSHUPage() {
                     {((data.incomeDetails && data.incomeDetails.length > 0) || (data.expenseDetails && data.expenseDetails.length > 0)) && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             {data.incomeDetails && data.incomeDetails.length > 0 && (
-                                <Card className="border-emerald-200">
+                                <Card className="border-emerald-200 print:border-gray-300 print:shadow-none">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-emerald-700">📈 Rincian Pendapatan — {periodDisplay}</CardTitle>
+                                        <CardTitle className="text-base text-emerald-700 print:text-black">📈 Rincian Pendapatan — {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
@@ -305,9 +318,9 @@ export default function LaporanSHUPage() {
                                 </Card>
                             )}
                             {data.expenseDetails && data.expenseDetails.length > 0 && (
-                                <Card className="border-red-200">
+                                <Card className="border-red-200 print:border-gray-300 print:shadow-none">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-red-700">📉 Rincian Beban — {periodDisplay}</CardTitle>
+                                        <CardTitle className="text-base text-red-700 print:text-black">📉 Rincian Beban — {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
@@ -325,22 +338,22 @@ export default function LaporanSHUPage() {
                     )}
 
                     {/* Allocation Table */}
-                    <Card>
+                    <Card className="print:border print:border-gray-300 print:shadow-none">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Percent className="h-5 w-5" />
+                                <Percent className="h-5 w-5 print:hidden" />
                                 Pembagian SHU dari Anggota
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-md border">
+                            <div className="rounded-md border print:border-gray-300">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Kategori</TableHead>
                                             <TableHead className="w-24">Persentase</TableHead>
                                             <TableHead className="text-right w-40">Jumlah</TableHead>
-                                            <TableHead className="hidden sm:table-cell">Keterangan</TableHead>
+                                            <TableHead>Keterangan</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -350,14 +363,14 @@ export default function LaporanSHUPage() {
                                                     <TableCell className="font-medium">{alloc.category}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Progress value={alloc.percentage} className="h-2 w-16" />
+                                                            <Progress value={alloc.percentage} className="h-2 w-16 print:hidden" />
                                                             <span className="text-sm tabular-nums">{alloc.percentage}%</span>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-right tabular-nums font-medium">
                                                         {formatCurrency(alloc.amount)}
                                                     </TableCell>
-                                                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                                                    <TableCell className="text-muted-foreground text-sm">
                                                         {alloc.description}
                                                     </TableCell>
                                                 </TableRow>
@@ -376,22 +389,22 @@ export default function LaporanSHUPage() {
                     </Card>
 
                     {/* Allocation Table Non-Member */}
-                    <Card>
+                    <Card className="print:border print:border-gray-300 print:shadow-none">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Percent className="h-5 w-5" />
+                                <Percent className="h-5 w-5 print:hidden" />
                                 Pembagian SHU dari Non-Anggota
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-md border">
+                            <div className="rounded-md border print:border-gray-300">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Kategori</TableHead>
                                             <TableHead className="w-24">Persentase</TableHead>
                                             <TableHead className="text-right w-40">Jumlah</TableHead>
-                                            <TableHead className="hidden sm:table-cell">Keterangan</TableHead>
+                                            <TableHead>Keterangan</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -401,14 +414,14 @@ export default function LaporanSHUPage() {
                                                     <TableCell className="font-medium">{alloc.category}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Progress value={alloc.percentage} className="h-2 w-16" />
+                                                            <Progress value={alloc.percentage} className="h-2 w-16 print:hidden" />
                                                             <span className="text-sm tabular-nums">{alloc.percentage}%</span>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-right tabular-nums font-medium">
                                                         {formatCurrency(alloc.amount)}
                                                     </TableCell>
-                                                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                                                    <TableCell className="text-muted-foreground text-sm">
                                                         {alloc.description}
                                                     </TableCell>
                                                 </TableRow>
@@ -427,10 +440,10 @@ export default function LaporanSHUPage() {
                     </Card>
 
                     {/* Member SHU Distribution */}
-                    <Card>
+                    <Card className="print:border print:border-gray-300 print:shadow-none">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Users className="h-5 w-5" />
+                                <Users className="h-5 w-5 print:hidden" />
                                 Pembagian SHU Anggota — {periodDisplay}
                             </CardTitle>
                         </CardHeader>
@@ -439,12 +452,58 @@ export default function LaporanSHUPage() {
                                 Jasa anggota sebesar <strong>{formatCurrency(totalMemberShuShare)}</strong> dibagikan berdasarkan kontribusi simpanan dan pinjaman anggota aktif (Total Nilai Poin Transaksi: <strong>{formatCurrency(totalMemberContribution)}</strong>).
                                 {isMonthlyView && <span className="text-blue-600"> Proporsi dihitung berdasarkan data {periodDisplay}.</span>}
                             </p>
-                            <DataTable
-                                columns={columns}
-                                data={data.memberShu || []}
-                                searchColumn="name"
-                                searchPlaceholder="Cari anggota berdasarkan nama..."
-                            />
+
+                            {/* Screen view: DataTable with pagination */}
+                            <div className="print:hidden">
+                                <DataTable
+                                    columns={columns}
+                                    data={data.memberShu || []}
+                                    searchColumn="name"
+                                    searchPlaceholder="Cari anggota berdasarkan nama..."
+                                />
+                            </div>
+
+                            {/* Print view: plain table, ALL rows, no pagination */}
+                            <div className="hidden print:block">
+                                <table className="w-full text-sm border-collapse">
+                                    <thead>
+                                        <tr className="border-b-2 border-gray-400 bg-gray-100">
+                                            <th className="text-left py-2 px-2 font-bold">No</th>
+                                            <th className="text-left py-2 px-2 font-bold">NRP</th>
+                                            <th className="text-left py-2 px-2 font-bold">Nama Anggota</th>
+                                            <th className="text-right py-2 px-2 font-bold">Jasa Modal</th>
+                                            <th className="text-right py-2 px-2 font-bold">Jasa Pelayanan</th>
+                                            <th className="text-right py-2 px-2 font-bold">Total Kontribusi</th>
+                                            <th className="text-right py-2 px-2 font-bold">SHU Diterima</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(data.memberShu || []).map((member, index) => (
+                                            <tr key={member.memberNo} className={index % 2 === 0 ? "" : "bg-gray-50"} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                                <td className="py-1.5 px-2 text-gray-500">{index + 1}</td>
+                                                <td className="py-1.5 px-2 font-mono text-xs">{member.memberNo}</td>
+                                                <td className="py-1.5 px-2 font-medium">{member.name}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.savingsContribution)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.loanContribution)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.totalContribution)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums font-bold">{formatCurrency(member.shuShare)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="border-t-2 border-gray-400 bg-gray-100 font-bold">
+                                            <td colSpan={3} className="py-2 px-2 text-right">TOTAL</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.savingsContribution, 0) || 0)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.loanContribution, 0) || 0)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(totalMemberContribution)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatCurrency(totalMemberShuShare)}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                <p className="text-xs text-gray-500 mt-3">
+                                    Total anggota: {data.memberShu?.length || 0} orang | Dicetak: {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
+                                </p>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
