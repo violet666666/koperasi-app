@@ -263,3 +263,15 @@ Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELE
   2. Menambahkan fallback deteksi tahun dari **nama file Excel** (contoh: "BUKU KAS JANUARI - MARET (2).xlsx" — tidak ada tahun di sini, tapi sumber prioritas kedua sebelum scanning data rows).
   3. Jika tidak ada tahun valid ditemukan di manapun, fallback ke `currentYear`.
 - **Status:** ✅ SELESAI — Data Maret akan masuk ke tahun yang benar setelah re-import. Perlu **reset data + import ulang** untuk menerapkan perbaikan.
+
+### J. Bug: Laporan SHU Kosong dan Tidak Realtime
+- **Gejala:** Halaman `Laporan SHU` tadinya banyak tabel kosong dan kontainer tidak memunculkan data (Total SHU, Pendapatan, Beban, dll. semuanya 0). Data tidak realtime dan perhitungannya salah/kosong.
+- **Akar Masalah:** Logika backend secara spesifik hanya menghitung laba raba dari `JournalLine` (Jurnal Umum) *pure* akuntansi standar. Koperasi saat ini lebih banyak mengandalkan import data transaksi *Cash Bank* secara lumpsum ke satu akun *CashBankTransaction*. Karena data `JournalLine` masih kosong semuanya (Belum ada aktivitas penjurnalan transparan), seluruh variabel `netIncome` menjadi 0.
+- **Tindakan yang Dilakukan:**
+  1. Menerapkan strategi **Fallback Data Collection** pada endpoint `/api/reports/shu/route.ts`.
+  2. Jika data `JournalLine` bernilai 0 dalam rentang 1 tahun, API akan secara otomatis (fallback) mengakumulasi `netIncome`:
+     - **Catatan Beban**: Diambil dari `CashBankTransaction` dengan kategori `biaya_operasional`.
+     - **Catatan Pendapatan**: Diambil dari `CashBankTransaction` tipe kas masuk (`in`) dengan kategori `lainnya` secara regex (memfilter transaksi transfer modal/aset/saldo).
+     - **Pendapatan Toko Minimarket**: Akumulasi total revenue pada `StoreSale`.
+  3. UI otomatis mengisi porsi SHU per anggota lengkap dengan Jasa Modal dan Jasa Pelayanan.
+- **Status:** ✅ SELESAI — Laporan SHU kini berfungsi penuh secara realtime dengan membaca fallback data hingga modul penjurnalan dipakai dengan benar di masa mendatang.

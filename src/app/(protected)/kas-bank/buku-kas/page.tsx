@@ -123,6 +123,50 @@ export default function BukuKasPage() {
         window.print();
     };
 
+    // Export Excel handler
+    const handleExportExcel = async () => {
+        try {
+            const ExcelJS = await import("xlsx");
+            const exportData = [
+                // Header
+                ["BUKU KAS PRIMKOPPOL RESOR LUMAJANG"],
+                [`Periode: ${data?.period?.label || "-"}`],
+                [],
+                ["Tanggal", "No. Bukti", "Keterangan", "Masuk (Debit)", "Keluar (Kredit)", "Saldo", "Kategori"],
+                // Saldo Awal
+                ["", "", "Saldo Awal Periode", "", "", data?.openingBalance || 0, ""],
+            ];
+
+            // Entries
+            if (data?.entries) {
+                data.entries.forEach(entry => {
+                    exportData.push([
+                        new Date(entry.transactionDate).toLocaleDateString("id-ID"),
+                        entry.transactionNo,
+                        entry.description,
+                        entry.debit,
+                        entry.credit,
+                        entry.saldo,
+                        categoryLabels[entry.category || ""] || ""
+                    ]);
+                });
+            }
+
+            // Summary
+            exportData.push([]);
+            exportData.push([
+                "", "", "TOTAL", data?.totalDebit || 0, data?.totalCredit || 0, data?.closingBalance || 0, ""
+            ]);
+
+            const worksheet = ExcelJS.utils.aoa_to_sheet(exportData);
+            const workbook = ExcelJS.utils.book_new();
+            ExcelJS.utils.book_append_sheet(workbook, worksheet, "Buku_Kas");
+            ExcelJS.writeFile(workbook, `Buku_Kas_${data?.period?.label || "All"}.xlsx`);
+        } catch (error) {
+            console.error("Failed to export Excel:", error);
+        }
+    };
+
     const entries = data?.entries || [];
     const accounts = data?.accounts || [];
 
@@ -135,6 +179,10 @@ export default function BukuKasPage() {
                     backHref="/kas-bank"
                     actions={
                         <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export Excel
+                            </Button>
                             <Button variant="outline" size="sm" onClick={handlePrint}>
                                 <Printer className="mr-2 h-4 w-4" />
                                 Cetak
