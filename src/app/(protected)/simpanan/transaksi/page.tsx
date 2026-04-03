@@ -17,6 +17,7 @@ import {
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { formatCurrency, SAVINGS_TRANSACTION_TYPES } from "@/lib/constants";
 import { savingsApi, masterApi } from "@/lib/api";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 // Transaction type from API
 interface Transaction {
@@ -127,6 +128,7 @@ export default function SimpananTransaksiPage() {
     const [typeFilter, setTypeFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
     const [tabunganWajibInfo, setTabunganWajibInfo] = React.useState<{
         total: number;
         count: number;
@@ -145,7 +147,7 @@ export default function SimpananTransaksiPage() {
             try {
                 setIsLoading(true);
                 const [txResponse, statsResponse] = await Promise.allSettled([
-                    savingsApi.transactions({ perPage: 50 }),
+                    savingsApi.transactions({ perPage: 9999 }),
                     fetch("/api/dashboard-stats").then(r => r.json()),
                 ]);
 
@@ -182,9 +184,11 @@ export default function SimpananTransaksiPage() {
     // Filter data
     const filteredTransactions = React.useMemo(() => {
         return transactions.filter((trx) => {
-            return typeFilter === "all" || trx.type === typeFilter;
+            const matchesType = typeFilter === "all" || trx.type === typeFilter;
+            const matchesDate = matchesDateRange(trx.transactionDate, dateRange);
+            return matchesType && matchesDate;
         });
-    }, [transactions, typeFilter]);
+    }, [transactions, typeFilter, dateRange]);
 
     return (
         <div className="space-y-6">
@@ -271,17 +275,27 @@ export default function SimpananTransaksiPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4">
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Jenis" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Jenis</SelectItem>
-                        <SelectItem value="deposit">Setoran</SelectItem>
-                        <SelectItem value="withdrawal">Penarikan</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Jenis" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Jenis</SelectItem>
+                            <SelectItem value="deposit">Setoran</SelectItem>
+                            <SelectItem value="withdrawal">Penarikan</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Card>
+                    <CardContent className="p-4 space-y-3">
+                        <DatePeriodFilter onChange={setDateRange} showImportNote />
+                        {dateRange.mode !== "all" && (
+                            <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Data Table */}

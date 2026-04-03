@@ -38,6 +38,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 interface NonSPTransaction {
     id: number;
@@ -63,6 +64,7 @@ export default function PengeluaranNonSPPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -359,6 +361,16 @@ export default function PengeluaranNonSPPage() {
                 </Card>
             </div>
 
+            {/* Filter */}
+            <Card>
+                <CardContent className="p-4 space-y-3">
+                    <DatePeriodFilter onChange={setDateRange} showImportNote />
+                    {dateRange.mode !== "all" && (
+                        <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
+                    )}
+                </CardContent>
+            </Card>
+
             {/* Data Table */}
             {isLoading ? (
                 <Card>
@@ -371,7 +383,7 @@ export default function PengeluaranNonSPPage() {
             ) : (
                 <DataTable
                     columns={columns}
-                    data={data}
+                    data={data.filter(t => matchesDateRange(t.transactionDate, dateRange))}
                     searchColumn="description"
                     searchPlaceholder="Cari transaksi..."
                 />

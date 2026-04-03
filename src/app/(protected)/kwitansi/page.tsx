@@ -35,6 +35,7 @@ import { Plus, Printer, Download, FileText, MoreHorizontal, Pencil, Trash2, Ban 
 import { receiptsApi } from "@/lib/api/services";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 import { toast } from "sonner";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 interface Receipt {
     id: number;
@@ -83,6 +84,7 @@ export default function KwitansiPage() {
     const [statusFilter, setStatusFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [receipts, setReceipts] = React.useState<Receipt[]>([]);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
 
     // Dialog state
     const [deleteTarget, setDeleteTarget] = React.useState<Receipt | null>(null);
@@ -312,11 +314,14 @@ export default function KwitansiPage() {
                         <SelectItem value="void">Batal</SelectItem>
                     </SelectContent>
                 </Select>
+                <div className="flex-1">
+                    <DatePeriodFilter onChange={setDateRange} showImportNote />
+                </div>
             </div>
 
             <DataTable
                 columns={columns}
-                data={receipts}
+                data={receipts.filter(r => matchesDateRange(r.receiptDate, dateRange))}
                 isLoading={isLoading}
                 searchPlaceholder="Cari kwitansi..."
             />

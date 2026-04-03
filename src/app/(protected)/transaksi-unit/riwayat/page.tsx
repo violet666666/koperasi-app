@@ -14,6 +14,8 @@ import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Download, FileText, Paperclip } from "lucide-react";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
+import { Card, CardContent } from "@/components/ui/card";
 
 const txExportColumns: ExportColumn[] = [
     { header: "No. Transaksi", key: "transactionNo", width: 20 },
@@ -28,12 +30,20 @@ const txExportColumns: ExportColumn[] = [
 
 export default function RiwayatTransaksiUnitPage() {
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(10);
+    const [perPage, setPerPage] = React.useState(9999);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
 
     const { data: response, isLoading } = useQuery({
         queryKey: ["unit-transactions", page, perPage],
         queryFn: () => unitTransactionsApi.list({ page, perPage }),
     });
+
+    const filteredData = React.useMemo(() => {
+        if (!response?.data) return [];
+        return (response.data as unknown as UnitTransaction[]).filter(tx => 
+            matchesDateRange(tx.transactionDate, dateRange)
+        );
+    }, [response, dateRange]);
 
     const getUnitName = (type: string) => {
         const types: Record<string, string> = {
@@ -156,9 +166,18 @@ export default function RiwayatTransaksiUnitPage() {
                 )}
             />
 
+            <Card>
+                <CardContent className="p-4 space-y-3">
+                    <DatePeriodFilter onChange={setDateRange} showImportNote />
+                    {dateRange.mode !== "all" && (
+                        <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
+                    )}
+                </CardContent>
+            </Card>
+
             <DataTable
                 columns={columns}
-                data={response?.data || []}
+                data={filteredData}
                 isLoading={isLoading}
             />
         </div>

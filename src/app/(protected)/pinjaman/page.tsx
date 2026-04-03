@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 // Loan type from API
 interface Loan {
@@ -250,6 +251,7 @@ export default function PinjamanListPage() {
     const [statusFilter, setStatusFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [loans, setLoans] = React.useState<Loan[]>([]);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
     const [globalStats, setGlobalStats] = React.useState<{ activeCount: number, totalOutstanding: number, paidOffCount: number }>({ activeCount: 0, totalOutstanding: 0, paidOffCount: 0 });
 
     // Calculate summary stats (now fetched from backend)
@@ -290,9 +292,11 @@ export default function PinjamanListPage() {
     // Filter data
     const filteredLoans = React.useMemo(() => {
         return loans.filter((loan) => {
-            return statusFilter === "all" || loan.status === statusFilter;
+            const matchesStatus = statusFilter === "all" || loan.status === statusFilter;
+            const matchesDate = matchesDateRange(loan.disbursementDate, dateRange);
+            return matchesStatus && matchesDate;
         });
-    }, [loans, statusFilter]);
+    }, [loans, statusFilter, dateRange]);
 
     return (
         <div className="space-y-6">
@@ -363,18 +367,28 @@ export default function PinjamanListPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Status</SelectItem>
-                        <SelectItem value="active">Aktif</SelectItem>
-                        <SelectItem value="paid_off">Lunas</SelectItem>
-                        <SelectItem value="written_off">Hapus Buku</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Status</SelectItem>
+                            <SelectItem value="active">Aktif</SelectItem>
+                            <SelectItem value="paid_off">Lunas</SelectItem>
+                            <SelectItem value="written_off">Hapus Buku</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Card>
+                    <CardContent className="p-4 space-y-3">
+                        <DatePeriodFilter onChange={setDateRange} showImportNote />
+                        {dateRange.mode !== "all" && (
+                            <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Data Table */}
