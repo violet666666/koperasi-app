@@ -236,7 +236,7 @@ export const reportsApi = {
     labaRugi: (params?: { branchId?: number; periodFrom?: string; periodTo?: string }) =>
         api.get<{ data: unknown }>("/reports/laba-rugi", { params }),
 
-    shu: (params?: { branchId?: number; year?: number }) =>
+    shu: (params?: { branchId?: number; year?: number; month?: number }) =>
         api.get<{ data: unknown }>("/reports/shu", { params }),
 
     membersRecap: (params?: { branchId?: number }) =>

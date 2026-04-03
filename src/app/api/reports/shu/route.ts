@@ -29,14 +29,31 @@ function toNum(d: Decimal | number | null | undefined): number {
 }
 
 // GET /api/reports/shu - Real SHU Report based on journal aggregation
+// Supports: ?year=2026 (full year) or ?year=2026&month=3 (specific month)
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
+        const monthParam = searchParams.get("month"); // 1-12 or null/all
+        const isAllMonths = !monthParam || monthParam === "all";
+        const month = isAllMonths ? null : parseInt(monthParam);
 
-        // 1. Calculate Net Income from journal entries for the year
-        const startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
-        const endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+        // 1. Build date range — either a specific month or the full year
+        let startDate: Date;
+        let endDate: Date;
+        let periodLabel: string;
+
+        if (!isAllMonths && month !== null) {
+            // Specific month: e.g., month=3 → March 1 to March 31
+            startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+            endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // day=0 gives last day of previous month
+            const monthName = new Date(year, month - 1).toLocaleDateString("id-ID", { month: "long" });
+            periodLabel = `${monthName} ${year}`;
+        } else {
+            startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
+            endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+            periodLabel = `Tahun ${year}`;
+        }
 
         // Get all journal lines for the year, grouped by account type
         const journalLines = await prisma.journalLine.findMany({
@@ -297,6 +314,8 @@ export async function GET(request: Request) {
         const shuReport = {
             totalShu: netIncome,
             period: String(year),
+            month: month ?? 0, // 0 means all months
+            periodLabel, // e.g. "Maret 2026" or "Tahun 2026"
             totalIncome,
             totalExpense,
             memberNetIncome,

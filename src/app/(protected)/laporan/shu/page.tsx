@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Download, Printer, PieChart, Users, Percent } from "lucide-react";
+import { Download, Printer, PieChart, Users, Percent, CalendarDays } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
@@ -57,6 +57,8 @@ interface SHUData {
     memberNetIncome: number;
     nonMemberNetIncome: number;
     period: string;
+    month: number; // 0 = all months
+    periodLabel: string;
     allocationsMember: SHUAllocation[];
     allocationsNonMember: SHUAllocation[];
     incomeDetails: IncomeExpenseDetail[];
@@ -64,6 +66,21 @@ interface SHUData {
     memberShu: MemberSHU[];
     memberSharePercent: number;
 }
+
+const MONTHS = [
+    { value: "1", label: "Januari" },
+    { value: "2", label: "Februari" },
+    { value: "3", label: "Maret" },
+    { value: "4", label: "April" },
+    { value: "5", label: "Mei" },
+    { value: "6", label: "Juni" },
+    { value: "7", label: "Juli" },
+    { value: "8", label: "Agustus" },
+    { value: "9", label: "September" },
+    { value: "10", label: "Oktober" },
+    { value: "11", label: "November" },
+    { value: "12", label: "Desember" },
+];
 
 const columns: ColumnDef<MemberSHU>[] = [
     {
@@ -104,16 +121,31 @@ const columns: ColumnDef<MemberSHU>[] = [
 ];
 
 export default function LaporanSHUPage() {
-    const [period, setPeriod] = React.useState("2026");
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = React.useState(String(now.getFullYear()));
+    const [selectedMonth, setSelectedMonth] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<SHUData | null>(null);
+
+    // Dynamic year options: 5 years back to 1 year forward
+    const yearOptions = React.useMemo(() => {
+        const years: string[] = [];
+        for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
+            years.push(String(y));
+        }
+        return years;
+    }, []);
 
     // Fetch SHU data from API
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                const response = await reportsApi.shu({ year: parseInt(period) });
+                const params: { year: number; month?: number } = { year: parseInt(selectedYear) };
+                if (selectedMonth !== "all") {
+                    params.month = parseInt(selectedMonth);
+                }
+                const response = await reportsApi.shu(params);
                 const reportData = response.data as unknown as SHUData;
                 setData(reportData);
             } catch (error) {
@@ -125,10 +157,18 @@ export default function LaporanSHUPage() {
         }
 
         fetchData();
-    }, [period]);
+    }, [selectedYear, selectedMonth]);
 
     const totalMemberContribution = data?.memberShu?.reduce((sum, m) => sum + m.totalContribution, 0) || 0;
     const totalMemberShuShare = data?.memberShu?.reduce((sum, m) => sum + m.shuShare, 0) || 0;
+
+    // Computed period display label
+    const periodDisplay = data?.periodLabel
+        || (selectedMonth !== "all"
+            ? `${MONTHS.find(m => m.value === selectedMonth)?.label} ${selectedYear}`
+            : `Tahun ${selectedYear}`);
+
+    const isMonthlyView = selectedMonth !== "all";
 
     return (
         <div className="space-y-6">
@@ -138,7 +178,7 @@ export default function LaporanSHUPage() {
                 backHref="/laporan"
                 actions={
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => window.print()}>
                             <Printer className="mr-2 h-4 w-4" />
                             Cetak
                         </Button>
@@ -151,17 +191,37 @@ export default function LaporanSHUPage() {
             />
 
             {/* Period Selector */}
-            <div className="flex items-center gap-4">
-                <Select value={period} onValueChange={setPeriod}>
-                    <SelectTrigger className="w-[150px]">
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" />
+                    <span>Filter Periode:</span>
+                </div>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-[130px]">
                         <SelectValue placeholder="Pilih tahun" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="2026">Tahun 2026</SelectItem>
-                        <SelectItem value="2025">Tahun 2025</SelectItem>
-                        <SelectItem value="2024">Tahun 2024</SelectItem>
+                        {yearOptions.map(y => (
+                            <SelectItem key={y} value={y}>Tahun {y}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Semua Bulan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Semua Bulan</SelectItem>
+                        {MONTHS.map(m => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {isMonthlyView && (
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                        Proyeksi Bulanan
+                    </span>
+                )}
             </div>
 
             {isLoading ? (
@@ -180,8 +240,15 @@ export default function LaporanSHUPage() {
                                         <PieChart className="h-8 w-8" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Total SHU Tahun {period}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isMonthlyView ? "Proyeksi SHU" : "Total SHU"} {periodDisplay}
+                                        </p>
                                         <p className="text-3xl font-bold tabular-nums">{formatCurrency(data.totalShu)}</p>
+                                        {isMonthlyView && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                ⚠ SHU resmi dibagi setahun sekali saat RAT. Ini adalah proyeksi perbulan.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-6">
@@ -190,7 +257,7 @@ export default function LaporanSHUPage() {
                                         <p className="text-sm text-muted-foreground">Anggota</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-2xl font-bold text-emerald-600">{data.memberSharePercent || 30}%</p>
+                                        <p className="text-2xl font-bold text-emerald-600">{data.memberSharePercent || 50}%</p>
                                         <p className="text-sm text-muted-foreground">Untuk Anggota</p>
                                     </div>
                                 </div>
@@ -223,7 +290,7 @@ export default function LaporanSHUPage() {
                             {data.incomeDetails && data.incomeDetails.length > 0 && (
                                 <Card className="border-emerald-200">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-emerald-700">📈 Rincian Pendapatan</CardTitle>
+                                        <CardTitle className="text-base text-emerald-700">📈 Rincian Pendapatan — {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
@@ -240,7 +307,7 @@ export default function LaporanSHUPage() {
                             {data.expenseDetails && data.expenseDetails.length > 0 && (
                                 <Card className="border-red-200">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-red-700">📉 Rincian Beban</CardTitle>
+                                        <CardTitle className="text-base text-red-700">📉 Rincian Beban — {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
@@ -364,18 +431,19 @@ export default function LaporanSHUPage() {
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Users className="h-5 w-5" />
-                                Pembagian SHU Anggota
+                                Pembagian SHU Anggota — {periodDisplay}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground mb-4">
                                 Jasa anggota sebesar <strong>{formatCurrency(totalMemberShuShare)}</strong> dibagikan berdasarkan kontribusi simpanan dan pinjaman anggota aktif (Total Nilai Poin Transaksi: <strong>{formatCurrency(totalMemberContribution)}</strong>).
+                                {isMonthlyView && <span className="text-blue-600"> Proporsi dihitung berdasarkan data {periodDisplay}.</span>}
                             </p>
-                            <DataTable 
-                                columns={columns} 
-                                data={data.memberShu || []} 
-                                searchColumn="name" 
-                                searchPlaceholder="Cari anggota berdasarkan nama..." 
+                            <DataTable
+                                columns={columns}
+                                data={data.memberShu || []}
+                                searchColumn="name"
+                                searchPlaceholder="Cari anggota berdasarkan nama..."
                             />
                         </CardContent>
                     </Card>
