@@ -275,3 +275,20 @@ Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELE
      - **Pendapatan Toko Minimarket**: Akumulasi total revenue pada `StoreSale`.
   3. UI otomatis mengisi porsi SHU per anggota lengkap dengan Jasa Modal dan Jasa Pelayanan.
 - **Status:** ✅ SELESAI — Laporan SHU kini berfungsi penuh secara realtime dengan membaca fallback data hingga modul penjurnalan dipakai dengan benar di masa mendatang.
+
+---
+
+## ?? 4. Optimasi: Fitur Tracking Real-Time & Periodik (Web)
+
+**Status:** ? **DONE (Selesai)**
+
+**Latar Belakang:**
+Sistem sebelumnya hanya menggunakan Pagination (menampilkan data sebagian demi sebagian) sehingga sangat sulit untuk merekonsiliasi (mencocokkan) total pendapatan atau pengeluaran pada satu hari / satu bulan spesifik secara real-time.
+
+Selain itu, banyak data turunan Excel (hasil Import Data) yang tanggalnya tidak akurat ke hitungan Hari (hanya tervalidasi bulan dan tahunnya). Hal ini berisikio menyebabkan error komputasi!
+
+**Solusi & Tindakan:**
+1. Membangun dan menanamkan DatePeriodFilter Engine di atas 8 modul keuangan utama (Kas, Bank, Simpanan Transaksi, Pinjaman, Non-SP Masuk, Non-SP Keluar, Kwitansi, Unit Transaksi).
+2. Menonaktifkan Load Parsial dan mem-force koneksi API untuk menarik ribuan data *cache* historis sekaligus (mengubah perPage ke 9999) agar client bisa men-filter data kapan saja tanpa perlu request ulang ke backend.
+3. Menyertakan sistem Graceful Degredation: dimana data-data lawas hasil import di masa lalu (yang tidak punya tanggal pasti / format date tidak valid) *tidak akan menghilang* secara ajaib, namun akan disembunyikan pada filter *Hari*, lalu memicu peringatan berwarna kuning agar Operator disarankan memakai filter *Bulan* atau *Tahun*.
+
