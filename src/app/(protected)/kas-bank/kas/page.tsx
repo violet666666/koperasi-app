@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api/services";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 interface CashTransaction {
     id: number;
@@ -78,6 +79,7 @@ export default function TransaksiKasPage() {
     const [selectedAccount, setSelectedAccount] = React.useState<string>("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
     
     // Create Mode
     const [transactionType, setTransactionType] = React.useState<"in" | "out">("in");
@@ -564,7 +566,7 @@ export default function TransaksiKasPage() {
 
             {/* Filters */}
             <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-4">
                         <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                             <SelectTrigger className="w-[200px]">
@@ -580,6 +582,12 @@ export default function TransaksiKasPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <DatePeriodFilter onChange={setDateRange} showImportNote />
+                    {dateRange.mode !== "all" && (
+                        <p className="text-xs text-muted-foreground">
+                            Menampilkan data: <strong>{dateRange.label}</strong>
+                        </p>
+                    )}
                 </CardContent>
             </Card>
 
@@ -593,12 +601,20 @@ export default function TransaksiKasPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <DataTable
-                    columns={columns}
-                    data={transactions}
-                    searchColumn="description"
-                    searchPlaceholder="Cari transaksi..."
-                />
+                <>
+                    <DataTable
+                        columns={columns}
+                        data={transactions.filter(t => matchesDateRange(t.transactionDate, dateRange))}
+                        searchColumn="description"
+                        searchPlaceholder="Cari transaksi..."
+                    />
+                    {transactions.filter(t => matchesDateRange(t.transactionDate, dateRange)).length === 0 && !isLoading && dateRange.mode !== "all" && (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                            Tidak ada transaksi pada <strong>{dateRange.label}</strong>.
+                            {dateRange.mode === "day" && " Coba filter Bulan untuk melihat data import."}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api/services";
+import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 
 interface BankTransaction {
     id: number;
@@ -135,6 +136,7 @@ export default function TransaksiBankPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [transactionType, setTransactionType] = React.useState<"in" | "out">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -370,7 +372,7 @@ export default function TransaksiBankPage() {
 
             {/* Filters */}
             <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-4">
                         <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                             <SelectTrigger className="w-[250px]">
@@ -386,6 +388,10 @@ export default function TransaksiBankPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <DatePeriodFilter onChange={setDateRange} showImportNote />
+                    {dateRange.mode !== "all" && (
+                        <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
+                    )}
                 </CardContent>
             </Card>
 
@@ -401,7 +407,7 @@ export default function TransaksiBankPage() {
             ) : (
                 <DataTable
                     columns={columns}
-                    data={transactions}
+                    data={transactions.filter(t => matchesDateRange(t.transactionDate, dateRange))}
                     searchColumn="description"
                     searchPlaceholder="Cari transaksi..."
                 />
