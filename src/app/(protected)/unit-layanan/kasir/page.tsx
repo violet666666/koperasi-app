@@ -16,7 +16,7 @@ import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 
 // Allowed roles for this page
-const ALLOWED_ROLES = ["kasir", "admin", "operator_unit"];
+const ALLOWED_ROLES = ["kasir", "admin", "operator"];
 
 // Unit types with display config
 const UNIT_OPTIONS = [
@@ -56,11 +56,27 @@ function getPackagesForUnit(unitType: string): { label: string; price: number }[
 
 export default function KasirCepatPage() {
     const { user } = useAuth();
-    const [unitType, setUnitType] = React.useState<string>("cuci_mobil");
+    // Auto-detect unit from user profile — kasir always uses their own unit
+    const userUnitType = (user as any)?.unitType as string | null | undefined;
+    const roleName = user?.role?.name ?? "";
+    const isKasir = roleName === "kasir";
+    const isOperator = roleName === "operator" || user?.permissions?.includes("manage_all");
+
+    // Kasir locked to their own unit; admin/operator can switch
+    const [unitType, setUnitType] = React.useState<string>(
+        userUnitType || "cuci_mobil"
+    );
     const [amount, setAmount] = React.useState<string>("");
     const [customerName, setCustomerName] = React.useState<string>("");
     const [description, setDescription] = React.useState<string>("");
     const [selectedPackage, setSelectedPackage] = React.useState<string>("");
+
+    // Sync unitType when user loads (for kasir)
+    React.useEffect(() => {
+        if (isKasir && userUnitType) {
+            setUnitType(userUnitType);
+        }
+    }, [isKasir, userUnitType]);
 
     const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -72,8 +88,8 @@ export default function KasirCepatPage() {
     const [selectedMember, setSelectedMember] = React.useState<any | null>(null);
 
     // Check role access
-    const role = user?.role?.name ?? "";
-    const hasAccess = ALLOWED_ROLES.includes(role) || role === "admin";
+    const role = roleName;
+    const hasAccess = ALLOWED_ROLES.includes(role) || isOperator;
 
     // When unitType changes, reset package selection
     const handleUnitChange = (val: string) => {
@@ -198,22 +214,40 @@ export default function KasirCepatPage() {
                         <CardTitle>Form Transaksi</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-5">
-                        {/* Unit Selector */}
+                        {/* Unit Selector — kasir terkunci ke unit mereka, operator/admin bisa ganti */}
                         <div className="space-y-2">
                             <Label>Unit Usaha *</Label>
-                            <Select value={unitType} onValueChange={handleUnitChange}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {UNIT_OPTIONS.map(u => (
-                                        <SelectItem key={u.value} value={u.value}>
-                                            <span className="flex items-center gap-2">
-                                                <u.icon className="h-4 w-4" />
-                                                {u.label}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {isKasir ? (
+                                // Kasir: unit terkunci, tampilkan badge
+                                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                                    {(() => {
+                                        const unit = UNIT_OPTIONS.find(u => u.value === unitType);
+                                        const UnitIcon = unit?.icon ?? Store;
+                                        return (
+                                            <>
+                                                <UnitIcon className="h-4 w-4 text-primary" />
+                                                <span className="font-medium">{unit?.label ?? unitType}</span>
+                                                <Badge variant="secondary" className="ml-auto text-xs">Kasir Unit Ini</Badge>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            ) : (
+                                // Admin/Operator: bisa pilih unit
+                                <Select value={unitType} onValueChange={handleUnitChange}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {UNIT_OPTIONS.map(u => (
+                                            <SelectItem key={u.value} value={u.value}>
+                                                <span className="flex items-center gap-2">
+                                                    <u.icon className="h-4 w-4" />
+                                                    {u.label}
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
                         </div>
 
                         {/* Package selector for specific units */}

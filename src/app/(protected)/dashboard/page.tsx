@@ -22,6 +22,8 @@ import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
 import { CashFlowChart } from "@/components/patterns/cash-flow-chart";
 import { DashboardUnitChart, DashboardDailyKasChart } from "@/components/patterns/dashboard-charts";
 import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
+import { KasirDashboard } from "@/components/patterns/kasir-dashboard";
+import { useAuth } from "@/lib/hooks";
 
 interface DashboardStats {
     totalAnggota: number;
@@ -172,6 +174,20 @@ function DashboardApprovalCard({ item, onClick }: { item: FullApprovalItem, onCl
 }
 
 export default function DashboardPage() {
+    const { user } = useAuth();
+    const roleName = user?.role?.name ?? "";
+    const unitType = (user as any)?.unitType as string | null | undefined;
+
+    // KASIR & ADMIN UNIT → show unit-specific dashboard
+    if (!user) return null; // Loading handled by layout
+    if (roleName === "kasir" || (roleName === "admin" && unitType && unitType !== "simpan_pinjam")) {
+        return (
+            <div className="p-6">
+                <KasirDashboard unitType={unitType!} roleName={roleName} />
+            </div>
+        );
+    }
+
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState<DashboardStats>({
         totalAnggota: 0,

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
     mainNavigation,
     isNavGroup,
-    filterNavigationByPermissions,
+    getNavigationForUser,
     type NavItem,
     type NavGroup,
 } from "@/lib/constants/navigation";
@@ -35,8 +35,11 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
     const pathname = usePathname();
     const { user } = useAuth();
-    const userPermissions = user?.permissions || [];
-    const filteredNavigation = filterNavigationByPermissions(mainNavigation, userPermissions);
+    const filteredNavigation = getNavigationForUser({
+        permissions: user?.permissions || [],
+        roleName: user?.role?.name || "anggota",
+        unitType: (user as any)?.unitType ?? null,
+    });
 
     return (
         <aside

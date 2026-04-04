@@ -1,4 +1,5 @@
 // Navigation configuration for the Koperasi Digital application
+// RBAC v2: Supports role-based + unitType-based filtering
 
 import {
     LayoutDashboard,
@@ -22,6 +23,8 @@ import {
     User,
     Activity,
     Receipt,
+    Store,
+    ClipboardList,
     type LucideIcon,
 } from "lucide-react";
 
@@ -29,32 +32,29 @@ export interface NavItem {
     title: string;
     href: string;
     icon?: LucideIcon;
-    permission?: string;
-    badge?: string; // Key for dynamic badge count
+    permission?: string; // Required permission key
+    roles?: string[];    // If set, only these roles can see this item
+    badge?: string;
     children?: NavItem[];
 }
 
 export interface NavGroup {
     title: string;
+    roles?: string[]; // If set, only these roles see this group
     items: NavItem[];
 }
 
+// ============================================================
+// FULL NAVIGATION — for Operator (manage_all)
+// ============================================================
 export const mainNavigation: (NavItem | NavGroup)[] = [
-    // Dashboard
-    {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-    },
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 
-    // OPERASIONAL
     {
         title: "OPERASIONAL",
         items: [
             {
-                title: "Anggota",
-                href: "/anggota",
-                icon: Users,
+                title: "Anggota", href: "/anggota", icon: Users,
                 permission: "manage_anggota",
                 children: [
                     { title: "Daftar Anggota", href: "/anggota" },
@@ -63,9 +63,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Simpanan",
-                href: "/simpanan",
-                icon: Wallet,
+                title: "Simpanan", href: "/simpanan", icon: Wallet,
                 permission: "manage_simpanan",
                 children: [
                     { title: "Rekening Anggota", href: "/simpanan/rekening" },
@@ -74,9 +72,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Pinjaman",
-                href: "/pinjaman",
-                icon: CreditCard,
+                title: "Pinjaman", href: "/pinjaman", icon: CreditCard,
                 permission: "manage_pinjaman",
                 children: [
                     { title: "Pengajuan", href: "/pinjaman/pengajuan" },
@@ -86,10 +82,9 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Kas & Bank",
-                href: "/kas-bank",
-                icon: Building,
+                title: "Kas & Bank", href: "/kas-bank", icon: Building,
                 permission: "manage_kas_bank",
+                roles: ["operator", "admin"], // kasir tidak punya
                 children: [
                     { title: "Buku Kas", href: "/kas-bank/buku-kas" },
                     { title: "Transaksi Kas", href: "/kas-bank/kas" },
@@ -98,19 +93,16 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Non Simpan Pinjam",
-                href: "/non-sp",
-                icon: ArrowLeftRight,
+                title: "Non Simpan Pinjam", href: "/non-sp", icon: ArrowLeftRight,
                 permission: "manage_kas_bank",
+                roles: ["operator", "admin"],
                 children: [
                     { title: "Penerimaan", href: "/non-sp/penerimaan" },
                     { title: "Pengeluaran", href: "/non-sp/pengeluaran" },
                 ],
             },
             {
-                title: "Transaksi Unit Layanan",
-                href: "/transaksi-unit",
-                icon: Wallet,
+                title: "Transaksi Unit Layanan", href: "/transaksi-unit", icon: Wallet,
                 permission: "manage_unit_transactions",
                 children: [
                     { title: "Kasir Cepat", href: "/unit-layanan/kasir", permission: "kasir_pos" },
@@ -118,22 +110,19 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Kwitansi",
-                href: "/kwitansi",
-                icon: Receipt,
+                title: "Kwitansi", href: "/kwitansi", icon: Receipt,
                 permission: "manage_unit_transactions",
+                roles: ["operator", "admin"],
             },
         ],
     },
 
-    // AKUNTANSI
     {
         title: "AKUNTANSI",
+        roles: ["operator", "admin"],
         items: [
             {
-                title: "Aset",
-                href: "/aset",
-                icon: Package,
+                title: "Aset", href: "/aset", icon: Package,
                 permission: "manage_aset",
                 children: [
                     { title: "Daftar Aset", href: "/aset" },
@@ -141,9 +130,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Jurnal",
-                href: "/jurnal/umum",
-                icon: BookOpen,
+                title: "Jurnal", href: "/jurnal/umum", icon: BookOpen,
                 permission: "view_jurnal",
                 children: [
                     { title: "Buku Besar", href: "/jurnal/buku-besar" },
@@ -152,9 +139,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Laporan",
-                href: "/laporan",
-                icon: FileText,
+                title: "Laporan", href: "/laporan", icon: FileText,
                 permission: "view_laporan",
                 children: [
                     { title: "Neraca", href: "/laporan/neraca" },
@@ -168,20 +153,13 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
         ],
     },
 
-    // PERIODE & SHU
     {
         title: "PERIODE & SHU",
+        roles: ["operator"],
         items: [
+            { title: "Tutup Buku", href: "/periode/tutup-buku", icon: Lock, permission: "tutup_buku" },
             {
-                title: "Tutup Buku",
-                href: "/periode/tutup-buku",
-                icon: Lock,
-                permission: "tutup_buku",
-            },
-            {
-                title: "Alokasi SHU",
-                href: "/periode/shu/perhitungan",
-                icon: PieChart,
+                title: "Alokasi SHU", href: "/periode/shu/perhitungan", icon: PieChart,
                 permission: "alokasi_shu",
                 children: [
                     { title: "Perhitungan", href: "/periode/shu/perhitungan" },
@@ -191,14 +169,12 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
         ],
     },
 
-    // TOKO
     {
         title: "TOKO",
+        roles: ["operator", "admin"],
         items: [
             {
-                title: "Toko PRIMKOPPOL",
-                href: "/toko",
-                icon: ShoppingBag,
+                title: "Toko PRIMKOPPOL", href: "/toko", icon: ShoppingBag,
                 permission: "manage_toko",
                 children: [
                     { title: "Produk", href: "/toko/produk" },
@@ -209,48 +185,32 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
         ],
     },
 
-    // KOMUNIKASI
     {
         title: "KOMUNIKASI",
         items: [
-            {
-                title: "Pengumuman",
-                href: "/pengumuman",
-                icon: Megaphone,
-                permission: "manage_pengumuman",
-            },
+            { title: "Pengumuman", href: "/pengumuman", icon: Megaphone, permission: "manage_pengumuman" },
         ],
     },
 
-    // APPROVAL
     {
         title: "APPROVAL",
+        roles: ["operator", "admin"],
         items: [
             {
-                title: "Inbox Approval",
-                href: "/approval",
-                icon: CheckSquare,
-                permission: "approve_transactions",
-                badge: "pending_approval_count",
+                title: "Inbox Approval", href: "/approval", icon: CheckSquare,
+                permission: "approve_transactions", badge: "pending_approval_count",
             },
-            {
-                title: "Audit Log",
-                href: "/audit-log",
-                icon: Activity,
-                permission: "view_audit_log",
-            },
+            { title: "Audit Log", href: "/audit-log", icon: Activity, permission: "view_audit_log" },
         ],
     },
 
-    // PENGATURAN
     {
         title: "PENGATURAN",
         items: [
             {
-                title: "Master Data",
-                href: "/master",
-                icon: Database,
+                title: "Master Data", href: "/master", icon: Database,
                 permission: "master_data",
+                roles: ["operator"],
                 children: [
                     { title: "Produk Simpanan", href: "/master/produk-simpanan" },
                     { title: "Produk Pinjaman", href: "/master/produk-pinjaman" },
@@ -263,118 +223,152 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "User Management",
-                href: "/master/users",
-                icon: UserCog,
-                permission: "user_management",
+                title: "User Management", href: "/master/users", icon: UserCog,
+                permission: "user_management", roles: ["operator"],
             },
             {
-                title: "Profil PRIMKOPPOL",
-                href: "/profil-koperasi",
-                icon: Building2,
-                permission: "edit_profil",
+                title: "Profil PRIMKOPPOL", href: "/profil-koperasi", icon: Building2,
+                permission: "edit_profil", roles: ["operator"],
+            },
+            { title: "Pengaturan", href: "/settings", icon: Settings },
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR NAVIGATION — minimal, hanya POS + Riwayat + Akun
+// ============================================================
+export const kasirNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "UNIT USAHA",
+        items: [
+            {
+                title: "Kasir Cepat (POS)", href: "/unit-layanan/kasir", icon: Store,
+                permission: "kasir_pos",
             },
             {
-                title: "Pengaturan",
-                href: "/settings",
-                icon: Settings,
+                title: "Riwayat Transaksi", href: "/transaksi-unit", icon: ClipboardList,
+                permission: "manage_unit_transactions",
             },
-            {
-                title: "Profil Saya",
-                href: "/profil",
-                icon: User,
-            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+            { title: "Pengaturan", href: "/settings", icon: Settings },
         ],
     },
 ];
 
 // Bottom navigation for mobile
 export const bottomNavigation: NavItem[] = [
-    {
-        title: "Beranda",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "Anggota",
-        href: "/anggota",
-        icon: Users,
-    },
-    {
-        title: "Simpanan",
-        href: "/simpanan",
-        icon: Wallet,
-    },
-    {
-        title: "Pinjaman",
-        href: "/pinjaman",
-        icon: CreditCard,
-    },
+    { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
+    { title: "Anggota", href: "/anggota", icon: Users },
+    { title: "Simpanan", href: "/simpanan", icon: Wallet },
+    { title: "Pinjaman", href: "/pinjaman", icon: CreditCard },
 ];
 
-// Helper function to check if a nav item is a group
+// ============================================================
+// Helpers
+// ============================================================
+
 export function isNavGroup(item: NavItem | NavGroup): item is NavGroup {
     return "items" in item;
 }
 
-// Helper function to get all flat nav items for search/command
-export function getAllNavItems(
-    navigation: (NavItem | NavGroup)[]
-): NavItem[] {
+export function getAllNavItems(navigation: (NavItem | NavGroup)[]): NavItem[] {
     const items: NavItem[] = [];
-
     for (const item of navigation) {
         if (isNavGroup(item)) {
             for (const subItem of item.items) {
                 items.push(subItem);
-                if (subItem.children) {
-                    items.push(...subItem.children);
-                }
+                if (subItem.children) items.push(...subItem.children);
             }
         } else {
             items.push(item);
-            if (item.children) {
-                items.push(...item.children);
-            }
+            if (item.children) items.push(...item.children);
         }
     }
-
     return items;
 }
 
-// Filter navigation items based on user permissions
-export function filterNavigationByPermissions(
-    navigation: (NavItem | NavGroup)[],
-    permissions: string[]
-): (NavItem | NavGroup)[] {
-    // Super admin sees everything
-    if (permissions.includes("manage_all")) return navigation;
+export interface UserContext {
+    permissions: string[];
+    roleName: string;  // "operator" | "admin" | "kasir" | "anggota"
+    unitType?: string | null;
+}
 
-    const hasAccess = (permission?: string) => {
-        if (!permission) return true; // No permission = public
+/**
+ * Main navigation filter function.
+ * Filters by: manage_all shortcut, role name (roles[]), and permission.
+ */
+export function filterNavigationByUser(
+    navigation: (NavItem | NavGroup)[],
+    user: UserContext
+): (NavItem | NavGroup)[] {
+    // Operator sees everything
+    if (user.permissions.includes("manage_all")) return navigation;
+
+    const { roleName, permissions } = user;
+
+    const hasPermission = (permission?: string) => {
+        if (!permission) return true;
         return permissions.includes(permission);
     };
 
-    const filterItems = (items: NavItem[]): NavItem[] => {
-        return items
-            .filter((item) => hasAccess(item.permission))
-            .map((item) => ({
-                ...item,
-                children: item.children
-                    ? item.children.filter((child) => hasAccess(child.permission))
-                    : undefined,
-            }));
+    const hasRole = (roles?: string[]) => {
+        if (!roles || roles.length === 0) return true;
+        return roles.includes(roleName);
     };
 
+    const filterItems = (items: NavItem[]): NavItem[] =>
+        items
+            .filter(item => hasRole(item.roles) && hasPermission(item.permission))
+            .map(item => ({
+                ...item,
+                children: item.children
+                    ? item.children.filter(c => hasRole(c.roles) && hasPermission(c.permission))
+                    : undefined,
+            }));
+
     return navigation
-        .map((item) => {
+        .map(item => {
             if (isNavGroup(item)) {
+                if (!hasRole(item.roles)) return null;
                 const filteredItems = filterItems(item.items);
                 if (filteredItems.length === 0) return null;
                 return { ...item, items: filteredItems };
             }
-            return hasAccess(item.permission) ? item : null;
+            return hasRole(item.roles) && hasPermission(item.permission) ? item : null;
         })
         .filter(Boolean) as (NavItem | NavGroup)[];
 }
 
+/**
+ * Legacy compatibility — still used in some places
+ * @deprecated Use filterNavigationByUser instead
+ */
+export function filterNavigationByPermissions(
+    navigation: (NavItem | NavGroup)[],
+    permissions: string[]
+): (NavItem | NavGroup)[] {
+    return filterNavigationByUser(navigation, { permissions, roleName: "operator", unitType: null });
+}
+
+/**
+ * Get the correct navigation for a user based on their role.
+ * Kasir gets a stripped-down menu; operator gets full menu.
+ */
+export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] {
+    if (user.permissions.includes("manage_all")) {
+        return mainNavigation; // Operator: full nav
+    }
+    if (user.roleName === "kasir") {
+        return filterNavigationByUser(kasirNavigation, user); // Kasir: minimal nav
+    }
+    // Admin unit: full nav filtered by role+permissions
+    return filterNavigationByUser(mainNavigation, user);
+}

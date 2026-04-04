@@ -9,49 +9,107 @@ import { AppShell } from "@/components/layout";
 import { ErrorBoundary } from "@/components/patterns/error-boundary";
 import { toast } from "sonner";
 
-// Map unit types to their allowed route prefixes
-const UNIT_ROUTES: Record<string, string[]> = {
-    simpan_pinjam: ["/simpanan", "/pinjaman", "/anggota", "/dashboard"],
-    toko: ["/toko", "/dashboard"],
-    fitness: ["/transaksi-unit", "/dashboard"],
-    cuci_mobil: ["/transaksi-unit", "/dashboard"],
-    fotocopy: ["/transaksi-unit", "/dashboard"],
-    laundry: ["/transaksi-unit", "/dashboard"],
-    resto_cafe: ["/transaksi-unit", "/dashboard"],
-    playstation: ["/transaksi-unit", "/dashboard"],
-    barbershop: ["/transaksi-unit", "/dashboard"],
-    aset: ["/transaksi-unit", "/dashboard"],
+// ============================================================
+// ROUTE GUARD CONFIG
+// Routes accessible by each role+unitType combination.
+// COMMON_ROUTES are always accessible to any authenticated user.
+// ============================================================
+
+const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
+
+// Kasir: HANYA kasir pos + riwayat transaksi unit mereka
+const KASIR_ALLOWED_ROUTES: Record<string, string[]> = {
+    toko:        ["/unit-layanan/kasir", "/transaksi-unit", "/toko/kasir"],
+    cuci_mobil:  ["/unit-layanan/kasir", "/transaksi-unit"],
+    resto_cafe:  ["/unit-layanan/kasir", "/transaksi-unit"],
+    fitness:     ["/unit-layanan/kasir", "/transaksi-unit"],
+    playstation: ["/unit-layanan/kasir", "/transaksi-unit"],
+    barbershop:  ["/unit-layanan/kasir", "/transaksi-unit"],
+    fotocopy:    ["/unit-layanan/kasir", "/transaksi-unit"],
+    laundry:     ["/unit-layanan/kasir", "/transaksi-unit"],
+    simpan_pinjam: ["/unit-layanan/kasir", "/transaksi-unit"],
 };
 
-// Routes always accessible to any logged-in user
-const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
+// Admin unit: bisa lihat lebih banyak tapi masih terbatas per unit
+const ADMIN_ALLOWED_ROUTES: Record<string, string[]> = {
+    simpan_pinjam: [
+        "/simpanan", "/pinjaman", "/anggota",
+        "/kas-bank", "/non-sp",
+        "/unit-layanan/kasir", "/transaksi-unit",
+        "/kwitansi", "/jurnal", "/laporan",
+        "/approval",
+    ],
+    toko: [
+        "/toko", "/unit-layanan/kasir", "/transaksi-unit",
+        "/kwitansi",
+    ],
+    cuci_mobil:  ["/unit-layanan/kasir", "/transaksi-unit"],
+    resto_cafe:  ["/unit-layanan/kasir", "/transaksi-unit", "/toko"],
+    fitness:     ["/unit-layanan/kasir", "/transaksi-unit"],
+    playstation: ["/unit-layanan/kasir", "/transaksi-unit"],
+    barbershop:  ["/unit-layanan/kasir", "/transaksi-unit"],
+    fotocopy:    ["/unit-layanan/kasir", "/transaksi-unit"],
+    laundry:     ["/unit-layanan/kasir", "/transaksi-unit"],
+    aset:        ["/aset", "/unit-layanan/kasir", "/transaksi-unit"],
+};
+
+function isPathAllowed(pathname: string, allowedPrefixes: string[]): boolean {
+    return allowedPrefixes.some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
+}
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
     const { user, logout, isLoading } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
 
-    // Unit-based route guard for Admin/Kasir
     useEffect(() => {
         if (isLoading || !user) return;
 
-        // Operator (manage_all) can access everything
+        const roleName = user?.role?.name || "";
+        const unitType = (user as any)?.unitType as string | null | undefined;
+
+        // 1. Operator (manage_all) → akses penuh, tidak ada batasan
         if (user.permissions.includes("manage_all")) return;
 
-        // Anggota doesn't use protected routes (they use /portal)
-        if (user.role.name === "anggota") return;
+        // 2. Anggota → harus pakai /portal, bukan /dashboard
+        if (roleName === "anggota") {
+            if (!pathname.startsWith("/portal")) {
+                router.replace("/portal/dashboard");
+            }
+            return;
+        }
 
-        // Admin/Kasir: check if route is allowed for their unit
-        const unitType = (user as any).unitType;
-        if (unitType && UNIT_ROUTES[unitType]) {
-            const allowedPrefixes = [...UNIT_ROUTES[unitType], ...COMMON_ROUTES];
-            const isAllowed = allowedPrefixes.some(prefix => pathname.startsWith(prefix));
-
-            if (!isAllowed) {
-                toast.error("Anda tidak memiliki akses ke halaman ini");
+        // 3. KASIR — akses sangat terbatas
+        if (roleName === "kasir") {
+            const allowed = [
+                ...COMMON_ROUTES,
+                ...(unitType && KASIR_ALLOWED_ROUTES[unitType] ? KASIR_ALLOWED_ROUTES[unitType] : []),
+            ];
+            if (!isPathAllowed(pathname, allowed)) {
+                toast.error("Akses tidak diizinkan untuk role Kasir");
                 router.replace("/dashboard");
             }
+            return;
         }
+
+        // 4. ADMIN unit — akses terbatas berdasarkan unitType
+        if (roleName === "admin") {
+            const allowed = [
+                ...COMMON_ROUTES,
+                ...(unitType && ADMIN_ALLOWED_ROUTES[unitType] ? ADMIN_ALLOWED_ROUTES[unitType] : []),
+            ];
+            if (!isPathAllowed(pathname, allowed)) {
+                toast.error("Halaman ini tidak tersedia untuk unit Anda");
+                router.replace("/dashboard");
+            }
+            return;
+        }
+
+        // 5. Fallback — role tidak dikenal, boleh akses common routes saja
+        if (!isPathAllowed(pathname, COMMON_ROUTES)) {
+            router.replace("/dashboard");
+        }
+
     }, [pathname, user, isLoading, router]);
 
     if (isLoading) {
@@ -64,21 +122,14 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
 
     return (
         <ErrorBoundary>
-            <AppShell
-                user={user}
-                onLogout={logout}
-            >
+            <AppShell user={user} onLogout={logout}>
                 {children}
             </AppShell>
         </ErrorBoundary>
     );
 }
 
-export default function ProtectedLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
             <ProtectedContent>{children}</ProtectedContent>
