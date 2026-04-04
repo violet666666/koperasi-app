@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { code, name, type, bankName, accountNumber, branchId, glAccountId } = body;
+        const { code, name, type, bankName, accountNumber, branchId, glAccountId, unitType } = body;
 
         if (!code || !name || !type || !branchId) {
             return NextResponse.json(
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
                 accountNumber: type === "bank" ? accountNumber : null,
                 branchId: parseInt(branchId),
                 glAccountId: glAccountId ? parseInt(glAccountId) : null,
+                unitType: unitType || null,
                 currentBalance: 0,
                 isActive: true,
             },

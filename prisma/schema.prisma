@@ -507,6 +507,7 @@ model CashBankAccount {
   accountNumber  String?   @map("account_number")
   branchId       Int       @map("branch_id")
   glAccountId    Int?      @map("gl_account_id")
+  unitType       String?   @map("unit_type") // toko, play_station, fitness, coffe_latar, barbershop, carwash, resto, properti, simpan_pinjam
   currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
   isActive       Boolean   @default(true) @map("is_active")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -662,11 +663,12 @@ model ApprovalRequest {
 model UnitTransaction {
   id              Int       @id @default(autoincrement())
   transactionNo   String    @unique @map("transaction_no")
-  memberId        Int       @map("member_id")
-  unitType        String    @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset
+  memberId        Int?      @map("member_id")
+  unitType        String    @map("unit_type") // toko, play_station, fitness, coffe_latar, barbershop, carwash, resto, properti, simpan_pinjam
   description     String
   amount          Decimal   @db.Decimal(15, 2)
   transactionDate DateTime  @map("transaction_date") @db.Date
+  paymentMethod   String    @default("cash") @map("payment_method") // cash, qris, salary_cut
   isPaid          Boolean   @default(false) @map("is_paid")
   paidDate        DateTime? @map("paid_date") @db.Date
   notes           String?
@@ -675,8 +677,8 @@ model UnitTransaction {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  member    Member @relation(fields: [memberId], references: [id])
-  createdBy User   @relation("UnitTxCreatedBy", fields: [createdById], references: [id])
+  member    Member? @relation(fields: [memberId], references: [id])
+  createdBy User    @relation("UnitTxCreatedBy", fields: [createdById], references: [id])
 
   @@map("unit_transactions")
 }
@@ -690,6 +692,7 @@ model StoreProduct {
   sku       String    @unique
   name      String
   category  String?
+  unitType  String    @default("toko") @map("unit_type") // toko, resto, coffe_latar
   costPrice Decimal   @default(0) @map("cost_price") @db.Decimal(15, 2)
   sellPrice Decimal   @map("sell_price") @db.Decimal(15, 2)
   stock     Int       @default(0) // Now acts as Total Stock
@@ -711,6 +714,7 @@ model StoreSale {
   id            Int       @id @default(autoincrement())
   saleNo        String    @unique @map("sale_no")
   memberId      Int?      @map("member_id")
+  unitType      String    @default("toko") @map("unit_type") // toko, resto, coffe_latar
   customerName  String?   @map("customer_name")
   totalAmount   Decimal   @map("total_amount") @db.Decimal(15, 2)
   paymentMethod String    @default("cash") @map("payment_method")

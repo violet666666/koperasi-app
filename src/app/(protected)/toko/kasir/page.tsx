@@ -102,23 +102,27 @@ export default function KasirPage() {
         } finally { setIsSearchingMember(false); }
     };
 
-    // Process payment (cash or credit)
-    const processPayment = async (method: "cash" | "credit") => {
+    // Process payment (cash, qris, or salary_cut)
+    const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Keranjang kosong"); return; }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
-        if (method === "credit" && !selectedMember) { toast.error("Pilih anggota untuk pembayaran kredit"); return; }
+        if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota untuk pembayaran potong gaji"); return; }
 
         setIsProcessing(true);
         try {
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
-                customerName: method === "credit" ? selectedMember?.name : (customerName || undefined),
+                customerName: method === "salary_cut" ? selectedMember?.name : (customerName || undefined),
                 paymentMethod: method,
+                unitType: "toko",
             };
             if (method === "cash") {
                 body.cashReceived = Number(paymentAmount);
             }
-            if (method === "credit") {
+            if (method === "qris") {
+                body.cashReceived = subtotal; // Qris exact amount exact
+            }
+            if (method === "salary_cut") {
                 body.memberId = selectedMember?.id;
             }
 
@@ -132,6 +136,8 @@ export default function KasirPage() {
 
             if (method === "cash") {
                 toast.success(`Transaksi ${json.data.saleNo} berhasil! Kembalian: ${formatCurrency(json.data.changeAmount)}`);
+            } else if (method === "qris") {
+                toast.success(`Transaksi QRIS ${json.data.saleNo} berhasil!`);
             } else {
                 toast.success(`Transaksi kredit ${json.data.saleNo} berhasil! Potong gaji anggota ${selectedMember?.name}`);
             }
@@ -140,7 +146,7 @@ export default function KasirPage() {
             const receiptData: KasirReceiptData = {
                 saleNo: json.data.saleNo,
                 saleDate: new Date().toISOString(),
-                customerName: method === "credit" ? selectedMember?.name : customerName,
+                customerName: method === "salary_cut" ? selectedMember?.name : customerName,
                 cashierName: "Kasir Toko",
                 items: cart.map(item => ({
                     name: item.product.name,
@@ -292,19 +298,24 @@ export default function KasirPage() {
                                 )}
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 mt-4 space-y-0 pb-3">
                                 <Button className="flex-1" onClick={() => processPayment("cash")}
                                     disabled={cart.length === 0 || isProcessing}>
                                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />}
                                     Bayar Tunai
                                 </Button>
+                                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => processPayment("qris")}
+                                    disabled={cart.length === 0 || isProcessing}>
+                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                                    QRIS
+                                </Button>
                             </div>
 
                             {/* Credit Payment */}
-                            <Button variant="outline" className="w-full" disabled={cart.length === 0}
+                            <Button variant="outline" className="w-full mb-3" disabled={cart.length === 0}
                                 onClick={() => setShowCreditDialog(true)}>
-                                <CreditCard className="mr-2 h-4 w-4" />
-                                Bayar Kredit (Potong Gaji)
+                                <User className="mr-2 h-4 w-4" />
+                                Bayar via Potong Gaji
                             </Button>
 
                             <Button variant="outline" className="w-full" disabled={!lastReceipt}
@@ -370,9 +381,9 @@ export default function KasirPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowCreditDialog(false)}>Batal</Button>
-                        <Button disabled={!selectedMember || isProcessing} onClick={() => processPayment("credit")}>
+                        <Button disabled={!selectedMember || isProcessing} onClick={() => processPayment("salary_cut")}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                            Proses Kredit
+                            Proses Potong Gaji
                         </Button>
                     </DialogFooter>
                 </DialogContent>

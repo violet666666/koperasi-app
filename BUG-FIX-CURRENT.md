@@ -493,3 +493,31 @@ Lokasi: src/app/(protected)/settings/page.tsx
 
 Toggle email notifikasi, session timeout, 2FA tidak berdampak apapun ke sistem. UI placeholder saja.
 Rencana: Buat tabel AppSetting di Prisma, API GET/PUT /api/settings, integrasikan dengan NextAuth dan email provider.
+
+---
+
+## 🛒 16. Fitur Baru: Arsitektur Kasir POS Multi-Unit (Toko, Carwash, Resto, dll)
+
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Kebutuhan:**
+Berdasarkan data operasional dari rekan Bapak, Koperasi memiliki banyak unit layanan di 2 lokasi (Jl. Panjaitan dan Minakoncar) seperti Carwash, Resto, Barbershop, Play Station, dll. Sistem POS sebelumnya hanya ditujukan untuk Toko Sembako dengan pemotongan stok.
+
+**Solusi & Tindakan:**
+1. **Identitas Unit:** Model database `CashBankAccount` dan transaksi telah dilengkapi metadata `unitType` untuk mendeteksi uang masuk/keluar ini milik unit apa.
+2. **Routing Otomatis:** Saat Kasir menekan "Bayar Tunai" atau "QRIS", uang tidak lagi bercampur menjadi satu. Sistem akan mencari Rekening / Kas yang `unitType`-nya sesuai dengan unit tersebut dan secara realtime memperbarui buku kas-nya.
+3. **Kasir Cepat Unit Layanan:** Membuat halaman `/unit-layanan/kasir` khusus untuk transaksi simpel (tanpa pilih barang) bagi bisnis jasa seperti Carwash/Barbershop.
+4. **Potongan Gaji (Piutang Koperasi):** Untuk seluruh metode "Potongan Gaji", sistem tidak merecord uang ke bank/kas, melainkan menjurnal tagihan tersebut ke dalam menu Piutang Anggota (`UnitTransaction`) yang akan otomatis memotong limit belanja anggota untuk ditagih bulanan.
+
+---
+
+## 🔧 17. Bug Build Time: Build Gagal Karena Typo Next.JS dan TypeScript
+
+**Status:** ✅ **DONE (Selesai)**
+
+**Analisa Kebutuhan & Akar Masalah:**
+Saat Bapak menjalankan `npm run build`, muncul peringatan `middleware file convention is deprecated` dan `upgrade prisma`. Kedua hal tersebut HANYALAH Peringatan (Warning) dan sangat aman untuk dihiraukan. 
+Namun, Build Gagal sepenuhnya (*Exit Code 1*) dikarenakan perubahan skema dari *Implementasi POS* yang membuat `UnitTransaction.memberId` menjadi opsional (`Int?`), sehingga ketika API SHU mencoba mengakumulasikan tagihan dengan `memberPurchases[tx.memberId]`, TypeScript langsung memblokir kompilasi.
+
+**Solusi & Tindakan:**
+Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/reports/shu/route.ts` sebelum data SHU tersebut ditambahkan ke array/object. Proses `npm run build` otomatis berjalan dengan langgeng dan lancar kembali.

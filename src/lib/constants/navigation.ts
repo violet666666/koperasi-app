@@ -108,10 +108,14 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Transaksi Unit",
+                title: "Transaksi Unit Layanan",
                 href: "/transaksi-unit",
                 icon: Wallet,
                 permission: "manage_unit_transactions",
+                children: [
+                    { title: "Kasir Cepat", href: "/unit-layanan/kasir" },
+                    { title: "Piutang & Riwayat", href: "/transaksi-unit" },
+                ],
             },
             {
                 title: "Kwitansi",

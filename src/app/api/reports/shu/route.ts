@@ -237,7 +237,9 @@ export async function GET(request: Request) {
                 select: { memberId: true, amount: true },
             });
             for (const tx of unitTx) {
-                memberPurchases[tx.memberId] = (memberPurchases[tx.memberId] || 0) + toNum(tx.amount);
+                if (tx.memberId) {
+                    memberPurchases[tx.memberId] = (memberPurchases[tx.memberId] || 0) + toNum(tx.amount);
+                }
             }
         } catch (e) {
             console.log("UnitTransaction query error for SHU calculation");

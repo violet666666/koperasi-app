@@ -49,6 +49,7 @@ interface CashBankAccountFull {
     accountNumber?: string | null;
     branchId: number;
     glAccountId?: number | null;
+    unitType?: string | null;
     currentBalance: number;
     isActive: boolean;
     branch?: { id: number; name: string; code: string };
@@ -93,6 +94,7 @@ function CashBankForm({
         accountNumber: account?.accountNumber || "",
         branchId: account?.branchId?.toString() || "",
         glAccountId: account?.glAccountId?.toString() || "",
+        unitType: account?.unitType || "simpan_pinjam",
         isActive: account?.isActive ?? true,
     });
 
@@ -254,6 +256,33 @@ function CashBankForm({
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
                         Hubungkan dengan akun Bagan Akun agar saldo otomatis tercatat di jurnal.
+                    </p>
+                </div>
+                <div className="sm:col-span-2">
+                    <Label htmlFor="unitType">Unit Usaha / Alokasi Rekening</Label>
+                    <Select
+                        value={formData.unitType}
+                        onValueChange={(val) =>
+                            setFormData((p) => ({ ...p, unitType: val }))
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Pilih unit usaha..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="simpan_pinjam">Simpan Pinjam (Sentral)</SelectItem>
+                            <SelectItem value="toko">Toko</SelectItem>
+                            <SelectItem value="play_station">Play Station</SelectItem>
+                            <SelectItem value="fitness">Fitnes</SelectItem>
+                            <SelectItem value="coffe_latar">Coffe Latar</SelectItem>
+                            <SelectItem value="barbershop">Barbershop</SelectItem>
+                            <SelectItem value="carwash">Carwash</SelectItem>
+                            <SelectItem value="resto">Resto</SelectItem>
+                            <SelectItem value="properti">Properti</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Pilih unit agar sistem POS otomatis melakukan routing ke rekening ini.
                     </p>
                 </div>
             </div>

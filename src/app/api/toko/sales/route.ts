@@ -53,7 +53,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { items, customerName, paymentMethod, cashReceived, createdById, memberId } = body;
+        const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType } = body;
+        const unitType = reqUnitType || "toko";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "Keranjang kosong" }, { status: 400 });
@@ -91,16 +92,19 @@ export async function POST(request: Request) {
                 return NextResponse.json({ message: "Pembayaran kurang" }, { status: 400 });
             }
             changeAmount = payment - totalAmount;
-        } else if (method === "credit") {
+        } else if (method === "salary_cut") {
             // Credit: validate member exists
             if (!memberId) {
-                return NextResponse.json({ message: "Member ID diperlukan untuk pembayaran kredit" }, { status: 400 });
+                return NextResponse.json({ message: "Member ID diperlukan untuk pembayaran potong gaji" }, { status: 400 });
             }
             const member = await prisma.member.findUnique({ where: { id: memberId } });
             if (!member) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
             payment = 0;
+            changeAmount = 0;
+        } else if (method === "qris") {
+            payment = totalAmount;
             changeAmount = 0;
         }
 
@@ -126,9 +130,9 @@ export async function POST(request: Request) {
         let journalId: number | null = null;
 
         if (tokoIncomeAccount && headOffice && currentPeriod) {
-            const debitAccountId = method === "credit"
+            const debitAccountId = method === "salary_cut"
                 ? (piutangTokoAccount?.id || kasAccount?.id)
-                : kasAccount?.id;
+                : kasAccount?.id; // Tunai & QRIS go to kasAccount logic (simulated in journal)
 
             if (debitAccountId) {
                 const journal = await prisma.journal.create({
@@ -136,7 +140,7 @@ export async function POST(request: Request) {
                         journalNo,
                         branchId: headOffice.id,
                         transactionDate: now,
-                        description: `Penjualan Toko ${method === "credit" ? "(Kredit)" : "(Tunai)"} - ${saleNo}`,
+                        description: `Penjualan ${unitType} ${method === "salary_cut" ? "(Potong Gaji)" : (method === "qris" ? "(QRIS)" : "(Tunai)")} - ${saleNo}`,
                         sourceType: "store_sale",
                         periodId: currentPeriod.id,
                         isPosted: true,
@@ -151,9 +155,9 @@ export async function POST(request: Request) {
                             accountId: debitAccountId,
                             debit: totalAmount,
                             credit: 0,
-                            description: method === "credit"
-                                ? "Piutang toko (potong gaji)"
-                                : "Kas masuk penjualan toko",
+                            description: method === "salary_cut"
+                                ? `Piutang ${unitType} (potong gaji)`
+                                : `Kas masuk penjualan ${unitType}`,
                         },
                         {
                             journalId: journal.id,
@@ -173,11 +177,12 @@ export async function POST(request: Request) {
         const sale = await prisma.storeSale.create({
             data: {
                 saleNo,
-                memberId: method === "credit" ? memberId : null,
+                memberId: method === "salary_cut" ? memberId : null,
+                unitType,
                 customerName: customerName || null,
                 totalAmount,
                 paymentMethod: method,
-                cashReceived: method === "cash" ? payment : 0,
+                cashReceived: (method === "cash" || method === "qris") ? payment : 0,
                 changeAmount,
                 journalId,
                 periodId: currentPeriod?.id || null,
@@ -203,44 +208,49 @@ export async function POST(request: Request) {
         }
 
         // ============================================================
-        // FIX K-1: Sinkronisasi Kas Fisik (Tunai)
-        // Saat penjualan tunai, uang masuk harus dicatat ke CashBankTransaction
-        // agar saldo Kas & Buku Kas terupdate secara real-time.
+        // FIX K-1: Sinkronisasi Kas Fisik & Bank
+        // Saat penjualan tunai/QRIS, uang masuk dicatat ke CashBankTransaction
         // ============================================================
-        if (method === "cash") {
+        if (method === "cash" || method === "qris") {
             try {
-                // Temukan rekening kas utama (kas kecil / kas toko)
-                const kasAccount = await prisma.cashBankAccount.findFirst({
-                    where: { type: "cash", isActive: true },
+                // Temukan rekening kas/bank sesuai unit
+                const targetAccount = await prisma.cashBankAccount.findFirst({
+                    where: { 
+                        type: method === "cash" ? "cash" : "bank",
+                        unitType: unitType,
+                        isActive: true 
+                    },
                     orderBy: { id: "asc" },
                 });
 
-                if (kasAccount) {
-                    const currentBal = Number(kasAccount.currentBalance);
+                if (targetAccount) {
+                    const currentBal = Number(targetAccount.currentBalance);
                     const newBal = currentBal + totalAmount;
 
                     // Catat transaksi masuk di Buku Kas
                     await prisma.cashBankTransaction.create({
                         data: {
-                            transactionNo: `TK-KAS-${Date.now().toString(36).toUpperCase()}`,
-                            accountId: kasAccount.id,
-                            branchId: kasAccount.branchId,
+                            transactionNo: `TK-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: targetAccount.id,
+                            branchId: targetAccount.branchId,
                             type: "in",
                             category: "pendapatan_toko",
                             amount: totalAmount,
                             balanceBefore: currentBal,
                             balanceAfter: newBal,
-                            description: `Penjualan Toko Tunai - ${saleNo}`,
+                            description: `Penjualan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now,
                             createdById: userId,
                         },
                     });
 
-                    // Update saldo rekening kas
+                    // Update saldo rekening
                     await prisma.cashBankAccount.update({
-                        where: { id: kasAccount.id },
+                        where: { id: targetAccount.id },
                         data: { currentBalance: newBal },
                     });
+                } else {
+                    console.error(`[Multi-Unit] Rekening ${method === "cash" ? "Kas" : "Bank"} untuk unit ${unitType} tidak ditemukan. Uang masuk tidak terjurnal ke rekening.`);
                 }
             } catch (cashErr) {
                 // Jangan batalkan transaksi — hanya log agar tidak merusak checkout
@@ -249,11 +259,10 @@ export async function POST(request: Request) {
         }
 
         // ============================================================
-        // FIX K-3: Buat Tagihan Piutang Toko (Kredit / Potong Gaji)
-        // Saat penjualan kredit, sistem harus otomatis membuat tagihan
-        // UnitTransaction dengan isPaid:false agar dapat ditagih admin.
+        // FIX K-3: Buat Tagihan Piutang (Kredit / Potong Gaji)
+        // Saat potongan gaji, sistem membuat tagihan UnitTransaction
         // ============================================================
-        if (method === "credit" && memberId) {
+        if (method === "salary_cut" && memberId) {
             try {
                 const memberForCredit = await prisma.member.findUnique({ where: { id: memberId } });
                 if (memberForCredit) {
@@ -261,8 +270,8 @@ export async function POST(request: Request) {
                         data: {
                             transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}`,
                             memberId: memberId,
-                            unitType: "toko",
-                            description: `Piutang Toko (Kredit) - ${saleNo}`,
+                            unitType: unitType,
+                            description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,
                             amount: totalAmount,
                             transactionDate: now,
                             isPaid: false,
@@ -285,9 +294,9 @@ export async function POST(request: Request) {
             await logAudit({
                 ...userInfo, ...reqInfo,
                 action: "CREATE", module: "Toko",
-                description: `Penjualan ${method === 'credit' ? 'kredit' : 'tunai'}: ${sale.saleNo} - Rp ${Number(sale.totalAmount).toLocaleString()}`,
+                description: `Penjualan ${method}: ${sale.saleNo} - Rp ${Number(sale.totalAmount).toLocaleString()}`,
                 targetId: String(sale.id), targetType: "StoreSale",
-                newData: { saleNo: sale.saleNo, totalAmount: Number(sale.totalAmount), paymentMethod: method, memberId: body.memberId || null },
+                newData: { saleNo: sale.saleNo, totalAmount: Number(sale.totalAmount), paymentMethod: method, memberId: body.memberId || null, unitType },
             });
         } catch (e) { /* audit log failure must not break response */ }
 
@@ -298,7 +307,7 @@ export async function POST(request: Request) {
                 cashReceived: Number(sale.cashReceived),
                 changeAmount: Number(sale.changeAmount),
                 paymentMethod: method,
-                items: sale.items.length,
+                items: validatedItems.length,
             },
         }, { status: 201 });
     } catch (error) {
