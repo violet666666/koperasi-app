@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
-  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator
+  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as SecureStore from 'expo-secure-store';
-import api from '../../lib/api';
+import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 
 interface Product { id: number; sku: string; name: string; price: number; stock: number; unit: string; }
@@ -59,11 +59,14 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [quickCustomer, setQuickCustomer] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('');
 
-  // Member Search State
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [searchingMember, setSearchingMember] = useState(false);
+
+  // QRIS Modal State
+  const [showQrisModal, setShowQrisModal] = useState(false);
+  const [qrisPreviewKey, setQrisPreviewKey] = useState(Date.now().toString()); // Cache buster
 
   // Flags for mode
   const isQuickSale = unitType === 'cuci_mobil' || unitType === 'barbershop' || unitType === 'fotocopy';
@@ -218,20 +221,24 @@ export default function KasirScreen({ navigation: navProp }: any) {
         return;
     }
 
-    if (method === 'salary_cut') {
-      setShowMemberModal(true); // Open member search
-      setMemberSearch('');
-      setMembers([]);
+    if (method === 'qris') {
+      setShowQrisModal(true);
       return;
     }
 
+    if (method === 'salary_cut') {
+      setShowMemberModal(true);
+      return;
+    }
+    
+    // Cash
     Alert.alert(
-      `Checkout ${method === 'cash' ? 'Tunai' : 'QRIS'}?`,
-      `Total: ${formatRp(total)}\n${isQuickSale ? 'Jasa: ' + (quickDesc || 'Walk-in') : cart.length + ' item'}`,
+      'Konfirmasi',
+      `Terima Pembayaran Tunai sejumlah ${formatRp(total)}?`,
       [
         { text: 'Batal', style: 'cancel' },
-        { text: 'Bayar', onPress: () => isQuickSale ? performQuickCheckoutAPI(method, null) : performStandardCheckoutAPI(method, null) },
-      ],
+        { text: 'Ya, Proses', onPress: () => isQuickSale ? performQuickCheckoutAPI('cash', null) : performStandardCheckoutAPI('cash', null) }
+      ]
     );
   };
 
@@ -473,6 +480,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
         {/* Member Modal for Salary Cut (Both Kasir Modes) */}
         {renderMemberModal()}
+        {renderQrisModal()}
       </View>
     );
   }
@@ -532,8 +540,56 @@ export default function KasirScreen({ navigation: navProp }: any) {
       </ScrollView>
 
       {renderMemberModal()}
+      {renderQrisModal()}
     </View>
   );
+
+  function renderQrisModal() {
+    return (
+      <Modal visible={showQrisModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 15 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.accent }}>Pindai QRIS Unit</Text>
+              <TouchableOpacity onPress={() => setShowQrisModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={{ backgroundColor: '#F0F9FF', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#BAE6FD', borderStyle: 'dashed' }}>
+              <Text style={{ fontSize: 12, color: '#0369A1', marginBottom: 10, textAlign: 'center' }}>
+                Arahkan layar ini ke pelanggan untuk melakukan Scan Kode QR.
+              </Text>
+              <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 12, elevation: 4 }}>
+                <Image 
+                  source={{ uri: `${BASE_URL}/uploads/qris/qris-${unitType}.png?t=${qrisPreviewKey}` }} 
+                  style={{ width: 200, height: 200, resizeMode: 'contain' }} 
+                />
+              </View>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0369A1', marginTop: 15 }}>
+                {formatRp(total)}
+              </Text>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]} 
+              onPress={() => {
+                setShowQrisModal(false);
+                if (isQuickSale) {
+                  performQuickCheckoutAPI('qris', null);
+                } else {
+                  performStandardCheckoutAPI('qris', null);
+                }
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+              <Text style={[styles.cashText, { color: '#FFF' }]}>Pelanggan Sudah Membayar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   function renderMemberModal() {
     return (
@@ -650,10 +706,10 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 15, color: C.mutedForeground },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFF', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, minHeight: 400 },
-  modalInput: { backgroundColor: '#F1F5F9', padding: 12, borderRadius: 12, fontSize: 16 },
-  modalMemberItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: C.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300, maxHeight: '90%' },
+  modalInput: { backgroundColor: '#F1F5F9', borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  modalMemberItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   
   // Kasir Cepat Styles
   label: { fontSize: 13, color: '#64748B', marginBottom: 6, marginTop: 12, fontWeight: '600' },
