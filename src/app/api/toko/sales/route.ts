@@ -104,10 +104,9 @@ export async function POST(request: Request) {
             changeAmount = 0;
         }
 
-        // Generate sale number
+        // Generate sale number — pakai timestamp + random agar unik meski 2 kasir bersamaan
         const now = new Date();
-        const saleCount = await prisma.storeSale.count();
-        const saleNo = `TK-${now.getFullYear()}${String(saleCount + 1).padStart(5, "0")}`;
+        const saleNo = `TK-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
 
         // Find current open fiscal period
         const currentPeriod = await prisma.fiscalPeriod.findFirst({
@@ -201,6 +200,81 @@ export async function POST(request: Request) {
                 where: { id: vi.productId },
                 data: { stock: { decrement: vi.quantity } },
             });
+        }
+
+        // ============================================================
+        // FIX K-1: Sinkronisasi Kas Fisik (Tunai)
+        // Saat penjualan tunai, uang masuk harus dicatat ke CashBankTransaction
+        // agar saldo Kas & Buku Kas terupdate secara real-time.
+        // ============================================================
+        if (method === "cash") {
+            try {
+                // Temukan rekening kas utama (kas kecil / kas toko)
+                const kasAccount = await prisma.cashBankAccount.findFirst({
+                    where: { type: "cash", isActive: true },
+                    orderBy: { id: "asc" },
+                });
+
+                if (kasAccount) {
+                    const currentBal = Number(kasAccount.currentBalance);
+                    const newBal = currentBal + totalAmount;
+
+                    // Catat transaksi masuk di Buku Kas
+                    await prisma.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `TK-KAS-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: kasAccount.id,
+                            branchId: kasAccount.branchId,
+                            type: "in",
+                            category: "pendapatan_toko",
+                            amount: totalAmount,
+                            balanceBefore: currentBal,
+                            balanceAfter: newBal,
+                            description: `Penjualan Toko Tunai - ${saleNo}`,
+                            transactionDate: now,
+                            createdById: userId,
+                        },
+                    });
+
+                    // Update saldo rekening kas
+                    await prisma.cashBankAccount.update({
+                        where: { id: kasAccount.id },
+                        data: { currentBalance: newBal },
+                    });
+                }
+            } catch (cashErr) {
+                // Jangan batalkan transaksi — hanya log agar tidak merusak checkout
+                console.error("[K-1] Gagal sinkronisasi kas tunai toko:", cashErr);
+            }
+        }
+
+        // ============================================================
+        // FIX K-3: Buat Tagihan Piutang Toko (Kredit / Potong Gaji)
+        // Saat penjualan kredit, sistem harus otomatis membuat tagihan
+        // UnitTransaction dengan isPaid:false agar dapat ditagih admin.
+        // ============================================================
+        if (method === "credit" && memberId) {
+            try {
+                const memberForCredit = await prisma.member.findUnique({ where: { id: memberId } });
+                if (memberForCredit) {
+                    await prisma.unitTransaction.create({
+                        data: {
+                            transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}`,
+                            memberId: memberId,
+                            unitType: "toko",
+                            description: `Piutang Toko (Kredit) - ${saleNo}`,
+                            amount: totalAmount,
+                            transactionDate: now,
+                            isPaid: false,
+                            notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${saleNo}`,
+                            createdById: userId,
+                        },
+                    });
+                }
+            } catch (creditErr) {
+                // Jangan batalkan transaksi — hanya log
+                console.error("[K-3] Gagal membuat tagihan piutang kredit toko:", creditErr);
+            }
         }
 
         // Audit log

@@ -6,6 +6,8 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+        const perPage = Math.min(500, Math.max(1, parseInt(searchParams.get("perPage") || "100")));
 
         const where: any = {
             sourceType: "NON_SP_OUT",
@@ -14,17 +16,21 @@ export async function GET(request: Request) {
             where.description = { contains: search, mode: "insensitive" };
         }
 
-        const journals = await prisma.journal.findMany({
-            where,
-            include: {
-                lines: {
-                    include: { account: true }
+        const [journals, total] = await Promise.all([
+            prisma.journal.findMany({
+                where,
+                include: {
+                    lines: {
+                        include: { account: true }
+                    },
+                    createdBy: { select: { id: true, name: true } },
                 },
-                createdBy: { select: { id: true, name: true } },
-            },
-            orderBy: { transactionDate: "desc" },
-            take: 100,
-        });
+                orderBy: { transactionDate: "desc" },
+                skip: (page - 1) * perPage,
+                take: perPage,
+            }),
+            prisma.journal.count({ where }),
+        ]);
 
         // Map back to the NonSPTransaction interface format used by the frontend
         const data = journals.map((j) => {
@@ -44,7 +50,10 @@ export async function GET(request: Request) {
             };
         });
 
-        return NextResponse.json({ data });
+        return NextResponse.json({ 
+            data,
+            meta: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
+        });
     } catch (error) {
         console.error("GET /api/non-sp/pengeluaran error:", error);
         return NextResponse.json({ message: "Failed to fetch pengeluaran" }, { status: 500 });

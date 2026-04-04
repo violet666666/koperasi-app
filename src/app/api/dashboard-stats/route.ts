@@ -18,6 +18,7 @@ export async function GET() {
             loansStats,
             todayTransactions,
             pendingApprovals,
+            todayStoreSales,
         ] = await Promise.all([
             // Total active members
             prisma.member.count({
@@ -57,6 +58,15 @@ export async function GET() {
             // Pending approvals count
             prisma.loanApplication.count({
                 where: { status: "submitted" },
+            }),
+
+            // Today's store sales
+            prisma.storeSale.aggregate({
+                _sum: { totalAmount: true },
+                _count: { _all: true },
+                where: {
+                    createdAt: { gte: today, lt: tomorrow },
+                },
             }),
         ]);
 
@@ -134,6 +144,10 @@ export async function GET() {
             todayPayments: Number(todayPayments._sum.amount) || 0,
             todayPaymentsCount: todayPayments._count._all || 0,
             todayTransactionsCount: todayTransactions._count._all || 0,
+
+            // Store sales today
+            todayStoreSales: Number(todayStoreSales._sum.totalAmount) || 0,
+            todayStoreSalesCount: Number(todayStoreSales._count) || 0,
 
             // Pending approvals
             pendingApprovals: pendingApprovals,

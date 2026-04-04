@@ -69,6 +69,8 @@ export default function PersediaanPage() {
     const [movementType, setMovementType] = React.useState<"in" | "out">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
+    // Riwayat stok masuk manual (disimpan di state lokal karena belum ada tabel khusus di DB)
+    const [manualInLogs, setManualInLogs] = React.useState<StockMovement[]>([]);
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -126,24 +128,75 @@ export default function PersediaanPage() {
         fetchData();
     }, []);
 
+    // Gabungkan pergerakan stok keluar (dari penjualan) + stok masuk manual
+    const allMovements = React.useMemo(() => {
+        return [...manualInLogs, ...movements].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+    }, [movements, manualInLogs]);
+
     const handleSubmit = async () => {
         if (!formData.productId || !formData.quantity) {
-            toast.error("Lengkapi data");
+            toast.error("Lengkapi data produk dan jumlah");
             return;
         }
+        const qty = parseInt(formData.quantity);
+        if (isNaN(qty) || qty <= 0) {
+            toast.error("Jumlah harus lebih dari 0");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            // For stock-in, we'd update the product stock directly
             const product = products.find(p => String(p.id) === formData.productId);
             if (!product) { toast.error("Produk tidak ditemukan"); return; }
 
-            // TODO: In a full implementation, this would call a stock-movement API
-            // For now, inform the user
-            toast.success(`Stok ${movementType === "in" ? "masuk" : "keluar"} berhasil dicatat`);
+            // FIX K-2: Panggil API nyata untuk update stok di database
+            const res = await fetch(`/api/toko/products/${formData.productId}/stock`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: movementType,
+                    quantity: qty,
+                    notes: formData.notes,
+                }),
+            });
+            const json = await res.json();
+
+            if (!res.ok) {
+                toast.error(json.message || "Gagal memperbarui stok");
+                return;
+            }
+
+            toast.success(json.message || `Stok ${movementType === "in" ? "masuk" : "keluar"} berhasil dicatat`);
+
+            // Tambahkan ke riwayat lokal agar langsung tampil di tabel
+            const newEntry: StockMovement = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                productSku: product.sku,
+                productName: product.name,
+                type: movementType,
+                quantity: qty,
+                notes: formData.notes || (movementType === "in" ? "Stok masuk manual" : "Stok keluar manual"),
+                operator: "Operator",
+            };
+
+            if (movementType === "in") {
+                setManualInLogs(prev => [newEntry, ...prev]);
+            } else {
+                setMovements(prev => [newEntry, ...prev]);
+            }
+
+            // Refresh daftar produk agar stok terbaru tampil
+            const productsRes = await fetch("/api/toko/products");
+            const productsJson = await productsRes.json();
+            setProducts(productsJson.data || []);
+
             setDialogOpen(false);
             setFormData({ productId: "", quantity: "", notes: "" });
         } catch {
-            toast.error("Gagal mencatat pergerakan stok");
+            toast.error("Gagal memperbarui stok");
         } finally {
             setIsSubmitting(false);
         }
@@ -202,7 +255,19 @@ export default function PersediaanPage() {
             {isLoading ? (
                 <Card><CardContent className="p-6 space-y-4">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</CardContent></Card>
             ) : (
-                <DataTable columns={columns} data={movements} searchColumn="productName" searchPlaceholder="Cari produk..." />
+                <>
+                    {allMovements.length === 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+                            <span className="mt-0.5">⚠️</span>
+                            <div>
+                                <strong>Catatan:</strong> Riwayat di bawah hanya menampilkan <em>Stok Keluar</em> dari transaksi penjualan.
+                                Stok masuk yang dicatat di sesi ini akan langsung tampil di sini.
+                                Gunakan tombol <strong>Stok Masuk</strong> untuk mencatat pembelian dari supplier.
+                            </div>
+                        </div>
+                    )}
+                    <DataTable columns={columns} data={allMovements} searchColumn="productName" searchPlaceholder="Cari produk..." />
+                </>
             )}
         </div>
     );

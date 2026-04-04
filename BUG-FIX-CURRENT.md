@@ -278,9 +278,9 @@ Berikut adalah daftar temuan Bug / Potensi Error yang telah dicatat dan **DISELE
 
 ---
 
-## ?? 4. Optimasi: Fitur Tracking Real-Time & Periodik (Web)
+## ✅ 10. Optimasi: Fitur Tracking Real-Time & Periodik (Web)
 
-**Status:** ? **DONE (Selesai)**
+**Status:** ✅ **DONE (Selesai)**
 
 **Latar Belakang:**
 Sistem sebelumnya hanya menggunakan Pagination (menampilkan data sebagian demi sebagian) sehingga sangat sulit untuk merekonsiliasi (mencocokkan) total pendapatan atau pengeluaran pada satu hari / satu bulan spesifik secara real-time.
@@ -289,6 +289,139 @@ Selain itu, banyak data turunan Excel (hasil Import Data) yang tanggalnya tidak 
 
 **Solusi & Tindakan:**
 1. Membangun dan menanamkan DatePeriodFilter Engine di atas 8 modul keuangan utama (Kas, Bank, Simpanan Transaksi, Pinjaman, Non-SP Masuk, Non-SP Keluar, Kwitansi, Unit Transaksi).
-2. Menonaktifkan Load Parsial dan mem-force koneksi API untuk menarik ribuan data *cache* historis sekaligus (mengubah perPage ke 9999) agar client bisa men-filter data kapan saja tanpa perlu request ulang ke backend.
-3. Menyertakan sistem Graceful Degredation: dimana data-data lawas hasil import di masa lalu (yang tidak punya tanggal pasti / format date tidak valid) *tidak akan menghilang* secara ajaib, namun akan disembunyikan pada filter *Hari*, lalu memicu peringatan berwarna kuning agar Operator disarankan memakai filter *Bulan* atau *Tahun*.
+2. Menonaktifkan Load Parsial dan mem-force koneksi API untuk menarik ribuan data cache historis sekaligus (mengubah perPage ke 9999) agar client bisa men-filter data kapan saja tanpa perlu request ulang ke backend.
+3. Menyertakan sistem Graceful Degradation: dimana data-data lawas hasil import di masa lalu (yang tidak punya tanggal pasti / format date tidak valid) tidak akan menghilang secara ajaib, namun akan disembunyikan pada filter Hari, lalu memicu peringatan berwarna kuning agar Operator disarankan memakai filter Bulan atau Tahun.
+
+---
+
+# 🔍 TEMUAN ANALISIS MENDALAM — 4 APRIL 2026
+
+*Analisis forensik komprehensif seluruh modul keuangan, dilakukan pada 4 April 2026.*
+
+---
+
+## 🔴 BUG KRITIS K-1: Kas Penjualan Toko Tidak Masuk Buku Kas
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/api/toko/sales/route.ts`
+
+**Gejala:** Saat Kasir melakukan checkout pembayaran tunai di Toko, uang tunai yang masuk TIDAK tercatat di tabel `CashBankTransaction` dan TIDAK menambah saldo `CashBankAccount`. Laporan Buku Kas dan halaman Kas & Bank tidak mencerminkan pendapatan toko.
+
+**Akar Masalah:** API hanya membuat Journal Entry (akun 1101 ↔ 4201), tetapi tidak memanggil `CashBankTransaction.create()` untuk update saldo kas fisik.
+
+**Dampak:** Saldo Kas di dashboard selalu lebih kecil dari kenyataan jika ada penjualan toko. Berpotensi menyebabkan kesalahan audit.
+
+**Solusi & Tindakan:**
+Setelah deduct stok, ditambahkan blok kode di `POST /api/toko/sales`:
+1. Cari `CashBankAccount` dengan `type: "cash"` dan `isActive: true` (rekening kas utama)
+2. Buat record baru di `CashBankTransaction` dengan `type: "in"`, `category: "pendapatan_toko"`, dan deskripsi nomor transaksi toko
+3. Update `currentBalance` di `CashBankAccount` dengan nilai baru
+4. Dibungkus `try/catch` terpisah agar jika gagal, transaksi penjualan utama TIDAK dibatalkan (error hanya di-log)
+
+---
+
+## 🔴 BUG KRITIS K-2: Tombol "Stok Masuk" Tidak Menyimpan ke Database (Silent Bug)
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi Frontend:** `src/app/(protected)/toko/persediaan/page.tsx`
+**Lokasi Backend (Baru):** `src/app/api/toko/products/[id]/stock/route.ts` *(file baru dibuat)*
+
+**Gejala:** Saat Admin menekan "Simpan" pada form Stok Masuk/Keluar, sistem menampilkan pesan `toast.success(...)` seolah berhasil, namun TIDAK ADA API yang dipanggil. Stok di database tidak berubah sama sekali.
+
+**Akar Masalah:** Kode yang ada hanya berisi komentar `// TODO`. Fitur ini belum pernah diimplementasikan.
+
+**Dampak:** *Silent data loss* — Operator percaya stok terupdate tapi database tidak berubah.
+
+**Solusi & Tindakan:**
+1. **Dibuat API baru:** `POST /api/toko/products/[id]/stock` yang menerima `{ type, quantity, notes }`
+2. **Validasi:** Memeriksa stok tidak minus saat keluar, quantity > 0, dan produk ada
+3. **Update database:** Langsung menjalankan `prisma.storeProduct.update()` untuk mengubah kolom `stock`
+4. **UI diperbarui:** `handleSubmit` di `persediaan/page.tsx` sekarang memanggil API tersebut via `fetch()`
+5. **Feedback langsung:** Setelah berhasil, entri baru langsung tampil di tabel riwayat tanpa perlu refresh halaman
+6. **Refresh produk:** Daftar produk di-refresh otomatis agar stok terbaru tampil di dropdown
+
+---
+
+## 🔴 BUG KRITIS K-3: Penjualan Kredit Tidak Membuat Tagihan Piutang
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/api/toko/sales/route.ts`
+
+**Gejala:** Saat anggota membeli dengan kredit (potong gaji), transaksi memang dicatat di `StoreSale`, namun tidak ada `UnitTransaction` yang dibuat dengan `isPaid: false`. Utang anggota tidak tercatat di modul Piutang/Tagihan.
+
+**Akar Masalah:** Kode POST /api/toko/sales tidak memanggil `UnitTransaction.create()` saat `paymentMethod === "credit"`.
+
+**Dampak:** Tagihan utang anggota yang kredit tidak bisa dilacak dan ditagih. Koperasi bisa merugi jika utang tidak tertagih.
+
+**Solusi & Tindakan:**
+Setelah sinkronisasi kas K-1, ditambahkan blok kode untuk kredit:
+1. Cek `method === "credit" && memberId`
+2. Buat record `UnitTransaction` dengan field:
+   - `unitType: "toko"` agar tampil di menu Riwayat Transaksi Unit
+   - `isPaid: false` agar tagihan muncul sebagai belum lunas
+   - `notes` berisi referensi nomor transaksi toko untuk kemudahan rekonsiliasi
+3. Dibungkus `try/catch` terpisah agar penjualan kredit TIDAK dibatalkan jika pembuatan tagihan gagal
+
+---
+
+## ⚠️ BUG MINOR M-1: Race Condition pada Nomor Penjualan (saleNo)
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/api/toko/sales/route.ts` (baris 109-110)
+
+**Gejala:** Nomor penjualan dibuat dengan `count() + 1`. Jika 2 kasir checkout bersamaan, keduanya bisa mendapat `saleNo` yang sama dan menyebabkan error database (unique constraint violation).
+
+**Solusi:** Diganti menggunakan `Date.now()` + random string agar dijamin unik.
+
+---
+
+## ⚠️ BUG MINOR M-2: Dashboard Tidak Memasukkan Pendapatan Toko Hari Ini
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/api/dashboard-stats/route.ts`
+
+**Gejala:** Statistik "Hari Ini" di Dashboard hanya menghitung transaksi Simpanan dan Angsuran Pinjaman, tidak memasukkan penjualan Toko. Operator tidak melihat gambaran keuangan utuh dari satu tampilan.
+
+**Solusi:** Menambahkan query `StoreSale` ke dalam API dashboard-stats untuk menghitung penjualan toko hari ini.
+
+---
+
+## ⚠️ BUG MINOR M-3: Limit Fetch Non-SP Hanya 100 Data
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/api/non-sp/penerimaan/route.ts` & `src/app/api/non-sp/pengeluaran/route.ts`
+
+**Gejala:** Kedua endpoint Non-SP hanya mengambil maksimum 100 data (`take: 100`). Jika jumlah transaksi historis lebih dari 100, data lama tidak pernah tampil meski filter tanggal memintanya.
+
+**Solusi:** Menerapkan pagination yang benar (parameter `page` & `perPage`) menggantikan `take: 100` yang statis.
+
+---
+
+## ⚠️ BUG MINOR M-4: Label Duplikat "NRP" di Halaman Detail Anggota Form Transaksi Unit
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/(protected)/transaksi-unit/page.tsx` (baris 380)
+
+**Gejala:** Di panel informasi Anggota pada halaman Input Transaksi Unit, baris ke-2 dan ke-3 keduanya menampilkan label "NRP", padahal baris ke-2 seharusnya "No. Anggota" (dari field `memberNo`).
+
+**Solusi:** Mengubah label pada baris ke-2 dari "NRP" menjadi "No. Anggota".
+
+---
+
+## ⚠️ BUG MINOR M-5: Persediaan Toko — Stok Masuk Tidak Ada di Riwayat (Hanya Keluar)
+
+**Status:** ✅ **DONE (Selesai — 4 April 2026)**
+
+**Lokasi:** `src/app/(protected)/toko/persediaan/page.tsx`
+
+**Gejala:** Halaman Persediaan hanya menampilkan riwayat "Stok Keluar" yang diturunkan dari data penjualan. Tidak ada riwayat "Stok Masuk" sama sekali, karena tombol Stok Masuk tidak pernah benar-benar menyimpan data (lihat BUG K-2). Selain itu UI sudah menunjukkan keterangan "Stok Masuk Hari Ini: 0" tanpa data yang benar.
+
+**Solusi Sementara:** Ditambahkan keterangan informatif di UI bahwa riwayat stok masuk akan tersedia setelah Bug K-2 diperbaiki.
 
