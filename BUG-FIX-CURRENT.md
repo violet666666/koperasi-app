@@ -521,3 +521,32 @@ Namun, Build Gagal sepenuhnya (*Exit Code 1*) dikarenakan perubahan skema dari *
 
 **Solusi & Tindakan:**
 Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/reports/shu/route.ts` sebelum data SHU tersebut ditambahkan ke array/object. Proses `npm run build` otomatis berjalan dengan langgeng dan lancar kembali.
+
+## 4 April 2026 - Major Update: Terminologi & Sinkronisasi Mobile POS Multi-Unit
+
+### Bug / Issues Diselesaikan:
+1. **Terminologi "Tabungan Wajib" Tidak Sesuai**: 
+   - *Masalah*: Ada kebingungan dan inkonsistensi dari istilah "Tabungan Wajib" yang tidak sesuai AD-ART (seharusnya Simpanan Wajib).
+   - *Akar Masalah*: Anggota dan admin menggunakan istilah tidak konsisten, menyebabkan kebingungan di laporan.
+   - *Solusi & Langkah Pencegahan*:
+     - Melakukan search-and-replace menggunakan PowerShell di semua file .ts dan .tsx.
+     - Istilah "Tabungan Wajib" kini diganti secara global menjadi "Simpanan Wajib".
+     - *Perhatian*: Field dan endpoint API (m.tabunganWajib) tetap utuh karena *case-insensitive replace* digunakan dengan membiarkan skema database berjalan normal.
+
+2. **Backend: Mobile POS Kurang Fitur (*route.ts*)**:
+   - *Masalah*: Transaksi yang dikirim dari Mobile ke /api/mobile/toko kekurangan konteks unitType, menggunakan mapping pembayaran lama (credit), dan uang masuk / tagihan piutang tidak disinkronisasi ke jurnal.
+   - *Solusi & Langkah Pencegahan*:
+     - Endpoint di-*rewrite* untuk mengakomodasi paymentMethod: cash | qris | salary_cut.
+     - Member ID menjadi wajib jika metode pembayaran adalah salary_cut (potong gaji).
+     - Menjalankan sinkronisasi kas (*CashBankTransaction*) untuk nominal yang dibayarkan tunai/QRIS. 
+     - Memicu pembuatan tagihan *UnitTransaction* otomatis jika anggota membayar dengan potong gaji.
+
+3. **Frontend: Aplikasi Mobile Kurang Pemilihan Unit & Penarikan NRP (*KasirScreen.tsx*)**:
+   - *Masalah*: Aplikasi Mobile sebelumnya hanya melayani 1 bisnis toko default ("Toko") tanpa opsi Unit Usaha lain. Pembayaran via Potong Gaji (Kredit) diproses tanpa meminta identifikasi anggota.
+   - *Solusi & Langkah Pencegahan*:
+     - *UI Component*: SDK diperbarui dengan *Horizontal ScrollView* chips untuk memilih Toko, Cuci Mobil, dsb.
+     - *Member Search Modal*: Modal baru dimasukkan. Jika metode pembayaran = salary_cut, sistem akan meng-hijack alur checkout untuk memaksa kasir mencari *Nama / NRP* anggota dan mengonfirmasinya dalam alert pop-up.
+
+4. **Dokumentasi Usang**:
+   - *Masalah*: Buku panduan yang lama tidak menyebutkan fitur potong gaji mobile atau sistem pencarian NRP.
+   - *Solusi*: USER_GUIDE.md & PANDUAN_ANGGOTA.md diperbarui lengkap dengan rincian fitur alur Kasir Cepat / Multi-unit serta terminologi baru "Simpanan Wajib".

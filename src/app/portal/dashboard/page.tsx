@@ -284,7 +284,7 @@ export default function MemberDashboardPage() {
                         <div className="text-2xl font-bold">
                             {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.estimatedSHU?.total || 0)}
                         </div>
-                        <p className="text-xs opacity-80 mt-1">Estimasi realtime — kontribusi belanja, pinjaman, tabungan wajib &amp; pokok</p>
+                        <p className="text-xs opacity-80 mt-1">Estimasi realtime — kontribusi belanja, pinjaman, Simpanan Wajib &amp; pokok</p>
                         {!isLoading && data?.estimatedSHU && (
                             <div className="mt-2 space-y-1">
                                 <div className="flex justify-between text-xs opacity-80">
@@ -318,7 +318,7 @@ export default function MemberDashboardPage() {
                             <div className="space-y-3">
                                 <h3 className="font-semibold text-sm text-gray-700 border-b pb-1">Rincian per Produk Simpanan</h3>
                                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <div><p className="font-medium text-sm">Tabungan Wajib (Tajib)</p><p className="text-xs text-muted-foreground">Potongan wajib bulanan per {currentMonthName}</p></div>
+                                    <div><p className="font-medium text-sm">Simpanan Wajib (Tajib)</p><p className="text-xs text-muted-foreground">Potongan wajib bulanan per {currentMonthName}</p></div>
                                     <p className="font-bold text-teal-700">{formatCurrency(tabunganWajib)}</p>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">

@@ -67,7 +67,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
     const requiredKeywords: Record<ImportType, string[][]> = {
         tunkin: [["tunkin", "sisa_tunkin", "sisa tunkin", "tunjangan", "tunles", "bersih"]],
         gaji: [["gaji", "diterima", "bersih", "salary"]],
-        tajib: [["jml", "jumlah", "tajib", "tabungan wajib"]],
+        tajib: [["jml", "jumlah", "tajib", "Simpanan Wajib"]],
         akun_anggota: [["nrp", "nip"]],
         sejahtera: [[]],
         migrasi_pinjaman: [["pinjam", "selama", "angsuran", "saldo"]],
@@ -395,7 +395,7 @@ export default function ImportDataPage() {
                                             Gaji Bersih
                                         </SelectItem>
                                         <SelectItem value="tajib">
-                                            Tabungan Wajib Per Bulan
+                                            Simpanan Wajib Per Bulan
                                         </SelectItem>
                                         <SelectItem value="akun_anggota">
                                             Import Akun Anggota (NRP + Nama)
@@ -510,7 +510,7 @@ export default function ImportDataPage() {
                                 </p>
                             ) : importType === "potongan" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Upload file <strong>Barang Primkoppol (.xlsx)</strong>. File ini berisi <strong>multi-sheet</strong> (per bulan). Kolom: <strong className="bg-yellow-200">NRP, TAJIB, BARANG, SP, JUMLAH, NAMA</strong>. Saat commit, TAJIB akan <strong>diakumulasi ke Tabungan Wajib</strong> anggota. Data BARANG dan SP dicatat sebagai informasi.
+                                    Upload file <strong>Barang Primkoppol (.xlsx)</strong>. File ini berisi <strong>multi-sheet</strong> (per bulan). Kolom: <strong className="bg-yellow-200">NRP, TAJIB, BARANG, SP, JUMLAH, NAMA</strong>. Saat commit, TAJIB akan <strong>diakumulasi ke Simpanan Wajib</strong> anggota. Data BARANG dan SP dicatat sebagai informasi.
                                 </p>
                             ) : (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">

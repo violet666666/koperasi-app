@@ -322,7 +322,7 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 }
 
 // ==========================================
-// Tajib Import (Tabungan Wajib)
+// Tajib Import (Simpanan Wajib)
 // ==========================================
 async function processTajibImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
@@ -331,7 +331,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
     let tajibIdx = -1;
     for (let i = headers.length - 1; i >= 0; i--) {
         const h = headers[i];
-        if (h.includes("jml") || h.includes("jumlah") || h.includes("tajib") || h.includes("tabungan wajib") || h.includes("tajip")) {
+        if (h.includes("jml") || h.includes("jumlah") || h.includes("tajib") || h.includes("Simpanan Wajib") || h.includes("tajip")) {
             tajibIdx = i;
             break;
         }

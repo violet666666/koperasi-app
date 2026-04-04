@@ -205,7 +205,7 @@ export default function SimpananTransaksiPage() {
                 }
             />
 
-            {/* Tabungan Wajib Info Banner */}
+            {/* Simpanan Wajib Info Banner */}
             {tabunganWajibInfo && tabunganWajibInfo.total > 0 && transactions.length === 0 && (
                 <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/10 dark:border-blue-800">
                     <CardContent className="p-4">
@@ -215,7 +215,7 @@ export default function SimpananTransaksiPage() {
                             </div>
                             <div className="flex-1">
                                 <p className="font-medium text-blue-800 dark:text-blue-300">
-                                    Total Tabungan Wajib Anggota: {formatCurrency(tabunganWajibInfo.total)}
+                                    Total Simpanan Wajib Anggota: {formatCurrency(tabunganWajibInfo.total)}
                                 </p>
                                 <p className="text-xs text-blue-600 dark:text-blue-400">
                                     Data dari {tabunganWajibInfo.count} anggota (hasil import). Transaksi setoran/penarikan manual akan ditampilkan di tabel bawah.

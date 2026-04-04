@@ -161,7 +161,7 @@ export async function POST(request: Request) {
             for (let batchStart = 0; batchStart < memberEntries.length; batchStart += BATCH_SIZE) {
                 const batch = memberEntries.slice(batchStart, batchStart + BATCH_SIZE);
                 await Promise.all(batch.map(async ([memberId, data]) => {
-                    // Update Tabungan Wajib
+                    // Update Simpanan Wajib
                     if (data.tajib > 0) {
                         await prisma.member.update({
                             where: { id: memberId },

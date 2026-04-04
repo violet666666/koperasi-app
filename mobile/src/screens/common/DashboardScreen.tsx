@@ -410,7 +410,7 @@ export default function DashboardScreen({ setToken }: any) {
             </View>
             <View style={styles.cardRow}>
               <StatCard
-                label={`Tabungan Wajib Bulan ${new Date().toLocaleString('id-ID', { month: 'long' })}`}
+                label={`Simpanan Wajib Bulan ${new Date().toLocaleString('id-ID', { month: 'long' })}`}
                 value={formatRp(data.member?.tabunganWajib || 0)}
                 icon="💵"
                 color={C.primary}

@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
 import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
 import { CashFlowChart } from "@/components/patterns/cash-flow-chart";
+import { DashboardUnitChart, DashboardDailyKasChart } from "@/components/patterns/dashboard-charts";
 import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
 
 interface DashboardStats {
@@ -270,7 +271,7 @@ export default function DashboardPage() {
                 <InfoCardWrapper
                     tooltip="Akumulasi seluruh simpanan anggota (Pokok + Wajib + Sukarela)."
                     detailTitle="Total Simpanan"
-                    detailDescription={"Menampilkan total seluruh dana simpanan anggota yang tersimpan di PRIMKOPPOL, meliputi:\n\n• Simpanan Pokok — Dibayar sekali saat pendaftaran\n• Simpanan Wajib (Tabungan Wajib) — Dibayar rutin setiap bulan melalui potongan gaji\n• Simpanan Sukarela — Setoran bebas oleh anggota\n\nSemakin tinggi simpanan, semakin besar porsi SHU yang diterima anggota di akhir tahun."}
+                    detailDescription={"Menampilkan total seluruh dana simpanan anggota yang tersimpan di PRIMKOPPOL, meliputi:\n\n• Simpanan Pokok — Dibayar sekali saat pendaftaran\n• Simpanan Wajib (Simpanan Wajib) — Dibayar rutin setiap bulan melalui potongan gaji\n• Simpanan Sukarela — Setoran bebas oleh anggota\n\nSemakin tinggi simpanan, semakin besar porsi SHU yang diterima anggota di akhir tahun."}
                 >
                     <StatsCard
                         title="Total Simpanan"
@@ -393,10 +394,20 @@ export default function DashboardPage() {
                 </InfoCardWrapper>
             </div>
 
-            {/* Cash Flow Chart */}
-            <div className="grid grid-cols-1">
-                <CashFlowChart />
+            {/* Charts Section */}
+            <div className="grid gap-6 lg:grid-cols-2">
+                {/* Cash Flow Chart (uses existing component) */}
+                <div className="lg:col-span-2">
+                    <CashFlowChart />
+                </div>
+
+                {/* Unit Sales Donut/Summary Card */}
+                <DashboardUnitChart />
+
+                {/* Daily Kas Flow bar chart this month */}
+                <DashboardDailyKasChart />
             </div>
+
 
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-2">

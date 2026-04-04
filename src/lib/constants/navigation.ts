@@ -113,7 +113,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 icon: Wallet,
                 permission: "manage_unit_transactions",
                 children: [
-                    { title: "Kasir Cepat", href: "/unit-layanan/kasir" },
+                    { title: "Kasir Cepat", href: "/unit-layanan/kasir", permission: "kasir_pos" },
                     { title: "Piutang & Riwayat", href: "/transaksi-unit" },
                 ],
             },

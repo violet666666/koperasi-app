@@ -112,7 +112,7 @@ export async function GET() {
             where: { status: "active", deletedAt: null, tunlesKinerja: { not: null } },
         });
 
-        // Total Tabungan Wajib from Member table (imported data)
+        // Total Simpanan Wajib from Member table (imported data)
         const tabunganWajibStats = await prisma.member.aggregate({
             _sum: { tabunganWajib: true },
             _count: { tabunganWajib: true },

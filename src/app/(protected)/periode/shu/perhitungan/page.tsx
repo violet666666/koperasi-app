@@ -326,7 +326,7 @@ export default function SHUCalculationPage() {
                                         <p className="text-sm text-amber-700 dark:text-amber-400">
                                             Total Modal Simpanan Anggota: <strong>{formatCurrency(shuData.totalSavingsCapital || 0)}</strong>
                                             {(shuData.totalTabunganWajib || 0) > 0 && (
-                                                <> (termasuk Tabungan Wajib: <strong>{formatCurrency(shuData.totalTabunganWajib || 0)}</strong>)</>   
+                                                <> (termasuk Simpanan Wajib: <strong>{formatCurrency(shuData.totalTabunganWajib || 0)}</strong>)</>   
                                             )}
                                         </p>
                                         <p className="text-xs text-amber-600 dark:text-amber-500">

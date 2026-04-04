@@ -115,7 +115,7 @@ export default function RekapSimpananPage() {
         { key: "memberNo", header: "NRP" },
         { key: "name", header: "Nama" },
         { key: "simpananPokok", header: "Simpanan Pokok", format: formatCurrencyExport },
-        { key: "simpananWajib", header: "Simpanan Wajib (Tabungan Wajib)", format: formatCurrencyExport },
+        { key: "simpananWajib", header: "Simpanan Wajib (Simpanan Wajib)", format: formatCurrencyExport },
         { key: "simpananSukarela", header: "Simpanan Sukarela", format: formatCurrencyExport },
         { key: "total", header: "Total", format: formatCurrencyExport },
     ];
@@ -167,7 +167,7 @@ export default function RekapSimpananPage() {
                             <Wallet className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Tabungan Wajib</p>
+                            <p className="text-sm text-muted-foreground">Simpanan Wajib</p>
                             <p className="text-lg font-bold tabular-nums">
                                 {formatCurrency(totals.totalWajib)}
                             </p>
@@ -226,7 +226,7 @@ export default function RekapSimpananPage() {
                                             <TableHead>NRP</TableHead>
                                             <TableHead>Nama</TableHead>
                                             <TableHead className="text-right">Simpanan Pokok</TableHead>
-                                            <TableHead className="text-right">Tabungan Wajib</TableHead>
+                                            <TableHead className="text-right">Simpanan Wajib</TableHead>
                                             <TableHead className="text-right">Simpanan Sukarela</TableHead>
                                             <TableHead className="text-right">Total</TableHead>
                                         </TableRow>

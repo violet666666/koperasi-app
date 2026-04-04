@@ -3,16 +3,23 @@ import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 
-// GET /api/mobile/toko?search=xxx — List store products
+// GET /api/mobile/toko?search=xxx&unitType=xxx
 export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
     const url = new URL(request.url);
     const search = url.searchParams.get("search") || "";
+    const unitType = url.searchParams.get("unitType") || "toko";
 
     try {
         const where: any = { isActive: true, deletedAt: null };
+        
+        // Optional filter if you only want products strictly mapped to this unitType
+        if (unitType) {
+            where.unitType = unitType;
+        }
+
         if (search) {
             where.OR = [
                 { name: { contains: search, mode: "insensitive" } },
@@ -22,7 +29,7 @@ export async function GET(request: Request) {
 
         const products = await prisma.storeProduct.findMany({
             where,
-            select: { id: true, sku: true, name: true, sellPrice: true, stock: true, unit: true, category: true },
+            select: { id: true, sku: true, name: true, sellPrice: true, stock: true, unit: true, category: true, unitType: true },
             orderBy: { name: "asc" },
             take: 50,
         });
@@ -30,7 +37,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
             data: products.map((p) => ({
                 id: p.id, sku: p.sku, name: p.name,
-                price: Number(p.sellPrice), stock: p.stock, unit: p.unit, category: p.category,
+                price: Number(p.sellPrice), stock: p.stock, unit: p.unit, category: p.category, unitType: p.unitType
             })),
         });
     } catch (error) {
@@ -39,7 +46,7 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/mobile/toko — Process checkout via StoreSale
+// POST /api/mobile/toko — Process checkout via StoreSale dengan Sinkronisasi Jurnal
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
@@ -49,22 +56,24 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { items, paymentMethod, memberId, customerName } = body;
+        const { items, paymentMethod, memberId, customerName, unitType = "toko" } = body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "Keranjang belanja kosong" }, { status: 400 });
         }
-        if (!paymentMethod || !["cash", "credit"].includes(paymentMethod)) {
-            return NextResponse.json({ message: "Metode pembayaran harus cash atau credit" }, { status: 400 });
+        if (!paymentMethod || !["cash", "credit", "salary_cut", "qris"].includes(paymentMethod)) {
+            return NextResponse.json({ message: "Metode pembayaran harus cash, qris, atau salary_cut" }, { status: 400 });
         }
-        if (paymentMethod === "credit" && !memberId) {
-            return NextResponse.json({ message: "memberId wajib untuk pembayaran kredit" }, { status: 400 });
+        
+        const method = paymentMethod === "credit" ? "salary_cut" : paymentMethod; // Legacy map
+
+        if (method === "salary_cut" && !memberId) {
+            return NextResponse.json({ message: "Member ID diperlukan untuk potong gaji" }, { status: 400 });
         }
 
-        // Validate products and calculate total
-        let total = 0;
+        let totalAmount = 0;
         const productUpdates: { id: number; newStock: number }[] = [];
-        const validatedItems: { productId: number; quantity: number; sellPrice: number; subtotal: number }[] = [];
+        const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; productName: string }[] = [];
 
         for (const item of items) {
             const product = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
@@ -72,41 +81,47 @@ export async function POST(request: Request) {
                 return NextResponse.json({ message: `Produk ID ${item.productId} tidak ditemukan` }, { status: 404 });
             }
             if (product.stock < item.quantity) {
-                return NextResponse.json({ message: `Stok ${product.name} tidak cukup (sisa: ${product.stock})` }, { status: 400 });
+                return NextResponse.json({ message: `Stok ${product.name} tidak cukup` }, { status: 400 });
             }
-            const subtotal = Number(product.sellPrice) * item.quantity;
-            total += subtotal;
+            const unitPrice = Number(product.sellPrice);
+            const subtotal = unitPrice * item.quantity;
+            totalAmount += subtotal;
+            
             productUpdates.push({ id: product.id, newStock: product.stock - item.quantity });
-            validatedItems.push({ productId: product.id, quantity: item.quantity, sellPrice: Number(product.sellPrice), subtotal });
+            validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, productName: product.name });
         }
 
-        const saleNo = `POS-M-${Date.now()}`;
+        const now = new Date();
+        const saleNo = `POS-M-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
+        const userId = Number(user.id);
 
-        // Create sale + update stocks atomically
+        let payment = method === "cash" || method === "qris" ? totalAmount : 0;
+        let changeAmount = 0; // Simplified for mobile
+
+        // Start creating operations...
         const txOps: any[] = [];
 
-        // Reduce stock
         for (const pu of productUpdates) {
             txOps.push(prisma.storeProduct.update({ where: { id: pu.id }, data: { stock: pu.newStock } }));
         }
 
-        // Create StoreSale with items
         txOps.push(
             prisma.storeSale.create({
                 data: {
                     saleNo,
-                    memberId: memberId ? Number(memberId) : null,
+                    memberId: method === "salary_cut" ? Number(memberId) : null,
+                    unitType,
                     customerName: customerName || null,
-                    totalAmount: total,
-                    paymentMethod,
-                    cashReceived: paymentMethod === "cash" ? total : null,
-                    changeAmount: paymentMethod === "cash" ? 0 : null,
-                    createdById: Number(user.id),
+                    totalAmount,
+                    paymentMethod: method,
+                    cashReceived: payment,
+                    changeAmount,
+                    createdById: userId,
                     items: {
                         create: validatedItems.map((vi) => ({
                             productId: vi.productId,
                             quantity: vi.quantity,
-                            unitPrice: vi.sellPrice,
+                            unitPrice: vi.unitPrice,
                             subtotal: vi.subtotal,
                         })),
                     },
@@ -115,19 +130,56 @@ export async function POST(request: Request) {
         );
 
         await prisma.$transaction(txOps);
+        
+        // Asynchronous non-blocking hooks for journaling & cash bank
+        try {
+            if (method === "cash" || method === "qris") {
+                const targetAccount = await prisma.cashBankAccount.findFirst({
+                    where: { type: method === "cash" ? "cash" : "bank", unitType, isActive: true },
+                    orderBy: { id: "asc" },
+                });
+                if (targetAccount) {
+                    const newBal = Number(targetAccount.currentBalance) + totalAmount;
+                    await prisma.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `MB-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: targetAccount.id, branchId: targetAccount.branchId,
+                            type: "in", category: "pendapatan_toko", amount: totalAmount,
+                            balanceBefore: Number(targetAccount.currentBalance), balanceAfter: newBal,
+                            description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
+                            transactionDate: now, createdById: userId,
+                        },
+                    });
+                    await prisma.cashBankAccount.update({
+                        where: { id: targetAccount.id }, data: { currentBalance: newBal },
+                    });
+                }
+            } else if (method === "salary_cut" && memberId) {
+                await prisma.unitTransaction.create({
+                    data: {
+                        transactionNo: `MB-UTG-${Date.now().toString(36).toUpperCase()}`,
+                        memberId: Number(memberId), unitType,
+                        description: `Piutang ${unitType} (Mobile Potong Gaji) - ${saleNo}`,
+                        amount: totalAmount, transactionDate: now, isPaid: false,
+                        notes: `Auto-generated dari penjualan kasir mobile. No. Transaksi: ${saleNo}`,
+                        createdById: userId,
+                    },
+                });
+            }
+        } catch (postFixErr) {
+            console.error("Gagal menjalankan hook asinkron POS Mobile:", postFixErr);
+        }
 
         await logAudit({
-            userId: Number(user.id),
-            userName: user.name,
-            action: "CREATE",
-            module: "Toko",
-            description: `Checkout ${paymentMethod} Rp ${total.toLocaleString("id-ID")} (${items.length} item) via mobile`,
+            userId: userId, userName: user.name,
+            action: "CREATE", module: "Toko",
+            description: `Checkout ${method} Rp ${totalAmount.toLocaleString("id-ID")} (${items.length} item) Unit ${unitType}`,
             ipAddress: "mobile-app",
         });
 
         return NextResponse.json({
             message: "Checkout berhasil! 🛒",
-            data: { total, paymentMethod, itemCount: items.length, saleNo },
+            data: { total: totalAmount, paymentMethod: method, itemCount: items.length, saleNo },
         });
     } catch (error) {
         console.error("POST /api/mobile/toko error:", error);

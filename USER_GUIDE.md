@@ -126,7 +126,7 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 
 ### 4.1 Dashboard (`/dashboard`)
 - **Operator**: Ringkasan total anggota, total simpanan, pinjaman aktif, tunggakan, total Tunkin, aktivitas hari ini.
-- **Anggota**: Total simpanan, sisa pinjaman, kredit belum lunas, tunjangan kinerja, estimasi SHU, tabungan wajib, gaji bersih.
+- **Anggota**: Total simpanan, sisa pinjaman, kredit belum lunas, tunjangan kinerja, estimasi SHU, simpanan wajib, gaji bersih.
 - **Kasir**: Total penjualan hari ini, 5 transaksi terakhir.
 
 ### 4.2 Anggota (`/anggota`)
@@ -174,11 +174,13 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 - **Jurnal Penyesuaian** (`/jurnal/penyesuaian`): Koreksi akhir periode.
 
 ### 4.8 Toko / Unit Usaha (`/toko`)
-- **Kasir POS** (`/toko/kasir`): Proses penjualan barang dengan pilihan Tunai/Kredit.
+- **Kasir POS** (`/toko/kasir`): Proses penjualan barang dengan sistem **Multi-Unit** (Pilih unit: Toko Sembako, Resto, Cuci Mobil, dll).
+- **Kasir Cepat**: POS ringkas khusus bisnis jasa tanpa pendataan stok.
+- **Pilihan Metode**: Tunai, QRIS, atau Kredit (Potong Gaji). Khusus "Potong Gaji", wajib mencantumkan nama penerima.
 - **Produk** (`/toko/produk`): Kelola produk toko (nama, harga, stok, HPP).
 - **Persediaan** (`/toko/persediaan`): Monitoring stok dan nilai persediaan.
 - **Import Produk** (`/toko/produk/import`): Import produk massal dari Excel/CSV.
-- Kredit Toko otomatis membuat jurnal piutang anggota.
+- Routing Otomatis: Tunai masuk akun Kas Unit, QRIS ke Bank Unit, Kredit otomatis membuat jurnal piutang anggota (`/transaksi-unit`).
 
 ### 4.9 Aset Koperasi (`/aset`)
 - Registrasi aset baru (nama, nilai, tanggal perolehan, kategori).
@@ -296,7 +298,7 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 | Total Simpanan & Sisa Pinjaman | ✅ |
 | Tunjangan Kinerja (Tunkin) | ✅ |
 | Estimasi SHU | ✅ |
-| Tabungan Wajib & Sejahtera | ✅ |
+| Simpanan Wajib & Sejahtera | ✅ |
 | Gaji Bersih | ✅ |
 | Mutasi Transaksi | ✅ |
 | Pinjaman Saya | ✅ |
@@ -309,7 +311,8 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 | Fitur | Tersedia |
 |-------|----------|
 | Dashboard Kasir | ✅ |
-| Kasir POS | ✅ |
+| Kasir POS (Pilih Unit & QRIS) | ✅ |
+| Checkout Potong Gaji (Cari NRP) | ✅ |
 | Stok Barang | ✅ |
 | Pengumuman | ✅ |
 | Ganti Password | ✅ |
@@ -341,12 +344,11 @@ Bottom navigation dengan 4 tab kontekstual per role:
 
 ## 6. Alur Fungsi Koperasi
 
-### 6.1 Kasir dengan Sistem Potong Gaji (Kredit)
-Menu `/toko/kasir` mendukung skema **Kredit**:
-- Saat pembayaran, pilih opsi "Kredit (Potong Gaji)".
-- Gunakan pencarian anggota (nama atau NRP).
-- Sistem otomatis membuat jurnal piutang.
-- Piutang ditarik saat integrasi potong gaji Tunkin.
+### 6.1 Kasir dengan Sistem Potong Gaji (Kredit) & QRIS
+Aplikasi Kasir Mobile & Web mendukung metode Tunai, QRIS, dan Kredit:
+- **Kredit (Potong Gaji)**: Diwajibkan Kasir memilih nama/NRP anggota. Sistem mencatatnya di Piutang Anggota (`UnitTransaction`), bukan ke kas bank.
+- **QRIS**: Masuk langsung ke Bank Unit terkait secara otomatis.
+- **Tunai**: Masuk ke saldo Kas Fisik unit tersebut.
 
 ### 6.2 Pencetakan Bukti Transaksi
 - **Cetak Struk Thermal**: Format 80mm untuk printer POS.
@@ -454,7 +456,7 @@ Kolam Jasa Simpanan = MAX(
 SHU Jasa Simpanan Saya = (Simpanan Saya / Total Simpanan Semua Anggota) × Kolam
 ```
 
-Yang termasuk "Simpanan Saya": Saldo Simpanan Pokok, Saldo Tabungan Wajib, Total setoran Simpanan Sukarela.
+Yang termasuk "Simpanan Saya": Saldo Simpanan Pokok, Saldo Simpanan Wajib, Total setoran Simpanan Sukarela.
 
 ### C. Komponen 2: Jasa Anggota (Usaha) — 25%
 

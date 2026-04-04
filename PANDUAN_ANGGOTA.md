@@ -1,7 +1,7 @@
-# Buku Saku Digital Anggota
+# Buku Saku Digital Anggota & Kasir
 **Koperasi PRIMKOPPOL Polres Lumajang**
 
-Selamat datang di layanan Koperasi Digital PRIMKOPPOL! Panduan ini dirancang khusus untuk seluruh anggota agar dapat memanfaatkan fitur-fitur pada aplikasi web dan mobile guna menunjang transparansi keuangan dan kemudahan bertransaksi Anda.
+Selamat datang di layanan Koperasi Digital PRIMKOPPOL! Panduan ini dirancang khusus untuk seluruh anggota dan operator lapangan (Kasir Unit) agar terhubung dengan sistem keuangan realtime, transparan, dan terintegrasi dari Koperasi.
 
 ---
 
@@ -26,7 +26,7 @@ Bagi pengguna PC/Laptop atau iPhone (iOS), Anda cukup mengakses website resmi ka
 
 ## 🔐 2. Cara Login Pertama Kali
 
-Setiap anggota Polri / PNS Polri di lingkungan Polres Lumajang yang telah terdaftar, otomatis memiliki akun di koperasi ini.
+Setiap anggota Polri / PNS Polri di lingkungan Polres Lumajang yang telah terdaftar otomatis memiliki akun di koperasi ini.
 
 - **Username / Email:** Masukkan **NRP / NIP** Anda (contoh: `69120075`)
 - **Password awal:** Masukkan **NRP / NIP** Anda kembali.
@@ -35,51 +35,63 @@ Setiap anggota Polri / PNS Polri di lingkungan Polres Lumajang yang telah terdaf
 
 ---
 
-## 📱 3. Fitur Utama Anggota
+## 📱 3. Fitur Khusus Anggota
 
-Setelah masuk ke Dashboard (Beranda), Anda akan melihat ringkasan keuangan pribadi yang sangat **transparan dan real-time**. Berikut penjelasan setiap bagian:
+Setelah masuk ke Dashboard (Beranda), Anda akan melihat ringkasan keuangan pribadi yang sangat **transparan dan real-time**.
 
 ### A. Pantau Saldo & Pendapatan
-- **Simpanan Anda:** Rincian saldo saat ini dari Simpanan Pokok, Simpanan Wajib bulanan, Simpanan Sukarela, dan Simpanan Sejahtera Anda.
-- **Sisa Hutang & Potongan:** Jika Anda memiliki pinjaman reguler/khusus aktif atau pinjaman kredit toko/unit, totalnya akan tertera dengan jelas.
-- **Sisa Tunkin & Gaji Bersih:** Sistem Koperasi kini terhubung langsung dengan bagian keuangan (Bensat). Anda bisa memantau sisa Tunjangan Kinerja dan Gaji Bersih Anda setelah dipotong angsuran primer.
+- **Simpanan Anda:** Rincian terkini dari Simpanan Pokok, **Simpanan Wajib** rutin bulanan, Simpanan Sukarela, dan Simpanan Sejahtera Anda.
+- **Sisa Hutang & Potongan:** Beban hutang koperasi atau tagihan potong gaji unit layanan tersaji transparan.
+- **Sisa Tunkin & Gaji Bersih:** Sistem Koperasi terhubung langsung dengan bagian keuangan. 
 
 ### B. Pinjaman Mudah Tanpa Kertas
 Tidak perlu lagi bolak-balik ke kantor koperasi untuk mengajukan pinjaman:
 1. Buka menu **Pinjaman > Pengajuan Pinjaman Baru**.
 2. Masukkan nominal peminjaman dan pilih tenor (bulan angsuran).
 3. Anda bisa melihat estimasi potongan per bulan (dengan Bunga 0% dan Administrasi 1% flat).
-4. Tekan Ajukan. Permohonan Anda akan langsung masuk ke layar Admin untuk disetujui, dan dana akan dicairkan.
+4. Tekan Ajukan. Permohonan Anda akan langsung di-review secara online.
 
 ### C. Toko & Unit Usaha (Kredit Potong Gaji)
-Setiap Anda berbelanja di *Toko Koperasi, Cuci Mobil, Fotocopy, Barbershop, atau Resto/Cafe* milik Primkoppol, Anda bisa membayar **Tanpa Uang Tunai**.
-- Saat di kasir, cukup sebutkan Nama atau NRP Anda dan pilih metode **Kredit Potong Gaji**.
-- Riwayat pengambilan barang akan tercatat rapi di HP Anda dan otomatis memotong Tunkin/Gaji bulanan Anda.
-
-### D. Kartu Anggota Digital
-- Masuk ke menu **Profil > Kartu Anggota**.
-- Tunjukkan barcode digital ini untuk absensi Rapat Anggota Tahunan (RAT) atau untuk identifikasi diri saat berhadapan dengan kasir/operator.
+Setiap kali berbelanja di *Toko Sembako, Cuci Mobil, Resto/Cafe, atau Barbershop* milik Primkoppol, tunjukkan Nama atau **NRP** Anda:
+- Pilih metode **Potong Gaji** di Kasir.
+- Otomatis masuk ke tagihan bulan depan tanpa melibatkan uang tunai.
+- Riwayat pengambilan barang terekam jelas di aplikasi HP Anda.
 
 ---
 
-## 💰 4. Perhitungan Bonus SHU (Sisa Hasil Usaha)
+## 🛒 4. Panduan Kasir Lapangan (Mobile POS)
 
-Primkoppol mengedepankan asas keadilan. Setiap anggota bisa memperkirakan besaran SHU yang akan diterima di akhir tahun secara **real-time** di aplikasi.
-Nilai **Estimasi SHU** di HP Anda bertambah setiap hari selama satu tahun buku.
+Jika Anda ditugaskan sebagai Petugas Kasir di unit usaha (Contoh: Resto, Cuci Mobil, Toko), Anda wajib masuk ke Aplikasi Mobile dan memilih menu **Kasir**:
 
-Bagaimana SHU Anda dihitung? Sesuai Pasal 42 AD/ART, Anda mendapatkan keuntungan dari 2 sumber sekaligus:
+1. **PILIH UNIT USAHA**
+   Pastikan Anda memilih (Unit Toko, Resto, Cuci Mobil dll) pada opsi di kasir agar uang/laba tersalurkan ke laci pencatatan yang benar!
 
-1. **Jasa Simpanan (20% dari Keuntungan Koperasi):**
-   Makin besar dan lama Anda menabung (Simpanan Sukarela, dll), makin banyak uang koperasi diputar, makin besar bonus yang masuk ke kantong Anda!
-2. **Jasa Anggota / Cashback Khusus (25% dari Margin Usaha):**
-   Makin sering Anda mencuci mobil, belanja kopi, dan beli sembako di Koperasi, Koperasi tidak mengambil untung sendiri. **25%** dari keuntungan penjualan barang tersebut kami kembalikan ke akun Anda sebagai SHU Jasa Anggota pada akhir tahun.
+2. **PILIH PRODUK / MASUKKAN NOMINAL**
+   Berdasarkan barang atau jenis layanan (contoh: *Cuci Salju Rp30.000*), kumpulkan struk digital ke Keranjang.
 
-*Semua perhitungan tersebut diurus oleh robot sistem yang canggih, adil, transparan, dan tanpa manipulasi.*
+3. **TIGA PILIHAN PEMBAYARAN**
+   - **Tunai / Cash**: Saat pelanggan membayar tunai, catatan laba akan otomatis terinput ke "*Kas Tunai - Unit Anda*".
+   - **QRIS**: Saat pembayaran via transfer digital QRIS, uang akan dipastikan masuk ke "*Bank - Unit Anda*".
+   - **Potong Gaji**: Bila ada Anggota Primkoppol yang berbelanja sistem hutang, sistem **WAJIB meminta Anda untuk mencari nama atau NRP Anggota** tersebut terlebih dahulu sebelum struk dicetak.
 
 ---
 
-## 💬 5. Pusat Bantuan
-Jika NRP Anda belum bisa dipakai untuk log-in, merasa ada selisih perhitungan, lupa kata sandi yang sudah diganti, atau membutuhkan bantuan operasional lainnya, jangan ragu untuk menghubungi:
+## 💰 5. Perhitungan Bonus SHU (Sisa Hasil Usaha)
+
+Nilai **Estimasi SHU** di HP Anda bertambah setiap hari berdasarkan parameter riil dari laba Primkoppol:
+
+1. **Jasa Simpanan (20%):**
+   Makin besar dan makin lama usia saldo **Simpanan** Anda, makin besar bonus bagi hasil Koperasi!
+2. **Jasa Anggota (25%):**
+   Setiap margin laba dari pencucian mobil yang Anda bayar, kopi yang Anda beli, dll — 25%-nya akan dijatahkan kembali ke pemilik modal, yaitu Anda, pada akhir tahun!
+
+*(Sistem ini menghitung secara otomatis sesuai standar AD/ART Pasal 42).*
+
+---
+
+## 💬 6. Pusat Bantuan
+
+Jika NRP Anda belum bisa dipakai, mengalami selisih perhitungan, atau lupa kata sandi yang telah diganti, silakan berkoordinasi dengan:
 
 📞 **Admin / Layanan Koperasi Primkoppol Lumajang**
 📍 Jl. Alun-Alun Barat No. 10, Lumajang

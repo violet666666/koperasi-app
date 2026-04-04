@@ -104,7 +104,7 @@ export async function GET() {
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            // System total Tabungan Wajib & Simpanan Pokok (all active members)
+            // System total Simpanan Wajib & Simpanan Pokok (all active members)
             prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
             prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
             // My contributions
@@ -121,7 +121,7 @@ export async function GET() {
         const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
 
-        // System denominators — ALL savings: deposit transactions + tabungan wajib + simpanan pokok balances
+        // System denominators — ALL savings: deposit transactions + Simpanan Wajib + simpanan pokok balances
         const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
         // Also get total active savings balances for minimum SHU floor
         const totalActiveSavingsBalance = await prisma.savingsAccount.aggregate({
@@ -142,7 +142,7 @@ export async function GET() {
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
 
-        // My numerators — savings includes deposits + tabungan wajib + simpanan pokok
+        // My numerators — savings includes deposits + Simpanan Wajib + simpanan pokok
         const myTabWajib = member.tabunganWajib ? Number(member.tabunganWajib) : 0;
         const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
         const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
