@@ -425,3 +425,71 @@ Setelah sinkronisasi kas K-1, ditambahkan blok kode untuk kredit:
 
 **Solusi Sementara:** Ditambahkan keterangan informatif di UI bahwa riwayat stok masuk akan tersedia setelah Bug K-2 diperbaiki.
 
+
+---
+
+## AUDIT SESI 4 APRIL 2026 (MALAM) - Master Kas-Bank, COA, dan Pengaturan
+
+---
+
+## BUG UI-1: Persepsi Duplikasi Master Kas-Bank vs Bagan Akun COA
+
+Status: BUKAN BUG - Sudah Diklarifikasi
+
+Master Kas-Bank (CashBankAccount) = rekening fisik dengan saldo real-time.
+Bagan Akun COA (Account) = kode akuntansi standar tanpa saldo.
+Keduanya bisa dihubungkan via glAccountId. Desain ini benar secara akuntansi.
+Rekomendasi: tambahkan tooltip penjelasan di kedua halaman.
+
+---
+
+## BUG COA-1: Tombol Expand/Collapse Bagan Akun Tidak Berfungsi
+
+Status: DONE (4 April 2026)
+Lokasi: src/app/(protected)/master/coa/page.tsx
+
+Gejala: Panah chevron tidak bisa diklik untuk buka/tutup sub-akun.
+Akar Masalah: Menggunakan Collapsible+CollapsibleTrigger shadcn/ui TANPA CollapsibleContent sehingga tidak ada konten yang dikontrol.
+Solusi: Ganti dengan button native yang toggle state isOpen langsung. Hapus import Collapsible yang tidak terpakai.
+
+---
+
+## BUG COA-2: Pencarian Bagan Akun Hanya Tampilkan Akun Level-1
+
+Status: DONE (4 April 2026)
+Lokasi: src/app/(protected)/master/coa/page.tsx
+
+Gejala: Cari 'Kas' tidak menampilkan sub-akun seperti 1101 - Kas di Tangan.
+Akar Masalah: Filter pencarian memfilter ke level===1 SETELAH matching, sehingga akun level 2+ tidak pernah lolos.
+Solusi: Pindahkan logika pencarian ke prop searchQuery di dalam tiap AccountNode. Node hide dirinya jika tidak match dan tidak punya anak.
+
+---
+
+## BUG SETTINGS-1: Halaman Pengaturan - Semua Data Hardcoded
+
+Status: DONE (4 April 2026)
+Lokasi: src/app/(protected)/settings/page.tsx
+
+Gejala: useEffect hanya delay 500ms lalu assign nilai mock hardcode. Tidak ada fetch ke API manapun.
+Solusi: Fetch nama dari /api/settings/cooperative, gabungkan dengan override dari localStorage. Tombol Simpan sekarang benar-benar menyimpan ke localStorage.
+
+---
+
+## BUG SETTINGS-2: Tombol Backup Menampilkan Toast Sukses Palsu
+
+Status: DONE (4 April 2026)
+Lokasi: src/app/(protected)/settings/page.tsx
+
+Gejala: Tombol Backup Sekarang menunggu 2 detik lalu toast.success padahal tidak ada backup yang dibuat.
+Dampak: Admin percaya data sudah dibackup padahal tidak ada. Risiko kehilangan data.
+Solusi: Ganti dengan toast.info yang jujur menginformasikan backup melalui panel hosting.
+
+---
+
+## BUG SETTINGS-3: Tab Notifikasi dan Keamanan Tidak Mempengaruhi Sistem
+
+Status: DICATAT - Perlu Implementasi Lanjutan
+Lokasi: src/app/(protected)/settings/page.tsx
+
+Toggle email notifikasi, session timeout, 2FA tidak berdampak apapun ke sistem. UI placeholder saja.
+Rencana: Buat tabel AppSetting di Prisma, API GET/PUT /api/settings, integrasikan dengan NextAuth dan email provider.

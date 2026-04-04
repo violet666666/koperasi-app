@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -55,24 +50,35 @@ const ACCOUNT_TYPES = {
 };
 
 // Account tree node component
-function AccountNode({ account, accounts, onEdit }: { account: Account; accounts: Account[]; onEdit: (a: Account) => void }) {
-    const [isOpen, setIsOpen] = React.useState(account.level === 1);
+function AccountNode({ account, accounts, onEdit, searchQuery }: { account: Account; accounts: Account[]; onEdit: (a: Account) => void; searchQuery?: string }) {
+    const [isOpen, setIsOpen] = React.useState(account.level <= 2);
     const children = accounts.filter((a) => a.parentId === account.id);
     const hasChildren = children.length > 0;
     const paddingLeft = (account.level - 1) * 24;
 
+    const matchesSearch = !searchQuery ||
+        account.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        account.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch && !hasChildren) return null;
+
     return (
         <div>
             <div
-                className={`flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-lg ${!account.isActive ? "opacity-50" : ""}`}
+                className={`flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-lg ${
+                    !account.isActive ? "opacity-50" : ""
+                } ${matchesSearch ? "" : "opacity-60"}`}
                 style={{ paddingLeft }}
             >
                 {hasChildren ? (
-                    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-                        <CollapsibleTrigger className="p-1 hover:bg-muted rounded">
-                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </CollapsibleTrigger>
-                    </Collapsible>
+                    <button
+                        type="button"
+                        className="p-1 hover:bg-muted rounded"
+                        onClick={() => setIsOpen((v) => !v)}
+                        aria-label={isOpen ? "Tutup" : "Buka"}
+                    >
+                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
                 ) : (
                     <div className="w-6" />
                 )}
@@ -93,7 +99,7 @@ function AccountNode({ account, accounts, onEdit }: { account: Account; accounts
             {hasChildren && isOpen && (
                 <div>
                     {children.map((child) => (
-                        <AccountNode key={child.id} account={child} accounts={accounts} onEdit={onEdit} />
+                        <AccountNode key={child.id} account={child} accounts={accounts} onEdit={onEdit} searchQuery={searchQuery} />
                     ))}
                 </div>
             )}
@@ -300,14 +306,6 @@ export default function MasterCOAPage() {
     // Get root accounts by type
     const rootAccounts = accounts.filter((a) => a.level === 1);
 
-    // Filter based on search
-    const filteredRootAccounts = searchQuery
-        ? accounts.filter((a) =>
-            a.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            a.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ).filter((a) => a.level === 1)
-        : rootAccounts;
-
     return (
         <div className="space-y-6">
             <PageHeader
@@ -364,9 +362,9 @@ export default function MasterCOAPage() {
                             <Skeleton className="h-8 w-full" />
                             <Skeleton className="h-8 w-full" />
                         </div>
-                    ) : filteredRootAccounts.length > 0 ? (
-                        filteredRootAccounts.map((account) => (
-                            <AccountNode key={account.id} account={account} accounts={accounts} onEdit={handleEdit} />
+                    ) : rootAccounts.length > 0 ? (
+                        rootAccounts.map((account) => (
+                            <AccountNode key={account.id} account={account} accounts={accounts} onEdit={handleEdit} searchQuery={searchQuery || undefined} />
                         ))
                     ) : (
                         <div className="text-center py-8 text-muted-foreground">

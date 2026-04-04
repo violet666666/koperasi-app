@@ -71,28 +71,40 @@ export default function SettingsPage() {
     const [resetConfirmation, setResetConfirmation] = React.useState("");
     const [isResetting, setIsResetting] = React.useState(false);
 
-    // Fetch settings
+    // Fetch settings — load from API + localStorage override
     React.useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Ambil data profil koperasi dari API (nama, dll)
+                let apiName = "PRIMKOPPOL Digital";
+                try {
+                    const coopRes = await fetch("/api/settings/cooperative");
+                    if (coopRes.ok) {
+                        const coopJson = await coopRes.json();
+                        apiName = coopJson.data?.name || apiName;
+                    }
+                } catch (_) { /* non-fatal */ }
 
-                // Mock data
+                // Gabungkan dengan overrides yang disimpan di localStorage
+                const saved = typeof window !== "undefined"
+                    ? JSON.parse(localStorage.getItem("app_settings") || "{}")
+                    : {};
+
                 setSettings({
-                    appName: "PRIMKOPPOL Digital",
-                    fiscalYearStart: "01",
-                    currency: "IDR",
-                    dateFormat: "dd/MM/yyyy",
-                    emailNotifications: true,
-                    loanApprovalAlert: true,
-                    paymentReminderDays: 7,
-                    sessionTimeout: 30,
-                    requireTwoFactor: false,
-                    passwordExpireDays: 90,
-                    autoBackup: true,
-                    backupFrequency: "daily",
-                    lastBackup: "2026-01-25T23:00:00",
+                    appName: saved.appName ?? apiName,
+                    fiscalYearStart: saved.fiscalYearStart ?? "01",
+                    currency: saved.currency ?? "IDR",
+                    dateFormat: saved.dateFormat ?? "dd/MM/yyyy",
+                    emailNotifications: saved.emailNotifications ?? true,
+                    loanApprovalAlert: saved.loanApprovalAlert ?? true,
+                    paymentReminderDays: saved.paymentReminderDays ?? 7,
+                    sessionTimeout: saved.sessionTimeout ?? 30,
+                    requireTwoFactor: saved.requireTwoFactor ?? false,
+                    passwordExpireDays: saved.passwordExpireDays ?? 90,
+                    autoBackup: saved.autoBackup ?? true,
+                    backupFrequency: saved.backupFrequency ?? "daily",
+                    lastBackup: saved.lastBackup ?? new Date().toISOString(),
                 });
             } catch (error) {
                 console.error("Failed to fetch:", error);
@@ -103,24 +115,26 @@ export default function SettingsPage() {
         fetchData();
     }, []);
 
-    // Handle save
+    // Handle save — simpan ke localStorage (pengaturan belum ada tabel DB-nya)
     const handleSave = async () => {
+        if (!settings) return;
         setIsSaving(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Pengaturan berhasil disimpan");
+            localStorage.setItem("app_settings", JSON.stringify(settings));
+            await new Promise(resolve => setTimeout(resolve, 300)); // visual feedback
+            toast.success("Pengaturan berhasil disimpan secara lokal.");
         } catch (error) {
-            toast.error("Gagal menyimpan pengaturan");
+            toast.error("Gagal menyimpan pengaturan.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Handle backup
+    // Handle backup — info bahwa fitur server-side backup belum diimplementasikan
     const handleBackup = async () => {
-        toast.info("Memproses backup...");
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        toast.success("Backup berhasil dibuat");
+        toast.info("Fitur backup server-side belum tersedia.", {
+            description: "Silakan backup database melalui panel hosting Anda (misalnya Railway/Vercel dashboard).",
+        });
     };
 
     const handleResetData = async () => {
