@@ -21,6 +21,21 @@ const UNIT_TYPES = [
   { id: 'fotocopy', name: 'Fotocopy' },
 ];
 
+const CARWASH_PACKAGES = [
+    { label: "Motor", price: 15000 },
+    { label: "Mobil Kecil (Avanza, Xenia, dll)", price: 35000 },
+    { label: "Mobil Sedang (Innova, Ertiga, dll)", price: 40000 },
+    { label: "Mobil Besar (Fortuner, Pajero, dll)", price: 45000 },
+    { label: "Mobil Jumbo (Hiace, Minibus, dll)", price: 50000 },
+];
+
+const BARBERSHOP_PACKAGES = [
+    { label: "Potong Rambut Biasa", price: 15000 },
+    { label: "Potong + Creambath", price: 30000 },
+    { label: "Cukur Jenggot", price: 10000 },
+    { label: "Potong + Pewarnaan", price: 50000 },
+];
+
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 export default function KasirScreen({ navigation: navProp }: any) {
@@ -36,13 +51,27 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [processing, setProcessing] = useState(false);
   const [showCart, setShowCart] = useState(false);
 
+  // Quick Sale State (Kasir Cepat)
+  const [quickAmount, setQuickAmount] = useState('');
+  const [quickDesc, setQuickDesc] = useState('');
+  const [quickCustomer, setQuickCustomer] = useState('');
+  const [selectedPackage, setSelectedPackage] = useState('');
+
   // Member Search State
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [searchingMember, setSearchingMember] = useState(false);
 
+  // Flags for mode
+  const isQuickSale = unitType === 'cuci_mobil' || unitType === 'barbershop' || unitType === 'fotocopy';
+  const quickSalePackages = unitType === 'cuci_mobil' ? CARWASH_PACKAGES : unitType === 'barbershop' ? BARBERSHOP_PACKAGES : [];
+
   const loadProducts = useCallback(async (q?: string, ut?: string) => {
+    if (ut === 'cuci_mobil' || ut === 'barbershop' || ut === 'fotocopy') {
+      setProducts([]); 
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/api/mobile/toko?search=${q ?? search}&unitType=${ut ?? unitType}`);
@@ -52,6 +81,21 @@ export default function KasirScreen({ navigation: navProp }: any) {
   }, [search, unitType]);
 
   useEffect(() => { loadProducts('', unitType); }, [unitType]);
+
+  const handleUnitChange = (uId: string) => {
+    setUnitType(uId);
+    setSearch('');
+    setQuickAmount('');
+    setQuickDesc('');
+    setQuickCustomer('');
+    setSelectedPackage('');
+  };
+
+  const handlePackageSelect = (label: string, price: number) => {
+    setSelectedPackage(label);
+    setQuickDesc(label);
+    setQuickAmount(price.toString());
+  };
 
   const addToCart = (product: Product) => {
     setCart((prev) => {
@@ -83,9 +127,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
     });
   };
 
-  const total = cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
+  const total = isQuickSale ? Number(quickAmount) : cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
 
-  const performCheckoutAPI = async (method: string, memberId: number | null) => {
+  // -------------------------------------------------------------
+  // API Checkouts
+  // -------------------------------------------------------------
+  
+  const performStandardCheckoutAPI = async (method: string, memberId: number | null) => {
     setProcessing(true);
     try {
       await api.post('/api/mobile/toko', {
@@ -103,9 +151,43 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setShowMemberModal(false);
       loadProducts(search, unitType);
 
-      Alert.alert('Berhasil!', `Checkout ${formatRp(printedTotal)} sukses`, [
+      Alert.alert('Berhasil!', `Checkout Toko ${formatRp(printedTotal)} sukses`, [
         { text: 'Tutup', style: 'cancel' },
-        { text: 'Cetak Struk', onPress: () => printReceipt(method, printedCart, printedTotal) }
+        { text: 'Cetak Struk', onPress: () => printReceiptStandard(method, printedCart, printedTotal) }
+      ]);
+    } catch (err: any) {
+      Alert.alert('Gagal', err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
+    } finally { setProcessing(false); }
+  };
+
+  const performQuickCheckoutAPI = async (method: string, memberId: number | null) => {
+    if (!quickAmount || Number(quickAmount) <= 0) {
+      Alert.alert('Nominal Tidak Valid', 'Masukkan nominal transaksi yang benar.');
+      return;
+    }
+    setProcessing(true);
+    try {
+      await api.post('/api/mobile/unit-layanan', {
+        unitType,
+        amount: Number(quickAmount),
+        paymentMethod: method,
+        memberId,
+        description: quickDesc,
+        customerName: quickCustomer
+      });
+      
+      const printedDesc = quickDesc;
+      const printedTotal = Number(quickAmount);
+      
+      setQuickAmount('');
+      setQuickDesc('');
+      setQuickCustomer('');
+      setSelectedPackage('');
+      setShowMemberModal(false);
+
+      Alert.alert('Berhasil!', `Checkout ${UNIT_TYPES.find(u => u.id === unitType)?.name} ${formatRp(printedTotal)} sukses`, [
+        { text: 'Tutup', style: 'cancel' },
+        { text: 'Cetak Struk', onPress: () => printReceiptQuick(method, printedDesc, printedTotal) }
       ]);
     } catch (err: any) {
       Alert.alert('Gagal', err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
@@ -113,7 +195,11 @@ export default function KasirScreen({ navigation: navProp }: any) {
   };
 
   const handleCheckoutInit = (method: 'cash' | 'qris' | 'salary_cut') => {
-    if (cart.length === 0) return;
+    if (!isQuickSale && cart.length === 0) return;
+    if (isQuickSale && (!quickAmount || Number(quickAmount) <= 0)) {
+        Alert.alert('Nominal Kosong', 'Masukkan nominal transaksi');
+        return;
+    }
 
     if (method === 'salary_cut') {
       setShowMemberModal(true); // Open member search
@@ -124,10 +210,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
     Alert.alert(
       `Checkout ${method === 'cash' ? 'Tunai' : 'QRIS'}?`,
-      `Total: ${formatRp(total)}\n${cart.length} item`,
+      `Total: ${formatRp(total)}\n${isQuickSale ? 'Jasa: ' + (quickDesc || 'Walk-in') : cart.length + ' item'}`,
       [
         { text: 'Batal', style: 'cancel' },
-        { text: 'Bayar', onPress: () => performCheckoutAPI(method, null) },
+        { text: 'Bayar', onPress: () => isQuickSale ? performQuickCheckoutAPI(method, null) : performStandardCheckoutAPI(method, null) },
       ],
     );
   };
@@ -146,55 +232,73 @@ export default function KasirScreen({ navigation: navProp }: any) {
     }
   };
 
-  const printReceipt = async (method: string, items: CartItem[], amount: number) => {
-    try {
-      const headerTitle = UNIT_TYPES.find(u => u.id === unitType)?.name.toUpperCase() || "UNIT USAHA";
-      const html = `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-            <style>
-              body { font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 10px; text-align: center; }
-              .header { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-              .sub { font-size: 12px; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-              .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 4px; font-size: 13px; }
-              .item-name { max-width: 60%; }
-              .total-section { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; }
-              .footer { margin-top: 20px; font-size: 11px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">PRIMKOPPOL LUMAJANG<br/>${headerTitle}</div>
-            <div class="sub">
-              Tgl: ${new Date().toLocaleString('id-ID')}<br/>
-              Metode: ${method.toUpperCase()}<br/>
-              Kasir: Mobile POS
-            </div>
-            
-            ${items.map(c => `
-              <div class="item-row">
-                <div class="item-name">${c.product.name}<br/>${c.quantity} x ${c.product.price.toLocaleString('id-ID')}</div>
-                <div>${(c.quantity * c.product.price).toLocaleString('id-ID')}</div>
-              </div>
-            `).join('')}
+  const getHtmlHeader = (method: string) => `
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+        <style>
+          body { font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 10px; text-align: center; }
+          .header { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+          .sub { font-size: 12px; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+          .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 4px; font-size: 13px; }
+          .item-name { max-width: 60%; }
+          .total-section { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; }
+          .footer { margin-top: 20px; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">PRIMKOPPOL LUMAJANG<br/>${UNIT_TYPES.find(u => u.id === unitType)?.name.toUpperCase() || "UNIT USAHA"}</div>
+        <div class="sub">
+          Tgl: ${new Date().toLocaleString('id-ID')}<br/>
+          Metode: ${method.toUpperCase()}<br/>
+          Kasir: Mobile POS
+        </div>
+  `;
+  const getHtmlFooter = () => `
+        <div class="footer">
+          Terima Kasih Atas Kunjungan Anda<br/>
+          Barang yang sudah dibeli tidak dapat ditukar
+        </div>
+      </body>
+    </html>
+  `;
 
-            <div class="total-section">
-              <span>TOTAL</span>
-              <span>Rp ${amount.toLocaleString('id-ID')}</span>
-            </div>
-            
-            <div class="footer">
-              Terima Kasih Atas Kunjungan Anda<br/>
-              Barang yang sudah dibeli tidak dapat ditukar
-            </div>
-          </body>
-        </html>
-      `;
+  const printReceiptStandard = async (method: string, items: CartItem[], amount: number) => {
+    try {
+      const html = getHtmlHeader(method) + items.map(c => `
+        <div class="item-row">
+          <div class="item-name">${c.product.name}<br/>${c.quantity} x ${c.product.price.toLocaleString('id-ID')}</div>
+          <div>${(c.quantity * c.product.price).toLocaleString('id-ID')}</div>
+        </div>
+      `).join('') + `
+        <div class="total-section">
+          <span>TOTAL</span>
+          <span>Rp ${amount.toLocaleString('id-ID')}</span>
+        </div>
+      ` + getHtmlFooter();
       await Print.printAsync({ html });
-    } catch (err) {
-      console.log('Print error:', err);
-    }
+    } catch (err) { console.log('Print error:', err); }
   };
+
+  const printReceiptQuick = async (method: string, desc: string, amount: number) => {
+    try {
+      const html = getHtmlHeader(method) + `
+        <div class="item-row">
+          <div class="item-name">Jasa Layanan<br/>${desc || 'Walk-in'}</div>
+          <div>${amount.toLocaleString('id-ID')}</div>
+        </div>
+        <div class="total-section">
+          <span>TOTAL</span>
+          <span>Rp ${amount.toLocaleString('id-ID')}</span>
+        </div>
+      ` + getHtmlFooter();
+      await Print.printAsync({ html });
+    } catch (err) { console.log('Print error:', err); }
+  };
+
+  // -------------------------------------------------------------
+  // RENDER UI
+  // -------------------------------------------------------------
 
   if (!showCart) {
     return (
@@ -211,13 +315,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
           </View>
           
           {/* Unit Type Chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12, flexDirection: 'row' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexDirection: 'row' }}>
             {UNIT_TYPES.map(u => (
               <TouchableOpacity 
                 key={u.id} 
-                className="px-4 py-2 rounded-full mr-2"
-                style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)' }}
-                onPress={() => setUnitType(u.id)}
+                style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginRight: 8 }}
+                onPress={() => handleUnitChange(u.id)}
               >
                 <Text style={{ color: unitType === u.id ? C.primary : '#FFF', fontWeight: unitType === u.id ? 'bold' : 'normal', fontSize: 13 }}>
                   {u.name}
@@ -226,56 +329,127 @@ export default function KasirScreen({ navigation: navProp }: any) {
             ))}
           </ScrollView>
 
-          <View style={styles.searchRow}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cari produk..."
-              placeholderTextColor="#94A3B8"
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={() => loadProducts(search, unitType)}
-              returnKeyType="search"
-            />
-            <TouchableOpacity style={styles.searchBtn} onPress={() => loadProducts(search, unitType)}>
-              <Ionicons name="search" size={20} color={C.primary} />
-            </TouchableOpacity>
-          </View>
+          {!isQuickSale && (
+            <View style={styles.searchRow}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari produk..."
+                placeholderTextColor="#94A3B8"
+                value={search}
+                onChangeText={setSearch}
+                onSubmitEditing={() => loadProducts(search, unitType)}
+                returnKeyType="search"
+              />
+              <TouchableOpacity style={styles.searchBtn} onPress={() => loadProducts(search, unitType)}>
+                <Ionicons name="search" size={20} color={C.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        <FlatList
-          data={products}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.productCard} onPress={() => addToCart(item)} activeOpacity={0.7}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.productSku}>{item.sku} • Stok: {item.stock} {item.unit}</Text>
-              </View>
-              <Text style={styles.productPrice}>{formatRp(item.price)}</Text>
-              <Ionicons name="add-circle" size={28} color={C.accent} />
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={() => loadProducts(search, unitType)} colors={[C.accent]} />}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>{loading ? '⏳' : '📦'}</Text>
-              <Text style={styles.emptyText}>{loading ? 'Memuat produk...' : 'Produk tidak ditemukan di unit ini'}</Text>
-            </View>
-          }
-        />
+        {isQuickSale ? (
+          // ======================= KASIR CEPAT (Carwash / Barbershop) =======================
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            {quickSalePackages.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: C.foreground }}>Pilih Paket Layanan:</Text>
+                    {quickSalePackages.map(pkg => (
+                        <TouchableOpacity 
+                          key={pkg.label}
+                          style={[styles.packageCard, selectedPackage === pkg.label && styles.packageCardSelected]}
+                          onPress={() => handlePackageSelect(pkg.label, pkg.price)}
+                        >
+                            <Text style={[styles.packageName, selectedPackage === pkg.label && {color: C.primary}]}>{pkg.label}</Text>
+                            <Text style={[styles.packagePrice, selectedPackage === pkg.label && {color: C.primary}]}>{formatRp(pkg.price)}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
 
-        {cart.length > 0 && (
+            <View style={{ backgroundColor: '#FFF', padding: 16, borderRadius: 12, elevation: 1 }}>
+                <Text style={styles.label}>Nominal Transaksi (Rp)</Text>
+                <TextInput
+                    style={styles.inputBold}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    value={quickAmount}
+                    onChangeText={setQuickAmount}
+                />
+
+                <Text style={styles.label}>Keterangan / Jasa (Opsional)</Text>
+                <TextInput
+                    style={styles.inputForm}
+                    placeholder="Contoh: Paket VIP salju"
+                    value={quickDesc}
+                    onChangeText={setQuickDesc}
+                />
+
+                <Text style={styles.label}>Nama Pelanggan Walk-In (Opsional)</Text>
+                <TextInput
+                    style={styles.inputForm}
+                    placeholder="Isi nama jika diperlukan"
+                    value={quickCustomer}
+                    onChangeText={setQuickCustomer}
+                />
+            </View>
+
+            <View style={{ marginTop: 20 }}>
+                <TouchableOpacity style={styles.cashBtn} onPress={() => handleCheckoutInit('cash')} disabled={processing || !quickAmount}>
+                <Ionicons name="cash-outline" size={20} color={C.primary} />
+                <Text style={styles.cashText}>Bayar Tunai</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.cashBtn, { backgroundColor: '#2563EB', marginTop: 10 }]} onPress={() => handleCheckoutInit('qris')} disabled={processing || !quickAmount}>
+                <Ionicons name="qr-code-outline" size={20} color="#FFF" />
+                <Text style={[styles.cashText, { color: '#FFF' }]}>Bayar QRIS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.creditBtn, { marginTop: 10 }]} onPress={() => handleCheckoutInit('salary_cut')} disabled={processing || !quickAmount}>
+                <Ionicons name="card-outline" size={20} color="#FFF" />
+                <Text style={styles.creditText}>Kredit / Potong Gaji</Text>
+                </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : (
+          // ======================= KASIR NORMAL (Toko, Resto) =======================
+          <FlatList
+            data={products}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.productCard} onPress={() => addToCart(item)} activeOpacity={0.7}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productSku}>{item.sku} • Stok: {item.stock} {item.unit}</Text>
+                </View>
+                <Text style={styles.productPrice}>{formatRp(item.price)}</Text>
+                <Ionicons name="add-circle" size={28} color={C.accent} />
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+            refreshControl={<RefreshControl refreshing={false} onRefresh={() => loadProducts(search, unitType)} colors={[C.accent]} />}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>{loading ? '⏳' : '📦'}</Text>
+                <Text style={styles.emptyText}>{loading ? 'Memuat produk...' : 'Produk tidak ditemukan di unit ini'}</Text>
+              </View>
+            }
+          />
+        )}
+
+        {/* Floating Cart Button for Normal Kasir */}
+        {!isQuickSale && cart.length > 0 && (
           <TouchableOpacity style={styles.cartFab} onPress={() => setShowCart(true)}>
             <Ionicons name="cart" size={24} color={C.primary} />
             <Text style={styles.cartFabText}>{cart.length} item • {formatRp(total)}</Text>
             <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cart.reduce((s, c) => s + c.quantity, 0)}</Text></View>
           </TouchableOpacity>
         )}
+
+        {/* Member Modal for Salary Cut (Both Kasir Modes) */}
+        {renderMemberModal()}
       </View>
     );
   }
 
+  // ======================= KERANJANG VIEW (Untuk Kasir Normal) =======================
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
@@ -329,7 +503,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* MEMBER SEARCH MODAL FOR SALARY CUT */}
+      {renderMemberModal()}
+    </View>
+  );
+
+  function renderMemberModal() {
+    return (
       <Modal visible={showMemberModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -366,7 +545,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
                         `Potong Gaji atas nama:\n${item.name}\nNRP: ${item.nrp}\nTotal: ${formatRp(total)}`,
                         [
                           { text: 'Batal', style: 'cancel' },
-                          { text: 'Setuju & Pilih', onPress: () => performCheckoutAPI('salary_cut', item.id) }
+                          { text: 'Setuju & Pilih', onPress: () => isQuickSale ? performQuickCheckoutAPI('salary_cut', item.id) : performStandardCheckoutAPI('salary_cut', item.id) }
                         ]
                       );
                     }}
@@ -380,8 +559,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
           </View>
         </View>
       </Modal>
-    </View>
-  );
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -446,5 +625,14 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#FFF', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, minHeight: 400 },
   modalInput: { backgroundColor: '#F1F5F9', padding: 12, borderRadius: 12, fontSize: 16 },
-  modalMemberItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }
+  modalMemberItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  
+  // Kasir Cepat Styles
+  label: { fontSize: 13, color: '#64748B', marginBottom: 6, marginTop: 12, fontWeight: '600' },
+  inputBold: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', padding: 14, borderRadius: 12, fontSize: 20, fontWeight: 'bold' },
+  inputForm: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', padding: 12, borderRadius: 12, fontSize: 14 },
+  packageCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, marginBottom: 8 },
+  packageCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight + '10' },
+  packageName: { fontSize: 14, fontWeight: '600', color: C.foreground },
+  packagePrice: { fontSize: 14, fontWeight: 'bold', color: C.foreground }
 });
