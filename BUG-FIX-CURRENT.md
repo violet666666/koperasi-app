@@ -585,3 +585,17 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 - *Session Parsing*: Mengekstrak `userData.unitType` dari `SecureStore` Native.
 - *Conditional Hiding*: Menghilangkan Slider Unit secara penuh (Dihilangkan, BUKAN di-disable/abu-abu).
 - *Static Badge*: Menyuguhkan badge statis yang memastikan pandangan Kasir hanya terkunci di layanan jasanya (misal: Cuci Mobil) demi menghindari salah input cross-unit.
+
+## ?? 21. NextAuth Session Lockout (Kasir Role)
+**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Lokasi Update:** `src/lib/hooks/use-auth.tsx`
+
+**Akar Masalah:** Fitur RBAC Route Guard bergantung pada session.user.unitType, namun session hook frontend lupa memetakan properti ini dari origin JWT. Mengakibatkan user dengan Role Kasir terperangkap di redirect loop (Lockout).
+**Solusi:** Menyuntikkan properti `unitType: session.user.unitType || null` di dalam User map object. Kini Kasir dapat masuk mulus ke Kasir POS & Dashboard Unit.
+
+## ?? 22. Diagram Arus Kas Palsu (Hardcoded Data)
+**Status:** ? **TO BE IMPLEMENTED**
+**Lokasi Update:** `src/components/patterns/cash-flow-chart.tsx` & `src/app/api/dashboard-stats/route.ts`
+
+**Akar Masalah:** Grafik arus kas koperasi saat ini menggunakan dummy json (Jan-Jul) bawaan template.
+**Rencana Solusi:** Membangun ulang sistem fetching grafik agar memuat rekapitulasi data `CashBankTransaction` 7 bulan terakhir menggunakan query Native Prisma JS grouping.

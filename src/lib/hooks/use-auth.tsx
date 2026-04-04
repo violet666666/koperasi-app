@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
                 : null,
             permissions: session.user.permissions || [],
+            unitType: session.user.unitType || null,
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

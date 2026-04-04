@@ -37,7 +37,7 @@ function getBaseUrl(): string {
   return 'https://www.primkoppol.online';
 }
 
-const BASE_URL = getBaseUrl();
+export const BASE_URL = getBaseUrl();
 
 const api = axios.create({
   baseURL: BASE_URL,

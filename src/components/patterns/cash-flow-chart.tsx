@@ -3,23 +3,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCurrency } from "@/lib/constants";
 
-const data = [
-    { month: "Jan", simpanan: 150000000, pencairan: 80000000 },
-    { month: "Feb", simpanan: 210000000, pencairan: 120000000 },
-    { month: "Mar", simpanan: 180000000, pencairan: 160000000 },
-    { month: "Apr", simpanan: 240000000, pencairan: 140000000 },
-    { month: "Mei", simpanan: 290000000, pencairan: 210000000 },
-    { month: "Jun", simpanan: 320000000, pencairan: 250000000 },
-    { month: "Jul", simpanan: 280000000, pencairan: 190000000 },
-];
+export function CashFlowChart({ data = [] }: { data?: any[] }) {
+    if (!data || data.length === 0) {
+        return (
+            <Card className="col-span-1 lg:col-span-3 hover:shadow-md transition-shadow">
+                <CardHeader>
+                    <CardTitle>Arus Kas Koperasi</CardTitle>
+                    <CardDescription>Tren penerimaan vs pengeluaran selama 7 bulan terakhir</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[350px] w-full flex items-center justify-center text-muted-foreground border border-dashed rounded-lg">
+                        Sedang memuat atau tidak ada riwayat transaksi arus kas.
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
-export function CashFlowChart() {
     return (
         <Card className="col-span-1 lg:col-span-3 hover:shadow-md transition-shadow">
             <CardHeader>
                 <CardTitle>Arus Kas Koperasi</CardTitle>
                 <CardDescription>
-                    Tren penerimaan simpanan vs pencairan pinjaman selama 7 bulan terakhir
+                    Tren penerimaan (in) vs pencairan/pengeluaran (out) selama 7 bulan terakhir (Realtime)
                 </CardDescription>
             </CardHeader>
             <CardContent>

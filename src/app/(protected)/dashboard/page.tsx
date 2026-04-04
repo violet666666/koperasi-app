@@ -39,6 +39,7 @@ interface DashboardStats {
     pendingApproval: number;
     totalTunkin: number;
     membersWithTunkin: number;
+    cashFlowChart: any[];
 }
 
 
@@ -203,6 +204,7 @@ export default function DashboardPage() {
         pendingApproval: 0,
         totalTunkin: 0,
         membersWithTunkin: 0,
+        cashFlowChart: [],
     });
     const [pendingApprovals, setPendingApprovals] = useState<FullApprovalItem[]>([]);
     
@@ -236,6 +238,7 @@ export default function DashboardPage() {
                     pendingApproval: data.pendingApprovals || 0,
                     totalTunkin: data.totalTunkin || 0,
                     membersWithTunkin: data.membersWithTunkin || 0,
+                    cashFlowChart: data.cashFlowChart || [],
                 });
             }
 
@@ -412,9 +415,9 @@ export default function DashboardPage() {
 
             {/* Charts Section */}
             <div className="grid gap-6 lg:grid-cols-2">
-                {/* Cash Flow Chart (uses existing component) */}
+                {/* Cash Flow Chart (uses dynamic component) */}
                 <div className="lg:col-span-2">
-                    <CashFlowChart />
+                    <CashFlowChart data={stats.cashFlowChart} />
                 </div>
 
                 {/* Unit Sales Donut/Summary Card */}

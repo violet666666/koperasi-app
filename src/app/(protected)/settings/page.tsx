@@ -29,7 +29,9 @@ import {
     Upload,
     RefreshCw,
     AlertTriangle,
-    Trash2
+    Trash2,
+    QrCode,
+    Camera
 } from "lucide-react";
 import { processDataReset } from "@/lib/actions/reset.action";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -118,17 +120,70 @@ export default function SettingsPage() {
     // Handle save — simpan ke localStorage (pengaturan belum ada tabel DB-nya)
     const handleSave = async () => {
         if (!settings) return;
+
+        // Validasi
+        if (!settings.appName.trim()) {
+            toast.error("Nama Koperasi tidak boleh kosong");
+            return;
+        }
+
         setIsSaving(true);
         try {
+            // Only update localstorage since backend /api/settings/cooperative is currently hardcoded dummy
             localStorage.setItem("app_settings", JSON.stringify(settings));
-            await new Promise(resolve => setTimeout(resolve, 300)); // visual feedback
-            toast.success("Pengaturan berhasil disimpan secara lokal.");
+            toast.success("Pengaturan berhasil disimpan");
         } catch (error) {
-            toast.error("Gagal menyimpan pengaturan.");
+            toast.error("Gagal menyimpan pengaturan");
         } finally {
             setIsSaving(false);
         }
     };
+
+    // --- State and Functions for QRIS Upload ---
+    const [qrisUnitType, setQrisUnitType] = React.useState("toko");
+    const [isUploadingQris, setIsUploadingQris] = React.useState(false);
+    const [qrisPreviewKey, setQrisPreviewKey] = React.useState(Date.now().toString()); // For forcing image reloads
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleQrisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            toast.error("Harus berupa file gambar (JPG/PNG)");
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Ukuran maksimal file adalah 2MB");
+            return;
+        }
+
+        setIsUploadingQris(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("unitType", qrisUnitType);
+
+        try {
+            const res = await fetch("/api/upload-qris", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (res.ok) {
+                toast.success("QRIS unit berhasil diperbarui");
+                setQrisPreviewKey(Date.now().toString()); // reload image
+            } else {
+                toast.error("Terjadi kesalahan saat mengupload QRIS");
+            }
+        } catch (error) {
+            toast.error("Gagal terhubung ke server");
+        } finally {
+            setIsUploadingQris(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+    // -------------------------------------------
 
     // Handle backup — info bahwa fitur server-side backup belum diimplementasikan
     const handleBackup = async () => {
@@ -228,7 +283,14 @@ export default function SettingsPage() {
                         </TabsTrigger>
                         <TabsTrigger value="backup">
                             <Database className="mr-2 h-4 w-4 hidden sm:inline" />
-                            Backup
+                            Backup & Restore
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="qris"
+                            className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-md transition-all"
+                        >
+                            <QrCode className="h-4 w-4 mr-2 hidden sm:block" />
+                            QRIS Unit
                         </TabsTrigger>
                         <TabsTrigger value="reset">
                             <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
@@ -463,6 +525,92 @@ export default function SettingsPage() {
                                             <Upload className="mr-2 h-4 w-4" />
                                             Restore
                                         </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* QRIS Tab */}
+                    <TabsContent value="qris">
+                        <Card className="border-0 shadow-md">
+                            <CardHeader className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <QrCode className="h-5 w-5 text-violet-600" />
+                                    Manajemen QRIS Dinamis Per Unit
+                                </CardTitle>
+                                <CardDescription>
+                                    Atur gambar kode QRIS untuk masing-masing unit layanan (Toko, Cuci Mobil, Resto, dll).
+                                    QRIS ini akan ditampilkan saat Kasir memilih metode pembayaran QRIS.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6 pt-6">
+                                <div className="space-y-4 max-w-lg">
+                                    <div className="space-y-2">
+                                        <Label>Pilih Unit Layanan</Label>
+                                        <Select value={qrisUnitType} onValueChange={setQrisUnitType}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih unit" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="toko">Toko Sembako</SelectItem>
+                                                <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
+                                                <SelectItem value="barbershop">Barbershop</SelectItem>
+                                                <SelectItem value="fitness">Fitness</SelectItem>
+                                                <SelectItem value="resto_cafe">Resto & Cafe</SelectItem>
+                                                <SelectItem value="playstation">Playstation</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    <div className="pt-4 border-t">
+                                        <Label className="mb-4 block">Pratinjau QRIS Aktif ({qrisUnitType})</Label>
+                                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-zinc-50 dark:bg-zinc-900 overflow-hidden relative min-h-[300px]">
+                                            <img 
+                                                src={`/uploads/qris/qris-${qrisUnitType}.png?key=${qrisPreviewKey}`} 
+                                                alt={`QRIS ${qrisUnitType}`}
+                                                className="max-h-[250px] object-contain shwadow-lg"
+                                                onError={(e) => {
+                                                    // Jika gambar tidak ditemukan, tampilkan placeholder
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    target.nextElementSibling?.classList.remove('hidden');
+                                                    target.nextElementSibling?.classList.add('flex');
+                                                }}
+                                                onLoad={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'block';
+                                                    target.nextElementSibling?.classList.add('hidden');
+                                                    target.nextElementSibling?.classList.remove('flex');
+                                                }}
+                                            />
+                                            <div className="hidden flex-col items-center text-muted-foreground">
+                                                <QrCode className="h-16 w-16 mb-2 opacity-50" />
+                                                <p className="text-sm">Belum ada QRIS untuk unit ini</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <input 
+                                            type="file" 
+                                            accept="image/png, image/jpeg" 
+                                            className="hidden" 
+                                            ref={fileInputRef} 
+                                            onChange={handleQrisUpload} 
+                                        />
+                                        <Button 
+                                            type="button"
+                                            className="w-full gap-2 bg-violet-600 hover:bg-violet-700" 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploadingQris}
+                                        >
+                                            {isUploadingQris ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                                            {isUploadingQris ? "Mengunggah..." : "Unggah Gambar QR Code Baru"}
+                                        </Button>
+                                        <p className="text-xs text-center text-muted-foreground mt-2">
+                                            Format yang didukung: PNG, JPG (Maks 2MB)
+                                        </p>
                                     </div>
                                 </div>
                             </CardContent>

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store } from "lucide-react";
+import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 
@@ -86,6 +86,9 @@ export default function KasirCepatPage() {
     const [isSearchingMember, setIsSearchingMember] = React.useState(false);
     const [memberResults, setMemberResults] = React.useState<any[]>([]);
     const [selectedMember, setSelectedMember] = React.useState<any | null>(null);
+    
+    // QRIS Intercept
+    const [showQrisDialog, setShowQrisDialog] = React.useState(false);
 
     // Check role access
     const role = roleName;
@@ -321,7 +324,7 @@ export default function KasirCepatPage() {
                                 <Button
                                     className="w-full bg-blue-600 hover:bg-blue-700"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
-                                    onClick={() => processPayment("qris")}
+                                    onClick={() => setShowQrisDialog(true)}
                                 >
                                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
                                     Bayar QRIS
@@ -427,6 +430,76 @@ export default function KasirCepatPage() {
                         <Button disabled={!selectedMember || isProcessing} onClick={() => processPayment("salary_cut")}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
                             Proses Potong Gaji
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog QRIS Intercept */}
+            <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                <DialogContent className="sm:max-w-md text-center">
+                    <DialogHeader>
+                        <DialogTitle className="text-center text-2xl font-bold flex items-center justify-center gap-2">
+                            <QrCode className="h-6 w-6 text-blue-600" />
+                            Pembayaran QRIS
+                        </DialogTitle>
+                        <DialogDescription className="text-center">
+                            Arahkan pelanggan untuk melakukan scan Barcode di bawah ini
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 min-h-[300px] relative">
+                        <img 
+                            src={`/uploads/qris/qris-${unitType}.png`} 
+                            alt={`QRIS ${unitType}`}
+                            className="max-h-[350px] object-contain shadow-lg rounded-xl border-4 border-white"
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                                target.nextElementSibling?.classList.add('flex');
+                            }}
+                            onLoad={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'block';
+                                target.nextElementSibling?.classList.add('hidden');
+                                target.nextElementSibling?.classList.remove('flex');
+                            }}
+                        />
+                        <div className="hidden flex-col items-center text-muted-foreground mt-4">
+                            <AlertCircle className="h-16 w-16 mb-2 text-red-400" />
+                            <p className="text-sm font-semibold text-red-600">Kode QRIS Unit Belum Diatur!</p>
+                            <p className="text-xs max-w-[250px] text-center mt-1">
+                                Minta Admin Unit atau sistem untuk mendeklarasikan foto Barcode QRIS di Pengaturan Koperasi.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-muted/50 p-4 rounded-lg flex justify-between items-center text-left">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Total Tagihan:</p>
+                            <p className="text-xl font-bold text-blue-600">{formatCurrency(Number(amount))}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Keterangan:</p>
+                            <p className="text-xs font-medium truncate max-w-[150px]">{description || `Jasa ${unitType}`}</p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="sm:justify-center flex-col gap-2">
+                        <Button 
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-base py-6"
+                            disabled={isProcessing} 
+                            onClick={() => {
+                                setShowQrisDialog(false);
+                                processPayment("qris");
+                            }}
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                            Pelanggan Sudah Membayar
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => setShowQrisDialog(false)}>
+                            Batal
                         </Button>
                     </DialogFooter>
                 </DialogContent>
