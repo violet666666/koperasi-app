@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
+import * as SecureStore from 'expo-secure-store';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -50,6 +51,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [showCart, setShowCart] = useState(false);
+  const [isKasirLocked, setIsKasirLocked] = useState(false);
 
   // Quick Sale State (Kasir Cepat)
   const [quickAmount, setQuickAmount] = useState('');
@@ -79,6 +81,21 @@ export default function KasirScreen({ navigation: navProp }: any) {
     } catch (err) { console.log('Products fetch error:', err); }
     finally { setLoading(false); }
   }, [search, unitType]);
+
+  useEffect(() => { 
+    // Auto-detect kasir unit from session
+    SecureStore.getItemAsync('userData').then((u) => {
+        if (u) {
+            try {
+                const user = JSON.parse(u);
+                if (user.role?.name === 'kasir' && user.unitType) {
+                    setUnitType(user.unitType);
+                    setIsKasirLocked(true);
+                }
+            } catch (e) {}
+        }
+    });
+  }, []);
 
   useEffect(() => { loadProducts('', unitType); }, [unitType]);
 
@@ -315,19 +332,30 @@ export default function KasirScreen({ navigation: navProp }: any) {
           </View>
           
           {/* Unit Type Chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexDirection: 'row' }}>
-            {UNIT_TYPES.map(u => (
-              <TouchableOpacity 
-                key={u.id} 
-                style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginRight: 8 }}
-                onPress={() => handleUnitChange(u.id)}
-              >
-                <Text style={{ color: unitType === u.id ? C.primary : '#FFF', fontWeight: unitType === u.id ? 'bold' : 'normal', fontSize: 13 }}>
-                  {u.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {!isKasirLocked && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexDirection: 'row' }}>
+                {UNIT_TYPES.map(u => (
+                  <TouchableOpacity 
+                    key={u.id} 
+                    style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginRight: 8 }}
+                    onPress={() => handleUnitChange(u.id)}
+                  >
+                    <Text style={{ color: unitType === u.id ? C.primary : '#FFF', fontWeight: unitType === u.id ? 'bold' : 'normal', fontSize: 13 }}>
+                      {u.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+          )}
+          {isKasirLocked && (
+             <View style={{ marginBottom: 16, flexDirection: 'row' }}>
+                  <View style={{ backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 }}>
+                    <Text style={{ color: C.primary, fontWeight: 'bold', fontSize: 13 }}>
+                      🛒 {UNIT_TYPES.find(u => u.id === unitType)?.name || unitType.toUpperCase()}
+                    </Text>
+                  </View>
+             </View>
+          )}
 
           {!isQuickSale && (
             <View style={styles.searchRow}>

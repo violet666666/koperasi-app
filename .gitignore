@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Temporary extraction tools
+tmp_pdf_extract/
+raw_pdf_text.txt
+pdf_extracted.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -550,3 +550,38 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 4. **Dokumentasi Usang**:
    - *Masalah*: Buku panduan yang lama tidak menyebutkan fitur potong gaji mobile atau sistem pencarian NRP.
    - *Solusi*: USER_GUIDE.md & PANDUAN_ANGGOTA.md diperbarui lengkap dengan rincian fitur alur Kasir Cepat / Multi-unit serta terminologi baru "Simpanan Wajib".
+
+## ??? 18. Bug Kritis Akses Privilege Escalation: Kasir Dapat Akses Dashboard Operator & Operasional Inti
+**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Lokasi Update:** `prisma/seed-fix-permissions.ts`, `src/lib/constants/navigation.ts`, `src/app/(protected)/layout.tsx`, `src/app/(protected)/dashboard/page.tsx`, `src/app/(protected)/unit-layanan/kasir/page.tsx`
+
+**Akar Masalah (5 Celah Keamanan Fatal):**
+1. **Database Permissions Bocor**: Role Kasir `[id:17]` memiliki 8 hak akses yang tidak relevan (manage_simpanan, dll).
+2. **Admin Unit Kebanyakan Fitur**: Role Admin `[id:16]` yang seharusnya hanya untuk kepala unit justru mendapatkan 15 permissions level operator.
+3. **Sidebar Filter Lemah**: `navigation.ts` hanya mengecek elemen UI berdasarkan permission, tapi TIDAK berdasarkan peran (Role) atau Jenis Unit (`unitType`).
+4. **Dashboard Kurang Konteks**: Halaman Dashboard hanya merender data global untuk SEMUA orang tanpa peduli itu Operator atau sekadar Kasir.
+5. **Route Guard Bolong**: Kasir dapat melewati `UNIT_ROUTES` untuk mengakses url inti.
+
+**Solusi & Sistem Keamanan Berlapis (RBAC Hardening):**
+- **Sistem Lapisan 1 (DB Strip):** Dibuatkan Seed Reset `seed-fix-permissions.ts` yang mencukur habis permissions kasir menjadi hanya 2 poin.
+- **Sistem Lapisan 2 (Dual-Filter Navigation):** Navigasi kini mengecek `user.role` dan `user.unitType`, BUKAN hanya array permissions. Kasir dibuatkan menu stripped-down statis.
+- **Sistem Lapisan 3 (Strict Route Guard):** Update `layout.tsx` dari Blacklist Method ke Whitelist Method berdasar `unitType`.
+- **Sistem Lapisan 4 (Role-Aware Dashboard):** Dashboard me-render 3 jenis tampilan mandiri. Kasir Carwash HANYA akan melihat statistik Carwash hari ini.
+
+## ?? 19. Optimasi Workflow Kasir POS: Auto-Detect Unit Tanpa Pilih Manual
+**Status:** ? **DONE (Selesai — 5 April 2026)**
+
+**Akar Masalah:** Kasir (misal kasir carwash) harus mengklik "pilih unit" dari dropdown berulang kali yang berpotensi keliru entry.
+**Solusi:**
+- *Auto-Detection*: Sistem memeriksa variabel `user.unitType` pada session. Halaman POS akan mengunci selector ke bisnis kasir tersebut.
+- Dibuatkan endpoint API Dashboard Stats `/api/unit-layanan/stats` yang khusus melayani statistik hari ini.
+
+## ?? 20. Mobile Kasir POS: Auto-Detect & Kunci Unit (Bypass Dropdown)
+**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Lokasi Update:** `mobile/src/screens/kasir/KasirScreen.tsx`
+
+**Akar Masalah:** Konsistensi sistem; Setelah dropdown dihilangkan pada Web Kasir, sistem Mobile masih menampilkan scrollView chip unit yang bisa ditekan oleh Kasir.
+**Solusi:**
+- *Session Parsing*: Mengekstrak `userData.unitType` dari `SecureStore` Native.
+- *Conditional Hiding*: Menghilangkan Slider Unit secara penuh (Dihilangkan, BUKAN di-disable/abu-abu).
+- *Static Badge*: Menyuguhkan badge statis yang memastikan pandangan Kasir hanya terkunci di layanan jasanya (misal: Cuci Mobil) demi menghindari salah input cross-unit.
