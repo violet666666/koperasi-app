@@ -599,3 +599,27 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 
 **Akar Masalah:** Grafik arus kas koperasi saat ini menggunakan dummy json (Jan-Jul) bawaan template.
 **Rencana Solusi:** Membangun ulang sistem fetching grafik agar memuat rekapitulasi data `CashBankTransaction` 7 bulan terakhir menggunakan query Native Prisma JS grouping.
+
+---
+
+### 23. Perbaikan Dashboard Arus Kas & Sinkronisasi Real-Time (2026-04-05)
+**Masalah (Keluhan):** Grafik (diagram) Arus Kas koperasi pada Dashboard Admin tidak sesuai; hanya menampilkan data tiruan (statis/hardcoded) *(Point 1 dari Keluhan Sesi 5 April)*.
+**Penyebab:** Komponen `CashFlowChart` menggunakan *Array Object* data statis. *Route* `/api/dashboard-stats` belum melaksanakan agregasi bulanan penerimaan maupun pengeluaran kas.
+**Solusi:** Merombak `api/dashboard-stats/route.ts` dengan memasukkan query GroupBy bulanan atas tabel `CashBankTransaction` ke belakang selama 7 bulan, serta mengubah `CashFlowChart` untuk mendukung prop dinamis React.
+
+---
+
+### 24. Resolusi Bug Lockout Akses Role Kasir (2026-04-05)
+**Masalah (Keluhan):** User role "Kasir" setelah *login* sama sekali tidak bisa mengakses fitur apapun pada aplikasi *(Point 2 dari Keluhan Sesi 5 April)*.
+**Penyebab:** Sistem Route Guard di `ProtectedContent` memverifikasi izin kasir berdasarkan atribut `unitType` untuk mengizinkan akses ke unit-unit tertentu. Namun, `user.unitType` tidak ter-*forward* (tersalur) dari NextAuth *Session* menuju `AuthContext` di *frontend*.
+**Solusi:** Memodifikasi `use-auth.tsx` dan memasukkan `unitType` ke deklarasi parameter objek *session mapping* agar _Route Guard_ kembali mendeteksi rute valid untuk pengguna.
+
+---
+
+### 25. Sistem Pembayaran QRIS Dinamis Per Unit & POS Modal (Upload Manual) (2026-04-05)
+**Masalah (Kebutuhan):** Kebutuhan kasir Web dan Mobile menampilkan barcode QRIS agar *pelanggan* langsung bisa scan di meja ketika memilih opsi metode pembayaran QRIS. Kasir per unit berbeda-beda, jadi QRIS juga harus berbeda per tipe unit.
+**Penyelesaian:** 
+- *Web Backend:* Ekstraksi API endpoint `POST /api/upload-qris` yang membongkar *multipart/form-data* (*image*) menggunakan *File System API* dan menjadikannya URL Publik. Menambah area unggah *QRIS Unit* dalam menu Settings Sistem.
+- *Web & Mobile Frontend:* Memodifikasi antarmuka POS (*Point of Sales*) secara dramatis untuk menyela (meng-*intercept*) tombol *Submit* pembayaran, menghadirkannya dalam bentuk *Dialog Modal*. Kasir baru dapat menekan "Pelanggan Sudah Membayar" setelah pelanggan menscan barcode yang muncul dari *Database*.
+
+*Semua bug utama yang dievaluasi hari ini telah diverifikasi tuntas & siap uji nyata di production.*
