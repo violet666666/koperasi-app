@@ -19,7 +19,8 @@ export const createUserSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
     roleId: z.number().int().positive(),
-    branchId: z.number().int().positive().nullable(),
+    branchId: z.number().int().positive().nullable().optional(),
+    unitType: z.string().nullable().optional(), // toko, barbershop, fitness, cuci_mobil, dll
     isActive: z.boolean().default(true),
 });
 

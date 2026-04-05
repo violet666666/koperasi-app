@@ -26,7 +26,7 @@ const UNIT_OPTIONS = [
     { value: "fitness", label: "Fitness", icon: Dumbbell },
     { value: "laundry", label: "Laundry", icon: Shirt },
     { value: "resto_cafe", label: "Resto & Cafe (Latar)", icon: UtensilsCrossed },
-    { value: "toko", label: "Toko Sembako", icon: Store },
+    { value: "toko", label: "Toko PRIMKOPPOL", icon: Store },
 ];
 
 // Carwash packages with fixed prices

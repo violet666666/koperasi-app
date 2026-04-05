@@ -1,8 +1,8 @@
 # Panduan Penggunaan Sistem Koperasi Digital PRIMKOPPOL
 
 > **Koperasi:** PRIMKOPPOL Polres Lumajang  
-> **Versi:** 2.0  
-> **Terakhir Diperbarui:** 1 April 2026  
+> **Versi:** 3.0  
+> **Terakhir Diperbarui:** 5 April 2026  
 > **Platform:** Web App + Mobile App (Android & iOS)
 
 Dokumen ini merupakan panduan lengkap penggunaan aplikasi Sistem Koperasi Digital. Panduan ini menjelaskan seluruh fitur dan hak akses setiap pengguna yang terlibat dalam sistem operasi koperasi.
@@ -14,13 +14,14 @@ Dokumen ini merupakan panduan lengkap penggunaan aplikasi Sistem Koperasi Digita
 1. [Daftar Akun Login](#1-daftar-akun-login)
 2. [Hak Akses Pengguna (Role)](#2-hak-akses-pengguna-role)
 3. [Panduan per Role](#3-panduan-per-role)
-4. [Fitur Detail per Modul](#4-fitur-detail-per-modul)
-5. [Aplikasi Mobile (Android & iOS)](#5-aplikasi-mobile-android--ios)
-6. [Alur Fungsi Koperasi](#6-alur-fungsi-koperasi)
-7. [Import & Migrasi Data](#7-import--migrasi-data)
-8. [Reset & Pengaturan Data](#8-reset--pengaturan-data)
-9. [Audit Log (Keamanan & Tracking)](#9-audit-log-keamanan--tracking)
-10. [Perhitungan SHU (Sisa Hasil Usaha)](#10-perhitungan-shu-sisa-hasil-usaha)
+4. [Fitur Kasir Toko — Barcode Scanner](#4-fitur-kasir-toko--barcode-scanner)
+5. [Fitur Detail per Modul](#5-fitur-detail-per-modul)
+6. [Aplikasi Mobile (Android & iOS)](#6-aplikasi-mobile-android--ios)
+7. [Alur Fungsi Koperasi](#7-alur-fungsi-koperasi)
+8. [Import & Migrasi Data](#8-import--migrasi-data)
+9. [Reset & Pengaturan Data](#9-reset--pengaturan-data)
+10. [Audit Log (Keamanan & Tracking)](#10-audit-log-keamanan--tracking)
+11. [Perhitungan SHU (Sisa Hasil Usaha)](#11-perhitungan-shu-sisa-hasil-usaha)
 
 ---
 
@@ -31,35 +32,49 @@ Akses penuh ke seluruh sistem, termasuk Master Data, Laporan tutup buku tahunan,
 - **Email**: `operator@koperasi.com`
 - **Password**: `password123`
 
+---
+
 ### Admin Unit Usaha (10 Unit)
 
-| Unit Usaha | Akun Email | Password |
-|------------|-------------|----------|
-| Simpan Pinjam | `adminsp@koperasi.com` | `password123` |
-| Toko | `admintoko@koperasi.com` | `password123` |
-| Cuci Mobil | `admincucimobil@koperasi.com` | `password123` |
-| Fotocopy | `adminfotocopy@koperasi.com` | `password123` |
-| Laundry | `adminlaundry@koperasi.com` | `password123` |
-| Resto & Cafe | `admincafe@koperasi.com` | `password123` |
-| Playstation | `adminps@koperasi.com` | `password123` |
-| Barbershop | `adminbarbershop@koperasi.com` | `password123` |
-| Fitness | `adminfitness@koperasi.com` | `password123` |
-| Aset | `adminaset@koperasi.com` | `password123` |
+Admin Unit berfungsi sebagai **Staff Monitoring** yang mengawasi operasional kasir di unit masing-masing.
+
+| Unit Usaha | Akun Email | Password | Akses Sistem |
+|------------|-------------|----------|--------------|
+| Simpan Pinjam | `adminsp@koperasi.com` | `password123` | Full Admin (Anggota, Pinjaman, Simpanan, Laporan) |
+| **Toko PRIMKOPPOL** | `admintoko@koperasi.com` | `password123` | Full Admin + Produk Toko, POS, Persediaan, Laporan |
+| Cuci Mobil | `admincucimobil@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Fotocopy | `adminfotocopy@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Laundry | `adminlaundry@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Resto & Cafe | `admincafe@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Playstation | `adminps@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Barbershop | `adminbarbershop@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Fitness | `adminfitness@koperasi.com` | `password123` | Full Admin + Transaksi Unit, Riwayat |
+| Aset | `adminaset@koperasi.com` | `password123` | Full Admin + Kelola Aset |
+
+> **Catatan:** Admin Unit mendapatkan **Full Navigation** (sama seperti Operator) namun dibatasi oleh permission yang relevan. Admin Toko dapat mengakses semua menu termasuk Produk Toko, Kasir POS, dan Persediaan.
+
+---
 
 ### Kasir Unit Usaha (10 Unit)
 
-| Unit Usaha | Akun Email | Password |
-|------------|-------------|----------|
-| Simpan Pinjam | `kasirsp@koperasi.com` | `password123` |
-| Toko | `kasirtoko@koperasi.com` | `password123` |
-| Cuci Mobil | `kasircucimobil@koperasi.com` | `password123` |
-| Fotocopy | `kasirfotocopy@koperasi.com` | `password123` |
-| Laundry | `kasirlaundry@koperasi.com` | `password123` |
-| Resto & Cafe | `kasircafe@koperasi.com` | `password123` |
-| Playstation | `kasirps@koperasi.com` | `password123` |
-| Barbershop | `kasirbarbershop@koperasi.com` | `password123` |
-| Fitness | `kasirfitness@koperasi.com` | `password123` |
-| Aset | `kasiraset@koperasi.com` | `password123` |
+Kasir mendapat **sidebar khusus minimal** sesuai unit mereka — otomatis berdasarkan `unitType` akun.
+
+| Unit Usaha | Akun Email | Password | Menu yang Tersedia |
+|------------|-------------|----------|--------------------|
+| **Toko PRIMKOPPOL** | `kasirtoko@koperasi.com` | `password123` | Dashboard · **Kasir POS** (Scan Barcode) · Produk · Persediaan Stok · Riwayat Penjualan |
+| Simpan Pinjam | `kasirsp@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Cuci Mobil | `kasircucimobil@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Fotocopy | `kasirfotocopy@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Laundry | `kasirlaundry@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Resto & Cafe | `kasircafe@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Playstation | `kasirps@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Barbershop | `kasirbarbershop@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Fitness | `kasirfitness@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+| Aset | `kasiraset@koperasi.com` | `password123` | Dashboard · Kasir POS (Layanan Jasa) · Riwayat Transaksi |
+
+> **Penting:** Unit `kasirtoko` mendapat POS yang berbeda — **Kasir POS Toko** (`/toko/kasir`) dengan fitur lengkap: scan barcode produk, manajemen keranjang, stok otomatis berkurang, cetak struk. Kasir unit lain mendapat **Kasir POS Jasa** (`/unit-layanan/kasir`) yang lebih ringkas tanpa master produk/stok.
+
+---
 
 ### Portal Anggota (Contoh)
 Anggota Login menggunakan **NRP** untuk Email dan juga **NRP** sebagai Password awal.
@@ -76,15 +91,16 @@ Anggota Login menggunakan **NRP** untuk Email dan juga **NRP** sebagai Password 
 Hierarki akses pengguna dari yang **tertinggi** ke **terendah**:
 
 ```
-Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
+Operator (Super Admin) ▸ Admin Unit ▸ Kasir Unit ▸ Anggota
 ```
 
 | No | Role | Hak Akses |
-|----|------|-----------|
+|----|------|-----------| 
 | **1** | **Operator** | Akses penuh: Master Data, Import Data, Approve Pinjaman, Laporan Keuangan, SHU, Tutup Buku, Reset Data, Pengumuman, Audit Log. |
-| **2** | **Admin** | Kelola anggota, pinjaman (review), transaksi kasir, simpanan, cek laporan unit berjalan. |
-| **3** | **Kasir** | Petugas harian: POS Toko, setoran simpanan, angsuran pinjaman, cetak struk (thermal/A4). |
-| **4** | **Anggota** | Portal khusus: cek profil, histori simpanan, pinjaman aktif, estimasi SHU, ajukan pinjaman online, kartu anggota digital. |
+| **2** | **Admin Unit** | Seperti Staff: kelola anggota, pinjaman (review), transaksi kasir, simpanan, kas & bank, laporan unit, toko, dan monitoring kasir. |
+| **3** | **Kasir Toko** | Khusus POS Toko PRIMKOPPOL: scan barcode, keranjang belanja, checkout (Tunai/QRIS/Potong Gaji), cetak struk. Produk & Persediaan (view). |
+| **4** | **Kasir Unit Jasa** | POS ringkas untuk jasa: input nominal layanan, pilih metode bayar, lookup NRP anggota (Potong Gaji), cetak struk. |
+| **5** | **Anggota** | Portal khusus: cek profil, histori simpanan, pinjaman aktif, estimasi SHU, ajukan pinjaman online, kartu anggota digital. |
 
 ---
 
@@ -101,19 +117,56 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 8. **Profil Koperasi**: Mengelola informasi identitas koperasi di `/profil-koperasi`.
 
 ### 3.2 Tugas Admin Unit
-1. **Verifikasi Data Anggota**: Input/edit data manual di `/anggota`.
-2. **Review Kredit Pinjaman**: Pengajuan dari portal anggota masuk di `/approval`.
-3. **Penyusutan Aset**: Registrasi aset baru unit di `/aset` dan perhitungan penyusutan.
-4. **Buku Kas**: Pencatatan kas masuk/keluar unit di `/kas-bank/buku-kas`.
 
-### 3.3 Tugas Kasir Unit
-1. **Transaksi POS Toko**: Proses barang retail di `/toko/kasir`, dibayar **Tunai** atau **Kredit (Potong Gaji)**.
-2. **Setoran/Tarik Simpanan**: Di `/simpanan/transaksi/tambah` — Pokok, Wajib, Sukarela.
-3. **Bayar Angsuran Pinjaman**: Di `/pinjaman/angsuran/bayar`.
-4. **Kas Masuk/Keluar**: Di `/kas-bank/kas`.
-5. **Kwitansi**: Membuat bukti transaksi resmi di `/kwitansi/tambah`.
+Admin Unit berfungsi seperti **Staff/Petugas** yang memonitor aktivitas kasir di unit masing-masing. Admin mendapat akses **Full Navigation** yang difilter sesuai permission unit.
 
-### 3.4 Tugas Anggota
+**Admin Toko PRIMKOPPOL** (`admintoko@koperasi.com`):
+1. **Monitor Produk**: Tambah/edit/hapus produk toko di `/toko/produk`.
+2. **Monitor Penjualan**: Lihat seluruh riwayat penjualan kasir di `/toko`.
+3. **Monitor Stok**: Pantau persediaan barang di `/toko/persediaan`.
+4. **Import Produk**: Import massal produk dari Excel di `/toko/produk/import`.
+5. **Review Kredit**: Kelola piutang potong gaji anggota di `/transaksi-unit`.
+6. **Laporan**: Laporan keuangan unit di `/laporan`.
+
+**Admin Unit Jasa** (barbershop, fitness, dll):
+1. **Transaksi Unit**: Kelola piutang kredit unit di `/transaksi-unit`.
+2. **Kasir POS Jasa**: Akses POS ringkas untuk input layanan di `/unit-layanan/kasir`.
+3. **Buku Kas**: Pencatatan kas masuk/keluar unit di `/kas-bank/buku-kas`.
+4. **Penyusutan Aset**: Registrasi aset baru unit di `/aset`.
+5. **Laporan**: Laporan keuangan unit di `/laporan`.
+
+### 3.3 Tugas Kasir Toko PRIMKOPPOL (`kasirtoko@koperasi.com`)
+
+Kasir Toko mendapat **sidebar khusus Toko** dengan 4 menu:
+
+1. **Kasir POS** (`/toko/kasir`):
+   - Scan barcode produk menggunakan **Barcode Gun** (USB/Bluetooth) → otomatis tambah ke keranjang
+   - Cari produk manual via nama atau SKU
+   - Kelola keranjang: tambah, kurangi, hapus item
+   - **Checkout Tunai**: Input nominal bayar, hitung kembalian otomatis
+   - **Checkout QRIS**: Bayar QRIS, masuk bank unit otomatis
+   - **Checkout Potong Gaji**: Cari NRP/nama anggota → piutang terbuat otomatis
+   - Cetak struk thermal/A4 setelah transaksi
+
+2. **Produk** (`/toko/produk`): Lihat daftar produk, stok, dan harga (view only untuk kasir)
+
+3. **Persediaan Stok** (`/toko/persediaan`): Monitor stok barang realtime
+
+4. **Riwayat Penjualan** (`/toko`): Lihat histori transaksi yang sudah dilakukan
+
+### 3.4 Tugas Kasir Unit Jasa (barbershop, fitness, cuci mobil, dll)
+
+Kasir unit jasa mendapat **sidebar minimal** dengan 2 menu:
+
+1. **Kasir POS** (`/unit-layanan/kasir`):
+   - Pilih paket layanan (auto-isi nominal) atau input nominal manual
+   - Pilih metode: **Tunai**, **QRIS**, atau **Potong Gaji**
+   - Khusus Potong Gaji: cari NRP anggota → piutang terbuat otomatis
+   - Cetak struk setelah transaksi
+
+2. **Riwayat Transaksi** (`/transaksi-unit`): Lihat histori transaksi unit
+
+### 3.5 Tugas Anggota
 1. **Cek Saldo Realtime**: Dashboard portal `/portal/dashboard` menampilkan Simpanan, Pinjaman, Tunkin, Gaji, Estimasi SHU.
 2. **Tracking Pinjaman**: Sisa tenor & angsuran di `/portal/pinjaman`.
 3. **Ajukan Pinjaman Online**: Formulir pengajuan pinjaman di `/portal/pengajuan-pinjaman`.
@@ -122,21 +175,58 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 
 ---
 
-## 4. Fitur Detail per Modul
+## 4. Fitur Kasir Toko — Barcode Scanner
 
-### 4.1 Dashboard (`/dashboard`)
+### 4.1 Cara Kerja Barcode Scanner (Web)
+
+Sistem POS Kasir Toko (`/toko/kasir`) dilengkapi dengan dukungan **hardware barcode gun** secara otomatis tanpa konfigurasi tambahan.
+
+**Cara Penggunaan:**
+1. Hubungkan **Barcode Gun** (USB atau Bluetooth) ke komputer kasir
+2. Buka halaman **Kasir POS** (`/toko/kasir`)
+3. Pastikan **tidak ada cursor di kolom input manapun** (klik area kosong halaman)
+4. Arahkan barcode gun ke barcode produk → scan
+5. Sistem otomatis mendeteksi produk berdasarkan **SKU** yang sudah diinput di menu Stok
+6. Produk langsung masuk ke **Keranjang Belanja** dengan notifikasi sukses
+7. Jika barcode tidak ditemukan, sistem akan **filter otomatis** ke kolom pencarian
+
+**Catatan Teknis:**
+- Barcode gun bekerja dengan mengirim karakter secara cepat (<60ms antar karakter) diakhiri Enter — sistem mendeteksi pola ini secara otomatis
+- Input manual di kolom search **tidak akan** memicu scanner (disambiguasi otomatis)
+- Barcode yang valid: minimal 3 karakter, cocok dengan SKU di database produk toko
+
+### 4.2 Setup SKU Produk untuk Barcode
+
+Agar barcode dapat terdeteksi, SKU produk harus sesuai dengan kode barcode fisik:
+
+1. Masuk ke `/toko/produk` → Tambah atau Edit Produk
+2. Isi kolom **SKU** dengan kode barcode yang tercetak di kemasan produk (mis: `8990007600088`)
+3. Simpan → produk siap di-scan
+
+### 4.3 Barcode Scanner — Mobile App
+
+Di aplikasi mobile (tablet/HP kasir):
+1. Tap ikon **kamera / scanner** di halaman Kasir
+2. Modal kamera terbuka → arahkan ke barcode produk
+3. Produk terdeteksi otomatis dan masuk ke keranjang
+
+---
+
+## 5. Fitur Detail per Modul
+
+### 5.1 Dashboard (`/dashboard`)
 - **Operator**: Ringkasan total anggota, total simpanan, pinjaman aktif, tunggakan, total Tunkin, aktivitas hari ini.
 - **Anggota**: Total simpanan, sisa pinjaman, kredit belum lunas, tunjangan kinerja, estimasi SHU, simpanan wajib, gaji bersih.
-- **Kasir**: Total penjualan hari ini, 5 transaksi terakhir.
+- **Kasir Toko**: Ringkasan penjualan hari ini, 5 transaksi terakhir.
 
-### 4.2 Anggota (`/anggota`)
+### 5.2 Anggota (`/anggota`)
 - Daftar seluruh anggota dengan pencarian dan filter.
 - Detail anggota: profil, NRP, cabang, gaji, tunkin, simpanan, pinjaman.
 - Buku Anggota (`/anggota/buku`): Format cetak buku anggota.
 - Kartu Anggota (`/anggota/kartu`): Kartu anggota digital.
 - Tambah anggota manual atau import massal dari Excel.
 
-### 4.3 Simpanan (`/simpanan`)
+### 5.3 Simpanan (`/simpanan`)
 - **Produk Simpanan**: Pokok, Wajib, Sukarela, Sejahtera — masing-masing bisa dikonfigurasi.
 - **Rekening** (`/simpanan/rekening`): Daftar seluruh rekening simpanan.
 - **Transaksi** (`/simpanan/transaksi`): Riwayat setoran & penarikan.
@@ -144,7 +234,7 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 - **Rekap** (`/simpanan/rekap`): Laporan rekapitulasi simpanan.
 - Simpanan Pokok & Wajib **tidak dapat ditarik**, kecuali anggota pensiun/keluar.
 
-### 4.4 Pinjaman (`/pinjaman`)
+### 5.4 Pinjaman (`/pinjaman`)
 - **Daftar Pinjaman**: Seluruh pinjaman aktif dengan status.
 - **Detail Pinjaman** (`/pinjaman/[id]`): Pokok, sisa, angsuran, jadwal, histori pembayaran.
 - **Pengajuan** (`/pinjaman/pengajuan`): Daftar pengajuan pinjaman.
@@ -156,39 +246,47 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 - Bunga: 0% (kebijakan koperasi).
 - Biaya Administrasi: 1% dari total pinjaman (Biaya Jasa Primkoppol).
 
-### 4.5 Kas & Bank (`/kas-bank`)
-- **Kas Masuk / Keluar** (`/kas-bank/kas`): Input transaksi kas dengan kategori (Operasional, Simpanan, Angsuran, Transfer, dll).
+### 5.5 Kas & Bank (`/kas-bank`)
+- **Kas Masuk / Keluar** (`/kas-bank/kas`): Input transaksi kas dengan kategori.
 - **Bank** (`/kas-bank/bank`): Kelola rekening bank (BRI, Bank JATIM, dll).
 - **Transfer** (`/kas-bank/transfer`): Transfer antar rekening kas/bank.
 - **Buku Kas** (`/kas-bank/buku-kas`): Buku kas dengan running balance otomatis, siap cetak.
-- **Tambah Transaksi** (`/kas-bank/transaksi/tambah`): Input transaksi kas/bank baru.
 
-### 4.6 Kwitansi (`/kwitansi`)
+### 5.6 Kwitansi (`/kwitansi`)
 - Buat kwitansi resmi dengan nomor urut otomatis.
 - Pencarian anggota berdasarkan nama atau NRP.
 - Cetak format **A4** (arsip bendahara) atau **Thermal 80mm** (kasir).
 
-### 4.7 Akuntansi & Jurnal
+### 5.7 Akuntansi & Jurnal
 - **Jurnal Umum** (`/jurnal/umum`): Input jurnal double-entry manual.
 - **Buku Besar** (`/jurnal/buku-besar`): Ledger per akun.
 - **Jurnal Penyesuaian** (`/jurnal/penyesuaian`): Koreksi akhir periode.
 
-### 4.8 Toko / Unit Usaha (`/toko`)
-- **Kasir POS** (`/toko/kasir`): Proses penjualan barang dengan sistem **Multi-Unit** (Pilih unit: Toko Sembako, Resto, Cuci Mobil, dll).
-- **Kasir Cepat**: POS ringkas khusus bisnis jasa tanpa pendataan stok.
-- **Pilihan Metode**: Tunai, QRIS, atau Kredit (Potong Gaji). Khusus "Potong Gaji", wajib mencantumkan nama penerima.
-- **Produk** (`/toko/produk`): Kelola produk toko (nama, harga, stok, HPP).
+### 5.8 Toko PRIMKOPPOL (`/toko`)
+
+**Untuk Admin Toko & Operator:**
+- **Kasir POS** (`/toko/kasir`): Proses penjualan dengan scan barcode + keranjang belanja.
+- **Produk** (`/toko/produk`): Kelola produk toko (nama, harga, stok, SKU, HPP).
 - **Persediaan** (`/toko/persediaan`): Monitoring stok dan nilai persediaan.
 - **Import Produk** (`/toko/produk/import`): Import produk massal dari Excel/CSV.
-- Routing Otomatis: Tunai masuk akun Kas Unit, QRIS ke Bank Unit, Kredit otomatis membuat jurnal piutang anggota (`/transaksi-unit`).
+- **Riwayat Penjualan** (`/toko`): Seluruh histori transaksi toko.
 
-### 4.9 Aset Koperasi (`/aset`)
+**Metode Pembayaran:**
+- **Tunai**: Masuk ke saldo Kas Fisik unit toko.
+- **QRIS**: Masuk ke Bank Unit terkait secara otomatis.
+- **Potong Gaji (Kredit)**: Membuat piutang anggota otomatis di `/transaksi-unit`.
+
+### 5.9 Transaksi Unit Layanan (`/transaksi-unit`)
+- Transaksi kredit unit usaha jasa (Cuci Mobil, Barbershop, dll) dengan lookup NRP.
+- Riwayat transaksi unit (`/transaksi-unit/riwayat`).
+- **Kasir POS Jasa** (`/unit-layanan/kasir`): POS ringkas tanpa stok untuk unit jasa.
+
+### 5.10 Aset Koperasi (`/aset`)
 - Registrasi aset baru (nama, nilai, tanggal perolehan, kategori).
 - Perhitungan penyusutan otomatis (garis lurus).
 - Detail aset (`/aset/[id]`): Histori penyusutan, nilai buku.
-- Edit dan hapus aset.
 
-### 4.10 Laporan Keuangan (`/laporan`)
+### 5.11 Laporan Keuangan (`/laporan`)
 - **Neraca** (`/laporan/neraca`): Laporan posisi keuangan.
 - **Laba Rugi** (`/laporan/laba-rugi`): Laporan pendapatan dan beban.
 - **Arus Kas** (`/laporan/arus-kas`): Arus kas masuk dan keluar.
@@ -196,12 +294,12 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 - **Rekap Pinjaman** (`/laporan/rekap-pinjaman`): Rekapitulasi pinjaman aktif.
 - **Rekap Anggota** (`/laporan/rekap-anggota`): Rekapitulasi data anggota.
 - **Simulasi SHU** (`/laporan/shu`): Perhitungan SHU realtime.
-- Semua laporan siap cetak (print-friendly).
+- Semua laporan bisa diekspor ke **Excel** dan **PDF**.
 
-### 4.11 Master Data (`/master`)
+### 5.12 Master Data (`/master`)
 - **Cabang** (`/master/cabang`): Kelola satuan kerja / unit cabang.
-- **Users** (`/master/users`): Kelola akun pengguna dan role.
-- **CoA** (`/master/coa`): Bagan Akun (Chart of Accounts) — akun pendapatan, beban, aset, hutang, modal.
+- **Users** (`/master/users`): Kelola akun pengguna, role, dan **Unit Usaha** (wajib diisi untuk kasir).
+- **CoA** (`/master/coa`): Bagan Akun (Chart of Accounts).
 - **Produk Simpanan** (`/master/produk-simpanan`): Konfigurasi produk tabungan.
 - **Produk Pinjaman** (`/master/produk-pinjaman`): Konfigurasi produk kredit.
 - **Parameter SHU** (`/master/parameter-shu`): Setting alokasi SHU sesuai AD-ART.
@@ -209,36 +307,11 @@ Operator (Super Admin) ▸ Admin ▸ Kasir ▸ Anggota
 - **Import Data** (`/master/import-data`): Import anggota, Tunkin, Gaji dari Excel.
 - **Mapping Jurnal** (`/master/mapping-jurnal`): Pemetaan akun untuk jurnal otomatis.
 
-### 4.12 Pengumuman (`/pengumuman`)
-- Buat pengumuman resmi untuk seluruh anggota.
-- Tampil di dashboard anggota (web & mobile).
-
-### 4.13 Approval (`/approval`)
-- Approval pengajuan pinjaman dari anggota.
-- Flow: Pengajuan → Review → Disetujui/Ditolak → Pencairan.
-
-### 4.14 Periode & Tutup Buku (`/periode`)
-- **Tutup Buku** (`/periode/tutup-buku`): Menutup periode akuntansi.
-- **SHU** (`/periode/shu`): Perhitungan SHU akhir periode.
-- **Distribusi SHU** (`/periode/shu/distribusi`): Pembagian SHU ke anggota.
-
-### 4.15 Non-SP (Non Simpan Pinjam)
-- **Penerimaan** (`/non-sp/penerimaan`): Input penerimaan dari unit usaha non-SP.
-- **Pengeluaran** (`/non-sp/pengeluaran`): Input pengeluaran dari unit usaha non-SP.
-
-### 4.16 Transaksi Unit (`/transaksi-unit`)
-- Transaksi kredit unit usaha (Cuci Mobil, Barbershop, dll) dengan lookup NRP.
-- Riwayat transaksi unit (`/transaksi-unit/riwayat`).
-
-### 4.17 Settings (`/settings`)
-- **Reset Data Tunkin**: Mengosongkan saldo tunjangan kinerja seluruh anggota.
-- **Reset Data Gaji**: Mengosongkan saldo gaji seluruh anggota.
-- **Reset Data Lainnya**: Reset simpanan, pinjaman, transaksi, dll.
-- Memerlukan konfirmasi dengan mengetik kata kunci **"RESET-DATA"**.
+> **Catatan Penting — Assign Unit ke Kasir:** Saat membuat atau mengedit akun Kasir di `/master/users`, **wajib memilih Unit Usaha**. Sistem akan otomatis menyesuaikan sidebar dan akses POS sesuai unit yang dipilih.
 
 ---
 
-## 5. Aplikasi Mobile (Android & iOS)
+## 6. Aplikasi Mobile (Android & iOS)
 
 Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **React Native (Expo)**. Fitur mobile sudah memiliki **paritas penuh** dengan versi web.
 
@@ -246,28 +319,21 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 
 #### Untuk Pengguna Android (Install APK)
 1. **Download APK:** Buka link instalasi APK yang diberikan oleh pengurus (atau dari link Expo EAS Build terlampir).
-2. **Izinkan Instalasi:** Jika muncul peringatan *"Install unknown apps"* (Instal aplikasi tidak dikenal) di HP Android Anda, silakan masuk ke **Settings (Pengaturan) > Security (Keamanan)** lalu aktifkan izin untuk browser atau file manager Anda.
+2. **Izinkan Instalasi:** Jika muncul peringatan *"Install unknown apps"*, masuk ke **Settings > Security** lalu aktifkan izin.
 3. **Install:** Buka file `.apk` yang sudah didownload, lalu tekan **Install**.
-4. **Buka Aplikasi:** Setelah selesai, aplikasi `Koperasi Primkoppol` akan muncul di layar utama (Home Screen) atau laci aplikasi Anda.
+4. **Buka Aplikasi:** Aplikasi `Koperasi Primkoppol` akan muncul di layar utama.
 5. **Login:** Gunakan NRP dan Password yang sudah didaftarkan.
 
 #### Untuk Pengguna iOS (iPhone / iPad)
-*(Aplikasi iOS tidak mendukung format APK)*
-1. **Melalui TestFlight / App Store:** Jika aplikasi sudah dipublish oleh pengurus ke Apple App Store atau TestFlight, Anda dapat mendownloadnya langsung dari sana.
-2. **Alternatif Web-App (PWA):** Jika belum tersedia di App Store, Anda masih bisa menggunakan fitur PWA:
-   - Buka browser **Safari** di iPhone Anda.
-   - Kunjungi website resmi: `https://www.primkoppol.online`
-   - Tekan tombol **Share** (ikon kotak dengan panah ke atas) di menu bawah Safari.
-   - Scroll ke bawah dan pilih **"Add to Home Screen"** atau **"Tambahkan ke Layar Utama"**.
-   - Aplikasi Primkoppol akan muncul di layar utama iPhone Anda dan berjalan layaknya aplikasi native tanpa frame browser.
+1. **Melalui TestFlight / App Store:** Jika aplikasi sudah dipublish, download dari sana.
+2. **Alternatif Web-App (PWA):** Buka Safari → kunjungi website → tap Share → **"Add to Home Screen"**.
 
 ---
 
-### 5.1 Fitur Mobile — Operator
+### 6.1 Fitur Mobile — Operator
 | Fitur | Tersedia |
 |-------|----------|
 | Dashboard Ringkasan Koperasi | ✅ |
-| Aktivitas Hari Ini | ✅ |
 | Buku Anggota & Detail | ✅ |
 | Daftar Pinjaman | ✅ |
 | Bayar Angsuran | ✅ |
@@ -276,14 +342,13 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 | Kas & Bank | ✅ |
 | Buku Kas | ✅ |
 | Kwitansi | ✅ |
-| Jurnal Umum | ✅ |
-| Buku Besar | ✅ |
-| Laba Rugi | ✅ |
-| Neraca | ✅ |
+| Jurnal Umum & Buku Besar | ✅ |
+| Laporan Keuangan | ✅ |
 | Simulasi SHU | ✅ |
 | Aset Koperasi | ✅ |
-| Kasir POS | ✅ |
-| Stok Barang | ✅ |
+| Kasir POS Toko (Barcode Kamera) | ✅ |
+| Kasir POS Jasa | ✅ |
+| Stok Barang Toko | ✅ |
 | Master Data | ✅ |
 | Import Data | ✅ |
 | Profil Koperasi | ✅ |
@@ -291,15 +356,37 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 | Audit Log | ✅ |
 | Ganti Password | ✅ |
 
-### 5.2 Fitur Mobile — Anggota
+### 6.2 Fitur Mobile — Kasir Toko
+| Fitur | Tersedia |
+|-------|----------|
+| Dashboard Kasir | ✅ |
+| Kasir POS Toko (Scan Barcode Kamera) | ✅ |
+| Keranjang Belanja + Checkout | ✅ |
+| Checkout Potong Gaji (Cari NRP) | ✅ |
+| Cetak Struk Thermal | ✅ |
+| Stok Barang (View) | ✅ |
+| Riwayat Penjualan | ✅ |
+| Pengumuman | ✅ |
+| Ganti Password | ✅ |
+
+### 6.3 Fitur Mobile — Kasir Unit Jasa
+| Fitur | Tersedia |
+|-------|----------|
+| Dashboard Kasir | ✅ |
+| Kasir POS Jasa (Input Nominal + Paket) | ✅ |
+| Checkout Potong Gaji (Cari NRP) | ✅ |
+| Cetak Struk Thermal | ✅ |
+| Riwayat Transaksi Unit | ✅ |
+| Pengumuman | ✅ |
+| Ganti Password | ✅ |
+
+### 6.4 Fitur Mobile — Anggota
 | Fitur | Tersedia |
 |-------|----------|
 | Dashboard Keuangan Saya | ✅ |
 | Total Simpanan & Sisa Pinjaman | ✅ |
 | Tunjangan Kinerja (Tunkin) | ✅ |
 | Estimasi SHU | ✅ |
-| Simpanan Wajib & Sejahtera | ✅ |
-| Gaji Bersih | ✅ |
 | Mutasi Transaksi | ✅ |
 | Pinjaman Saya | ✅ |
 | Ajukan Pinjaman | ✅ |
@@ -307,86 +394,73 @@ Koperasi Primkoppol memiliki **aplikasi mobile native** yang dibangun dengan **R
 | Pengumuman | ✅ |
 | Ganti Password | ✅ |
 
-### 5.3 Fitur Mobile — Kasir
-| Fitur | Tersedia |
-|-------|----------|
-| Dashboard Kasir | ✅ |
-| Kasir POS (Pilih Unit & QRIS) | ✅ |
-| Checkout Potong Gaji (Cari NRP) | ✅ |
-| Stok Barang | ✅ |
-| Pengumuman | ✅ |
-| Ganti Password | ✅ |
-
-### 5.4 Navigasi Mobile
-Bottom navigation dengan 4 tab kontekstual per role:
-
-- **Member**: Beranda → Transaksi → Pinjaman → Profil
+### 6.5 Navigasi Mobile per Role
+- **Anggota**: Beranda → Transaksi → Pinjaman → Profil
 - **Operator**: Beranda → Approval → Anggota → Profil
-- **Kasir**: Beranda → Kasir → Stok → Profil
-
-### 5.5 UX Standards yang Dipenuhi
-- Pull-to-refresh di semua layar
-- Splash screen premium dengan logo Primkoppol
-- Secure token storage (expo-secure-store)
-- Auto-logout saat token expired (401)
-- Back button di semua sub-screen
-- Sticky action footer di halaman detail anggota
-- Collapsible accordion menu di dashboard operator
-- Role-based dashboard & navigasi otomatis
-- Empty state illustration saat data kosong
-- Loading indicator saat fetch data
-
-### 5.6 Instalasi Mobile
-**Untuk Android**: Download APK langsung dari build EAS.
-**Untuk iOS**: Submit ke TestFlight atau App Store setelah build EAS.
+- **Kasir Toko**: Beranda → Kasir POS → Stok → Profil
+- **Kasir Jasa**: Beranda → Kasir POS → Riwayat → Profil
 
 ---
 
-## 6. Alur Fungsi Koperasi
+## 7. Alur Fungsi Koperasi
 
-### 6.1 Kasir dengan Sistem Potong Gaji (Kredit) & QRIS
-Aplikasi Kasir Mobile & Web mendukung metode Tunai, QRIS, dan Kredit:
-- **Kredit (Potong Gaji)**: Diwajibkan Kasir memilih nama/NRP anggota. Sistem mencatatnya di Piutang Anggota (`UnitTransaction`), bukan ke kas bank.
+### 7.1 Kasir Toko — Alur Penjualan dengan Barcode
+```
+1. Kasir buka /toko/kasir
+2. Arahkan barcode gun ke produk → SKU terdeteksi → masuk keranjang
+   ATAU cari produk manual → klik tambah (+)
+3. Atur jumlah di keranjang jika perlu
+4. Pilih metode bayar:
+   - Tunai: input nominal → hitung kembalian → Bayar
+   - QRIS: konfirmasi → Bayar (masuk bank unit otomatis)
+   - Potong Gaji: cari NRP/nama anggota → pilih → Konfirmasi
+5. Struk otomatis muncul → cetak atau skip
+6. Stok produk berkurang otomatis di database
+```
+
+### 7.2 Kasir dengan Sistem Potong Gaji (Kredit) & QRIS
+- **Kredit (Potong Gaji)**: Kasir memilih nama/NRP anggota. Sistem mencatatnya di Piutang Anggota (`UnitTransaction`), bukan ke kas bank.
 - **QRIS**: Masuk langsung ke Bank Unit terkait secara otomatis.
 - **Tunai**: Masuk ke saldo Kas Fisik unit tersebut.
 
-### 6.2 Pencetakan Bukti Transaksi
+### 7.3 Pencetakan Bukti Transaksi
 - **Cetak Struk Thermal**: Format 80mm untuk printer POS.
 - **Cetak A4**: Format formal untuk arsip bendahara.
 - Navigasi (sidebar, topbar, bottom nav) otomatis tersembunyi saat print.
 
-### 6.3 Simpanan Pokok, Wajib & Sukarela
+### 7.4 Simpanan Pokok, Wajib & Sukarela
 - Masuk di `/simpanan/transaksi/tambah`.
 - Pokok & Wajib **tidak dapat ditarik**, kecuali pensiun/keluar.
 
-### 6.4 Tutup Buku & Sinkronisasi Arus Kas
+### 7.5 Tutup Buku & Sinkronisasi Arus Kas
 - Menu `/periode/tutup-buku` otomatis merekap seluruh jurnal sepanjang periode.
 - Angka pada Arus Kas dan Neraca otomatis terintegrasi.
 
 ---
 
-## 7. Import & Migrasi Data
+## 8. Import & Migrasi Data
 
-### 7.1 Import Anggota + Tunkin + Gaji (`/master/import-data`)
+### 8.1 Import Anggota + Tunkin + Gaji (`/master/import-data`)
 - Format: Excel (.xlsx, .xls) atau CSV.
 - Sistem mendeteksi kolom **NAMA**, **NRP**, **TUNKIN**, **GAJI** secara otomatis.
 - Mode: Import Anggota Baru Lengkap, atau Update Tunkin & Gaji saja.
 - Angka minus dalam format `(xxx)` otomatis dikonversi dan ditampilkan merah.
 
-### 7.2 Import Migrasi Pinjaman (Book2.xlsx)
+### 8.2 Import Migrasi Pinjaman (Book2.xlsx)
 - Import data pinjaman SP lama dari file Excel rincian piutang.
 - Sistem mendeteksi kolom: **NO, NAMA, PANGKAT, NRP, TGL PINJAM, PINJAM, SELAMA, ANGSURAN, SISA SALDO**.
-- Parser tanggal Bahasa Indonesia (contoh: "29 JUL 2025", "4 F3B 2023", "OKT 2019").
-- Logika multi-pinjaman: Baris tanpa NO tapi dengan nama yang sama = pinjaman tambahan orang yang sama.
-- Anggota tanpa NRP di database akan otomatis dibuatkan akun baru dengan NRP format `NO-NRP-XXXX` (bisa diedit).
+- Parser tanggal Bahasa Indonesia (contoh: "29 JUL 2025", "OKT 2019").
+- Logika multi-pinjaman: Baris tanpa NO tapi dengan nama yang sama = pinjaman tambahan.
+- Anggota tanpa NRP di database akan otomatis dibuatkan akun baru.
 - Data pinjaman negatif/minus (kelebihan bayar) otomatis dilewati.
 
-### 7.3 Import Produk Toko (`/toko/produk/import`)
+### 8.3 Import Produk Toko (`/toko/produk/import`)
 - Import daftar produk toko dari Excel/CSV.
+- Kolom wajib: **Nama Produk**, **SKU** (kode barcode), **Harga Jual**, **Stok**.
 
 ---
 
-## 8. Reset & Pengaturan Data
+## 9. Reset & Pengaturan Data
 
 ### Halaman Settings (`/settings`)
 Fitur reset data untuk operator/admin yang perlu membersihkan dan import ulang:
@@ -404,7 +478,7 @@ Fitur reset data untuk operator/admin yang perlu membersihkan dan import ulang:
 
 ---
 
-## 9. Audit Log (Keamanan & Tracking)
+## 10. Audit Log (Keamanan & Tracking)
 
 (Hanya Operator/SuperAdmin)
 
@@ -416,7 +490,7 @@ Menu **Audit Log** (`/audit-log`) adalah sistem pengawasan keamanan siber kopera
 
 ---
 
-## 10. Perhitungan SHU (Sisa Hasil Usaha)
+## 11. Perhitungan SHU (Sisa Hasil Usaha)
 
 Sistem menghitung estimasi SHU secara **realtime** berdasarkan formulasi AD-ART Pasal 42.
 
@@ -434,18 +508,7 @@ Sistem menghitung estimasi SHU secara **realtime** berdasarkan formulasi AD-ART 
 | 6 | Dana Pendidikan | 5% | Untuk kegiatan pendidikan koperasi |
 | 7 | Dana Sosial | 5% | Untuk kegiatan sosial |
 
-**SHU dari Usaha untuk Bukan Anggota:**
-
-| No | Alokasi | Persentase |
-| --- | --- | --- |
-| 1 | Dana Cadangan | 60% |
-| 2 | Dana Kesejahteraan Pegawai | 10% |
-| 3 | Dana Pendidikan Koperasi | 20% |
-| 4 | Dana Sosial | 10% |
-
-### B. Komponen 1: Jasa Simpanan (Modal) — 20%
-
-Kolam Jasa Simpanan dihitung dari total laba bersih koperasi. Jika belum ada pendapatan, sistem menggunakan lantai minimum 6% per tahun dari total modal simpanan.
+### B. Komponen: Jasa Simpanan (Modal) — 20%
 
 ```text
 Kolam Jasa Simpanan = MAX(
@@ -456,9 +519,7 @@ Kolam Jasa Simpanan = MAX(
 SHU Jasa Simpanan Saya = (Simpanan Saya / Total Simpanan Semua Anggota) × Kolam
 ```
 
-Yang termasuk "Simpanan Saya": Saldo Simpanan Pokok, Saldo Simpanan Wajib, Total setoran Simpanan Sukarela.
-
-### C. Komponen 2: Jasa Anggota (Usaha) — 25%
+### C. Komponen: Jasa Anggota (Usaha) — 25%
 
 ```text
 TOKO:
@@ -466,7 +527,7 @@ TOKO:
   SHU Toko = Total Margin × 25%
 
 UNIT JASA (Cuci Mobil, Barbershop, dll):
-  Margin Jasa = Total Pembayaran × 80% (estimasi margin jasa)
+  Margin Jasa = Total Pembayaran × 80%
   SHU Unit = Margin Jasa × 25%
 
 PINJAMAN:

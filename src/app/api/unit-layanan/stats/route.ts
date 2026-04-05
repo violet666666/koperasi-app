@@ -79,7 +79,7 @@ export async function GET(request: Request) {
         });
 
         const unitLabel: Record<string, string> = {
-            toko: "Toko Sembako",
+            toko: "Toko PRIMKOPPOL",
             cuci_mobil: "Cuci Mobil",
             barbershop: "Barbershop",
             fitness: "Fitness",

@@ -38,6 +38,7 @@ interface UserData {
     role?: { id: number; name: string; displayName: string };
     branchId?: number;
     branch?: { id: number; name: string };
+    unitType?: string | null;
     isActive: boolean;
     createdAt: string;
 }
@@ -70,13 +71,26 @@ const columns: ColumnDef<UserData>[] = [
     },
     {
         accessorKey: "role",
-        header: "Role",
-        cell: ({ row }) => (
-            <Badge variant="outline" className="gap-1">
-                <Shield className="h-3 w-3" />
-                {row.original.role?.displayName || row.original.role?.name || "-"}
-            </Badge>
-        ),
+        header: "Role / Unit",
+        cell: ({ row }) => {
+            const unitLabel: Record<string, string> = {
+                toko: "Toko PRIMKOPPOL", barbershop: "Barbershop", cuci_mobil: "Cuci Mobil",
+                fitness: "Fitness", playstation: "PlayStation", laundry: "Laundry",
+                resto_cafe: "Resto & Cafe", properti: "Properti", simpan_pinjam: "Simpan Pinjam",
+            };
+            const ut = (row.original as any).unitType;
+            return (
+                <div className="flex flex-col gap-1">
+                    <Badge variant="outline" className="gap-1 w-fit">
+                        <Shield className="h-3 w-3" />
+                        {row.original.role?.displayName || row.original.role?.name || "-"}
+                    </Badge>
+                    {ut && (
+                        <span className="text-xs text-primary font-medium">{unitLabel[ut] || ut}</span>
+                    )}
+                </div>
+            );
+        },
     },
     {
         accessorKey: "isActive",
@@ -98,6 +112,18 @@ const columns: ColumnDef<UserData>[] = [
 ];
 
 // User form
+const UNIT_OPTIONS = [
+    { value: "toko", label: "Toko PRIMKOPPOL" },
+    { value: "barbershop", label: "Barbershop" },
+    { value: "cuci_mobil", label: "Cuci Mobil" },
+    { value: "fitness", label: "Fitness" },
+    { value: "laundry", label: "Laundry" },
+    { value: "playstation", label: "PlayStation" },
+    { value: "resto_cafe", label: "Resto & Cafe (Latar)" },
+    { value: "properti", label: "Properti" },
+    { value: "simpan_pinjam", label: "Simpan Pinjam" },
+];
+
 function UserForm({
     user,
     roles,
@@ -115,8 +141,13 @@ function UserForm({
         email: user?.email || "",
         password: "",
         roleId: user?.roleId?.toString() || user?.role?.id?.toString() || "",
+        unitType: (user as any)?.unitType || "",
         isActive: user?.isActive ?? true,
     });
+
+    // Detect if selected role is kasir
+    const selectedRole = roles.find(r => r.id.toString() === formData.roleId);
+    const isKasirRole = selectedRole?.name === "kasir";
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,8 +158,9 @@ function UserForm({
                 email: formData.email,
                 password: formData.password || undefined,
                 roleId: parseInt(formData.roleId),
+                unitType: isKasirRole ? (formData.unitType || null) : null,
                 isActive: formData.isActive,
-            });
+            } as any);
         } finally {
             setIsLoading(false);
         }
@@ -180,7 +212,7 @@ function UserForm({
                     <Label htmlFor="role">Role *</Label>
                     <Select
                         value={formData.roleId}
-                        onValueChange={(value) => setFormData((p) => ({ ...p, roleId: value }))}
+                        onValueChange={(value) => setFormData((p) => ({ ...p, roleId: value, unitType: "" }))}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Pilih role" />
@@ -194,6 +226,31 @@ function UserForm({
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* Unit Type — hanya muncul jika role Kasir */}
+                {isKasirRole && (
+                    <div>
+                        <Label htmlFor="unitType">Unit Usaha Kasir *</Label>
+                        <Select
+                            value={formData.unitType}
+                            onValueChange={(value) => setFormData((p) => ({ ...p, unitType: value }))}
+                        >
+                            <SelectTrigger id="unitType">
+                                <SelectValue placeholder="Pilih unit usaha" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {UNIT_OPTIONS.map((u) => (
+                                    <SelectItem key={u.value} value={u.value}>
+                                        {u.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Menu sidebar kasir akan menyesuaikan unit ini otomatis.
+                        </p>
+                    </div>
+                )}
             </div>
             <div className="flex items-center gap-2">
                 <Checkbox
@@ -207,7 +264,7 @@ function UserForm({
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
                     Batal
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || (isKasirRole && !formData.unitType)}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Simpan
                 </Button>

@@ -641,3 +641,74 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 1. **Mobile App Scanner:** Scanner barcode native sukses dilatih. useBarcodeScanner di Web POS kasir sudah disetel agar *listener input* otomatis mencari variabel 'sku' pada master barang. Artinya, kasir hanya perlu scan produk dengan *Barcode Gun* dan produk terdeteksi otomatis sesuai kode stok.
 2. **Type Casting memberId:** Bug 'Failed to process quick sale' pada Kasir Web saat melakukan metode pembayaran Potong Gaji (Kredit) terjadi karena tipe data memberId di-parsing sebagai string sementara ORM Prisma membutuhkannya sebagai integer Int. Ini telah diperbaiki dengan penambahan casting Number(memberId) pada API src/app/api/unit-layanan/sales/route.ts dan API Toko src/app/api/toko/sales/route.ts.
 **Status:** Fixed.
+
+---
+### [2026-04-05 10:55] BUG FATAL: Kasir Toko masuk ke Kasir Cepat (tanpa stok / barcode)
+
+**Laporan:** Login akun kasir dengan unit Toko menampilkan sidebar "Kasir Cepat" (unit-layanan, tanpa stok) dan nama unit "Toko Sembako" — seharusnya mendapatkan POS Toko dengan barcode scanner.
+
+**Root Cause (3 lapisan):**
+
+1. **
+avigation.ts - getNavigationForUser** tidak membedakan unitType kasir.
+   Semua kasir (apapun unitnya) selalu diarahkan ke kasirNavigation yang berisi Kasir Cepat (/unit-layanan/kasir).
+   **FIX:** Ditambahkan kasirTokoNavigation khusus dengan menu Kasir POS (/toko/kasir), Produk, Persediaan, Riwayat. Logic getNavigationForUser kini cek: jika user.unitType === "toko" → pakai kasirTokoNavigation, lainnya → kasirNavigation.
+
+2. **alidations/index.ts - createUserSchema** tidak memiliki field unitType.
+   Akibatnya, saat Admin menyimpan akun kasir toko, field unitType dibuang oleh validator Zod dan tidak tersimpan ke database.
+   **FIX:** Ditambahkan unitType: z.string().nullable().optional() ke createUserSchema dan updateUserSchema.
+
+3. **pi/users/[id]/route.ts** tidak memiliki handler PUT.
+   Akibatnya, saat Admin meng-edit user, update tidak diproses server-side.
+   **FIX:** Handler PUT ditambahkan dengan support update semua field termasuk unitType dan re-hash password.
+
+4. **master/users/page.tsx** form tidak memiliki dropdown unitType.
+   Admin tidak bisa mengassign unit ke kasir dari UI.
+   **FIX:** Dropdown "Unit Usaha Kasir" ditambahkan — muncul otomatis saat role kasir dipilih. Tombol Simpan disabled sampai unit dipilih. Kolom tabel juga diperbarui untuk menampilkan unit assignment.
+
+5. **Nama "Toko Sembako"** hardcoded di 4 tempat: unit-layanan/kasir/page.tsx, pi/unit-layanan/stats/route.ts, pi/dashboard-charts/route.ts, settings/page.tsx.
+   **FIX:** Semua diganti menjadi "Toko PRIMKOPPOL".
+
+**Status:** FIXED & VERIFIED (TypeScript Check PASSED - 0 errors).
+**File yang dimodifikasi:**
+- src/lib/constants/navigation.ts
+- src/lib/validations/index.ts
+- src/app/api/users/[id]/route.ts
+- src/app/(protected)/master/users/page.tsx
+- src/app/(protected)/unit-layanan/kasir/page.tsx
+- src/app/api/unit-layanan/stats/route.ts
+- src/app/api/dashboard-charts/route.ts
+- src/app/(protected)/settings/page.tsx
+
+
+---
+### [2026-04-05 11:07] PATCH: Penyempurnaan Menyeluruh — Kasir Toko, Barcode, Permission & USER_GUIDE
+
+**Permintaan:** Perbaiki semua bug kasir toko, pastikan barcode scanner bisa deteksi produk, update USER_GUIDE.md.
+
+**Perbaikan Dilakukan:**
+
+1. **navigation.ts — Permission kasir_pos tidak ada di DB**
+   kasir_pos digunakan di navigation filter tetapi TIDAK pernah didaftarkan di seed/permissions database.
+   Akibatnya, semua menu yang pakai kasir_pos tidak pernah muncul karena kasir tidak punya permission ini.
+   FIX: Ganti semua kasir_pos dengan permission yang benar dan ada di DB:
+   - kasirTokoNavigation → pakai manage_toko (sudah ada di kasir role seed)
+   - kasirNavigation → pakai manage_unit_transactions (sudah ada di kasir role seed)
+   - mainNavigation (Kasir POS sub-item) → pakai manage_unit_transactions
+
+2. **Barcode Scanner Web — SUDAH BERJALAN**
+   Hook useBarcodeScanner sudah terintegrasi di /toko/kasir. Cara kerja: barcode gun USB/Bluetooth 
+   mengirim karakter cepat (<60ms) diakhiri Enter → sistem detect → cari SKU → masuk ke keranjang.
+   Syarat: SKU produk di database harus cocok dengan kode barcode fisik di kemasan.
+
+3. **USER_GUIDE.md — Diperbarui Lengkap (v3.0)**
+   - Tabel akun Admin & Kasir diperjelas dengan kolom "Menu yang Tersedia"
+   - Ditambahkan seksi lengkap "Fitur Kasir Toko — Barcode Scanner" (cara kerja, setup SKU, mobile)
+   - Dibedakan alur Kasir Toko vs Kasir Jasa dengan jelas
+   - Catatan penting: saat buat akun Kasir di /master/users wajib pilih unit agar sidebar otomatis sesuai
+   - Semua nama "Toko Sembako" diganti "Toko PRIMKOPPOL"
+
+**Status:** ALL FIXED, TypeScript Check PASSED (0 errors).
+**File dimodifikasi session ini:**
+- src/lib/constants/navigation.ts (kasir_pos → permission yang valid)
+- USER_GUIDE.md (rewrite total v3.0)

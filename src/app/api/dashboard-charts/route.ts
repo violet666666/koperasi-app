@@ -90,7 +90,7 @@ export async function GET(request: Request) {
         // 2. Unit Usaha Sales Summary
         // ============================================================
         const UNIT_LABELS: Record<string, string> = {
-            toko: "Toko Sembako",
+            toko: "Toko PRIMKOPPOL",
             cuci_mobil: "Cuci Mobil",
             barbershop: "Barbershop",
             playstation: "PlayStation",

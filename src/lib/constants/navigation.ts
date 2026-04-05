@@ -105,7 +105,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 title: "Transaksi Unit Layanan", href: "/transaksi-unit", icon: Wallet,
                 permission: "manage_unit_transactions",
                 children: [
-                    { title: "Kasir Cepat", href: "/unit-layanan/kasir", permission: "kasir_pos" },
+                    { title: "Kasir POS", href: "/unit-layanan/kasir", permission: "manage_unit_transactions" },
                     { title: "Piutang & Riwayat", href: "/transaksi-unit" },
                 ],
             },
@@ -237,7 +237,42 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
 ];
 
 // ============================================================
-// KASIR NAVIGATION — minimal, hanya POS + Riwayat + Akun
+// KASIR TOKO NAVIGATION — kasir unit "toko", akses penuh ke Toko POS
+// ============================================================
+export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "TOKO PRIMKOPPOL",
+        items: [
+            {
+                title: "Kasir POS", href: "/toko/kasir", icon: Store,
+                permission: "manage_toko",
+            },
+            {
+                title: "Produk", href: "/toko/produk", icon: ShoppingBag,
+                permission: "manage_toko",
+            },
+            {
+                title: "Persediaan Stok", href: "/toko/persediaan", icon: Package,
+                permission: "manage_toko",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/toko", icon: ClipboardList,
+                permission: "manage_toko",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+            { title: "Pengaturan", href: "/settings", icon: Settings },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR NAVIGATION — unit layanan jasa (tanpa stok), POS cepat
 // ============================================================
 export const kasirNavigation: (NavItem | NavGroup)[] = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -245,8 +280,8 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
         title: "UNIT USAHA",
         items: [
             {
-                title: "Kasir Cepat (POS)", href: "/unit-layanan/kasir", icon: Store,
-                permission: "kasir_pos",
+                title: "Kasir POS", href: "/unit-layanan/kasir", icon: Store,
+                permission: "manage_unit_transactions",
             },
             {
                 title: "Riwayat Transaksi", href: "/transaksi-unit", icon: ClipboardList,
@@ -359,15 +394,25 @@ export function filterNavigationByPermissions(
 }
 
 /**
- * Get the correct navigation for a user based on their role.
- * Kasir gets a stripped-down menu; operator gets full menu.
+ * Get the correct navigation for a user based on their role AND unitType.
+ *
+ * Logic:
+ *  - Operator (manage_all)  → mainNavigation (full)
+ *  - Kasir unitType="toko"  → kasirTokoNavigation (Toko POS — dengan stok & barcode)
+ *  - Kasir unitType=lainnya → kasirNavigation (Kasir Cepat — jasa tanpa stok)
+ *  - Admin unit             → mainNavigation filtered by role+permissions
  */
 export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] {
     if (user.permissions.includes("manage_all")) {
         return mainNavigation; // Operator: full nav
     }
     if (user.roleName === "kasir") {
-        return filterNavigationByUser(kasirNavigation, user); // Kasir: minimal nav
+        // Kasir Toko mendapat nav khusus dengan Produk, POS dengan stok & barcode scanner
+        if (user.unitType === "toko") {
+            return filterNavigationByUser(kasirTokoNavigation, user);
+        }
+        // Kasir unit layanan lain (barbershop, fitness, dll) → Kasir Cepat
+        return filterNavigationByUser(kasirNavigation, user);
     }
     // Admin unit: full nav filtered by role+permissions
     return filterNavigationByUser(mainNavigation, user);

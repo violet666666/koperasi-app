@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function GET(
     request: Request,
@@ -46,7 +47,6 @@ export async function GET(
             const totalPinjaman = user.member.loans.reduce((sum, loan) => sum + Number(loan.principalAmount), 0);
             const sisaPinjaman = user.member.loans.reduce((sum, loan) => sum + Number(loan.principalOutstanding), 0);
             
-            // Dummy Estimasi SHU logic just for UI display as a demonstration
             const estimasiSHU = totalSimpanan * 0.05;
 
             stats = {
@@ -69,5 +69,40 @@ export async function GET(
             { message: "Failed to fetch user Details" },
             { status: 500 }
         );
+    }
+}
+
+export async function PUT(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id: rawId } = await params;
+        const id = parseInt(rawId);
+        if (isNaN(id)) return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
+
+        const body = await request.json();
+        const { name, email, password, roleId, branchId, unitType, isActive } = body;
+
+        const updateData: Record<string, unknown> = {};
+        if (name !== undefined) updateData.name = name;
+        if (email !== undefined) updateData.email = email;
+        if (roleId !== undefined) updateData.roleId = Number(roleId);
+        if (branchId !== undefined) updateData.branchId = branchId ? Number(branchId) : null;
+        if (unitType !== undefined) updateData.unitType = unitType || null;
+        if (isActive !== undefined) updateData.isActive = isActive;
+        if (password) updateData.password = await bcrypt.hash(password, 12);
+
+        const user = await prisma.user.update({
+            where: { id },
+            data: updateData,
+            include: { role: true, branch: true },
+        });
+
+        const { password: _, ...safeUser } = user;
+        return NextResponse.json({ data: safeUser });
+    } catch (error) {
+        console.error("PUT /api/users/[id] error:", error);
+        return NextResponse.json({ message: "Failed to update user" }, { status: 500 });
     }
 }

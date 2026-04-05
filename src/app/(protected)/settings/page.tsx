@@ -553,7 +553,7 @@ export default function SettingsPage() {
                                                 <SelectValue placeholder="Pilih unit" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="toko">Toko Sembako</SelectItem>
+                                                <SelectItem value="toko">Toko PRIMKOPPOL</SelectItem>
                                                 <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
                                                 <SelectItem value="barbershop">Barbershop</SelectItem>
                                                 <SelectItem value="fitness">Fitness</SelectItem>
