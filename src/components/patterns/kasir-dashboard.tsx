@@ -149,7 +149,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
                         <CardTitle className="text-base">Riwayat Terbaru</CardTitle>
                         <Button variant="ghost" size="sm" asChild className="gap-1 text-xs">
-                            <Link href="/transaksi-unit">Semua <ArrowRight className="h-3 w-3" /></Link>
+                            <Link href={unitType === "toko" ? "/toko" : "/transaksi-unit"}>Semua <ArrowRight className="h-3 w-3" /></Link>
                         </Button>
                     </CardHeader>
                     <CardContent className="p-0">

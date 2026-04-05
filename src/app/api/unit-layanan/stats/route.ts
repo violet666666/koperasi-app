@@ -55,28 +55,96 @@ export async function GET(request: Request) {
         const todayPending = todayTrx.filter(t => !t.isPaid).length;
 
         // Weekly chart data (last 7 days)
-        const weeklyTrx = await prisma.unitTransaction.groupBy({
-            by: ["transactionDate"],
-            where: {
-                unitType,
-                transactionDate: { gte: weekStart, lt: todayEnd },
-            },
-            _sum: { amount: true },
-            _count: { id: true },
+        // Group manually by date string to avoid timezone/timestamp grouping issues from Prisma
+        const weeklyUnitTrx = await prisma.unitTransaction.findMany({
+            where: { unitType, transactionDate: { gte: weekStart, lt: todayEnd } },
+            select: { transactionDate: true, amount: true },
+        });
+        
+        const weeklyStoreTrx = unitType === "toko" ? await prisma.storeSale.findMany({
+            where: { unitType, createdAt: { gte: weekStart, lt: todayEnd } },
+            select: { createdAt: true, totalAmount: true },
+        }) : [];
+
+        const weeklyChartMap = new Map();
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStart);
+            d.setDate(d.getDate() + i);
+            d.setHours(0,0,0,0);
+            weeklyChartMap.set(d.getTime(), { date: d, total: 0, count: 0 });
+        }
+
+        weeklyUnitTrx.forEach(t => {
+            const d = new Date(t.transactionDate);
+            d.setHours(0,0,0,0);
+            const entry = weeklyChartMap.get(d.getTime());
+            if (entry) {
+                entry.total += Number(t.amount);
+                entry.count += 1;
+            }
         });
 
-        // Recent transactions (last 10)
-        const recentTrx = await prisma.unitTransaction.findMany({
+        weeklyStoreTrx.forEach(t => {
+            const d = new Date(t.createdAt);
+            d.setHours(0,0,0,0);
+            const entry = weeklyChartMap.get(d.getTime());
+            if (entry) {
+                entry.total += Number(t.totalAmount);
+                entry.count += 1;
+            }
+        });
+
+        const weeklyChart = Array.from(weeklyChartMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        // Recent transactions (last 10 combined)
+        const recentUnitTrx = await prisma.unitTransaction.findMany({
             where: { unitType },
             orderBy: { transactionDate: "desc" },
             take: 10,
             select: {
                 id: true, transactionNo: true, amount: true,
                 paymentMethod: true, description: true, transactionDate: true,
-                isPaid: true,
-                member: { select: { name: true } },
+                isPaid: true, member: { select: { name: true } },
             },
         });
+
+        let allRecent = recentUnitTrx.map(t => ({
+            id: Number(t.id),
+            no: t.transactionNo,
+            amount: Number(t.amount),
+            method: t.paymentMethod,
+            desc: t.description,
+            date: t.transactionDate,
+            isPaid: t.isPaid,
+            memberName: t.member?.name ?? null,
+        }));
+
+        if (unitType === "toko") {
+            const recentStoreTrx = await prisma.storeSale.findMany({
+                where: { unitType },
+                orderBy: { createdAt: "desc" },
+                take: 10,
+                select: {
+                    id: true, saleNo: true, totalAmount: true,
+                    paymentMethod: true, customerName: true, createdAt: true,
+                    member: { select: { name: true } },
+                },
+            });
+            
+            allRecent = [
+                ...allRecent,
+                ...recentStoreTrx.map(t => ({
+                    id: t.id + 1000000, // offset id to avoid frontend key collisions
+                    no: t.saleNo,
+                    amount: Number(t.totalAmount),
+                    method: t.paymentMethod,
+                    desc: `Penjualan Toko ${t.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''}`,
+                    date: t.createdAt,
+                    isPaid: t.paymentMethod !== "salary_cut",
+                    memberName: t.member?.name || t.customerName || null,
+                }))
+            ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+        }
 
         const unitLabel: Record<string, string> = {
             toko: "Toko PRIMKOPPOL",
@@ -102,21 +170,12 @@ export async function GET(request: Request) {
                     salaryCut: todaySalaryCut,
                     pending: todayPending,
                 },
-                weeklyChart: weeklyTrx.map(g => ({
-                    date: new Date(g.transactionDate).toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),
-                    total: Number(g._sum.amount || 0),
-                    count: g._count.id,
+                weeklyChart: weeklyChart.map(g => ({
+                    date: g.date.toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),
+                    total: g.total,
+                    count: g.count,
                 })),
-                recentTransactions: recentTrx.map(t => ({
-                    id: t.id,
-                    no: t.transactionNo,
-                    amount: Number(t.amount),
-                    method: t.paymentMethod,
-                    desc: t.description,
-                    date: t.transactionDate,
-                    isPaid: t.isPaid,
-                    memberName: t.member?.name ?? null,
-                })),
+                recentTransactions: allRecent,
             }
         });
     } catch (error) {
