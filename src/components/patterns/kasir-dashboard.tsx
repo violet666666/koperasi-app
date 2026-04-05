@@ -58,6 +58,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
+    const posLink = unitType === "toko" ? "/toko/kasir" : "/unit-layanan/kasir";
 
     return (
         <div className="space-y-6">
@@ -76,7 +77,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                     </p>
                 </div>
                 <Button asChild size="lg" className="gap-2 shadow-md">
-                    <Link href="/unit-layanan/kasir">
+                    <Link href={posLink}>
                         <ShoppingCart className="h-5 w-5" />
                         Buka Kasir POS
                     </Link>

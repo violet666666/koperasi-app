@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { processDataReset } from "@/lib/actions/reset.action";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/lib/hooks";
+import { useRouter } from "next/navigation";
 
 interface AppSettings {
     // General
@@ -57,6 +59,8 @@ interface AppSettings {
 }
 
 export default function SettingsPage() {
+    const { user } = useAuth();
+    const router = useRouter();
     const [settings, setSettings] = React.useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
@@ -73,8 +77,13 @@ export default function SettingsPage() {
     const [resetConfirmation, setResetConfirmation] = React.useState("");
     const [isResetting, setIsResetting] = React.useState(false);
 
-    // Fetch settings — load from API + localStorage override
     React.useEffect(() => {
+        if (user && user.role.name === "kasir") {
+            toast.error("Akses Ditolak", { description: "Anda tidak memiliki akses ke pengaturan sistem." });
+            router.push("/dashboard");
+            return;
+        }
+
         async function fetchData() {
             setIsLoading(true);
             try {
@@ -114,8 +123,11 @@ export default function SettingsPage() {
                 setIsLoading(false);
             }
         }
-        fetchData();
-    }, []);
+        
+        if (user && user.role.name !== "kasir") {
+            fetchData();
+        }
+    }, [user, router]);
 
     // Handle save — simpan ke localStorage (pengaturan belum ada tabel DB-nya)
     const handleSave = async () => {
@@ -247,6 +259,10 @@ export default function SettingsPage() {
                 </Card>
             </div>
         );
+    }
+
+    if (user?.role?.name === "kasir") {
+        return null;
     }
 
     return (

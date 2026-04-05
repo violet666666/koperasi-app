@@ -12,6 +12,7 @@ export interface User {
     branch_id: number | null;
     branch: Branch | null;
     permissions: string[];
+    unitType: string | null; // toko, barbershop, fitness, etc.
     is_active: boolean;
     created_at: string;
     updated_at: string;

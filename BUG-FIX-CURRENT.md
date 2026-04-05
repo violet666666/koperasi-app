@@ -712,3 +712,25 @@ avigation.ts - getNavigationForUser** tidak membedakan unitType kasir.
 **File dimodifikasi session ini:**
 - src/lib/constants/navigation.ts (kasir_pos → permission yang valid)
 - USER_GUIDE.md (rewrite total v3.0)
+
+---
+### [2026-04-05 11:35] PATCH: Root Cause Navigasi Kasir & Pembatasan Role Settings
+
+**Keluhan User:**
+1. Kasir Toko tidak mendapatkan menu Toko POS dan hanya ada "Pengaturan" & "Profil Saya".
+2. Kasir bisa mengakses Pengaturan (Settings) yang sama dengan Operator.
+3. Kasir Toko klik POS dari Dashboard malah nyasar ke Kasir Cepat (unit-layanan/kasir) bukan Toko POS.
+
+**Diagnosis ROOT CAUSE & Solusi:**
+1. **BUG FATAL Type Definition:** Object User yang direturn NextAuth memiliki unitType, tetapi 	ypes/index.ts pada interface User tidak memiliki kolom unitType. Sehingga TypeScript tidak secara konsisten menganggap bahwa object tersebut punya field itu.
+   *Fix:* Memperbarui interface User di src/types/index.ts untuk merekam state unitType dengan benar. 
+2. **BUG FATAL Sidebar Component:** Sidebar membaca unitType mengandalkan cast (user as any)?.unitType dari useAuth() yang menyebabkan *race condition*/hilangnya value.
+   *Fix:* Merombak sidebar.tsx untuk membaca nilai unitType *langsung* pakai useSession() — sumber paling reliable dari token JWT. 
+3. **Link Hardcode Kasir Cepat di Dashboard Kasir:** Fitur KasirDashboard ternyata menggunakan link hardcode ke /unit-layanan/kasir apa pun unit-nya.
+   *Fix:* Mengubah <Link href="/unit-layanan/kasir"> menjadi dinamis menyesuaikan tipe unit (jika "toko" maka diarahkan ke /toko/kasir).
+4. **Bocornya Pengaturan ke Kasir:** Navigasi lama default memberikan menu Pengaturan ke role kasir, dan tidak ada role guard di page.
+   *Fix:*
+   - Menghapus item Pengaturan dari menu sidebar Kasir.
+   - Menambahkan guard role di settings/page.tsx (if (user?.role?.name === "kasir") { redirect }) untuk memblokir akses manual via URL.
+
+**Status:** ALL FIXED. Kasir toko akan dialihkan ke Toko POS yang sesungguhnya dengan sidebar penuh, dan Kasir secara umum tidak akan bisa lagi mengakses Pengaturan sistem.

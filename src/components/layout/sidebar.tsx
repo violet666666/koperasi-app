@@ -12,6 +12,7 @@ import {
     type NavGroup,
 } from "@/lib/constants/navigation";
 import { useAuth } from "@/lib/hooks";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
     Tooltip,
@@ -35,10 +36,12 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
     const pathname = usePathname();
     const { user } = useAuth();
+    // Read unitType directly from JWT session — guaranteed accurate
+    const { data: session } = useSession();
     const filteredNavigation = getNavigationForUser({
         permissions: user?.permissions || [],
         roleName: user?.role?.name || "anggota",
-        unitType: (user as any)?.unitType ?? null,
+        unitType: session?.user?.unitType ?? null,
     });
 
     return (

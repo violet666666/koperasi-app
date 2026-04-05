@@ -266,7 +266,6 @@ export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
-            { title: "Pengaturan", href: "/settings", icon: Settings },
         ],
     },
 ];
@@ -293,7 +292,6 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
-            { title: "Pengaturan", href: "/settings", icon: Settings },
         ],
     },
 ];
