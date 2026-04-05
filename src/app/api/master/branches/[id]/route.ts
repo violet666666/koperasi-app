@@ -98,29 +98,11 @@ export async function DELETE(request: Request, { params }: Params) {
             );
         }
 
-        // Check if branch has related data
-        const hasUsers = await prisma.user.count({
-            where: { branchId: parseInt(id), deletedAt: null },
-        });
-
-        const hasMembers = await prisma.member.count({
-            where: { branchId: parseInt(id), deletedAt: null },
-        });
-
-        if (hasUsers > 0 || hasMembers > 0) {
-            return NextResponse.json(
-                { message: "Cabang tidak dapat dihapus karena masih memiliki data terkait" },
-                { status: 400 }
-            );
-        }
-
-        // Soft delete
-        await prisma.branch.update({
-            where: { id: parseInt(id) },
-            data: { deletedAt: new Date() },
-        });
-
-        return NextResponse.json({ message: "Cabang berhasil dihapus" });
+        // LOCKDOWN: Prevent deletion
+        return NextResponse.json(
+            { message: "Fitur dinonaktifkan: Operasional Koperasi dilimitasikan menjadi 1 kesatuan PRIMKOPPOL pusat (Single-Branch). Cabang Utama tidak dapat dihapus." },
+            { status: 403 }
+        );
     } catch (error) {
         console.error("DELETE /api/master/branches/[id] error:", error);
         return NextResponse.json(

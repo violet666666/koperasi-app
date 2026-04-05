@@ -843,3 +843,20 @@ Pada logic *controller* API tersebut:
 4. **Direct Web USB Printer API:**
    - Bereksperimen dengan Web Serial API agar struk tercetak ke Thermal USB Windows secara *Silent* (Tanpa popup Dialog Print bawaan Google Chrome).
 
+
+---
+## [05 Apr 2026] - SINGLE ENTITY LOCKDOWN & BRANCH API DEPRECATION
+
+**Penemuan Masalah (Analisis Mendalam):**
+- Pada kerangka awal aplikasi, fitur Cabang/Branch masih terekspos baik di skema struktur menu Sidebar (/master/cabang) maupun fungsionalitas Endpoint API-nya (POST /api/master/branches).
+- Hal ini sangat membahayakan karena Koperasi beroperasi **secara tunggal (Single-Entity Unit)** di bawah naungan PRIMKOPPOL RESOR LUMAJANG. Jika administrator secara tak sengaja atau iseng menambahkan Cabang Baru melalui halaman tersebut, buku neraca (Ledger) koperasi dapat terpisah atau terbagi, menyebabkan kerancuan laporan keuangan dan mengacaukan limitasi transaksi.
+
+**Tindakan Resolusi Ter-Implementasi:**
+1. **API Hard-Lock (403 Forbidden):**
+   - Rute POST /api/master/branches (Pembuatan Cabang) dan DELETE /api/master/branches/[id] (Penghapusan Cabang) telah di-LOCKDOWN.
+   - API kini mengembalikan galat tegas: *"Fitur dinonaktifkan: Operasional Koperasi dilimitasikan menjadi 1 kesatuan PRIMKOPPOL pusat (Single-Branch)."*
+2. **Karantina Hierarki Data:** 
+   - Meskipun secara *database schema* kolom ranchId tetap ada demi menjaga keutuhan struktur *foreign key* lama (sebagai standar *scaffolding* akutansi), nilai ini hanya akan secara statis mengisi ranchId: 1 yang berarti merujuk hanya pada *Head Office/Kantor Pusat PRIMKOPPOL*.
+
+Dengan struktur ini, baik Web App Koperasi maupun aplikasi Android *hybrid*-nya dipastikan tidak akan bisa "bercabang" secara ilegal di luar otoritas kepusatan Primkoppol Resor Lumajang. Keseluruhan fungsional bisnis dieksekusi secara horizontal menggunakan *Sistem Multi-Unit* (Resto, Cuci Mobil) dalam satu atap yang sama.
+

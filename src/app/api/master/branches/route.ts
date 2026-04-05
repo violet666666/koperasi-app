@@ -55,26 +55,12 @@ export async function GET(request: Request) {
 // POST /api/master/branches - Create new branch
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const data = createBranchSchema.parse(body);
-
-        // Check for duplicate code
-        const existing = await prisma.branch.findUnique({
-            where: { code: data.code },
-        });
-
-        if (existing) {
-            return NextResponse.json(
-                { message: "Kode cabang sudah digunakan" },
-                { status: 400 }
-            );
-        }
-
-        const branch = await prisma.branch.create({
-            data,
-        });
-
-        return NextResponse.json({ data: branch }, { status: 201 });
+        // LOCKDOWN: PRIMKOPPOL LUMAJANG is a Single-Entity Cooperative.
+        // We explicitly prevent creating new organizational branches, but allow Units.
+        return NextResponse.json(
+            { message: "Fitur dinonaktifkan: Operasional Koperasi dilimitasikan menjadi 1 kesatuan PRIMKOPPOL pusat (Single-Branch). Cabang tidak dapat ditambah, gunakan sistem Unit." },
+            { status: 403 }
+        );
     } catch (error) {
         console.error("POST /api/master/branches error:", error);
         if (error instanceof Error && error.name === "ZodError") {
