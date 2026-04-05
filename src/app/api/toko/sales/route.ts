@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType } = body;
+        const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType, metadata } = body;
         const unitType = reqUnitType || "toko";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -71,7 +71,8 @@ export async function POST(request: Request) {
             if (!product) {
                 return NextResponse.json({ message: `Produk ID ${item.productId} tidak ditemukan` }, { status: 404 });
             }
-            if (product.stock < item.quantity) {
+            // IF product is physical (not service), validate stock
+            if (!product.isService && product.stock < item.quantity) {
                 return NextResponse.json({ message: `Stok ${product.name} tidak mencukupi (sisa: ${product.stock})` }, { status: 400 });
             }
 
@@ -184,6 +185,7 @@ export async function POST(request: Request) {
                 paymentMethod: method,
                 cashReceived: (method === "cash" || method === "qris") ? payment : 0,
                 changeAmount,
+                metadata: metadata ? metadata : null,
                 journalId,
                 periodId: currentPeriod?.id || null,
                 createdById: userId,
@@ -199,12 +201,15 @@ export async function POST(request: Request) {
             include: { items: { include: { product: true } } },
         });
 
-        // Deduct stock
+        // Deduct stock (Only for physical products)
         for (const vi of validatedItems) {
-            await prisma.storeProduct.update({
-                where: { id: vi.productId },
-                data: { stock: { decrement: vi.quantity } },
-            });
+            const prod = await prisma.storeProduct.findUnique({ where: { id: vi.productId } });
+            if (prod && !prod.isService) {
+                await prisma.storeProduct.update({
+                    where: { id: vi.productId },
+                    data: { stock: { decrement: vi.quantity } },
+                });
+            }
         }
 
         // ============================================================

@@ -6,11 +6,13 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
+        const unitType = searchParams.get("unitType") || null;
 
         const products = await prisma.storeProduct.findMany({
             where: {
                 deletedAt: null,
                 isActive: true,
+                ...(unitType && { unitType: unitType }),
                 ...(search && {
                     OR: [
                         { name: { contains: search, mode: "insensitive" as const } },
@@ -34,6 +36,8 @@ export async function GET(request: Request) {
                 stockToko: p.stockToko,
                 minStock: p.minStock,
                 unit: p.unit,
+                isService: p.isService,
+                unitType: p.unitType,
             })),
         });
     } catch (error) {
@@ -49,7 +53,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, minStock, unit } = body;
+        const { sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, minStock, unit, isService } = body;
 
         if (!sku || !name || sellPrice === undefined) {
             return NextResponse.json(
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
                 stockToko: stockToko || 0,
                 minStock: minStock || 5,
                 unit: unit || "pcs",
+                isService: isService || false,
             },
         });
 

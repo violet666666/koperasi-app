@@ -715,6 +715,7 @@ model StoreProduct {
   stockToko Int       @default(0) @map("stock_toko")
   minStock  Int       @default(5) @map("min_stock")
   unit      String    @default("pcs")
+  isService Boolean   @default(false) @map("is_service") // True for haircuts, generic washes, etc.
   isActive  Boolean   @default(true) @map("is_active")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -735,6 +736,7 @@ model StoreSale {
   paymentMethod String    @default("cash") @map("payment_method")
   cashReceived  Decimal?  @map("cash_received") @db.Decimal(15, 2)
   changeAmount  Decimal?  @map("change_amount") @db.Decimal(15, 2)
+  metadata      Json?     // Used for specialized POS inputs (e.g., table_no, ps_number, vehicle_plate) 
   journalId     Int?      @map("journal_id")
   periodId      Int?      @map("period_id")
   createdById   Int       @map("created_by_id")

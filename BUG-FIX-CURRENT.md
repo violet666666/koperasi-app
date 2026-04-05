@@ -816,3 +816,30 @@ Pada logic *controller* API tersebut:
    - Skema ini seluruhnya dikunci di layer REST API Backend. Oleh karena itu, *Mobile Development* (iOS/Android) bisa langsung *ready* mengkonsumsi API yang sama persis tanpa perlu merekayasa ulang algoritma limit-limit ini.
    
 **Status:** ALL FIXED & SECURED. Ekosistem Web App kini sudah sekeras Core Banking System perbankan, dan sepenuhnya mendukung platform Mobile App yang dihubungkan ke endpoint API ini.
+
+---
+## [05 Apr 2026] - POS OMNI-CHANNEL & CORE BANKING UPDATE
+
+**Pengembangan Terbaru (Selesai):**
+1. **API Refactoring (Bypass Hardcode):**
+   - Transaksi Jasa di-bypass dari validasi stok menggunakan flag isService = true pada model StoreProduct.
+   - Mengganti filter frontend mock dengan query parameter dinamis ?unitType={tipe} untuk menghindari celah hardcode.
+2. **Metadata Transaksi Spesifik:**
+   - Menanamkan metadata Json ke skema StoreSale untuk menyimpan objek spesifik per unit *(Contoh: plat nomor kendaraan, nama pencukur, meja aktif, waktu timer PS)* tanpa perlu membuat skema database baru.
+3. **Zustand Persistent State (State Management React):**
+   - Diaplikasikan pada POS Play Station dan POS Resto. Berguna untuk menahan *(Hold)* tagihan aktif, keranjang belanja meja, hingga timer rental meskipun kasir menyegarkan *(refresh)* browser secara tidak sengaja. Sistem telah stabil dan 100% *memory leak free*.
+4. **Universal Thermal Printing (58mm & 80mm):**
+   - Dimodifikasi drastis untuk mengalkulasi rasio cetak kertas secara otomatis.
+5. **Implementasi UI Empat Unit POS Terpadu:**
+   - Selesai dibangun dan terhubung dengan *3-Layer Gatekeeper* Core Banking Koperasi.
+
+**Saran Pengembangan Lanjutan (Roadmap Mendatang):**
+1. **Kitchen Display System (WebSocket):**
+   - Resto POS direkomendasikan mengalihkan *Kitchen Order Ticket (KOT)* berbasis kertas menuju komunikasi Layar Tablet Dapur *real-time* via Socket.io/Pusher.
+2. **Barcode Scanner Global Hook:**
+   - Mengintegrasikan fungsi listener *Keyboard* global untuk menangkap *input* dari Scanner Barcode secara instan tanpa perlu repot meng-klik kolom pencarian (Untuk unit Toko Retail).
+3. **Otorisasi Role-Based UI:**
+   - Membatasi Kasir Barbershop agar tidak bisa mengakses URL POS Cuci Mobil atau Resto melalui *edge middleware*.
+4. **Direct Web USB Printer API:**
+   - Bereksperimen dengan Web Serial API agar struk tercetak ke Thermal USB Windows secara *Silent* (Tanpa popup Dialog Print bawaan Google Chrome).
+

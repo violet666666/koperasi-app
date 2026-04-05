@@ -22,6 +22,7 @@ interface ReceiptPrimkopolProps {
     data: ReceiptData;
     onClose?: () => void;
     autoprint?: boolean; // Otomatis mencetak ketika komponen mount
+    paperSize?: "58mm" | "80mm"; // Opsi ukuran kertas thermal
 }
 
 function formatRupiah(amount: number) {
@@ -42,6 +43,7 @@ export function ReceiptPrimkopol({
     data,
     onClose,
     autoprint = false,
+    paperSize = "58mm",
 }: ReceiptPrimkopolProps) {
     const printRef = React.useRef<HTMLDivElement>(null);
 
@@ -64,19 +66,20 @@ export function ReceiptPrimkopol({
                     * { margin: 0; padding: 0; box-sizing: border-box; }
                     body {
                         font-family: 'Courier New', Courier, monospace;
-                        font-size: 12px;
-                        width: 80mm;
-                        padding: 4mm;
+                        font-size: ${paperSize === "58mm" ? "11px" : "13px"};
+                        width: ${paperSize};
+                        padding: 2mm;
                         color: #000;
                     }
                     .center { text-align: center; }
                     .bold { font-weight: bold; }
-                    .divider { border-top: 1px dashed #000; margin: 6px 0; }
+                    .divider { border-top: 1px dashed #000; margin: 4px 0; }
                     .row { display: flex; justify-content: space-between; margin: 2px 0; }
-                    .label { min-width: 100px; }
+                    .label { min-width: ${paperSize === "58mm" ? "70px" : "100px"}; }
+                    .value-right { text-align: right; word-break: break-all; }
                     .void-mark {
                         text-align: center;
-                        font-size: 16px;
+                        font-size: 14px;
                         font-weight: bold;
                         border: 2px solid #000;
                         padding: 4px;
@@ -84,7 +87,7 @@ export function ReceiptPrimkopol({
                         letter-spacing: 2px;
                     }
                     @media print {
-                        body { width: 80mm; }
+                        body { width: ${paperSize}; }
                     }
                 </style>
             </head>
@@ -103,7 +106,9 @@ export function ReceiptPrimkopol({
             {/* Preview Area */}
             <div
                 ref={printRef}
-                className="font-mono text-xs bg-white text-black p-4 rounded border border-dashed max-w-[320px] mx-auto"
+                className={`font-mono text-xs bg-white text-black p-4 rounded border border-dashed mx-auto ${
+                    paperSize === "58mm" ? "max-w-[220px]" : "max-w-[320px]"
+                }`}
             >
                 {/* Header */}
                 <div className="center bold text-sm leading-snug">
@@ -197,34 +202,43 @@ export function ReceiptPrimkopol({
 /**
  * generateRawText
  * Menghasilkan Plain Text struk untuk Mobile Bluetooth Thermal Printer.
- * Bisa dikirimkan via Web Bluetooth API atau BLE Plugin.
+ * Secara pintar menghitung margin padding dan length line untuk 58mm/80mm.
  */
-export function generateRawText(data: ReceiptData): string {
-    const sep = "--------------------------------";
+export function generateRawText(data: ReceiptData, paperSize: "58mm" | "80mm" = "58mm"): string {
+    const charsPerLine = paperSize === "58mm" ? 32 : 48; // Standard chars width for ESC/POS
+    const sep = "-".repeat(charsPerLine);
+    
+    // helper to pad center
+    const center = (text: string) => {
+        if (text.length >= charsPerLine) return text.substring(0, charsPerLine);
+        const pad = Math.floor((charsPerLine - text.length) / 2);
+        return " ".repeat(pad) + text + " ".repeat(charsPerLine - text.length - pad);
+    };
+
     const line = (label: string, value: string) => {
-        const pad = 16;
-        const l = label.padEnd(pad, " ");
-        return `${l}: ${value}`;
+        const remaining = charsPerLine - label.length - 2; // " :"
+        return `${label}: ${value.substring(0, remaining).padStart(remaining, " ")}`;
     };
 
     return [
-        "  PRIMKOPPOL RESOR LUMAJANG  ",
-        " Koperasi Kepolisian Lumajang ",
+        center("PRIMKOPPOL RESOR LUMAJANG"),
+        center("Koperasi Kepolisian Lumajang"),
         sep,
-        line("no. nota", data.notaNo),
-        line("tanggal", data.tanggal),
+        line("No. Nota", data.notaNo),
+        line("Tanggal ", data.tanggal),
         sep,
-        line("NRP/NIP", data.nrpNip || "-"),
-        line("Nama Anggota", data.namaAnggota || "Umum"),
+        line("NRP/NIP ", data.nrpNip || "-"),
+        line("Anggota ", data.namaAnggota || "Umum"),
         line("Kesatuan", data.kesatuan || "-"),
-        line("Keterangan", data.keterangan),
+        line("Ket     ", data.keterangan || "-"),
         sep,
-        `TOTAL           : ${formatRupiah(data.total)}`,
-        line("Metode", data.metode),
+        `TOTAL     : ${formatRupiah(data.total).padStart(charsPerLine - 12, " ")}`,
+        line("Metode  ", data.metode),
+        line("Kasir   ", data.kasir),
         sep,
-        line("Kasir", data.kasir),
-        "  Terima kasih atas transaksi  ",
-        "       primkoppol.online       ",
+        center("Terima kasih atas transaksi"),
+        center("primkoppol.online"),
+        "",
         "",
     ].join("\n");
 }
