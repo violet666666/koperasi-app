@@ -413,5 +413,15 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
         return filterNavigationByUser(kasirNavigation, user);
     }
     // Admin unit: full nav filtered by role+permissions
+    // Tapi jika dia adalah Admin DARI sebuah Unit Bisnis (bukan pusat/koperasi),
+    // berikan akses sidebar spesifik spesifik unit saja (seperti kasir tapi +Hak admin jika ada).
+    if (user.roleName === "admin" && user.unitType && !["koperasi", "simpan_pinjam"].includes(user.unitType)) {
+        if (user.unitType === "toko") {
+            return filterNavigationByUser(kasirTokoNavigation, user);
+        }
+        return filterNavigationByUser(kasirNavigation, user);
+    }
+
+    // Default: role 'admin' koperasi pusat atau operator.
     return filterNavigationByUser(mainNavigation, user);
 }

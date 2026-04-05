@@ -6,14 +6,19 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 // POST /api/unit-layanan/sales - Process Kasir Cepat
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
-        const { unitType, amount, paymentMethod, memberId, description, customerName, createdById } = body;
+        const { unitType, amount, paymentMethod, memberId, description, customerName } = body;
 
         if (!unitType || !amount || !paymentMethod) {
             return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
         }
 
-        const userId = createdById || 1;
+        const userId = Number(session.user.id);
         const totalAmount = Number(amount);
         const method = paymentMethod; // cash, qris, salary_cut
 
@@ -43,7 +48,7 @@ export async function POST(request: Request) {
         // 2. Synchronize to Cash / Bank if Cash/Qris
         if (method === "cash" || method === "qris") {
             try {
-                const targetAccount = await prisma.cashBankAccount.findFirst({
+                let targetAccount = await prisma.cashBankAccount.findFirst({
                     where: { 
                         type: method === "cash" ? "cash" : "bank",
                         unitType: unitType,
@@ -51,6 +56,18 @@ export async function POST(request: Request) {
                     },
                     orderBy: { id: "asc" },
                 });
+
+                if (!targetAccount) {
+                    // Fallback to unitType null (pusat / default)
+                    targetAccount = await prisma.cashBankAccount.findFirst({
+                        where: { 
+                            type: method === "cash" ? "cash" : "bank",
+                            unitType: null,
+                            isActive: true 
+                        },
+                        orderBy: { id: "asc" },
+                    });
+                }
 
                 if (targetAccount) {
                     const currentBal = Number(targetAccount.currentBalance);
@@ -136,7 +153,6 @@ export async function POST(request: Request) {
 
         // Audit Log
         try {
-            const session = await auth();
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
             await logAudit({

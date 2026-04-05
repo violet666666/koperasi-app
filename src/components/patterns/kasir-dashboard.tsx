@@ -58,7 +58,9 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
-    const posLink = unitType === "toko" ? "/toko/kasir" : "/unit-layanan/kasir";
+    const posLink = unitType 
+        ? `/${unitType.replace(/_/g, '-')}/kasir` 
+        : "/unit-layanan/kasir";
 
     return (
         <div className="space-y-6">

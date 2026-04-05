@@ -13,6 +13,7 @@ import { PiggyBank, ShieldCheck } from "lucide-react";
 export default function SimpananPortalPage() {
     type SummaryResponse = {
         data: {
+            member: { id: number; name: string; tabunganWajib: number };
             savings: { totalBalance: number; accounts: any[] };
         }
     };
@@ -55,7 +56,34 @@ export default function SimpananPortalPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
                     [1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-xl" />)
-                ) : response?.data.savings.accounts.map((acc: any) => (
+                ) : (
+                    <>
+                        {/* 1. Dummy Card untuk Tabungan Wajib yang sumbernya dari tabel Member */}
+                        {((response?.data?.member?.tabunganWajib) ?? 0) > 0 && (
+                            <Card className="border shadow-sm hover:shadow-md transition-shadow">
+                                <CardContent className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                                            <ShieldCheck className="h-6 w-6" />
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs font-semibold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded uppercase tracking-wider mb-1">
+                                                Wajib Bulanan
+                                            </div>
+                                            <p className="text-xs text-muted-foreground font-mono">TW-{response?.data.member.id}</p>
+                                        </div>
+                                    </div>
+                                    <h3 className="font-bold text-lg mb-1">Simpanan Wajib</h3>
+                                    <div className="mt-4 pt-4 border-t">
+                                        <p className="text-sm text-muted-foreground mb-1">Saldo Terkumpul</p>
+                                        <p className="text-2xl font-bold text-slate-800">{formatCurrency(response?.data.member.tabunganWajib ?? 0)}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {/* 2. List Akun Simpanan Normal (Pokok, Sukarela, dll) */}
+                        {response?.data.savings.accounts.map((acc: any) => (
                     <Card key={acc.id} className="border shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-6">
                             <div className="flex justify-between items-start mb-4">
@@ -77,7 +105,7 @@ export default function SimpananPortalPage() {
                             </div>
                         </CardContent>
                     </Card>
-                ))}
+                ))}</>)}
             </div>
 
             {!isLoading && response?.data.savings.accounts.length === 0 && (

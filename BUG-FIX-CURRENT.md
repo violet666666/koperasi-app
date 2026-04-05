@@ -552,7 +552,7 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
    - *Solusi*: USER_GUIDE.md & PANDUAN_ANGGOTA.md diperbarui lengkap dengan rincian fitur alur Kasir Cepat / Multi-unit serta terminologi baru "Simpanan Wajib".
 
 ## ??? 18. Bug Kritis Akses Privilege Escalation: Kasir Dapat Akses Dashboard Operator & Operasional Inti
-**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Status:** ? **DONE (Selesai ï¿½ 5 April 2026)**
 **Lokasi Update:** `prisma/seed-fix-permissions.ts`, `src/lib/constants/navigation.ts`, `src/app/(protected)/layout.tsx`, `src/app/(protected)/dashboard/page.tsx`, `src/app/(protected)/unit-layanan/kasir/page.tsx`
 
 **Akar Masalah (5 Celah Keamanan Fatal):**
@@ -569,7 +569,7 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 - **Sistem Lapisan 4 (Role-Aware Dashboard):** Dashboard me-render 3 jenis tampilan mandiri. Kasir Carwash HANYA akan melihat statistik Carwash hari ini.
 
 ## ?? 19. Optimasi Workflow Kasir POS: Auto-Detect Unit Tanpa Pilih Manual
-**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Status:** ? **DONE (Selesai ï¿½ 5 April 2026)**
 
 **Akar Masalah:** Kasir (misal kasir carwash) harus mengklik "pilih unit" dari dropdown berulang kali yang berpotensi keliru entry.
 **Solusi:**
@@ -577,7 +577,7 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 - Dibuatkan endpoint API Dashboard Stats `/api/unit-layanan/stats` yang khusus melayani statistik hari ini.
 
 ## ?? 20. Mobile Kasir POS: Auto-Detect & Kunci Unit (Bypass Dropdown)
-**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Status:** ? **DONE (Selesai ï¿½ 5 April 2026)**
 **Lokasi Update:** `mobile/src/screens/kasir/KasirScreen.tsx`
 
 **Akar Masalah:** Konsistensi sistem; Setelah dropdown dihilangkan pada Web Kasir, sistem Mobile masih menampilkan scrollView chip unit yang bisa ditekan oleh Kasir.
@@ -587,7 +587,7 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 - *Static Badge*: Menyuguhkan badge statis yang memastikan pandangan Kasir hanya terkunci di layanan jasanya (misal: Cuci Mobil) demi menghindari salah input cross-unit.
 
 ## ?? 21. NextAuth Session Lockout (Kasir Role)
-**Status:** ? **DONE (Selesai — 5 April 2026)**
+**Status:** ? **DONE (Selesai ï¿½ 5 April 2026)**
 **Lokasi Update:** `src/lib/hooks/use-auth.tsx`
 
 **Akar Masalah:** Fitur RBAC Route Guard bergantung pada session.user.unitType, namun session hook frontend lupa memetakan properti ini dari origin JWT. Mengakibatkan user dengan Role Kasir terperangkap di redirect loop (Lockout).
@@ -877,51 +877,68 @@ Pada cuci-mobil/kasir, kotak layanan (Card Menu) kini dilengkapi baris penjelasa
 
 
 ---
+
+---
+
+---
 ## [05 Apr 2026] - NEXT.JS 16 TURBOPACK BUILD FIXES
 
 **Penemuan Peringatan & Error Build Server:**
 Dalam proses pembaruan ke Next.js 16.1.4 (Turbopack), Terminal memunculkan banyak hambatan yang sebelumnya diabaikan:
 1. metadataBase property in metadata export is not set for resolving social open graph.
 2. eslint configuration in next.config.ts is no longer supported.
-3. Error Fatal: The "middleware" file convention is deprecated. Please use "proxy" instead. -> Diperparah dengan Error kompilasi Proxy is missing expected function export name.
+3. Error Fatal: The middleware file convention is deprecated. Please use proxy instead.
 
 **Tindakan Resolusi:**
 1. **Pembersihan next.config.ts:** 
-   Menghapus sepenuhnya sub-blok pengaturan eslint lawas yang tak lagi dikenali oleh mesin Turbopack.
+   Menghapus sepenuhnya sub-blok pengaturan eslint lawas yang tak lagi dikenali.
 2. **Penambalan SEO/Metadata (layout.tsx):**
-   Mendeklarasikan *Root URL Native* metadataBase: new URL("https://koperasi.xertusai.com") untuk mengembalikan keharmonisan *Open Graph Image Generation / Twitter Card* agar mesin bot sosial media dapat mencerna halaman Web Bapak dan tak mengalami kelumpuhan di localhost:3000.
+   Mendeklarasikan Root URL Native metadataBase.
 3. **Migrasi Paradigma Middleware to Proxy:**
-   Sebuah *Breaking Change* pada level *Router*. Saya mengganti nama total aset inti pemblokir autentikasi dari *src/middleware.ts* menjadi *src/proxy.ts*. Tak hanya sebatas *rename* nama berkas (file), saya masuk dengan bedah presisi untuk mengubah fungsi nama pendelegasian yang tadinya *export async function middleware(...)* menjadi *export async function proxy(...)*. Hal ini menyebabkan *compiler* bahagia dan *engine* berjalan tanpa galat sisa lagi.
-
-Semua masalah di atas kini telah berhasil ditumbangkan sehingga peladen Koperasi menjadi 100% stabil dengan *build* mulus untuk jangka panjang.
-
+   Mengganti nama total aset inti pemblokir autentikasi dari middleware.ts menjadi proxy.ts.
 
 ---
 ## [05 Apr 2026] - BUG FIX: KEJANGGALAN AKSES ROLE DAN VOID (LAPORAN ATASAN)
 
 ### BUG #1: Admin Unit Bisa Akses Halaman Simpan Pinjam & Approval [FIXED]
 **Gejala:** Kasir Admin per Unit bisa membuka fungsi khusus pengurus koperasi seperti halaman /simpanan, /pinjaman, /approval, dan transaksi lintas unit.
-**Akar Masalah:** Sistem proxy.ts (middleware Next.js) hanya membedakan role nggota vs 
-on-anggota secara umum. Seluruh non-anggota secara default memegang wewenang administratif.
+**Akar Masalah:** Sistem proxy.ts (middleware Next.js) hanya membedakan role anggota vs non-anggota secara umum.
 **Resolusi:** 
-- Menjejalkan logika **Isolasi Rute Eksekutif Tingkat Unit** pada lapisan proxy.ts.
-- Evaluasi token berbasis unitType: Semua role pengecualian (dmin, superadmin, ketua, endahara, sekretaris) akan divalidasi. Apabila user memegang unitType spesifik (misal: cuci_mobil), maka akses mereka terkunci ketat hanya pada rute portal dan POS operasionalnya sendiri.
+- Menjejalkan logika Isolasi Rute Eksekutif Tingkat Unit pada lapisan proxy.ts.
 
 ### BUG #2: History Transaksi Tidak Langsung Muncul [DIANALISA]
 **Gejala:** Selepas checkout, tabel histori transaksi seolah amnesia tak termutakhir.
 **Akar Masalah & Resolusi:** 
-Komponen Checkout Toko merefresh stok via endpoint produk. Riwayat transaksi unit sejatinya sudah dilindungi React Query invalidateQueries di bagian void. Apabila terdapat lag histori muncul, ini dipastikan disebabkan proses sinkronisasi database dari Prisma atau *cache delay*. 
+Riwayat transaksi unit sejatinya sudah dilindungi React Query invalidateQueries. Lag histori dipastikan disebabkan delay database Prisma.
 
 ### BUG #3: Halaman Simpan/Pinjam Anggota Blank/Error [FIXED]
-**Gejala:** Halaman portal simpanan dan pinjaman khusus anggota mangkrak saat dirender.
+**Gejala:** Halaman portal mangkrak saat dirender.
 **Akar Masalah:**
-1. Pendeklarasian export const dynamic = "force-dynamic" secara ilegal berada di komponen 'use client'. 
-2. Kegagalan fatal memberId yang *null* meledakkan return API /api/member-portal/summary menjadi kode 401 Unauthorized.
-**Resolusi:** Directives *server-side* didepak, serta ditanamkan jaring pengaman UI *(Error State Card)*. Apabila akun tidak tertambat pada anggota valid (Error), maka sistem akan menampilkan "Akun Anda belum terhubung dengan data anggota, Hubungi Operator" ketimbang sekadar *blank page*.
+1. Pendeklarasi export const dynamic = force-dynamic secara ilegal.
+2. memberId yang null meledakkan return API menjadi kode 401 Unauthorized.
+**Resolusi:** Directives server-side didepak, serta ditanamkan Error State Card.
 
-### BUG #4: Void Kasir POS Selalu Error "transactionNo wajib diisi" [FIXED]
-**Gejala:** Pembuatan Void ditolak meski alasan (reason) sudah diterangkan secara rinci.
-**Akar Masalah:** Disparitas *Payload Property*. UI Kasir mencekokkan Payload { id: 10, reason: "Batal" }, sedangkan gerbang validasi API menuntut { transactionNo: "TRX-101", reason: "Batal" }.
-**Resolusi:** Refactor kode Payload dari frontend pada berkas 	ransaksi-unit/riwayat/page.tsx dari id: selectedTx.id menjadi 	ransactionNo: selectedTx.transactionNo.
+### BUG #4: Void Kasir POS Selalu Error transactionNo wajib diisi [FIXED]
+**Gejala:** Pembuatan Void ditolak meski alasan sudah diterangkan.
+**Resolusi:** Refactor kode Payload dari frontend dari id: selectedTx.id menjadi transactionNo.
 
----
+
+## Laporan Evaluasi UAT (User Acceptance Testing) FASE 1-4
+Tanggal Laporan: 5 April 2026
+
+### BUG #5: Admin Unit Mengakses Sidebar Operator [FIXED]
+**Gejala:** Saat login admin unit, sidebar yang muncul sama total dengan operator.
+**Resolusi:** Membarui src/lib/constants/navigation.ts agar Admin Unit diseleksi menggunakan navigasi kasirNavigation dengan struktur akses terbatas yang tepat.
+
+### BUG #6: Kasir Cepat Gagal (Failed to process quick sale) [FIXED]
+**Gejala:** Pembuatan nota kasir gagal memproses data (API menolak memunculkan nota dan justru terperangkap dalam P2003 Foreign Key Constraint pada relasi createdById).
+**Resolusi:** Memaksa pengecekan *auth session* di baris terdalam pi/unit-layanan/sales/route.ts dan merekam id user beserta logika default *targetAccount* ketika unit kas/bank 
+ull.
+
+### BUG #7: Tabungan Wajib Portal Anggota Menghilang [FIXED]
+**Gejala:** Nilai akumulasi *Dashboard Tabungan* nampak normal, namun pada rincian dompet / produk (Halaman Simpanan) tagihan *Tabungan Wajib* diabaikan secara total dalam rendering elemen *Card*.
+**Resolusi:** Menyisipkan objek pembacaan manual esponse.data.member.tabunganWajib khusus dalam struktur layout agar sinkron.
+
+### BUG #8: Void Transaksi Toko Ditolak Server [FIXED]
+**Gejala:** Admin dan Operator tak bisa membatalkan nota toko (Awalan ID POS-) karena API salah kamar mencari ID pada *UnitTransaction* tanpa memperdulikan StoreSale. Di satu sisi Operator justru dimasukkan pada state pending_void.
+**Resolusi:** Menjejalkan deteksi pintar dalam API /api/unit-transactions/void-request guna mengembalikan stok ke dalam model StoreProduct secara langsung untuk Void Toko, dan mengimplementasi AUTO-APPROVE Bypass khusus bagi rolenya Operator.
