@@ -202,7 +202,7 @@ export default function RiwayatTransaksiUnitPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id: selectedTx.id,
+                    transactionNo: selectedTx.transactionNo,
                     reason: voidReason,
                 }),
             });

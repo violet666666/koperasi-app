@@ -13,6 +13,22 @@ const adminRoutes = [
     "/master",
     "/approval",
     "/transaksi-unit",
+    "/toko",
+    "/cuci-mobil",
+    "/barbershop",
+    "/resto",
+    "/play-station",
+    "/unit-layanan",
+    "/jurnal",
+    "/kwitansi",
+    "/non-sp",
+    "/aset",
+    "/audit-log",
+    "/pengumuman",
+    "/periode",
+    "/profil",
+    "/profil-koperasi",
+    "/settings",
 ];
 
 // Member portal routes
@@ -53,11 +69,12 @@ export async function proxy(request: NextRequest) {
             secret: secret,
         });
     } catch (error) {
-        console.error("[Middleware] Error getting token:", error);
+        console.error("[Proxy] Error getting token:", error);
     }
 
     const isLoggedIn = !!token;
     const userRole = token?.role as string | undefined;
+    const userUnitType = token?.unitType as string | undefined;
 
     // Redirect unauthenticated users from protected routes to login
     if (isProtectedRoute && !isLoggedIn) {
@@ -85,6 +102,40 @@ export async function proxy(request: NextRequest) {
         // Admin/non-anggota trying to access portal routes → redirect to dashboard
         if (isPortalRoute && userRole !== "anggota") {
             return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+
+        // ============================================================
+        // BUG #1 FIX: Unit-level role isolation
+        // Kasir/admin unit should NOT access financial modules or
+        // other unit's transaction pages.
+        // ============================================================
+        const financialOnlyRoutes = ["/simpanan", "/pinjaman", "/approval", "/kas-bank", "/laporan", "/master", "/jurnal", "/kwitansi", "/anggota"];
+        const unitPosRoutes: Record<string, string[]> = {
+            cuci_mobil: ["/cuci-mobil"],
+            barbershop: ["/barbershop"],
+            resto: ["/resto"],
+            play_station: ["/play-station"],
+            toko: ["/toko"],
+        };
+
+        // If user has a unitType (e.g. kasir per unit), restrict access
+        if (userUnitType && userRole !== "admin" && userRole !== "superadmin" && userRole !== "ketua" && userRole !== "bendahara" && userRole !== "sekretaris") {
+            // Block access to core financial routes
+            const isAccessingFinancial = financialOnlyRoutes.some(r => pathname.startsWith(r));
+            if (isAccessingFinancial) {
+                return NextResponse.redirect(new URL("/dashboard", request.url));
+            }
+
+            // Block access to OTHER unit POS pages (not their own)
+            const allowedPaths = unitPosRoutes[userUnitType] || [];
+            const allUnitPaths = Object.values(unitPosRoutes).flat();
+            const isAccessingUnitPage = allUnitPaths.some(r => pathname.startsWith(r));
+            if (isAccessingUnitPage) {
+                const isAllowed = allowedPaths.some(r => pathname.startsWith(r));
+                if (!isAllowed) {
+                    return NextResponse.redirect(new URL("/dashboard", request.url));
+                }
+            }
         }
     }
 

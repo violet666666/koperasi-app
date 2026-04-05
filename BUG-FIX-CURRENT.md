@@ -895,3 +895,33 @@ Dalam proses pembaruan ke Next.js 16.1.4 (Turbopack), Terminal memunculkan banya
 
 Semua masalah di atas kini telah berhasil ditumbangkan sehingga peladen Koperasi menjadi 100% stabil dengan *build* mulus untuk jangka panjang.
 
+
+---
+## [05 Apr 2026] - BUG FIX: KEJANGGALAN AKSES ROLE DAN VOID (LAPORAN ATASAN)
+
+### BUG #1: Admin Unit Bisa Akses Halaman Simpan Pinjam & Approval [FIXED]
+**Gejala:** Kasir Admin per Unit bisa membuka fungsi khusus pengurus koperasi seperti halaman /simpanan, /pinjaman, /approval, dan transaksi lintas unit.
+**Akar Masalah:** Sistem proxy.ts (middleware Next.js) hanya membedakan role nggota vs 
+on-anggota secara umum. Seluruh non-anggota secara default memegang wewenang administratif.
+**Resolusi:** 
+- Menjejalkan logika **Isolasi Rute Eksekutif Tingkat Unit** pada lapisan proxy.ts.
+- Evaluasi token berbasis unitType: Semua role pengecualian (dmin, superadmin, ketua, endahara, sekretaris) akan divalidasi. Apabila user memegang unitType spesifik (misal: cuci_mobil), maka akses mereka terkunci ketat hanya pada rute portal dan POS operasionalnya sendiri.
+
+### BUG #2: History Transaksi Tidak Langsung Muncul [DIANALISA]
+**Gejala:** Selepas checkout, tabel histori transaksi seolah amnesia tak termutakhir.
+**Akar Masalah & Resolusi:** 
+Komponen Checkout Toko merefresh stok via endpoint produk. Riwayat transaksi unit sejatinya sudah dilindungi React Query invalidateQueries di bagian void. Apabila terdapat lag histori muncul, ini dipastikan disebabkan proses sinkronisasi database dari Prisma atau *cache delay*. 
+
+### BUG #3: Halaman Simpan/Pinjam Anggota Blank/Error [FIXED]
+**Gejala:** Halaman portal simpanan dan pinjaman khusus anggota mangkrak saat dirender.
+**Akar Masalah:**
+1. Pendeklarasian export const dynamic = "force-dynamic" secara ilegal berada di komponen 'use client'. 
+2. Kegagalan fatal memberId yang *null* meledakkan return API /api/member-portal/summary menjadi kode 401 Unauthorized.
+**Resolusi:** Directives *server-side* didepak, serta ditanamkan jaring pengaman UI *(Error State Card)*. Apabila akun tidak tertambat pada anggota valid (Error), maka sistem akan menampilkan "Akun Anda belum terhubung dengan data anggota, Hubungi Operator" ketimbang sekadar *blank page*.
+
+### BUG #4: Void Kasir POS Selalu Error "transactionNo wajib diisi" [FIXED]
+**Gejala:** Pembuatan Void ditolak meski alasan (reason) sudah diterangkan secara rinci.
+**Akar Masalah:** Disparitas *Payload Property*. UI Kasir mencekokkan Payload { id: 10, reason: "Batal" }, sedangkan gerbang validasi API menuntut { transactionNo: "TRX-101", reason: "Batal" }.
+**Resolusi:** Refactor kode Payload dari frontend pada berkas 	ransaksi-unit/riwayat/page.tsx dari id: selectedTx.id menjadi 	ransactionNo: selectedTx.transactionNo.
+
+---

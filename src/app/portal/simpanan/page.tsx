@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
+
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,10 +17,21 @@ export default function SimpananPortalPage() {
         }
     };
 
-    const { data: response, isLoading } = useQuery<SummaryResponse>({
+    const { data: response, isLoading, isError, error } = useQuery<SummaryResponse>({
         queryKey: ["member-summary"],
         queryFn: () => memberPortalApi.summary() as Promise<SummaryResponse>,
+        retry: 1,
     });
+
+    if (isError) {
+        return (
+            <div className="max-w-5xl mx-auto py-12 text-center space-y-4">
+                <PiggyBank className="mx-auto h-16 w-16 text-red-300" />
+                <h2 className="text-xl font-bold text-red-600">Gagal Memuat Data Simpanan</h2>
+                <p className="text-muted-foreground">Akun Anda mungkin belum terhubung dengan data anggota PRIMKOPPOL. Silakan hubungi operator untuk pengecekan.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
