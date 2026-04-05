@@ -14,7 +14,7 @@ import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize
 import { formatCurrency } from "@/lib/constants";
 import { generateRawText, ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
-interface Product { id: number; sku: string; name: string; price: number; isService: boolean; }
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; }
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -219,8 +219,13 @@ export default function CuciMobilKasirPage() {
                                             <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                                 <Droplets className="h-12 w-12 text-sky-600" />
                                             </div>
-                                            <p className="font-semibold text-slate-800 relative z-10 line-clamp-2">{p.name}</p>
-                                            <Badge variant="outline" className="mt-2 bg-white relative z-10">{formatCurrency(p.price)}</Badge>
+                                            <div className="relative z-10 flex-1">
+                                                <p className="font-bold text-sm text-slate-800 leading-tight">{p.name}</p>
+                                                {p.category && (
+                                                    <p className="text-[11px] text-slate-500 mt-1.5 leading-tight opacity-90 line-clamp-2">Contoh: {p.category}</p>
+                                                )}
+                                            </div>
+                                            <Badge variant="outline" className="mt-3 bg-white relative z-10 text-sky-700 border-sky-200">{formatCurrency(p.price)}</Badge>
                                         </button>
                                     ))}
                                 </div>

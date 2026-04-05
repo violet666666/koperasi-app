@@ -860,3 +860,18 @@ Pada logic *controller* API tersebut:
 
 Dengan struktur ini, baik Web App Koperasi maupun aplikasi Android *hybrid*-nya dipastikan tidak akan bisa "bercabang" secara ilegal di luar otoritas kepusatan Primkoppol Resor Lumajang. Keseluruhan fungsional bisnis dieksekusi secara horizontal menggunakan *Sistem Multi-Unit* (Resto, Cuci Mobil) dalam satu atap yang sama.
 
+
+---
+## [05 Apr 2026] - UPDATE KATALOG CUCI MOBIL (REQUEST ATASAN)
+
+**Penambahan Paket Layanan (Database Seeding):**
+Telah disesuaikan harga serta keterangan ukuran mobil spesifik secara baku untuk unit Kasir Cuci Kendaraan. Katalog tertanam secara permanen sebagai berikut di database:
+1. **Motor** (Rp 15.000) -> *Contoh: Motor Bebek, Matic, Sport*
+2. **Mobil Kecil Small** (Rp 35.000) -> *Contoh: Agya, Ayla, Brio, Jazz, Yaris, City Car*
+3. **Mobil Sedang Medium** (Rp 40.000) -> *Contoh: Avanza, Xenia, Ertiga, Mobilio, Confero*
+4. **Mobil Besar Large** (Rp 45.000) -> *Contoh: Innova, Fortuner, Pajero, CR-V, Santa Fe*
+5. **Mobil Extra Large XL** (Rp 50.000) -> *Contoh: Hiace, Elf, Alphard, Minibus*
+
+**Pembaruan UI (Antarmuka Kasir):**
+Pada cuci-mobil/kasir, kotak layanan (Card Menu) kini dilengkapi baris penjelasan atau petunjuk *subtext* abu-abu ("Contoh: Agya, dll..") sehingga operator cucian tidak bingung lagi memasukkan mobil Avanza ke kategori yang mana.
+
