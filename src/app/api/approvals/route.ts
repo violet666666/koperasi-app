@@ -14,8 +14,12 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
-        const statusParam = searchParams.get("status");
-        const typeFilter = searchParams.get("type"); // 'loan' | 'unit_void' | undefined (all)
+        const roleName = session.user.role;
+        const userUnitType = (session.user as any).unitType;
+        const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
+        
+        const isSimpanPinjamAdmin = roleName === "admin" && userUnitType === "simpan_pinjam";
+        const isUnitAdmin = roleName === "admin" && userUnitType && userUnitType !== "simpan_pinjam";
 
         // ── 1. Loan Applications ─────────────────────────────────────────────
         let loanStatusFilter = {};
@@ -25,8 +29,11 @@ export async function GET(request: Request) {
             loanStatusFilter = { status: { in: ["approved", "rejected", "disbursed", "cancelled"] } };
         }
 
+        // Only Operator or Simpan Pinjam Admin can see loans
+        const canSeeLoans = isOperator || isSimpanPinjamAdmin;
+
         const loanApplications =
-            typeFilter && typeFilter !== "loan"
+            (!canSeeLoans || (typeFilter && typeFilter !== "loan"))
                 ? []
                 : await prisma.loanApplication.findMany({
                       where: {
@@ -73,21 +80,41 @@ export async function GET(request: Request) {
         }
 
         const voidRequests =
-            typeFilter && typeFilter !== "unit_void"
+            (typeFilter && typeFilter !== "unit_void")
                 ? []
                 : await prisma.approvalRequest.findMany({
                       where: {
-                          type: "unit_void",
+                          type: { in: ["unit_void", "void_store_sale"] },
                           ...voidStatusFilter,
                       },
                       include: {
                           requestedBy: { select: { id: true, name: true } },
                       },
                       orderBy: { requestedAt: "desc" },
-                      take: 100,
+                      take: 200,
                   });
 
-        const voidApprovals = voidRequests.map((req) => ({
+        const voidApprovals = voidRequests
+            .filter((req) => {
+                // If Operator or SP Admin, can see all voids probably? Or Simpan Pinjam Admin shouldn't see Cuci Mobil Voids? 
+                // Operator can see everything.
+                if (isOperator) return true;
+                
+                // If Admin Unit, ONLY see their own unitType voids
+                if (isUnitAdmin) {
+                    const meta: any = typeof req.metadata === 'string' ? JSON.parse(req.metadata) : req.metadata || {};
+                    return meta.unitType === userUnitType;
+                }
+                
+                // Simpan Pinjam Admin generally only handles SP
+                if (isSimpanPinjamAdmin) {
+                    const meta: any = typeof req.metadata === 'string' ? JSON.parse(req.metadata) : req.metadata || {};
+                    return meta.unitType === "simpan_pinjam";
+                }
+                
+                return false;
+            })
+            .map((req) => ({
             id: `void_${req.id}`,
             requestType: "unit_void",
             referenceId: req.id,
