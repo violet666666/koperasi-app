@@ -303,8 +303,12 @@ export interface UnitTransaction {
     description: string;
     amount: number;
     transactionDate: string;
+    paymentMethod?: string;
     isPaid: boolean;
     paidDate?: string;
+    status: string; // "completed", "pending_void", "voided"
+    voidRef?: string;
+    voidReason?: string;
     notes?: string;
     member?: { id: number; memberNo: string; nrp: string; name: string };
     createdBy?: { id: number; name: string };
@@ -321,6 +325,7 @@ export const unitTransactionsApi = {
         amount: number;
         transactionDate: string;
         isPaid?: boolean;
+        paymentMethod?: string;
         notes?: string;
     }) => api.post<{ data: UnitTransaction }>("/unit-transactions", data),
 };

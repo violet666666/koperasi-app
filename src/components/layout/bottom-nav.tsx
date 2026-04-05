@@ -20,9 +20,26 @@ import { mainNavigation, isNavGroup } from "@/lib/constants/navigation";
 export function BottomNav() {
     const pathname = usePathname();
     const [isMoreOpen, setIsMoreOpen] = React.useState(false);
+    const [pendingCount, setPendingCount] = React.useState(0);
     const { user } = useAuth();
     const userPermissions = user?.permissions || [];
     const filteredMainNav = filterNavigationByPermissions(mainNavigation, userPermissions);
+
+    // Fetch pending approval count for badge
+    React.useEffect(() => {
+        const fetchPending = async () => {
+            try {
+                const res = await fetch("/api/approvals?status=pending");
+                if (res.ok) {
+                    const json = await res.json();
+                    setPendingCount(json.pendingCount || 0);
+                }
+            } catch { /* silent fail */ }
+        };
+        fetchPending();
+        const interval = setInterval(fetchPending, 60000); // Poll setiap 1 menit
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <>
@@ -32,23 +49,32 @@ export function BottomNav() {
                     {bottomNavigation.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname.startsWith(item.href);
+                        const isApproval = item.href === "/approval";
+                        const showBadge = isApproval && pendingCount > 0;
 
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
                                 className={cn(
-                                    "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
+                                    "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors relative",
                                     isActive
                                         ? "text-primary font-medium"
                                         : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
-                                {Icon && (
-                                    <Icon
-                                        className={cn("h-5 w-5", isActive && "text-primary")}
-                                    />
-                                )}
+                                <span className="relative">
+                                    {Icon && (
+                                        <Icon
+                                            className={cn("h-5 w-5", isActive && "text-primary")}
+                                        />
+                                    )}
+                                    {showBadge && (
+                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                            {pendingCount > 9 ? "9+" : pendingCount}
+                                        </span>
+                                    )}
+                                </span>
                                 <span>{item.title}</span>
                             </Link>
                         );

@@ -110,6 +110,7 @@ export const createMemberSchema = z.object({
     category: z.string().optional().nullable(),
     salary: z.coerce.number().nonnegative().optional().nullable(),
     tunlesKinerja: z.coerce.number().nonnegative().optional().nullable(),
+    plafonPiutang: z.coerce.number().nonnegative().optional(),
     status: z.enum(["active", "inactive", "resigned"]).default("active"),
 });
 
@@ -209,11 +210,15 @@ export type PaginationInput = z.infer<typeof paginationSchema>;
 // Unit Transaction validation schemas
 export const createUnitTransactionSchema = z.object({
     nrp: z.string().min(1).max(30),
-    unitType: z.enum(["toko", "simpan_pinjam", "fotocopy", "cuci_mobil", "fitness"]),
+    unitType: z.enum([
+        "toko", "simpan_pinjam", "fotocopy", "cuci_mobil", "fitness",
+        "barbershop", "play_station", "coffe_latar", "resto", "properti",
+    ]),
     description: z.string().min(1).max(500),
     amount: z.number().positive(),
     transactionDate: z.string().transform((s) => new Date(s)),
     isPaid: z.boolean().default(false),
+    paymentMethod: z.enum(["cash", "qris", "salary_cut"]).default("cash"),
     notes: z.string().optional(),
 });
 

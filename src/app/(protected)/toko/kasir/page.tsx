@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode, Maximize
+    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -26,6 +26,7 @@ import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 interface Product { id: number; sku: string; name: string; price: number; stock: number; }
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
+interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
 
 export default function KasirPage() {
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -44,6 +45,10 @@ export default function KasirPage() {
     const [memberResults, setMemberResults] = React.useState<MemberResult[]>([]);
     const [selectedMember, setSelectedMember] = React.useState<MemberResult | null>(null);
     const [isSearchingMember, setIsSearchingMember] = React.useState(false);
+    
+    // Gatekeeper limit info
+    const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
+    const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -120,6 +125,34 @@ export default function KasirPage() {
             toast.error("Gagal mencari anggota");
         } finally { setIsSearchingMember(false); }
     };
+
+    // Validasi Gatekeeper
+    React.useEffect(() => {
+        const validateLimit = async () => {
+            if (!selectedMember?.nrp || subtotal <= 0) return;
+            setIsValidatingLimit(true);
+            try {
+                const res = await fetch("/api/unit-transactions/validate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        nrp: selectedMember.nrp,
+                        amount: subtotal,
+                        unitType: "toko",
+                    }),
+                });
+                const data = await res.json();
+                setLimitInfo(data);
+            } catch {
+                toast.error("Gagal mengecek sisa limit plafon anggota.");
+            } finally {
+                setIsValidatingLimit(false);
+            }
+        };
+
+        if (selectedMember) validateLimit();
+        else setLimitInfo(null);
+    }, [selectedMember, subtotal]);
 
     // Process payment (cash, qris, or salary_cut)
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
@@ -414,10 +447,48 @@ export default function KasirPage() {
                                             <p className="font-medium">{selectedMember.name}</p>
                                             <p className="text-sm text-muted-foreground">{selectedMember.memberNo}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-muted-foreground">Total Kredit</p>
-                                            <p className="text-lg font-bold text-primary">{formatCurrency(subtotal)}</p>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground mb-1">Total Kredit</p>
+                                            <p className="text-xl font-bold text-primary">{formatCurrency(subtotal)}</p>
                                         </div>
+                                    </div>
+
+                                    {/* Gatekeeper Check Card */}
+                                    <div className={`mt-4 rounded-lg border p-3 text-sm space-y-1.5 transition-all ${
+                                        isValidatingLimit ? "bg-muted/30 border-muted" :
+                                        limitInfo?.allowed ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800" :
+                                        limitInfo ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800" :
+                                        "bg-muted/30 border-muted"
+                                    }`}>
+                                        {isValidatingLimit ? (
+                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <span>Memvalidasi limit piutang...</span>
+                                            </div>
+                                        ) : limitInfo ? (
+                                            <>
+                                                <div className="flex items-center gap-2 font-medium">
+                                                    {limitInfo.allowed
+                                                        ? <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                                        : <ShieldAlert className="h-4 w-4 text-red-600" />}
+                                                    <span className={limitInfo.allowed ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+                                                        {limitInfo.allowed ? "Sisa limit mencukupi" : "Limit tidak mencukupi"}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs mt-1">
+                                                    <span className="text-muted-foreground">Sisa Limit Piutang Aktif</span>
+                                                    <span className={`font-semibold ${limitInfo.allowed ? "text-emerald-700" : "text-red-600"}`}>{formatCurrency(limitInfo.sisaLimit)}</span>
+                                                </div>
+                                                {!limitInfo.allowed && (
+                                                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-start gap-1">
+                                                        <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                                                        {limitInfo.reason}
+                                                    </p>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <p className="text-muted-foreground text-xs">Informasi limit gagal dimuat.</p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -425,9 +496,15 @@ export default function KasirPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowCreditDialog(false)}>Batal</Button>
-                        <Button disabled={!selectedMember || isProcessing} onClick={() => processPayment("salary_cut")}>
-                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                            Proses Potong Gaji
+                        <Button 
+                            disabled={!selectedMember || isProcessing || isValidatingLimit || (limitInfo !== null && !limitInfo.allowed)} 
+                            onClick={() => processPayment("salary_cut")}
+                            variant={limitInfo?.allowed === false ? "destructive" : "default"}
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
+                             limitInfo?.allowed === false ? <ShieldAlert className="mr-2 h-4 w-4" /> :
+                             <CreditCard className="mr-2 h-4 w-4" />}
+                            {limitInfo?.allowed === false ? "Transaksi Ditolak" : "Proses Potong Gaji"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -231,6 +231,7 @@ model Member {
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
   tunlesKinerja     Decimal?  @map("tunles_kinerja") @db.Decimal(15, 2) // Tunjangan Kinerja (Tunkin)
   tabunganWajib     Decimal?  @map("tabungan_wajib") @db.Decimal(15, 2) // Tabungan Wajib per bulan
+  plafonPiutang     Decimal   @default(0) @map("plafon_piutang") @db.Decimal(15, 2) // Limit piutang di unit usaha — hanya bisa diubah Operator
   status            String    @default("active") // active, inactive, resigned
   resignedDate      DateTime? @map("resigned_date") @db.Date
   resignationReason String?   @map("resignation_reason")
@@ -661,25 +662,39 @@ model ApprovalRequest {
 // =================================================================
 
 model UnitTransaction {
-  id              Int       @id @default(autoincrement())
-  transactionNo   String    @unique @map("transaction_no")
-  memberId        Int?      @map("member_id")
-  unitType        String    @map("unit_type") // toko, play_station, fitness, coffe_latar, barbershop, carwash, resto, properti, simpan_pinjam
-  description     String
-  amount          Decimal   @db.Decimal(15, 2)
-  transactionDate DateTime  @map("transaction_date") @db.Date
-  paymentMethod   String    @default("cash") @map("payment_method") // cash, qris, salary_cut
-  isPaid          Boolean   @default(false) @map("is_paid")
-  paidDate        DateTime? @map("paid_date") @db.Date
-  notes           String?
-  supportingDocPath String? @map("supporting_doc_path")
-  createdById     Int       @map("created_by_id")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id                  Int       @id @default(autoincrement())
+  transactionNo       String    @unique @map("transaction_no")
+  memberId            Int?      @map("member_id")
+  unitType            String    @map("unit_type") // toko, play_station, fitness, coffe_latar, barbershop, carwash, resto, properti, simpan_pinjam
+  description         String
+  amount              Decimal   @db.Decimal(15, 2)
+  loanAmount          Decimal   @default(0) @map("loan_amount") @db.Decimal(15, 2) // Porsi yang jadi tagihan piutang anggota
+  transactionDate     DateTime  @map("transaction_date") @db.Date
+  paymentMethod       String    @default("cash") @map("payment_method") // cash, qris, salary_cut
+  isPaid              Boolean   @default(false) @map("is_paid")
+  paidDate            DateTime? @map("paid_date") @db.Date
+  notes               String?
+  supportingDocPath   String?   @map("supporting_doc_path")
+  // ── Status Void Workflow ──────────────────────────────────────────
+  status              String    @default("completed") // completed, pending_void, voided
+  voidRef             String?   @map("void_ref")           // transactionNo transaksi asli yang di-void
+  voidReason          String?   @map("void_reason")
+  voidRequestedById   Int?      @map("void_requested_by_id")
+  voidRequestedAt     DateTime? @map("void_requested_at")
+  voidedById          Int?      @map("voided_by_id")
+  voidedAt            DateTime? @map("voided_at")
+  // ── Anti-Manipulasi ───────────────────────────────────────────────
+  securityHash        String?   @map("security_hash")      // SHA256(nrp+amount+transactionNo+timestamp)
+  createdById         Int       @map("created_by_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   member    Member? @relation(fields: [memberId], references: [id])
   createdBy User    @relation("UnitTxCreatedBy", fields: [createdById], references: [id])
 
+  @@index([memberId, status])
+  @@index([unitType, transactionDate])
+  @@index([status])
   @@map("unit_transactions")
 }
 

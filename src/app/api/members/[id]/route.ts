@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { updateMemberSchema } from "@/lib/validations";
 
 interface Params {
@@ -248,6 +249,20 @@ export async function GET(request: Request, { params }: Params) {
             };
         });
 
+        // Hitung sisa limit piutang unit usaha secara real-time
+        const tagihanUnitResult = await prisma.unitTransaction.aggregate({
+            where: {
+                memberId: member.id,
+                paymentMethod: "salary_cut",
+                isPaid: false,
+                status: { in: ["completed", "pending_void"] },
+            },
+            _sum: { loanAmount: true },
+        });
+        const totalTagihanUnit = Number(tagihanUnitResult._sum.loanAmount || 0);
+        const plafonPiutang = Number(member.plafonPiutang || 0);
+        const sisaLimitUnit = plafonPiutang - totalTagihanUnit;
+
         return NextResponse.json({ 
             data: {
                 ...member,
@@ -265,6 +280,11 @@ export async function GET(request: Request, { params }: Params) {
                         nextInstallment,
                         overdueAmount,
                         overdueDays,
+                    },
+                    unitPiutang: {
+                        plafonPiutang,
+                        totalTagihan: totalTagihanUnit,
+                        sisaLimit: sisaLimitUnit,
                     },
                     netPosition: totalSavings - totalOutstanding,
                     estimasi_shu,
@@ -332,9 +352,23 @@ export async function getSummary(memberId: number) {
 // PUT /api/members/[id]
 export async function PUT(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const { id } = await params;
         const body = await request.json();
         const data = updateMemberSchema.parse(body);
+
+        // Proteksi plafonPiutang — hanya Operator/Admin yang boleh mengubah
+        const operatorRoles = ["operator", "admin", "super_admin"];
+        if (data.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
+            return NextResponse.json(
+                { message: "Hanya Operator yang dapat mengubah Plafon Piutang anggota." },
+                { status: 403 }
+            );
+        }
 
         const member = await prisma.member.findUnique({
             where: { id: parseInt(id), deletedAt: null },

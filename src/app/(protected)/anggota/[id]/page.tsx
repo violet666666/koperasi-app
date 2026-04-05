@@ -48,6 +48,11 @@ interface MemberSummary {
     };
     net_position: number;
     estimasi_shu: number;
+    unitPiutang?: {
+        plafonPiutang: number;
+        totalTagihan: number;
+        sisaLimit: number;
+    };
 }
 import { formatCurrency, MEMBER_STATUS } from "@/lib/constants";
 import { membersApi } from "@/lib/api/services";
@@ -255,6 +260,7 @@ export default function AnggotaDetailPage() {
                     },
                     net_position: apiData.summary?.netPosition || 0,
                     estimasi_shu: apiData.summary?.estimasi_shu || 0,
+                    unitPiutang: apiData.summary?.unitPiutang,
                 });
 
                 // Set loan details
@@ -367,6 +373,15 @@ export default function AnggotaDetailPage() {
                     icon={Wallet}
                     color="primary"
                 />
+                {summary.unitPiutang && (
+                    <SummaryCard
+                        title="Sisa Limit Unit"
+                        value={formatCurrency(summary.unitPiutang.sisaLimit)}
+                        subtitle={`dari plafon ${formatCurrency(summary.unitPiutang.plafonPiutang)}`}
+                        icon={CreditCard}
+                        color={summary.unitPiutang.sisaLimit < 50000 ? "danger" : "success"}
+                    />
+                )}
             </div>
 
             {/* Tabs */}
