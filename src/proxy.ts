@@ -27,7 +27,7 @@ const authRoutes = ["/login"];
 // Get the secret
 const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Check route types

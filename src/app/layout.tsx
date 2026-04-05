@@ -20,6 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://koperasi.xertusai.com"),
   title: {
     default: "PRIMKOPPOL RESOR LUMAJANG",
     template: "%s | PRIMKOPPOL RESOR LUMAJANG",

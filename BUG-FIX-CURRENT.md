@@ -875,3 +875,23 @@ Telah disesuaikan harga serta keterangan ukuran mobil spesifik secara baku untuk
 **Pembaruan UI (Antarmuka Kasir):**
 Pada cuci-mobil/kasir, kotak layanan (Card Menu) kini dilengkapi baris penjelasan atau petunjuk *subtext* abu-abu ("Contoh: Agya, dll..") sehingga operator cucian tidak bingung lagi memasukkan mobil Avanza ke kategori yang mana.
 
+
+---
+## [05 Apr 2026] - NEXT.JS 16 TURBOPACK BUILD FIXES
+
+**Penemuan Peringatan & Error Build Server:**
+Dalam proses pembaruan ke Next.js 16.1.4 (Turbopack), Terminal memunculkan banyak hambatan yang sebelumnya diabaikan:
+1. metadataBase property in metadata export is not set for resolving social open graph.
+2. eslint configuration in next.config.ts is no longer supported.
+3. Error Fatal: The "middleware" file convention is deprecated. Please use "proxy" instead. -> Diperparah dengan Error kompilasi Proxy is missing expected function export name.
+
+**Tindakan Resolusi:**
+1. **Pembersihan next.config.ts:** 
+   Menghapus sepenuhnya sub-blok pengaturan eslint lawas yang tak lagi dikenali oleh mesin Turbopack.
+2. **Penambalan SEO/Metadata (layout.tsx):**
+   Mendeklarasikan *Root URL Native* metadataBase: new URL("https://koperasi.xertusai.com") untuk mengembalikan keharmonisan *Open Graph Image Generation / Twitter Card* agar mesin bot sosial media dapat mencerna halaman Web Bapak dan tak mengalami kelumpuhan di localhost:3000.
+3. **Migrasi Paradigma Middleware to Proxy:**
+   Sebuah *Breaking Change* pada level *Router*. Saya mengganti nama total aset inti pemblokir autentikasi dari *src/middleware.ts* menjadi *src/proxy.ts*. Tak hanya sebatas *rename* nama berkas (file), saya masuk dengan bedah presisi untuk mengubah fungsi nama pendelegasian yang tadinya *export async function middleware(...)* menjadi *export async function proxy(...)*. Hal ini menyebabkan *compiler* bahagia dan *engine* berjalan tanpa galat sisa lagi.
+
+Semua masalah di atas kini telah berhasil ditumbangkan sehingga peladen Koperasi menjadi 100% stabil dengan *build* mulus untuk jangka panjang.
+
