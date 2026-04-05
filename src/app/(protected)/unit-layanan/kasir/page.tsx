@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 
@@ -209,7 +209,26 @@ export default function KasirCepatPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title="Kasir Cepat Unit Layanan" description="Point of Sale untuk jasa layanan tanpa master stok" />
+            <PageHeader 
+                title="Kasir Cepat Unit Layanan" 
+                description="Point of Sale untuk jasa layanan tanpa master stok"
+                actions={
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="bg-primary/5 hover:bg-primary/10 border-primary/20"
+                        onClick={() => {
+                            if (!document.fullscreenElement) {
+                                document.documentElement.requestFullscreen().catch(() => {});
+                            } else {
+                                document.exitFullscreen().catch(() => {});
+                            }
+                        }}
+                    >
+                        <Maximize className="mr-2 h-4 w-4" /> Mode POS (Fullscreen)
+                    </Button>
+                }
+            />
 
             <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
                 <Card>

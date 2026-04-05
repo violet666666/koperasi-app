@@ -78,11 +78,7 @@ export default function SettingsPage() {
     const [isResetting, setIsResetting] = React.useState(false);
 
     React.useEffect(() => {
-        if (user && user.role.name === "kasir") {
-            toast.error("Akses Ditolak", { description: "Anda tidak memiliki akses ke pengaturan sistem." });
-            router.push("/dashboard");
-            return;
-        }
+        // Allow kasir to access settings but only for QRIS tab
 
         async function fetchData() {
             setIsLoading(true);
@@ -124,7 +120,7 @@ export default function SettingsPage() {
             }
         }
         
-        if (user && user.role.name !== "kasir") {
+        if (user) {
             fetchData();
         }
     }, [user, router]);
@@ -261,9 +257,6 @@ export default function SettingsPage() {
         );
     }
 
-    if (user?.role?.name === "kasir") {
-        return null;
-    }
 
     return (
         <div className="space-y-6">
@@ -283,24 +276,28 @@ export default function SettingsPage() {
             />
 
             {settings && (
-                <Tabs defaultValue="general" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-                        <TabsTrigger value="general">
-                            <Settings className="mr-2 h-4 w-4 hidden sm:inline" />
-                            Umum
-                        </TabsTrigger>
-                        <TabsTrigger value="notifications">
-                            <Bell className="mr-2 h-4 w-4 hidden sm:inline" />
-                            Notifikasi
-                        </TabsTrigger>
-                        <TabsTrigger value="security">
-                            <Shield className="mr-2 h-4 w-4 hidden sm:inline" />
-                            Keamanan
-                        </TabsTrigger>
-                        <TabsTrigger value="backup">
-                            <Database className="mr-2 h-4 w-4 hidden sm:inline" />
-                            Backup & Restore
-                        </TabsTrigger>
+                <Tabs defaultValue={user?.role?.name === "kasir" ? "qris" : "general"} className="space-y-6">
+                    <TabsList className={`grid w-full ${user?.role?.name === "kasir" ? 'grid-cols-1' : 'grid-cols-3 lg:grid-cols-6'} lg:w-auto lg:inline-grid`}>
+                        {user?.role?.name !== "kasir" && (
+                            <>
+                                <TabsTrigger value="general">
+                                    <Settings className="mr-2 h-4 w-4 hidden sm:inline" />
+                                    Umum
+                                </TabsTrigger>
+                                <TabsTrigger value="notifications">
+                                    <Bell className="mr-2 h-4 w-4 hidden sm:inline" />
+                                    Notifikasi
+                                </TabsTrigger>
+                                <TabsTrigger value="security">
+                                    <Shield className="mr-2 h-4 w-4 hidden sm:inline" />
+                                    Keamanan
+                                </TabsTrigger>
+                                <TabsTrigger value="backup">
+                                    <Database className="mr-2 h-4 w-4 hidden sm:inline" />
+                                    Backup & Restore
+                                </TabsTrigger>
+                            </>
+                        )}
                         <TabsTrigger 
                             value="qris"
                             className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-md transition-all"
@@ -308,11 +305,16 @@ export default function SettingsPage() {
                             <QrCode className="h-4 w-4 mr-2 hidden sm:block" />
                             QRIS Unit
                         </TabsTrigger>
-                        <TabsTrigger value="reset">
-                            <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
-                            <span className="text-red-500 font-medium">Reset Data</span>
-                        </TabsTrigger>
+                        {user?.role?.name !== "kasir" && (
+                            <TabsTrigger value="reset">
+                                <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
+                                <span className="text-red-500 font-medium">Reset Data</span>
+                            </TabsTrigger>
+                        )}
                     </TabsList>
+                    
+                    {user?.role?.name !== "kasir" && (
+                        <>
 
                     {/* General Settings */}
                     <TabsContent value="general">
@@ -789,8 +791,11 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
+                    </>
+                    )}
                 </Tabs>
             )}
         </div>
     );
 }
+

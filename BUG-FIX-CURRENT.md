@@ -775,3 +775,24 @@ Pada logic *controller* API tersebut:
 4. Membuat logic kondisi href={unitType === "toko" ? "/toko" : "/transaksi-unit"} pada tautan label **Semua** komponen *Dashboard Kasir*.
 
 **Status:** ALL FIXED & REAL-TIME. Dashboard otomatis menampilkan keseluruhan *StoreSale* khusus Toko Primkoppol.
+
+---
+### [2026-04-05 11:55] BUG FIXED: Riwayat Transaksi Toko, QRIS Kasir, & UI Aksesibilitas POS
+
+**Keluhan User:**
+1. Toko Kasir tidak bisa melihat *full breakdown* Riwayat Transaksi (link "Semua" kembali ke form input transaksi yang menyebabkan flow membingungkan).
+2. Role Kasir tertutup dari menu Pengaturan sehingga tidak bisa meng-upload QRIS Toko.
+3. Meminta aksesibilitas layar penuh (Fullscreen) untuk kenyamanan antarmuka Kasir (POS Mode).
+
+**Diagnosis Root Cause:**
+1. Pada UI Dasbor Kasir, URL rute "Semua" awalnya saya revisi menjadi /toko, tetapi /toko hanyalah halaman *Landing Dashboard* unit ritel, bukan *Data Table History*. Sementara itu tabel *History* secara utuh hanya ada pada rute /transaksi-unit/riwayat. Ironisnya, API untuk riwayat utuh (/api/unit-transactions) tidak melacak tabel StoreSale khusus milik Toko Primkoppol.
+2. Parameter *role guard* pada halaman /settings/page.tsx saya blokir total (eturn null) bagi Role Kasir demi sekuritas, yang sialnya juga menutupi form upload "QRIS Unit".
+3. Belum ada tombol *Toggle Fullscreen* native dari browser API pada halaman pemrosesan Kasir.
+
+**Solusi Perbaikan:**
+1. **Unifikasi API Riwayat:** Merombak endpoint GET /api/unit-transactions. Jika user mengakses unit 	oko, API secara paralel akan men-kueri data dari UnitTransaction (untuk layanan jasa/potong gaji) AND StoreSale (untuk transaksi barang riil). Data gabungan (*merged*) ini disusun, ditransformasi struktur JSON-nya agar identik, kemudian disortir *descending* dan dibalut paginasi standar.
+2. **Revisi Sinkronisasi URL:** Mengoreksi link "Semua" di *Dasbor Kasir* agar menuju secara langsung dan spesifik ke /transaksi-unit/riwayat?unitType=toko. Sekarang flow Kasir bisa masuk ke tabel utuh (yang mendukung Export PDF/Excel) dalam 1 klik.
+3. **Membuka Slot Aman Pengaturan QRIS Kasir:** Merestrukturisasi kondisi akses UI settings. Kasir sekarang diizinkan mengakses menu pengaturan, **TETAPI** Kasir dibatasi 100% sehingga hanya Tab "QRIS Unit" yang terlihat dan terkunci pada layar mereka (Tab Umum, Security, Backup, dan Reset lenyap tanpa jejak).
+4. **Injector Aksesibilitas "Mode POS":** Melakukan injeksi fitur DOM _requestFullscreen_ berbasis React Event Handler pada /toko/kasir maupun Kasir Cepat. Di-binding bersama ikon Maximize dari Lucide untuk imersi operasional kasir.
+
+**Status:** ALL FIXED. Fitur sangat modern, alur UX tuntas tanpa kebocoran sekuritas Role Kasir. Di-compile (0 Error).

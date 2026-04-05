@@ -50,34 +50,83 @@ export async function GET(request: Request) {
             ];
         }
 
-        const [transactions, total] = await Promise.all([
-            prisma.unitTransaction.findMany({
-                where,
+        // Fetch unitTransactions
+        const unitTransactions = await prisma.unitTransaction.findMany({
+            where,
+            include: {
+                member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                createdBy: { select: { id: true, name: true } },
+            },
+            orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder },
+        });
+
+        // If 'all' or 'toko' units are requested, fetch from StoreSale as well
+        let storeSales: any[] = [];
+        if (!unitType || unitType === "all" || unitType === "toko") {
+            const storeWhere: Record<string, unknown> = {};
+            if (where.memberId) storeWhere.memberId = where.memberId;
+            if (isPaid !== null && isPaid !== "all") {
+                // StoreSales are paid unless it is salary_cut
+                if (isPaid === "true") {
+                    storeWhere.paymentMethod = { not: "salary_cut" };
+                } else {
+                    storeWhere.paymentMethod = "salary_cut";
+                }
+            }
+            if (query.search) {
+                storeWhere.OR = [
+                    { saleNo: { contains: query.search, mode: "insensitive" } },
+                    { customerName: { contains: query.search, mode: "insensitive" } },
+                    { member: { name: { contains: query.search, mode: "insensitive" } } },
+                    { member: { nrp: { contains: query.search, mode: "insensitive" } } },
+                ];
+            }
+            
+            storeSales = await prisma.storeSale.findMany({
+                where: storeWhere,
                 include: {
-                    member: {
-                        select: {
-                            id: true,
-                            memberNo: true,
-                            nrp: true,
-                            name: true,
-                        },
-                    },
-                    createdBy: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
+                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                    createdBy: { select: { id: true, name: true } },
                 },
-                orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder },
-                skip: (query.page - 1) * query.perPage,
-                take: query.perPage,
-            }),
-            prisma.unitTransaction.count({ where }),
-        ]);
+                orderBy: { [query.sortBy === "transactionDate" ? "createdAt" : "createdAt"]: query.sortOrder },
+            });
+        }
+        
+        // Map StoreSale into UnitTransaction shape
+        const mappedStoreSales = storeSales.map((s) => ({
+            id: s.id + 1000000, // Make ID unique
+            transactionNo: s.saleNo,
+            memberId: s.memberId,
+            unitType: "toko",
+            description: `Penjualan Toko ${s.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${s.customerName ? `- ${s.customerName}`: ''}`,
+            amount: s.totalAmount,
+            transactionDate: s.createdAt,
+            isPaid: s.paymentMethod !== "salary_cut",
+            paidDate: s.paymentMethod !== "salary_cut" ? s.createdAt : null,
+            notes: `Total Item: ${s.items?.length || 0}`,
+            member: s.member,
+            createdBy: s.createdBy,
+        }));
+        
+        let allTransactions = [...unitTransactions, ...mappedStoreSales];
+        
+        // Sort
+        const sortKey = query.sortBy || "transactionDate";
+        const order = query.sortOrder === "desc" ? -1 : 1;
+        allTransactions.sort((a: any, b: any) => {
+            const valA = new Date(a[sortKey]).getTime();
+            const valB = new Date(b[sortKey]).getTime();
+            return (valA - valB) * order;
+        });
+
+        // Paginate
+        const total = allTransactions.length;
+        const startIndex = (query.page - 1) * query.perPage;
+        const paginatedTransactions = allTransactions.slice(startIndex, startIndex + query.perPage);
+
 
         return NextResponse.json({
-            data: transactions,
+            data: paginatedTransactions,
             meta: {
                 page: query.page,
                 perPage: query.perPage,

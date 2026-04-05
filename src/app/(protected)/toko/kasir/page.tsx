@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode,
+    Receipt, User, Loader2, ScanBarcode, Maximize
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -203,10 +203,26 @@ export default function KasirPage() {
                 title="Kasir POS"
                 description="Point of Sale — Penjualan Toko PRIMKOPPOL"
                 actions={
-                    <Badge variant="secondary" className="gap-1.5 text-xs">
-                        <ScanBarcode className="h-3.5 w-3.5" />
-                        Scanner Aktif
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="bg-primary/5 hover:bg-primary/10 border-primary/20"
+                            onClick={() => {
+                                if (!document.fullscreenElement) {
+                                    document.documentElement.requestFullscreen().catch(() => {});
+                                } else {
+                                    document.exitFullscreen().catch(() => {});
+                                }
+                            }}
+                        >
+                            <Maximize className="mr-2 h-4 w-4" /> Mode POS (Fullscreen)
+                        </Button>
+                        <Badge variant="secondary" className="gap-1.5 text-xs">
+                            <ScanBarcode className="h-3.5 w-3.5" />
+                            Scanner Aktif
+                        </Badge>
+                    </div>
                 }
             />
 
