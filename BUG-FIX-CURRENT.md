@@ -942,3 +942,27 @@ ull.
 ### BUG #8: Void Transaksi Toko Ditolak Server [FIXED]
 **Gejala:** Admin dan Operator tak bisa membatalkan nota toko (Awalan ID POS-) karena API salah kamar mencari ID pada *UnitTransaction* tanpa memperdulikan StoreSale. Di satu sisi Operator justru dimasukkan pada state pending_void.
 **Resolusi:** Menjejalkan deteksi pintar dalam API /api/unit-transactions/void-request guna mengembalikan stok ke dalam model StoreProduct secara langsung untuk Void Toko, dan mengimplementasi AUTO-APPROVE Bypass khusus bagi rolenya Operator.
+
+## Laporan UAT Fase 5 & 6
+Tanggal: 5 April 2026
+
+### BUG #9: Sidebar Kasir/Admin Unit mengarah ke Input Transaksi bukan Riwayat [FIXED]
+Menu "Riwayat Transaksi" di kasirNavigation memiliki href '/transaksi-unit' (Input), harusnya '/transaksi-unit/riwayat'. Telah diperbaiki.
+
+### BUG #10: "Halaman tidak tersedia untuk unit Anda" saat klik Kasir POS [FIXED]
+Dashboard di kasir-dashboard.tsx sebelumnya membuat posLink dinamis ke URL unit yang spesifik (/cuci-mobil/kasir) yang mungkin belum ada. Dikembalikan ke /unit-layanan/kasir yang sudah memiliki auto-lock unitType dari sesi.
+
+### BUG #11: Void Transaksi gagal untuk role Admin [FIXED]
+isOperator check di void-request route.ts tidak termasuk 'admin'. Ditambahkan: role === 'admin' juga mendapat bypass otomatis sama seperti operator.
+
+### BUG #12: Paket Cuci Mobil masih menampilkan deskripsi tidak lengkap [FIXED]
+CARWASH_PACKAGES di unit-layanan/kasir/page.tsx telah diupdate dengan keterangan contoh kendaraan sesuai data resmi atasan (Motor Bebek, Agya, Avanza, Innova, Hiace, dll). 
+
+### BUG #13: Button QRIS Overflow di Mobile [FIXED]
+Layout grid-cols-2 pada tombol metode bayar diubah menjadi flex-col sm:flex-row agar responsif.
+
+### BUG #14: Tidak ada Filter Unit pada Riwayat Transaksi [FIXED - BARU]
+Halaman riwayat transaksi kini memiliki dropdown pilih unit (hanya untuk Operator). Kasir/Admin Unit otomatis diset pada unit mereka dengan Badge non-interaktif.
+
+### BUG #15: Tidak ada fitur Upload/CRUD QRIS per Unit [FIXED - BARU]
+Dashboard Admin Unit kini memiliki Card 'Kelola QRIS' yang membuka modal upload/delete. API baru /api/unit-layanan/qris menangani write ke /public/uploads/qris/qris-{unitType}.png dengan validasi tipe dan ukuran file.

@@ -283,7 +283,7 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Riwayat Transaksi", href: "/transaksi-unit", icon: ClipboardList,
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat", icon: ClipboardList,
                 permission: "manage_unit_transactions",
             },
         ],
@@ -292,6 +292,7 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
+            { title: "Pengaturan", href: "/settings", icon: Settings },
         ],
     },
 ];

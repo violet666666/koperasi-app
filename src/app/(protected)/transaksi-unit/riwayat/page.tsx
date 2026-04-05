@@ -21,6 +21,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/lib/hooks";
 
 const txExportColumns: ExportColumn[] = [
     { header: "No. Transaksi", key: "transactionNo", width: 20 },
@@ -34,9 +36,15 @@ const txExportColumns: ExportColumn[] = [
 ];
 
 export default function RiwayatTransaksiUnitPage() {
+    const { user } = useAuth();
+    const userUnitType = (user as any)?.unitType as string | null | undefined;
+    const isOperator = user?.role?.name === "operator" || user?.permissions?.includes("manage_all");
+
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(9999);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
+    // Unit filter: null = tampil semua (operator), atau dipaksa ke unitType user
+    const [filterUnit, setFilterUnit] = React.useState<string>(userUnitType || "all");
 
     // Void state
     const queryClient = useQueryClient();
@@ -52,10 +60,19 @@ export default function RiwayatTransaksiUnitPage() {
 
     const filteredData = React.useMemo(() => {
         if (!response?.data) return [];
-        return (response.data as unknown as UnitTransaction[]).filter(tx => 
-            matchesDateRange(tx.transactionDate, dateRange)
-        );
-    }, [response, dateRange]);
+        return (response.data as unknown as UnitTransaction[]).filter(tx => {
+            const matchesDate = matchesDateRange(tx.transactionDate, dateRange);
+            const matchesUnit = filterUnit === "all" ? true : tx.unitType === filterUnit;
+            return matchesDate && matchesUnit;
+        });
+    }, [response, dateRange, filterUnit]);
+
+    // Sync unit filter to user's unitType if they're not operator
+    React.useEffect(() => {
+        if (userUnitType && !isOperator) {
+            setFilterUnit(userUnitType);
+        }
+    }, [userUnitType, isOperator]);
 
     const getUnitName = (type: string) => {
         const types: Record<string, string> = {
@@ -250,9 +267,35 @@ export default function RiwayatTransaksiUnitPage() {
             <Card>
                 <CardContent className="p-4 space-y-3">
                     <DatePeriodFilter onChange={setDateRange} showImportNote />
-                    {dateRange.mode !== "all" && (
-                        <p className="text-xs text-muted-foreground">Menampilkan: <strong>{dateRange.label}</strong></p>
-                    )}
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Unit:</Label>
+                            {isOperator ? (
+                                <Select value={filterUnit} onValueChange={setFilterUnit}>
+                                    <SelectTrigger className="h-8 w-[180px]">
+                                        <SelectValue placeholder="Pilih Unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua Unit</SelectItem>
+                                        <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
+                                        <SelectItem value="barbershop">Barbershop</SelectItem>
+                                        <SelectItem value="playstation">Play Station</SelectItem>
+                                        <SelectItem value="fitness">Fitness</SelectItem>
+                                        <SelectItem value="laundry">Laundry</SelectItem>
+                                        <SelectItem value="resto_cafe">Resto &amp; Cafe</SelectItem>
+                                        <SelectItem value="toko">Toko</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 capitalize">
+                                    {getUnitName(filterUnit)}
+                                </Badge>
+                            )}
+                        </div>
+                        {dateRange.mode !== "all" && (
+                            <p className="text-xs text-muted-foreground">Periode: <strong>{dateRange.label}</strong></p>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 

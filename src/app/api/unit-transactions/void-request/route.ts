@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         }
 
         const currentUserId = parseInt(session.user.id);
-        const isOperator = session.user.role === "operator" || session.user.permissions?.includes("manage_all");
+        const isOperator = session.user.role === "operator" || session.user.role === "admin" || session.user.permissions?.includes("manage_all");
         const now = new Date();
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)

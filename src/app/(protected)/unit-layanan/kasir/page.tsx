@@ -29,21 +29,21 @@ const UNIT_OPTIONS = [
     { value: "toko", label: "Toko PRIMKOPPOL", icon: Store },
 ];
 
-// Carwash packages with fixed prices
+// Carwash packages with fixed prices and full keterangan
 const CARWASH_PACKAGES = [
-    { label: "Motor", price: 15000 },
-    { label: "Mobil Kecil (Avanza, Xenia, dll)", price: 35000 },
-    { label: "Mobil Sedang (Innova, Ertiga, dll)", price: 40000 },
-    { label: "Mobil Besar (Fortuner, Pajero, dll)", price: 45000 },
-    { label: "Mobil Jumbo (Hiace, Minibus, dll)", price: 50000 },
+    { label: "Motor", keterangan: "Motor Bebek, Matic, Sport", price: 15000 },
+    { label: "Mobil Kecil (Small)", keterangan: "Agya, Ayla, Brio, Jazz, Yaris, City Car", price: 35000 },
+    { label: "Mobil Sedang (Medium)", keterangan: "Avanza, Xenia, Ertiga, Mobilio, Confero", price: 40000 },
+    { label: "Mobil Besar (Large)", keterangan: "Innova, Fortuner, Pajero, CR-V, Santa Fe", price: 45000 },
+    { label: "Mobil Extra Large (XL)", keterangan: "Hiace, Elf, Alphard, Minibus", price: 50000 },
 ];
 
 // Barbershop packages
 const BARBERSHOP_PACKAGES = [
-    { label: "Potong Rambut Biasa", price: 15000 },
-    { label: "Potong + Creambath", price: 30000 },
-    { label: "Cukur Jenggot", price: 10000 },
-    { label: "Potong + Pewarnaan", price: 50000 },
+    { label: "Potong Rambut Biasa", keterangan: "Semua jenis potongan standar", price: 15000 },
+    { label: "Potong + Creambath", keterangan: "Potong rambut + perawatan creambath", price: 30000 },
+    { label: "Cukur Jenggot", keterangan: "Cukur dan rapikan jenggot", price: 10000 },
+    { label: "Potong + Pewarnaan", keterangan: "Potong rambut + pewarnaan cat", price: 50000 },
 ];
 
 function getPackagesForUnit(unitType: string): { label: string; price: number }[] {
@@ -277,7 +277,7 @@ export default function KasirCepatPage() {
                             <div className="space-y-2">
                                 <Label>Paket Layanan {currentUnit?.label}</Label>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {availablePackages.map(pkg => (
+                            {availablePackages.map(pkg =>
                                         <button
                                             key={pkg.label}
                                             type="button"
@@ -288,12 +288,17 @@ export default function KasirCepatPage() {
                                                     : "border-border bg-background"
                                             }`}
                                         >
-                                            <span>{pkg.label}</span>
-                                            <span className={`font-bold ${selectedPackage === pkg.label ? "text-primary" : "text-muted-foreground"}`}>
+                                            <div className="text-left">
+                                                <span className="block font-medium">{pkg.label}</span>
+                                                {(pkg as any).keterangan && (
+                                                    <span className="text-xs text-muted-foreground block mt-0.5">{(pkg as any).keterangan}</span>
+                                                )}
+                                            </div>
+                                            <span className={`font-bold shrink-0 ml-2 ${selectedPackage === pkg.label ? "text-primary" : "text-muted-foreground"}`}>
                                                 {formatCurrency(pkg.price)}
                                             </span>
                                         </button>
-                                    ))}
+                                    )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">*Pilih paket untuk mengisi nominal otomatis</p>
                             </div>
@@ -331,9 +336,9 @@ export default function KasirCepatPage() {
 
                         <div className="pt-4 space-y-3">
                             <Label>Metode Pembayaran</Label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <Button
-                                    className="w-full"
+                                    className="flex-1"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
                                     onClick={() => processPayment("cash")}
                                 >
@@ -341,11 +346,11 @@ export default function KasirCepatPage() {
                                     Bayar Tunai
                                 </Button>
                                 <Button
-                                    className="w-full bg-blue-600 hover:bg-blue-700"
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
                                     onClick={() => setShowQrisDialog(true)}
                                 >
-                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
                                     Bayar QRIS
                                 </Button>
                             </div>

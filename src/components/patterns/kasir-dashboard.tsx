@@ -8,12 +8,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
     ShoppingCart, Banknote, QrCode, CreditCard, Clock,
-    TrendingUp, ArrowRight, CheckCircle2, AlertCircle, Store
+    TrendingUp, ArrowRight, CheckCircle2, AlertCircle, Store,
+    Upload, Trash2, ImagePlus
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface UnitStats {
     unit: string;
@@ -58,9 +61,58 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
-    const posLink = unitType 
-        ? `/${unitType.replace(/_/g, '-')}/kasir` 
-        : "/unit-layanan/kasir";
+    const posLink = "/unit-layanan/kasir";
+    const isAdmin = roleName === "admin";
+
+    // QRIS management state
+    const [showQrisModal, setShowQrisModal] = React.useState(false);
+    const [qrisPreview, setQrisPreview] = React.useState<string | null>(null);
+    const [qrisFile, setQrisFile] = React.useState<File | null>(null);
+    const [isUploadingQris, setIsUploadingQris] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleQrisFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { toast.error("Ukuran file maksimal 2MB"); return; }
+        setQrisFile(file);
+        setQrisPreview(URL.createObjectURL(file));
+    };
+
+    const uploadQris = async () => {
+        if (!qrisFile || !unitType) return;
+        setIsUploadingQris(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", qrisFile as Blob);
+            formData.append("unitType", unitType);
+            const res = await fetch("/api/unit-layanan/qris", { method: "POST", body: formData });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || "Gagal upload");
+            toast.success(json.message);
+            setShowQrisModal(false);
+            setQrisFile(null);
+            setQrisPreview(null);
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally {
+            setIsUploadingQris(false);
+        }
+    };
+
+    const deleteQris = async () => {
+        if (!unitType) return;
+        if (!confirm("Yakin ingin menghapus gambar QRIS unit ini?")) return;
+        try {
+            const res = await fetch(`/api/unit-layanan/qris?unitType=${unitType}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(json.message);
+            setShowQrisModal(false);
+        } catch (err: any) {
+            toast.error(err.message);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -194,7 +246,101 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                     </CardContent>
                 </Card>
             </div>
-        </div>
+
+            {/* QRIS Management Card - only for Admin Unit */}
+            {isAdmin && (
+                <Card className="border-dashed border-blue-200 bg-blue-50/30">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <QrCode className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-sm">Kelola QRIS Unit</p>
+                            <p className="text-xs text-muted-foreground">Upload atau hapus gambar QRIS untuk pembayaran di unit ini</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowQrisModal(true)}
+                        className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                        <ImagePlus className="h-4 w-4" />
+                        Kelola QRIS
+                    </button>
+                </CardContent>
+            </Card>
+            )}
+
+            {/* QRIS Upload/Delete Modal */}
+            <Dialog open={showQrisModal} onOpenChange={setShowQrisModal}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <QrCode className="h-5 w-5 text-blue-600" />
+                        Kelola QRIS — {unitType}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Unggah gambar barcode QRIS unit Anda. Kasir akan menampilkan gambar ini saat melakukan pembayaran QRIS.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                    {/* Preview existing / new */}
+                    <div className="border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 p-4 flex flex-col items-center justify-center min-h-[200px]">
+                        {qrisPreview ? (
+                            <img src={qrisPreview ?? undefined} alt="Preview QRIS" className="max-h-[180px] object-contain rounded-lg" />
+                        ) : (
+                            <img
+                                src={`/uploads/qris/qris-${unitType}.png?bust=${Date.now()}`}
+                                alt={`QRIS ${unitType}`}
+                                className="max-h-[180px] object-contain rounded-lg"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                        )}
+                        {!qrisPreview && (
+                            <p className="text-sm text-muted-foreground mt-2">File QRIS saat ini (jika ada)</p>
+                        )}
+                    </div>
+
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        className="hidden"
+                        onChange={handleQrisFileSelect}
+                    />
+
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full border-2 border-dashed border-slate-300 rounded-lg p-4 text-sm text-muted-foreground hover:border-blue-400 hover:text-blue-600 transition-colors text-center"
+                    >
+                        <Upload className="h-5 w-5 mx-auto mb-1" />
+                        {qrisFile?.name ? qrisFile.name : "Klik untuk memilih file gambar QRIS (PNG/JPG, maks. 2MB)"}
+                    </button>
+                </div>
+
+                <DialogFooter className="flex-col gap-2 sm:flex-row">
+                    <button
+                        onClick={deleteQris}
+                        className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 px-3 py-2 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        Hapus QRIS
+                    </button>
+                    <div className="flex gap-2 ml-auto">
+                        <button onClick={() => setShowQrisModal(false)} className="px-4 py-2 text-sm border rounded hover:bg-muted transition-colors">Batal</button>
+                        <button
+                            onClick={uploadQris}
+                            disabled={!qrisFile || isUploadingQris}
+                            className="flex items-center gap-2 text-sm bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                            {isUploadingQris ? "Mengunggah..." : (<><Upload className="h-4 w-4" />Simpan QRIS</>)}
+                        </button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    </div>
     );
 }
 
