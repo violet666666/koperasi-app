@@ -14,6 +14,8 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
+        const statusParam = searchParams.get("status");
+        const typeFilter = searchParams.get("type");
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");

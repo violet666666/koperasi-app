@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         }
 
         const currentUserId = parseInt(session.user.id);
-        const isOperator = session.user.role === "operator" || session.user.role === "admin" || session.user.permissions?.includes("manage_all");
+        const isOperator = session.user.role === "operator" || session.user.permissions?.includes("manage_all");
         const now = new Date();
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
                     type: "void_store_sale",
                     referenceType: "store_sale",
                     referenceId: storeSale.id,
-                    branchId: 1, // default branch; TODO: ambil dari user session jika multi-branch
+                    branchId: 10, // Menggunakan branch ID valid (Lumajang)
                     amount: storeSale.totalAmount,
                     description: `Pembatalan Transaksi Toko [${storeSale.saleNo}] — ${reason}`,
                     requestedById: currentUserId,
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
                     type: "unit_void",
                     referenceType: "unit_transaction",
                     referenceId: transaction.id,
-                    branchId: 1, 
+                    branchId: 10, 
                     amount: transaction.amount,
                     description: `Pembatalan Transaksi [${transactionNo}] dari Unit ${transaction.unitType.toUpperCase()} — ${reason}`,
                     metadata: {

@@ -29,10 +29,11 @@ const UNIT_OPTIONS = [
     { value: "toko", label: "Toko PRIMKOPPOL", icon: Store },
 ];
 
-export default function DedicatedKasirPage({ params }: { params: { unitSlug: string } }) {
+export default function DedicatedKasirPage({ params }: { params: Promise<{ unitSlug: string }> }) {
     const { user } = useAuth();
-    const unitSlug = params.unitSlug;
-    const unitType = unitSlug.replace(/-/g, '_');
+    const resolvedParams = React.use(params);
+    const unitSlug = resolvedParams.unitSlug;
+    const unitType = unitSlug ? unitSlug.replace(/-/g, '_') : "";
     
     // Auto-detect unit from user profile
     const userUnitType = (user as any)?.unitType as string | null | undefined;

@@ -547,6 +547,25 @@
 **Akar Masalah:** Tidak ada konstanta navigasi `adminTokoNavigation` maupun `adminUnitNavigation`. Fungsi `getNavigationForUser()` tidak membedakan Kasir vs Admin untuk unit non-pusat.
 **Resolusi (Direncanakan):** Buat dua konstanta navigasi baru. Update `getNavigationForUser()` agar Admin unit Retail mendapat `adminTokoNavigation` dan Admin unit Jasa mendapat `adminUnitNavigation`.
 
+## BUG-061 — Void Kasir Toko Membuahkan Foreign Key Constraint (500)
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-transactions/void-request/route.ts`
+**Gejala:** Kasir Toko klik Void, sistem melempar 500 internal error di *backend* karena backend mencoba *insert* record persetujuan dengan `branchId: 1`. Sementara cabang yang terdaftar di database cloud hanya memiliki ID `10`.
+**Resolusi:** Data fallback `branchId` disesuaikan dari pola *hardcoded* (1) menjadi (10).
+
+## BUG-062 — Kasir Riwayat Mengabaikan Pesan Error dari Server (False Positive)
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+**Gejala:** Meski server menghasilkan error 500 (akibat BUG-061), toast notifikasi di *browser* menyembunyikan error dan menampilkan teks *hardcoded* "Pengajuan void berhasil dikirim. Menunggu persetujuan Admin". Ini menyesatkan QA/User seolah-olah pengajuan masuk, padahal gagal total.
+**Resolusi:** Menambahkan handler untuk me-*throw* nilai error API yang sesungguhnya ke layer antarmuka jika `res.ok` bermasalah, dan mem-passing respon berhasil langsung dari server.
+
+## BUG-063 — Admin Unit Mem-Bypass Alur Persetujuan Void Sendiri
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-transactions/void-request/route.ts`
+**Gejala:** Saat "Admin Toko" menguji coba menu Void, alih-alih masuk daftar `Inbox Approval`, sistem langsung mendaulat transaksi batal. Tiket Void tidak muncul.
+**Akar Masalah:** Kondisi `isOperator` membebaskan siapapun dengan `role === "admin"`.
+**Resolusi:** `admin` dikeluarkan dari pengecualian bypass. Kini pembuatan dan pengunggahan Void akan serempak diikat lewat `ApprovalRequest` untuk disiplin administratif.
+
 ---
 
 *Dokumen ini diperbarui terakhir: 5 April 2026, 22:55 WIB*

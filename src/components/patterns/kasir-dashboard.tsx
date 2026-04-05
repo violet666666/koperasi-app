@@ -61,7 +61,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
-    const posLink = "/unit-layanan/kasir";
+    const posLink = `/unit/${unitType ? unitType.replace(/_/g, '-') : 'toko'}/kasir`;
     const isAdmin = roleName === "admin";
 
     // QRIS management state

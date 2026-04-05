@@ -47,6 +47,22 @@
   - Ditambahkan JALUR 1 untuk StoreSale: kembalikan stok saat approved, hapus voidPending saat rejected
   - JALUR 2 existing (UnitTransaction + Contra-Entry) tetap berjalan tidak berubah
 
----
-*Diperbarui: 6 April 2026, 00:05 WIB*
 
+## FASE 6 — Security Endpoint & Data Integrity (Final Fix)
+- [x] BUG-FIX: Approval Inbox "Halaman tidak tersedia"
+  - Menyesuaikan `ADMIN_ALLOWED_ROUTES` di `layout.tsx` sehingga rute `/approval` kini dizinkan untuk seluruh profil Admin Eksternal (Toko, Jasa, dsb).
+  - Mengamankan `/api/approvals/route.ts` dengan _unit segregation_ agar Loan Applications hilang dari daftar unit admin dan setiap admin unit hanya bisa melihat _Void Request_ milik unitnya.
+- [x] BUG-FIX: Transaksi dibatalkan (Void) masih nyangkut di Kasir/Dashboard/Riwayat
+  - Memperbarui `/api/dashboard-stats`, `/api/unit-layanan/stats`, dan `/api/unit-transactions` untuk men-drop atau melabelkan `StoreSale` yang memiliki *flag* JSON `metadata.isVoided: true`.
+  - Sekarang laporan *Total Hari Ini* & *Tunai* tidak akan ikut menghitung nilai pesanan berstatus batal. Teks "DIBATALKAN" akan muncul tegas di Riwayat Kasir.
+
+## FASE 7 — Stabilitas Backend & Penanganan False Positive (UAT)
+- [x] BUG-061: Memperbaiki Exception Foreign Key `branchId: 1`
+  - Pengajuan dari Void Kasir Toko kini dapat sukses tersimpan di `ApprovalRequest` dengan `branchId: 10`.
+- [x] BUG-062: Perbaikan _False Positive_ Notifikasi Void di Kasir
+  - Menghapus _hardcode_ "Sukses" di frontend `transaksi-unit/riwayat/page.tsx`, beralih ke pengecekan `res.ok` dan pencetakan pesan logis dari API Backend.
+- [x] BUG-063: Logika Ekstensi `isOperator` Dipangkas
+  - Menertibkan kembali akses "bisa Auto-Approve" untuk `role: "admin"`. Admin Unit yang mengajukan pembatalan harus diterbitkan tiket `ApprovalRequest` sebagaimana mestinya, tidak membypass Inbox Approval miliknya.
+
+---
+*Diperbarui: 6 April 2026, 02:10 WIB*

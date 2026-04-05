@@ -224,12 +224,12 @@ export default function RiwayatTransaksiUnitPage() {
                 }),
             });
 
+            const resData = await res.json();
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Gagal mengajukan void");
+                throw new Error(resData.message || "Gagal mengajukan void");
             }
 
-            toast.success("Pengajuan void berhasil dikirim. Menunggu persetujuan Admin.");
+            toast.success(resData.message || "Pengajuan void berhasil dikirim.");
             setIsVoidModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["unit-transactions"] });
         } catch (error: any) {
