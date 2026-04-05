@@ -796,3 +796,23 @@ Pada logic *controller* API tersebut:
 4. **Injector Aksesibilitas "Mode POS":** Melakukan injeksi fitur DOM _requestFullscreen_ berbasis React Event Handler pada /toko/kasir maupun Kasir Cepat. Di-binding bersama ikon Maximize dari Lucide untuk imersi operasional kasir.
 
 **Status:** ALL FIXED. Fitur sangat modern, alur UX tuntas tanpa kebocoran sekuritas Role Kasir. Di-compile (0 Error).
+
+---
+## [05 Apr 2026] - IMPLEMENTASI CORE BANKING (SISTEM ANTI-MANIPULASI)
+
+### **Masalah Utama / Kebutuhan (Bug & Features)**
+1. **Penipuan & Manipulasi Transaksi Kasir**: Ditemukan celah bahwa transaksi di 6 unit usaha (seperti toko, barbershop, dll) dapat di *Hapus/Edit* kasir seenaknya tanpa jejak (immutable data integrity rusak).
+2. **Limit Piutang (Kredit Toko) Bebas Bablas**: Kasir toko dapat terus-terusan menginput opsi "Potong Gaji" (kredit) untuk seorang anggota walaupun jumlah hutang dari berbagai unit sudah melebihi batas amannya, merugikan koperasi.
+3. **Receipt & Tracking tidak terpusat**: Tidak ada struktur receipt cross-platform (Web dan Mobile API).
+
+### **Penyelesaian (Fixes Applied)**
+1. **Gatekeeper 3 Lapis (Limit Validasi Real-time)**: 
+   - Modifikasi sisi Backend (/api/unit-transactions/validate) dan UI Frontend (React). 
+   - Sebelum kasir/admin memproses pembayaran "Potong Gaji", sistem akan menjumlahkan hutang total dari berbagai unit vs plafonPiutang anggota. Jika lebih, UX tombol akan merah dan sistem memblokir API-nya.
+2. **Worklow Void (Segregation of Duties)**:
+   - Tombol Hapus DITIADAKAN. Diganti tombol **Void (Pengajuan Batal)**.
+   - Flow: Kasir mengajukan Void -> Tagihan masuk status PENDING_VOID -> Muncul Lencana Merah 🔴 di Dashboard Admin Unit -> Admin mereject/menyetujui. Jika disetujui, terbentuk sebuah *Contra-Entry* (Jurnal Penyeimbang) dengan hash SHA256 khusus agar riwayat tetap utuh.
+3. **Kompatibilitas Mobile App API**:
+   - Skema ini seluruhnya dikunci di layer REST API Backend. Oleh karena itu, *Mobile Development* (iOS/Android) bisa langsung *ready* mengkonsumsi API yang sama persis tanpa perlu merekayasa ulang algoritma limit-limit ini.
+   
+**Status:** ALL FIXED & SECURED. Ekosistem Web App kini sudah sekeras Core Banking System perbankan, dan sepenuhnya mendukung platform Mobile App yang dihubungkan ke endpoint API ini.
