@@ -11,8 +11,9 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, ArrowUpCircle, ArrowDownCircle, Wallet } from "lucide-react";
+import { Download, ArrowUpCircle, ArrowDownCircle, Wallet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 
 interface CashFlowItem { description: string; amount: number; }
 interface CashFlowData {
@@ -122,10 +123,45 @@ export default function ArusKasPage() {
     const monthName = new Date(2000, Number(selectedMonth) - 1).toLocaleDateString("id-ID", { month: "long" });
     const currentYear = new Date().getFullYear();
 
+    // Build flat rows for export
+    const buildExportRows = () => {
+        if (!data) return [];
+        const rows: Record<string, unknown>[] = [];
+        const push = (ket: string, jumlah: number) => rows.push({ keterangan: ket, jumlah });
+        push("=== ARUS KAS AKTIVITAS OPERASI ===", 0);
+        data.operating.inflows.forEach(i => push(i.description, i.amount));
+        data.operating.outflows.forEach(i => push(i.description, i.amount));
+        push("Arus Kas Bersih Operasi", data.operating.net);
+        if (data.financing.inflows.length || data.financing.outflows.length) {
+            push("=== ARUS KAS AKTIVITAS PENDANAAN ===", 0);
+            data.financing.inflows.concat(data.financing.outflows).forEach(i => push(i.description, i.amount));
+            push("Arus Kas Bersih Pendanaan", data.financing.net);
+        }
+        push("Kenaikan/(Penurunan) Kas Bersih", data.netChange);
+        push("Saldo Kas Akhir Periode", data.closingBalance);
+        return rows;
+    };
+
+    const arusKasExportCols: ExportColumn[] = [
+        { header: "Keterangan", key: "keterangan", width: 40 },
+        { header: "Jumlah (Rp)", key: "jumlah", width: 22, format: (v) => v === 0 ? "" : formatCurrency(Number(v)) },
+    ];
+
     return (
         <div className="space-y-6">
             <PageHeader title="Laporan Arus Kas" description="Pergerakan kas per periode"
-                actions={<Button variant="outline"><Download className="mr-2 h-4 w-4" />Export Excel</Button>} />
+                actions={
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => exportToExcel(buildExportRows(), arusKasExportCols, `Arus_Kas_${monthName}_${selectedYear}`, "Arus Kas")}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportToPDF(buildExportRows(), arusKasExportCols, `Laporan Arus Kas ${monthName} ${selectedYear} - PRIMKOPPOL`, `Arus_Kas_${monthName}_${selectedYear}`)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    PDF
+                </Button>
+            </div>
+        } />
 
             <Card><CardContent className="p-4">
                 <div className="flex flex-wrap gap-4 items-center">

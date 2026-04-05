@@ -623,3 +623,14 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 - *Web & Mobile Frontend:* Memodifikasi antarmuka POS (*Point of Sales*) secara dramatis untuk menyela (meng-*intercept*) tombol *Submit* pembayaran, menghadirkannya dalam bentuk *Dialog Modal*. Kasir baru dapat menekan "Pelanggan Sudah Membayar" setelah pelanggan menscan barcode yang muncul dari *Database*.
 
 *Semua bug utama yang dievaluasi hari ini telah diverifikasi tuntas & siap uji nyata di production.*
+
+### Tanggal: 2026-04-05 10:12:48
+
+#### UPDATE: Finalisasi POS, Hardware Integrations & Exports
+**Tugas Diselesaikan:**
+1. **Mobile App Scanner:** Integrasi scanner barcode native menggunakan expo-camera pada screen KasirScreen khusus unit Toko.
+2. **Web Barcode Listener:** Pembuatan custom hook useBarcodeScanner untuk menangkap string input dari perangkat pemindai (_barcode gun_) USB/Bluetooth pada Web POS Kasir.
+3. **Cetak Termal Penuh:** Pembuatan utility print resi (receipt) khusus 58mm/80mm di generateKasirReceiptPDF dan generateThermalReceiptPDF (Kwitansi & POS).
+4. **Universal Export:** Utility export Data Excel dan Cetak PDF A4 diintegrasikan ke halaman Laporan SHU, Laporan Arus Kas, dan Laman Pengelolaan Kwitansi.
+5. **Penyatuan Sistem Modal:** Perbaikan bug terkait React Root / Return pada Screen Kasir Mobile (wrapping <Fragment> untuk modal).
+**Status:** Semua tahap di task planning telah tuntas terintegrasi (Toko, Kwitansi, Export).

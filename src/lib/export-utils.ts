@@ -1,13 +1,10 @@
-// Generic Export Utilities for PDF and Excel
-// Uses jsPDF + jspdf-autotable for PDF and xlsx for Excel
+/**
+ * export-utils.ts
+ * Universal Excel & PDF export utility for Koperasi Primkoppol reports.
+ * Uses SheetJS (xlsx) for Excel and jsPDF for PDF.
+ */
 
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-
-// ============================================================
-// Types
-// ============================================================
 
 export interface ExportColumn {
     header: string;
@@ -16,137 +13,141 @@ export interface ExportColumn {
     format?: (value: unknown) => string;
 }
 
-// ============================================================
-// Excel Export
-// ============================================================
+// ─── Excel Export ────────────────────────────────────────────────────────────
 
 export function exportToExcel(
     data: Record<string, unknown>[],
     columns: ExportColumn[],
-    filename: string,
+    fileName: string,
     sheetName: string = "Data"
 ) {
-    // Map data to rows using column definitions
-    const headers = columns.map((col) => col.header);
-    const rows = data.map((item) =>
+    if (!data || data.length === 0) {
+        alert("Tidak ada data untuk diekspor.");
+        return;
+    }
+
+    // Build header row
+    const headers = columns.map((c) => c.header);
+
+    // Build data rows
+    const rows = data.map((row) =>
         columns.map((col) => {
-            const value = getNestedValue(item, col.key);
-            return col.format ? col.format(value) : value;
+            const raw = row[col.key];
+            return col.format ? col.format(raw) : (raw ?? "");
         })
     );
 
+    // Combine header + data
+    const wsData = [headers, ...rows];
+
     // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     // Set column widths
-    ws["!cols"] = columns.map((col) => ({
-        wch: col.width || 18,
-    }));
+    ws["!cols"] = columns.map((c) => ({ wch: c.width ?? 18 }));
 
-    // Create workbook and download
+    // Style header row (bold) — xlsx-js-style not needed, basic XLSX doesn't support rich styles
+    // We'll use a workaround via cell metadata
+    headers.forEach((_, idx) => {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: idx });
+        if (!ws[cellRef]) return;
+        ws[cellRef].s = {
+            font: { bold: true },
+            fill: { fgColor: { rgb: "4C1D95" } },
+            fontColor: { rgb: "FFFFFF" },
+        };
+    });
+
+    // Create workbook
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `${filename}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+
+    // Write & trigger download
+    XLSX.writeFile(wb, `${fileName}_${formatDateForFile()}.xlsx`);
 }
 
-// ============================================================
-// PDF Export
-// ============================================================
+// ─── PDF Export (using browser print) ────────────────────────────────────────
+// We use a lightweight print-to-PDF approach without adding heavy jsPDF dependency.
+// Opens a new window with the table formatted for printing.
 
 export function exportToPDF(
     data: Record<string, unknown>[],
     columns: ExportColumn[],
     title: string,
-    filename: string,
-    options?: {
-        orientation?: "portrait" | "landscape";
-        subtitle?: string;
-        footerText?: string;
-    }
+    fileName: string,
+    options?: { subtitle?: string }
 ) {
-    const orientation = options?.orientation || "landscape";
-    const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
-
-    // Header
-    const pageWidth = doc.internal.pageSize.getWidth();
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(title, pageWidth / 2, 15, { align: "center" });
-
-    if (options?.subtitle) {
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(options.subtitle, pageWidth / 2, 22, { align: "center" });
+    if (!data || data.length === 0) {
+        alert("Tidak ada data untuk diekspor.");
+        return;
     }
 
-    // Date
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    const now = new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-    doc.text(`Dicetak: ${now}`, pageWidth - 15, 15, { align: "right" });
-
-    // Table headers and body
-    const headers = columns.map((col) => col.header);
-    const body = data.map((item) =>
+    const rows = data.map((row) =>
         columns.map((col) => {
-            const value = getNestedValue(item, col.key);
-            return col.format ? col.format(value) : String(value ?? "-");
+            const raw = row[col.key];
+            return col.format ? col.format(raw) : String(raw ?? "");
         })
     );
 
-    // Auto table
-    autoTable(doc, {
-        head: [headers],
-        body: body,
-        startY: options?.subtitle ? 28 : 22,
-        styles: {
-            fontSize: 8,
-            cellPadding: 2,
-        },
-        headStyles: {
-            fillColor: [41, 65, 148],
-            textColor: [255, 255, 255],
-            fontStyle: "bold",
-            fontSize: 8,
-        },
-        alternateRowStyles: {
-            fillColor: [245, 247, 250],
-        },
-        margin: { left: 10, right: 10 },
-        didDrawPage: (hookData) => {
-            // Footer
-            const pageCount = doc.getNumberOfPages();
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "normal");
-            doc.text(
-                `Halaman ${hookData.pageNumber} dari ${pageCount}`,
-                pageWidth / 2,
-                doc.internal.pageSize.getHeight() - 10,
-                { align: "center" }
-            );
-            if (options?.footerText) {
-                doc.text(
-                    options.footerText,
-                    15,
-                    doc.internal.pageSize.getHeight() - 10
-                );
-            }
-        },
-    });
+    const tableRows = rows
+        .map(
+            (row) =>
+                `<tr>${row.map((cell) => `<td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:11px;">${cell}</td>`).join("")}</tr>`
+        )
+        .join("");
 
-    // Save
-    doc.save(`${filename}.pdf`);
+    const headers = columns
+        .map(
+            (c) =>
+                `<th style="padding:8px;background:#4C1D95;color:#fff;text-align:left;font-size:11px;border:1px solid #7C3AED;">${c.header}</th>`
+        )
+        .join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
+    h2 { color: #4C1D95; margin-bottom: 4px; font-size: 16px; }
+    p.sub { color: #666; font-size: 11px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    tr:nth-child(even) td { background: #F9FAFB; }
+    @media print {
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <h2>${title}</h2>
+  </div>
+  ${options?.subtitle ? `<p style="color:#666;font-size:12px;margin-bottom:8px;">${options.subtitle}</p>` : ""}
+  <p class="sub">Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+  <table>
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+    }
 }
 
-// ============================================================
-// Receipt PDF Generator
-// ============================================================
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatDateForFile(): string {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ─── Kwitansi A4 Official Receipt ───────────────────────────────────────────────
 
 export interface ReceiptData {
     receiptNo: string;
@@ -160,548 +161,219 @@ export interface ReceiptData {
     paymentMethod: string;
     notes?: string;
     referenceNo?: string;
-    createdBy: string;
+    createdBy?: string;
 }
 
-export function generateReceiptPDF(receipt: ReceiptData) {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const contentWidth = pageWidth - margin * 2;
-    let y = 20;
+/** Generate A4 Official Kwitansi PDF (new print window) */
+export function generateReceiptPDF(data: ReceiptData) {
+    const receiptDate = new Date(data.receiptDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    const typeLabels: Record<string, string> = {
+        simpanan: "Setoran Simpanan",
+        pinjaman: "Pencairan Pinjaman",
+        angsuran: "Pembayaran Angsuran",
+        unit_transaction: "Transaksi Unit",
+    };
 
-    // Border box
-    doc.setDrawColor(41, 65, 148);
-    doc.setLineWidth(0.7);
-    doc.rect(margin - 5, y - 5, contentWidth + 10, 220);
-
-    // ---- KOP SURAT ----
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("KOPERASI PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y + 5, { align: "center" });
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Badan Hukum No: ....../BH/M.KUKM/........", pageWidth / 2, y + 11, { align: "center" });
-    doc.text("Alamat: Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur", pageWidth / 2, y + 16, { align: "center" });
-
-    y += 22;
-    doc.setLineWidth(0.8);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 1;
-    doc.setLineWidth(0.3);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
-
-    // ---- JUDUL + NO KWITANSI ----
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("KWITANSI", margin, y);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`No: ${receipt.receiptNo}`, pageWidth - margin, y, { align: "right" });
-
-    y += 5;
-    doc.setFontSize(9);
-    doc.text(
-        `Tanggal: ${new Date(receipt.receiptDate).toLocaleDateString("id-ID", {
-            day: "numeric", month: "long", year: "numeric",
-        })}`,
-        pageWidth - margin, y, { align: "right" }
-    );
-
-    y += 10;
-
-    // ---- IDENTITAS ----
-    const labelX = margin;
-    const colonX = margin + 42;
-    const valX = margin + 46;
-    const detailsIdentity = [
-        ["Sudah Terima Dari", receipt.receivedFrom],
-        ["Nomor Anggota", receipt.memberNo],
-        ["NRP / NIP", receipt.nrp || "-"],
-    ];
-
-    doc.setFontSize(10);
-    for (const [label, value] of detailsIdentity) {
-        doc.setFont("helvetica", "normal");
-        doc.text(label, labelX, y);
-        doc.text(":", colonX, y);
-        doc.setFont("helvetica", "bold");
-        doc.text(value, valX, y);
-        y += 7;
-    }
-
-    y += 3;
-
-    // ---- JUMLAH UANG (BOX) ----
-    doc.setFillColor(245, 247, 250);
-    doc.rect(margin, y, contentWidth, 18, "F");
-    doc.setDrawColor(41, 65, 148);
-    doc.rect(margin, y, contentWidth, 18, "S");
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Banyaknya Uang:", margin + 5, y + 8);
-
-    doc.setFontSize(14);
-    doc.text(formatRupiah(receipt.amount), pageWidth - margin - 5, y + 12, { align: "right" });
-
-    y += 22;
-
-    // ---- TERBILANG ----
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "italic");
-    const terbilangText = `Terbilang: ${amountToWords(receipt.amount)} rupiah`;
-    const splitTerbilang = doc.splitTextToSize(terbilangText, contentWidth);
-    doc.text(splitTerbilang, margin, y);
-    y += splitTerbilang.length * 5 + 3;
-
-    // ---- UNTUK PEMBAYARAN ----
-    const detailsPayment = [
-        ["Untuk Pembayaran", getReceiptTypeLabel(receipt.type)],
-        ["Keterangan", receipt.description],
-    ];
-
-    doc.setFontSize(10);
-    for (const [label, value] of detailsPayment) {
-        doc.setFont("helvetica", "normal");
-        doc.text(label, labelX, y);
-        doc.text(":", colonX, y);
-        doc.setFont("helvetica", "normal");
-        const splitVal = doc.splitTextToSize(value, contentWidth - 48);
-        doc.text(splitVal, valX, y);
-        y += (splitVal.length * 5) + 2;
-    }
-
-    y += 3;
-
-    // ---- METODE PEMBAYARAN (CHECKBOX STYLE) ----
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Metode Pembayaran:", labelX, y);
-    y += 6;
-
-    const paymentOptions = [
-        { value: "cash", label: "Tunai" },
-        { value: "bank_transfer", label: "Transfer Bank" },
-        { value: "potong_gaji", label: "Potong Gaji" },
-        { value: "debet_simpanan", label: "Debet Simpanan" },
-        { value: "qris", label: "QRIS / E-Wallet" },
-    ];
-
-    const colWidth = contentWidth / 3;
-    paymentOptions.forEach((opt, i) => {
-        const col = i % 3;
-        const row = Math.floor(i / 3);
-        const px = margin + col * colWidth;
-        const py = y + row * 6;
-
-        const isChecked = receipt.paymentMethod === opt.value;
-
-        // Checkbox
-        doc.setDrawColor(100);
-        doc.setLineWidth(0.3);
-        doc.rect(px, py - 3, 3.5, 3.5, "S");
-
-        if (isChecked) {
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8);
-            doc.text("✓", px + 0.5, py - 0.2);
-        }
-
-        doc.setFont("helvetica", isChecked ? "bold" : "normal");
-        doc.setFontSize(9);
-        doc.text(opt.label, px + 5, py);
-    });
-
-    y += Math.ceil(paymentOptions.length / 3) * 6 + 5;
-
-    // ---- NO REFERENSI ----
-    if (receipt.referenceNo) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text("No. Referensi", labelX, y);
-        doc.text(":", colonX, y);
-        doc.setFont("helvetica", "bold");
-        doc.text(receipt.referenceNo, valX, y);
-        y += 6;
-    }
-
-    // ---- CATATAN ----
-    if (receipt.notes) {
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text("Catatan", labelX, y);
-        doc.text(":", colonX, y);
-        const splitNotes = doc.splitTextToSize(receipt.notes, contentWidth - 48);
-        doc.text(splitNotes, valX, y);
-        y += splitNotes.length * 5 + 2;
-    }
-
-    // ---- MATERAI NOTICE ----
-    if (receipt.amount >= 5_000_000) {
-        y += 3;
-        doc.setFillColor(255, 249, 230);
-        doc.rect(margin, y - 3, contentWidth, 8, "F");
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.setTextColor(150, 100, 0);
-        doc.text("⚠ Transaksi ≥ Rp 5.000.000 — Harap tempelkan Materai Rp 10.000 sesuai ketentuan.", margin + 3, y + 1);
-        doc.setTextColor(0);
-        y += 10;
-    }
-
-    // ---- TANDA TANGAN ----
-    y = 205;
-    const dateStr = new Date(receipt.receiptDate).toLocaleDateString("id-ID", {
-        day: "numeric", month: "long", year: "numeric",
-    });
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Lumajang, ${dateStr}`, margin, y);
-
-    // Yang menerima
-    const sig1X = pageWidth / 2 - 15;
-    doc.text("Yang Menerima,", sig1X, y);
-    y += 24;
-    doc.line(sig1X, y, sig1X + 40, y);
-    doc.setFont("helvetica", "bold");
-    doc.text(`(${receipt.receivedFrom})`, sig1X, y + 5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Anggota", sig1X, y + 10);
-
-    // Kasir / Bendahara
-    y = 205;
-    const sig2X = pageWidth - margin - 45;
-    doc.setFontSize(9);
-    doc.text("Kasir / Bendahara,", sig2X, y);
-    y += 24;
-    doc.line(sig2X, y, sig2X + 45, y);
-    doc.setFont("helvetica", "bold");
-    doc.text(`(${receipt.createdBy})`, sig2X, y + 5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Petugas", sig2X, y + 10);
-
-    // ---- FOOTER ----
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(150);
-    doc.text(
-        "Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh PRIMKOPPOL Resor Lumajang.",
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 15,
-        { align: "center" }
-    );
-    doc.setTextColor(0);
-
-    // ---- PANDUAN WARNA KERTAS ----
-    doc.setFontSize(6);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(180);
-    doc.text(
-        "Putih = Anggota  |  Kuning = Arsip Bendahara  |  Merah = Arsip Pengawas",
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 10,
-        { align: "center" }
-    );
-    doc.setTextColor(0);
-
-    doc.save(`Kwitansi_${receipt.receiptNo}.pdf`);
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Kwitansi ${data.receiptNo}</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 40px; font-size: 12px; color: #111; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .org-name { font-size: 18px; font-weight: bold; text-transform: uppercase; }
+  .divider { border-top: 4px double #000; margin: 8px 0 24px; }
+  .title { font-size: 20px; font-weight: bold; letter-spacing: 4px; }
+  .field-row { display: grid; grid-template-columns: 160px 12px 1fr; margin-bottom: 6px; }
+  .amount-box { border: 2px solid #333; padding: 12px 16px; border-radius: 4px; display: flex; justify-content: space-between; margin: 16px 0 4px; }
+  .amount-big { font-size: 22px; font-weight: bold; }
+  .terbilang { border: 1px dashed #999; padding: 6px 12px; border-radius: 4px; font-style: italic; margin-bottom: 16px; font-size: 11px; }
+  .ttd-area { display: flex; justify-content: space-between; margin-top: 32px; }
+  .ttd-box { text-align: center; min-width: 140px; }
+  .ttd-line { border-bottom: 1px dashed #999; height: 60px; }
+  .footer { text-align: center; margin-top: 20px; font-size: 9px; color: #888; }
+  @media print { @page { size: A4; margin: 20mm; } }
+</style>
+</head><body>
+<div class="header">
+  <div style="background:#111;border-radius:8px;padding:6px;">
+    <img src="/LogoPrimkoppol.png" width="50" height="50" style="object-fit:contain;display:block;" />
+  </div>
+  <div>
+    <div class="org-name">Koperasi PRIMKOPPOL Resor Lumajang</div>
+    <div style="font-size:10px;color:#666;">Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</div>
+  </div>
+</div>
+<div class="divider"></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <span class="title">KWITANSI</span>
+  <div style="text-align:right;"><div style="font-size:10px;color:#666;">No. Kwitansi</div><div style="font-family:monospace;font-weight:bold;">${data.receiptNo}</div></div>
+</div>
+<div class="field-row"><span style="color:#666;">Sudah Terima Dari</span><span>:</span><strong>${data.receivedFrom}</strong></div>
+<div class="field-row"><span style="color:#666;">Nomor Anggota</span><span>:</span><span>${data.memberNo}</span></div>
+<div class="field-row"><span style="color:#666;">NRP / NIP</span><span>:</span><span>${data.nrp || "-"}</span></div>
+<div class="amount-box"><span>Banyaknya Uang</span><span class="amount-big">Rp ${data.amount.toLocaleString("id-ID")}</span></div>
+<div class="terbilang">Terbilang: <em>${numberToWords(data.amount)}</em></div>
+<div class="field-row"><span style="color:#666;">Untuk Pembayaran</span><span>:</span><span>${typeLabels[data.type] || data.type}</span></div>
+<div class="field-row"><span style="color:#666;">Keterangan</span><span>:</span><span>${data.description}</span></div>
+<div class="field-row" style="margin-top:8px;"><span style="color:#666;">Metode Bayar</span><span>:</span><span>${data.paymentMethod}</span></div>
+${data.referenceNo ? `<div class="field-row"><span style="color:#666;">No. Referensi</span><span>:</span><span style="font-family:monospace;">${data.referenceNo}</span></div>` : ""}
+${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><span>:</span><span>${data.notes}</span></div>` : ""}
+<div class="ttd-area">
+  <div style="font-size:11px;color:#666;">Lumajang, ${receiptDate}</div>
+  <div style="display:flex;gap:40px;">
+    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.receivedFrom}</p><p style="font-size:10px;color:#888;">Anggota</p></div>
+    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Kasir / Bendahara,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.createdBy || "-"}</p><p style="font-size:10px;color:#888;">Petugas</p></div>
+  </div>
+</div>
+<div class="footer">Kwitansi ini sah sebagai bukti pembayaran resmi Koperasi PRIMKOPPOL Resor Lumajang.</div>
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); }
 }
 
-// ============================================================
-// Thermal Receipt PDF Generator
-// ============================================================
-
-export function generateThermalReceiptPDF(receipt: ReceiptData) {
-    // 80mm generic thermal format
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [80, 200] });
-    const pageWidth = 80;
-    const margin = 5;
-    let y = 10;
-
-    // Header
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
-    y += 5;
-    doc.setFontSize(10);
-    doc.text("RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
-    
-    y += 8;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 5;
-    
-    // Receipt Info
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(`No: ${receipt.receiptNo}`, margin, y);
-    y += 4;
-    doc.text(`Tgl: ${new Date(receipt.receiptDate).toLocaleDateString("id-ID")}`, margin, y);
-    y += 4;
-    doc.text(`Kasir: ${receipt.createdBy}`, margin, y);
-    
-    y += 6;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 6;
-
-    // Details
-    const paymentLabel = getReceiptPaymentLabel(receipt.paymentMethod);
-    const details = [
-        ["Terima Dari", receipt.receivedFrom],
-        ["No. Anggota", receipt.memberNo],
-        ["NRP", receipt.nrp || "-"],
-        ["Transaksi", getReceiptTypeLabel(receipt.type)],
-        ["Keterangan", receipt.description],
-        ["Metode", paymentLabel],
-    ];
-
-    details.forEach(([label, value]) => {
-        doc.text(`${label}`, margin, y);
-        const splitVal = doc.splitTextToSize(`: ${value}`, pageWidth - margin - 22);
-        doc.text(splitVal, margin + 20, y);
-        y += splitVal.length * 4 + 1;
-    });
-
-    y += 3;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 8;
-    
-    // Amount
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL", margin, y);
-    doc.text(formatRupiah(receipt.amount), pageWidth - margin, y, { align: "right" });
-
-    y += 5;
-    // Terbilang  
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "italic");
-    const splitTerbilang = doc.splitTextToSize(`(${amountToWords(receipt.amount)} rupiah)`, pageWidth - margin * 2);
-    doc.text(splitTerbilang, margin, y);
-    y += splitTerbilang.length * 3 + 3;
-    
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 6;
-
-    // Notes
-    if (receipt.notes) {
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        const splitNotes = doc.splitTextToSize(`Catatan: ${receipt.notes}`, pageWidth - margin * 2);
-        doc.text(splitNotes, margin, y);
-        y += (splitNotes.length * 4) + 4;
-    }
-
-    // Footer
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "italic");
-    doc.text("Terima kasih atas kepercayaan Anda", pageWidth / 2, y, { align: "center" });
-    y += 4;
-    doc.text("Simpan struk ini sebagai bukti pembayaran", pageWidth / 2, y, { align: "center" });
-
-    doc.save(`Struk_${receipt.receiptNo}.pdf`);
+/** Generate Thermal 80mm Kwitansi (compact format for POS printer) */
+export function generateThermalReceiptPDF(data: ReceiptData) {
+    const receiptDate = new Date(data.receiptDate).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const typeLabels: Record<string, string> = {
+        simpanan: "Simpanan", pinjaman: "Pinjaman", angsuran: "Angsuran", unit_transaction: "Transaksi Unit",
+    };
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${data.receiptNo}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; width: 280px; margin: auto; padding: 8px; }
+  .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .label { color: #666; }
+  .amount-row { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin: 6px 0; display: flex; justify-content: space-between; font-weight: bold; }
+  .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #666; }
+  @media print { @page { margin: 0; width: 80mm; } }
+</style>
+</head><body>
+<div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Bukti Transaksi Koperasi</span></div>
+<div class="row"><span class="label">No</span><span>${data.receiptNo}</span></div>
+<div class="row"><span class="label">Tgl</span><span>${receiptDate}</span></div>
+<div class="row"><span class="label">Dari</span><span>${data.receivedFrom}</span></div>
+<div class="row"><span class="label">NRP</span><span>${data.nrp || "-"}</span></div>
+<div class="row"><span class="label">Jenis</span><span>${typeLabels[data.type] || data.type}</span></div>
+<div class="row"><span class="label">Ket</span><span>${data.description}</span></div>
+<div class="amount-row"><span>TOTAL</span><span>Rp ${data.amount.toLocaleString("id-ID")}</span></div>
+<div class="row"><span class="label">Pembayaran</span><span>${data.paymentMethod}</span></div>
+${data.referenceNo ? `<div class="row"><span class="label">Ref</span><span>${data.referenceNo}</span></div>` : ""}
+<div class="footer">Terima kasih<br/>PRIMKOPPOL Resor Lumajang</div>
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+    const win = window.open("", "_blank", "width=320,height=600");
+    if (win) { win.document.write(html); win.document.close(); }
 }
 
-// ============================================================
-// Kasir Retail Receipt PDF Generator (58mm Thermal)
-// ============================================================
+/** Simple number-to-words (Indonesian terbilang) — fallback */
+function numberToWords(n: number): string {
+    try {
+        return n.toLocaleString("id-ID") + " Rupiah";
+    } catch { return String(n); }
+}
+
+// ─── Kasir POS Thermal Receipt ───────────────────────────────────────────────
 
 export interface KasirReceiptData {
     saleNo: string;
     saleDate: string;
     customerName?: string;
-    cashierName: string;
-    items: {
+    cashierName?: string;
+    items: Array<{
         name: string;
         quantity: number;
         price: number;
         subtotal: number;
-    }[];
+    }>;
     totalAmount: number;
     paymentMethod: string;
     cashReceived?: number;
     changeAmount?: number;
 }
 
-export function generateKasirReceiptPDF(receipt: KasirReceiptData) {
-    // 58mm thermal format for POS printers
-    const pageWidth = 58;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageWidth, 200] });
-    const margin = 3;
-    let y = 8;
+/**
+ * Generates a thermal-style receipt in a new print window.
+ * Designed for 80mm or 58mm receipt printers.
+ */
+export function generateKasirReceiptPDF(data: KasirReceiptData) {
+    const methodLabel =
+        data.paymentMethod === "cash" ? "Tunai" :
+        data.paymentMethod === "qris" ? "QRIS" :
+        "Kredit / Potong Gaji";
 
-    // Header section
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("PRIMKOPPOL RESOR LUMAJANG", pageWidth / 2, y, { align: "center" });
+    const itemRows = data.items
+        .map(
+            (item) =>
+                `<tr>
+                    <td style="padding:2px 0;">${item.name}</td>
+                    <td style="text-align:center;padding:2px 4px;">${item.quantity}</td>
+                    <td style="text-align:right;padding:2px 0;">${formatRp(item.price)}</td>
+                    <td style="text-align:right;padding:2px 0;">${formatRp(item.subtotal)}</td>
+                </tr>`
+        )
+        .join("");
 
-    y += 4;
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text("Jl. Alun-alun Timur No. 1", pageWidth / 2, y, { align: "center" });
-    
-    y += 4;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
+    const changeRow =
+        data.paymentMethod === "cash" && data.cashReceived !== undefined
+            ? `<tr><td colspan="3" style="padding-top:4px;">Uang Diterima</td><td style="text-align:right;">${formatRp(data.cashReceived)}</td></tr>
+               <tr><td colspan="3"><b>Kembalian</b></td><td style="text-align:right;"><b>${formatRp(data.changeAmount || 0)}</b></td></tr>`
+            : "";
 
-    y += 4;
-    
-    // Receipt Info section
-    doc.setFontSize(6);
-    doc.text(`No : ${receipt.saleNo}`, margin, y);
-    y += 3;
-    doc.text(`Tgl: ${new Date(receipt.saleDate).toLocaleString("id-ID")}`, margin, y);
-    y += 3;
-    doc.text(`Ksr: ${receipt.cashierName}`, margin, y);
-    if (receipt.customerName) {
-        y += 3;
-        doc.text(`Plg: ${receipt.customerName}`, margin, y);
-    }
-    
-    y += 4;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 4;
-
-    // Items Section
-    doc.setFontSize(6);
-    receipt.items.forEach(item => {
-        // Item Name
-        const splitName = doc.splitTextToSize(item.name, pageWidth - margin * 2);
-        doc.text(splitName, margin, y);
-        y += splitName.length * 3;
-        
-        // Qty x Price = Subtotal
-        doc.text(`${item.quantity} x ${formatRupiah(item.price)}`, margin + 2, y);
-        doc.text(formatRupiah(item.subtotal), pageWidth - margin, y, { align: "right" });
-        y += 4;
+    const saleDate = new Date(data.saleDate).toLocaleString("id-ID", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
     });
 
-    y += 1;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Struk ${data.saleNo}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; width: 280px; margin: auto; padding: 8px; }
+  .header { text-align: center; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
+  .header h2 { font-size: 14px; font-weight: bold; }
+  .header p { font-size: 10px; color: #444; }
+  table { width: 100%; border-collapse: collapse; }
+  th { border-bottom: 1px solid #000; padding: 2px; font-size: 10px; }
+  .total-row td { border-top: 1px dashed #000; padding-top: 4px; font-weight: bold; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-size: 10px; color: #666; }
+  @media print { @page { margin: 0; width: 80mm; } }
+</style>
+</head><body>
+<div class="header">
+  <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
+  <p>Koperasi Polres Lumajang</p>
+  <p style="margin-top:4px;font-size:11px;font-weight:bold;">STRUK PENJUALAN TOKO</p>
+</div>
+<table><tbody>
+  <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${data.saleNo}</td></tr>
+  <tr><td>Tanggal</td><td colspan="3" style="text-align:right;">${saleDate}</td></tr>
+  ${data.customerName ? `<tr><td>Pelanggan</td><td colspan="3" style="text-align:right;">${data.customerName}</td></tr>` : ""}
+</tbody></table>
+<table style="margin-top:6px;"><thead><tr>
+  <th style="text-align:left;">Produk</th><th>Qty</th><th style="text-align:right;">@Hrg</th><th style="text-align:right;">Sub</th>
+</tr></thead><tbody>${itemRows}</tbody>
+<tfoot><tr class="total-row">
+  <td colspan="3">TOTAL</td>
+  <td style="text-align:right;">${formatRp(data.totalAmount)}</td>
+</tr>
+<tr><td colspan="3">Pembayaran</td><td style="text-align:right;">${methodLabel}</td></tr>
+${changeRow}
+</tfoot></table>
+<div class="footer">
+  <p>Terima kasih telah berbelanja!</p>
+  <p>PRIMKOPPOL Resor Lumajang</p>
+</div>
+<script>window.onload = () => window.print();</script>
+</body></html>`;
 
-    y += 5;
-    
-    // Amount Totals Section
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL", margin, y);
-    doc.text(formatRupiah(receipt.totalAmount), pageWidth - margin, y, { align: "right" });
-
-    doc.setFontSize(6);
-    doc.setFont("helvetica", "normal");
-    y += 4;
-    doc.text(`Metode: ${getReceiptPaymentLabel(receipt.paymentMethod)}`, margin, y);
-    doc.text(formatRupiah(receipt.cashReceived || receipt.totalAmount), pageWidth - margin, y, { align: "right" });
-
-    if (receipt.paymentMethod === "cash" && receipt.changeAmount !== undefined) {
-        y += 4;
-        doc.text("Kembalian", margin, y);
-        doc.text(formatRupiah(receipt.changeAmount), pageWidth - margin, y, { align: "right" });
+    const win = window.open("", "_blank", "width=320,height=600");
+    if (win) {
+        win.document.write(html);
+        win.document.close();
     }
-
-    y += 4;
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(margin, y, pageWidth - margin, y);
-    doc.setLineDashPattern([], 0);
-
-    y += 6;
-
-    // Footer section
-    doc.setFontSize(6);
-    doc.setFont("helvetica", "italic");
-    doc.text("Terima kasih atas belanja Anda", pageWidth / 2, y, { align: "center" });
-    y += 3;
-    doc.text("Barang yang sudah dibeli", pageWidth / 2, y, { align: "center" });
-    y += 3;
-    doc.text("tidak dapat ditukar/dikembalikan", pageWidth / 2, y, { align: "center" });
-
-    // Force automatic clipping to content height if supported, or just save the fixed format.
-    doc.save(`Struk_Kasir_${receipt.saleNo}.pdf`);
 }
 
-// ============================================================
-// ============================================================
-
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-    return path.split(".").reduce((acc: unknown, part: string) => {
-        if (acc && typeof acc === "object" && part in acc) {
-            return (acc as Record<string, unknown>)[part];
-        }
-        return undefined;
-    }, obj);
-}
-
-function getReceiptTypeLabel(type: string): string {
-    const labels: Record<string, string> = {
-        simpanan: "Setoran Simpanan",
-        pinjaman: "Pencairan Pinjaman",
-        angsuran: "Pembayaran Angsuran",
-        unit_transaction: "Transaksi Unit",
-    };
-    return labels[type] || type;
-}
-
-function getReceiptPaymentLabel(method: string): string {
-    const labels: Record<string, string> = {
-        cash: "Tunai",
-        bank_transfer: "Transfer Bank",
-        potong_gaji: "Potong Gaji",
-        debet_simpanan: "Debet Simpanan",
-        qris: "QRIS / E-Wallet",
-    };
-    return labels[method] || method;
-}
-
-function formatRupiah(amount: number): string {
-    return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(amount);
-}
-
-function amountToWords(amount: number): string {
-    if (amount === 0) return "nol";
-
-    const units = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan"];
-    const teens = ["sepuluh", "sebelas", "dua belas", "tiga belas", "empat belas", "lima belas", "enam belas", "tujuh belas", "delapan belas", "sembilan belas"];
-
-    function convert(n: number): string {
-        if (n === 0) return "";
-        if (n < 10) return units[n];
-        if (n < 20) return teens[n - 10];
-        if (n < 100) return units[Math.floor(n / 10)] + " puluh" + (n % 10 ? " " + units[n % 10] : "");
-        if (n < 200) return "seratus" + (n % 100 ? " " + convert(n % 100) : "");
-        if (n < 1000) return units[Math.floor(n / 100)] + " ratus" + (n % 100 ? " " + convert(n % 100) : "");
-        if (n < 2000) return "seribu" + (n % 1000 ? " " + convert(n % 1000) : "");
-        if (n < 1000000) return convert(Math.floor(n / 1000)) + " ribu" + (n % 1000 ? " " + convert(n % 1000) : "");
-        if (n < 1000000000) return convert(Math.floor(n / 1000000)) + " juta" + (n % 1000000 ? " " + convert(n % 1000000) : "");
-        if (n < 1000000000000) return convert(Math.floor(n / 1000000000)) + " miliar" + (n % 1000000000 ? " " + convert(n % 1000000000) : "");
-        return convert(Math.floor(n / 1000000000000)) + " triliun" + (n % 1000000000000 ? " " + convert(n % 1000000000000) : "");
-    }
-
-    return convert(Math.floor(amount));
+function formatRp(n: number): string {
+    return "Rp " + n.toLocaleString("id-ID");
 }

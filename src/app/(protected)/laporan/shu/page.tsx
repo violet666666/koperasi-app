@@ -21,11 +21,21 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Download, Printer, PieChart, Users, Percent, CalendarDays } from "lucide-react";
+import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+
+const shuExportColumns: ExportColumn[] = [
+    { header: "NRP", key: "memberNo", width: 14 },
+    { header: "Nama Anggota", key: "name", width: 28 },
+    { header: "Jasa Modal (Simpanan)", key: "savingsContribution", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Jasa Pelayanan (Pinjaman)", key: "loanContribution", width: 24, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Total Kontribusi", key: "totalContribution", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "SHU Diterima", key: "shuShare", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+];
 
 interface SHUAllocation {
     category: string;
@@ -195,9 +205,13 @@ export default function LaporanSHUPage() {
                                 <Printer className="mr-2 h-4 w-4" />
                                 Cetak
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => exportToExcel(data?.memberShu as unknown as Record<string, unknown>[] || [], shuExportColumns, `Laporan_SHU_${selectedYear}`, "SHU")}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Export
+                                Excel
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => exportToPDF(data?.memberShu as unknown as Record<string, unknown>[] || [], shuExportColumns, `Laporan SHU - PRIMKOPPOL Resor Lumajang (${periodDisplay})`, `Laporan_SHU_${selectedYear}`)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                PDF
                             </Button>
                         </div>
                     }

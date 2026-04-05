@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as SecureStore from 'expo-secure-store';
+import { CameraView, Camera } from 'expo-camera';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -66,10 +67,16 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   // QRIS Modal State
   const [showQrisModal, setShowQrisModal] = useState(false);
-  const [qrisPreviewKey, setQrisPreviewKey] = useState(Date.now().toString()); // Cache buster
+  const [qrisPreviewKey, setQrisPreviewKey] = useState(Date.now().toString());
+
+  // Barcode Camera Scanner State (Toko only)
+  const [showScanner, setShowScanner] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
+  const [scanned, setScanned] = useState(false);
 
   // Flags for mode
   const isQuickSale = unitType === 'cuci_mobil' || unitType === 'barbershop' || unitType === 'fotocopy';
+  const isTokoUnit = unitType === 'toko' || unitType === 'resto_cafe';
   const quickSalePackages = unitType === 'cuci_mobil' ? CARWASH_PACKAGES : unitType === 'barbershop' ? BARBERSHOP_PACKAGES : [];
 
   const loadProducts = useCallback(async (q?: string, ut?: string) => {
@@ -132,6 +139,35 @@ export default function KasirScreen({ navigation: navProp }: any) {
       return [...prev, { product, quantity: 1 }];
     });
   };
+
+  // Open barcode camera scanner (Toko / Resto only)
+  const openScanner = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    setCameraPermission(status === 'granted');
+    if (status === 'granted') {
+      setScanned(false);
+      setShowScanner(true);
+    } else {
+      Alert.alert('Izin Kamera', 'Izin kamera diperlukan untuk scan barcode produk.');
+    }
+  };
+
+  const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    setShowScanner(false);
+    const found = products.find(
+      (p) => p.sku === data || p.sku.replace(/-/g, '') === data.replace(/-/g, '')
+    );
+    if (found) {
+      addToCart(found);
+      Alert.alert('✓ Produk Ditemukan', `${found.name} ditambahkan ke keranjang.`);
+    } else {
+      setSearch(data);
+      Alert.alert('Barcode Tidak Ditemukan', `Kode "${data}" tidak ada di database stok.`);
+    }
+  };
+
 
   const updateQty = (productId: number, delta: number) => {
     setCart((prev) => {
@@ -335,7 +371,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
                 <Ionicons name="arrow-back" size={24} color="#FFF" />
               </TouchableOpacity>
             )}
-            <Text style={styles.headerTitle}>🛒 Kasir Multi-Unit</Text>
+            <Text style={styles.headerTitle}>🛒 Kasir POS</Text>
           </View>
           
           {/* Unit Type Chips */}
@@ -368,7 +404,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
             <View style={styles.searchRow}>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari produk..."
+                placeholder="Cari produk atau ketik SKU..."
                 placeholderTextColor="#94A3B8"
                 value={search}
                 onChangeText={setSearch}
@@ -378,6 +414,15 @@ export default function KasirScreen({ navigation: navProp }: any) {
               <TouchableOpacity style={styles.searchBtn} onPress={() => loadProducts(search, unitType)}>
                 <Ionicons name="search" size={20} color={C.primary} />
               </TouchableOpacity>
+              {/* Barcode Camera Scanner Button — Toko/Resto only */}
+              {isTokoUnit && (
+                <TouchableOpacity
+                  style={[styles.searchBtn, { backgroundColor: C.primary, marginLeft: 4 }]}
+                  onPress={openScanner}
+                >
+                  <Ionicons name="barcode-outline" size={20} color="#FFF" />
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -593,6 +638,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   function renderMemberModal() {
     return (
+      <>
       <Modal visible={showMemberModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -643,6 +689,41 @@ export default function KasirScreen({ navigation: navProp }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* ── Barcode Camera Scanner Modal ── */}
+      <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <CameraView
+            style={{ flex: 1 }}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+            barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128', 'code39', 'qr'] }}
+          />
+          {/* Overlay */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+            <View style={{ width: 240, height: 160, borderWidth: 2, borderColor: '#34D399', borderRadius: 12 }} />
+            <Text style={{ color: '#FFF', marginTop: 16, fontSize: 14, textAlign: 'center' }}>
+              Arahkan kamera ke barcode produk
+            </Text>
+          </View>
+          {/* Close button */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 48, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 10 }}
+            onPress={() => setShowScanner(false)}
+          >
+            <Ionicons name="close" size={24} color="#FFF" />
+          </TouchableOpacity>
+          {scanned && (
+            <TouchableOpacity
+              style={{ position: 'absolute', bottom: 40, left: 40, right: 40, backgroundColor: '#34D399', borderRadius: 12, padding: 16, alignItems: 'center' }}
+              onPress={() => { setScanned(false); }}
+            >
+              <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Scan Lagi</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
+      </>
     );
   }
 }

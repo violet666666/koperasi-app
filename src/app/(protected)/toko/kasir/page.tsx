@@ -17,10 +17,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2,
+    Receipt, User, Loader2, ScanBarcode,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
+import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 
 interface Product { id: number; sku: string; name: string; price: number; stock: number; }
 interface CartItem { product: Product; quantity: number; }
@@ -62,6 +63,24 @@ export default function KasirPage() {
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    // Hardware barcode gun support — fires when scanner sends rapid chars + Enter
+    const addByBarcode = React.useCallback((code: string) => {
+        const found = products.find(
+            (p) => p.sku.toLowerCase() === code.toLowerCase() ||
+                   p.sku.replace(/-/g, "") === code.replace(/-/g, "")
+        );
+        if (found) {
+            addToCart(found);
+            toast.success(`✓ ${found.name} ditambahkan ke keranjang`);
+        } else {
+            // Fall back to search filter so cashier can see results
+            setSearchQuery(code);
+            toast.info(`Barcode "${code}" tidak ditemukan di database`);
+        }
+    }, [products]);
+
+    useBarcodeScanner(addByBarcode);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const change = Number(paymentAmount) - subtotal;
@@ -180,7 +199,16 @@ export default function KasirPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title="Kasir / POS" description="Point of Sale - Penjualan toko" />
+            <PageHeader
+                title="Kasir POS"
+                description="Point of Sale — Penjualan Toko PRIMKOPPOL"
+                actions={
+                    <Badge variant="secondary" className="gap-1.5 text-xs">
+                        <ScanBarcode className="h-3.5 w-3.5" />
+                        Scanner Aktif
+                    </Badge>
+                }
+            />
 
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Product Search */}
