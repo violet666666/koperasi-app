@@ -34,34 +34,74 @@ export async function POST(request: Request) {
             
             const metadata: any = storeSale.metadata ? (typeof storeSale.metadata === 'object' ? storeSale.metadata : JSON.parse(storeSale.metadata as string)) : {};
             if (metadata.isVoided) return NextResponse.json({ message: "Transaksi Toko ini sudah dibatalkan." }, { status: 409 });
+            if (metadata.voidPending) return NextResponse.json({ message: "Permintaan void untuk transaksi ini sudah menunggu persetujuan Admin." }, { status: 409 });
 
-            if (!isOperator) {
-                return NextResponse.json({ message: "Hanya Operator yang dapat mengambil tindakan void untuk transaksi Toko saat ini." }, { status: 403 });
-            }
-
-            // Opsi: Eksekusi Batal Langsung (Oleh Operator)
-            // Kembalikan Stok
-            for (const item of storeSale.items) {
-                const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
-                if (prod && !prod.isService) {
-                    await prisma.storeProduct.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+            // JALUR A: Operator/Superadmin → Void langsung (bypass approval)
+            if (isOperator) {
+                // Kembalikan Stok
+                for (const item of storeSale.items) {
+                    const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
+                    if (prod && !prod.isService) {
+                        await prisma.storeProduct.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+                    }
                 }
+
+                // Tandai sebagai voided
+                metadata.isVoided = true;
+                metadata.voidReason = reason;
+                metadata.voidedById = currentUserId;
+                metadata.voidedAt = now.toISOString();
+
+                await prisma.storeSale.update({
+                    where: { id: storeSale.id },
+                    data: { metadata: metadata },
+                });
+
+                return NextResponse.json({
+                    message: "Transaksi Toko dibatalkan oleh Operator. Stok telah dikembalikan.",
+                    data: { transactionNo: storeSale.saleNo, status: "voided" },
+                });
             }
 
-            // Save voiding status ke metadata
-            metadata.isVoided = true;
-            metadata.voidReason = reason;
-            metadata.voidedById = currentUserId;
-            metadata.voidedAt = now.toISOString();
+            // JALUR B: Kasir/Admin Unit → Buat ApprovalRequest pending
+            // Tandai transaksi bahwa ada permintaan void yang menunggu
+            metadata.voidPending = true;
+            metadata.voidPendingReason = reason;
+            metadata.voidRequestedById = currentUserId;
+            metadata.voidRequestedAt = now.toISOString();
 
             await prisma.storeSale.update({
                 where: { id: storeSale.id },
                 data: { metadata: metadata },
             });
 
+            // Buat entri approval request sesuai schema Prisma
+            const requestNo = `VD-TOKO-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+            await prisma.approvalRequest.create({
+                data: {
+                    requestNo,
+                    type: "void_store_sale",
+                    referenceType: "store_sale",
+                    referenceId: storeSale.id,
+                    branchId: 1, // default branch; TODO: ambil dari user session jika multi-branch
+                    amount: storeSale.totalAmount,
+                    description: `Pembatalan Transaksi Toko [${storeSale.saleNo}] — ${reason}`,
+                    requestedById: currentUserId,
+                    requestedAt: now,
+                    status: "pending",
+                    metadata: {
+                        saleId: storeSale.id,
+                        saleNo: storeSale.saleNo,
+                        unitType: storeSale.unitType || "toko",
+                        voidReason: reason,
+                        itemCount: storeSale.items.length,
+                    },
+                },
+            });
+
             return NextResponse.json({
-                message: "Transaksi Toko dibatalkan. Stok telah dikembalikan bertambah.",
-                data: { transactionNo: storeSale.saleNo, status: "voided" },
+                message: `Permintaan void untuk transaksi ${transactionNo} telah dikirim ke Admin. Menunggu persetujuan.`,
+                data: { transactionNo: storeSale.saleNo, status: "pending_void" },
             });
         }
 

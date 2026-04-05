@@ -115,14 +115,18 @@ const columns: ColumnDef<UserData>[] = [
 const UNIT_OPTIONS = [
     { value: "toko", label: "Toko PRIMKOPPOL" },
     { value: "barbershop", label: "Barbershop" },
-    { value: "cuci_mobil", label: "Cuci Mobil" },
+    { value: "cuci_mobil", label: "Cuci Mobil & Motor" },
     { value: "fitness", label: "Fitness" },
-    { value: "laundry", label: "Laundry" },
     { value: "playstation", label: "PlayStation" },
-    { value: "resto_cafe", label: "Resto & Cafe (Latar)" },
-    { value: "properti", label: "Properti" },
+    { value: "coffe_latar", label: "Coffe Latar" },
+    { value: "resto", label: "Resto Minakoncar" },
+    { value: "properti", label: "Properti (Tanah Kapling)" },
+    { value: "investasi_modal_jp", label: "Investasi Modal Jangka Pendek" },
     { value: "simpan_pinjam", label: "Simpan Pinjam" },
 ];
+
+// Roles that require a unitType assignment
+const UNIT_REQUIRED_ROLES = ["kasir", "admin"];
 
 function UserForm({
     user,
@@ -145,9 +149,11 @@ function UserForm({
         isActive: user?.isActive ?? true,
     });
 
-    // Detect if selected role is kasir
+    // Detect if selected role requires a unit assignment
     const selectedRole = roles.find(r => r.id.toString() === formData.roleId);
     const isKasirRole = selectedRole?.name === "kasir";
+    const isAdminRole = selectedRole?.name === "admin";
+    const requiresUnit = isKasirRole || isAdminRole;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -158,7 +164,8 @@ function UserForm({
                 email: formData.email,
                 password: formData.password || undefined,
                 roleId: parseInt(formData.roleId),
-                unitType: isKasirRole ? (formData.unitType || null) : null,
+                // Admin dan Kasir wajib punya unitType. Operator/Anggota tidak perlu.
+                unitType: requiresUnit ? (formData.unitType || null) : null,
                 isActive: formData.isActive,
             } as any);
         } finally {
@@ -227,10 +234,12 @@ function UserForm({
                     </Select>
                 </div>
 
-                {/* Unit Type — hanya muncul jika role Kasir */}
-                {isKasirRole && (
+                {/* Unit Type — muncul jika role Kasir atau Admin (Unit) */}
+                {requiresUnit && (
                     <div>
-                        <Label htmlFor="unitType">Unit Usaha Kasir *</Label>
+                        <Label htmlFor="unitType">
+                            {isAdminRole ? "Unit Usaha (Admin) *" : "Unit Usaha Kasir *"}
+                        </Label>
                         <Select
                             value={formData.unitType}
                             onValueChange={(value) => setFormData((p) => ({ ...p, unitType: value }))}
@@ -247,7 +256,9 @@ function UserForm({
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Menu sidebar kasir akan menyesuaikan unit ini otomatis.
+                            {isAdminRole
+                                ? "Admin hanya dapat mengakses dan mengelola unit yang dipilih."
+                                : "Sidebar kasir akan otomatis menyesuaikan unit ini."}
                         </p>
                     </div>
                 )}
@@ -264,7 +275,7 @@ function UserForm({
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
                     Batal
                 </Button>
-                <Button type="submit" disabled={isLoading || (isKasirRole && !formData.unitType)}>
+                <Button type="submit" disabled={isLoading || (requiresUnit && !formData.unitType)}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Simpan
                 </Button>

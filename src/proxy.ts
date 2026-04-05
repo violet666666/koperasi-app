@@ -105,28 +105,46 @@ export async function proxy(request: NextRequest) {
         }
 
         // ============================================================
-        // BUG #1 FIX: Unit-level role isolation
-        // Kasir/admin unit should NOT access financial modules or
-        // other unit's transaction pages.
+        // UNIT-LEVEL ROLE ISOLATION
+        // Kasir dan Admin unit TIDAK BOLEH mengakses modul keuangan inti
+        // atau halaman unit lain. Hanya Operator (manage_all) yang bebas.
         // ============================================================
-        const financialOnlyRoutes = ["/simpanan", "/pinjaman", "/approval", "/kas-bank", "/laporan", "/master", "/jurnal", "/kwitansi", "/anggota"];
+        const financialOnlyRoutes = ["/simpanan", "/pinjaman", "/kas-bank", "/laporan", "/master", "/jurnal", "/kwitansi", "/anggota", "/non-sp", "/aset", "/periode"];
         const unitPosRoutes: Record<string, string[]> = {
-            cuci_mobil: ["/cuci-mobil"],
-            barbershop: ["/barbershop"],
-            resto: ["/resto"],
-            play_station: ["/play-station"],
+            cuci_mobil: ["/unit/cuci-mobil"],
+            barbershop: ["/unit/barbershop"],
+            resto: ["/unit/resto"],
+            play_station: ["/unit/play-station"],
+            playstation: ["/unit/play-station"],
             toko: ["/toko"],
+            coffe_latar: ["/unit/coffe-latar"],
+            fitness: ["/unit/fitness"],
+            properti: ["/unit/properti"],
+            investasi_modal_jp: ["/unit/investasi-modal"],
+            simpan_pinjam: ["/simpanan", "/pinjaman"],
         };
 
-        // If user has a unitType (e.g. kasir per unit), restrict access
-        if (userUnitType && userRole !== "admin" && userRole !== "superadmin" && userRole !== "ketua" && userRole !== "bendahara" && userRole !== "sekretaris") {
-            // Block access to core financial routes
+        // Blokade berlaku untuk SEMUA user yang punya unitType (kasir DAN admin unit)
+        // Pengecualian hanya untuk operator (punya manage_all permission via JWT)
+        const isFullOperator = userRole === "operator" || userRole === "superadmin";
+
+        if (userUnitType && !isFullOperator) {
+            // Blokir akses ke modul keuangan inti
             const isAccessingFinancial = financialOnlyRoutes.some(r => pathname.startsWith(r));
             if (isAccessingFinancial) {
+                // Pengecualian: Admin unit BOLEH akses /approval (untuk approve void kasir)
+                if (pathname.startsWith("/approval")) {
+                    return NextResponse.next();
+                }
                 return NextResponse.redirect(new URL("/dashboard", request.url));
             }
 
-            // Block access to OTHER unit POS pages (not their own)
+            // Blokir akses ke /settings kecuali halaman QRIS (admin/kasir hanya boleh QRIS)
+            if (pathname.startsWith("/settings") && pathname !== "/settings") {
+                return NextResponse.redirect(new URL("/dashboard", request.url));
+            }
+
+            // Blokir akses ke Unit POS milik unit lain
             const allowedPaths = unitPosRoutes[userUnitType] || [];
             const allUnitPaths = Object.values(unitPosRoutes).flat();
             const isAccessingUnitPage = allUnitPaths.some(r => pathname.startsWith(r));

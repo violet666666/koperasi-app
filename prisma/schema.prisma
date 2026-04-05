@@ -49,6 +49,7 @@ model User {
   receiptsCreated         Receipt[]             @relation("ReceiptCreatedBy")
   announcements           Announcement[]        @relation("AnnouncementAuthor")
   auditLogs               AuditLog[]            @relation("AuditLogUser")
+  unitServicePackages     UnitServicePackage[]
 
   @@map("users")
 }
@@ -894,4 +895,29 @@ model AuditLog {
   @@index([action])
   @@index([targetType, targetId])
   @@map("audit_logs")
+}
+
+// =================================================================
+// UNIT SERVICE PACKAGES
+// Menyimpan daftar paket layanan & harga per unit usaha jasa.
+// Menggantikan konstanta hardcoded (CARWASH_PACKAGES, dll) di kode.
+// Admin unit bisa CRUD paket ini tanpa menyentuh source code.
+// =================================================================
+model UnitServicePackage {
+  id          Int      @id @default(autoincrement())
+  unitType    String   @map("unit_type")        // e.g. cuci_mobil, barbershop, fitness
+  name        String                             // e.g. "Motor", "Potong Rambut Biasa"
+  description String?  @db.Text                 // keterangan tambahan
+  price       Decimal  @db.Decimal(15, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  @@index([unitType])
+  @@index([isActive])
+  @@map("unit_service_packages")
 }

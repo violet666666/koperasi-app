@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +13,7 @@ import { toast } from "sonner";
 import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
+import { useQuery } from "@tanstack/react-query";
 
 // Allowed roles for this page
 const ALLOWED_ROLES = ["kasir", "admin", "operator"];
@@ -29,54 +29,22 @@ const UNIT_OPTIONS = [
     { value: "toko", label: "Toko PRIMKOPPOL", icon: Store },
 ];
 
-// Carwash packages with fixed prices and full keterangan
-const CARWASH_PACKAGES = [
-    { label: "Motor", keterangan: "Motor Bebek, Matic, Sport", price: 15000 },
-    { label: "Mobil Kecil (Small)", keterangan: "Agya, Ayla, Brio, Jazz, Yaris, City Car", price: 35000 },
-    { label: "Mobil Sedang (Medium)", keterangan: "Avanza, Xenia, Ertiga, Mobilio, Confero", price: 40000 },
-    { label: "Mobil Besar (Large)", keterangan: "Innova, Fortuner, Pajero, CR-V, Santa Fe", price: 45000 },
-    { label: "Mobil Extra Large (XL)", keterangan: "Hiace, Elf, Alphard, Minibus", price: 50000 },
-];
-
-// Barbershop packages
-const BARBERSHOP_PACKAGES = [
-    { label: "Potong Rambut Biasa", keterangan: "Semua jenis potongan standar", price: 15000 },
-    { label: "Potong + Creambath", keterangan: "Potong rambut + perawatan creambath", price: 30000 },
-    { label: "Cukur Jenggot", keterangan: "Cukur dan rapikan jenggot", price: 10000 },
-    { label: "Potong + Pewarnaan", keterangan: "Potong rambut + pewarnaan cat", price: 50000 },
-];
-
-function getPackagesForUnit(unitType: string): { label: string; price: number }[] {
-    switch (unitType) {
-        case "cuci_mobil": return CARWASH_PACKAGES;
-        case "barbershop": return BARBERSHOP_PACKAGES;
-        default: return [];
-    }
-}
-
-export default function KasirCepatPage() {
+export default function DedicatedKasirPage({ params }: { params: { unitSlug: string } }) {
     const { user } = useAuth();
-    // Auto-detect unit from user profile — kasir always uses their own unit
+    const unitSlug = params.unitSlug;
+    const unitType = unitSlug.replace(/-/g, '_');
+    
+    // Auto-detect unit from user profile
     const userUnitType = (user as any)?.unitType as string | null | undefined;
     const roleName = user?.role?.name ?? "";
     const isKasir = roleName === "kasir";
     const isOperator = roleName === "operator" || user?.permissions?.includes("manage_all");
+    const isAdmin = roleName === "admin" && userUnitType === unitType;
 
-    // Kasir locked to their own unit; admin/operator can switch
-    const [unitType, setUnitType] = React.useState<string>(
-        userUnitType || "cuci_mobil"
-    );
     const [amount, setAmount] = React.useState<string>("");
     const [customerName, setCustomerName] = React.useState<string>("");
     const [description, setDescription] = React.useState<string>("");
     const [selectedPackage, setSelectedPackage] = React.useState<string>("");
-
-    // Sync unitType when user loads (for kasir)
-    React.useEffect(() => {
-        if (isKasir && userUnitType) {
-            setUnitType(userUnitType);
-        }
-    }, [isKasir, userUnitType]);
 
     const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -92,20 +60,28 @@ export default function KasirCepatPage() {
 
     // Check role access
     const role = roleName;
-    const hasAccess = ALLOWED_ROLES.includes(role) || isOperator;
+    const hasAccess = isOperator || isKasir || isAdmin;
+    
+    // Security layer: If Kasir/Admin accesses wrong slug
+    const isWrongUnit = !isOperator && userUnitType !== unitType;
 
-    // When unitType changes, reset package selection
-    const handleUnitChange = (val: string) => {
-        setUnitType(val);
-        setSelectedPackage("");
-        setAmount("");
-        setDescription("");
-    };
+    // Fetch dynamic packages for this unit
+    const { data: availablePackages = [], isLoading: isLoadingPackages } = useQuery({
+        queryKey: ["unit-packages-active", unitSlug],
+        queryFn: async () => {
+            const res = await fetch(`/api/unit/${unitSlug}/packages`);
+            if (!res.ok) throw new Error("Gagal load paket");
+            const data = await res.json();
+            return data.filter((pkg: any) => pkg.isActive);
+        },
+        enabled: hasAccess && !isWrongUnit
+    });
+
+    const currentUnit = UNIT_OPTIONS.find(u => u.value === unitType);
 
     // When a package is selected, auto-fill amount and description
     const handlePackageSelect = (pkgLabel: string) => {
-        const packages = getPackagesForUnit(unitType);
-        const pkg = packages.find(p => p.label === pkgLabel);
+        const pkg = availablePackages.find((p: any) => p.name === pkgLabel);
         if (pkg) {
             setSelectedPackage(pkgLabel);
             setAmount(String(pkg.price));
@@ -180,23 +156,22 @@ export default function KasirCepatPage() {
         }
     };
 
-    // ACCESS DENIED view for operators
-    if (!hasAccess) {
+    // ACCESS DENIED view
+    if (!hasAccess || isWrongUnit) {
         return (
             <div className="space-y-6">
-                <PageHeader title="Kasir Cepat Unit Layanan" description="Point of Sale untuk jasa layanan tanpa master stok" />
+                <PageHeader title="Kasir Cepat Unit Layanan" description="Point of Sale untuk jasa layanan" />
                 <div className="max-w-md mx-auto mt-12">
                     <Alert className="border-destructive/50 bg-destructive/5">
                         <ShieldX className="h-5 w-5 text-destructive" />
-                        <AlertTitle className="text-destructive font-semibold">Akses Dibatasi</AlertTitle>
+                        <AlertTitle className="text-destructive font-semibold">Akses Ditolak</AlertTitle>
                         <AlertDescription>
-                            Halaman <strong>Kasir Cepat</strong> hanya dapat diakses oleh:
+                            Anda mencoba mengakses POS Unit yang bukan hak Anda.
                             <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
-                                <li>Admin Sistem</li>
-                                <li>Kasir Unit</li>
-                                <li>Operator Unit</li>
+                                <li>Anda terdaftar di unit: <strong>{userUnitType || "Pusat"}</strong></li>
+                                <li>Anda mencoba mengakses: <strong>{unitType}</strong></li>
                             </ul>
-                            <p className="mt-3 text-sm text-muted-foreground">Jika Anda merasa ini kesalahan, hubungi Admin PRIMKOPPOL.</p>
+                            <p className="mt-3 text-sm text-muted-foreground">Kembali ke Dashboard atau hubungi Admin.</p>
                         </AlertDescription>
                     </Alert>
                 </div>
@@ -204,14 +179,11 @@ export default function KasirCepatPage() {
         );
     }
 
-    const availablePackages = getPackagesForUnit(unitType);
-    const currentUnit = UNIT_OPTIONS.find(u => u.value === unitType);
-
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
             <PageHeader 
-                title="Kasir Cepat Unit Layanan" 
-                description="Point of Sale untuk jasa layanan tanpa master stok"
+                title={`Kasir: ${currentUnit?.label || formatUnitName(unitSlug)}`} 
+                description="Point of Sale terdedikasi"
                 actions={
                     <Button 
                         variant="outline" 
@@ -236,71 +208,59 @@ export default function KasirCepatPage() {
                         <CardTitle>Form Transaksi</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-5">
-                        {/* Unit Selector — kasir terkunci ke unit mereka, operator/admin bisa ganti */}
                         <div className="space-y-2">
-                            <Label>Unit Usaha *</Label>
-                            {isKasir ? (
-                                // Kasir: unit terkunci, tampilkan badge
-                                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                                    {(() => {
-                                        const unit = UNIT_OPTIONS.find(u => u.value === unitType);
-                                        const UnitIcon = unit?.icon ?? Store;
-                                        return (
-                                            <>
-                                                <UnitIcon className="h-4 w-4 text-primary" />
-                                                <span className="font-medium">{unit?.label ?? unitType}</span>
-                                                <Badge variant="secondary" className="ml-auto text-xs">Kasir Unit Ini</Badge>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            ) : (
-                                // Admin/Operator: bisa pilih unit
-                                <Select value={unitType} onValueChange={handleUnitChange}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {UNIT_OPTIONS.map(u => (
-                                            <SelectItem key={u.value} value={u.value}>
-                                                <span className="flex items-center gap-2">
-                                                    <u.icon className="h-4 w-4" />
-                                                    {u.label}
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
+                            <Label>Unit Usaha</Label>
+                            <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                                {(() => {
+                                    const UnitIcon = currentUnit?.icon ?? Store;
+                                    return (
+                                        <>
+                                            <UnitIcon className="h-5 w-5 text-primary" />
+                                            <span className="font-medium text-lg">{currentUnit?.label ?? unitType}</span>
+                                            <Badge variant="secondary" className="ml-auto">Active POS</Badge>
+                                        </>
+                                    );
+                                })()}
+                            </div>
                         </div>
 
-                        {/* Package selector for specific units */}
-                        {availablePackages.length > 0 && (
+                        {/* Package selector */}
+                        {isLoadingPackages ? (
+                            <div className="flex justify-center p-4">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : availablePackages.length > 0 ? (
                             <div className="space-y-2">
-                                <Label>Paket Layanan {currentUnit?.label}</Label>
-                                <div className="grid grid-cols-1 gap-2">
-                            {availablePackages.map(pkg =>
+                                <Label>Buku Tarif / Paket Layanan</Label>
+                                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 pb-2">
+                                    {availablePackages.map((pkg: any) =>
                                         <button
-                                            key={pkg.label}
+                                            key={pkg.id}
                                             type="button"
-                                            onClick={() => handlePackageSelect(pkg.label)}
-                                            className={`flex items-center justify-between px-4 py-3 border rounded-lg text-sm transition-all hover:border-primary/50 ${
-                                                selectedPackage === pkg.label
-                                                    ? "border-primary bg-primary/5 text-primary font-semibold"
+                                            onClick={() => handlePackageSelect(pkg.name)}
+                                            className={`flex items-center justify-between px-4 py-3 border rounded-lg text-sm transition-all hover:border-primary/50 shadow-sm ${
+                                                selectedPackage === pkg.name
+                                                    ? "border-primary bg-primary/5 text-primary font-semibold ring-1 ring-primary/30"
                                                     : "border-border bg-background"
                                             }`}
                                         >
                                             <div className="text-left">
-                                                <span className="block font-medium">{pkg.label}</span>
-                                                {(pkg as any).keterangan && (
-                                                    <span className="text-xs text-muted-foreground block mt-0.5">{(pkg as any).keterangan}</span>
+                                                <span className="block font-medium">{pkg.name}</span>
+                                                {pkg.description && (
+                                                    <span className="text-xs text-muted-foreground block mt-0.5 line-clamp-1">{pkg.description}</span>
                                                 )}
                                             </div>
-                                            <span className={`font-bold shrink-0 ml-2 ${selectedPackage === pkg.label ? "text-primary" : "text-muted-foreground"}`}>
+                                            <span className={`font-bold shrink-0 ml-2 text-lg ${selectedPackage === pkg.name ? "text-primary" : "text-muted-foreground"}`}>
                                                 {formatCurrency(pkg.price)}
                                             </span>
                                         </button>
                                     )}
                                 </div>
-                                <p className="text-xs text-muted-foreground">*Pilih paket untuk mengisi nominal otomatis</p>
+                                <p className="text-xs text-muted-foreground mt-1">*Pilih paket untuk mengisi nominal otomatis</p>
+                            </div>
+                        ) : (
+                            <div className="p-4 bg-muted/30 border border-dashed rounded-lg text-center text-sm text-muted-foreground">
+                                Belum ada daftar layanan untuk unit ini. Admin Unit dapat membuatnya di menu <strong>Kelola Layanan</strong>.
                             </div>
                         )}
 
@@ -335,74 +295,69 @@ export default function KasirCepatPage() {
                         </div>
 
                         <div className="pt-4 space-y-3">
-                            <Label>Metode Pembayaran</Label>
+                            <Label className="text-base font-semibold">Tuntaskan Pembayaran</Label>
                             <div className="flex flex-col sm:flex-row gap-2">
                                 <Button
-                                    className="flex-1"
+                                    className="flex-1 py-6 text-base shadow-md hover:shadow-lg"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
                                     onClick={() => processPayment("cash")}
                                 >
-                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />}
+                                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Banknote className="mr-2 h-5 w-5" />}
                                     Bayar Tunai
                                 </Button>
                                 <Button
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 py-6 text-base shadow-md hover:shadow-lg"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
                                     onClick={() => setShowQrisDialog(true)}
                                 >
-                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <QrCode className="mr-2 h-5 w-5" />}
                                     Bayar QRIS
                                 </Button>
                             </div>
                             <Button
                                 variant="outline"
-                                className="w-full border-primary/50"
+                                className="w-full border-primary/50 text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50"
                                 disabled={!amount || Number(amount) <= 0 || isProcessing}
                                 onClick={() => setShowCreditDialog(true)}
                             >
                                 <User className="mr-2 h-4 w-4" />
-                                Bayar via Potong Gaji Anggota
+                                Bayar via Potong Gaji (Bon Anggota)
                             </Button>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Right: Info card */}
-                <Card className="bg-muted/30 border-dashed">
-                    <CardHeader>
-                        <CardTitle className="text-base">Panduan Kasir Cepat</CardTitle>
-                        <CardDescription>Layanan tanpa pendataan stok barang</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                        <div className="space-y-2">
-                            <p className="font-semibold">💰 Metode Pembayaran:</p>
-                            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                                <li><strong>Tunai</strong> — Uang masuk ke akun Kas Unit</li>
-                                <li><strong>QRIS</strong> — Uang masuk ke akun Bank Unit</li>
-                                <li><strong>Potong Gaji</strong> — Tercatat sebagai piutang anggota yang dipotong dari gaji bulan berikutnya</li>
-                            </ul>
-                        </div>
-                        {unitType === "cuci_mobil" && (
-                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-1">
-                                <p className="font-semibold text-blue-700">🚗 Tarif Cuci Mobil & Motor:</p>
-                                {CARWASH_PACKAGES.map(p => (
-                                    <div key={p.label} className="flex justify-between text-xs text-blue-800">
-                                        <span>{p.label}</span>
-                                        <span className="font-bold">{formatCurrency(p.price)}</span>
-                                    </div>
-                                ))}
+                <div className="space-y-6">
+                    <Card className="bg-muted/10 border-dashed border-2">
+                        <CardHeader>
+                            <CardTitle className="text-base">Panduan POS Terdedikasi</CardTitle>
+                            <CardDescription>Sistem Kasir Aman Terkunci ke {currentUnit?.label || 'Unit'}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-sm">
+                            <div className="space-y-2">
+                                <p className="font-semibold">💰 Aliran Dana:</p>
+                                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                                    <li><strong>Tunai</strong> — Uang masuk ke akun Kas Internal Unit</li>
+                                    <li><strong>QRIS</strong> — Uang masuk ke akun Bank Koperasi</li>
+                                    <li><strong>Potong Gaji</strong> — Tercatat otomatis sebagai Piutang Anggota yang dipilih</li>
+                                </ul>
                             </div>
-                        )}
-                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800">
-                            <p className="font-semibold">⚠️ Catatan:</p>
-                            <p>Untuk metode Potong Gaji, wajib memilih Anggota yang bersangkutan untuk mencatat piutang secara akurat.</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800">
+                                <p className="font-semibold text-sm mb-1 flex items-center">
+                                    <ShieldX className="h-4 w-4 mr-1 inline" /> 
+                                    Isolasi Keamanan
+                                </p>
+                                <p>Kasir hanya dapat melihat, melayani, dan mengajukan pembatalan (void) pada transaksi milik unit ini (<strong>{formatUnitName(unitSlug)}</strong>).</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
 
             {/* Dialog Potong Gaji */}
             <Dialog open={showCreditDialog} onOpenChange={setShowCreditDialog}>
+                {/* ... existing dialog potentional unchanged ... same implementation as before ...*/}
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Kredit — Potong Gaji Anggota</DialogTitle>
@@ -461,6 +416,7 @@ export default function KasirCepatPage() {
 
             {/* Dialog QRIS Intercept */}
             <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                {/* ... existing QRIS dialog implementation ... */}
                 <DialogContent className="sm:max-w-md text-center">
                     <DialogHeader>
                         <DialogTitle className="text-center text-2xl font-bold flex items-center justify-center gap-2">
@@ -530,4 +486,8 @@ export default function KasirCepatPage() {
             </Dialog>
         </div>
     );
+}
+
+function formatUnitName(slug: string) {
+    return slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

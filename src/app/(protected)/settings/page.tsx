@@ -276,9 +276,10 @@ export default function SettingsPage() {
             />
 
             {settings && (
-                <Tabs defaultValue={user?.role?.name === "kasir" ? "qris" : "general"} className="space-y-6">
-                    <TabsList className={`grid w-full ${user?.role?.name === "kasir" ? 'grid-cols-1' : 'grid-cols-3 lg:grid-cols-6'} lg:w-auto lg:inline-grid`}>
-                        {user?.role?.name !== "kasir" && (
+                <Tabs defaultValue={user?.role?.name === "kasir" ? "qris" : (user?.role?.name === "operator" ? "general" : "qris")} className="space-y-6">
+                    <TabsList className={`grid w-full ${user?.role?.name !== "operator" ? 'grid-cols-1' : 'grid-cols-3 lg:grid-cols-6'} lg:w-auto lg:inline-grid`}>
+                        {/* Tab-tab berbahaya: HANYA Operator yang bisa melihat */}
+                        {user?.role?.name === "operator" && (
                             <>
                                 <TabsTrigger value="general">
                                     <Settings className="mr-2 h-4 w-4 hidden sm:inline" />
@@ -305,7 +306,8 @@ export default function SettingsPage() {
                             <QrCode className="h-4 w-4 mr-2 hidden sm:block" />
                             QRIS Unit
                         </TabsTrigger>
-                        {user?.role?.name !== "kasir" && (
+                        {/* Tab Reset Data: HANYA Operator */}
+                        {user?.role?.name === "operator" && (
                             <TabsTrigger value="reset">
                                 <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
                                 <span className="text-red-500 font-medium">Reset Data</span>
@@ -313,7 +315,8 @@ export default function SettingsPage() {
                         )}
                     </TabsList>
                     
-                    {user?.role?.name !== "kasir" && (
+                    {/* Tab konten berbahaya: HANYA ditampilkan untuk Operator */}
+                    {user?.role?.name === "operator" && (
                         <>
 
                     {/* General Settings */}

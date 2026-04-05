@@ -73,7 +73,93 @@ export async function POST(request: Request) {
             );
         }
 
-        // Cari transaksi asli
+        const currentUserId = parseInt(session.user.id);
+        const now = new Date();
+
+        // ================================================================
+        // JALUR 1: Void untuk TRANSAKSI TOKO (StoreSale)
+        // ================================================================
+        if (approvalReq.type === "void_store_sale") {
+            const storeSale = await prisma.storeSale.findUnique({
+                where: { id: approvalReq.referenceId },
+                include: { items: true },
+            });
+
+            if (!storeSale) {
+                return NextResponse.json({ message: "Transaksi Toko asli tidak ditemukan." }, { status: 404 });
+            }
+
+            if (action === "approved") {
+                const metadata: any = storeSale.metadata
+                    ? (typeof storeSale.metadata === "object" ? storeSale.metadata : JSON.parse(storeSale.metadata as string))
+                    : {};
+
+                // Kembalikan stok semua item produk fisik
+                for (const item of storeSale.items) {
+                    const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
+                    if (prod && !prod.isService) {
+                        await prisma.storeProduct.update({
+                            where: { id: item.productId },
+                            data: { stock: { increment: item.quantity } },
+                        });
+                    }
+                }
+
+                // Update metadata StoreSale: tandai voided, hapus voidPending
+                metadata.isVoided = true;
+                metadata.voidPending = false;
+                metadata.voidApprovedById = currentUserId;
+                metadata.voidApprovedAt = now.toISOString();
+
+                await prisma.$transaction([
+                    prisma.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata },
+                    }),
+                    prisma.approvalRequest.update({
+                        where: { id: approvalReq.id },
+                        data: { status: "approved", approvedById: currentUserId, approvedAt: now },
+                    }),
+                ]);
+
+                return NextResponse.json({
+                    message: `Void Toko disetujui. Transaksi [${storeSale.saleNo}] dibatalkan dan stok telah dikembalikan.`,
+                    data: { saleNo: storeSale.saleNo, action: "approved" },
+                });
+            } else {
+                // REJECTED — hapus flag voidPending dari metadata
+                const metadata: any = storeSale.metadata
+                    ? (typeof storeSale.metadata === "object" ? storeSale.metadata : JSON.parse(storeSale.metadata as string))
+                    : {};
+
+                metadata.voidPending = false;
+
+                await prisma.$transaction([
+                    prisma.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata },
+                    }),
+                    prisma.approvalRequest.update({
+                        where: { id: approvalReq.id },
+                        data: {
+                            status: "rejected",
+                            rejectedById: currentUserId,
+                            rejectedAt: now,
+                            rejectionReason: notes || "Ditolak oleh Admin Unit.",
+                        },
+                    }),
+                ]);
+
+                return NextResponse.json({
+                    message: `Permintaan void ditolak. Transaksi Toko [${storeSale.saleNo}] tetap aktif.`,
+                    data: { saleNo: storeSale.saleNo, action: "rejected" },
+                });
+            }
+        }
+
+        // ================================================================
+        // JALUR 2: Void untuk UNIT TRANSACTION (Jasa Cepat)
+        // ================================================================
         const originalTx = await prisma.unitTransaction.findUnique({
             where: { id: approvalReq.referenceId },
             include: {
@@ -87,9 +173,6 @@ export async function POST(request: Request) {
                 { status: 404 }
             );
         }
-
-        const currentUserId = parseInt(session.user.id);
-        const now = new Date();
 
         if (action === "approved") {
             // ── CONTRA-ENTRY: Buat transaksi pembalik ──────────────────────

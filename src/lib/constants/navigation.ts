@@ -25,6 +25,9 @@ import {
     Receipt,
     Store,
     ClipboardList,
+    Bell,
+    QrCode,
+    Boxes,
     type LucideIcon,
 } from "lucide-react";
 
@@ -279,7 +282,7 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
         title: "UNIT USAHA",
         items: [
             {
-                title: "Kasir POS", href: "/unit-layanan/kasir", icon: Store,
+                title: "Kasir POS", href: "/unit/[unitSlug]/kasir", icon: Store,
                 permission: "manage_unit_transactions",
             },
             {
@@ -292,7 +295,94 @@ export const kasirNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
-            { title: "Pengaturan", href: "/settings", icon: Settings },
+            // /settings dihapus dari kasir — kasir tidak perlu akses pengaturan sistem
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN TOKO NAVIGATION — untuk Admin unit Retail/F&B
+// (Toko, Coffe Latar, Resto) — punya Manajemen Produk + Inbox Void
+// ============================================================
+export const adminTokoNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "TOKO & PRODUK",
+        items: [
+            {
+                title: "Kasir POS", href: "/toko/kasir", icon: Store,
+                permission: "manage_toko",
+            },
+            {
+                title: "Manajemen Produk", href: "/toko/produk", icon: Package,
+                permission: "manage_toko",
+            },
+            {
+                title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
+                permission: "manage_toko",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/toko", icon: ClipboardList,
+                permission: "manage_toko",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+            { title: "Pengaturan QRIS", href: "/settings", icon: QrCode },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN UNIT JASA NAVIGATION — untuk Admin unit Jasa Cepat
+// (Carwash, Barbershop, Fitness, PlayStation, Properti, dll)
+// Tidak ada manajemen stok fisik, tapi ada Kelola Layanan & Harga
+// ============================================================
+export const adminUnitNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "UNIT LAYANAN",
+        items: [
+            {
+                title: "Panel Kasir", href: "/unit/[unitSlug]/kasir", icon: Store,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kelola Layanan & Harga", href: "/unit/[unitSlug]/layanan", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+            { title: "Pengaturan QRIS", href: "/settings", icon: QrCode },
         ],
     },
 ];
@@ -405,24 +495,48 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     if (user.permissions.includes("manage_all")) {
         return mainNavigation; // Operator: full nav
     }
-    if (user.roleName === "kasir") {
-        // Kasir Toko mendapat nav khusus dengan Produk, POS dengan stok & barcode scanner
-        if (user.unitType === "toko") {
-            return filterNavigationByUser(kasirTokoNavigation, user);
-        }
-        // Kasir unit layanan lain (barbershop, fitness, dll) → Kasir Cepat
-        return filterNavigationByUser(kasirNavigation, user);
+
+    let finalNav: (NavItem | NavGroup)[] = [];
+
+    // Kasir Toko — POS dengan Produk, Stok & Barcode
+    if (user.roleName === "kasir" && user.unitType === "toko") {
+        finalNav = filterNavigationByUser(kasirTokoNavigation, user);
     }
-    // Admin unit: full nav filtered by role+permissions
-    // Tapi jika dia adalah Admin DARI sebuah Unit Bisnis (bukan pusat/koperasi),
-    // berikan akses sidebar spesifik spesifik unit saja (seperti kasir tapi +Hak admin jika ada).
-    if (user.roleName === "admin" && user.unitType && !["koperasi", "simpan_pinjam"].includes(user.unitType)) {
-        if (user.unitType === "toko") {
-            return filterNavigationByUser(kasirTokoNavigation, user);
-        }
-        return filterNavigationByUser(kasirNavigation, user);
+    // Kasir unit jasa lain (barbershop, fitness, dll) → Kasir Cepat (tanpa stok)
+    else if (user.roleName === "kasir" && user.unitType) {
+        finalNav = filterNavigationByUser(kasirNavigation, user);
+    }
+    // Admin Toko / Coffe Latar / Resto → Sidebar Admin Retail (ada Produk & Inbox)
+    else if (user.roleName === "admin" && user.unitType && ["toko", "coffe_latar", "resto"].includes(user.unitType)) {
+        finalNav = filterNavigationByUser(adminTokoNavigation, user);
+    }
+    // Admin unit Jasa Cepat → Sidebar Admin Jasa (ada Kelola Layanan & Inbox, tanpa stok fisik)
+    else if (user.roleName === "admin" && user.unitType && !["toko", "coffe_latar", "resto", "simpan_pinjam", "investasi_modal_jp"].includes(user.unitType)) {
+        finalNav = filterNavigationByUser(adminUnitNavigation, user);
+    }
+    // Default: operator koperasi pusat atau admin pusat (tanpa unitType)
+    else {
+        finalNav = filterNavigationByUser(mainNavigation, user);
     }
 
-    // Default: role 'admin' koperasi pusat atau operator.
-    return filterNavigationByUser(mainNavigation, user);
+    // Rewrite dynamic variables e.g. [unitSlug] using unitType
+    if (user.unitType) {
+        const rewriteItem = (item: NavItem): NavItem => ({
+            ...item,
+            href: item.href.replace('[unitSlug]', user.unitType!.replace(/_/g, '-')),
+            children: item.children?.map(rewriteItem)
+        });
+
+        finalNav = finalNav.map(item => {
+            if (isNavGroup(item)) {
+                return {
+                    ...item,
+                    items: item.items.map(rewriteItem)
+                };
+            }
+            return rewriteItem(item);
+        });
+    }
+
+    return finalNav;
 }
