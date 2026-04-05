@@ -634,3 +634,10 @@ Saya telah menyisipkan pengecekan `if (tx.memberId)` di dalam `src/app/api/repor
 4. **Universal Export:** Utility export Data Excel dan Cetak PDF A4 diintegrasikan ke halaman Laporan SHU, Laporan Arus Kas, dan Laman Pengelolaan Kwitansi.
 5. **Penyatuan Sistem Modal:** Perbaikan bug terkait React Root / Return pada Screen Kasir Mobile (wrapping <Fragment> untuk modal).
 **Status:** Semua tahap di task planning telah tuntas terintegrasi (Toko, Kwitansi, Export).
+
+
+#### UPDATE: Finalisasi POS, Quick Sale & Barcode Explanation
+**Tugas Diselesaikan:**
+1. **Mobile App Scanner:** Scanner barcode native sukses dilatih. useBarcodeScanner di Web POS kasir sudah disetel agar *listener input* otomatis mencari variabel 'sku' pada master barang. Artinya, kasir hanya perlu scan produk dengan *Barcode Gun* dan produk terdeteksi otomatis sesuai kode stok.
+2. **Type Casting memberId:** Bug 'Failed to process quick sale' pada Kasir Web saat melakukan metode pembayaran Potong Gaji (Kredit) terjadi karena tipe data memberId di-parsing sebagai string sementara ORM Prisma membutuhkannya sebagai integer Int. Ini telah diperbaiki dengan penambahan casting Number(memberId) pada API src/app/api/unit-layanan/sales/route.ts dan API Toko src/app/api/toko/sales/route.ts.
+**Status:** Fixed.

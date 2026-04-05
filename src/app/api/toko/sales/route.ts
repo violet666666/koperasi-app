@@ -177,7 +177,7 @@ export async function POST(request: Request) {
         const sale = await prisma.storeSale.create({
             data: {
                 saleNo,
-                memberId: method === "salary_cut" ? memberId : null,
+                memberId: method === "salary_cut" ? Number(memberId) : null,
                 unitType,
                 customerName: customerName || null,
                 totalAmount,

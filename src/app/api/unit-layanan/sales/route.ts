@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         const ut = await prisma.unitTransaction.create({
             data: {
                 transactionNo: trxNo,
-                memberId: method === "salary_cut" ? memberId : null,
+                memberId: method === "salary_cut" ? Number(memberId) : null,
                 unitType: unitType,
                 description: description || `Pembayaran ${unitType} - ${customerName || "Walk-in"}`,
                 amount: totalAmount,
