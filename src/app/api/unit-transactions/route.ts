@@ -93,20 +93,26 @@ export async function GET(request: Request) {
         }
         
         // Map StoreSale into UnitTransaction shape
-        const mappedStoreSales = storeSales.map((s) => ({
-            id: s.id + 1000000, // Make ID unique
-            transactionNo: s.saleNo,
-            memberId: s.memberId,
-            unitType: "toko",
-            description: `Penjualan Toko ${s.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${s.customerName ? `- ${s.customerName}`: ''}`,
-            amount: s.totalAmount,
-            transactionDate: s.createdAt,
-            isPaid: s.paymentMethod !== "salary_cut",
-            paidDate: s.paymentMethod !== "salary_cut" ? s.createdAt : null,
-            notes: `Total Item: ${s.items?.length || 0}`,
-            member: s.member,
-            createdBy: s.createdBy,
-        }));
+        const mappedStoreSales = storeSales.map((s) => {
+            const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata) : s.metadata || {};
+            const isVoided = metadataObj.isVoided === true;
+            
+            return {
+                id: s.id + 1000000, // Make ID unique
+                transactionNo: s.saleNo,
+                memberId: s.memberId,
+                unitType: "toko",
+                description: `Penjualan Toko ${s.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${s.customerName ? `- ${s.customerName}`: ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
+                amount: s.totalAmount,
+                transactionDate: s.createdAt,
+                isPaid: isVoided ? false : (s.paymentMethod !== "salary_cut"),
+                paidDate: s.paymentMethod !== "salary_cut" && !isVoided ? s.createdAt : null,
+                notes: `Total Item: ${s.items?.length || 0}`,
+                status: isVoided ? "voided" : "completed",
+                member: s.member,
+                createdBy: s.createdBy,
+            };
+        });
         
         let allTransactions = [...unitTransactions, ...mappedStoreSales];
         

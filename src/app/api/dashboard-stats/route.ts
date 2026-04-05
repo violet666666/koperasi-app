@@ -63,13 +63,12 @@ export async function GET() {
                 where: { status: "submitted" },
             }),
 
-            // Today's store sales
-            prisma.storeSale.aggregate({
-                _sum: { totalAmount: true },
-                _count: { _all: true },
+            // Today's store sales (using findMany to easily filter JSON metadata)
+            prisma.storeSale.findMany({
                 where: {
                     createdAt: { gte: today, lt: tomorrow },
                 },
+                select: { totalAmount: true, metadata: true }
             }),
         ]);
 
@@ -189,8 +188,15 @@ export async function GET() {
             todayTransactionsCount: todayTransactions._count._all || 0,
 
             // Store sales today
-            todayStoreSales: Number(todayStoreSales._sum.totalAmount) || 0,
-            todayStoreSalesCount: Number(todayStoreSales._count) || 0,
+            todayStoreSales: todayStoreSales.reduce((acc, sale) => {
+                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+                if (meta.isVoided) return acc;
+                return acc + Number(sale.totalAmount);
+            }, 0),
+            todayStoreSalesCount: todayStoreSales.filter(sale => {
+                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+                return !meta.isVoided;
+            }).length,
 
             // Pending approvals
             pendingApprovals: pendingApprovals,

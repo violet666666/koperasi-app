@@ -19,15 +19,15 @@ const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
 
 // Kasir: HANYA kasir pos + riwayat transaksi unit mereka
 const KASIR_ALLOWED_ROUTES: Record<string, string[]> = {
-    toko:        ["/unit-layanan/kasir", "/transaksi-unit", "/toko/kasir"],
-    cuci_mobil:  ["/unit-layanan/kasir", "/transaksi-unit"],
-    resto_cafe:  ["/unit-layanan/kasir", "/transaksi-unit"],
-    fitness:     ["/unit-layanan/kasir", "/transaksi-unit"],
-    playstation: ["/unit-layanan/kasir", "/transaksi-unit"],
-    barbershop:  ["/unit-layanan/kasir", "/transaksi-unit"],
-    fotocopy:    ["/unit-layanan/kasir", "/transaksi-unit"],
-    laundry:     ["/unit-layanan/kasir", "/transaksi-unit"],
-    simpan_pinjam: ["/unit-layanan/kasir", "/transaksi-unit"],
+    toko:        ["/unit", "/transaksi-unit", "/toko/kasir"],
+    cuci_mobil:  ["/unit", "/transaksi-unit"],
+    resto_cafe:  ["/unit", "/transaksi-unit"],
+    fitness:     ["/unit", "/transaksi-unit"],
+    playstation: ["/unit", "/transaksi-unit"],
+    barbershop:  ["/unit", "/transaksi-unit"],
+    fotocopy:    ["/unit", "/transaksi-unit"],
+    laundry:     ["/unit", "/transaksi-unit"],
+    simpan_pinjam: ["/unit", "/transaksi-unit"],
 };
 
 // Admin unit: bisa lihat lebih banyak tapi masih terbatas per unit
@@ -35,22 +35,22 @@ const ADMIN_ALLOWED_ROUTES: Record<string, string[]> = {
     simpan_pinjam: [
         "/simpanan", "/pinjaman", "/anggota",
         "/kas-bank", "/non-sp",
-        "/unit-layanan/kasir", "/transaksi-unit",
+        "/unit", "/transaksi-unit",
         "/kwitansi", "/jurnal", "/laporan",
         "/approval",
     ],
     toko: [
-        "/toko", "/unit-layanan/kasir", "/transaksi-unit",
-        "/kwitansi",
+        "/toko", "/unit", "/transaksi-unit",
+        "/kwitansi", "/approval",
     ],
-    cuci_mobil:  ["/unit-layanan/kasir", "/transaksi-unit"],
-    resto_cafe:  ["/unit-layanan/kasir", "/transaksi-unit", "/toko"],
-    fitness:     ["/unit-layanan/kasir", "/transaksi-unit"],
-    playstation: ["/unit-layanan/kasir", "/transaksi-unit"],
-    barbershop:  ["/unit-layanan/kasir", "/transaksi-unit"],
-    fotocopy:    ["/unit-layanan/kasir", "/transaksi-unit"],
-    laundry:     ["/unit-layanan/kasir", "/transaksi-unit"],
-    aset:        ["/aset", "/unit-layanan/kasir", "/transaksi-unit"],
+    cuci_mobil:  ["/unit", "/transaksi-unit", "/approval"],
+    resto_cafe:  ["/unit", "/transaksi-unit", "/toko", "/approval"],
+    fitness:     ["/unit", "/transaksi-unit", "/approval"],
+    playstation: ["/unit", "/transaksi-unit", "/approval"],
+    barbershop:  ["/unit", "/transaksi-unit", "/approval"],
+    fotocopy:    ["/unit", "/transaksi-unit", "/approval"],
+    laundry:     ["/unit", "/transaksi-unit", "/approval"],
+    aset:        ["/aset", "/unit", "/transaksi-unit", "/approval"],
 };
 
 function isPathAllowed(pathname: string, allowedPrefixes: string[]): boolean {

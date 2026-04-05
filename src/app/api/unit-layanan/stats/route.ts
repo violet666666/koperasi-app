@@ -36,13 +36,18 @@ export async function GET(request: Request) {
         });
 
         // Also count StoreSale for toko unit
-        const todayStoreSales = unitType === "toko" ? await prisma.storeSale.findMany({
+        const rawTodayStoreSales = unitType === "toko" ? await prisma.storeSale.findMany({
             where: {
                 unitType,
                 createdAt: { gte: todayStart, lt: todayEnd },
             },
-            select: { totalAmount: true, paymentMethod: true },
+            select: { totalAmount: true, paymentMethod: true, metadata: true },
         }) : [];
+        
+        const todayStoreSales = rawTodayStoreSales.filter(sale => {
+            const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+            return !meta.isVoided;
+        });
 
         const todayTotal = todayTrx.reduce((s, t) => s + Number(t.amount), 0)
             + todayStoreSales.reduce((s, t) => s + Number(t.totalAmount), 0);
@@ -61,10 +66,15 @@ export async function GET(request: Request) {
             select: { transactionDate: true, amount: true },
         });
         
-        const weeklyStoreTrx = unitType === "toko" ? await prisma.storeSale.findMany({
+        const weeklyStoreTrxRaw = unitType === "toko" ? await prisma.storeSale.findMany({
             where: { unitType, createdAt: { gte: weekStart, lt: todayEnd } },
-            select: { createdAt: true, totalAmount: true },
+            select: { createdAt: true, totalAmount: true, metadata: true },
         }) : [];
+        
+        const weeklyStoreTrx = weeklyStoreTrxRaw.filter(sale => {
+            const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+            return !meta.isVoided;
+        });
 
         const weeklyChartMap = new Map();
         for (let i = 0; i < 7; i++) {
@@ -127,22 +137,27 @@ export async function GET(request: Request) {
                 select: {
                     id: true, saleNo: true, totalAmount: true,
                     paymentMethod: true, customerName: true, createdAt: true,
+                    metadata: true,
                     member: { select: { name: true } },
                 },
             });
             
             allRecent = [
                 ...allRecent,
-                ...recentStoreTrx.map(t => ({
-                    id: t.id + 1000000, // offset id to avoid frontend key collisions
-                    no: t.saleNo,
-                    amount: Number(t.totalAmount),
-                    method: t.paymentMethod,
-                    desc: `Penjualan Toko ${t.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''}`,
-                    date: t.createdAt,
-                    isPaid: t.paymentMethod !== "salary_cut",
-                    memberName: t.member?.name || t.customerName || null,
-                }))
+                ...recentStoreTrx.map(t => {
+                    const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata || {};
+                    const isVoided = meta.isVoided === true;
+                    return {
+                        id: t.id + 1000000, // offset id to avoid frontend key collisions
+                        no: t.saleNo,
+                        amount: Number(t.totalAmount),
+                        method: t.paymentMethod,
+                        desc: `Penjualan Toko ${t.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
+                        date: t.createdAt,
+                        isPaid: isVoided ? false : (t.paymentMethod !== "salary_cut"),
+                        memberName: t.member?.name || t.customerName || null,
+                    };
+                })
             ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
         }
 
