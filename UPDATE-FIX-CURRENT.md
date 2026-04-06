@@ -1,5 +1,52 @@
 # Catatan Update Aplikasi
 
+## UPDATE 06 April 2026 — 5 Fitur Unit Baru + UAT PASS 7/7
+
+**Kelompok fitur:** Laporan Unit, Pengeluaran Operasional, Detail Void, Plat Nomor POS, Search Anggota by Nama
+
+### [FEAT-1] Laporan Transaksi Harian/Bulanan/Tahunan per Unit
+- Buat halaman `/unit/[unitSlug]/laporan` dengan filter periode (Hari Ini / Minggu Ini / Bulan Ini / Tahun Ini / Kustom)
+- Summary cards: Total Pendapatan, Pengeluaran Operasional, Laba Bersih, Jumlah Transaksi
+- Breakdown metode pembayaran: Tunai / QRIS / Potong Gaji
+- Tabel transaksi dengan badge plat nomor (khusus Cuci Mobil)
+- **Print header center-aligned**: Logo PRIMKOPPOL + "PRIMKOPPOL RESOR LUMAJANG" + "UNIT [NAMA]" + Periode
+- Tombol Export Excel
+- Menu "LAPORAN & KEUANGAN" → "Laporan Transaksi" ditambahkan ke `adminUnitNavigation` & `adminTokoNavigation`
+
+### [FEAT-2] Pencatatan Pengeluaran Operasional Unit
+- Tombol "Catat Pengeluaran" (merah) di halaman laporan — hanya muncul untuk role Admin Unit
+- Dialog form: Nominal, Keterangan, Tanggal
+- Disimpan ke `CashBankTransaction` type `out`, category `operational` dengan tag `[UNIT_TYPE]`
+- Langsung mendebit kas unit tanpa approval
+
+### [FEAT-3] Detail Alasan Void di Inbox Approval
+- `ApprovalDialog` dirombak ulang dengan panel khusus void:
+  - Kotak amber **"ALASAN PEMBATALAN DARI KASIR"**
+  - Detail: Kasir Pengaju, Unit, Anggota (+ NRP), Plat Kendaraan (jika ada), No. Transaksi Asli
+- Interface `ApprovalItem.metadata` diperluas dengan semua field void
+
+### [FEAT-4] Input Plat Nomor di POS Cuci Mobil
+- Field "🚗 Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
+- Auto-uppercase input, limit 12 karakter
+- Disimpan ke `UnitTransaction.notes` dengan format `[PLAT:N 1234 ABC]`
+- Parse dan tampil sebagai badge di laporan unit
+- Disertakan di metadata `ApprovalRequest` untuk void request
+
+### [FEAT-5] Autocomplete Search Anggota by Nama + NRP di POS Walk-In
+- Ganti mekanisme detect-NRP pasif dengan **autocomplete aktif realtime**
+- Cari saat ≥ 2 karakter diketik (debounce 350ms) — bekerja untuk NRP maupun nama
+- Dropdown menampilkan: avatar inisial, nama, NRP, kategori (Polri/PNS)
+- Klik untuk pilih → field field terkunci + info bar anggota terpilih (nama, NRP, kategori)
+- Tombol X untuk hapus pilihan dan reset ke mode search
+- Menutup dropdown otomatis saat klik di luar area input
+
+### [UAT] Hasil Testing Staging — 7/7 PASS
+- Database staging: Supabase `xlxrjlcnhvtvgkbmrfkm` (bukan production)
+- Server: `npm run dev -p 3001` dengan `.env.test.local`
+- Semua skenario terverifikasi via screenshot & recording (file: `uat_4_fitur_koperasi_final_*.webp`)
+
+---
+
 ## UPDATE 06 April 2026
 - **Menyelesaikan Seluruh Validasi UAT Tahap 1 (Unit Toko & Jasa)**: Telah berhasil menjalankan automated tester untuk module Kasir dan Admin Toko serta Kasir Cuci Mobil (Jasa) dan Admin Cuci Mobil. (100% Pass untuk POS Jastual / Toko / Void Approval / Settings).
 - **Perbaikan Ketergantungan NextJS 15**: Update route dynamic access using React Promise (`React.use`) pada `[unitSlug]/layanan`.

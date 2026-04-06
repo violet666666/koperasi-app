@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize, X } from "lucide-react";
+import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize, X, Check } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -66,33 +66,69 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
 
     // Auto-detect member by NRP for Tunai/QRIS
     const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<any | null>(null);
+    const [customerSearchResults, setCustomerSearchResults] = React.useState<any[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
+    const customerInputRef = React.useRef<HTMLInputElement>(null);
+    const customerDropdownRef = React.useRef<HTMLDivElement>(null);
 
+    // Search by NRP or Nama
     React.useEffect(() => {
-        const detectNrp = async () => {
-            if (!customerName || customerName.length < 4) {
-               if (selectedCustomerObj && selectedCustomerObj.nrp !== customerName) {
-                   setSelectedCustomerObj(null);
-               }
-               return; 
-            }
-            if (selectedCustomerObj && (selectedCustomerObj.name === customerName || selectedCustomerObj.nrp === customerName)) return;
+        if (selectedCustomerObj) return; // Sudah dipilih, tidak perlu search
+        if (!customerName || customerName.length < 2) {
+            setCustomerSearchResults([]);
+            setShowCustomerDropdown(false);
+            return;
+        }
 
+        const timeout = setTimeout(async () => {
+            setIsSearchingCustomer(true);
             try {
-                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerName)}`);
+                const res = await fetch(`/api/members?search=${encodeURIComponent(customerName)}&limit=8`);
                 const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    const exactMatch = json.data.find((m: any) => m.nrp === customerName || m.memberNo === customerName);
-                    if (exactMatch) {
-                        setSelectedCustomerObj(exactMatch);
-                        setCustomerName(exactMatch.name); 
-                        toast.success(`Anggota terdeteksi otomatis: ${exactMatch.name}`);
-                    }
-                }
-            } catch (err) {}
-        };
-        const timeout = setTimeout(detectNrp, 800);
+                const results = json.data || [];
+                setCustomerSearchResults(results);
+                setShowCustomerDropdown(results.length > 0);
+            } catch {
+                setCustomerSearchResults([]);
+                setShowCustomerDropdown(false);
+            } finally {
+                setIsSearchingCustomer(false);
+            }
+        }, 350);
+
         return () => clearTimeout(timeout);
     }, [customerName, selectedCustomerObj]);
+
+    // Tutup dropdown saat klik di luar
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (
+                customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node) &&
+                customerInputRef.current && !customerInputRef.current.contains(e.target as Node)
+            ) {
+                setShowCustomerDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const selectCustomer = (member: any) => {
+        setSelectedCustomerObj(member);
+        setCustomerName(member.name);
+        setCustomerSearchResults([]);
+        setShowCustomerDropdown(false);
+        toast.success(`✓ Anggota dipilih: ${member.name} (${member.nrp || member.memberNo})`);
+    };
+
+    const clearCustomer = () => {
+        setSelectedCustomerObj(null);
+        setCustomerName("");
+        setCustomerSearchResults([]);
+        setShowCustomerDropdown(false);
+        customerInputRef.current?.focus();
+    };
 
     // Check role access
     const role = roleName;
@@ -207,6 +243,8 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setVehiclePlate(""); // Reset plat nomor
             setSelectedMember(null);
             setSelectedCustomerObj(null);
+            setCustomerSearchResults([]);
+            setShowCustomerDropdown(false);
             setShowCreditDialog(false);
             setMemberSearch("");
             setMemberResults([]);
@@ -365,32 +403,107 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                         )}
 
                         <div className="space-y-2">
-                            <Label>Identitas Pelanggan (Walk-In / Opsional)</Label>
-                            <div className="flex gap-2 relative">
-                                <User className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
-                                <Input
-                                    placeholder="Tulis nama atau ketik/scan NRP"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                    className={`pl-10 ${selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-28" : ""}`}
-                                />
+                            <Label className="flex items-center justify-between">
+                                <span>Identitas Pelanggan (Walk-In / Opsional)</span>
                                 {selectedCustomerObj && (
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                        <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
-                                        <button 
-                                            type="button"
-                                            className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-700"
-                                            onClick={() => {
-                                                setSelectedCustomerObj(null);
-                                                setCustomerName("");
-                                            }}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
+                                    <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">
+                                        ✓ Anggota Terpilih
+                                    </Badge>
+                                )}
+                            </Label>
+                            <div className="relative">
+                                <div className="flex gap-2 relative">
+                                    <User className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
+                                    <Input
+                                        ref={customerInputRef}
+                                        placeholder="Ketik nama atau NRP anggota..."
+                                        value={customerName}
+                                        onChange={(e) => {
+                                            if (selectedCustomerObj) setSelectedCustomerObj(null);
+                                            setCustomerName(e.target.value);
+                                        }}
+                                        onFocus={() => {
+                                            if (customerSearchResults.length > 0) setShowCustomerDropdown(true);
+                                        }}
+                                        className={`pl-10 ${
+                                            selectedCustomerObj 
+                                                ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20 pr-8" 
+                                                : isSearchingCustomer 
+                                                ? "border-blue-300 pr-8" 
+                                                : ""
+                                        }`}
+                                        autoComplete="off"
+                                    />
+                                    {/* Icon state */}
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        {isSearchingCustomer && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                                        {selectedCustomerObj && (
+                                            <button
+                                                type="button"
+                                                onClick={clearCustomer}
+                                                className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-600"
+                                                title="Hapus pilihan"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Autocomplete Dropdown */}
+                                {showCustomerDropdown && customerSearchResults.length > 0 && (
+                                    <div
+                                        ref={customerDropdownRef}
+                                        className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-border rounded-lg shadow-xl overflow-hidden"
+                                    >
+                                        <div className="px-3 py-1.5 bg-muted/50 border-b">
+                                            <p className="text-[10px] text-muted-foreground font-medium">
+                                                {customerSearchResults.length} anggota ditemukan — klik untuk pilih
+                                            </p>
+                                        </div>
+                                        <div className="max-h-52 overflow-y-auto">
+                                            {customerSearchResults.map((member: any) => (
+                                                <button
+                                                    key={member.id}
+                                                    type="button"
+                                                    onClick={() => selectCustomer(member)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-primary/5 transition-colors border-b border-border/40 last:border-0"
+                                                >
+                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                                                        {member.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-sm truncate">{member.name}</p>
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {member.nrp || member.memberNo}
+                                                            {member.category && <span className="ml-1 text-blue-500">· {member.category}</span>}
+                                                        </p>
+                                                    </div>
+                                                    <Check className="h-4 w-4 text-primary shrink-0 opacity-0 group-hover:opacity-100" />
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-1 text-right">Deteksi anggota otomatis untuk simpan riwayat di portal</p>
+
+                            {/* Info / selected state */}
+                            {selectedCustomerObj ? (
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 mt-1">
+                                    <div className="h-6 w-6 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-[10px] font-bold">
+                                        {selectedCustomerObj.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-emerald-800 truncate">{selectedCustomerObj.name}</p>
+                                        <p className="text-[10px] text-emerald-600">{selectedCustomerObj.nrp || selectedCustomerObj.memberNo} · {selectedCustomerObj.category || "Anggota"}</p>
+                                    </div>
+                                    <Badge className="text-[9px] bg-emerald-600 text-white border-0 shrink-0">✓ Terpilih</Badge>
+                                </div>
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Cari NRP atau nama anggota untuk tercatat di riwayat portal
+                                </p>
+                            )}
                         </div>
 
                         <div className="pt-4 space-y-3">
