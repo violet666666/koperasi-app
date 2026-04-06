@@ -875,7 +875,21 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Pada laporan transaksi, terdapat sela yang sangat luas antar deskripsi ('Keterangan') dan tabel kolom selanjutnya. Hal ini karena teks terpotong oleh `max-w-[220px]` sementara kolom ditarik merangkap *width* responsif. Kedua, total Nominal di kaki tabel ('Total Pendapatan') melenceng ke kiri untuk unit Cuci Mobil.
 **Resolusi:** Menghapus pembatasan *max-width* limit tersebut sehingga elemen teks mencair memenuhi sisa table. Memperbaiki atribut statis menjadi dinamis: `colSpan={isCuciMobil ? 8 : 7}` pada empty state dan `colSpan={isCuciMobil ? 7 : 6}` pada tabel ringkasan kaki *(footer)* agar menyesuaikan presisi proporsi tabel.
 
+### BUG-UI-005 — Tombol Bayar QRIS Overflow (Melewati Batas Dialog)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Gejala:** Pada modal pop-up QRIS, tombol konfirmasi pembayaran dan batal meluber (*overflow*) ke kanan dan ke kiri layar sehingga melanggar kotak *dialog*.
+**Resolusi:** Mengganti pembungkus dari konstruktor bawaan `<DialogFooter>` yang mewarisi class `sm:flex-row sm:space-x-2` dengan `<div>` standard khusus kelas kolumnar vertikal (`flex-col gap-2 w-full`), mencegah konflik `w-full` merentang menjadi 200%.
+
+### BUG-UI-006 — QRIS Stale Cache Setelah Dihapus
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
+**Gejala:** Saat fitur Hapus QRIS dijalankan, sistem berhasil membuang *file* dari *server*, namun UI *dashboard* (ketika pop-up kembali dibuka) tetap menampilkan *file* yang tertinggal dalam memori *cache browser*. Hal ini menimbulkan ilusi bahwa gambar tidak terhapus, sehingga menekan tombol *"Hapus QRIS"* kedua kalinya akan berakibat *"Error 404: File tidak ditemukan"*.
+**Resolusi:** Diimplementasikan variabel referensi `imageKey` yang secara reaktif menugaskan rentetan `Date.now()` terbaru pada parameter URL `?bust=${imageKey}` setiap kali intervensi pengunggahan (*Upload*) maupun penghapusan (*Delete*) tuntas dilakukan secara sukses. Hal ini memaksa *browser* meremajakan referensi elemen *Image DOM*-nya seketika, dan mengeksekusi kendali *onError* HTML dengan akurat bilamana berkas QRIS betul-betul sudah lenyap terhapus.
+
 ---
 
-*Total bug tercatat: 67 | Total fitur baru: 15*
+*Total bug tercatat: 69 | Total fitur baru: 15*
 *Diperbarui: 7 April 2026*

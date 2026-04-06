@@ -71,6 +71,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     const [qrisPreview, setQrisPreview] = React.useState<string | null>(null);
     const [qrisFile, setQrisFile] = React.useState<File | null>(null);
     const [isUploadingQris, setIsUploadingQris] = React.useState(false);
+    const [imageKey, setImageKey] = React.useState(Date.now());
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleQrisFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,6 +96,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
             setShowQrisModal(false);
             setQrisFile(null);
             setQrisPreview(null);
+            setImageKey(Date.now());
         } catch (err: any) {
             toast.error(err.message);
         } finally {
@@ -111,6 +113,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
             if (!res.ok) throw new Error(json.message);
             toast.success(json.message);
             setShowQrisModal(false);
+            setImageKey(Date.now());
         } catch (err: any) {
             toast.error(err.message);
         }
@@ -293,7 +296,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                             <img src={qrisPreview ?? undefined} alt="Preview QRIS" className="max-h-[180px] object-contain rounded-lg" />
                         ) : (
                             <img
-                                src={`/uploads/qris/qris-${unitType}.png?bust=${Date.now()}`}
+                                src={`/uploads/qris/qris-${unitType}.png?bust=${imageKey}`}
                                 alt={`QRIS ${unitType}`}
                                 className="max-h-[180px] object-contain rounded-lg"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

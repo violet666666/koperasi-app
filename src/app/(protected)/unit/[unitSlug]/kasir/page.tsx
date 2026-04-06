@@ -704,7 +704,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                         </div>
                     </div>
 
-                    <DialogFooter className="sm:justify-center flex-col gap-2">
+                    <div className="flex flex-col gap-2 mt-2 w-full">
                         <Button 
                             className="w-full bg-blue-600 hover:bg-blue-700 text-base py-6"
                             disabled={isProcessing} 
@@ -719,7 +719,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                         <Button variant="outline" className="w-full" onClick={() => setShowQrisDialog(false)}>
                             Batal
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
