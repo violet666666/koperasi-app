@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2, Printer } from "lucide-react";
+import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2, Printer, Car } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +73,13 @@ export default function RiwayatTransaksiUnitPage() {
     const [isSearchingNrp, setIsSearchingNrp] = React.useState(false);
     const [isSavingNrp, setIsSavingNrp] = React.useState(false);
 
+    // Edit Plat Nomor + Keterangan
+    const [isEditDetailsOpen, setIsEditDetailsOpen] = React.useState(false);
+    const [editDetailsTx, setEditDetailsTx] = React.useState<UnitTransaction | null>(null);
+    const [editPlat, setEditPlat] = React.useState("");
+    const [editDesc, setEditDesc] = React.useState("");
+    const [isSavingDetails, setIsSavingDetails] = React.useState(false);
+
     const searchMemberByNrp = async (nrp: string) => {
         if (!nrp || nrp.length < 4) { setEditMemberFound(null); return; }
         setIsSearchingNrp(true);
@@ -108,6 +115,29 @@ export default function RiwayatTransaksiUnitPage() {
         } catch (err: any) {
             toast.error(err.message);
         } finally { setIsSavingNrp(false); }
+    };
+
+    const saveEditDetails = async () => {
+        if (!editDetailsTx) return;
+        setIsSavingDetails(true);
+        try {
+            const res = await fetch(`/api/unit-transactions/${editDetailsTx.id}/details`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    vehiclePlate: editPlat,
+                    description: editDesc,
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || "Gagal menyimpan");
+            toast.success(`Detail transaksi ${editDetailsTx.transactionNo} berhasil diperbarui`);
+            setIsEditDetailsOpen(false);
+            setEditDetailsTx(null);
+            queryClient.invalidateQueries({ queryKey: ["unit-transactions"] });
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally { setIsSavingDetails(false); }
     };
 
     const { data: response, isLoading } = useQuery({
@@ -262,6 +292,7 @@ export default function RiwayatTransaksiUnitPage() {
                 const baseStatus = (tx as any).status || "completed";
                 const isVoidable = baseStatus === "completed";
                 const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
+                const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided";
 
                 return (
                     <div className="flex gap-1">
@@ -281,6 +312,23 @@ export default function RiwayatTransaksiUnitPage() {
                                 <Pencil className="h-4 w-4" />
                             </Button>
                         )}
+                        {canEditDetails && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                title="Edit Plat Nomor & Keterangan"
+                                onClick={() => {
+                                    const currentPlat = parsePlat((tx as any).notes) || "";
+                                    setEditDetailsTx(tx);
+                                    setEditPlat(currentPlat);
+                                    setEditDesc(tx.description || "");
+                                    setIsEditDetailsOpen(true);
+                                }}
+                            >
+                                <Car className="h-4 w-4" />
+                            </Button>
+                        )}
                         {isVoidable && (
                             <Button
                                 variant="ghost"
@@ -296,7 +344,7 @@ export default function RiwayatTransaksiUnitPage() {
                                 Void
                             </Button>
                         )}
-                        {!isVoidable && !canEditNrp && <span className="text-muted-foreground text-xs text-center block">-</span>}
+                        {!isVoidable && !canEditNrp && !canEditDetails && <span className="text-muted-foreground text-xs text-center block">-</span>}
                     </div>
                 );
             },
@@ -577,6 +625,55 @@ export default function RiwayatTransaksiUnitPage() {
                         <Button onClick={saveEditNrp} disabled={!editMemberFound || isSavingNrp}>
                             {isSavingNrp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Simpan Anggota
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Edit Details Dialog (Plat Nomor + Keterangan) */}
+            <Dialog open={isEditDetailsOpen} onOpenChange={(open) => { setIsEditDetailsOpen(open); if (!open) { setEditDetailsTx(null); setEditPlat(""); setEditDesc(""); } }}>
+                <DialogContent className="sm:max-w-[440px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Car className="h-5 w-5 text-amber-500" />
+                            Edit Plat Nomor & Keterangan
+                        </DialogTitle>
+                        <DialogDescription>
+                            Perbarui plat nomor kendaraan dan/atau keterangan untuk transaksi{" "}
+                            <strong>{editDetailsTx?.transactionNo}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-plat">🚗 Plat Nomor Kendaraan</Label>
+                            <Input
+                                id="edit-plat"
+                                placeholder="Contoh: AB 1234 CD"
+                                value={editPlat}
+                                onChange={(e) => setEditPlat(e.target.value.toUpperCase())}
+                            />
+                            <p className="text-xs text-muted-foreground">Kosongkan untuk menghapus plat nomor.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-desc">Keterangan / Jasa</Label>
+                            <Textarea
+                                id="edit-desc"
+                                placeholder="Misal: Motor Cuci Biasa, Mobil Premium, dll."
+                                className="resize-none"
+                                rows={3}
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditDetailsOpen(false)}>Batal</Button>
+                        <Button
+                            onClick={saveEditDetails}
+                            disabled={isSavingDetails}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                        >
+                            {isSavingDetails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Simpan
                         </Button>
                     </DialogFooter>
                 </DialogContent>

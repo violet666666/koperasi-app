@@ -54,6 +54,9 @@ import {
     Shirt,
     AlertCircle,
     ShieldX,
+    ImagePlus,
+    X,
+    FileImage,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -117,6 +120,7 @@ interface OperationalExpense {
     transactionNo: string;
     description: string;
     amount: number;
+    receiptImagePath?: string | null;
 }
 
 interface LaporanData {
@@ -156,6 +160,28 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [expenseDesc, setExpenseDesc] = React.useState("");
     const [expenseDate, setExpenseDate] = React.useState(new Date().toISOString().split("T")[0]);
     const [isSavingExpense, setIsSavingExpense] = React.useState(false);
+    const [expenseReceiptFile, setExpenseReceiptFile] = React.useState<File | null>(null);
+    const [expenseReceiptPreview, setExpenseReceiptPreview] = React.useState<string | null>(null);
+    const expenseFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Ukuran file maksimal 5MB");
+            return;
+        }
+        setExpenseReceiptFile(file);
+        const reader = new FileReader();
+        reader.onload = (ev) => setExpenseReceiptPreview(ev.target?.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const clearExpenseFile = () => {
+        setExpenseReceiptFile(null);
+        setExpenseReceiptPreview(null);
+        if (expenseFileInputRef.current) expenseFileInputRef.current.value = "";
+    };
 
     const unitInfo = UNIT_LABELS[unitType] || { label: formatUnitName(unitSlug), icon: Store };
     const UnitIcon = unitInfo.icon;
@@ -235,14 +261,18 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         }
         setIsSavingExpense(true);
         try {
+            // Gunakan FormData agar bisa kirim file sekaligus
+            const formData = new FormData();
+            formData.append("amount", String(Number(expenseAmount)));
+            formData.append("description", expenseDesc.trim());
+            formData.append("transactionDate", expenseDate);
+            if (expenseReceiptFile) {
+                formData.append("receipt", expenseReceiptFile);
+            }
+
             const res = await fetch(`/api/unit/${unitSlug}/operational-expense`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    amount: Number(expenseAmount),
-                    description: expenseDesc.trim(),
-                    transactionDate: expenseDate,
-                }),
+                body: formData,
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
@@ -251,6 +281,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             setExpenseAmount("");
             setExpenseDesc("");
             setExpenseDate(new Date().toISOString().split("T")[0]);
+            clearExpenseFile();
             fetchLaporan(); // Refresh
         } catch (err: any) {
             toast.error(err.message || "Gagal menyimpan pengeluaran");
@@ -683,6 +714,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
+                                    <TableHead className="text-center">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -696,6 +728,21 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
                                         </TableCell>
                                         <TableCell className="text-sm">{exp.description}</TableCell>
+                                        <TableCell className="text-center">
+                                            {exp.receiptImagePath ? (
+                                                <a
+                                                    href={exp.receiptImagePath}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs underline"
+                                                >
+                                                    <FileImage className="h-3.5 w-3.5" />
+                                                    Lihat
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted-foreground text-xs">-</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-right font-semibold tabular-nums text-red-600">
                                             {formatCurrency(exp.amount)}
                                         </TableCell>
@@ -719,8 +766,8 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             </div>
 
             {/* ── Dialog Catat Pengeluaran ──────────────────────────────────── */}
-            <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
-                <DialogContent className="sm:max-w-[420px]">
+            <Dialog open={showExpenseDialog} onOpenChange={(open) => { setShowExpenseDialog(open); if (!open) clearExpenseFile(); }}>
+                <DialogContent className="sm:max-w-[460px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <TrendingDown className="h-5 w-5 text-red-500" />
@@ -764,6 +811,47 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 onChange={(e) => setExpenseDate(e.target.value)}
                             />
                         </div>
+
+                        {/* Upload Foto Bukti */}
+                        <div className="space-y-2">
+                            <Label>Foto Bukti / Struk (Opsional, maks. 5MB)</Label>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                className="hidden"
+                                ref={expenseFileInputRef}
+                                onChange={handleExpenseFileChange}
+                            />
+                            {expenseReceiptPreview ? (
+                                <div className="relative rounded-lg border border-dashed border-red-200 overflow-hidden">
+                                    <img
+                                        src={expenseReceiptPreview}
+                                        alt="Preview bukti"
+                                        className="w-full h-36 object-cover"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={clearExpenseFile}
+                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
+                                        {expenseReceiptFile?.name}
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => expenseFileInputRef.current?.click()}
+                                    className="w-full h-24 border-2 border-dashed border-red-200 rounded-lg flex flex-col items-center justify-center gap-1 text-red-400 hover:border-red-400 hover:text-red-600 hover:bg-red-50/50 transition-colors"
+                                >
+                                    <ImagePlus className="h-6 w-6" />
+                                    <span className="text-xs">Klik untuk unggah foto struk / nota</span>
+                                </button>
+                            )}
+                        </div>
+
                         <Separator />
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
                             ⚠️ Pengeluaran ini akan langsung mendebit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.
@@ -771,7 +859,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowExpenseDialog(false)}>Batal</Button>
+                        <Button variant="outline" onClick={() => { setShowExpenseDialog(false); clearExpenseFile(); }}>Batal</Button>
                         <Button
                             className="bg-red-600 hover:bg-red-700 text-white"
                             onClick={handleSaveExpense}
