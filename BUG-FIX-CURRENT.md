@@ -547,6 +547,10 @@
 **Akar Masalah:** Tidak ada konstanta navigasi `adminTokoNavigation` maupun `adminUnitNavigation`. Fungsi `getNavigationForUser()` tidak membedakan Kasir vs Admin untuk unit non-pusat.
 **Resolusi (Direncanakan):** Buat dua konstanta navigasi baru. Update `getNavigationForUser()` agar Admin unit Retail mendapat `adminTokoNavigation` dan Admin unit Jasa mendapat `adminUnitNavigation`.
 
+### [2026-04-06] Perbaikan Bug UAT Kasir Unit Jasa Penuh
+1. **BUG-U03 (Kelola Layanan Crash - 500 Error)**: Memperbaiki crash di `LayananUnitPage` di mana object `params` diakses secara sinkron (membawa behavior dari Next.js 14). Diperbaiki dengan meng-unwrap `params` menggunakan `React.use(params)`. ([unitSlug]/layanan/page.tsx).
+2. **BUG-U04 (Void Request Tidak Ada Action)**: Terdapat disfungsi tombol "Setujui" pada Inbox Approval bagi Admin Unit. Transaksi bertipe `"unit_void"` salah memanggil body API (menggunakan `approvalId` untuk key dan text string `approve` bukan expected `approved`). Diperbaiki di backend services dan ApprovalDialog.
+
 ## BUG-061 — Void Kasir Toko Membuahkan Foreign Key Constraint (500)
 **Status:** ✅ FIXED
 **Lokasi:** `src/app/api/unit-transactions/void-request/route.ts`

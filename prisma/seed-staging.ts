@@ -172,7 +172,7 @@ async function main() {
 
   // ── 8. Anggota UAT ───────────────────────────────────────────────
   console.log("\n🧑 Membuat anggota UAT...");
-  await prisma.member.upsert({
+  const mem1 = await prisma.member.upsert({
     where: { memberNo: "UAT-0001" },
     update: {},
     create: {
@@ -181,7 +181,15 @@ async function main() {
       status: "active", salary: 6000000, plafonPiutang: 5000000,
     },
   });
-  await prisma.member.upsert({
+  await prisma.user.upsert({
+    where: { email: "uat99001@primkoppol.test" },
+    update: {},
+    create: {
+      name: mem1.name, email: "uat99001@primkoppol.test",
+      password: hashedPwd, roleId: roleMap["anggota"], branchId, memberId: mem1.id, isActive: true,
+    }
+  });
+  const mem2 = await prisma.member.upsert({
     where: { memberNo: "UAT-0002" },
     update: {},
     create: {
@@ -189,6 +197,14 @@ async function main() {
       name: "[UAT] Anggota Over Limit", joinDate: new Date("2024-01-01"),
       status: "active", salary: 4000000, plafonPiutang: 0,
     },
+  });
+  await prisma.user.upsert({
+    where: { email: "uat99002@primkoppol.test" },
+    update: {},
+    create: {
+      name: mem2.name, email: "uat99002@primkoppol.test",
+      password: hashedPwd, roleId: roleMap["anggota"], branchId, memberId: mem2.id, isActive: true,
+    }
   });
   console.log("  ✓ UAT-0001 (Plafon Rp5 Juta) + UAT-0002 (Plafon Rp0)");
 
@@ -230,6 +246,26 @@ async function main() {
       }
       console.log(`  ✓ [${pkg.unitType}] ${pkg.name}`);
     }
+  }
+
+  // ── 11. Produk Pinjaman ──────────────────────────────────────────
+  console.log("\n💳 Membuat produk pinjaman UAT...");
+  const loanProds = [
+    {
+      code: "PINJ-UAT-01", name: "[UAT] Pinjaman Reguler", version: 1,
+      interestMethod: "flat", interestRate: 1.5, interestCalculation: "monthly",
+      minTenorMonths: 3, maxTenorMonths: 24, minAmount: 1000000, maxAmount: 10000000,
+      adminFeeType: "percent", adminFeeValue: 1.0, lateFeeType: "percent", lateFeeValue: 2.0,
+      requiresCollateral: false, effectiveDate: new Date("2024-01-01"), isCurrent: true, isActive: true
+    }
+  ];
+  for (const lp of loanProds) {
+    await prisma.loanProduct.upsert({
+      where: { code_version: { code: lp.code, version: lp.version } },
+      update: {},
+      create: lp,
+    });
+    console.log(`  ✓ ${lp.name}`);
   }
 
   // ── Ringkasan ────────────────────────────────────────────────────

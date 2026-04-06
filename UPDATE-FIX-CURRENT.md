@@ -1,5 +1,11 @@
-# UPDATE-FIX-CURRENT: Eksekusi Refactoring Sistem Primkoppol
-**Sesi:** 6 April 2026 (Dini Hari)
+# Catatan Update Aplikasi
+
+## UPDATE 06 April 2026
+- **Menyelesaikan Seluruh Validasi UAT Tahap 1 (Unit Toko & Jasa)**: Telah berhasil menjalankan automated tester untuk module Kasir dan Admin Toko serta Kasir Cuci Mobil (Jasa) dan Admin Cuci Mobil. (100% Pass untuk POS Jastual / Toko / Void Approval / Settings).
+- **Perbaikan Ketergantungan NextJS 15**: Update route dynamic access using React Promise (`React.use`) pada `[unitSlug]/layanan`.
+- **Integrasi Backend Approval Void Unit**: Refactor tipe dan parameter payload di frontend agar persetujuan status pembatalan di Inbox masuk ke DB.
+
+## UPDATE 04 April 2026 (Dini Hari)
 **Berdasarkan:** BUG-054 s/d BUG-060 + Blueprint Implementation Plan
 
 ---
