@@ -54,7 +54,7 @@ async function main() {
     // Kasir
     const kasir = await prisma.user.upsert({
       where:  { email: `kasir.uat.${unit.slug}@primkoppol.test` },
-      update: {},
+      update: { password: hashedPwd },
       create: {
         name:     `${UAT_TAG} Kasir ${unit.label}`,
         email:    `kasir.uat.${unit.slug}@primkoppol.test`,
@@ -71,7 +71,7 @@ async function main() {
     // Admin
     const admin = await prisma.user.upsert({
       where:  { email: `admin.uat.${unit.slug}@primkoppol.test` },
-      update: {},
+      update: { password: hashedPwd },
       create: {
         name:     `${UAT_TAG} Admin ${unit.label}`,
         email:    `admin.uat.${unit.slug}@primkoppol.test`,

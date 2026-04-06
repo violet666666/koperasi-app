@@ -41,6 +41,7 @@ export async function GET(
         const dateToParam = searchParams.get("dateTo");
 
         // Compute date range with WIB (+7) timezone
+        const now = new Date();
         const WIB_OFFSET = 7 * 60 * 60 * 1000;
         const nowWIB = new Date(now.getTime() + WIB_OFFSET);
         // Use UTC methods to get WIB-correct date components
