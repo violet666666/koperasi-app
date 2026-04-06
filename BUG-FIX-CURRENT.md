@@ -1,6 +1,6 @@
 # 🛠️ LAPORAN KERJA: CATATAN BUG, PERBAIKAN & FITUR BARU
 **Sistem:** PRIMKOPPOL RESOR LUMAJANG — Aplikasi Manajemen Koperasi
-**Terakhir Diperbarui:** 6 April 2026 (Sesi 3 — UAT Contamination Fix + Logic Fixes)
+**Terakhir Diperbarui:** 7 April 2026 (Sesi 8 — Timezone WIB, KPI Fix, Unit-Specific Columns)
 **Pemelihara Dokumen:** Engineering Team
 
 > Dokumen ini adalah satu-satunya sumber kebenaran (Source of Truth) untuk semua perubahan, perbaikan bug, dan penambahan fitur pada sistem. Gunakan sebagai referensi sebelum melakukan debugging ulang agar tidak terjadi pekerjaan redundan.
@@ -8,6 +8,7 @@
 ---
 
 ## 📑 DAFTAR ISI CEPAT
+
 | ID | Judul | Status | Tanggal |
 |----|-------|--------|---------|
 | BUG-001 | Halaman Detail Pinjaman Data Hardcoded | ✅ FIXED | Apr 2026 |
@@ -31,6 +32,15 @@
 | **BUG-LOGIC-001** | **No. Referensi Approval generate random — seharusnya dari No. Transaksi** | ✅ FIXED | 6 Apr 2026 |
 | **BUG-LOGIC-002** | **Format No. Transaksi tidak informatif (random base-36)** | ✅ FIXED | 6 Apr 2026 |
 | **BUG-BUILD-005** | **TS2339: session.user.role?.name tidak valid (string bukan object)** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-TZ-001** | **Dashboard "Hari Ini" menampilkan data kemarin (UTC vs WIB)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-KPI-001** | **Total Hari Ini ≠ Tunai + QRIS di dashboard admin unit** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-NAV-001** | **Sidebar "Pengaturan QRIS" masih tampil di semua Admin Unit** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-UI-001** | **Kolom Dok. di riwayat transaksi selalu kosong/tidak berguna** | ✅ REMOVED | 7 Apr 2026 |
+| **BUG-UI-002** | **Tabel riwayat transaksi sama untuk semua unit (Cuci Mobil format)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-LAPORAN-001** | **Laporan Toko tidak menampilkan data (timezone dateFrom salah)** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-007** | **Edit Plat Nomor & Keterangan di riwayat transaksi (Admin/Operator)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 
 ---
 

@@ -57,6 +57,7 @@ import {
     ImagePlus,
     X,
     FileImage,
+    Send,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -163,6 +164,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [expenseReceiptFile, setExpenseReceiptFile] = React.useState<File | null>(null);
     const [expenseReceiptPreview, setExpenseReceiptPreview] = React.useState<string | null>(null);
     const expenseFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Submit Laporan ke Operator
+    const [isSubmittingLaporan, setIsSubmittingLaporan] = React.useState(false);
 
     const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -290,6 +294,31 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         }
     };
 
+    const handleSubmitLaporanReview = async () => {
+        if (!data) return;
+        setIsSubmittingLaporan(true);
+        try {
+            const res = await fetch(`/api/unit/${unitSlug}/laporan/submit-review`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    period,
+                    periodLabel: data.periodLabel,
+                    dateFrom: data.dateFrom,
+                    dateTo: data.dateTo,
+                    summary: data.summary,
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(json.message || "Laporan berhasil dikirim ke Operator!");
+        } catch (err: any) {
+            toast.error(err.message || "Gagal mengirim laporan");
+        } finally {
+            setIsSubmittingLaporan(false);
+        }
+    };
+
     // Access denied
     if (isWrongUnit) {
         return (
@@ -337,6 +366,19 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 >
                                     <TrendingDown className="mr-2 h-4 w-4" />
                                     Catat Pengeluaran
+                                </Button>
+                            )}
+                            {(isAdmin || isOperator) && data && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                    onClick={handleSubmitLaporanReview}
+                                    disabled={isSubmittingLaporan || isLoading}
+                                    title="Kirim laporan ini ke Inbox Operator untuk direview"
+                                >
+                                    {isSubmittingLaporan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                    Kirim ke Operator
                                 </Button>
                             )}
                             <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!data || isLoading}>

@@ -351,7 +351,6 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
-            { title: "Pengaturan QRIS", href: "/settings", icon: QrCode },
         ],
     },
 ];
@@ -402,7 +401,6 @@ export const adminUnitNavigation: (NavItem | NavGroup)[] = [
         title: "AKUN",
         items: [
             { title: "Profil Saya", href: "/profil", icon: User },
-            { title: "Pengaturan QRIS", href: "/settings", icon: QrCode },
         ],
     },
 ];

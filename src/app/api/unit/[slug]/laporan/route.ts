@@ -40,34 +40,45 @@ export async function GET(
         const dateFromParam = searchParams.get("dateFrom");
         const dateToParam = searchParams.get("dateTo");
 
-        // Compute date range
-        const now = new Date();
+        // Compute date range with WIB (+7) timezone
+        const WIB_OFFSET = 7 * 60 * 60 * 1000;
+        const nowWIB = new Date(now.getTime() + WIB_OFFSET);
+        // Use UTC methods to get WIB-correct date components
+        const wibYear = nowWIB.getUTCFullYear();
+        const wibMonth = nowWIB.getUTCMonth();
+        const wibDay = nowWIB.getUTCDate();
+
         let dateFrom: Date;
-        let dateTo: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        let dateTo: Date = new Date(Date.UTC(wibYear, wibMonth, wibDay, 23 - 7, 59, 59, 999)); // 23:59:59 WIB = 16:59:59 UTC
 
         switch (period) {
             case "today":
-                dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                // 00:00 WIB = 17:00 UTC hari sebelumnya
+                dateFrom = new Date(Date.UTC(wibYear, wibMonth, wibDay) - WIB_OFFSET);
+                dateTo = new Date(dateFrom.getTime() + 86400000 - 1);
                 break;
             case "week": {
-                const day = now.getDay();
-                const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-                dateFrom = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
+                // Senin WIB minggu ini
+                const dayOfWeek = nowWIB.getUTCDay();
+                const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const mondayWIB = new Date(Date.UTC(wibYear, wibMonth, wibDay + diff));
+                dateFrom = new Date(mondayWIB.getTime() - WIB_OFFSET); // 00:00 WIB Senin
                 break;
             }
             case "year":
-                dateFrom = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-                dateTo = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+                dateFrom = new Date(Date.UTC(wibYear, 0, 1) - WIB_OFFSET); // 1 Jan 00:00 WIB
+                dateTo = new Date(Date.UTC(wibYear, 11, 31, 23 - 7, 59, 59, 999)); // 31 Des 23:59 WIB
                 break;
             case "custom":
                 if (!dateFromParam || !dateToParam) {
                     return NextResponse.json({ message: "dateFrom dan dateTo wajib diisi untuk period=custom" }, { status: 400 });
                 }
-                dateFrom = new Date(dateFromParam + "T00:00:00");
-                dateTo = new Date(dateToParam + "T23:59:59");
+                // Custom dates masuk sebagai YYYY-MM-DD — interpretasikan sebagai WIB
+                dateFrom = new Date(dateFromParam + "T00:00:00+07:00");
+                dateTo = new Date(dateToParam + "T23:59:59+07:00");
                 break;
             default: // "month"
-                dateFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+                dateFrom = new Date(Date.UTC(wibYear, wibMonth, 1) - WIB_OFFSET); // 1 bulan ini 00:00 WIB
                 break;
         }
 

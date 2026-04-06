@@ -19,32 +19,39 @@ export async function GET(request: Request) {
 
     try {
         const now = new Date();
-        const localYear = now.getFullYear();
-        const localMonth = now.getMonth();
-        const localDate = now.getDate();
 
-        // Bagi type StoreSale (DateTime): Gunakan object Date Javascript biasa (local timezone 00:00)
-        const todayStart = new Date(localYear, localMonth, localDate);
-        const todayEnd = new Date(todayStart.getTime() + 86400000);
+        // ── Timezone WIB (+7) ─────────────────────────────────────────────────
+        // Server berjalan di UTC. Saat 01:31 WIB = 18:31 UTC (masih 'kemarin' UTC).
+        // Kita harus pakai tanggal WIB agar "hari ini" sesuai dengan yang user lihat.
+        const WIB_OFFSET = 7 * 60 * 60 * 1000; // +7 jam dalam milidetik
+        const nowWIB = new Date(now.getTime() + WIB_OFFSET);
+        const localYear = nowWIB.getUTCFullYear();
+        const localMonth = nowWIB.getUTCMonth();
+        const localDate = nowWIB.getUTCDate();
 
-        // Bagi tipe @db.Date (UnitTransaction): Prisma mengekstrak yyyy-mm-dd dalam UTC.
-        // Jika pakai JS Date biasa, pukul 00:00 WIB terbaca sebagai 17:00 UTC h-1 (misal 5 April).
-        // Sehingga query `< hari ini` menjadi `< '2026-04-05'`, alhasil transaksi hari ini (6 Apr) TIDAK termuat!
-        // Solusinya: Paksa construct jam 00:00 murni di UTC.
+        // Hari ini di WIB: dari 00:00 WIB (= 17:00 UTC hari sebelumnya) sampai 00:00 WIB besok
+        // Untuk StoreSale (DateTime) — pakai epoch UTC yang mewakili jam 00:00 WIB
+        const todayStartWIB = new Date(Date.UTC(localYear, localMonth, localDate) - WIB_OFFSET);
+        const todayEndWIB = new Date(todayStartWIB.getTime() + 86400000);
+
+        // Untuk UnitTransaction (@db.Date) — Prisma simpan sebagai pure date UTC.
+        // transactionDate '2026-04-07' disimpan sebagai 2026-04-07T00:00:00.000Z.
+        // Kita query dengan batas UTC yang mewakili tanggal WIB yang sama.
         const todayDateUTC = new Date(Date.UTC(localYear, localMonth, localDate));
         const tomorrowDateUTC = new Date(todayDateUTC.getTime() + 86400000);
 
         const weekStartUTC = new Date(todayDateUTC);
-        weekStartUTC.setDate(weekStartUTC.getDate() - 6);
+        weekStartUTC.setUTCDate(weekStartUTC.getUTCDate() - 6);
         
-        const weekStart = new Date(todayStart);
-        weekStart.setDate(weekStart.getDate() - 6);
+        const weekStartWIB = new Date(todayStartWIB);
+        weekStartWIB.setUTCDate(weekStartWIB.getUTCDate() - 6);
 
         // Today's transactions for this unit (@db.Date)
         const todayTrx = await prisma.unitTransaction.findMany({
             where: {
                 unitType,
                 transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
+                status: { notIn: ["voided"] }, // exclude voided dari semua hitungan
             },
             select: { amount: true, paymentMethod: true, isPaid: true, status: true },
         });
@@ -53,7 +60,7 @@ export async function GET(request: Request) {
         const rawTodayStoreSales = unitType === "toko" ? await prisma.storeSale.findMany({
             where: {
                 unitType,
-                createdAt: { gte: todayStart, lt: todayEnd },
+                createdAt: { gte: todayStartWIB, lt: todayEndWIB },
             },
             select: { totalAmount: true, paymentMethod: true, metadata: true },
         }) : [];
@@ -63,30 +70,31 @@ export async function GET(request: Request) {
             return !meta.isVoided;
         });
 
-        const todayTotal = todayTrx.reduce((s, t) => s + Number(t.amount), 0)
-            + todayStoreSales.reduce((s, t) => s + Number(t.totalAmount), 0);
-        const todayCount = todayTrx.length + todayStoreSales.length;
+        // ── KPI Calculations (consistent: Total = Cash + QRIS + SalaryCut) ────
         const todayCash = todayTrx.filter(t => t.paymentMethod === "cash").reduce((s, t) => s + Number(t.amount), 0)
             + todayStoreSales.filter(s => s.paymentMethod === "cash").reduce((s, t) => s + Number(t.totalAmount), 0);
         const todayQris = todayTrx.filter(t => t.paymentMethod === "qris").reduce((s, t) => s + Number(t.amount), 0)
             + todayStoreSales.filter(s => s.paymentMethod === "qris").reduce((s, t) => s + Number(t.totalAmount), 0);
-        // Hanya hitung potong gaji yg belum lunas DAN bukan pending_void/voided
-        const todaySalaryCut = todayTrx.filter(t => t.paymentMethod === "salary_cut" && t.status !== "voided" && t.status !== "pending_void")
+        // Hanya hitung potong gaji yang bukan pending_void (sudah exclude voided di query)
+        const todaySalaryCut = todayTrx.filter(t => t.paymentMethod === "salary_cut" && t.status !== "pending_void")
             .reduce((s, t) => s + Number(t.amount), 0);
+        // Total = Cash + QRIS + SalaryCut (konsisten, tidak include transaksi yang tidak terkategori)
+        const todayTotal = todayCash + todayQris + todaySalaryCut;
+        const todayCount = todayTrx.length + todayStoreSales.length;
         // Pending = tagihan aktif (belum lunas, bukan void)
-        const todayPending = todayTrx.filter(t => !t.isPaid && t.status !== "voided" && t.status !== "pending_void").length;
+        const todayPending = todayTrx.filter(t => !t.isPaid && t.status !== "pending_void").length;
         // Pending Void = menunggu approval
         const todayPendingVoid = todayTrx.filter(t => t.status === "pending_void").length;
 
         // Weekly chart data (last 7 days)
         // Group manually by date string to avoid timezone/timestamp grouping issues from Prisma
         const weeklyUnitTrx = await prisma.unitTransaction.findMany({
-            where: { unitType, transactionDate: { gte: weekStartUTC, lt: tomorrowDateUTC } },
+            where: { unitType, transactionDate: { gte: weekStartUTC, lt: tomorrowDateUTC }, status: { notIn: ["voided"] } },
             select: { transactionDate: true, amount: true },
         });
         
         const weeklyStoreTrxRaw = unitType === "toko" ? await prisma.storeSale.findMany({
-            where: { unitType, createdAt: { gte: weekStart, lt: todayEnd } },
+            where: { unitType, createdAt: { gte: weekStartWIB, lt: todayEndWIB } },
             select: { createdAt: true, totalAmount: true, metadata: true },
         }) : [];
         
@@ -97,17 +105,17 @@ export async function GET(request: Request) {
 
         const weeklyChartMap = new Map();
         for (let i = 0; i < 7; i++) {
-            const dLocal = new Date(weekStart);
-            dLocal.setDate(dLocal.getDate() + i);
-            const key = `${dLocal.getFullYear()}-${dLocal.getMonth()}-${dLocal.getDate()}`;
-            weeklyChartMap.set(key, { date: dLocal, total: 0, count: 0 });
+            const dUTC = new Date(weekStartUTC);
+            dUTC.setUTCDate(dUTC.getUTCDate() + i);
+            // Format as YYYY-MM-DD (UTC date = WIB date since we correctly shifted)
+            const dStr = dUTC.toISOString().slice(0, 10);
+            weeklyChartMap.set(dStr, { date: dUTC, total: 0, count: 0 });
         }
 
         weeklyUnitTrx.forEach(t => {
             const dUtc = new Date(t.transactionDate);
-            // Pada UnitTransacion (@db.Date), data yg ditarik Prisma biasanya dalam UTC murni misal 00:00:00Z.
-            // Gunakan UTC date method agar cocok dengan key lokal kita.
-            const key = `${dUtc.getUTCFullYear()}-${dUtc.getUTCMonth()}-${dUtc.getUTCDate()}`;
+            // Pada UnitTransaction (@db.Date), date disimpan sebagai UTC midnight = tanggal WIB yang sama
+            const key = dUtc.toISOString().slice(0, 10); // YYYY-MM-DD
             const entry = weeklyChartMap.get(key);
             if (entry) {
                 entry.total += Number(t.amount);
@@ -116,8 +124,9 @@ export async function GET(request: Request) {
         });
 
         weeklyStoreTrx.forEach(t => {
-            const d = new Date(t.createdAt);
-            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            // StoreSale (DateTime) — geser ke WIB lalu ambil tanggalnya
+            const dWIB = new Date(new Date(t.createdAt).getTime() + WIB_OFFSET);
+            const key = dWIB.toISOString().slice(0, 10); // YYYY-MM-DD WIB
             const entry = weeklyChartMap.get(key);
             if (entry) {
                 entry.total += Number(t.totalAmount);

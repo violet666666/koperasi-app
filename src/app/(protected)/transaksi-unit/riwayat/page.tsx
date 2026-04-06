@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2, Printer, Car } from "lucide-react";
+import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -196,42 +196,46 @@ export default function RiwayatTransaksiUnitPage() {
             },
         },
         {
-            header: "Anggota",
+            header: "Anggota / Pelanggan",
             accessorKey: "memberId",
             cell: ({ row }) => {
                 const tx = row.original;
                 return (
                     <div>
-                        <div className="font-medium">{tx.member?.name}</div>
-                        <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded-sm bg-muted inline-block mt-1">
-                            NRP: {tx.member?.nrp || "-"}
-                        </div>
+                        <div className="font-medium">{tx.member?.name || "-"}</div>
+                        {tx.member?.nrp && (
+                            <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded-sm bg-muted inline-block mt-1">
+                                NRP: {tx.member.nrp}
+                            </div>
+                        )}
                     </div>
                 );
             },
         },
-        {
+        // Kolom Unit hanya tampil jika Operator (lihat semua unit)
+        ...(isOperator ? [{
             header: "Unit",
             accessorKey: "unitType",
-            cell: ({ row }) => (
+            cell: ({ row }: { row: any }) => (
                 <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-200 uppercase text-[10px] whitespace-nowrap">
                     {getUnitName(row.original.unitType)}
                 </Badge>
             ),
-        },
+        } as ColumnDef<UnitTransaction>] : []),
         {
-            header: "Keterangan",
+            header: "Keterangan / Jasa",
             accessorKey: "description",
             cell: ({ row }) => (
-                <div className="max-w-[180px] truncate" title={row.original.description}>
-                    {row.original.description}
+                <div className="max-w-[200px] truncate" title={row.original.description}>
+                    {row.original.description || "-"}
                 </div>
             ),
         },
-        {
+        // Kolom Plat Nomor hanya untuk unit Cuci Mobil atau Operator (lihat semua)
+        ...((filterUnit === "cuci_mobil" || (isOperator && filterUnit === "all")) ? [{
             header: "Plat Nomor",
             id: "platNomor",
-            cell: ({ row }) => {
+            cell: ({ row }: { row: any }) => {
                 const plat = parsePlat((row.original as any).notes);
                 if (!plat) return <span className="text-muted-foreground text-xs">-</span>;
                 return (
@@ -240,7 +244,7 @@ export default function RiwayatTransaksiUnitPage() {
                     </Badge>
                 );
             },
-        },
+        } as ColumnDef<UnitTransaction>] : []),
         {
             header: "Nominal",
             accessorKey: "amount",
@@ -251,7 +255,7 @@ export default function RiwayatTransaksiUnitPage() {
             accessorKey: "status",
             cell: ({ row }) => {
                 const tx = row.original;
-                const baseStatus = tx.status || "completed"; // fallback for old records
+                const baseStatus = (tx as any).status || "completed";
                 
                 if (baseStatus === "pending_void") {
                     return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">PENDING VOID</Badge>;
@@ -270,18 +274,15 @@ export default function RiwayatTransaksiUnitPage() {
                 );
             },
         },
+        // Kolom Metode Bayar
         {
-            header: "Dok.",
-            accessorKey: "supportingDocPath",
+            header: "Metode",
+            accessorKey: "paymentMethod",
             cell: ({ row }) => {
-                const path = (row.original as unknown as Record<string, unknown>).supportingDocPath as string | undefined;
-                return path ? (
-                    <a href={path} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                        <Paperclip className="h-4 w-4" />
-                    </a>
-                ) : (
-                    <span className="text-muted-foreground text-xs">-</span>
-                );
+                const method = row.original.paymentMethod;
+                const label: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
+                const colorClass = method === "cash" ? "border-emerald-300 text-emerald-700" : method === "qris" ? "border-blue-300 text-blue-700" : "border-indigo-300 text-indigo-700";
+                return <Badge variant="outline" className={`text-[10px] ${colorClass}`}>{label[method] || method}</Badge>;
             },
         },
         {
