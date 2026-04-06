@@ -145,7 +145,7 @@ export default function LayananUnitPage({ params }: { params: Promise<{ unitSlug
             />
 
             <div className="flex justify-end mb-4">
-                <Button onClick={() => handleOpenDialog()} className="bg-gemini-blue hover:bg-gemini-blue/90 text-white shadow-lg">
+                <Button onClick={() => handleOpenDialog()} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
                     <Plus className="mr-2 h-4 w-4" />
                     Tambah Layanan
                 </Button>
@@ -170,7 +170,7 @@ export default function LayananUnitPage({ params }: { params: Promise<{ unitSlug
                             </div>
                         </CardHeader>
                         <CardContent className="pt-4 flex items-center justify-between">
-                            <div className="text-2xl font-bold text-gemini-blue">
+                            <div className="text-2xl font-bold text-primary">
                                 {formatCurrency(pkg.price)}
                             </div>
                             <div className="flex space-x-2">

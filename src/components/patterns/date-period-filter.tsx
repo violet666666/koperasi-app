@@ -42,11 +42,20 @@ function buildYearOptions(): string[] {
     return years;
 }
 
+const WIB_OFFSET = 7 * 60 * 60 * 1000;
+
+function getWibDateComponents(d: Date) {
+    const wib = new Date(d.getTime() + WIB_OFFSET);
+    return { y: wib.getUTCFullYear(), m: wib.getUTCMonth(), day: wib.getUTCDate() };
+}
+
 function startOfDay(d: Date): Date {
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+    const { y, m, day } = getWibDateComponents(d);
+    return new Date(Date.UTC(y, m, day) - WIB_OFFSET);
 }
 function endOfDay(d: Date): Date {
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+    const { y, m, day } = getWibDateComponents(d);
+    return new Date(Date.UTC(y, m, day, 23, 59, 59, 999) - WIB_OFFSET);
 }
 
 /**
@@ -103,15 +112,15 @@ export function DatePeriodFilter({
             case "month": {
                 const m = parseInt(pickedMonth) - 1;
                 const y = parseInt(pickedYear);
-                start = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-                end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)); // day=0 → last day of previous month
+                start = new Date(Date.UTC(y, m, 1) - WIB_OFFSET);
+                end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999) - WIB_OFFSET); // day=0 → last day of previous month
                 label = `${MONTHS[m]} ${y}`;
                 break;
             }
             case "year": {
                 const y = parseInt(pickedYear);
-                start = new Date(Date.UTC(y, 0, 1, 0, 0, 0));
-                end = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999));
+                start = new Date(Date.UTC(y, 0, 1) - WIB_OFFSET);
+                end = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999) - WIB_OFFSET);
                 label = `Tahun ${y}`;
                 break;
             }

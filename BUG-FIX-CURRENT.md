@@ -756,7 +756,13 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
 **Deskripsi:** Saat Admin memilih anggota di dialog Potong Gaji unit, sistem langsung fetch data plafon, tagihan aktif, dan sisa limit. Tombol "Proses Potong Gaji" diblokir jika sisa limit tidak mencukupi.
 
+### BUG-UI-003 — Tombol Tambah Layanan Tidak Terlihat Jelas
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/layanan/page.tsx`
+**Gejala:** Teks pada tombol "Tambah Layanan" dan teks label mata uang (Harga paket) menyatu dengan backgound karena menggunakan custom tailwind class `gemini-blue` yang tidak terdefinisi di theme koperasi, menyebabkan tombol putih menjadi transparan (invisible text).
+**Resolusi:** Ganti menjadi standar theme koperasi `bg-primary text-primary-foreground` untuk tombol dan `text-primary` untuk teks mata uang.
+
 ---
 
-*Total bug tercatat: 65 | Total fitur baru: 14*
-*Diperbarui: 6 April 2026*
+*Total bug tercatat: 66 | Total fitur baru: 14*
+*Diperbarui: 7 April 2026*

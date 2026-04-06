@@ -560,4 +560,11 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
 
 ---
-*Diperbarui: 6 April 2026*
+
+## [2026-04-07] Update Perbaikan Bug Backend & UI Lanjutan
+- [x] Memperbaiki *Reference Error* (`now is not defined`) pada kalkulasi TimeZone WIB di file laporan yang menyebabkan pesan "Gagal mengambil data laporan" bagi semua Admin Unit.
+- [x] Menyempurnakan pembatas rentang hari (`matchesDateRange`) di dalam komponen Universal `DatePeriodFilter` untuk memastikan deteksi awal hari dan akhir hari murni dikunci di TZ **+07:00 (WIB)** untuk menyesuaikan dengan backend.
+- [x] BUG-UI-003: Mengubah dan menstandarisasi gaya tombol "Tambah Layanan" pada `layanan/page.tsx` memakai standar _primary foreground_ sehingga teks mudah terlihat.
+
+---
+*Diperbarui: 7 April 2026*
