@@ -183,13 +183,21 @@ export default function RiwayatTransaksiUnitPage() {
         {
             header: "No. Transaksi",
             accessorKey: "transactionNo",
+            cell: ({ row }) => (
+                <div className="font-medium text-primary">{row.original.transactionNo}</div>
+            ),
+        },
+        {
+            header: "Tanggal",
+            accessorKey: "transactionDate",
             cell: ({ row }) => {
                 const tx = row.original;
+                // Add fixed timezone string conversion context if missing
                 return (
-                    <div>
-                        <div className="font-medium text-primary">{tx.transactionNo}</div>
-                        <div className="text-xs text-muted-foreground">
-                            {format(new Date(tx.transactionDate), "d MMM yyyy", { locale: id })}
+                    <div className="text-sm">
+                        {format(new Date(tx.transactionDate), "dd MMM yyyy", { locale: id })}
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {format(new Date(tx.transactionDate), "HH:mm", { locale: id })} WIB
                         </div>
                     </div>
                 );
@@ -231,8 +239,8 @@ export default function RiwayatTransaksiUnitPage() {
                 </div>
             ),
         },
-        // Kolom Plat Nomor hanya untuk unit Cuci Mobil atau Operator (lihat semua)
-        ...((filterUnit === "cuci_mobil" || (isOperator && filterUnit === "all")) ? [{
+        // Kolom Plat Nomor HANYA untuk unit Cuci Mobil (tidak tampil di semua / all unit mode)
+        ...(filterUnit === "cuci_mobil" ? [{
             header: "Plat Nomor",
             id: "platNomor",
             cell: ({ row }: { row: any }) => {
@@ -282,7 +290,7 @@ export default function RiwayatTransaksiUnitPage() {
                 const method = row.original.paymentMethod;
                 const label: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
                 const colorClass = method === "cash" ? "border-emerald-300 text-emerald-700" : method === "qris" ? "border-blue-300 text-blue-700" : "border-indigo-300 text-indigo-700";
-                return <Badge variant="outline" className={`text-[10px] ${colorClass}`}>{label[method] || method}</Badge>;
+                return <Badge variant="outline" className={`text-[10px] ${colorClass}`}>{method ? (label[method] || method) : "-"}</Badge>;
             },
         },
         {
