@@ -770,7 +770,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 {transactions.length > 0 && summary && (
                                     <TableFooter>
                                         <TableRow className="bg-muted/60 font-bold print:break-inside-avoid">
-                                            <TableCell colSpan={6} className="text-right">TOTAL PENDAPATAN</TableCell>
+                                            <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENDAPATAN</TableCell>
                                             <TableCell className="text-right tabular-nums text-emerald-600">
                                                 {formatCurrency(summary.totalPendapatan)}
                                             </TableCell>
@@ -778,13 +778,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         {summary.totalPengeluaran > 0 && (
                                             <>
                                                 <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
-                                                    <TableCell colSpan={6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                                    <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
                                                     <TableCell className="text-right tabular-nums text-red-600">
                                                         ({formatCurrency(summary.totalPengeluaran)})
                                                     </TableCell>
                                                 </TableRow>
                                                 <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
-                                                    <TableCell colSpan={6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
+                                                    <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
                                                     <TableCell className={`text-right tabular-nums font-bold ${summary.laba >= 0 ? "text-emerald-700" : "text-red-700"}`}>
                                                         {formatCurrency(summary.laba)}
                                                     </TableCell>

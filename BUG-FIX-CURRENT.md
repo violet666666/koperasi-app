@@ -868,12 +868,12 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`, `[unitSlug]/laporan/page.tsx`
 **Deskripsi:** Endpoint baru mengakomodir `PUT` dan `DELETE` transaksi buku kas pengeluaran operasional unit. Di panel Rincian Pengeluaran, ditambahkan kolom Aksi. Selain itu, fitur visual *Plat Nomor* juga dipisah ke grid tabel tersendiri dalam HTML Laporan dan Ekspor ke format Excel apabila unitnya merupakan **Cuci Mobil**.
 
-### BUG-UI-004 — Spacing Tabel Laporan Kosong di Tengah (Belah Tengah)
+### BUG-UI-004 — Spacing Tabel Laporan Kosong di Tengah (Belah Tengah) & Kaki Tabel Melenceng
 
 **Status:** ✅ FIXED
 **Lokasi:** `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
-**Gejala:** Pada laporan transaksi, terdapat sela yang sangat luas antar deskripsi ('Keterangan') dan tabel kolom selanjutnya. Hal ini karena teks terpotong oleh `max-w-[220px]` sementara kolom ditarik merangkap *width* responsif.
-**Resolusi:** Menghapus pembatasan *max-width* limit tersebut sehingga elemen teks mencair memenuhi sisa table. Memperbaiki `colSpan` pada empty state saat unit adalah unit cuci mobil (8 kolom).
+**Gejala:** Pada laporan transaksi, terdapat sela yang sangat luas antar deskripsi ('Keterangan') dan tabel kolom selanjutnya. Hal ini karena teks terpotong oleh `max-w-[220px]` sementara kolom ditarik merangkap *width* responsif. Kedua, total Nominal di kaki tabel ('Total Pendapatan') melenceng ke kiri untuk unit Cuci Mobil.
+**Resolusi:** Menghapus pembatasan *max-width* limit tersebut sehingga elemen teks mencair memenuhi sisa table. Memperbaiki atribut statis menjadi dinamis: `colSpan={isCuciMobil ? 8 : 7}` pada empty state dan `colSpan={isCuciMobil ? 7 : 6}` pada tabel ringkasan kaki *(footer)* agar menyesuaikan presisi proporsi tabel.
 
 ---
 
