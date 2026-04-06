@@ -607,12 +607,12 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
   - Pemisahan string `[Plat Nomor]` dari sel *Keterangan* menjadi satu kesatuan elemen *Badge* dan dialihkan ke kolom Web tersendiri khusus tabel Cuci Mobil.
   - Penyesuaian `handleExportExcel` (Export XLSX) yang secara cerdas menyelipkan Header dan Row "Plat Nomor" sehingga output Microsoft Excel Unit Cuci Mobil lebih rapi dan bersih.
 
-### BUG-UI-013 — Kolom Nominal Tidak Rata Kanan
+### BUG-UI-013 — Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
 
 **Status:** ✅ FIXED
 **Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
-**Gejala:** Nilai angka nominal transaksi pada tabel sudah rata kanan `text-right`, namun judul kolom Header "Nominal" masih diam di kiri sehingga tampilan menjadi tumpang tindih urutannya secara estetika.
-**Resolusi:** Membungkus string *header* dengan `() => <div className="text-right">Nominal</div>` agar sejajar dengan sel isi datanya.
+**Gejala:** Nilai angka nominal transaksi pada tabel sebelumnya diratakan kanan (`text-right`), padahal skeleton tabel dan gaya kolom lainnya menggunakan format default rata kiri. Perbedaan ini menyebabkan desain kolom "Nominal" beserta isi baris di bawahnya terlihat melenceng dan tidak sejajar.
+**Resolusi:** Menghapus class `text-right` pada detail transaksi nominal dan mengembalikan properti `header` ke format standar. Kini isi data rata kiri mengacu pada kerangka dasar (`skeleton`) tabel aplikasi.
 
 ---
 *Diperbarui: 7 April 2026*

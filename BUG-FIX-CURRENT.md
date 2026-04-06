@@ -42,7 +42,7 @@
 | **FEAT-007** | **Edit Plat Nomor & Keterangan di riwayat transaksi (Admin/Operator)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
-| **BUG-UI-013** | **Header tabel kolom nominal tidak rata kanan** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-UI-013** | **Isi kolom nominal tidak rata kiri sesuai skeleton** | ✅ FIXED | 7 Apr 2026 |
 
 ---
 
@@ -938,12 +938,12 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
 **Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
 
-### BUG-UI-013 — Header Tabel Kolom Nominal Tidak Rata Kanan
+### BUG-UI-013 — Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
 
 **Status:** ✅ FIXED
 **Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
-**Gejala:** Nilai angka nominal transaksi pada tabel sudah rata kanan `text-right`, namun judul kolom Header "Nominal" masih diam di kiri sehingga tampilan menjadi tumpang tindih urutannya secara estetika.
-**Resolusi:** Membungkus string *header* dengan `() => <div className="text-right">Nominal</div>` agar sejajar dengan sel isi datanya.
+**Gejala:** Nilai angka nominal transaksi pada tabel sebelumnya diratakan kanan (`text-right`), padahal skeleton tabel dan gaya kolom lainnya menggunakan format default rata kiri. Perbedaan ini menyebabkan desain kolom "Nominal" beserta isi baris di bawahnya terlihat melenceng dan tidak sejajar.
+**Resolusi:** Menghapus class `text-right` pada detail transaksi nominal dan mengembalikan properti `header` ke format standar. Kini isi data rata kiri mengacu pada kerangka dasar (`skeleton`) tabel aplikasi.
 
 ---
 
