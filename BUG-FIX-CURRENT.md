@@ -886,10 +886,17 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 
 **Status:** ✅ FIXED
 **Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
-**Gejala:** Saat fitur Hapus QRIS dijalankan, sistem berhasil membuang *file* dari *server*, namun UI *dashboard* (ketika pop-up kembali dibuka) tetap menampilkan *file* yang tertinggal dalam memori *cache browser*. Hal ini menimbulkan ilusi bahwa gambar tidak terhapus, sehingga menekan tombol *"Hapus QRIS"* kedua kalinya akan berakibat *"Error 404: File tidak ditemukan"*.
-**Resolusi:** Diimplementasikan variabel referensi `imageKey` yang secara reaktif menugaskan rentetan `Date.now()` terbaru pada parameter URL `?bust=${imageKey}` setiap kali intervensi pengunggahan (*Upload*) maupun penghapusan (*Delete*) tuntas dilakukan secara sukses. Hal ini memaksa *browser* meremajakan referensi elemen *Image DOM*-nya seketika, dan mengeksekusi kendali *onError* HTML dengan akurat bilamana berkas QRIS betul-betul sudah lenyap terhapus.
+**Gejala:** Saat fitur Hapus QRIS dijalankan, sistem berhasil membuang *file* dari *server*, namun UI *dashboard* (ketika pop-up kembali dibuka) tetap menampilkan *file* yang tertinggal dalam memori *cache browser*. Hal ini menimbulkan ilusi bahwa gambar tidak terhapus.
+**Resolusi:** Diimplementasikan variabel referensi `imageKey` yang bertugas memperbaharui nilai *URL query parameter* `?bust=${imageKey}` setiap kali berkas dimutakhirkan. Ini memaksa *browser* mengunduh aset terbaru (*cache busting*).
+
+### BUG-UI-007 — Bottleneck Interaksi Utama Ke Frame Selanjutnya (INP Lag) di Kasir
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Gejala:** Nilai metrik INP (*Interaction to Next Paint*) sangat buruk pada layar Kasir ketika tombol "Bayar Tunai" atau "Pelanggan Sudah Membayar" ditekan. Halaman mengalami cegukan (*freeze/lag*) selama sepersekian detik dan animasi transisi menekan tombol tidak tereksekusi dengan mulus.
+**Resolusi:** Kesalahan ini muncul karena pemanggilan `setIsProcessing(true)` dan pelepasan status *modal* dilakukan selaras di *main UI thread* bersamaan dengan beban komputasi transaksi berat (blok fungsi rekonsiliasi yang disinkronkan). Diperbaiki dengan menginjeksikan fitur *timeout yield* (`setTimeout`) sebesar 15 milidetik pada pengendali *onClick*. Langkah ini memberi "nafas" pada CPU sistem *browser* untuk me-*render* umpan balik visual transisi tombol/tutup *modal* terlebih dahulu sebelum disandera paksa oleh siklus logika fungsi `processPayment()`.
 
 ---
 
-*Total bug tercatat: 69 | Total fitur baru: 15*
+*Total bug tercatat: 70 | Total fitur baru: 15*
 *Diperbarui: 7 April 2026*

@@ -47,8 +47,12 @@ tmp_query.ts
 next-env.d.ts
 
 # upload files
-*.csv
 *.xlsx
 *.xls
+
+# qris
+public/uploads/qris/*
+!public/uploads/qris/.gitkeep
+
 
 .env.test.local

@@ -246,6 +246,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setCustomerSearchResults([]);
             setShowCustomerDropdown(false);
             setShowCreditDialog(false);
+            setShowQrisDialog(false);
             setMemberSearch("");
             setMemberResults([]);
 
@@ -512,7 +513,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                 <Button
                                     className="flex-1 py-6 text-base shadow-md hover:shadow-lg"
                                     disabled={!amount || Number(amount) <= 0 || isProcessing}
-                                    onClick={() => processPayment("cash")}
+                                    onClick={() => setTimeout(() => processPayment("cash"), 15)}
                                 >
                                     {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Banknote className="mr-2 h-5 w-5" />}
                                     Bayar Tunai
@@ -709,8 +710,8 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                             className="w-full bg-blue-600 hover:bg-blue-700 text-base py-6"
                             disabled={isProcessing} 
                             onClick={() => {
-                                setShowQrisDialog(false);
-                                processPayment("qris");
+                                // Add 15ms timeout to yield main thread and resolve INP rendering backlog 
+                                setTimeout(() => processPayment("qris"), 15);
                             }}
                         >
                             {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
