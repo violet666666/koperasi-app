@@ -70,5 +70,55 @@
 - [x] BUG-063: Logika Ekstensi `isOperator` Dipangkas
   - Menertibkan kembali akses "bisa Auto-Approve" untuk `role: "admin"`. Admin Unit yang mengajukan pembatalan harus diterbitkan tiket `ApprovalRequest` sebagaimana mestinya, tidak membypass Inbox Approval miliknya.
 
+## FASE 8 — Stabilisasi & QA Alur Potong Gaji (06 April Sore)
+- [x] BUG-P01 & BUG-P04: Perbaikan Stok & Plafon Toko
+  - Pemotongan `stockToko` kini dikerjakan lebih dahulu, mundur ke `stock` induk bila habis.
+  - Plafon unit transaksi dan kasir khusus "Toko" tidak lagi ditumpuk 2 kali (*Double Count*).
+- [x] BUG-P02 & BUG-P03: Validasi Realtime Potong Gaji Unit Layanan
+  - Diterapkan validasi agregat piutang anggota dan pemeriksaan eksistensi member sehingga tagihan tidak tembus meski Plafon Piutang habis/Limit 0.
+- [x] BUG-D01: Bug Akumulasi Dashboard "Pending Void"
+  - Notifikasi sisa "Potong Gaji/Pending" di Dashboard Admin tidak akan menduplikat nilai yang tertahan di *Pending Void* atau yang sudah *Voided*.
+- [x] FEAT-012, FEAT-013, & FEAT-014:
+  - Penambahan form auto-detect **Edit NRP** (pada Riwayat Transaksi yg lupa NRP).
+  - Penambahan **Kategori Filter (Belum Lunas, Pending Void, dsb)** di Frontend Riwayat Kasir.
+  - Form Dialog Transaksi Kasir kini mengeluarkan notifikasi realtime "Sisa Limit, Total Plafon" untuk memantau kelayakan anggota (*block-action*).
+
 ---
-*Diperbarui: 6 April 2026, 02:10 WIB*
+
+## 🛠️ PANDUAN UAT & LINGKUNGAN STAGING (QA TEST GUIDE)
+
+Untuk melakukan pengujian fungsionalitas (QA/UAT) di *device* manapun dengan aman (tanpa mengubah, menimpa, atau menyinggung data Sistem Produksi), silakan ikuti petunjuk Environment Setup berikut:
+
+### 1. Kredensial Database Staging
+Gunakan kredensial `DATABASE_URL` Staging berikut yang identik dengan schema asli, khusus untuk dev & dummy.
+
+```env
+DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+```
+
+### 2. Panduan Menjalankan Sistem Lokal Berbasis Staging
+Jangan gunakan port standar (3000) agar tidak tumpang tindih dengan aplikasi utama jika sedang berjalan. Kita akan run di port **3001**. 
+
+*Jalankan perintah ini di Terminal (Powershell) folder `koperasi-app`:*
+
+```powershell
+$env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+npm run dev -- -p 3001
+```
+
+*Jika menggunakan MacOS / Linux / Git Bash:*
+```bash
+DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres" npm run dev -- -p 3001
+```
+
+### 3. Skenario QA Checklist (Untuk Tester)
+- Buka browser di http://localhost:3001
+- [ ] Login sebagai Admin Unit atau Kasir (ex: Toko / Jasa Cuci Mobil).
+- [ ] Melakukan Transaksi menggunakan opsi **Potong Gaji**.
+- [ ] Cek *limit* piutang (Plafon vs Sisa Limit). Uji bila Sisa Limit kurang dari total keranjang (Tombol harus terkunci).
+- [ ] Cek halaman **Riwayat Transaksi**, tes Dropdown *Filter Status* baru.
+- [ ] Cek status Dashboard Admin (Grafik Mingguan dan nominal Hari Ini tidak boleh ikut terhitung jika Transaksi masih *Pending Void*).
+- [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
+
+---
+*Diperbarui: 6 April 2026*
