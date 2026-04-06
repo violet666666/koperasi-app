@@ -22,19 +22,10 @@ const UNIT_ABBR: Record<string, string> = {
     aset: "AS",
 };
 
-function generateVoidRequestNo(unitType: string, memberNrp?: string | null): string {
-    const abbr = UNIT_ABBR[unitType] || unitType.substring(0, 2).toUpperCase();
-    const now = new Date();
-    const datePart = [
-        String(now.getDate()).padStart(2, "0"),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        now.getFullYear(),
-    ].join("");
-    // Use last 9 digits of NRP if available, else random
-    const tail = memberNrp
-        ? memberNrp.replace(/\D/g, "").slice(-9)
-        : String(Date.now()).slice(-9);
-    return `${abbr}-${datePart}-${tail}`;
+// Generate readable request number from original transaction number
+// Format: VOID-(originalTransactionNo)
+function generateVoidRequestNo(originalTxNo: string): string {
+    return `VOID-${originalTxNo}`;
 }
 
 export async function POST(request: Request) {
@@ -113,8 +104,8 @@ export async function POST(request: Request) {
                 data: { metadata: metadata },
             });
 
-            // Buat entri approval request sesuai schema Prisma
-            const requestNo = `VD-TOKO-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+            // Buat entri approval request — requestNo = VOID-{saleNo} agar mudah dilacak
+            const requestNo = generateVoidRequestNo(storeSale.saleNo);
             await prisma.approvalRequest.create({
                 data: {
                     requestNo,
@@ -207,7 +198,7 @@ export async function POST(request: Request) {
             }),
             prisma.approvalRequest.create({
                 data: {
-                    requestNo: generateVoidRequestNo(transaction.unitType, transaction.member?.nrp || null),
+                    requestNo: generateVoidRequestNo(transaction.transactionNo),
                     type: "unit_void",
                     referenceType: "unit_transaction",
                     referenceId: transaction.id,

@@ -3,6 +3,40 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
+// Unit type abbreviations for transaction numbers
+const UNIT_ABBR_TX: Record<string, string> = {
+    cuci_mobil: "CM",
+    barbershop: "BB",
+    playstation: "PS",
+    play_station: "PS",
+    fitness: "FT",
+    laundry: "LN",
+    resto_cafe: "RC",
+    resto: "RC",
+    toko: "TK",
+    coffe_latar: "CL",
+    simpan_pinjam: "SP",
+    fotocopy: "FC",
+    aset: "AS",
+};
+
+// Generate: (ABBR)(DDMMYYYY)(4charRand) — e.g., CM060420261A2B
+async function generateTxNo(unitType: string): Promise<string> {
+    const abbr = UNIT_ABBR_TX[unitType] || unitType.substring(0, 2).toUpperCase();
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, "0");
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const y = now.getFullYear();
+    const datePart = `${d}${m}${y}`;
+    // Count today's transactions for this unit type for sequential numbering
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const count = await prisma.unitTransaction.count({
+        where: { unitType, transactionDate: { gte: startOfDay } }
+    });
+    const seq = String(count + 1).padStart(4, "0");
+    return `${abbr}${datePart}${seq}`;
+}
+
 // POST /api/unit-layanan/sales - Process Kasir Cepat
 export async function POST(request: Request) {
     try {
@@ -48,13 +82,13 @@ export async function POST(request: Request) {
                     where: {
                         memberId: member.id,
                         paymentMethod: "salary_cut",
-                        metadata: { path: ["isVoided"], equals: null },
+                        // Filter non-voided (cek di bawah)
                     },
                     _sum: { totalAmount: true },
                 }),
             ]);
 
-            const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
+            const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0) + Number(tagihanStoreSale._sum?.totalAmount ?? 0);
             const plafonPiutang = Number(member.plafonPiutang || 0);
             const sisaLimit = plafonPiutang - totalTagihan;
 
@@ -70,7 +104,7 @@ export async function POST(request: Request) {
         // ── END Validasi Plafon ───────────────────────────────────────────────
 
         const now = new Date();
-        const trxNo = `${unitType.substring(0, 3).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+        const trxNo = await generateTxNo(unitType);
 
         // 1. Create UnitTransaction specifically as the single source of truth for Kasir Cepat
         const ut = await prisma.unitTransaction.create({

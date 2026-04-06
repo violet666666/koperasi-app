@@ -1,6 +1,52 @@
 # Catatan Update Aplikasi
 
-## UPDATE 06 April 2026 — 5 Fitur Unit Baru + UAT PASS 7/7
+## UPDATE 06 April 2026 — Sesi 3: Logic Fix + UAT Contamination Cleanup
+
+**Build ID:** `scGTYRRp9yKVIYCWccSA5` — ✅ Deploy Ready
+
+### [CRITICAL] Cleanup Data UAT di Production
+
+- Ditemukan 1 `ApprovalRequest` UAT di database production (Neon)
+- Root cause: Sesi UAT tanggal 5 April dijalankan di server production (port 3000, env Neon) — sebelum staging Supabase disiapkan
+- Data terhapus: `VD-TOKO-1775417610387-BLS` approval + reset flag `voidPending` di `TK-20260406-MNM5Q5XI`
+- Protocol UAT baru ditetapkan: wajib jalankan server staging port 3001 dengan `.env.test.local`
+
+### [FIX] BUG-LOGIC-001 — No. Referensi Approval Diperbaiki
+
+- Sebelum: generate random `VD-TOKO-1775417610387-BLS` tidak terhubung ke No. Transaksi
+- Sesudah: format `VOID-{No.Transaksi}` → contoh: `VOID-CM060420260001`
+- Logic di `void-request/route.ts`: fungsi `generateVoidRequestNo(originalTxNo)` menggantikan generasi random
+
+### [FIX] BUG-LOGIC-002 — Format No. Transaksi Diperbaiki
+
+- Sebelum: `CUC-MNMKU4YG` — random base-36, tidak bisa dibaca, tidak ada tanggal
+- Sesudah: `CM060420260001` = Singkatan + DDMMYYYY + Nomor Urut 4 digit per hari per unit
+- Nomor urut di-query dari `COUNT` transaksi hari itu, sekuensial dan mudah audit
+- Peta singkatan: CM (Cuci Mobil), BB (Barbershop), PS (PlayStation), FT (Fitness), dll
+
+### [FIX] BUG-BUILD-005 — TS Error di Member Route
+
+- Fix `session.user.role?.name` → `(session.user as any).role` karena `role` bertipe `string`
+
+### [FEATURE] Kolom Anggota/Pelanggan di Tabel Inbox Approval
+
+- Nama + NRP anggota kini terlihat langsung di tabel tanpa perlu buka panel detail
+- Diambil dari `metadata.memberName` dan `metadata.memberNrp`
+
+### [PROTOCOL UAT] Panduan Baru untuk Sesi UAT Berikutnya
+
+```powershell
+# WAJIB sebelum mulai UAT:
+$env:DATABASE_URL = "postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+npm run dev -- -p 3001
+
+# Verifikasi database yang aktif (bukan production):
+#   URL harus mengandung: xlxrjlcnhvtvgkbmrfkm.supabase.co (BUKAN ep-blue-rain.neon.tech)
+```
+
+---
+
+## UPDATE 06 April 2026 — Sesi 2: 5 Fitur Unit Baru + UAT PASS 7/7
 
 **Kelompok fitur:** Laporan Unit, Pengeluaran Operasional, Detail Void, Plat Nomor POS, Search Anggota by Nama
 
@@ -36,9 +82,27 @@
 - Ganti mekanisme detect-NRP pasif dengan **autocomplete aktif realtime**
 - Cari saat ≥ 2 karakter diketik (debounce 350ms) — bekerja untuk NRP maupun nama
 - Dropdown menampilkan: avatar inisial, nama, NRP, kategori (Polri/PNS)
-- Klik untuk pilih → field field terkunci + info bar anggota terpilih (nama, NRP, kategori)
+- Klik untuk pilih → field terkunci + info bar anggota terpilih (nama, NRP, kategori)
 - Tombol X untuk hapus pilihan dan reset ke mode search
 - Menutup dropdown otomatis saat klik di luar area input
+
+### [FEAT-6] Kolom Anggota / Pelanggan di Tabel Inbox Approval
+- Kolom baru menampilkan nama anggota dari `metadata.memberName` (untuk void unit) atau nama pemohon
+- Juga tampil NRP anggota dan badge unitType di bawah nama
+- Nomor referensi dipersingkat (font mono kecil) agar tidak terlalu lebar
+
+### [FEAT-7] Format Nomor Referensi Void yang Readable & Unik
+- Format baru: `(SINGKATAN_UNIT)-(DDMMYYYY)-(9DIGIT_NRP_atau_TIMESTAMP)`
+- Contoh: `CM-06042026-828293010` (Cuci Mobil, 6 Apr 2026, NRP anggota)
+- Helper function `generateVoidRequestNo()` di `void-request/route.ts`
+- Peta singkatan: CM, BB, PS, FT, LN, RC, TK, CL, SP, FC, AS
+
+### [BUILD FIX] Production Build Deploy-Ready
+- Fix: BUG-BUILD-001 → Terminate dev server sebelum `npm run build`
+- Fix: BUG-BUILD-002 → Hapus Prisma JSON null filter yang tidak type-safe
+- Fix: BUG-BUILD-003 → `(e.description ?? "").replace(...)` untuk null-safe
+- Fix: BUG-BUILD-004 → Clear `.next` stale cache sebelum rebuild
+- **Build ID:** `QeeabkWK3uqoollTE_LKX` — ✅ VERIFIED
 
 ### [UAT] Hasil Testing Staging — 7/7 PASS
 - Database staging: Supabase `xlxrjlcnhvtvgkbmrfkm` (bukan production)

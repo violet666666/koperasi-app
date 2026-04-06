@@ -15,7 +15,7 @@ export async function PATCH(
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const userRole = session.user.role?.name ?? (session.user as any).role;
+        const userRole = (session.user as any).role ?? session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = userRole === "operator" || session.user.permissions?.includes("manage_all");
         const isAdmin = userRole === "admin";

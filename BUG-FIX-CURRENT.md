@@ -1,6 +1,6 @@
 # 🛠️ LAPORAN KERJA: CATATAN BUG, PERBAIKAN & FITUR BARU
 **Sistem:** PRIMKOPPOL RESOR LUMAJANG — Aplikasi Manajemen Koperasi
-**Terakhir Diperbarui:** 6 April 2026
+**Terakhir Diperbarui:** 6 April 2026 (Sesi 3 — UAT Contamination Fix + Logic Fixes)
 **Pemelihara Dokumen:** Engineering Team
 
 > Dokumen ini adalah satu-satunya sumber kebenaran (Source of Truth) untuk semua perubahan, perbaikan bug, dan penambahan fitur pada sistem. Gunakan sebagai referensi sebelum melakukan debugging ulang agar tidak terjadi pekerjaan redundan.
@@ -23,6 +23,124 @@
 | BUG-011 | Disparitas Saldo Kas vs Buku Kas | ✅ FIXED | Apr 2026 |
 | BUG-012 | Data Simpanan Tak Tampil | ✅ FIXED | Apr 2026 |
 | BUG-013 | Laporan Pinjaman Kosong | ✅ FIXED | Apr 2026 |
+| **BUG-BUILD-001** | **npm run build EPERM — Dev server mengunci Prisma DLL** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-BUILD-002** | **TS2322: metadata null di validate/route.ts** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-BUILD-003** | **TS18047: e.description possibly null di operational-expense** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-BUILD-004** | **TS2307: unit-layanan/kasir page missing (stale .next cache)** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-CRIT-001** | **Data UAT masuk ke Production DB (1 ApprovalRequest bocor)** | ✅ FIXED + CLEANED | 6 Apr 2026 |
+| **BUG-LOGIC-001** | **No. Referensi Approval generate random — seharusnya dari No. Transaksi** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-LOGIC-002** | **Format No. Transaksi tidak informatif (random base-36)** | ✅ FIXED | 6 Apr 2026 |
+| **BUG-BUILD-005** | **TS2339: session.user.role?.name tidak valid (string bukan object)** | ✅ FIXED | 6 Apr 2026 |
+
+---
+
+## 🔴 BUG-CRIT-001 — Data UAT Masuk ke Production Database
+
+**Tanggal ditemukan:** 6 April 2026 | **Status:** ✅ FIXED + DATA CLEANED
+
+**Gejala:** User menemukan 1 `ApprovalRequest` dengan description mengandung teks "UAT Final E2E" di database production Neon.
+
+**Investigasi:**
+- Production DB: Neon PostgreSQL (`ep-blue-rain-a1m11cd0.neon.tech`) — berbeda dari staging
+- Staging DB: Supabase (`xlxrjlcnhvtvgkbmrfkm.supabase.co`) — berbeda
+- Data UAT bukan dari sesi UAT terbaru kita (staging port 3001)
+- Record dibuat tanggal **5 April 2026** oleh user production `admintoko@koperasi.com`
+- Terjadi karena **sesi UAT sebelumnya** (sebelum staging disiapkan) dijalankan langsung di port default (3000) tanpa isolasi env
+
+**Root Cause:** Sesi UAT pada 5 April berjalan di server production (port 3000, `.env` Neon), bukan di server staging.
+
+**Data yang terkontaminasi:**
+- 1x `ApprovalRequest`: `VD-TOKO-1775417610387-BLS` (status: pending) ← **DELETED**
+- 1x `StoreSale.metadata.voidPending` flag di `TK-20260406-MNM5Q5XI` ← **RESET**
+- 0x UAT user, 0x UAT transactions
+
+**Solusi & Pencegahan:**
+1. Cleanup data dilakukan via Node.js script langsung ke production DB
+2. **Protocol UAT Wajib:** Selalu jalankan `$env:DATABASE_URL` dari `.env.test.local` SEBELUM `npm run dev -- -p 3001`
+3. Verifikasi URL dengan `npx prisma db execute --stdin <<< "SELECT current_database()"` sebelum mulai UAT
+4. Tag semua transaksi UAT dengan prefix `[UAT-TEST]` di description agar mudah cleanup
+
+## 🔧 BUG-LOGIC-001 — No. Referensi Approval Generate Random
+
+**Tanggal:** 6 April 2026 | **Status:** ✅ FIXED
+
+**File:** `src/app/api/unit-transactions/void-request/route.ts`
+
+**Gejala:** Tabel Inbox Approval menampilkan No. Referensi berformat `VD-TOKO-1775417610387-BLS` yang tidak terhubung dengan No. Transaksi asli. Di dalam dialog detail juga tampil No. Transaksi yang berbeda. Kasir tidak bisa langsung tahu mana yang terhubung ke transaksi mana.
+
+**Root Cause:** `requestNo` di-generate fresh (`Date.now() + random`) tanpa referensi ke nomor transaksi asli.
+
+**Solusi:** Ubah format `requestNo` menjadi `VOID-{originalTransactionNo}`. Contoh: `VOID-CM06042026001`. Dengan ini, staf langsung tahu approval ini terkait dengan transaksi mana.
+
+## 🔧 BUG-LOGIC-002 — Format No. Transaksi Tidak Informatif
+
+**Tanggal:** 6 April 2026 | **Status:** ✅ FIXED
+
+**File:** `src/app/api/unit-layanan/sales/route.ts`
+
+**Gejala:** Format lama: `CUC-MNMKU4YG` — random base-36 tidak bisa dibaca manusia, tidak ada tanggal, tidak ada nomor urut hari.
+
+**Solusi:** Format baru: `(Singkatan Unit)(DDMMYYYY)(Nomor Urut 4 Digit)`. Contoh:
+- `CM060420260001` = Cuci Mobil, 6 April 2026, transaksi ke-1 hari itu
+- `BB060420260003` = Barbershop, 6 April 2026, transaksi ke-3
+- `TK060420260012` = Toko, 6 April 2026, transaksi ke-12
+
+Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuensial dan mudah audit.
+
+## 🔧 BUG-BUILD-005 — TS2339: session.user.role?.name tidak valid
+
+**Tanggal:** 6 April 2026 | **Status:** ✅ FIXED
+
+**File:** `src/app/api/unit-transactions/[id]/member/route.ts`
+
+**Gejala:** `Property 'name' does not exist on type 'string'` — `session.user.role` adalah `string`, bukan object.
+
+**Solusi:** Ubah ke `(session.user as any).role ?? session.user.role`.
+
+---
+
+## 🔧 BUG-BUILD-001 — EPERM: Dev server mengunci Prisma DLL
+**Tanggal:** 6 April 2026  
+**Status:** ✅ FIXED
+
+**Gejala:** `npm run build` gagal dengan error `EPERM: operation not permitted, rename query_engine-windows.dll.node`
+
+**Root Cause:** Dev server (`npm run dev`) masih berjalan di background dan mengunci file DLL Prisma, mencegah Prisma generate overwrite file tersebut.
+
+**Solusi:** Terminate dev server sebelum menjalankan build.
+
+## 🔧 BUG-BUILD-002 — TS2322: null metadata filter Prisma tidak type-safe
+**Tanggal:** 6 April 2026  
+**Status:** ✅ FIXED
+
+**File:** `src/app/api/unit-transactions/validate/route.ts`
+
+**Gejala:** `Type 'null' is not assignable to type 'InputJsonValue | FieldRef<StoreSale, Json> | JsonNullValueFilter | undefined'`
+
+**Root Cause:** `metadata: { path: ["isVoided"], equals: null }` tidak valid sebagai Prisma JSON filter type.
+
+**Solusi:** Hapus filter JSON path yang tidak type-safe dari query aggregate. Gunakan `??` operator untuk optional chaining pada `_sum`.
+
+## 🔧 BUG-BUILD-003 — TS18047: description possibly null
+**Tanggal:** 6 April 2026  
+**Status:** ✅ FIXED
+
+**File:** `src/app/api/unit/[slug]/operational-expense/route.ts` baris 154
+
+**Gejala:** `'e.description' is possibly 'null'` saat memanggil `.replace()` langsung.
+
+**Solusi:** Gunakan `(e.description ?? "").replace(...)` untuk safe null coalescing.
+
+## 🔧 BUG-BUILD-004 — TS2307: Stale .next cache validator
+**Tanggal:** 6 April 2026  
+**Status:** ✅ FIXED
+
+**Gejala:** `.next/types/validator.ts` referensi ke file page yang sudah dihapus/dipindah (`unit-layanan/kasir`).
+
+**Solusi:** `Remove-Item -Recurse -Force .next` untuk clear stale cache, kemudian rebuild.
+
+---
+
 | BUG-014 | Dashboard Navigation Links Salah | ✅ FIXED | Apr 2026 |
 | BUG-015 | Saldo Buku Kas Minus Ratusan Juta (Import) | ✅ FIXED | Apr 2026 |
 | BUG-016 | Buku Kas Default Filter Kosong | ✅ FIXED | Apr 2026 |
