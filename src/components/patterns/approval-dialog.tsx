@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2, Landmark, Clock, FileText, User, ReceiptText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { loansApi } from "@/lib/api";
+import { loansApi, unitTransactionsApi } from "@/lib/api";
 import { toast } from "sonner";
 
 export interface ApprovalItem {
@@ -78,6 +78,12 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                 } else {
                     await loansApi.reject(approval.referenceId, notes);
                 }
+            } else if (approval.requestType === "unit_void") {
+                await unitTransactionsApi.voidApprove({
+                    approvalRequestNo: approval.referenceNo,
+                    action: type === "approve" ? "approved" : "rejected",
+                    notes: notes
+                });
             }
 
             toast.success(

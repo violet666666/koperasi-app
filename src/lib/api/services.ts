@@ -328,6 +328,9 @@ export const unitTransactionsApi = {
         paymentMethod?: string;
         notes?: string;
     }) => api.post<{ data: UnitTransaction }>("/unit-transactions", data),
+
+    voidApprove: (data: { approvalRequestNo: string; action: "approved" | "rejected"; notes?: string }) =>
+        api.post<{ message: string }>("/unit-transactions/void-approve", data),
 };
 
 // ============================================================

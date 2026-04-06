@@ -19,18 +19,32 @@ export async function GET(request: Request) {
 
     try {
         const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const localYear = now.getFullYear();
+        const localMonth = now.getMonth();
+        const localDate = now.getDate();
+
+        // Bagi type StoreSale (DateTime): Gunakan object Date Javascript biasa (local timezone 00:00)
+        const todayStart = new Date(localYear, localMonth, localDate);
         const todayEnd = new Date(todayStart.getTime() + 86400000);
 
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - 6);
-        weekStart.setHours(0, 0, 0, 0);
+        // Bagi tipe @db.Date (UnitTransaction): Prisma mengekstrak yyyy-mm-dd dalam UTC.
+        // Jika pakai JS Date biasa, pukul 00:00 WIB terbaca sebagai 17:00 UTC h-1 (misal 5 April).
+        // Sehingga query `< hari ini` menjadi `< '2026-04-05'`, alhasil transaksi hari ini (6 Apr) TIDAK termuat!
+        // Solusinya: Paksa construct jam 00:00 murni di UTC.
+        const todayDateUTC = new Date(Date.UTC(localYear, localMonth, localDate));
+        const tomorrowDateUTC = new Date(todayDateUTC.getTime() + 86400000);
 
-        // Today's transactions for this unit
+        const weekStartUTC = new Date(todayDateUTC);
+        weekStartUTC.setDate(weekStartUTC.getDate() - 6);
+        
+        const weekStart = new Date(todayStart);
+        weekStart.setDate(weekStart.getDate() - 6);
+
+        // Today's transactions for this unit (@db.Date)
         const todayTrx = await prisma.unitTransaction.findMany({
             where: {
                 unitType,
-                transactionDate: { gte: todayStart, lt: todayEnd },
+                transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
             },
             select: { amount: true, paymentMethod: true, isPaid: true },
         });
@@ -62,7 +76,7 @@ export async function GET(request: Request) {
         // Weekly chart data (last 7 days)
         // Group manually by date string to avoid timezone/timestamp grouping issues from Prisma
         const weeklyUnitTrx = await prisma.unitTransaction.findMany({
-            where: { unitType, transactionDate: { gte: weekStart, lt: todayEnd } },
+            where: { unitType, transactionDate: { gte: weekStartUTC, lt: tomorrowDateUTC } },
             select: { transactionDate: true, amount: true },
         });
         
@@ -78,16 +92,18 @@ export async function GET(request: Request) {
 
         const weeklyChartMap = new Map();
         for (let i = 0; i < 7; i++) {
-            const d = new Date(weekStart);
-            d.setDate(d.getDate() + i);
-            d.setHours(0,0,0,0);
-            weeklyChartMap.set(d.getTime(), { date: d, total: 0, count: 0 });
+            const dLocal = new Date(weekStart);
+            dLocal.setDate(dLocal.getDate() + i);
+            const key = `${dLocal.getFullYear()}-${dLocal.getMonth()}-${dLocal.getDate()}`;
+            weeklyChartMap.set(key, { date: dLocal, total: 0, count: 0 });
         }
 
         weeklyUnitTrx.forEach(t => {
-            const d = new Date(t.transactionDate);
-            d.setHours(0,0,0,0);
-            const entry = weeklyChartMap.get(d.getTime());
+            const dUtc = new Date(t.transactionDate);
+            // Pada UnitTransacion (@db.Date), data yg ditarik Prisma biasanya dalam UTC murni misal 00:00:00Z.
+            // Gunakan UTC date method agar cocok dengan key lokal kita.
+            const key = `${dUtc.getUTCFullYear()}-${dUtc.getUTCMonth()}-${dUtc.getUTCDate()}`;
+            const entry = weeklyChartMap.get(key);
             if (entry) {
                 entry.total += Number(t.amount);
                 entry.count += 1;
@@ -96,8 +112,8 @@ export async function GET(request: Request) {
 
         weeklyStoreTrx.forEach(t => {
             const d = new Date(t.createdAt);
-            d.setHours(0,0,0,0);
-            const entry = weeklyChartMap.get(d.getTime());
+            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            const entry = weeklyChartMap.get(key);
             if (entry) {
                 entry.total += Number(t.totalAmount);
                 entry.count += 1;

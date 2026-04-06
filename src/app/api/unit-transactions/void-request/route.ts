@@ -22,6 +22,12 @@ export async function POST(request: Request) {
         const currentUserId = parseInt(session.user.id);
         const isOperator = session.user.role === "operator" || session.user.permissions?.includes("manage_all");
         const now = new Date();
+        
+        let branchIdToUse = session.user.branchId || 1;
+        if (!session.user.branchId) {
+            const headOffice = await prisma.branch.findFirst({ where: { isHeadOffice: true } });
+            if (headOffice) branchIdToUse = headOffice.id;
+        }
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
         if (String(transactionNo).startsWith("POS-") || String(transactionNo).startsWith("TK-") || String(transactionNo).startsWith("TS-") ) {
@@ -83,7 +89,7 @@ export async function POST(request: Request) {
                     type: "void_store_sale",
                     referenceType: "store_sale",
                     referenceId: storeSale.id,
-                    branchId: 10, // Menggunakan branch ID valid (Lumajang)
+                    branchId: branchIdToUse,
                     amount: storeSale.totalAmount,
                     description: `Pembatalan Transaksi Toko [${storeSale.saleNo}] — ${reason}`,
                     requestedById: currentUserId,
@@ -173,7 +179,7 @@ export async function POST(request: Request) {
                     type: "unit_void",
                     referenceType: "unit_transaction",
                     referenceId: transaction.id,
-                    branchId: 10, 
+                    branchId: branchIdToUse,
                     amount: transaction.amount,
                     description: `Pembatalan Transaksi [${transactionNo}] dari Unit ${transaction.unitType.toUpperCase()} — ${reason}`,
                     metadata: {

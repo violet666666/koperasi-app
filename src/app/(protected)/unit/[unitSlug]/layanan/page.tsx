@@ -15,11 +15,14 @@ import { useAuth } from "@/lib/hooks";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 
-export default function LayananUnitPage({ params }: { params: { unitSlug: string } }) {
+export default function LayananUnitPage({ params }: { params: Promise<{ unitSlug: string }> }) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const unitSlug = params.unitSlug;
-    const unitType = unitSlug.replace(/-/g, '_');
+    
+    // In Next.js 15+, params is a promise
+    const resolvedParams = React.use(params);
+    const unitSlug = resolvedParams.unitSlug;
+    const unitType = unitSlug ? unitSlug.replace(/-/g, '_') : '';
 
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingPackage, setEditingPackage] = React.useState<any>(null);
