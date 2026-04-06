@@ -52,6 +52,11 @@ export async function GET(request: Request) {
 // POST /api/toko/sales - Process a toko sale (checkout)
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
         const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType, metadata } = body;
         const unitType = reqUnitType || "toko";
@@ -60,7 +65,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Keranjang kosong" }, { status: 400 });
         }
 
-        const userId = createdById || 1;
+        const userId = Number(session.user.id);
 
         // Validate stock and calculate total
         let totalAmount = 0;
@@ -335,7 +340,6 @@ export async function POST(request: Request) {
 
         // Audit log
         try {
-            const session = await auth();
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
             await logAudit({

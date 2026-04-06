@@ -43,6 +43,8 @@
 | **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **BUG-UI-013** | **Isi kolom nominal tidak rata kiri sesuai skeleton** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
 
 ---
 
@@ -938,14 +940,23 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
 **Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
 
-### BUG-UI-013 — Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
+### BUG-064 — Foreign Key Violation ("Failed to process sale") Pada Checkout Tunai Kasir Toko
 
 **Status:** ✅ FIXED
-**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
-**Gejala:** Nilai angka nominal transaksi pada tabel sebelumnya diratakan kanan (`text-right`), padahal skeleton tabel dan gaya kolom lainnya menggunakan format default rata kiri. Perbedaan ini menyebabkan desain kolom "Nominal" beserta isi baris di bawahnya terlihat melenceng dan tidak sejajar.
-**Resolusi:** Menghapus class `text-right` pada detail transaksi nominal dan mengembalikan properti `header` ke format standar. Kini isi data rata kiri mengacu pada kerangka dasar (`skeleton`) tabel aplikasi.
+**Lokasi:** `src/app/api/toko/sales/route.ts`
+**Gejala:** Modul kasir melempar error Mentah `500 Failed to process sale: Invalid prisma.storeSale.create() invocation: Foreign key constraint violated on the constraint: store_sales_created_by_id_fkey` ketika menekan Bayar Tunai.
+**Penyebab:** Kesalahan implementasi sesi otentikasi. Endpoint ini melempar nilai fallback `userId = 1` ke dalam database `store_sales.createdById` saat `body` payload dari depan tidak mengirim id pengguna. Di server Produksi/Staging, akun bernomor identitas ID 1 tidak ada atau sudah difilter ulang, sehingga *Foreign Key* ke tabel *Users* gagal secara paksa. Sayangnya, transaksi tersendat.
+**Resolusi:** Menyuntikkan pemanggilan wajib `auth()` persis di kepala baris rute *POST* untuk mengambil absolut *Session User ID* murni milik kasir yang aktif (serupa dengan sistem Unit Layanan).
+
+### BUG-P05 — Validasi Gatekeeper Double-Count Piutang (Limit Kasir Selalu Rp 0)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-transactions/validate/route.ts`, `src/app/api/unit-layanan/sales/route.ts`
+**Gejala:** Ketika mencoba melayani pembayaran via "Potong Gaji", Dialog Validasi memblokir transaksi dengan pesan "Sisa Limit Piutang Aktif Rp 0", padahal secara riil limit anggota tersebut masih sangat sehat sisa jutaan di Dashboard.
+**Akar Masalah:** Kendala ini merupakan sisa kepingan luput dari **BUG-P04** kemarin. Penghapusan double-counting alias penghitungan ganda (mengakumulasi `UnitTransaction + StoreSale` bersamaan) kemarin *hanya* ditambal di `toko/sales`, namun luput ditambal ke dua rute penjaga gerbang utamanya yaitu: `validate` endpoint kasir reaktif dan unit layanan. Akibatnya, plafon tagihan *dummy* masih membengkak ganda mencapai atas batas di mata sistem.
+**Resolusi:** Menghapus sepenuhnya blok agresi query ke tabel `StoreSale` dari dalam rute kalkulasi Piutang/Gatekeeper. Entitas yang dihitung kini 100% murni merujuk pada perwujudan final `UnitTransaction`.
 
 ---
 
-*Total bug tercatat: 77 | Total fitur baru: 16*
+*Total bug tercatat: 79 | Total fitur baru: 16*
 *Diperbarui: 7 April 2026*

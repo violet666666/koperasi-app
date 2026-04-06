@@ -614,5 +614,9 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 **Gejala:** Nilai angka nominal transaksi pada tabel sebelumnya diratakan kanan (`text-right`), padahal skeleton tabel dan gaya kolom lainnya menggunakan format default rata kiri. Perbedaan ini menyebabkan desain kolom "Nominal" beserta isi baris di bawahnya terlihat melenceng dan tidak sejajar.
 **Resolusi:** Menghapus class `text-right` pada detail transaksi nominal dan mengembalikan properti `header` ke format standar. Kini isi data rata kiri mengacu pada kerangka dasar (`skeleton`) tabel aplikasi.
 
+| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
+
 ---
+*Total pembaruan tercatat: 98 item (Fitur, UI, Hotfix)*
 *Diperbarui: 7 April 2026*

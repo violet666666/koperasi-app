@@ -67,28 +67,18 @@ export async function POST(request: Request) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
 
-            // Hitung total tagihan aktif: UnitTransaction (semua unit) + StoreSale potong gaji (toko)
-            const [tagihanUnitTx, tagihanStoreSale] = await Promise.all([
-                prisma.unitTransaction.aggregate({
-                    where: {
-                        memberId: member.id,
-                        paymentMethod: "salary_cut",
-                        isPaid: false,
-                        status: { in: ["completed", "pending_void"] },
-                    },
-                    _sum: { amount: true },
-                }),
-                prisma.storeSale.aggregate({
-                    where: {
-                        memberId: member.id,
-                        paymentMethod: "salary_cut",
-                        // Filter non-voided (cek di bawah)
-                    },
-                    _sum: { totalAmount: true },
-                }),
-            ]);
+            // Hitung total tagihan aktif: UnitTransaction (semua unit, karena Toko juga tersinkronisasi)
+            const tagihanUnitTx = await prisma.unitTransaction.aggregate({
+                where: {
+                    memberId: member.id,
+                    paymentMethod: "salary_cut",
+                    isPaid: false,
+                    status: { in: ["completed", "pending_void"] },
+                },
+                _sum: { amount: true },
+            });
 
-            const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0) + Number(tagihanStoreSale._sum?.totalAmount ?? 0);
+            const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
             const plafonPiutang = Number(member.plafonPiutang || 0);
             const sisaLimit = plafonPiutang - totalTagihan;
 
