@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json({
-            data: sales.map((s) => ({
+            data: sales.map((s: { id: number; saleNo: string; customerName: string | null; member: { id: number; name: string; memberNo: string } | null; totalAmount: unknown; paymentMethod: string; cashReceived: unknown; changeAmount: unknown; createdAt: Date; createdBy: { id: number; name: string }; items: Array<{ id: number; productId: number; product: { id: number; sku: string; name: string }; quantity: number; unitPrice: unknown; subtotal: unknown }> }) => ({
                 id: s.id,
                 saleNo: s.saleNo,
                 customerName: s.customerName,
@@ -71,9 +71,10 @@ export async function POST(request: Request) {
             if (!product) {
                 return NextResponse.json({ message: `Produk ID ${item.productId} tidak ditemukan` }, { status: 404 });
             }
-            // IF product is physical (not service), validate stock
-            if (!product.isService && product.stock < item.quantity) {
-                return NextResponse.json({ message: `Stok ${product.name} tidak mencukupi (sisa: ${product.stock})` }, { status: 400 });
+            // IF product is physical (not service), validate stockToko (stok di toko, bukan gudang)
+            const effectiveStock = product.stockToko > 0 ? product.stockToko : product.stock;
+            if (!product.isService && effectiveStock < item.quantity) {
+                return NextResponse.json({ message: `Stok ${product.name} tidak mencukupi (sisa di toko: ${effectiveStock})` }, { status: 400 });
             }
 
             const unitPrice = Number(product.sellPrice);
@@ -102,6 +103,37 @@ export async function POST(request: Request) {
             if (!member) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
+
+            // ── SERVER-SIDE: Validasi Plafon Piutang ────────────────────
+            // Hitung piutang yang belum lunas dari UnitTransaction (jasa) + StoreSale potong gaji (toko)
+            const tagihanUnitTx = await prisma.unitTransaction.aggregate({
+                where: {
+                    memberId: member.id,
+                    paymentMethod: "salary_cut",
+                    isPaid: false,
+                    status: { in: ["completed", "pending_void"] },
+                },
+                _sum: { amount: true },
+            });
+            const tagihanStoreSale = await prisma.storeSale.aggregate({
+                where: {
+                    memberId: member.id,
+                    paymentMethod: "salary_cut",
+                    metadata: { path: ["isVoided"], equals: null },
+                },
+                _sum: { totalAmount: true },
+            });
+            const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
+            const plafonPiutang = Number(member.plafonPiutang);
+            const sisaLimit = plafonPiutang - totalTagihan;
+
+            if (totalAmount > sisaLimit) {
+                return NextResponse.json({
+                    message: `Transaksi ditolak: Sisa limit piutang Rp ${sisaLimit.toLocaleString("id-ID")} tidak cukup untuk belanja Rp ${totalAmount.toLocaleString("id-ID")}. Plafon: Rp ${plafonPiutang.toLocaleString("id-ID")}, Tagihan aktif: Rp ${totalTagihan.toLocaleString("id-ID")}.`,
+                }, { status: 400 });
+            }
+            // ── END Validasi Plafon ──────────────────────────────────────
+
             payment = 0;
             changeAmount = 0;
         } else if (method === "qris") {

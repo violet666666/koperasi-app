@@ -260,7 +260,7 @@ export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_toko",
             },
             {
-                title: "Riwayat Penjualan", href: "/toko", icon: ClipboardList,
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=toko", icon: ClipboardList,
                 permission: "manage_toko",
             },
         ],
@@ -390,9 +390,9 @@ export const adminUnitNavigation: (NavItem | NavGroup)[] = [
 // Bottom navigation for mobile
 export const bottomNavigation: NavItem[] = [
     { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
-    { title: "Anggota", href: "/anggota", icon: Users },
-    { title: "Simpanan", href: "/simpanan", icon: Wallet },
-    { title: "Pinjaman", href: "/pinjaman", icon: CreditCard },
+    { title: "Anggota", href: "/anggota", icon: Users, permission: "manage_anggota" },
+    { title: "Simpanan", href: "/simpanan", icon: Wallet, permission: "manage_simpanan" },
+    { title: "Pinjaman", href: "/pinjaman", icon: CreditCard, permission: "manage_pinjaman" },
 ];
 
 // ============================================================

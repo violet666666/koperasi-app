@@ -71,18 +71,28 @@ export async function POST(request: Request) {
         }
 
         // ── Lapis 3: Hitung total tagihan aktif dari SEMUA unit ───────────
-        // Hanya hitung transaksi yang salary_cut dan belum lunas, kecuali yang voided
-        const tagihanResult = await prisma.unitTransaction.aggregate({
+        // Sumber 1: UnitTransaction (unit jasa) — gunakan `amount`, bukan `loanAmount` yang sering 0
+        const tagihanUnitTx = await prisma.unitTransaction.aggregate({
             where: {
                 memberId: member.id,
                 paymentMethod: "salary_cut",
                 isPaid: false,
                 status: { in: ["completed", "pending_void"] },
             },
-            _sum: { loanAmount: true },
+            _sum: { amount: true },
         });
 
-        const totalTagihan = Number(tagihanResult._sum.loanAmount || 0);
+        // Sumber 2: StoreSale (unit toko) — potong gaji dari POS Toko
+        const tagihanStoreSale = await prisma.storeSale.aggregate({
+            where: {
+                memberId: member.id,
+                paymentMethod: "salary_cut",
+                metadata: { path: ["isVoided"], equals: null },
+            },
+            _sum: { totalAmount: true },
+        });
+
+        const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
         const plafonPiutang = Number(member.plafonPiutang);
         const sisaLimit = plafonPiutang - totalTagihan;
         const nominalBelanja = Number(amount);
