@@ -105,19 +105,25 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
         }
     };
 
-    const deleteQris = async () => {
+    const deleteQris = () => {
         if (!unitType) return;
-        if (!confirm("Yakin ingin menghapus gambar QRIS unit ini?")) return;
-        try {
-            const res = await fetch(`/api/unit-layanan/qris?unitType=${unitType}`, { method: "DELETE" });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.message);
-            toast.success(json.message);
-            setShowQrisModal(false);
-            setImageKey(Date.now());
-        } catch (err: any) {
-            toast.error(err.message);
-        }
+        // Fix INP by releasing the main thread before native confirm()
+        setTimeout(async () => {
+            if (!window.confirm("Yakin ingin menghapus gambar QRIS unit ini?")) return;
+            setIsUploadingQris(true);
+            try {
+                const res = await fetch(`/api/unit-layanan/qris?unitType=${unitType}`, { method: "DELETE" });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message);
+                toast.success(json.message);
+                setShowQrisModal(false);
+                setImageKey(Date.now());
+            } catch (err: any) {
+                toast.error(err.message);
+            } finally {
+                setIsUploadingQris(false);
+            }
+        }, 50);
     };
 
     return (

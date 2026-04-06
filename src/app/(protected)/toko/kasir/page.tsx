@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check
+    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check, QrCode, AlertCircle, CheckCircle2
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -41,6 +41,10 @@ export default function KasirPage() {
 
     // Credit payment state
     const [showCreditDialog, setShowCreditDialog] = React.useState(false);
+    
+    // QRIS state
+    const [showQrisDialog, setShowQrisDialog] = React.useState(false);
+    const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
     const [memberSearch, setMemberSearch] = React.useState("");
     const [memberResults, setMemberResults] = React.useState<MemberResult[]>([]);
     const [selectedMember, setSelectedMember] = React.useState<MemberResult | null>(null);
@@ -120,7 +124,21 @@ export default function KasirPage() {
                 toast.error("Gagal memuat produk");
             } finally { setIsLoading(false); }
         }
+        
+        async function fetchUnitStats() {
+            try {
+                const res = await fetch("/api/unit-layanan/stats?unitType=toko");
+                const json = await res.json();
+                if (json.data?.qrisUrl) {
+                    setQrisUrl(json.data.qrisUrl);
+                }
+            } catch (e) {
+                console.error("Gagal memuat info QRIS toko", e);
+            }
+        }
+        
         fetchProducts();
+        fetchUnitStats();
     }, []);
 
     const filteredProducts = products.filter(p =>
@@ -541,9 +559,9 @@ export default function KasirPage() {
                                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />}
                                     Bayar Tunai
                                 </Button>
-                                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => processPayment("qris")}
+                                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowQrisDialog(true)}
                                     disabled={cart.length === 0 || isProcessing}>
-                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
                                     QRIS
                                 </Button>
                             </div>
@@ -665,6 +683,63 @@ export default function KasirPage() {
                              limitInfo?.allowed === false ? <ShieldAlert className="mr-2 h-4 w-4" /> :
                              <CreditCard className="mr-2 h-4 w-4" />}
                             {limitInfo?.allowed === false ? "Transaksi Ditolak" : "Proses Potong Gaji"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* QRIS Payment Dialog */}
+            <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Pembayaran QRIS — Toko PRIMKOPPOL</DialogTitle>
+                        <DialogDescription>
+                            Minta pelanggan untuk memindai barcode QRIS di bawah ini dengan nominal pembayaran.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="bg-slate-50 p-4 border rounded-xl shadow-sm relative group overflow-hidden">
+                            {qrisUrl ? (
+                                <img
+                                    src={qrisUrl}
+                                    alt="QRIS Toko"
+                                    className="w-56 h-56 object-contain"
+                                />
+                            ) : (
+                                <div className="w-56 h-56 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed bg-white">
+                                    <QrCode className="h-10 w-10 mb-2 opacity-20" />
+                                    <p className="text-sm">Kode QRIS Belum Diatur!</p>
+                                    <p className="text-xs text-center mt-1 px-4">Hubungi Admin Toko untuk mengatur gambar QRIS pada unit ini.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center space-y-1">
+                            <p className="text-sm text-muted-foreground">Total Tagihan:</p>
+                            <p className="text-3xl font-bold text-primary">{formatCurrency(subtotal)}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-800 text-center flex justify-center items-center gap-1.5 font-medium">
+                            <AlertCircle className="h-4 w-4" /> Pastikan saldo benar-benar sudah masuk rekening sebelum menekan tombol di bawah.
+                        </p>
+                    </div>
+
+                    <DialogFooter className="mt-2">
+                        <Button variant="outline" onClick={() => setShowQrisDialog(false)} disabled={isProcessing}>
+                            Batal
+                        </Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => {
+                                setShowQrisDialog(false);
+                                processPayment("qris");
+                            }}
+                            disabled={!qrisUrl || isProcessing}
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            Pelanggan Sudah Bayar (Proses Resi)
                         </Button>
                     </DialogFooter>
                 </DialogContent>
