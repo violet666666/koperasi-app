@@ -841,4 +841,103 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 
 **Tanggal:** 6 Apr 2026
 **File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+**Deskripsi:** Dropdown filter status ditambahkan di halaman Riwayat Transaksi Unit: Semua / Lunas / Belum Lunas (Piutang) / Pending Void / Dibatalkan. Filter bekerja client-side untuk kecepatan.
+
+### FEAT-013 — Edit NRP Anggota pada Riwayat Transaksi (Admin & Operator)
+
+**Tanggal:** 6 Apr 2026
+**File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`, `src/app/api/unit-transactions/[id]/member/route.ts`
+**Deskripsi:** Tombol Edit (✏️) muncul di kolom Aksi untuk transaksi yang belum memiliki anggota terkait. Hanya Admin Unit (di unitnya) atau Operator yang dapat menggunakan. Dialog input NRP dengan auto-detect seperti POS Kasir. Audit log dicatat setiap perubahan.
+
+### FEAT-014 — Validasi Limit Piutang Realtime di Dialog Potong Gaji (Unit Layanan)
+
+**Tanggal:** 6 Apr 2026
+**File:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Deskripsi:** Saat Admin memilih anggota di dialog Potong Gaji unit, sistem langsung fetch data plafon, tagihan aktif, dan sisa limit. Tombol "Proses Potong Gaji" diblokir jika sisa limit tidak mencukupi.
+
+### BUG-UI-003 — Kontras Button "Tambah Layanan" Sangat Rendah
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/layanan/page.tsx` baris 145-148
+**Gejala:** Tombol "Tambah Layanan" menggunakan class `bg-gemini-blue` tanpa Tailwind Theme yang mendefinisikannya, sehingga button menjadi sangat putih dan menyatu dengan background. 
+**Resolusi:** Merubah class menjadi standar UI kit yaitu `bg-primary text-primary-foreground` serta `text-primary`.
+
+### FEAT-015 — CRUD Pengeluaran Operasional Unit
+
+**Tanggal:** 7 Apr 2026
+**File:** `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`, `[unitSlug]/laporan/page.tsx`
+**Deskripsi:** Endpoint baru mengakomodir `PUT` dan `DELETE` transaksi buku kas pengeluaran operasional unit. Di panel Rincian Pengeluaran, ditambahkan kolom Aksi. Selain itu, fitur visual *Plat Nomor* juga dipisah ke grid tabel tersendiri dalam HTML Laporan dan Ekspor ke format Excel apabila unitnya merupakan **Cuci Mobil**.
+
+### BUG-UI-004 — Spacing Tabel Laporan Kosong di Tengah (Belah Tengah) & Kaki Tabel Melenceng
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
+**Gejala:** Pada laporan transaksi, terdapat sela yang sangat luas antar deskripsi ('Keterangan') dan tabel kolom selanjutnya. Hal ini karena teks terpotong oleh `max-w-[220px]` sementara kolom ditarik merangkap *width* responsif. Kedua, total Nominal di kaki tabel ('Total Pendapatan') melenceng ke kiri untuk unit Cuci Mobil.
+**Resolusi:** Menghapus pembatasan *max-width* limit tersebut sehingga elemen teks mencair memenuhi sisa table. Memperbaiki atribut statis menjadi dinamis: `colSpan={isCuciMobil ? 8 : 7}` pada empty state dan `colSpan={isCuciMobil ? 7 : 6}` pada tabel ringkasan kaki *(footer)* agar menyesuaikan presisi proporsi tabel.
+
+### BUG-UI-005 — Tombol Bayar QRIS Overflow (Melewati Batas Dialog)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Gejala:** Pada modal pop-up QRIS, tombol konfirmasi pembayaran dan batal meluber (*overflow*) ke kanan dan ke kiri layar sehingga melanggar kotak *dialog*.
+**Resolusi:** Mengganti pembungkus dari konstruktor bawaan `<DialogFooter>` yang mewarisi class `sm:flex-row sm:space-x-2` dengan `<div>` standard khusus kelas kolumnar vertikal (`flex-col gap-2 w-full`), mencegah konflik `w-full` merentang menjadi 200%.
+
+### BUG-UI-006 — Usang/Stale View pada Gambar QRIS Setelah Diperbarui (Cache Issue)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
+**Gejala:** Setelah pengguna sukses mengklik tombol "Ganti QRIS" dan mengunggah gambar baru, gambar PRatinjau (Preview) tidak berubah bila *browser* masih menyimpan *cache* gambar di direktori `/uploads/qris/...`.
+**Resolusi:** Memperbarui parameter `src` pada tag `<img />` di Kasir Dashboard dengan metode *Cache Busting*: Menginjeksikan `?v=${imageKey}` pada *query string* URL gambar, dengan fungsi *React State* khusus `setImageKey(Date.now())` yang menyala ketika proses fungsi unggah QRIS terselesaikan di sisi *backend*. Ini memaksa struktur HTML untuk mengabaikan *cache cache control* pada browser Anda dan merekuisis *file* segar.
+
+### BUG-UI-007 — Bottleneck Interaksi Utama Ke Frame Selanjutnya (INP Lag) di Kasir
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Gejala:** Nilai metrik INP (*Interaction to Next Paint*) sangat buruk pada layar Kasir ketika tombol "Bayar Tunai" atau "Pelanggan Sudah Membayar" ditekan. Halaman mengalami cegukan (*freeze/lag*) selama sepersekian detik dan animasi transisi menekan tombol tidak tereksekusi dengan mulus.
+**Resolusi:** Kesalahan ini muncul karena pemanggilan `setIsProcessing(true)` dan pelepasan status *modal* dilakukan selaras di *main UI thread* bersamaan dengan beban komputasi transaksi berat (blok fungsi rekonsiliasi yang disinkronkan). Diperbaiki dengan menginjeksikan fitur *timeout yield* (`setTimeout`) sebesar 15 milidetik pada pengendali *onClick*. Langkah ini memberi "nafas" pada CPU sistem *browser* untuk me-*render* umpan balik visual transisi tombol/tutup *modal* terlebih dahulu sebelum disandera paksa oleh siklus logika fungsi `processPayment()`.
+
+### BUG-UI-008 — Rekam Jejak Waktu Mundur 1 Hari Buntut Konversi `@db.Date` UTC (Timezone Shift)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`, `src/app/api/unit-[...]/route.ts`
+**Gejala:** Nilai transaksi baru (misal *CM07042026...*) yang dibuat pada hari ini dini hari / sewaktu-waktu bisa saja terlempar ke tanggal kemarin, misalnya "6 Apr 2026 07:00 WIB".
+**Resolusi:** Pada struktur *database*, *field* `transactionDate` disimpan sebagai wujud statis `@db.Date`. Prisma/PostgreSQL otomatis mencukur (*strip*) nilai jam (*Time*) dan menyisakan tanggal saja dalam UTC, yang ekuivalen ke `00:00:00 UTC` alias `07:00:00 WIB` keesokan paginya - mengakibatkan hilangnya akurasi detik waktu lokal. Diatasi dengan mengarahkan seluruh *endpoint* riwayat dan tabel visualnya merujuk pada metrik bayangan yang jauh lebih *rigid*, yaitu properti `createdAt` (bertipe absolut `timestamp`), lalu mengawinkannya dengan wujud waktu peramban lokal agar keakuratannya selaras 1:1.
+
+### BUG-UI-009 — Restriksi Direktori dan Blind Error pada Fitur Kelola QRIS (Vercel Serverless Read-Only)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-layanan/qris/route.ts`, `prisma/schema.prisma`
+**Gejala:** Pesan lambat "Gagal mengunggah QRIS" / "Gagal menghapus" pada Produksi karena arsitektur *serverless* milik Vercel memblokir fungsi modifikasi berkas statis (*Read-Only File System*).
+**Resolusi:** Mengubah fundamental struktur penyimpanan gambar QRIS dari *File System* lokal bawaan Node.js (`/public/uploads/`) menjadi penyimpanan rekam jejak biner *Base64* murni tersentralisasi di *Database* (Tabel `UnitSetting`). 
+
+### BUG-UI-010 — Jeda Interaksi Window Confirm (INP Block) pada Tombol Hapus QRIS
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
+**Gejala:** Metrik interaksi INP mencatat *delay* ekstrim hingga 1,674ms saat tombol "Hapus QRIS" berwarna merah ditekan.
+**Resolusi:** Mengamankan eksekusi `window.confirm()` dengan mengisolasinya di dalam blok `setTimeout(..., 50)`. Hal ini mencegah pembekuan *main-thread* UI peramban saat mengeksekusi kotak dialog peringatan natif sistem operasi (Mac/Windows).
+
+### BUG-UI-011 — Kolom Metode Pembayaran Kosong (Rip) Pada Transaksi Toko di Riwayat
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-transactions/route.ts`
+**Gejala:** Pada tabel Riwayat Transaksi, transaksi milik **Toko** menampilkan strip kosong `"-"` karena kehilangan jejak identitas Metode Bayarnya.
+**Resolusi:** Restrukturisasi model `mapper` pada Endpoint `unit-transactions` (yang memadukan UnitTransaction dan StoreSale). Menambahkan properti `paymentMethod: s.paymentMethod` untuk di-*passthrough* secara sempurna dari rekam *StoreSale* ke Frontend.
+
+### BUG-UI-012 — Kolom Aksi "Edit Plat Nomor" Tersesat Sampai ke Unit Toko
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+**Gejala:** Tombol *Action* Edit "Plat Nomor & Keterangan" memunculkan batang hidungnya di tabel baris Riwayat milik Unit Toko dan lainnya, padahal Toko tidak memiliki urusan dengan Plat Nomor Kendaraan.
+**Resolusi:** Menegaskan isolasi logika komputasi visibilitas tombol tersebut, membatasi operasional `canEditDetails` secara murni eksklusif hanya jika `tx.unitType === "cuci_mobil"`.
+
+### FEAT-016 — Integrasi Dialog Pembayaran QRIS Toko & Perbaikan Sinkronisasi Jurnal
+
+**Tanggal:** 7 Apr 2026
+**File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
+**Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
+
+---
+
+*Total bug tercatat: 76 | Total fitur baru: 16*
 *Diperbarui: 7 April 2026*

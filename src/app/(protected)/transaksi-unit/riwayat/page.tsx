@@ -301,7 +301,7 @@ export default function RiwayatTransaksiUnitPage() {
                 const baseStatus = (tx as any).status || "completed";
                 const isVoidable = baseStatus === "completed";
                 const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
-                const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided";
+                const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided" && tx.unitType === "cuci_mobil";
 
                 return (
                     <div className="flex gap-1">

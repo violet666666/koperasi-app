@@ -107,6 +107,7 @@ export async function GET(request: Request) {
                 transactionDate: s.createdAt,
                 isPaid: isVoided ? false : (s.paymentMethod !== "salary_cut"),
                 paidDate: s.paymentMethod !== "salary_cut" && !isVoided ? s.createdAt : null,
+                paymentMethod: s.paymentMethod,
                 notes: `Total Item: ${s.items?.length || 0}`,
                 status: isVoided ? "voided" : "completed",
                 member: s.member,
