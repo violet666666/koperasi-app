@@ -53,6 +53,7 @@ export default function EditAnggotaPage() {
         city: "",
         province: "",
         postalCode: "",
+        plafonPiutang: "",
     });
 
     React.useEffect(() => {
@@ -81,6 +82,7 @@ export default function EditAnggotaPage() {
                     city: m.city || "",
                     province: m.province || "",
                     postalCode: m.postalCode || "",
+                    plafonPiutang: m.plafonPiutang ? String(m.plafonPiutang) : "0",
                 });
             } catch {
                 toast.error("Gagal memuat data anggota");
@@ -207,6 +209,19 @@ export default function EditAnggotaPage() {
                                 value={formData.salary}
                                 onChange={handleChange}
                                 placeholder="Masukkan nominal gaji bersih"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="plafonPiutang">Plafon Piutang Belanja (Limit Kasir)</Label>
+                            <Input
+                                id="plafonPiutang"
+                                name="plafonPiutang"
+                                type="number"
+                                min="0"
+                                value={formData.plafonPiutang}
+                                onChange={handleChange}
+                                placeholder="Contoh: 1500000"
                             />
                         </div>
 

@@ -45,6 +45,7 @@
 | **BUG-UI-013** | **Isi kolom nominal tidak rata kiri sesuai skeleton** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
 
 ---
 
@@ -956,7 +957,15 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Akar Masalah:** Kendala ini merupakan sisa kepingan luput dari **BUG-P04** kemarin. Penghapusan double-counting alias penghitungan ganda (mengakumulasi `UnitTransaction + StoreSale` bersamaan) kemarin *hanya* ditambal di `toko/sales`, namun luput ditambal ke dua rute penjaga gerbang utamanya yaitu: `validate` endpoint kasir reaktif dan unit layanan. Akibatnya, plafon tagihan *dummy* masih membengkak ganda mencapai atas batas di mata sistem.
 **Resolusi:** Menghapus sepenuhnya blok agresi query ke tabel `StoreSale` dari dalam rute kalkulasi Piutang/Gatekeeper. Entitas yang dihitung kini 100% murni merujuk pada perwujudan final `UnitTransaction`.
 
+### BUG-065 — Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/anggota/[id]/edit/page.tsx`
+**Gejala:** Pelanggan/Anggota tercatat selalu ditolak saat proses kasir karena limit "Plafon Belanja Potong Gaji" memunculkan output nilai `Rp 0`.
+**Akar Masalah:** Desain *Database* secara keamanan *zero-trust* mengunci profil member baru agar nilai Limit Kasir bawaan/default disetel presisi ke titik 0 di belakang layar. Untuk bisa berhutang, figur `plafonPiutang` ini **wajib** dikonfigurasi ulang secara otoritatif oleh Operator. Sayangnya, form/kolom input UI untuk profil `plafonPiutang` tersebut secara *Front-end* tertinggal belum dirajut ke formulir halaman utama "Edit Data Anggota", sehingga hal ini menyandera admin untuk tidak berdaya membuka gembok 0 Limit tersebut.
+**Resolusi:** Memasukkan *Field* khusus label `"Plafon Piutang Belanja (Limit Kasir)"` di dalam blok form Data Pribadi di antarmuka Edit Anggota sehingga Operator berwenang bisa seketika menetapkan/menurunkan limit kustom dengan leluasa.
+
 ---
 
-*Total bug tercatat: 79 | Total fitur baru: 16*
+*Total bug tercatat: 80 | Total fitur baru: 16*
 *Diperbarui: 7 April 2026*
