@@ -64,7 +64,7 @@ const columns: ColumnDef<ApprovalItem>[] = [
     {
         accessorKey: "referenceNo",
         header: "No. Referensi",
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("referenceNo")}</span>,
+        cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.getValue("referenceNo")}</span>,
     },
     {
         accessorKey: "requestType",
@@ -85,10 +85,41 @@ const columns: ColumnDef<ApprovalItem>[] = [
         accessorKey: "description",
         header: "Keterangan",
         cell: ({ row }) => (
-            <div className="max-w-[250px] truncate" title={row.getValue("description")}>
+            <div className="max-w-[220px] truncate" title={row.getValue("description")}>
                 {row.getValue("description") || "-"}
             </div>
         ),
+    },
+    // Kolom baru: Anggota / Pelanggan
+    {
+        id: "member",
+        header: "Anggota / Pelanggan",
+        cell: ({ row }) => {
+            const item = row.original;
+            // Void requests: ambil dari metadata
+            const meta = (item.metadata || {}) as Record<string, any>;
+            const memberName = meta.memberName && meta.memberName !== "-"
+                ? meta.memberName
+                : item.requestedBy?.name || null;
+            const memberNrp = meta.memberNrp && meta.memberNrp !== "-" ? meta.memberNrp : null;
+            const unitType = meta.unitType;
+
+            if (!memberName) return <span className="text-muted-foreground text-xs">-</span>;
+
+            return (
+                <div>
+                    <p className="font-medium text-sm truncate max-w-[160px]">{memberName}</p>
+                    {memberNrp && (
+                        <p className="text-xs text-muted-foreground font-mono">{memberNrp}</p>
+                    )}
+                    {unitType && (
+                        <Badge variant="outline" className="text-[9px] mt-0.5 capitalize border-slate-300">
+                            {unitType.replace(/_/g, " ")}
+                        </Badge>
+                    )}
+                </div>
+            );
+        },
     },
     {
         accessorKey: "amount",
@@ -121,6 +152,7 @@ const columns: ColumnDef<ApprovalItem>[] = [
         cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
     },
 ];
+
 
 export default function ApprovalPage() {
     const [isLoading, setIsLoading] = React.useState(true);

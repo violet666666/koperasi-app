@@ -5,6 +5,38 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
+// Unit type abbreviations for readable reference numbers
+const UNIT_ABBR: Record<string, string> = {
+    cuci_mobil: "CM",
+    barbershop: "BB",
+    playstation: "PS",
+    play_station: "PS",
+    fitness: "FT",
+    laundry: "LN",
+    resto_cafe: "RC",
+    resto: "RC",
+    toko: "TK",
+    coffe_latar: "CL",
+    simpan_pinjam: "SP",
+    fotocopy: "FC",
+    aset: "AS",
+};
+
+function generateVoidRequestNo(unitType: string, memberNrp?: string | null): string {
+    const abbr = UNIT_ABBR[unitType] || unitType.substring(0, 2).toUpperCase();
+    const now = new Date();
+    const datePart = [
+        String(now.getDate()).padStart(2, "0"),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        now.getFullYear(),
+    ].join("");
+    // Use last 9 digits of NRP if available, else random
+    const tail = memberNrp
+        ? memberNrp.replace(/\D/g, "").slice(-9)
+        : String(Date.now()).slice(-9);
+    return `${abbr}-${datePart}-${tail}`;
+}
+
 export async function POST(request: Request) {
     try {
         const session = await auth();
@@ -175,7 +207,7 @@ export async function POST(request: Request) {
             }),
             prisma.approvalRequest.create({
                 data: {
-                    requestNo: `VD-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
+                    requestNo: generateVoidRequestNo(transaction.unitType, transaction.member?.nrp || null),
                     type: "unit_void",
                     referenceType: "unit_transaction",
                     referenceId: transaction.id,
