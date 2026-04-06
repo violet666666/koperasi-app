@@ -46,7 +46,7 @@ export async function GET(request: Request) {
                 unitType,
                 transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
             },
-            select: { amount: true, paymentMethod: true, isPaid: true },
+            select: { amount: true, paymentMethod: true, isPaid: true, status: true },
         });
 
         // Also count StoreSale for toko unit
@@ -70,8 +70,13 @@ export async function GET(request: Request) {
             + todayStoreSales.filter(s => s.paymentMethod === "cash").reduce((s, t) => s + Number(t.totalAmount), 0);
         const todayQris = todayTrx.filter(t => t.paymentMethod === "qris").reduce((s, t) => s + Number(t.amount), 0)
             + todayStoreSales.filter(s => s.paymentMethod === "qris").reduce((s, t) => s + Number(t.totalAmount), 0);
-        const todaySalaryCut = todayTrx.filter(t => t.paymentMethod === "salary_cut").reduce((s, t) => s + Number(t.amount), 0);
-        const todayPending = todayTrx.filter(t => !t.isPaid).length;
+        // Hanya hitung potong gaji yg belum lunas DAN bukan pending_void/voided
+        const todaySalaryCut = todayTrx.filter(t => t.paymentMethod === "salary_cut" && t.status !== "voided" && t.status !== "pending_void")
+            .reduce((s, t) => s + Number(t.amount), 0);
+        // Pending = tagihan aktif (belum lunas, bukan void)
+        const todayPending = todayTrx.filter(t => !t.isPaid && t.status !== "voided" && t.status !== "pending_void").length;
+        // Pending Void = menunggu approval
+        const todayPendingVoid = todayTrx.filter(t => t.status === "pending_void").length;
 
         // Weekly chart data (last 7 days)
         // Group manually by date string to avoid timezone/timestamp grouping issues from Prisma
@@ -200,6 +205,7 @@ export async function GET(request: Request) {
                     qris: todayQris,
                     salaryCut: todaySalaryCut,
                     pending: todayPending,
+                    pendingVoid: todayPendingVoid,
                 },
                 weeklyChart: weeklyChart.map(g => ({
                     date: g.date.toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),

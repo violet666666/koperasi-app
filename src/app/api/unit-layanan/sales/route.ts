@@ -26,6 +26,49 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Member ID diperlukan untuk potong gaji" }, { status: 400 });
         }
 
+        // ── Validasi anggota & plafon piutang untuk Potong Gaji ──────────────
+        if (method === "salary_cut" && memberId) {
+            const member = await prisma.member.findUnique({ where: { id: Number(memberId) } });
+            if (!member) {
+                return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
+            }
+
+            // Hitung total tagihan aktif: UnitTransaction (semua unit) + StoreSale potong gaji (toko)
+            const [tagihanUnitTx, tagihanStoreSale] = await Promise.all([
+                prisma.unitTransaction.aggregate({
+                    where: {
+                        memberId: member.id,
+                        paymentMethod: "salary_cut",
+                        isPaid: false,
+                        status: { in: ["completed", "pending_void"] },
+                    },
+                    _sum: { amount: true },
+                }),
+                prisma.storeSale.aggregate({
+                    where: {
+                        memberId: member.id,
+                        paymentMethod: "salary_cut",
+                        metadata: { path: ["isVoided"], equals: null },
+                    },
+                    _sum: { totalAmount: true },
+                }),
+            ]);
+
+            const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
+            const plafonPiutang = Number(member.plafonPiutang || 0);
+            const sisaLimit = plafonPiutang - totalTagihan;
+
+            if (totalAmount > sisaLimit) {
+                return NextResponse.json({
+                    message: `Transaksi ditolak: Sisa limit piutang Rp ${sisaLimit.toLocaleString("id-ID")} tidak cukup untuk transaksi Rp ${totalAmount.toLocaleString("id-ID")}. Plafon: Rp ${plafonPiutang.toLocaleString("id-ID")}, Tagihan aktif: Rp ${totalTagihan.toLocaleString("id-ID")}.`,
+                    sisaLimit,
+                    plafonPiutang,
+                    totalTagihan,
+                }, { status: 400 });
+            }
+        }
+        // ── END Validasi Plafon ───────────────────────────────────────────────
+
         const now = new Date();
         const trxNo = `${unitType.substring(0, 3).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 

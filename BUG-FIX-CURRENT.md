@@ -1,6 +1,6 @@
 # 🛠️ LAPORAN KERJA: CATATAN BUG, PERBAIKAN & FITUR BARU
 **Sistem:** PRIMKOPPOL RESOR LUMAJANG — Aplikasi Manajemen Koperasi
-**Terakhir Diperbarui:** 5 April 2026
+**Terakhir Diperbarui:** 6 April 2026
 **Pemelihara Dokumen:** Engineering Team
 
 > Dokumen ini adalah satu-satunya sumber kebenaran (Source of Truth) untuk semua perubahan, perbaikan bug, dan penambahan fitur pada sistem. Gunakan sebagai referensi sebelum melakukan debugging ulang agar tidak terjadi pekerjaan redundan.
@@ -574,3 +574,61 @@
 
 *Dokumen ini diperbarui terakhir: 5 April 2026, 22:55 WIB*
 *Total bug tercatat: 60 | Total fitur baru: 11*
+
+---
+
+## [2026-04-06] Audit & Perbaikan Alur POTONG GAJI
+
+### BUG-P01 — Stok Toko Tidak Berkurang Saat Transaksi Potong Gaji
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/toko/sales/route.ts` baris 235–244
+**Gejala:** Stock deduction menggunakan `stock` (gudang) bukan `stockToko` (toko fisik) — menyebabkan stok toko tidak turun setelah checkout.
+**Resolusi:** Prioritaskan pengurangan `stockToko` jika > 0, fallback ke `stock` gudang.
+
+### BUG-P02 — Tidak Ada Validasi Plafon Piutang di Unit Layanan
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-layanan/sales/route.ts`
+**Gejala:** Kasir Cuci Mobil bisa proses Potong Gaji meski limit piutang anggota sudah 0. Server tidak memblokir.
+**Penyebab:** Tidak ada query validasi plafon sebelum membuat UnitTransaction untuk `salary_cut`.
+**Resolusi:** Tambah validasi server-side agregat `UnitTransaction + StoreSale` vs `plafonPiutang` sebelum membuat transaksi.
+
+### BUG-P03 — Member Tidak Divalidasi di Unit Layanan
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-layanan/sales/route.ts`
+**Gejala:** Hanya cek `memberId` null, tidak verifikasi member ada di DB → 500 error jika `memberId` invalid.
+**Resolusi:** Tambah `prisma.member.findUnique` sebelum proses transaksi.
+
+### BUG-P04 — Double-Count Piutang Saat Validasi Plafon Toko
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/toko/sales/route.ts` baris 109–126
+**Gejala:** Validasi plafon Toko menghitung `UnitTransaction + StoreSale` — padahal checkout Toko akan membuat `UnitTransaction` baru, sehingga tagihan dihitung 2x dari StoreSale.
+**Resolusi:** Hapus query `StoreSale` dari validasi plafon Toko. Hanya hitung dari `UnitTransaction` saja sebagai sumber kebenaran piutang.
+
+### BUG-D01 — Dashboard Counter "Potong Gaji Pending" Tidak Akurat (Ikut Hitung Voided)
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-layanan/stats/route.ts` baris 74
+**Gejala:** Container "Potong Gaji — N Pending" di dashboard Admin masih muncul meski transaksi sudah di-void atau pending_void.
+**Penyebab:** Filter hanya `isPaid === false` tanpa exclude `status === 'voided'` atau `status === 'pending_void'`.
+**Resolusi:** Filter `todayPending` dan `todaySalaryCut` sekarang exclude `voided` dan `pending_void`. Tambah counter `pendingVoid` terpisah.
+
+## [2026-04-06] Fitur Baru
+
+### FEAT-012 — Filter Status Riwayat Transaksi Unit
+**Tanggal:** 6 Apr 2026
+**File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+**Deskripsi:** Dropdown filter status ditambahkan di halaman Riwayat Transaksi Unit: Semua / Lunas / Belum Lunas (Piutang) / Pending Void / Dibatalkan. Filter bekerja client-side untuk kecepatan.
+
+### FEAT-013 — Edit NRP Anggota pada Riwayat Transaksi (Admin & Operator)
+**Tanggal:** 6 Apr 2026
+**File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`, `src/app/api/unit-transactions/[id]/member/route.ts`
+**Deskripsi:** Tombol Edit (✏️) muncul di kolom Aksi untuk transaksi yang belum memiliki anggota terkait. Hanya Admin Unit (di unitnya) atau Operator yang dapat menggunakan. Dialog input NRP dengan auto-detect seperti POS Kasir. Audit log dicatat setiap perubahan.
+
+### FEAT-014 — Validasi Limit Piutang Realtime di Dialog Potong Gaji (Unit Layanan)
+**Tanggal:** 6 Apr 2026
+**File:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
+**Deskripsi:** Saat Admin memilih anggota di dialog Potong Gaji unit, sistem langsung fetch data plafon, tagihan aktif, dan sisa limit. Tombol "Proses Potong Gaji" diblokir jika sisa limit tidak mencukupi.
+
+---
+
+*Total bug tercatat: 65 | Total fitur baru: 14*
+*Diperbarui: 6 April 2026*

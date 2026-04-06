@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, Paperclip, XCircle } from "lucide-react";
+import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -43,8 +44,10 @@ export default function RiwayatTransaksiUnitPage() {
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(9999);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
-    // Unit filter: null = tampil semua (operator), atau dipaksa ke unitType user
+    // Unit filter
     const [filterUnit, setFilterUnit] = React.useState<string>(userUnitType || "all");
+    // Status filter
+    const [filterStatus, setFilterStatus] = React.useState<string>("all");
 
     // Void state
     const queryClient = useQueryClient();
@@ -52,6 +55,52 @@ export default function RiwayatTransaksiUnitPage() {
     const [selectedTx, setSelectedTx] = React.useState<UnitTransaction | null>(null);
     const [voidReason, setVoidReason] = React.useState("");
     const [isSubmittingVoid, setIsSubmittingVoid] = React.useState(false);
+
+    // Edit NRP (Admin only)
+    const isAdmin = user?.role?.name === "admin";
+    const [isEditNrpOpen, setIsEditNrpOpen] = React.useState(false);
+    const [editTx, setEditTx] = React.useState<UnitTransaction | null>(null);
+    const [nrpInput, setNrpInput] = React.useState("");
+    const [editMemberFound, setEditMemberFound] = React.useState<any | null>(null);
+    const [isSearchingNrp, setIsSearchingNrp] = React.useState(false);
+    const [isSavingNrp, setIsSavingNrp] = React.useState(false);
+
+    const searchMemberByNrp = async (nrp: string) => {
+        if (!nrp || nrp.length < 4) { setEditMemberFound(null); return; }
+        setIsSearchingNrp(true);
+        try {
+            const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(nrp)}`);
+            const json = await res.json();
+            if (json.data?.length > 0) {
+                const exact = json.data.find((m: any) => m.nrp === nrp || m.memberNo === nrp);
+                setEditMemberFound(exact || null);
+            } else {
+                setEditMemberFound(null);
+            }
+        } catch { setEditMemberFound(null); } finally { setIsSearchingNrp(false); }
+    };
+
+    const saveEditNrp = async () => {
+        if (!editTx || !editMemberFound) return;
+        setIsSavingNrp(true);
+        try {
+            const res = await fetch(`/api/unit-transactions/${editTx.id}/member`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ memberId: editMemberFound.id }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || "Gagal menyimpan");
+            toast.success(`Anggota ${editMemberFound.name} berhasil dikaitkan ke transaksi ${editTx.transactionNo}`);
+            setIsEditNrpOpen(false);
+            setEditTx(null);
+            setNrpInput("");
+            setEditMemberFound(null);
+            queryClient.invalidateQueries({ queryKey: ["unit-transactions"] });
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally { setIsSavingNrp(false); }
+    };
 
     const { data: response, isLoading } = useQuery({
         queryKey: ["unit-transactions", page, perPage],
@@ -63,9 +112,16 @@ export default function RiwayatTransaksiUnitPage() {
         return (response.data as unknown as UnitTransaction[]).filter(tx => {
             const matchesDate = matchesDateRange(tx.transactionDate, dateRange);
             const matchesUnit = filterUnit === "all" ? true : tx.unitType === filterUnit;
-            return matchesDate && matchesUnit;
+            const txStatus = (tx as any).status || "completed";
+            const matchesStatus = filterStatus === "all" ? true
+                : filterStatus === "lunas" ? (tx.isPaid && txStatus !== "voided")
+                : filterStatus === "belum_lunas" ? (!tx.isPaid && txStatus !== "voided" && txStatus !== "pending_void")
+                : filterStatus === "pending_void" ? (txStatus === "pending_void")
+                : filterStatus === "voided" ? (txStatus === "voided")
+                : true;
+            return matchesDate && matchesUnit && matchesStatus;
         });
-    }, [response, dateRange, filterUnit]);
+    }, [response, dateRange, filterUnit, filterStatus]);
 
     // Sync unit filter to user's unitType if they're not operator
     React.useEffect(() => {
@@ -182,25 +238,45 @@ export default function RiwayatTransaksiUnitPage() {
             id: "actions",
             cell: ({ row }) => {
                 const tx = row.original;
-                const baseStatus = tx.status || "completed";
+                const baseStatus = (tx as any).status || "completed";
                 const isVoidable = baseStatus === "completed";
-
-                if (!isVoidable) return <span className="text-muted-foreground text-xs text-center block">-</span>;
+                const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
 
                 return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => {
-                            setSelectedTx(tx);
-                            setVoidReason("");
-                            setIsVoidModalOpen(true);
-                        }}
-                    >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Void
-                    </Button>
+                    <div className="flex gap-1">
+                        {canEditNrp && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="Tambah NRP Anggota"
+                                onClick={() => {
+                                    setEditTx(tx);
+                                    setNrpInput("");
+                                    setEditMemberFound(null);
+                                    setIsEditNrpOpen(true);
+                                }}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {isVoidable && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                    setSelectedTx(tx);
+                                    setVoidReason("");
+                                    setIsVoidModalOpen(true);
+                                }}
+                            >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Void
+                            </Button>
+                        )}
+                        {!isVoidable && !canEditNrp && <span className="text-muted-foreground text-xs text-center block">-</span>}
+                    </div>
                 );
             },
         },
@@ -267,7 +343,7 @@ export default function RiwayatTransaksiUnitPage() {
             <Card>
                 <CardContent className="p-4 space-y-3">
                     <DatePeriodFilter onChange={setDateRange} showImportNote />
-                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
                         <div className="flex items-center gap-2">
                             <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Unit:</Label>
                             {isOperator ? (
@@ -291,6 +367,21 @@ export default function RiwayatTransaksiUnitPage() {
                                     {getUnitName(filterUnit)}
                                 </Badge>
                             )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Status:</Label>
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger className="h-8 w-[180px]">
+                                    <SelectValue placeholder="Semua Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    <SelectItem value="lunas">✅ Lunas</SelectItem>
+                                    <SelectItem value="belum_lunas">🔴 Belum Lunas (Piutang)</SelectItem>
+                                    <SelectItem value="pending_void">⏳ Pending Void</SelectItem>
+                                    <SelectItem value="voided">⛔ Dibatalkan</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         {dateRange.mode !== "all" && (
                             <p className="text-xs text-muted-foreground">Periode: <strong>{dateRange.label}</strong></p>
@@ -336,6 +427,53 @@ export default function RiwayatTransaksiUnitPage() {
                         </Button>
                         <Button variant="destructive" onClick={submitVoidRequest} disabled={isSubmittingVoid}>
                             {isSubmittingVoid ? "Memproses..." : "Ajukan Void"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Edit NRP Dialog (Admin Only) */}
+            <Dialog open={isEditNrpOpen} onOpenChange={(open) => { setIsEditNrpOpen(open); if (!open) { setNrpInput(""); setEditMemberFound(null); }}}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Anggota Transaksi</DialogTitle>
+                        <DialogDescription>
+                            Tambahkan/ubah NRP anggota untuk transaksi <strong>{editTx?.transactionNo}</strong>.
+                            Hanya Admin Unit yang dapat melakukan ini.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Masukkan NRP atau Nomor Anggota</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Contoh: 80040123"
+                                    value={nrpInput}
+                                    onChange={(e) => {
+                                        setNrpInput(e.target.value);
+                                        setEditMemberFound(null);
+                                    }}
+                                    onKeyDown={(e) => e.key === "Enter" && searchMemberByNrp(nrpInput)}
+                                />
+                                <Button onClick={() => searchMemberByNrp(nrpInput)} disabled={isSearchingNrp} variant="outline">
+                                    {isSearchingNrp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </div>
+                        {editMemberFound ? (
+                            <div className="p-3 border rounded-lg bg-emerald-50 border-emerald-200">
+                                <p className="text-sm font-semibold text-emerald-800">✅ Anggota Ditemukan</p>
+                                <p className="font-medium mt-1">{editMemberFound.name}</p>
+                                <p className="text-xs text-muted-foreground">NRP: {editMemberFound.nrp || "-"} | No. Anggota: {editMemberFound.memberNo}</p>
+                            </div>
+                        ) : nrpInput.length >= 4 && !isSearchingNrp ? (
+                            <p className="text-sm text-red-600">❌ NRP tidak ditemukan. Coba tekan Enter atau klik ikon 🔍.</p>
+                        ) : null}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditNrpOpen(false)}>Batal</Button>
+                        <Button onClick={saveEditNrp} disabled={!editMemberFound || isSavingNrp}>
+                            {isSavingNrp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Simpan Anggota
                         </Button>
                     </DialogFooter>
                 </DialogContent>

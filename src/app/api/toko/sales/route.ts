@@ -115,15 +115,10 @@ export async function POST(request: Request) {
                 },
                 _sum: { amount: true },
             });
-            const tagihanStoreSale = await prisma.storeSale.aggregate({
-                where: {
-                    memberId: member.id,
-                    paymentMethod: "salary_cut",
-                    metadata: { path: ["isVoided"], equals: null },
-                },
-                _sum: { totalAmount: true },
-            });
-            const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
+            // NOTE: Tidak double-count StoreSale potong gaji karena saat checkout toko,
+            // kode di bawah (baris ~300) akan membuat UnitTransaction piutang terpisah.
+            // Jika kita juga hitung StoreSale di sini, plafon akan terhitung ganda.
+            const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
             const plafonPiutang = Number(member.plafonPiutang);
             const sisaLimit = plafonPiutang - totalTagihan;
 
@@ -236,10 +231,19 @@ export async function POST(request: Request) {
         for (const vi of validatedItems) {
             const prod = await prisma.storeProduct.findUnique({ where: { id: vi.productId } });
             if (prod && !prod.isService) {
-                await prisma.storeProduct.update({
-                    where: { id: vi.productId },
-                    data: { stock: { decrement: vi.quantity } },
-                });
+                // Kurangi stockToko terlebih dahulu (stok di toko fisik).
+                // Jika stockToko > 0, kurangi stockToko; jika stockToko 0, fallback ke stock gudang.
+                if (prod.stockToko > 0) {
+                    await prisma.storeProduct.update({
+                        where: { id: vi.productId },
+                        data: { stockToko: { decrement: vi.quantity } },
+                    });
+                } else {
+                    await prisma.storeProduct.update({
+                        where: { id: vi.productId },
+                        data: { stock: { decrement: vi.quantity } },
+                    });
+                }
             }
         }
 

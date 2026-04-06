@@ -56,6 +56,10 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     const [memberResults, setMemberResults] = React.useState<any[]>([]);
     const [selectedMember, setSelectedMember] = React.useState<any | null>(null);
     
+    // Limit piutang check
+    const [limitInfo, setLimitInfo] = React.useState<{ sisaLimit: number; plafonPiutang: number; totalTagihan: number } | null>(null);
+    const [isLoadingLimit, setIsLoadingLimit] = React.useState(false);
+    
     // Token intercept
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
 
@@ -134,6 +138,27 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
         } catch {
             toast.error("Gagal mencari anggota");
         } finally { setIsSearchingMember(false); }
+    };
+
+    const selectMemberAndCheckLimit = async (member: any) => {
+        setSelectedMember(member);
+        setLimitInfo(null);
+        setIsLoadingLimit(true);
+        try {
+            const res = await fetch(`/api/unit-transactions/validate?memberId=${member.id}&amount=${Number(amount) || 0}`);
+            const json = await res.json();
+            if (json.data) {
+                setLimitInfo({
+                    sisaLimit: json.data.sisaLimit ?? 0,
+                    plafonPiutang: json.data.plafonPiutang ?? 0,
+                    totalTagihan: json.data.totalTagihan ?? 0,
+                });
+            }
+        } catch {
+            // If validate API fails, let server block it
+        } finally {
+            setIsLoadingLimit(false);
+        }
     };
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
@@ -434,7 +459,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                 {memberResults.map((m) => (
                                     <div key={m.id}
                                         className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 ${selectedMember?.id === m.id ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
-                                        onClick={() => setSelectedMember(m)}>
+                                        onClick={() => selectMemberAndCheckLimit(m)}>
                                         <div>
                                             <p className="font-medium">{m.name}</p>
                                             <p className="text-sm text-muted-foreground">{m.memberNo} {m.nrp ? `· NRP: ${m.nrp}` : ""}</p>
@@ -446,21 +471,47 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                         )}
 
                         {selectedMember && (
-                            <div className="p-3 border rounded-lg bg-muted/30 flex justify-between items-center">
-                                <div>
-                                    <p className="font-medium">{selectedMember.name}</p>
-                                    <p className="text-sm text-muted-foreground">NRP: {selectedMember.nrp || "-"}</p>
+                            <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium">{selectedMember.name}</p>
+                                        <p className="text-sm text-muted-foreground">NRP: {selectedMember.nrp || "-"}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground">Tagihan ini</p>
+                                        <p className="font-bold text-primary">{formatCurrency(Number(amount))}</p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">Tagihan</p>
-                                    <p className="font-bold text-primary">{formatCurrency(Number(amount))}</p>
-                                </div>
+                                {isLoadingLimit ? (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Memeriksa limit piutang...</div>
+                                ) : limitInfo ? (
+                                    <div className={`p-2 rounded text-xs space-y-1 border ${
+                                        limitInfo.sisaLimit >= Number(amount)
+                                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                            : "bg-red-50 border-red-200 text-red-800"
+                                    }`}>
+                                        <div className="flex justify-between"><span>Plafon Piutang:</span><strong>{formatCurrency(limitInfo.plafonPiutang)}</strong></div>
+                                        <div className="flex justify-between"><span>Tagihan Aktif:</span><strong>{formatCurrency(limitInfo.totalTagihan)}</strong></div>
+                                        <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
+                                            <span>Sisa Limit:</span>
+                                            <strong className={limitInfo.sisaLimit >= Number(amount) ? "text-emerald-700" : "text-red-700"}>
+                                                {formatCurrency(limitInfo.sisaLimit)}
+                                            </strong>
+                                        </div>
+                                        {limitInfo.sisaLimit < Number(amount) && (
+                                            <p className="text-red-700 font-semibold pt-1">⚠️ Sisa limit tidak mencukupi untuk transaksi ini!</p>
+                                        )}
+                                    </div>
+                                ) : null}
                             </div>
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowCreditDialog(false)}>Batal</Button>
-                        <Button disabled={!selectedMember || isProcessing} onClick={() => processPayment("salary_cut")}>
+                        <Button variant="outline" onClick={() => { setShowCreditDialog(false); setLimitInfo(null); }}>Batal</Button>
+                        <Button 
+                            disabled={!selectedMember || isProcessing || isLoadingLimit || (limitInfo !== null && limitInfo.sisaLimit < Number(amount))} 
+                            onClick={() => processPayment("salary_cut")}
+                        >
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
                             Proses Potong Gaji
                         </Button>
