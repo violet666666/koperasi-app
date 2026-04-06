@@ -896,7 +896,14 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Nilai metrik INP (*Interaction to Next Paint*) sangat buruk pada layar Kasir ketika tombol "Bayar Tunai" atau "Pelanggan Sudah Membayar" ditekan. Halaman mengalami cegukan (*freeze/lag*) selama sepersekian detik dan animasi transisi menekan tombol tidak tereksekusi dengan mulus.
 **Resolusi:** Kesalahan ini muncul karena pemanggilan `setIsProcessing(true)` dan pelepasan status *modal* dilakukan selaras di *main UI thread* bersamaan dengan beban komputasi transaksi berat (blok fungsi rekonsiliasi yang disinkronkan). Diperbaiki dengan menginjeksikan fitur *timeout yield* (`setTimeout`) sebesar 15 milidetik pada pengendali *onClick*. Langkah ini memberi "nafas" pada CPU sistem *browser* untuk me-*render* umpan balik visual transisi tombol/tutup *modal* terlebih dahulu sebelum disandera paksa oleh siklus logika fungsi `processPayment()`.
 
+### BUG-UI-008 — Rekam Jejak Waktu Mundur 1 Hari Buntut Konversi `@db.Date` UTC (Timezone Shift)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`, `src/app/api/unit-[...]/route.ts`
+**Gejala:** Nilai transaksi baru (misal *CM07042026...*) yang dibuat pada hari ini dini hari / sewaktu-waktu bisa saja terlempar ke tanggal kemarin, misalnya "6 Apr 2026 07:00 WIB".
+**Resolusi:** Pada struktur *database*, *field* `transactionDate` disimpan sebagai wujud statis `@db.Date`. Prisma/PostgreSQL otomatis mencukur (*strip*) nilai jam (*Time*) dan menyisakan tanggal saja dalam UTC, yang ekuivalen ke `00:00:00 UTC` alias `07:00:00 WIB` keesokan paginya - mengakibatkan hilangnya akurasi detik waktu lokal. Diatasi dengan mengarahkan seluruh *endpoint* riwayat dan tabel visualnya merujuk pada metrik bayangan yang jauh lebih *rigid*, yaitu properti `createdAt` (bertipe absolut `timestamp`), lalu mengawinkannya dengan wujud waktu peramban lokal agar keakuratannya selaras 1:1.
+
 ---
 
-*Total bug tercatat: 70 | Total fitur baru: 15*
+*Total bug tercatat: 71 | Total fitur baru: 15*
 *Diperbarui: 7 April 2026*

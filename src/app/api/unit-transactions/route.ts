@@ -111,6 +111,7 @@ export async function GET(request: Request) {
                 status: isVoided ? "voided" : "completed",
                 member: s.member,
                 createdBy: s.createdBy,
+                createdAt: s.createdAt,
             };
         });
         

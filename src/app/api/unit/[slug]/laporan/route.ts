@@ -177,7 +177,7 @@ export async function GET(
             const vehiclePlate = vehiclePlateMatch ? vehiclePlateMatch[1].trim() : null;
             return {
                 id: tx.transactionNo,
-                date: tx.transactionDate,
+                date: (tx as any).createdAt || tx.transactionDate,
                 no: tx.transactionNo,
                 description: tx.description,
                 memberName: tx.member?.name || null,
@@ -234,7 +234,7 @@ export async function GET(
 
                     return {
                         id: e.id,
-                        date: e.transactionDate,
+                        date: (e as any).createdAt || e.transactionDate,
                         transactionNo: e.transactionNo,
                         description: description,
                         amount: Number(e.amount),

@@ -192,12 +192,12 @@ export default function RiwayatTransaksiUnitPage() {
             accessorKey: "transactionDate",
             cell: ({ row }) => {
                 const tx = row.original;
-                // Add fixed timezone string conversion context if missing
+                const dateObj = new Date((tx as any).createdAt || tx.transactionDate);
                 return (
                     <div className="text-sm">
-                        {format(new Date(tx.transactionDate), "dd MMM yyyy", { locale: id })}
+                        {format(dateObj, "dd MMM yyyy", { locale: id })}
                         <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {format(new Date(tx.transactionDate), "HH:mm", { locale: id })} WIB
+                            {format(dateObj, "HH:mm", { locale: id })} WIB
                         </div>
                     </div>
                 );
