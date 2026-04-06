@@ -21,7 +21,7 @@ const prisma = new PrismaClient();
 // ─── Konstanta UAT ─────────────────────────────────────────────
 const UAT_TAG = "[UAT]";
 const UAT_PASSWORD = "uat123456"; // Password semua akun UAT
-const BRANCH_ID = 10; // Sesuaikan dengan branchId production Anda
+// BRANCH_ID akan di-query otomatis di main() agar tidak perlu hardcode
 
 // Unit usaha yang akan diuji
 const UNIT_TYPES = [
@@ -35,6 +35,11 @@ const UNIT_TYPES = [
 
 async function main() {
   console.log("🚀 Memulai UAT Seed...\n");
+
+  // ── 0. Ambil Branch ID otomatis ─────────────────────────────────
+  const branch = await prisma.branch.findFirstOrThrow({ where: { code: "LMJ" } });
+  const BRANCH_ID = branch.id;
+  console.log(`📍 Branch: ${branch.name} (id=${BRANCH_ID})`);
 
   // ── 1. Ambil Role ID dari database ────────────────────────────
   const kasirRole  = await prisma.role.findFirstOrThrow({ where: { name: "kasir"  } });

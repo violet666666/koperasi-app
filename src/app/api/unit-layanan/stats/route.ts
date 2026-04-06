@@ -135,6 +135,7 @@ export async function GET(request: Request) {
             select: {
                 id: true, transactionNo: true, amount: true,
                 paymentMethod: true, description: true, transactionDate: true,
+                createdAt: true, // DateTime lengkap untuk display jam
                 isPaid: true, member: { select: { name: true } },
             },
         });
@@ -145,7 +146,7 @@ export async function GET(request: Request) {
             amount: Number(t.amount),
             method: t.paymentMethod,
             desc: t.description,
-            date: t.transactionDate,
+            date: t.createdAt, // pakai createdAt agar jam akurat, bukan transactionDate yang hanya tanggal
             isPaid: t.isPaid,
             memberName: t.member?.name ?? null,
         }));

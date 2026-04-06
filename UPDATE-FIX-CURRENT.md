@@ -1,5 +1,253 @@
 # Catatan Update Aplikasi
 
+---
+
+## ⚠️ PANDUAN UAT STAGING — WAJIB BACA SEBELUM TESTING ⚠️
+
+> **KRITIS:** Panduan ini **WAJIB** diikuti sebelum melakukan UAT apapun.
+> Semua testing **HARUS** di staging database (Supabase), **BUKAN** production (Neon).
+> **Hanya jalankan prosedur ini jika ada request UAT dari Browser Agent atau user.**
+
+---
+
+### 🔑 AKUN UAT — COPY-PASTE LANGSUNG
+
+**Password SEMUA akun UAT:** `uat123456`
+
+**Akun yang paling sering dipakai untuk testing:**
+
+| Akun | Email | Password |
+| --- | --- | --- |
+| **Admin Cuci Mobil** | `admin.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| **Kasir Cuci Mobil** | `kasir.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| **Admin Toko** | `admin.uat.toko@primkoppol.test` | `uat123456` |
+| **Kasir Toko** | `kasir.uat.toko@primkoppol.test` | `uat123456` |
+
+**Daftar lengkap akun UAT (dari `prisma/seed-uat.ts`):**
+
+| No | Role | Unit | Email | Password |
+| --- | --- | --- | --- | --- |
+| 1 | Kasir | Toko | `kasir.uat.toko@primkoppol.test` | `uat123456` |
+| 2 | Admin | Toko | `admin.uat.toko@primkoppol.test` | `uat123456` |
+| 3 | Kasir | Cuci Mobil | `kasir.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| 4 | Admin | Cuci Mobil | `admin.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| 5 | Kasir | Barbershop | `kasir.uat.barbershop@primkoppol.test` | `uat123456` |
+| 6 | Admin | Barbershop | `admin.uat.barbershop@primkoppol.test` | `uat123456` |
+| 7 | Kasir | PlayStation | `kasir.uat.play_station@primkoppol.test` | `uat123456` |
+| 8 | Admin | PlayStation | `admin.uat.play_station@primkoppol.test` | `uat123456` |
+| 9 | Kasir | Fitness | `kasir.uat.fitness@primkoppol.test` | `uat123456` |
+| 10 | Admin | Fitness | `admin.uat.fitness@primkoppol.test` | `uat123456` |
+| 11 | Kasir | Resto | `kasir.uat.resto@primkoppol.test` | `uat123456` |
+| 12 | Admin | Resto | `admin.uat.resto@primkoppol.test` | `uat123456` |
+
+**Anggota Test UAT:**
+
+| Fungsi | MemberNo | NRP | Nama | Plafon |
+| --- | --- | --- | --- | --- |
+| Test OK | UAT-0001 | UAT99001 | Anggota Test OK | Rp 5.000.000 |
+| Test Blokir | UAT-0002 | UAT99002 | Anggota Test Blokir | Rp 0 (over limit) |
+
+> **⚠️ JANGAN** login dengan akun `@koperasi.com` — itu akun **PRODUCTION**.
+> **⚠️ GUNAKAN** hanya akun `@primkoppol.test` dengan password `uat123456`.
+> **⚠️ JANGAN** gunakan "Forgot Password" — password sudah fix, tidak perlu reset.
+> **⚠️ JANGAN** jalankan seed.ts atau seed-uat.ts ke database production (Neon).
+
+---
+
+### 📖 STEP-BY-STEP MENJALANKAN UAT (Hanya jika request UAT Browser Agent)
+
+**Prasyarat:** Terminal PowerShell, folder `koperasi-app`.
+
+**Step 1 — Set environment variables staging:**
+
+```powershell
+$env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+$env:NEXTAUTH_SECRET="uat-staging-secret-primkoppol-2026"
+$env:NEXTAUTH_URL="http://localhost:3001"
+```
+
+**Step 2 — Jalankan dev server di port 3001:**
+
+```powershell
+npm run dev -- -p 3001
+```
+
+**Step 3 — Buka browser dan login:**
+
+- URL: `http://localhost:3001`
+- Email: (pilih dari tabel akun di atas, misal `admin.uat.cuci_mobil@primkoppol.test`)
+- Password: `uat123456`
+
+**Step 4 — Lakukan testing sesuai request.**
+
+### 🔄 JIKA STAGING DB KOSONG (Pertama Kali / Setelah Reset)
+
+Jalankan perintah ini **SATU PER SATU** secara berurutan:
+
+```powershell
+# 1. Set DATABASE_URL ke staging (WAJIB)
+$env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+
+# 2. Push schema Prisma ke staging DB
+npx prisma db push --accept-data-loss
+
+# 3. Seed data dasar (roles, branch, CoA, akun staff)
+npx tsx prisma/seed.ts
+
+# 4. Seed data UAT (akun @primkoppol.test, produk dummy, member test)
+npx tsx prisma/seed-uat.ts
+```
+
+> **Catatan:** Step 3 membuat data dasar sistem. Step 4 membuat akun UAT `@primkoppol.test`.
+> Keduanya **WAJIB** dijalankan agar bisa login.
+
+### 📁 File Penting UAT
+
+| File | Keterangan |
+| --- | --- |
+| `.env.test.local` | Env staging referensi (sudah di `.gitignore`) |
+| `prisma/seed.ts` | Seed data dasar (roles, branch, CoA, akun staff) |
+| `prisma/seed-uat.ts` | Seed data UAT (akun `@primkoppol.test`, produk dummy, member test) |
+| `tmp_query.sql` | File temp query (sudah di `.gitignore`) |
+| `tmp_query.ts` | File temp script (sudah di `.gitignore`) |
+
+---
+
+## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
+
+### [FIX] Dashboard Riwayat Terbaru — Jam Transaksi Hardcode 07:00
+
+**File:** `src/app/api/unit-layanan/stats/route.ts`
+
+**Root cause:** Field `transactionDate` di model `UnitTransaction` bertipe `@db.Date` (hanya menyimpan tanggal, tanpa jam/menit/detik). Prisma serialize sebagai `2026-04-06T00:00:00.000Z` (00:00 UTC = 07:00 WIB). Akibatnya semua transaksi di dashboard "Riwayat Terbaru" menampilkan pukul 07.00.
+
+**Solusi:** Gunakan field `createdAt` (bertipe `DateTime` lengkap) untuk tampilan waktu di recent transactions, sementara `transactionDate` tetap dipakai untuk filter tanggal.
+
+### [FIX] Export PDF/Excel — Kolom NRP dan Nama Anggota Kosong
+
+**File:** `src/lib/export-utils.ts`
+
+**Root cause:** Fungsi `exportToPDF()` dan `exportToExcel()` mengakses data via `row[col.key]`. Untuk key nested seperti `"member.name"` dan `"member.nrp"`, JavaScript `obj["member.name"]` berarti literal key "member.name", bukan `obj.member.name`. Hasilnya `undefined` → kolom NRP dan Nama Anggota selalu kosong di output PDF/Excel.
+
+**Solusi:** Tambahkan helper `resolveKey()` yang melakukan split `.` dan traverse object path secara rekursif: `"member.name"` → `obj.member.name`.
+
+### [FIX] Seed UAT — BRANCH_ID Hardcode Tidak Match Staging
+
+**File:** `prisma/seed-uat.ts`
+
+**Root cause:** `BRANCH_ID = 10` hardcode, tapi staging DB memiliki branch id=2 (tergantung auto-increment). Seed selalu gagal di staging karena foreign key error.
+
+**Solusi:** Ganti hardcode dengan query dinamis: `prisma.branch.findFirstOrThrow({ where: { code: "LMJ" } })`.
+
+### Analisis 8 Point Pertanyaan
+
+| No | Point | Status | Keterangan |
+| --- | --- | --- | --- |
+| 1 | Brainstorm bagi hasil 50/50 | ✅ Dibahas | Lihat brainstorm detail di bawah |
+| 2 | Riwayat toko tercatat? | ✅ Kode OK | StoreSale tercatat di DB. Jika ada keluhan, kemungkinan race condition browser atau cache. |
+| 3 | Dashboard jam 07:00 hardcode | ✅ FIXED | Gunakan `createdAt` bukan `transactionDate` untuk display jam. |
+| 4 | No.Transaksi format lama? | ✅ Kode OK | Format baru `CM07042026xxxx` sudah aktif. Transaksi lama (`CUC-MNMZW0NQ`) karena belum ada transaksi baru. |
+| 5 | Plat Nomor tercatat? | ✅ Kode OK | Plat nomor disimpan di field `notes` format `[PLAT:xxx]` dan di-parse ke kolom laporan & riwayat. |
+| 6 | Riwayat transaksi unit | ✅ Kode OK | Data query dari `UnitTransaction` + `StoreSale` (toko). Filter berdasarkan unit type. |
+| 7 | Cetak PDF — NRP, Nama, Total | ✅ FIXED | Bug nested key `member.name` di `export-utils.ts`. Sekarang resolve path dengan benar. |
+| 8 | Upload dokumen operasional | ✅ Dibahas | Lihat brainstorm detail di bawah |
+
+### 💡 BRAINSTORM Point 1 — Mekanisme Bagi Hasil 50/50 Cuci Mobil
+
+**Konteks:**
+Unit Cuci Mobil secara informal menerapkan pembagian hasil 50/50 antara koperasi dan karyawan operasional. Mekanisme ini sudah berjalan sebagai kebiasaan tidak tertulis. Pertanyaan: bagaimana skenario terbaik untuk mengelola ini di sistem?
+
+**Referensi AD/ART:**
+AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ada pasal spesifik yang mengatur bagi hasil per unit usaha. Artinya mekanisme 50/50 ini bersifat **kebijakan operasional internal**, bukan aturan baku AD/ART.
+
+**3 Opsi Skenario yang Direkomendasikan:**
+
+**Opsi A — Pencatatan Manual (Status Quo)**
+- Karyawan dan admin unit menghitung manual dari laporan harian
+- Pro: Tidak perlu perubahan sistem
+- Kontra: Rawan salah hitung, tidak ada jejak audit digital
+
+**Opsi B — View-Only di Laporan (✅ SUDAH DIIMPLEMENTASI Sesi 6)**
+- Sistem menampilkan **rekap kalkulasi bagi hasil** di halaman Laporan Transaksi unit Cuci Mobil
+- Ditampilkan sebagai informasi: Pendapatan Kotor → Bagian Karyawan (50%) → Bagian Koperasi (50%) → Laba Bersih
+- Pro: Transparan, ada dasar hitung yang konsisten, tidak mengubah alur akuntansi
+- Kontra: Belum otomatis memotong/memindahkan dana
+
+**Opsi C — Akuntansi Otomatis (Masa Depan)**
+- Setiap transaksi cuci mobil otomatis membuat 2 entri jurnal: 50% ke Kas Koperasi, 50% ke Hutang/Beban Karyawan
+- Pro: Fully automated, audit-ready
+- Kontra: Kompleks, butuh persetujuan pengurus, perlu CoA tambahan
+
+**Rekomendasi Saya:**
+1. **Saat ini:** Pakai **Opsi B** (sudah aktif) — kalkulasi view-only di laporan sudah cukup untuk kebutuhan operasional
+2. **Legalisasi:** Buat **SK Pengurus** (sesuai wewenang di Pasal 52 AD/ART) yang meresmikan proporsi bagi hasil 50/50 agar punya dasar hukum saat audit BPK/pengawas koperasi
+3. **Jika ingin upgrade:** Opsi C bisa diimplementasi nanti setelah SK Pengurus terbit, dengan menambah CoA khusus "Beban Bagi Hasil Karyawan"
+
+**Contoh SK Pengurus (saran draft):**
+> *"Berdasarkan Pasal 52 Anggaran Dasar, Pengurus menetapkan bahwa pendapatan bersih Unit Usaha Cuci Mobil dibagikan dengan proporsi 50% untuk Koperasi dan 50% untuk Karyawan Operasional, berlaku efektif sejak tanggal ditetapkan."*
+
+---
+
+### 💡 BRAINSTORM Point 8 — Fitur Upload Dokumen Operasional
+
+**Konteks:**
+Kebutuhan untuk melampirkan bukti operasional digital (foto struk, nota pembelian, foto kerusakan, slip setoran, dsb.) yang saat ini hanya dicatat manual atau difoto di HP tanpa integrasi ke sistem.
+
+**Masalah yang Dipecahkan:**
+1. Bukti operasional tersebar di HP masing-masing kasir/admin — sulit dicari saat audit
+2. Tidak ada korelasi antara bukti fisik dengan transaksi di sistem
+3. Pengurus kesulitan memverifikasi pengeluaran operasional tanpa bukti digital
+
+**3 Opsi Arsitektur:**
+
+**Opsi A — Attachment per Transaksi**
+- Setiap transaksi (UnitTransaction/StoreSale) bisa punya 1-3 attachment foto
+- Upload dari halaman kasir saat transaksi, atau dari riwayat transaksi (post-upload)
+- Tersimpan di `/uploads/docs/{unitType}/{tanggal}/{filename}`
+- Thumbnail preview di halaman riwayat dan laporan
+
+```
+Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan → 
+      Admin/Operator bisa lihat dari riwayat/laporan
+```
+
+**Opsi B — Dokumen Independen (Catatan Harian)**
+- Fitur terpisah: "Catatan Operasional" / "Logbook Harian"
+- Admin/kasir upload foto + catatan teks per hari
+- Tidak terikat transaksi tertentu, tapi terikat tanggal dan unit
+- Cocok untuk: foto kondisi mesin, nota pembelian sembako, bukti transfer
+
+**Opsi C — Hybrid (A + B)**
+- Attachment per transaksi DAN dokumen independen
+- Paling lengkap tapi effort implementasi paling besar
+
+**Kebutuhan Teknis (estimasi jika diimplementasi):**
+
+| Komponen | Detail | Estimasi |
+| --- | --- | --- |
+| Tabel DB | `OperationalDocument` (id, unitType, transactionId nullable, filePath, note, uploadedBy, createdAt) | 1-2 jam |
+| API Upload | `POST /api/documents/upload` (multipart/form-data, max 5MB, JPG/PNG/PDF) | 2-3 jam |
+| API List/Delete | `GET/DELETE /api/documents` | 1-2 jam |
+| UI Upload | Modal upload di halaman kasir + riwayat transaksi | 3-4 jam |
+| UI Gallery | Thumbnail preview + lightbox di laporan dan riwayat | 2-3 jam |
+| Storage | Lokal `/public/uploads/docs/` atau S3-compatible (Supabase Storage) | 1 jam |
+| **Total estimasi** | | **~10-15 jam kerja** |
+
+**Rekomendasi Saya:**
+1. **Prioritas:** Mulai dengan **Opsi A** (attachment per transaksi) karena langsung memberikan value: bukti bisa dikaitkan ke transaksi spesifik
+2. **Storage:** Gunakan **Supabase Storage** (sudah ada akun Supabase) agar tidak membebani server lokal
+3. **Batasan awal:** Max 3 foto per transaksi, max 5MB per file, format JPG/PNG/PDF
+4. **Fase 2:** Tambahkan Opsi B (logbook independen) jika ada kebutuhan catatan harian yang tidak terkait transaksi
+
+**Saran timeline:**
+- Sprint 1: Tabel DB + API upload/delete → bisa test via Postman
+- Sprint 2: UI upload di halaman kasir + modal preview
+- Sprint 3: Gallery view di laporan + export attachment list
+
+---
+
+---
+
 ## UPDATE 06 April 2026 — Sesi 6: POS Toko Payment Fix + Laporan Bagi Hasil Cuci Mobil
 
 ### [FIX] POS Kasir Toko — Transaksi Tunai Tidak Bisa Diproses

@@ -30,9 +30,16 @@ export function exportToExcel(
     const headers = columns.map((c) => c.header);
 
     // Build data rows
+    const resolveKey = (obj: Record<string, unknown>, key: string): unknown => {
+        return key.split('.').reduce<unknown>((acc, part) => {
+            if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[part];
+            return undefined;
+        }, obj);
+    };
+
     const rows = data.map((row) =>
         columns.map((col) => {
-            const raw = row[col.key];
+            const raw = resolveKey(row, col.key);
             return col.format ? col.format(raw) : (raw ?? "");
         })
     );
@@ -82,9 +89,16 @@ export function exportToPDF(
         return;
     }
 
+    const resolveKey = (obj: Record<string, unknown>, key: string): unknown => {
+        return key.split('.').reduce<unknown>((acc, part) => {
+            if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[part];
+            return undefined;
+        }, obj);
+    };
+
     const rows = data.map((row) =>
         columns.map((col) => {
-            const raw = row[col.key];
+            const raw = resolveKey(row, col.key);
             return col.format ? col.format(raw) : String(raw ?? "");
         })
     );
