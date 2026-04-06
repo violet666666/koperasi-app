@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize } from "lucide-react";
+import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -327,10 +327,22 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                     placeholder="Tulis nama atau ketik/scan NRP"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
-                                    className={`pl-10 ${selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-24" : ""}`}
+                                    className={`pl-10 ${selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-28" : ""}`}
                                 />
                                 {selectedCustomerObj && (
-                                    <Badge variant="outline" className="absolute right-2 top-1/2 -translate-y-1/2 bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                        <button 
+                                            type="button"
+                                            className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-700"
+                                            onClick={() => {
+                                                setSelectedCustomerObj(null);
+                                                setCustomerName("");
+                                            }}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                             <p className="text-[10px] text-muted-foreground mt-1 text-right">Deteksi anggota otomatis untuk simpan riwayat di portal</p>

@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle
+    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -364,10 +364,22 @@ export default function KasirPage() {
                                     <User className={`h-4 w-4 mt-2 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
                                     <Input placeholder="Nama Walk-in atau NRP" value={customerName}
                                         onChange={(e) => setCustomerName(e.target.value)}
-                                        className={selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-24" : ""}
+                                        className={selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-28" : ""}
                                     />
                                     {selectedCustomerObj && (
-                                        <Badge variant="outline" className="absolute right-2 top-2 bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                        <div className="absolute right-2 top-1.5 flex items-center gap-1">
+                                            <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                            <button 
+                                                type="button"
+                                                className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-700"
+                                                onClick={() => {
+                                                    setSelectedCustomerObj(null);
+                                                    setCustomerName("");
+                                                }}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1">Ketik NRP/No. Anggota untuk sinkronisasi histori</p>
