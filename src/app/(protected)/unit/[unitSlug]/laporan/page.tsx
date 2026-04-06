@@ -156,6 +156,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [data, setData] = React.useState<LaporanData | null>(null);
 
     // Expense Dialog
+    const [editExpenseId, setEditExpenseId] = React.useState<number | null>(null);
     const [showExpenseDialog, setShowExpenseDialog] = React.useState(false);
     const [expenseAmount, setExpenseAmount] = React.useState("");
     const [expenseDesc, setExpenseDesc] = React.useState("");
@@ -163,6 +164,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [isSavingExpense, setIsSavingExpense] = React.useState(false);
     const [expenseReceiptFile, setExpenseReceiptFile] = React.useState<File | null>(null);
     const [expenseReceiptPreview, setExpenseReceiptPreview] = React.useState<string | null>(null);
+    const [keepExistingReceipt, setKeepExistingReceipt] = React.useState(true);
     const expenseFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Submit Laporan ke Operator
@@ -176,6 +178,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             return;
         }
         setExpenseReceiptFile(file);
+        setKeepExistingReceipt(false);
         const reader = new FileReader();
         reader.onload = (ev) => setExpenseReceiptPreview(ev.target?.result as string);
         reader.readAsDataURL(file);
@@ -184,7 +187,41 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const clearExpenseFile = () => {
         setExpenseReceiptFile(null);
         setExpenseReceiptPreview(null);
+        setKeepExistingReceipt(false);
         if (expenseFileInputRef.current) expenseFileInputRef.current.value = "";
+    };
+
+    const handleOpenAddExpense = () => {
+        setEditExpenseId(null);
+        setExpenseAmount("");
+        setExpenseDesc("");
+        setExpenseDate(new Date().toISOString().split("T")[0]);
+        clearExpenseFile();
+        setShowExpenseDialog(true);
+    };
+
+    const handleOpenEditExpense = (exp: OperationalExpense) => {
+        setEditExpenseId(exp.id);
+        setExpenseAmount(exp.amount.toString());
+        setExpenseDesc(exp.description);
+        setExpenseDate(new Date(exp.date).toISOString().split("T")[0]);
+        setExpenseReceiptFile(null);
+        setExpenseReceiptPreview(exp.receiptImagePath || null);
+        setKeepExistingReceipt(true);
+        setShowExpenseDialog(true);
+    };
+
+    const handleDeleteExpense = async (id: number) => {
+        if (!confirm("Apakah Anda yakin ingin menghapus pengeluaran ini?\nSaldo kas akan otomatis terkalkulasi ulang.")) return;
+        try {
+            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${id}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success("Pengeluaran berhasil dihapus");
+            fetchLaporan();
+        } catch (err: any) {
+            toast.error(err.message || "Gagal menghapus pengeluaran");
+        }
     };
 
     const unitInfo = UNIT_LABELS[unitType] || { label: formatUnitName(unitSlug), icon: Store };
@@ -220,25 +257,33 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         if (!data) return;
         try {
             const ExcelJS = await import("xlsx");
+            const headerRow = ["No.", "Tanggal", "No. Transaksi", "Keterangan"];
+            if (isCuciMobil) headerRow.push("Plat Nomor");
+            headerRow.push("Anggota/Pelanggan", "Metode", "Nominal", "Status");
+
             const exportData: any[][] = [
                 ["PRIMKOPPOL RESOR LUMAJANG"],
                 [`UNIT ${unitInfo.label.toUpperCase()}`],
                 ["LAPORAN TRANSAKSI & PENDAPATAN"],
                 [`Periode: ${data.periodLabel}`],
                 [],
-                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Anggota/Pelanggan", "Metode", "Nominal", "Status"],
+                headerRow,
             ];
             data.transactions.forEach((tx, i) => {
-                exportData.push([
+                const row = [
                     i + 1,
                     new Date(tx.date).toLocaleDateString("id-ID"),
                     tx.no,
-                    tx.description + (tx.vehiclePlate ? ` [${tx.vehiclePlate}]` : ""),
+                    tx.description,
+                ];
+                if (isCuciMobil) row.push(tx.vehiclePlate || "-");
+                row.push(
                     tx.memberName || "-",
                     METHOD_LABEL[tx.paymentMethod] || tx.paymentMethod,
                     tx.amount,
-                    tx.status === "completed" ? "Selesai" : tx.status,
-                ]);
+                    tx.status === "completed" ? "Selesai" : tx.status
+                );
+                exportData.push(row);
             });
             exportData.push([]);
             exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", data.summary.totalPendapatan, ""]);
@@ -273,14 +318,20 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             if (expenseReceiptFile) {
                 formData.append("receipt", expenseReceiptFile);
             }
+            formData.append("keepExistingReceipt", String(keepExistingReceipt));
 
-            const res = await fetch(`/api/unit/${unitSlug}/operational-expense`, {
-                method: "POST",
+            const isEdit = editExpenseId !== null;
+            const url = isEdit 
+                ? `/api/unit/${unitSlug}/operational-expense/${editExpenseId}` 
+                : `/api/unit/${unitSlug}/operational-expense`;
+
+            const res = await fetch(url, {
+                method: isEdit ? "PUT" : "POST",
                 body: formData,
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
-            toast.success(`Pengeluaran Rp${Number(expenseAmount).toLocaleString("id-ID")} berhasil dicatat`);
+            toast.success(isEdit ? `Pengeluaran berhasil diperbarui` : `Pengeluaran Rp${Number(expenseAmount).toLocaleString("id-ID")} berhasil dicatat`);
             setShowExpenseDialog(false);
             setExpenseAmount("");
             setExpenseDesc("");
@@ -362,7 +413,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     variant="outline"
                                     size="sm"
                                     className="border-red-200 text-red-700 hover:bg-red-50"
-                                    onClick={() => setShowExpenseDialog(true)}
+                                    onClick={() => handleOpenAddExpense()}
                                 >
                                     <TrendingDown className="mr-2 h-4 w-4" />
                                     Catat Pengeluaran
@@ -652,6 +703,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         <TableHead className="w-[100px]">Tanggal</TableHead>
                                         <TableHead className="w-[140px]">No. Transaksi</TableHead>
                                         <TableHead>Keterangan</TableHead>
+                                        {isCuciMobil && <TableHead className="w-[120px]">Plat Nomor</TableHead>}
                                         <TableHead className="w-[130px]">Anggota / Pelanggan</TableHead>
                                         <TableHead className="w-[100px]">Metode</TableHead>
                                         <TableHead className="w-[130px] text-right">Nominal</TableHead>
@@ -678,13 +730,19 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                 <TableCell>
                                                     <div>
                                                         <p className="text-sm font-medium truncate max-w-[220px]">{tx.description}</p>
-                                                        {tx.vehiclePlate && (
+                                                    </div>
+                                                </TableCell>
+                                                {isCuciMobil && (
+                                                    <TableCell>
+                                                        {tx.vehiclePlate ? (
                                                             <Badge variant="outline" className="mt-0.5 text-[10px] font-mono border-slate-400 bg-slate-50 text-slate-700">
                                                                 🚗 {tx.vehiclePlate}
                                                             </Badge>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs">-</span>
                                                         )}
-                                                    </div>
-                                                </TableCell>
+                                                    </TableCell>
+                                                )}
                                                 <TableCell>
                                                     <div className="text-xs">
                                                         <p className="font-medium">{tx.memberName || "Walk-In"}</p>
@@ -758,6 +816,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TableHead>Keterangan</TableHead>
                                     <TableHead className="text-center">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
+                                    {isAdmin && <TableHead className="text-center w-[120px]">Aksi</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -788,6 +847,18 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         <TableCell className="text-right font-semibold tabular-nums text-red-600">
                                             {formatCurrency(exp.amount)}
                                         </TableCell>
+                                        {isAdmin && (
+                                            <TableCell className="text-center">
+                                                <div className="flex justify-center flex-nowrap gap-2">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleOpenEditExpense(exp)}>
+                                                        ✏️
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteExpense(exp.id)}>
+                                                        🗑️
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -813,7 +884,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <TrendingDown className="h-5 w-5 text-red-500" />
-                            Catat Pengeluaran Operasional
+                            {editExpenseId ? "Ubah Pengeluaran Operasional" : "Catat Pengeluaran Operasional"}
                         </DialogTitle>
                         <DialogDescription>
                             Catat pengeluaran unit seperti belanja sabun, peralatan, bahan baku, dll.
@@ -908,7 +979,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             disabled={isSavingExpense || !expenseAmount || !expenseDesc}
                         >
                             {isSavingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            Simpan Pengeluaran
+                            {editExpenseId ? "Simpan Perubahan" : "Simpan Pengeluaran"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

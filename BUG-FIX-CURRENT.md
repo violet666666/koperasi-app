@@ -855,7 +855,20 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx`
 **Deskripsi:** Saat Admin memilih anggota di dialog Potong Gaji unit, sistem langsung fetch data plafon, tagihan aktif, dan sisa limit. Tombol "Proses Potong Gaji" diblokir jika sisa limit tidak mencukupi.
 
+### BUG-UI-003 — Kontras Button "Tambah Layanan" Sangat Rendah
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/unit/[unitSlug]/layanan/page.tsx` baris 145-148
+**Gejala:** Tombol "Tambah Layanan" menggunakan class `bg-gemini-blue` tanpa Tailwind Theme yang mendefinisikannya, sehingga button menjadi sangat putih dan menyatu dengan background. 
+**Resolusi:** Merubah class menjadi standar UI kit yaitu `bg-primary text-primary-foreground` serta `text-primary`.
+
+### FEAT-015 — CRUD Pengeluaran Operasional Unit
+
+**Tanggal:** 7 Apr 2026
+**File:** `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`, `[unitSlug]/laporan/page.tsx`
+**Deskripsi:** Endpoint baru mengakomodir `PUT` dan `DELETE` transaksi buku kas pengeluaran operasional unit. Di panel Rincian Pengeluaran, ditambahkan kolom Aksi. Selain itu, fitur visual *Plat Nomor* juga dipisah ke grid tabel tersendiri dalam HTML Laporan dan Ekspor ke format Excel apabila unitnya merupakan **Cuci Mobil**.
+
 ---
 
-*Total bug tercatat: 65 | Total fitur baru: 14*
-*Diperbarui: 6 April 2026*
+*Total bug tercatat: 66 | Total fitur baru: 15*
+*Diperbarui: 7 April 2026*

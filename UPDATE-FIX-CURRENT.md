@@ -570,14 +570,14 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 Jangan gunakan port standar (3000) agar tidak tumpang tindih dengan aplikasi utama jika sedang berjalan. Kita akan run di port **3001**.
 
-*Jalankan perintah ini di Terminal (Powershell) folder `koperasi-app`:*
+Jalankan perintah ini di Terminal (Powershell) folder `koperasi-app`:
 
 ```powershell
 $env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
 npm run dev -- -p 3001
 ```
 
-*Jika menggunakan MacOS / Linux / Git Bash:*
+Jika menggunakan MacOS / Linux / Git Bash:
 
 ```bash
 DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres" npm run dev -- -p 3001
@@ -593,5 +593,15 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [ ] Cek status Dashboard Admin (Grafik Mingguan dan nominal Hari Ini tidak boleh ikut terhitung jika Transaksi masih *Pending Void*).
 - [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
 
+## FASE 9 — CRUD Rincian Pengeluaran & Enhancement Tabel Laporan
+
+- [x] **FEAT-015: CRUD Pengeluaran Operasional Unit**
+  - Membuat REST API tersendiri bernutrisi FormData `PUT` dan `DELETE` di `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`.
+  - Menerapkan kalkulasi *Cascading Update* pada `cash_bank_transactions` (untuk menyelaraskan integrasi `balanceBefore` & `balanceAfter` saat nominal pengeluaran diisi/diubah di masa lampau).
+  - Mengimplementasikan State Modals `editExpenseId` di `[unitSlug]/laporan/page.tsx`. Menambahkan kolom "Aksi" Edit & Delete untuk peran Admin Unit.
+- [x] **Enhancement Laporan Unit Cuci Mobil**
+  - Pemisahan string `[Plat Nomor]` dari sel *Keterangan* menjadi satu kesatuan elemen *Badge* dan dialihkan ke kolom Web tersendiri khusus tabel Cuci Mobil.
+  - Penyesuaian `handleExportExcel` (Export XLSX) yang secara cerdas menyelipkan Header dan Row "Plat Nomor" sehingga output Microsoft Excel Unit Cuci Mobil lebih rapi dan bersih.
+
 ---
-*Diperbarui: 6 April 2026*
+*Diperbarui: 7 April 2026*
