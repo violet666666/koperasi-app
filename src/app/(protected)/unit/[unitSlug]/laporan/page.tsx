@@ -279,6 +279,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const expenses = data?.operationalExpenses || [];
     const summary = data?.summary;
 
+    // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
+    const isCuciMobil = unitType === "cuci_mobil";
+    const bagiHasilKaryawan = isCuciMobil && summary ? Math.floor(summary.totalPendapatan * 0.5) : 0;
+    const bagianKoperasiKotor = isCuciMobil && summary ? summary.totalPendapatan - bagiHasilKaryawan : 0;
+    const bagianKoperasiBersih = isCuciMobil && summary
+        ? bagianKoperasiKotor - summary.totalPengeluaran
+        : 0;
+
     return (
         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
 
@@ -477,7 +485,82 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </Card>
             )}
 
-            {/* ── Transaction Table ─────────────────────────────────────────── */}
+            {/* Bagi Hasil 50/50 - khusus Cuci Mobil */}
+            {isCuciMobil && summary && !isLoading && (
+                <>
+                    {/* Screen */}
+                    <Card className="print:hidden border-amber-200 bg-amber-50/30">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm text-amber-800 flex items-center gap-2">
+                                🤝 Rekap Bagi Hasil Karyawan (50% / 50%)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="p-3 rounded-lg bg-white border border-amber-200">
+                                <p className="text-xs text-muted-foreground">Pendapatan Kotor</p>
+                                <p className="font-bold text-lg text-amber-700">{formatCurrency(summary.totalPendapatan)}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Sebelum bagi hasil</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-white border border-orange-200">
+                                <p className="text-xs text-muted-foreground">Bagi Hasil Karyawan</p>
+                                <p className="font-bold text-lg text-orange-600">({formatCurrency(bagiHasilKaryawan)})</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">50% dari pendapatan kotor</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-white border border-blue-200">
+                                <p className="text-xs text-muted-foreground">Bagian Koperasi (Kotor)</p>
+                                <p className="font-bold text-lg text-blue-700">{formatCurrency(bagianKoperasiKotor)}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">50% dari pendapatan kotor</p>
+                            </div>
+                            <div className={`p-3 rounded-lg border-2 ${
+                                bagianKoperasiBersih >= 0
+                                    ? "bg-emerald-50 border-emerald-300"
+                                    : "bg-red-50 border-red-300"
+                            }`}>
+                                <p className="text-xs text-muted-foreground">Laba Bersih Koperasi</p>
+                                <p className={`font-bold text-lg ${
+                                    bagianKoperasiBersih >= 0 ? "text-emerald-700" : "text-red-700"
+                                }`}>{formatCurrency(bagianKoperasiBersih)}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Setelah pengeluaran ops.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Print */}
+                    <div className="hidden print:block border border-gray-400 rounded p-3 mb-4">
+                        <p className="font-bold text-sm mb-2">REKAP BAGI HASIL KARYAWAN (50% / 50%)</p>
+                        <table className="w-full text-sm">
+                            <tbody>
+                                <tr>
+                                    <td className="py-0.5 text-gray-600">Pendapatan Kotor</td>
+                                    <td className="text-right font-medium">{formatCurrency(summary.totalPendapatan)}</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-0.5 text-gray-600">Bagi Hasil Karyawan (50%)</td>
+                                    <td className="text-right font-medium text-orange-700">({formatCurrency(bagiHasilKaryawan)})</td>
+                                </tr>
+                                <tr className="border-t">
+                                    <td className="py-0.5 text-gray-600">Bagian Koperasi (50% kotor)</td>
+                                    <td className="text-right font-medium">{formatCurrency(bagianKoperasiKotor)}</td>
+                                </tr>
+                                {summary.totalPengeluaran > 0 && (
+                                    <tr>
+                                        <td className="py-0.5 text-gray-600">Pengeluaran Operasional</td>
+                                        <td className="text-right font-medium text-red-700">({formatCurrency(summary.totalPengeluaran)})</td>
+                                    </tr>
+                                )}
+                                <tr style={{ borderTop: "2px solid black" }}>
+                                    <td className="py-1 font-bold">LABA BERSIH KOPERASI</td>
+                                    <td className={`text-right font-bold ${bagianKoperasiBersih >= 0 ? "" : "text-red-700"}`}>
+                                        {formatCurrency(bagianKoperasiBersih)}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+
+            {/* Transaction Table */}
             <Card className="print:border-0 print:shadow-none">
                 <CardHeader className="print:pb-1">
                     <CardTitle className="text-base">Daftar Transaksi</CardTitle>

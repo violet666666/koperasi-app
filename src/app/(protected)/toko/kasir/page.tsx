@@ -233,7 +233,11 @@ export default function KasirPage() {
     // Process payment (cash, qris, or salary_cut)
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Keranjang kosong"); return; }
-        if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
+        // Untuk Tunai: jika nominal kosong, otomatis isi exact (tanpa kembalian)
+        const effectivePayment = method === "cash"
+            ? (paymentAmount === "" ? subtotal : Number(paymentAmount))
+            : 0;
+        if (method === "cash" && effectivePayment < subtotal) { toast.error("Pembayaran kurang dari total belanja"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota untuk pembayaran potong gaji"); return; }
 
         setIsProcessing(true);
@@ -245,7 +249,7 @@ export default function KasirPage() {
                 unitType: "toko",
             };
             if (method === "cash") {
-                body.cashReceived = Number(paymentAmount);
+                body.cashReceived = effectivePayment; // pakai effectivePayment bukan paymentAmount string
             }
             if (method === "qris") {
                 body.cashReceived = subtotal; // Qris exact amount exact
@@ -286,7 +290,7 @@ export default function KasirPage() {
                 })),
                 totalAmount: subtotal,
                 paymentMethod: method,
-                cashReceived: method === "cash" ? Number(paymentAmount) : undefined,
+                cashReceived: method === "cash" ? effectivePayment : undefined,
                 changeAmount: json.data.changeAmount
             };
             setLastReceipt(receiptData);
@@ -520,9 +524,12 @@ export default function KasirPage() {
                             {/* Cash Payment */}
                             <div>
                                 <Label>Bayar Tunai</Label>
-                                <Input type="number" placeholder="0" value={paymentAmount}
+                                <Input type="number" placeholder={`Kosongkan = tepat ${formatCurrency(subtotal)}`} value={paymentAmount}
                                     onChange={(e) => setPaymentAmount(e.target.value)}
                                     className="text-right text-lg font-bold" />
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Biarkan kosong untuk bayar pas (tanpa kembalian)
+                                </p>
                                 {Number(paymentAmount) >= subtotal && subtotal > 0 && (
                                     <p className="text-sm text-emerald-600 mt-1">Kembalian: {formatCurrency(change)}</p>
                                 )}

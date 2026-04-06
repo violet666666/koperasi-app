@@ -1,6 +1,43 @@
 # Catatan Update Aplikasi
 
+## UPDATE 06 April 2026 — Sesi 6: POS Toko Payment Fix + Laporan Bagi Hasil Cuci Mobil
+
+### [FIX] POS Kasir Toko — Transaksi Tunai Tidak Bisa Diproses
+
+**File:** `src/app/(protected)/toko/kasir/page.tsx`
+
+**Root cause:** Validasi di `processPayment` menggunakan `Number(paymentAmount) < subtotal`. Saat kasir menekan tombol "Bayar Tunai" tanpa mengisi nominal, `paymentAmount = ""` → `Number("") = 0 < subtotal` → selalu error "Pembayaran kurang" meskipun kasir ingin bayar pas/exact.
+
+**Fix:**
+- Ditambahkan variable `effectivePayment`: jika `paymentAmount === ""` maka otomatis gunakan `subtotal` (bayar pas tanpa kembalian)
+- Placeholder input diupdate menjadi "Kosongkan = tepat Rp xxx" agar lebih jelas bagi kasir
+- Hint teks muncul di bawah field: "Biarkan kosong untuk bayar pas (tanpa kembalian)"
+- `body.cashReceived` dan `receiptData.cashReceived` keduanya menggunakan `effectivePayment` (konsisten)
+
+---
+
+### [NEW] Laporan Unit Cuci Mobil — Rekap Bagi Hasil Karyawan 50% / 50%
+
+**File:** `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
+
+**Latar belakang:** Atasan meminta laporan menampilkan tidak hanya pendapatan kotor, tetapi juga rincian bagi hasil 50/50 dengan karyawan, sehingga terlihat berapa bagian bersih yang masuk ke koperasi.
+
+**Implementasi:**
+- Fitur hanya aktif jika `unitType === "cuci_mobil"` (tidak mempengaruhi unit lain)
+- Kalkulasi dilakukan di frontend berdasarkan `summary.totalPendapatan`:
+  - **Bagi Hasil Karyawan** = 50% x Pendapatan Kotor
+  - **Bagian Koperasi Kotor** = 50% x Pendapatan Kotor
+  - **Laba Bersih Koperasi** = Bagian Koperasi Kotor - Pengeluaran Operasional
+- Tampil sebagai Card khusus di screen (warna amber/kuning) dengan 4 kolom ringkasan
+- Tampil juga saat **print** sebagai tabel formal di atas tabel transaksi
+- Tidak perlu perubahan API/database — kalkulasi pure frontend dari data yang sudah ada
+
+**Verifikasi:** Build `npm run build` sukses, exit code 0. Semua halaman compile tanpa error.
+
+---
+
 ## UPDATE 06 April 2026 — Sesi 5: POS Kasir Toko — Autocomplete Search Anggota
+
 
 ### [FIX] Autocomplete NRP/Nama di POS Kasir Unit Toko
 
