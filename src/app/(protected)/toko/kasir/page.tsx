@@ -23,7 +23,7 @@ import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
 import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 
-interface Product { id: number; sku: string; name: string; price: number; stock: number; }
+interface Product { id: number; sku: string; name: string; price: number; stock: number; stockToko: number; isService?: boolean; }
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -120,11 +120,24 @@ export default function KasirPage() {
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const change = Number(paymentAmount) - subtotal;
 
+    const getEffectiveStock = (product: Product) => {
+        if (product.isService) return 999;
+        return product.stockToko > 0 ? product.stockToko : product.stock;
+    };
+
     const addToCart = (product: Product) => {
+        const effectiveStock = getEffectiveStock(product);
+        if (!product.isService && effectiveStock <= 0) {
+            toast.error(`${product.name}: Stok habis`);
+            return;
+        }
         setCart(prev => {
             const existing = prev.find(item => item.product.id === product.id);
             if (existing) {
-                if (existing.quantity >= product.stock) { toast.error("Stok tidak mencukupi"); return prev; }
+                if (!product.isService && existing.quantity >= effectiveStock) {
+                    toast.error(`Stok ${product.name} tidak mencukupi (sisa: ${effectiveStock})`);
+                    return prev;
+                }
                 return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
             return [...prev, { product, quantity: 1 }];
@@ -136,7 +149,11 @@ export default function KasirPage() {
             if (item.product.id !== productId) return item;
             const newQty = item.quantity + delta;
             if (newQty <= 0) return item;
-            if (newQty > item.product.stock) { toast.error("Stok tidak mencukupi"); return item; }
+            const effectiveStock = getEffectiveStock(item.product);
+            if (!item.product.isService && newQty > effectiveStock) {
+                toast.error(`Stok ${item.product.name} tidak mencukupi (sisa: ${effectiveStock})`);
+                return item;
+            }
             return { ...item, quantity: newQty };
         }));
     };
@@ -320,21 +337,31 @@ export default function KasirPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredProducts.map((product) => (
-                                                <TableRow key={product.id} className="cursor-pointer hover:bg-muted/50" onClick={() => addToCart(product)}>
+                                            {filteredProducts.map((product) => {
+                                                const effStock = product.isService ? 999 : (product.stockToko > 0 ? product.stockToko : product.stock);
+                                                const isOutOfStock = !product.isService && effStock <= 0;
+                                                return (
+                                                <TableRow key={product.id} 
+                                                    className={`cursor-pointer hover:bg-muted/50 ${isOutOfStock ? "opacity-50" : ""}`}
+                                                    onClick={() => addToCart(product)}
+                                                >
                                                     <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {product.name}
+                                                        {isOutOfStock && <span className="ml-2 text-xs text-destructive font-normal">(Stok Habis)</span>}
+                                                    </TableCell>
                                                     <TableCell className="text-right tabular-nums">{formatCurrency(product.price)}</TableCell>
                                                     <TableCell className="text-center">
-                                                        <Badge variant={product.stock > 0 ? "secondary" : "destructive"}>{product.stock}</Badge>
+                                                        <Badge variant={effStock > 0 ? "secondary" : "destructive"}>{product.isService ? "∞" : effStock}</Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
+                                                        <Button size="sm" variant="ghost" disabled={isOutOfStock} onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
                                                             <Plus className="h-4 w-4" />
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
+                                                );
+                                            })}
                                             {filteredProducts.length === 0 && (
                                                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                                                     {searchQuery ? "Produk tidak ditemukan" : "Belum ada produk"}
