@@ -163,22 +163,26 @@ AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ad
 **3 Opsi Skenario yang Direkomendasikan:**
 
 **Opsi A — Pencatatan Manual (Status Quo)**
+
 - Karyawan dan admin unit menghitung manual dari laporan harian
 - Pro: Tidak perlu perubahan sistem
 - Kontra: Rawan salah hitung, tidak ada jejak audit digital
 
 **Opsi B — View-Only di Laporan (✅ SUDAH DIIMPLEMENTASI Sesi 6)**
+
 - Sistem menampilkan **rekap kalkulasi bagi hasil** di halaman Laporan Transaksi unit Cuci Mobil
 - Ditampilkan sebagai informasi: Pendapatan Kotor → Bagian Karyawan (50%) → Bagian Koperasi (50%) → Laba Bersih
 - Pro: Transparan, ada dasar hitung yang konsisten, tidak mengubah alur akuntansi
 - Kontra: Belum otomatis memotong/memindahkan dana
 
 **Opsi C — Akuntansi Otomatis (Masa Depan)**
+
 - Setiap transaksi cuci mobil otomatis membuat 2 entri jurnal: 50% ke Kas Koperasi, 50% ke Hutang/Beban Karyawan
 - Pro: Fully automated, audit-ready
 - Kontra: Kompleks, butuh persetujuan pengurus, perlu CoA tambahan
 
 **Rekomendasi Saya:**
+
 1. **Saat ini:** Pakai **Opsi B** (sudah aktif) — kalkulasi view-only di laporan sudah cukup untuk kebutuhan operasional
 2. **Legalisasi:** Buat **SK Pengurus** (sesuai wewenang di Pasal 52 AD/ART) yang meresmikan proporsi bagi hasil 50/50 agar punya dasar hukum saat audit BPK/pengawas koperasi
 3. **Jika ingin upgrade:** Opsi C bisa diimplementasi nanti setelah SK Pengurus terbit, dengan menambah CoA khusus "Beban Bagi Hasil Karyawan"
@@ -194,6 +198,7 @@ AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ad
 Kebutuhan untuk melampirkan bukti operasional digital (foto struk, nota pembelian, foto kerusakan, slip setoran, dsb.) yang saat ini hanya dicatat manual atau difoto di HP tanpa integrasi ke sistem.
 
 **Masalah yang Dipecahkan:**
+
 1. Bukti operasional tersebar di HP masing-masing kasir/admin — sulit dicari saat audit
 2. Tidak ada korelasi antara bukti fisik dengan transaksi di sistem
 3. Pengurus kesulitan memverifikasi pengeluaran operasional tanpa bukti digital
@@ -201,6 +206,7 @@ Kebutuhan untuk melampirkan bukti operasional digital (foto struk, nota pembelia
 **3 Opsi Arsitektur:**
 
 **Opsi A — Attachment per Transaksi**
+
 - Setiap transaksi (UnitTransaction/StoreSale) bisa punya 1-3 attachment foto
 - Upload dari halaman kasir saat transaksi, atau dari riwayat transaksi (post-upload)
 - Tersimpan di `/uploads/docs/{unitType}/{tanggal}/{filename}`
@@ -212,12 +218,14 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 ```
 
 **Opsi B — Dokumen Independen (Catatan Harian)**
+
 - Fitur terpisah: "Catatan Operasional" / "Logbook Harian"
 - Admin/kasir upload foto + catatan teks per hari
 - Tidak terikat transaksi tertentu, tapi terikat tanggal dan unit
 - Cocok untuk: foto kondisi mesin, nota pembelian sembako, bukti transfer
 
 **Opsi C — Hybrid (A + B)**
+
 - Attachment per transaksi DAN dokumen independen
 - Paling lengkap tapi effort implementasi paling besar
 
@@ -234,12 +242,14 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 | **Total estimasi** | | **~10-15 jam kerja** |
 
 **Rekomendasi Saya:**
+
 1. **Prioritas:** Mulai dengan **Opsi A** (attachment per transaksi) karena langsung memberikan value: bukti bisa dikaitkan ke transaksi spesifik
 2. **Storage:** Gunakan **Supabase Storage** (sudah ada akun Supabase) agar tidak membebani server lokal
 3. **Batasan awal:** Max 3 foto per transaksi, max 5MB per file, format JPG/PNG/PDF
 4. **Fase 2:** Tambahkan Opsi B (logbook independen) jika ada kebutuhan catatan harian yang tidak terkait transaksi
 
 **Saran timeline:**
+
 - Sprint 1: Tabel DB + API upload/delete → bisa test via Postman
 - Sprint 2: UI upload di halaman kasir + modal preview
 - Sprint 3: Gallery view di laporan + export attachment list
@@ -257,6 +267,7 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 **Root cause:** Validasi di `processPayment` menggunakan `Number(paymentAmount) < subtotal`. Saat kasir menekan tombol "Bayar Tunai" tanpa mengisi nominal, `paymentAmount = ""` → `Number("") = 0 < subtotal` → selalu error "Pembayaran kurang" meskipun kasir ingin bayar pas/exact.
 
 **Fix:**
+
 - Ditambahkan variable `effectivePayment`: jika `paymentAmount === ""` maka otomatis gunakan `subtotal` (bayar pas tanpa kembalian)
 - Placeholder input diupdate menjadi "Kosongkan = tepat Rp xxx" agar lebih jelas bagi kasir
 - Hint teks muncul di bawah field: "Biarkan kosong untuk bayar pas (tanpa kembalian)"
@@ -271,6 +282,7 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 **Latar belakang:** Atasan meminta laporan menampilkan tidak hanya pendapatan kotor, tetapi juga rincian bagi hasil 50/50 dengan karyawan, sehingga terlihat berapa bagian bersih yang masuk ke koperasi.
 
 **Implementasi:**
+
 - Fitur hanya aktif jika `unitType === "cuci_mobil"` (tidak mempengaruhi unit lain)
 - Kalkulasi dilakukan di frontend berdasarkan `summary.totalPendapatan`:
   - **Bagi Hasil Karyawan** = 50% x Pendapatan Kotor
@@ -286,7 +298,6 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 
 ## UPDATE 06 April 2026 — Sesi 5: POS Kasir Toko — Autocomplete Search Anggota
 
-
 ### [FIX] Autocomplete NRP/Nama di POS Kasir Unit Toko
 
 **File:** `src/app/(protected)/toko/kasir/page.tsx`
@@ -294,6 +305,7 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 Sebelum: Field "Identitas Pelanggan" di Kasir Toko menggunakan mekanisme lama (detect NRP pasif hanya saat blur + debounce 800ms, hanya cocok jika input NRP persis 100%). Pencarian by nama sama sekali tidak bisa. Tidak ada dropdown autocomplete.
 
 Sesudah: Diganti dengan autocomplete realtime (debounce 350ms) identik dengan kasir unit lainnya:
+
 - Ketik ≥2 karakter (nama ATAU NRP) → dropdown muncul otomatis
 - Klik anggota di dropdown → nama terisi, NRP tampil di info bar hijau
 - Tombol X untuk reset pilihan
@@ -379,6 +391,7 @@ npm run dev -- -p 3001
 **Kelompok fitur:** Laporan Unit, Pengeluaran Operasional, Detail Void, Plat Nomor POS, Search Anggota by Nama
 
 ### [FEAT-1] Laporan Transaksi Harian/Bulanan/Tahunan per Unit
+
 - Buat halaman `/unit/[unitSlug]/laporan` dengan filter periode (Hari Ini / Minggu Ini / Bulan Ini / Tahun Ini / Kustom)
 - Summary cards: Total Pendapatan, Pengeluaran Operasional, Laba Bersih, Jumlah Transaksi
 - Breakdown metode pembayaran: Tunai / QRIS / Potong Gaji
@@ -388,18 +401,21 @@ npm run dev -- -p 3001
 - Menu "LAPORAN & KEUANGAN" → "Laporan Transaksi" ditambahkan ke `adminUnitNavigation` & `adminTokoNavigation`
 
 ### [FEAT-2] Pencatatan Pengeluaran Operasional Unit
+
 - Tombol "Catat Pengeluaran" (merah) di halaman laporan — hanya muncul untuk role Admin Unit
 - Dialog form: Nominal, Keterangan, Tanggal
 - Disimpan ke `CashBankTransaction` type `out`, category `operational` dengan tag `[UNIT_TYPE]`
 - Langsung mendebit kas unit tanpa approval
 
 ### [FEAT-3] Detail Alasan Void di Inbox Approval
+
 - `ApprovalDialog` dirombak ulang dengan panel khusus void:
   - Kotak amber **"ALASAN PEMBATALAN DARI KASIR"**
   - Detail: Kasir Pengaju, Unit, Anggota (+ NRP), Plat Kendaraan (jika ada), No. Transaksi Asli
 - Interface `ApprovalItem.metadata` diperluas dengan semua field void
 
 ### [FEAT-4] Input Plat Nomor di POS Cuci Mobil
+
 - Field "🚗 Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
 - Auto-uppercase input, limit 12 karakter
 - Disimpan ke `UnitTransaction.notes` dengan format `[PLAT:N 1234 ABC]`
@@ -407,6 +423,7 @@ npm run dev -- -p 3001
 - Disertakan di metadata `ApprovalRequest` untuk void request
 
 ### [FEAT-5] Autocomplete Search Anggota by Nama + NRP di POS Walk-In
+
 - Ganti mekanisme detect-NRP pasif dengan **autocomplete aktif realtime**
 - Cari saat ≥ 2 karakter diketik (debounce 350ms) — bekerja untuk NRP maupun nama
 - Dropdown menampilkan: avatar inisial, nama, NRP, kategori (Polri/PNS)
@@ -415,17 +432,20 @@ npm run dev -- -p 3001
 - Menutup dropdown otomatis saat klik di luar area input
 
 ### [FEAT-6] Kolom Anggota / Pelanggan di Tabel Inbox Approval
+
 - Kolom baru menampilkan nama anggota dari `metadata.memberName` (untuk void unit) atau nama pemohon
 - Juga tampil NRP anggota dan badge unitType di bawah nama
 - Nomor referensi dipersingkat (font mono kecil) agar tidak terlalu lebar
 
 ### [FEAT-7] Format Nomor Referensi Void yang Readable & Unik
+
 - Format baru: `(SINGKATAN_UNIT)-(DDMMYYYY)-(9DIGIT_NRP_atau_TIMESTAMP)`
 - Contoh: `CM-06042026-828293010` (Cuci Mobil, 6 Apr 2026, NRP anggota)
 - Helper function `generateVoidRequestNo()` di `void-request/route.ts`
 - Peta singkatan: CM, BB, PS, FT, LN, RC, TK, CL, SP, FC, AS
 
 ### [BUILD FIX] Production Build Deploy-Ready
+
 - Fix: BUG-BUILD-001 → Terminate dev server sebelum `npm run build`
 - Fix: BUG-BUILD-002 → Hapus Prisma JSON null filter yang tidak type-safe
 - Fix: BUG-BUILD-003 → `(e.description ?? "").replace(...)` untuk null-safe
@@ -433,6 +453,7 @@ npm run dev -- -p 3001
 - **Build ID:** `QeeabkWK3uqoollTE_LKX` — ✅ VERIFIED
 
 ### [UAT] Hasil Testing Staging — 7/7 PASS
+
 - Database staging: Supabase `xlxrjlcnhvtvgkbmrfkm` (bukan production)
 - Server: `npm run dev -p 3001` dengan `.env.test.local`
 - Semua skenario terverifikasi via screenshot & recording (file: `uat_4_fitur_koperasi_final_*.webp`)
@@ -440,16 +461,19 @@ npm run dev -- -p 3001
 ---
 
 ## UPDATE 06 April 2026
+
 - **Menyelesaikan Seluruh Validasi UAT Tahap 1 (Unit Toko & Jasa)**: Telah berhasil menjalankan automated tester untuk module Kasir dan Admin Toko serta Kasir Cuci Mobil (Jasa) dan Admin Cuci Mobil. (100% Pass untuk POS Jastual / Toko / Void Approval / Settings).
 - **Perbaikan Ketergantungan NextJS 15**: Update route dynamic access using React Promise (`React.use`) pada `[unitSlug]/layanan`.
 - **Integrasi Backend Approval Void Unit**: Refactor tipe dan parameter payload di frontend agar persetujuan status pembatalan di Inbox masuk ke DB.
 
 ## UPDATE 04 April 2026 (Dini Hari)
+
 **Berdasarkan:** BUG-054 s/d BUG-060 + Blueprint Implementation Plan
 
 ---
 
 ## FASE 1 — Fondasi Data & Form User
+
 - [x] BUG-054: Buka dropdown unitType untuk Admin di Form User (`users/page.tsx`)
   - Admin sekarang BISA dipilihkan unitType saat dibuat/diedit
   - Tambah unit baru: `coffe_latar`, `resto`, `investasi_modal_jp`, `properti (tanah kapling)`
@@ -457,6 +481,7 @@ npm run dev -- -p 3001
   - Validasi: Admin/Kasir WAJIB pilih unit, tombol Simpan terkunci jika belum pilih
 
 ## FASE 2 — Keamanan: Middleware & Settings
+
 - [x] BUG-055: Perbaiki blokade middleware Admin di `proxy.ts`
   - Admin unit sekarang DIBLOKIR dari /simpanan, /pinjaman, /kas-bank, /laporan, /master, dll
   - Admin unit BISA akses /approval (untuk approve void kasirnya)
@@ -467,6 +492,7 @@ npm run dev -- -p 3001
   - Kasir tetap melihat Tab QRIS seperti sebelumnya
 
 ## FASE 3 — Arsitektur Sidebar Independen
+
 - [x] BUG-060: Buat `adminTokoNavigation` di `navigation.ts`
   - Berisi: Dashboard, Kasir POS, Manajemen Produk, Persediaan & Stok, Riwayat Penjualan, Inbox Approval, Profil, QRIS
 - [x] BUG-060: Buat `adminUnitNavigation` di `navigation.ts`
@@ -478,12 +504,14 @@ npm run dev -- -p 3001
   - Kasir unit jasa → `kasirNavigation` (tidak berubah, tapi /settings dihapus)
 
 ## FASE 4 — Dedicated POS per Unit
+
 - [x] BUG-057: Buat Dynamic Route `/unit/[unitSlug]/kasir/page.tsx`
 - [x] BUG-058: Buat API CRUD paket layanan `/api/unit/[slug]/packages`
 - [x] BUG-058: Buat halaman Admin "Kelola Layanan" per unit
 - [x] Integrasi database: Buat schema `UnitServicePackage` dan jalankan seeder untuk migrasi hardcoded data.
 
 ## FASE 5 — Perbaikan Logika Void
+
 - [x] BUG-059: Perbaiki `void-request/route.ts` untuk Kasir Toko
   - JALUR A: Operator → void langsung + kembalikan stok (bypass)
   - JALUR B: Kasir/Admin → buat ApprovalRequest `pending_void` di Inbox Admin
@@ -492,24 +520,26 @@ npm run dev -- -p 3001
   - Ditambahkan JALUR 1 untuk StoreSale: kembalikan stok saat approved, hapus voidPending saat rejected
   - JALUR 2 existing (UnitTransaction + Contra-Entry) tetap berjalan tidak berubah
 
-
 ## FASE 6 — Security Endpoint & Data Integrity (Final Fix)
+
 - [x] BUG-FIX: Approval Inbox "Halaman tidak tersedia"
   - Menyesuaikan `ADMIN_ALLOWED_ROUTES` di `layout.tsx` sehingga rute `/approval` kini dizinkan untuk seluruh profil Admin Eksternal (Toko, Jasa, dsb).
-  - Mengamankan `/api/approvals/route.ts` dengan _unit segregation_ agar Loan Applications hilang dari daftar unit admin dan setiap admin unit hanya bisa melihat _Void Request_ milik unitnya.
+  - Mengamankan `/api/approvals/route.ts` dengan *unit segregation* agar Loan Applications hilang dari daftar unit admin dan setiap admin unit hanya bisa melihat *Void Request* milik unitnya.
 - [x] BUG-FIX: Transaksi dibatalkan (Void) masih nyangkut di Kasir/Dashboard/Riwayat
   - Memperbarui `/api/dashboard-stats`, `/api/unit-layanan/stats`, dan `/api/unit-transactions` untuk men-drop atau melabelkan `StoreSale` yang memiliki *flag* JSON `metadata.isVoided: true`.
   - Sekarang laporan *Total Hari Ini* & *Tunai* tidak akan ikut menghitung nilai pesanan berstatus batal. Teks "DIBATALKAN" akan muncul tegas di Riwayat Kasir.
 
 ## FASE 7 — Stabilitas Backend & Penanganan False Positive (UAT)
+
 - [x] BUG-061: Memperbaiki Exception Foreign Key `branchId: 1`
   - Pengajuan dari Void Kasir Toko kini dapat sukses tersimpan di `ApprovalRequest` dengan `branchId: 10`.
-- [x] BUG-062: Perbaikan _False Positive_ Notifikasi Void di Kasir
-  - Menghapus _hardcode_ "Sukses" di frontend `transaksi-unit/riwayat/page.tsx`, beralih ke pengecekan `res.ok` dan pencetakan pesan logis dari API Backend.
+- [x] BUG-062: Perbaikan *False Positive* Notifikasi Void di Kasir
+  - Menghapus *hardcode* "Sukses" di frontend `transaksi-unit/riwayat/page.tsx`, beralih ke pengecekan `res.ok` dan pencetakan pesan logis dari API Backend.
 - [x] BUG-063: Logika Ekstensi `isOperator` Dipangkas
   - Menertibkan kembali akses "bisa Auto-Approve" untuk `role: "admin"`. Admin Unit yang mengajukan pembatalan harus diterbitkan tiket `ApprovalRequest` sebagaimana mestinya, tidak membypass Inbox Approval miliknya.
 
 ## FASE 8 — Stabilisasi & QA Alur Potong Gaji (06 April Sore)
+
 - [x] BUG-P01 & BUG-P04: Perbaikan Stok & Plafon Toko
   - Pemotongan `stockToko` kini dikerjakan lebih dahulu, mundur ke `stock` induk bila habis.
   - Plafon unit transaksi dan kasir khusus "Toko" tidak lagi ditumpuk 2 kali (*Double Count*).
@@ -529,6 +559,7 @@ npm run dev -- -p 3001
 Untuk melakukan pengujian fungsionalitas (QA/UAT) di *device* manapun dengan aman (tanpa mengubah, menimpa, atau menyinggung data Sistem Produksi), silakan ikuti petunjuk Environment Setup berikut:
 
 ### 1. Kredensial Database Staging
+
 Gunakan kredensial `DATABASE_URL` Staging berikut yang identik dengan schema asli, khusus untuk dev & dummy.
 
 ```env
@@ -536,7 +567,8 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 ```
 
 ### 2. Panduan Menjalankan Sistem Lokal Berbasis Staging
-Jangan gunakan port standar (3000) agar tidak tumpang tindih dengan aplikasi utama jika sedang berjalan. Kita akan run di port **3001**. 
+
+Jangan gunakan port standar (3000) agar tidak tumpang tindih dengan aplikasi utama jika sedang berjalan. Kita akan run di port **3001**.
 
 *Jalankan perintah ini di Terminal (Powershell) folder `koperasi-app`:*
 
@@ -546,12 +578,14 @@ npm run dev -- -p 3001
 ```
 
 *Jika menggunakan MacOS / Linux / Git Bash:*
+
 ```bash
 DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres" npm run dev -- -p 3001
 ```
 
 ### 3. Skenario QA Checklist (Untuk Tester)
-- Buka browser di http://localhost:3001
+
+- Buka browser di <http://localhost:3001>
 - [ ] Login sebagai Admin Unit atau Kasir (ex: Toko / Jasa Cuci Mobil).
 - [ ] Melakukan Transaksi menggunakan opsi **Potong Gaji**.
 - [ ] Cek *limit* piutang (Plafon vs Sisa Limit). Uji bila Sisa Limit kurang dari total keranjang (Tombol harus terkunci).
@@ -560,11 +594,4 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
 
 ---
-
-## [2026-04-07] Update Perbaikan Bug Backend & UI Lanjutan
-- [x] Memperbaiki *Reference Error* (`now is not defined`) pada kalkulasi TimeZone WIB di file laporan yang menyebabkan pesan "Gagal mengambil data laporan" bagi semua Admin Unit.
-- [x] Menyempurnakan pembatas rentang hari (`matchesDateRange`) di dalam komponen Universal `DatePeriodFilter` untuk memastikan deteksi awal hari dan akhir hari murni dikunci di TZ **+07:00 (WIB)** untuk menyesuaikan dengan backend.
-- [x] BUG-UI-003: Mengubah dan menstandarisasi gaya tombol "Tambah Layanan" pada `layanan/page.tsx` memakai standar _primary foreground_ sehingga teks mudah terlihat.
-
----
-*Diperbarui: 7 April 2026*
+*Diperbarui: 6 April 2026*

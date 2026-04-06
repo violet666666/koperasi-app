@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 export default function LayananUnitPage({ params }: { params: Promise<{ unitSlug: string }> }) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    
+
     // In Next.js 15+, params is a promise
     const resolvedParams = React.use(params);
     const unitSlug = resolvedParams.unitSlug;
@@ -184,7 +184,7 @@ export default function LayananUnitPage({ params }: { params: Promise<{ unitSlug
                         </CardContent>
                     </Card>
                 ))}
-                
+
                 {packages.length === 0 && (
                     <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-xl">
                         <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
