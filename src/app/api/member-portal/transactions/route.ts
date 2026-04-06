@@ -41,22 +41,68 @@ export async function GET(request: Request) {
                 unitWhere.isPaid = isPaid === "true";
             }
 
-            const [unitTxns, unitCount] = await Promise.all([
+            // Also fetch StoreSale for Toko (when no unitType filter, or filter is "toko")
+            const includeToko = !unitType || unitType === "all" || unitType === "toko";
+
+            const [unitTxns, unitCount, storeSales] = await Promise.all([
                 prisma.unitTransaction.findMany({
                     where: unitWhere,
                     orderBy: { transactionDate: "desc" },
-                    skip: type === "unit" ? (query.page - 1) * query.perPage : 0,
-                    take: type === "unit" ? query.perPage : 5,
+                    take: type === "unit" ? query.perPage * 2 : 10, // fetch more to merge + paginate
                 }),
                 prisma.unitTransaction.count({ where: unitWhere }),
+                includeToko ? prisma.storeSale.findMany({
+                    where: { memberId },
+                    orderBy: { createdAt: "desc" },
+                    take: type === "unit" ? query.perPage * 2 : 10,
+                    select: {
+                        id: true, saleNo: true, totalAmount: true,
+                        paymentMethod: true, customerName: true, createdAt: true,
+                        metadata: true, unitType: true,
+                    },
+                }) : Promise.resolve([]),
             ]);
 
-            result.unitTransactions = unitTxns.map((t) => ({
-                ...t,
+            const storeCount = includeToko ? await prisma.storeSale.count({ where: { memberId } }) : 0;
+
+            const mappedUnitTxns = unitTxns.map((t) => ({
+                id: t.id,
+                transactionNo: t.transactionNo,
+                unitType: t.unitType,
+                description: t.description,
                 amount: Number(t.amount),
+                paymentMethod: t.paymentMethod,
+                transactionDate: t.transactionDate,
+                isPaid: t.isPaid,
                 category: "unit",
             }));
-            if (type === "unit") result.meta.total = unitCount;
+
+            const mappedStoreSales = storeSales
+                .filter((s) => {
+                    const meta = (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata) as Record<string, unknown> | null;
+                    return !meta?.isVoided;
+                })
+                .map((s) => ({
+                    id: s.id + 10000000, // offset to avoid key collision
+                    transactionNo: s.saleNo,
+                    unitType: "toko",
+                    description: `Pembelian Toko PRIMKOPPOL`,
+                    amount: Number(s.totalAmount),
+                    paymentMethod: s.paymentMethod,
+                    transactionDate: s.createdAt,
+                    isPaid: s.paymentMethod !== "salary_cut",
+                    category: "unit",
+                }));
+
+            // Merge & sort by date
+            const allUnitTxns = [...mappedUnitTxns, ...mappedStoreSales]
+                .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+
+            // Apply pagination after merge
+            const startIdx = type === "unit" ? (query.page - 1) * query.perPage : 0;
+            const endIdx = type === "unit" ? startIdx + query.perPage : 5;
+            result.unitTransactions = allUnitTxns.slice(startIdx, startIdx === 0 ? endIdx : endIdx);
+            if (type === "unit") result.meta.total = unitCount + storeCount;
         }
 
         if (!type || type === "savings") {
