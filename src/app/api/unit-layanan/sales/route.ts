@@ -12,7 +12,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { unitType, amount, paymentMethod, memberId, description, customerName } = body;
+        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate } = body;
 
         if (!unitType || !amount || !paymentMethod) {
             return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
@@ -82,8 +82,9 @@ export async function POST(request: Request) {
                 amount: totalAmount,
                 transactionDate: now,
                 paymentMethod: method,
-                isPaid: method !== "salary_cut", // If cash/qris, it's paid immediately
+                isPaid: method !== "salary_cut",
                 paidDate: method !== "salary_cut" ? now : null,
+                notes: vehiclePlate ? `[PLAT:${vehiclePlate.trim().toUpperCase()}]` : null, // Plat nomor kendaraan
                 createdById: userId,
             }
         });

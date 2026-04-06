@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader2, Landmark, Clock, FileText, User, ReceiptText } from "lucide-react";
+import { Check, X, Loader2, Landmark, Clock, FileText, User, ReceiptText, AlertTriangle, Car, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { loansApi, unitTransactionsApi } from "@/lib/api";
 import { toast } from "sonner";
@@ -32,11 +32,24 @@ export interface ApprovalItem {
     processedAt?: string;
     notes?: string;
     metadata?: {
+        // Loan fields
         tenorMonths?: number;
         purpose?: string;
         deductionSource?: string;
         productName?: string;
         memberNo?: string;
+        // Void fields
+        voidReason?: string;
+        voidPendingReason?: string;
+        kasirName?: string;
+        unitType?: string;
+        memberName?: string;
+        memberNrp?: string;
+        transactionNo?: string;
+        originalAmount?: number;
+        vehiclePlate?: string;
+        itemCount?: number;
+        saleNo?: string;
     };
 }
 
@@ -52,7 +65,6 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
     const [notes, setNotes] = React.useState("");
     const [processing, setProcessing] = React.useState(false);
 
-    // Reset state when opening/closing or when approval item changes
     React.useEffect(() => {
         if (open) {
             setAction(null);
@@ -62,10 +74,9 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
 
     const processApproval = async (type: "approve" | "reject") => {
         if (!approval) return;
-        
+
         if (type === "reject" && !notes.trim()) {
             toast.error("Harap isi alasan penolakan pada kolom catatan!");
-            // Auto switch to reject mode to show the textarea
             setAction("reject");
             return;
         }
@@ -82,7 +93,7 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                 await unitTransactionsApi.voidApprove({
                     approvalRequestNo: approval.referenceNo,
                     action: type === "approve" ? "approved" : "rejected",
-                    notes: notes
+                    notes: notes,
                 });
             }
 
@@ -102,7 +113,18 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
 
     if (!approval) return null;
 
-    const isLoan = approval.requestType === "loan_application" || approval.description.toLowerCase().includes("pinjaman");
+    const isVoid = approval.requestType === "unit_void";
+    const meta = approval.metadata || {};
+
+    // Resolve void reason from multiple possible sources
+    const voidReason = isVoid
+        ? (meta.voidReason ||
+          meta.voidPendingReason ||
+          (approval.description?.includes("—")
+            ? approval.description.split("—").pop()?.trim()
+            : null) ||
+          "Tidak disebutkan")
+        : "";
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,61 +155,185 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
 
                     <Separator className="border-dashed" />
 
-                    {/* Metadata Grid */}
-                    <div className="grid gap-3 text-sm">
-                        <div className="flex justify-between items-start">
-                            <span className="text-muted-foreground flex items-center gap-1.5"><User className="h-3.5 w-3.5" />Anggota</span>
-                            <div className="text-right font-medium">
-                                <p>{approval.requestedBy?.name}</p>
-                                {approval.metadata?.memberNo && (
-                                    <p className="text-xs text-muted-foreground">{approval.metadata.memberNo}</p>
+                    {/* ── VOID REQUEST PANEL ──────────────────────────────── */}
+                    {isVoid ? (
+                        <div className="space-y-3">
+                            {/* Alasan Pembatalan - Highlighted Box */}
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5 mb-1.5">
+                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                    ALASAN PEMBATALAN DARI KASIR
+                                </p>
+                                <p className="text-sm text-amber-900 font-medium leading-relaxed">
+                                    &ldquo;{voidReason}&rdquo;
+                                </p>
+                            </div>
+
+                            {/* Detail Info Grid */}
+                            <div className="grid gap-2.5 text-sm">
+                                {/* Kasir Pengaju */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <User className="h-3.5 w-3.5" />
+                                        Diajukan Oleh
+                                    </span>
+                                    <span className="font-medium">{approval.requestedBy?.name || "-"}</span>
+                                </div>
+
+                                {/* Kasir Name dari metadata */}
+                                {meta.kasirName && meta.kasirName !== approval.requestedBy?.name && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <User className="h-3.5 w-3.5" />
+                                            Kasir
+                                        </span>
+                                        <span className="font-medium">{meta.kasirName}</span>
+                                    </div>
                                 )}
+
+                                {/* Unit */}
+                                {meta.unitType && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <Tag className="h-3.5 w-3.5" />
+                                            Unit
+                                        </span>
+                                        <Badge variant="outline" className="capitalize">
+                                            {meta.unitType.replace(/_/g, " ")}
+                                        </Badge>
+                                    </div>
+                                )}
+
+                                {/* Anggota */}
+                                {meta.memberName && meta.memberName !== "-" && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <User className="h-3.5 w-3.5" />
+                                            Anggota
+                                        </span>
+                                        <div className="text-right">
+                                            <p className="font-medium">{meta.memberName}</p>
+                                            {meta.memberNrp && meta.memberNrp !== "-" && (
+                                                <p className="text-xs text-muted-foreground">NRP: {meta.memberNrp}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Plat Kendaraan */}
+                                {meta.vehiclePlate && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <Car className="h-3.5 w-3.5" />
+                                            Plat Kendaraan
+                                        </span>
+                                        <Badge variant="outline" className="font-mono border-slate-400">
+                                            {meta.vehiclePlate}
+                                        </Badge>
+                                    </div>
+                                )}
+
+                                {/* No. Transaksi Asli */}
+                                {(meta.transactionNo || meta.saleNo) && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground flex items-center gap-1.5">
+                                            <FileText className="h-3.5 w-3.5" />
+                                            No. Transaksi
+                                        </span>
+                                        <span className="font-mono text-xs">{meta.transactionNo || meta.saleNo}</span>
+                                    </div>
+                                )}
+
+                                {/* Waktu Pengajuan */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Waktu Pengajuan
+                                    </span>
+                                    <span className="font-medium text-right text-xs">
+                                        {new Date(approval.requestedAt).toLocaleDateString("id-ID", {
+                                            day: "numeric",
+                                            month: "long",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-
-                        {approval.metadata?.productName && (
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Jenis</span>
-                                <span className="font-medium text-right">{approval.metadata.productName}</span>
+                    ) : (
+                        /* ── LOAN / OTHER REQUEST PANEL ──────────────────── */
+                        <div className="grid gap-3 text-sm">
+                            <div className="flex justify-between items-start">
+                                <span className="text-muted-foreground flex items-center gap-1.5">
+                                    <User className="h-3.5 w-3.5" />
+                                    Anggota
+                                </span>
+                                <div className="text-right font-medium">
+                                    <p>{approval.requestedBy?.name}</p>
+                                    {approval.metadata?.memberNo && (
+                                        <p className="text-xs text-muted-foreground">{approval.metadata.memberNo}</p>
+                                    )}
+                                </div>
                             </div>
-                        )}
 
-                        {approval.metadata?.tenorMonths && (
+                            {approval.metadata?.productName && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Jenis
+                                    </span>
+                                    <span className="font-medium text-right">{approval.metadata.productName}</span>
+                                </div>
+                            )}
+
+                            {approval.metadata?.tenorMonths && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Tenor
+                                    </span>
+                                    <span className="font-medium text-right">{approval.metadata.tenorMonths} Bulan</span>
+                                </div>
+                            )}
+
+                            {approval.metadata?.deductionSource && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <Landmark className="h-3.5 w-3.5" />
+                                        Sumber Potongan
+                                    </span>
+                                    <Badge variant="outline" className="capitalize text-right">
+                                        {approval.metadata.deductionSource}
+                                    </Badge>
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Tenor</span>
-                                <span className="font-medium text-right">{approval.metadata.tenorMonths} Bulan</span>
+                                <span className="text-muted-foreground flex items-center gap-1.5">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Waktu
+                                </span>
+                                <span className="font-medium text-right">
+                                    {new Date(approval.requestedAt).toLocaleDateString("id-ID", {
+                                        day: "numeric",
+                                        month: "long",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </span>
                             </div>
-                        )}
 
-                        {approval.metadata?.deductionSource && (
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground flex items-center gap-1.5"><Landmark className="h-3.5 w-3.5" />Sumber Potongan</span>
-                                <Badge variant="outline" className="capitalize text-right">
-                                    {approval.metadata.deductionSource}
-                                </Badge>
-                            </div>
-                        )}
-
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Waktu</span>
-                            <span className="font-medium text-right">
-                                {new Date(approval.requestedAt).toLocaleDateString("id-ID", {
-                                    day: "numeric",
-                                    month: "long",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit"
-                                })}
-                            </span>
+                            {approval.metadata?.purpose && (
+                                <div className="mt-2 text-xs p-3 bg-white dark:bg-zinc-900 border rounded-md">
+                                    <span className="font-semibold block mb-1">Keperluan:</span>
+                                    <span className="text-muted-foreground">{approval.metadata.purpose}</span>
+                                </div>
+                            )}
                         </div>
-
-                        {approval.metadata?.purpose && (
-                            <div className="mt-2 text-xs p-3 bg-white dark:bg-zinc-900 border rounded-md">
-                                <span className="font-semibold block mb-1">Keperluan:</span>
-                                <span className="text-muted-foreground">{approval.metadata.purpose}</span>
-                            </div>
-                        )}
-                    </div>
+                    )}
 
                     <Separator className="border-dashed" />
 
@@ -224,15 +370,15 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-3">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900 dark:hover:bg-red-900/30"
                                     onClick={() => setAction("reject")}
                                 >
                                     <X className="mr-2 h-4 w-4" /> Tolak
                                 </Button>
-                                <Button 
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white" 
+                                <Button
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                     onClick={() => processApproval("approve")}
                                 >
                                     <Check className="mr-2 h-4 w-4" /> Setujui

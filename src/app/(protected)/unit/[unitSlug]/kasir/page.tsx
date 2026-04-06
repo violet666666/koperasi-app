@@ -46,6 +46,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     const [customerName, setCustomerName] = React.useState<string>("");
     const [description, setDescription] = React.useState<string>("");
     const [selectedPackage, setSelectedPackage] = React.useState<string>("");
+    const [vehiclePlate, setVehiclePlate] = React.useState<string>(""); // Plat Nomor (Cuci Mobil)
 
     const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -174,6 +175,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                 paymentMethod: method,
                 customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerName || undefined),
                 description: description || undefined,
+                vehiclePlate: vehiclePlate.trim() || undefined, // Plat nomor untuk cuci mobil
             };
 
             if (method === "salary_cut") {
@@ -202,6 +204,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setCustomerName("");
             setDescription("");
             setSelectedPackage("");
+            setVehiclePlate(""); // Reset plat nomor
             setSelectedMember(null);
             setSelectedCustomerObj(null);
             setShowCreditDialog(false);
@@ -343,6 +346,23 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                 onChange={(e) => setDescription(e.target.value)}
                             />
                         </div>
+
+                        {/* Input Plat Nomor — Khusus Unit Cuci Mobil */}
+                        {unitType === "cuci_mobil" && (
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    🚗 Plat Nomor Kendaraan
+                                    <span className="text-xs text-muted-foreground font-normal">(Opsional, untuk arsip)</span>
+                                </Label>
+                                <Input
+                                    placeholder="Misal: N 5844 YBW"
+                                    value={vehiclePlate}
+                                    onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())}
+                                    className="font-mono tracking-widest uppercase"
+                                    maxLength={12}
+                                />
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label>Identitas Pelanggan (Walk-In / Opsional)</Label>

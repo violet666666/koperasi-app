@@ -189,6 +189,8 @@ export async function POST(request: Request) {
                         memberNrp: transaction.member?.nrp || "-",
                         originalAmount: Number(transaction.amount),
                         kasirName: transaction.createdBy?.name || "-",
+                        voidReason: reason,
+                        vehiclePlate: transaction.notes?.match(/\[PLAT:(.*?)\]/)?.[1]?.trim() || null,
                     },
                     requestedById: currentUserId,
                     requestedAt: now,

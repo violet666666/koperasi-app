@@ -28,6 +28,8 @@ import {
     Bell,
     QrCode,
     Boxes,
+    BarChart2,
+    TrendingDown,
     type LucideIcon,
 } from "lucide-react";
 
@@ -328,6 +330,15 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
         ],
     },
     {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Penjualan", href: "/unit/[unitSlug]/laporan", icon: BarChart2,
+                permission: "manage_toko",
+            },
+        ],
+    },
+    {
         title: "PERSETUJUAN",
         items: [
             {
@@ -365,6 +376,15 @@ export const adminUnitNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/[unitSlug]/laporan", icon: BarChart2,
                 permission: "manage_unit_transactions",
             },
         ],
