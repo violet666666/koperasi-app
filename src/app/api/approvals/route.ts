@@ -82,11 +82,11 @@ export async function GET(request: Request) {
         }
 
         const voidRequests =
-            (typeFilter && typeFilter !== "unit_void")
+            (typeFilter && typeFilter !== "unit_void" && typeFilter !== "laporan_unit")
                 ? []
                 : await prisma.approvalRequest.findMany({
                       where: {
-                          type: { in: ["unit_void", "void_store_sale"] },
+                          type: { in: ["unit_void", "void_store_sale", "laporan_unit"] },
                           ...voidStatusFilter,
                       },
                       include: {
@@ -118,9 +118,9 @@ export async function GET(request: Request) {
             })
             .map((req) => ({
             id: `void_${req.id}`,
-            requestType: "unit_void",
+            requestType: req.type,
             referenceId: req.id,
-            referenceNo: req.requestNo,
+            referenceNo: req.referenceNo,
             description: req.description,
             amount: req.amount ? Number(req.amount) : 0,
             branchId: req.branchId,

@@ -324,7 +324,7 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_toko",
             },
             {
-                title: "Riwayat Penjualan", href: "/toko", icon: ClipboardList,
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=toko", icon: ClipboardList,
                 permission: "manage_toko",
             },
         ],

@@ -111,19 +111,20 @@ export async function GET(
         // ── Fetch StoreSale (Toko only) ───────────────────────────────────────
         let storeSales: any[] = [];
         if (isToko) {
-            storeSales = await prisma.storeSale.findMany({
+            const rawStoreSales = await prisma.storeSale.findMany({
                 where: {
                     unitType,
                     createdAt: { gte: dateFrom, lte: dateTo },
-                    NOT: {
-                        metadata: { path: ["isVoided"], equals: true }
-                    },
                 },
                 include: {
                     member: { select: { id: true, name: true, nrp: true } },
                     items: { include: { product: { select: { name: true } } } },
                 },
                 orderBy: { createdAt: "desc" },
+            });
+            storeSales = rawStoreSales.filter(sale => {
+                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+                return !meta.isVoided;
             });
         }
 
