@@ -110,7 +110,6 @@ export async function POST(request: Request) {
             }
 
             // ── SERVER-SIDE: Validasi Plafon Piutang ────────────────────
-            // Hitung piutang yang belum lunas dari UnitTransaction (jasa) + StoreSale potong gaji (toko)
             const tagihanUnitTx = await prisma.unitTransaction.aggregate({
                 where: {
                     memberId: member.id,
@@ -120,11 +119,26 @@ export async function POST(request: Request) {
                 },
                 _sum: { amount: true },
             });
-            // NOTE: Tidak double-count StoreSale potong gaji karena saat checkout toko,
-            // kode di bawah (baris ~300) akan membuat UnitTransaction piutang terpisah.
-            // Jika kita juga hitung StoreSale di sini, plafon akan terhitung ganda.
             const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
-            const plafonPiutang = Number(member.plafonPiutang);
+            
+            let plafonPiutang = Number(member.plafonPiutang || 0);
+
+            // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung limit kelayakan dari Sisa Gaji
+            if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+                const activeLoans = await prisma.loan.findMany({
+                    where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                    select: { monthlyInstallment: true }
+                });
+                const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
+                
+                const salary = Number(member.salary || 0);
+                const tunkin = Number(member.tunlesKinerja || 0);
+                const sisaBersih = salary + tunkin - totalAngsuran;
+                
+                const batasAman = 2000000;
+                plafonPiutang = Math.max(0, sisaBersih - batasAman);
+            }
+
             const sisaLimit = plafonPiutang - totalTagihan;
 
             if (totalAmount > sisaLimit) {

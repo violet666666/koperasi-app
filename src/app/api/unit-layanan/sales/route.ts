@@ -62,7 +62,11 @@ export async function POST(request: Request) {
 
         // ── Validasi anggota & plafon piutang untuk Potong Gaji ──────────────
         if (method === "salary_cut" && memberId) {
-            const member = await prisma.member.findUnique({ where: { id: Number(memberId) } });
+            const member = await prisma.member.findUnique({
+                where: { id: Number(memberId) },
+                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true, tunlesKinerja: true },
+            });
+
             if (!member) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
@@ -79,7 +83,24 @@ export async function POST(request: Request) {
             });
 
             const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
-            const plafonPiutang = Number(member.plafonPiutang || 0);
+            let plafonPiutang = Number(member.plafonPiutang || 0);
+
+            // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung limit kelayakan dari Sisa Gaji
+            if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+                const activeLoans = await prisma.loan.findMany({
+                    where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                    select: { monthlyInstallment: true }
+                });
+                const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
+                
+                const salary = Number(member.salary || 0);
+                const tunkin = Number(member.tunlesKinerja || 0);
+                const sisaBersih = salary + tunkin - totalAngsuran;
+                
+                const batasAman = 2000000;
+                plafonPiutang = Math.max(0, sisaBersih - batasAman);
+            }
+
             const sisaLimit = plafonPiutang - totalTagihan;
 
             if (totalAmount > sisaLimit) {

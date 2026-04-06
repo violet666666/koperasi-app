@@ -39,6 +39,8 @@ export async function POST(request: Request) {
                 status: true,
                 occupation: true,
                 plafonPiutang: true,
+                salary: true,
+                tunlesKinerja: true,
             },
         });
 
@@ -70,6 +72,26 @@ export async function POST(request: Request) {
             );
         }
 
+        // ── Lapis 3: Kalkulasi Sisa Limit ──────────────────────────────
+        let plafonPiutang = Number(member.plafonPiutang);
+
+        // FITUR OTOMATIS: Jika plafonPiutang masih 0 (belum diset operator), hitung limit kelayakan dari Sisa Gaji
+        if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+            const activeLoans = await prisma.loan.findMany({
+                where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                select: { monthlyInstallment: true }
+            });
+            const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
+            
+            const salary = Number(member.salary || 0);
+            const tunkin = Number(member.tunlesKinerja || 0);
+            const sisaBersih = salary + tunkin - totalAngsuran;
+            
+            // Batas minimal aman gaji tersisa menurut AD-ART adalah Rp 2.000.000
+            const batasAman = 2000000;
+            plafonPiutang = Math.max(0, sisaBersih - batasAman);
+        }
+
         // Sumber: UnitTransaction (semua unit, karena Toko juga buat UnitTransaction untuk piutangnya)
         const tagihanUnitTx = await prisma.unitTransaction.aggregate({
             where: {
@@ -82,7 +104,6 @@ export async function POST(request: Request) {
         });
 
         const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
-        const plafonPiutang = Number(member.plafonPiutang);
         const sisaLimit = plafonPiutang - totalTagihan;
         const nominalBelanja = Number(amount);
 
