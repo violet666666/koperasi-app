@@ -712,7 +712,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <TableBody>
                                     {transactions.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                            <TableCell colSpan={isCuciMobil ? 8 : 7} className="text-center py-10 text-muted-foreground">
                                                 <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
                                                 Tidak ada transaksi pada periode ini
                                             </TableCell>
@@ -728,9 +728,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                     <span className="font-mono text-xs text-muted-foreground">{tx.no}</span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div>
-                                                        <p className="text-sm font-medium truncate max-w-[220px]">{tx.description}</p>
-                                                    </div>
+                                                    <p className="text-sm font-medium">{tx.description}</p>
                                                 </TableCell>
                                                 {isCuciMobil && (
                                                     <TableCell>
