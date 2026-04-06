@@ -42,6 +42,7 @@
 | **FEAT-007** | **Edit Plat Nomor & Keterangan di riwayat transaksi (Admin/Operator)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-UI-013** | **Header tabel kolom nominal tidak rata kanan** | ✅ FIXED | 7 Apr 2026 |
 
 ---
 
@@ -937,7 +938,14 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
 **Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
 
+### BUG-UI-013 — Header Tabel Kolom Nominal Tidak Rata Kanan
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+**Gejala:** Nilai angka nominal transaksi pada tabel sudah rata kanan `text-right`, namun judul kolom Header "Nominal" masih diam di kiri sehingga tampilan menjadi tumpang tindih urutannya secara estetika.
+**Resolusi:** Membungkus string *header* dengan `() => <div className="text-right">Nominal</div>` agar sejajar dengan sel isi datanya.
+
 ---
 
-*Total bug tercatat: 76 | Total fitur baru: 16*
+*Total bug tercatat: 77 | Total fitur baru: 16*
 *Diperbarui: 7 April 2026*
