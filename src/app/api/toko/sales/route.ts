@@ -357,8 +357,9 @@ export async function POST(request: Request) {
                 items: validatedItems.length,
             },
         }, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST /api/toko/sales error:", error);
-        return NextResponse.json({ message: "Failed to process sale" }, { status: 500 });
+        const errMsg = error?.message ? error.message : String(error);
+        return NextResponse.json({ message: `Failed to process sale: ${errMsg}` }, { status: 500 });
     }
 }
