@@ -56,8 +56,38 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     const [memberResults, setMemberResults] = React.useState<any[]>([]);
     const [selectedMember, setSelectedMember] = React.useState<any | null>(null);
     
-    // QRIS Intercept
+    // Token intercept
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
+
+    // Auto-detect member by NRP for Tunai/QRIS
+    const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<any | null>(null);
+
+    React.useEffect(() => {
+        const detectNrp = async () => {
+            if (!customerName || customerName.length < 4) {
+               if (selectedCustomerObj && selectedCustomerObj.nrp !== customerName) {
+                   setSelectedCustomerObj(null);
+               }
+               return; 
+            }
+            if (selectedCustomerObj && (selectedCustomerObj.name === customerName || selectedCustomerObj.nrp === customerName)) return;
+
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerName)}`);
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    const exactMatch = json.data.find((m: any) => m.nrp === customerName || m.memberNo === customerName);
+                    if (exactMatch) {
+                        setSelectedCustomerObj(exactMatch);
+                        setCustomerName(exactMatch.name); 
+                        toast.success(`Anggota terdeteksi otomatis: ${exactMatch.name}`);
+                    }
+                }
+            } catch (err) {}
+        };
+        const timeout = setTimeout(detectNrp, 800);
+        return () => clearTimeout(timeout);
+    }, [customerName, selectedCustomerObj]);
 
     // Check role access
     const role = roleName;
@@ -117,12 +147,14 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                 unitType,
                 amount: nominal,
                 paymentMethod: method,
-                customerName: method === "salary_cut" ? selectedMember?.name : (customerName || undefined),
+                customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerName || undefined),
                 description: description || undefined,
             };
 
             if (method === "salary_cut") {
                 body.memberId = selectedMember?.id;
+            } else if (selectedCustomerObj) {
+                body.memberId = selectedCustomerObj.id;
             }
 
             const res = await fetch("/api/unit-layanan/sales", {
@@ -146,6 +178,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setDescription("");
             setSelectedPackage("");
             setSelectedMember(null);
+            setSelectedCustomerObj(null);
             setShowCreditDialog(false);
             setMemberSearch("");
             setMemberResults([]);
@@ -287,12 +320,20 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Nama Pelanggan Walk-In (Opsional)</Label>
-                            <Input
-                                placeholder="Tulis nama pelanggan..."
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                            />
+                            <Label>Identitas Pelanggan (Walk-In / Opsional)</Label>
+                            <div className="flex gap-2 relative">
+                                <User className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
+                                <Input
+                                    placeholder="Tulis nama atau ketik/scan NRP"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    className={`pl-10 ${selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-24" : ""}`}
+                                />
+                                {selectedCustomerObj && (
+                                    <Badge variant="outline" className="absolute right-2 top-1/2 -translate-y-1/2 bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1 text-right">Deteksi anggota otomatis untuk simpan riwayat di portal</p>
                         </div>
 
                         <div className="pt-4 space-y-3">

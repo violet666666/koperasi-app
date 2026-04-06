@@ -50,6 +50,36 @@ export default function KasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
+    // Auto-detect member by NRP for Tunai/QRIS
+    const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
+
+    React.useEffect(() => {
+        const detectNrp = async () => {
+            if (!customerName || customerName.length < 4) {
+               if (selectedCustomerObj && selectedCustomerObj.nrp !== customerName) {
+                   setSelectedCustomerObj(null);
+               }
+               return; 
+            }
+            if (selectedCustomerObj && (selectedCustomerObj.name === customerName || selectedCustomerObj.nrp === customerName)) return;
+
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerName)}`);
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    const exactMatch = json.data.find((m: any) => m.nrp === customerName || m.memberNo === customerName);
+                    if (exactMatch) {
+                        setSelectedCustomerObj(exactMatch);
+                        setCustomerName(exactMatch.name); 
+                        toast.success(`Anggota terdeteksi otomatis: ${exactMatch.name}`);
+                    }
+                }
+            } catch (err) {}
+        };
+        const timeout = setTimeout(detectNrp, 800);
+        return () => clearTimeout(timeout);
+    }, [customerName, selectedCustomerObj]);
+
     React.useEffect(() => {
         async function fetchProducts() {
             setIsLoading(true);
@@ -164,7 +194,7 @@ export default function KasirPage() {
         try {
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
-                customerName: method === "salary_cut" ? selectedMember?.name : (customerName || undefined),
+                customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerName || undefined),
                 paymentMethod: method,
                 unitType: "toko",
             };
@@ -176,6 +206,8 @@ export default function KasirPage() {
             }
             if (method === "salary_cut") {
                 body.memberId = selectedMember?.id;
+            } else if (selectedCustomerObj) {
+                body.memberId = selectedCustomerObj.id; // Inject member ID for cash/qris!
             }
 
             const res = await fetch("/api/toko/sales", {
@@ -220,6 +252,7 @@ export default function KasirPage() {
             setPaymentAmount("");
             setCustomerName("");
             setSelectedMember(null);
+            setSelectedCustomerObj(null);
             setShowCreditDialog(false);
 
             const productsRes = await fetch("/api/toko/products");
@@ -326,12 +359,18 @@ export default function KasirPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <Label className="text-xs">Nama Pelanggan (opsional)</Label>
-                                <div className="flex gap-2 mt-1">
-                                    <User className="h-4 w-4 text-muted-foreground mt-2" />
-                                    <Input placeholder="Nama atau NRP" value={customerName}
-                                        onChange={(e) => setCustomerName(e.target.value)} />
+                                <Label className="text-xs">Identitas Pelanggan (opsional)</Label>
+                                <div className="flex gap-2 mt-1 relative">
+                                    <User className={`h-4 w-4 mt-2 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
+                                    <Input placeholder="Nama Walk-in atau NRP" value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        className={selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-24" : ""}
+                                    />
+                                    {selectedCustomerObj && (
+                                        <Badge variant="outline" className="absolute right-2 top-2 bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
+                                    )}
                                 </div>
+                                <p className="text-[10px] text-muted-foreground mt-1">Ketik NRP/No. Anggota untuk sinkronisasi histori</p>
                             </div>
 
                             <Separator />

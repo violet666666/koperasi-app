@@ -206,11 +206,10 @@ export async function POST(request: Request) {
             }
         }
 
-        // Create sale record
         const sale = await prisma.storeSale.create({
             data: {
                 saleNo,
-                memberId: method === "salary_cut" ? Number(memberId) : null,
+                memberId: memberId ? Number(memberId) : null,
                 unitType,
                 customerName: customerName || null,
                 totalAmount,
