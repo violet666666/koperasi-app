@@ -699,14 +699,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
-                                        <TableHead className="w-[50px]">No.</TableHead>
-                                        <TableHead className="w-[100px]">Tanggal</TableHead>
-                                        <TableHead className="w-[140px]">No. Transaksi</TableHead>
+                                        <TableHead className="w-[50px] text-center">No.</TableHead>
+                                        <TableHead className="whitespace-nowrap">Tanggal</TableHead>
+                                        <TableHead className="whitespace-nowrap">No. Transaksi</TableHead>
                                         <TableHead>Keterangan</TableHead>
-                                        {isCuciMobil && <TableHead className="w-[120px]">Plat Nomor</TableHead>}
-                                        <TableHead className="w-[130px]">Anggota / Pelanggan</TableHead>
-                                        <TableHead className="w-[100px]">Metode</TableHead>
-                                        <TableHead className="w-[130px] text-right">Nominal</TableHead>
+                                        {isCuciMobil && <TableHead className="whitespace-nowrap">Plat Nomor</TableHead>}
+                                        <TableHead className="whitespace-nowrap">Anggota / Pelanggan</TableHead>
+                                        <TableHead className="whitespace-nowrap">Metode</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Nominal</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>

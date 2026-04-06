@@ -226,13 +226,21 @@ export async function GET(
                     laba: ((isToko ? storeSaleAgg.total : 0) + unitTxAgg.total) - totalExpenses,
                 },
                 transactions: allTransactions,
-                operationalExpenses: operationalExpenses.map((e) => ({
-                    id: e.id,
-                    date: e.transactionDate,
-                    transactionNo: e.transactionNo,
-                    description: e.description,
-                    amount: Number(e.amount),
-                })),
+                operationalExpenses: operationalExpenses.map((e) => {
+                    const rawDesc = e.description || "";
+                    const parts = rawDesc.split("||RECEIPT:");
+                    const description = parts[0].replace(`[${unitType.toUpperCase()}] Pengeluaran Operasional: `, "");
+                    const receiptImagePath = parts[1] || null;
+
+                    return {
+                        id: e.id,
+                        date: e.transactionDate,
+                        transactionNo: e.transactionNo,
+                        description: description,
+                        amount: Number(e.amount),
+                        receiptImagePath: receiptImagePath,
+                    };
+                }),
             }
         });
 
