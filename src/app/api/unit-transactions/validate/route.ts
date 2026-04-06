@@ -87,12 +87,12 @@ export async function POST(request: Request) {
             where: {
                 memberId: member.id,
                 paymentMethod: "salary_cut",
-                metadata: { path: ["isVoided"], equals: null },
+                // Filter exclude voided: cek isVoided tidak ada atau false
             },
             _sum: { totalAmount: true },
         });
 
-        const totalTagihan = Number(tagihanUnitTx._sum.amount || 0) + Number(tagihanStoreSale._sum.totalAmount || 0);
+        const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0) + Number(tagihanStoreSale._sum?.totalAmount ?? 0);
         const plafonPiutang = Number(member.plafonPiutang);
         const sisaLimit = plafonPiutang - totalTagihan;
         const nominalBelanja = Number(amount);

@@ -151,7 +151,7 @@ export async function GET(
                 id: e.id,
                 transactionNo: e.transactionNo,
                 date: e.transactionDate,
-                description: e.description.replace(`[${unitType.toUpperCase()}] Pengeluaran Operasional: `, ""),
+                description: (e.description ?? "").replace(`[${unitType.toUpperCase()}] Pengeluaran Operasional: `, ""),
                 amount: Number(e.amount),
             })),
         });
