@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2 } from "lucide-react";
+import { Plus, Download, FileText, Paperclip, XCircle, Pencil, Search, Loader2, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,12 +25,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/hooks";
 
+// Helper: parse plat nomor dari field notes
+function parsePlat(notes: string | null | undefined): string | null {
+    if (!notes) return null;
+    const match = notes.match(/\[PLAT:([^\]]+)\]/);
+    return match ? match[1].trim() : null;
+}
+
 const txExportColumns: ExportColumn[] = [
     { header: "No. Transaksi", key: "transactionNo", width: 20 },
     { header: "Tanggal", key: "transactionDate", width: 15, format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID") : "-" },
     { header: "Anggota", key: "member.name", width: 25 },
     { header: "NRP", key: "member.nrp", width: 12 },
     { header: "Unit", key: "unitType", width: 15 },
+    { header: "Plat Nomor", key: "notes", width: 14, format: (v) => parsePlat(v as string) || "-" },
     { header: "Keterangan", key: "description", width: 30 },
     { header: "Nominal", key: "amount", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
     { header: "Status", key: "isPaid", width: 12, format: (v) => v ? "LUNAS" : "BELUM LUNAS" },
@@ -185,10 +193,23 @@ export default function RiwayatTransaksiUnitPage() {
             header: "Keterangan",
             accessorKey: "description",
             cell: ({ row }) => (
-                <div className="max-w-[200px] truncate" title={row.original.description}>
+                <div className="max-w-[180px] truncate" title={row.original.description}>
                     {row.original.description}
                 </div>
             ),
+        },
+        {
+            header: "Plat Nomor",
+            id: "platNomor",
+            cell: ({ row }) => {
+                const plat = parsePlat((row.original as any).notes);
+                if (!plat) return <span className="text-muted-foreground text-xs">-</span>;
+                return (
+                    <Badge variant="outline" className="font-mono text-xs bg-slate-50 border-slate-300 text-slate-700 tracking-wider">
+                        🚗 {plat}
+                    </Badge>
+                );
+            },
         },
         {
             header: "Nominal",
@@ -315,20 +336,102 @@ export default function RiwayatTransaksiUnitPage() {
         }
     };
 
+    // Print handler — menggunakan filteredData sesuai filter aktif
+    const handlePrint = React.useCallback(() => {
+        const unitLabel = filterUnit === "all" ? "Semua Unit" : getUnitName(filterUnit);
+        const statusLabel = filterStatus === "all" ? "Semua Status"
+            : filterStatus === "lunas" ? "Lunas"
+            : filterStatus === "belum_lunas" ? "Belum Lunas"
+            : filterStatus === "pending_void" ? "Pending Void"
+            : "Dibatalkan";
+        const periodLabel = dateRange.label || "Semua Data";
+
+        const rows = filteredData.map((tx) => {
+            const plat = parsePlat((tx as any).notes);
+            return `
+                <tr>
+                    <td>${tx.transactionNo}</td>
+                    <td>${format(new Date(tx.transactionDate), "d MMM yyyy", { locale: id })}</td>
+                    <td>${tx.member?.name || "-"}<br/><small style="color:#666">${tx.member?.nrp ? "NRP: " + tx.member.nrp : ""}</small></td>
+                    <td>${getUnitName(tx.unitType)}</td>
+                    <td>${plat || "-"}</td>
+                    <td>${tx.description || "-"}</td>
+                    <td style="text-align:right">${formatCurrency(tx.amount)}</td>
+                    <td>${tx.isPaid ? "LUNAS" : "BELUM LUNAS"}</td>
+                </tr>
+            `;
+        }).join("");
+
+        const total = filteredData.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+        const win = window.open("", "_blank");
+        if (!win) return;
+        win.document.write(`
+            <!DOCTYPE html><html><head>
+            <title>Riwayat Transaksi Unit</title>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; color: #111; }
+                .header { text-align: center; margin-bottom: 16px; }
+                .header img { height: 48px; margin-bottom: 4px; }
+                .header h2 { margin: 0; font-size: 14px; font-weight: bold; }
+                .header p { margin: 2px 0; font-size: 11px; color: #444; }
+                .meta { display: flex; gap: 20px; margin-bottom: 12px; font-size: 10px; }
+                .meta span { background: #f3f4f6; padding: 3px 8px; border-radius: 4px; }
+                table { width: 100%; border-collapse: collapse; }
+                th { background: #1e293b; color: white; padding: 6px 8px; font-size: 10px; text-align: left; }
+                td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+                tr:nth-child(even) td { background: #f9fafb; }
+                .total-row td { font-weight: bold; border-top: 2px solid #1e293b; background: #f1f5f9; }
+                @media print { body { margin: 8px; } }
+            </style>
+            </head><body>
+            <div class="header">
+                <img src="/logo.png" onerror="this.style.display='none'" />
+                <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
+                <p>Riwayat Transaksi Unit</p>
+                <p>Dicetak: ${new Date().toLocaleString("id-ID")}</p>
+            </div>
+            <div class="meta">
+                <span>📅 Periode: <strong>${periodLabel}</strong></span>
+                <span>🏬 Unit: <strong>${unitLabel}</strong></span>
+                <span>💳 Status: <strong>${statusLabel}</strong></span>
+                <span>📊 Total: <strong>${filteredData.length} transaksi</strong></span>
+            </div>
+            <table>
+                <thead><tr>
+                    <th>No. Transaksi</th><th>Tanggal</th><th>Anggota</th><th>Unit</th><th>Plat Nomor</th><th>Keterangan</th><th>Nominal</th><th>Status</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr class="total-row">
+                    <td colspan="6">TOTAL (${filteredData.length} transaksi)</td>
+                    <td style="text-align:right">${formatCurrency(total)}</td>
+                    <td></td>
+                </tr></tfoot>
+            </table>
+            </body></html>
+        `);
+        win.document.close();
+        win.print();
+    }, [filteredData, filterUnit, filterStatus, dateRange]);
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Riwayat Transaksi Unit"
                 description="Monitor semua transaksi dari unit-unit PRIMKOPPOL"
                 actions={(
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => exportToExcel((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi")}>
+                    <div className="flex gap-2 flex-wrap">
+                        <Button variant="outline" size="sm" onClick={() => exportToExcel(filteredData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi")}>
                             <Download className="mr-2 h-4 w-4" />
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF((response?.data || []) as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - PRIMKOPPOL Resor Lumajang", "Riwayat_Transaksi_Unit")}>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(filteredData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - PRIMKOPPOL Resor Lumajang", "Riwayat_Transaksi_Unit")}>
                             <FileText className="mr-2 h-4 w-4" />
                             PDF
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handlePrint}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Cetak
                         </Button>
                         <Button asChild>
                             <Link href="/transaksi-unit">

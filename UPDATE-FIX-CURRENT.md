@@ -1,5 +1,31 @@
 # Catatan Update Aplikasi
 
+## UPDATE 06 April 2026 — Sesi 4: Riwayat Transaksi — Plat Nomor + Print Filter-Aware
+
+### [FIX] Kolom Plat Nomor di Riwayat Transaksi Unit
+
+**File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+
+- Sebelum: kolom "Plat Nomor" tidak ada sama sekali di tabel riwayat
+- Sesudah: kolom baru dengan badge 🚗 menampilkan plat nomor hasil parse dari field `notes` format `[PLAT:N 1234 ABC]`
+- Kolom juga masuk ke export Excel/PDF via `txExportColumns`
+- Baris yang tidak punya plat nomor (non-cuci-mobil) tetap menampilkan `-` dengan elegan
+
+### [FIX] Print / Export Tidak Mengikuti Filter Aktif
+
+**File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+
+- Sebelum: tombol Excel, PDF menggunakan `response?.data` (semua data mentah, tanpa filter)
+- Sesudah: semua ekspor menggunakan `filteredData` (sudah difilter berdasarkan tanggal, unit, dan status)
+- Tombol **Cetak** baru (browser print) menampilkan popup print dengan format proper:
+  - Header PRIMKOPPOL RESOR LUMAJANG + logo
+  - Info filter aktif (Periode, Unit, Status, Jumlah transaksi)
+  - Tabel dengan kolom: No.Transaksi, Tanggal, Anggota, Unit, **Plat Nomor**, Keterangan, Nominal, Status
+  - Row total di footer
+  - Cetak hanya menampilkan data yang sesuai filter saat diklik
+
+---
+
 ## UPDATE 06 April 2026 — Sesi 3: Logic Fix + UAT Contamination Cleanup
 
 **Build ID:** `scGTYRRp9yKVIYCWccSA5` — ✅ Deploy Ready
