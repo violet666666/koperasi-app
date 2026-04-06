@@ -146,10 +146,7 @@ export async function POST(request: Request) {
             orderBy: { startDate: "desc" },
         });
 
-        // Create journal entry
-        const journalCount = await prisma.journal.count();
-        const journalNo = `JRN-${now.getFullYear()}${String(journalCount + 1).padStart(5, "0")}`;
-
+        // Lookup COA accounts for journal (best-effort)
         const kasAccount = await prisma.account.findFirst({ where: { code: "1101" } });
         const piutangTokoAccount = await prisma.account.findFirst({ where: { code: "1301" } }); // Piutang Toko
         const tokoIncomeAccount = await prisma.account.findFirst({ where: { code: "4201" } });
@@ -157,48 +154,58 @@ export async function POST(request: Request) {
 
         let journalId: number | null = null;
 
-        if (tokoIncomeAccount && headOffice && currentPeriod) {
-            const debitAccountId = method === "salary_cut"
-                ? (piutangTokoAccount?.id || kasAccount?.id)
-                : kasAccount?.id; // Tunai & QRIS go to kasAccount logic (simulated in journal)
+        // Journal creation is best-effort — if it fails (no period, missing COA, etc.) sale still goes through
+        try {
+            if (tokoIncomeAccount && headOffice && currentPeriod) {
+                const debitAccountId = method === "salary_cut"
+                    ? (piutangTokoAccount?.id || kasAccount?.id)
+                    : kasAccount?.id;
 
-            if (debitAccountId) {
-                const journal = await prisma.journal.create({
-                    data: {
-                        journalNo,
-                        branchId: headOffice.id,
-                        transactionDate: now,
-                        description: `Penjualan ${unitType} ${method === "salary_cut" ? "(Potong Gaji)" : (method === "qris" ? "(QRIS)" : "(Tunai)")} - ${saleNo}`,
-                        sourceType: "store_sale",
-                        periodId: currentPeriod.id,
-                        isPosted: true,
-                        createdById: userId,
-                    },
-                });
-
-                await prisma.journalLine.createMany({
-                    data: [
-                        {
-                            journalId: journal.id,
-                            accountId: debitAccountId,
-                            debit: totalAmount,
-                            credit: 0,
-                            description: method === "salary_cut"
-                                ? `Piutang ${unitType} (potong gaji)`
-                                : `Kas masuk penjualan ${unitType}`,
+                if (debitAccountId) {
+                    // Use timestamp-based unique journal number to prevent race conditions
+                    const journalNo = `JRN-${Date.now().toString(36).toUpperCase()}`;
+                    const journal = await prisma.journal.create({
+                        data: {
+                            journalNo,
+                            branchId: headOffice.id,
+                            transactionDate: now,
+                            description: `Penjualan ${unitType} ${method === "salary_cut" ? "(Potong Gaji)" : (method === "qris" ? "(QRIS)" : "(Tunai)")} - ${saleNo}`,
+                            sourceType: "store_sale",
+                            periodId: currentPeriod.id,
+                            isPosted: true,
+                            createdById: userId,
                         },
-                        {
-                            journalId: journal.id,
-                            accountId: tokoIncomeAccount.id,
-                            debit: 0,
-                            credit: totalAmount,
-                            description: "Pendapatan toko",
-                        },
-                    ],
-                });
+                    });
 
-                journalId = journal.id;
+                    await prisma.journalLine.createMany({
+                        data: [
+                            {
+                                journalId: journal.id,
+                                accountId: debitAccountId,
+                                debit: totalAmount,
+                                credit: 0,
+                                description: method === "salary_cut"
+                                    ? `Piutang ${unitType} (potong gaji)`
+                                    : `Kas masuk penjualan ${unitType}`,
+                            },
+                            {
+                                journalId: journal.id,
+                                accountId: tokoIncomeAccount.id,
+                                debit: 0,
+                                credit: totalAmount,
+                                description: "Pendapatan toko",
+                            },
+                        ],
+                    });
+
+                    journalId = journal.id;
+                }
+            } else {
+                console.warn(`[Toko Sales] Journal skipped: tokoIncomeAccount=${!!tokoIncomeAccount}, headOffice=${!!headOffice}, currentPeriod=${!!currentPeriod}`);
             }
+        } catch (journalErr) {
+            console.error("[Toko Sales] Journal creation failed (non-fatal):", journalErr);
+            // journalId stays null — sale proceeds without journal
         }
 
         const sale = await prisma.storeSale.create({
