@@ -1,5 +1,22 @@
 # Catatan Update Aplikasi
 
+## UPDATE 06 April 2026 — Sesi 5: POS Kasir Toko — Autocomplete Search Anggota
+
+### [FIX] Autocomplete NRP/Nama di POS Kasir Unit Toko
+
+**File:** `src/app/(protected)/toko/kasir/page.tsx`
+
+Sebelum: Field "Identitas Pelanggan" di Kasir Toko menggunakan mekanisme lama (detect NRP pasif hanya saat blur + debounce 800ms, hanya cocok jika input NRP persis 100%). Pencarian by nama sama sekali tidak bisa. Tidak ada dropdown autocomplete.
+
+Sesudah: Diganti dengan autocomplete realtime (debounce 350ms) identik dengan kasir unit lainnya:
+- Ketik ≥2 karakter (nama ATAU NRP) → dropdown muncul otomatis
+- Klik anggota di dropdown → nama terisi, NRP tampil di info bar hijau
+- Tombol X untuk reset pilihan
+- State `customerName` (lama) dihapus, diganti `customerQuery` + `selectedCustomerObj`
+- `processPayment` dan `receiptData` keduanya menggunakan state baru
+
+---
+
 ## UPDATE 06 April 2026 — Sesi 4: Riwayat Transaksi — Plat Nomor + Print Filter-Aware
 
 ### [FIX] Kolom Plat Nomor di Riwayat Transaksi Unit

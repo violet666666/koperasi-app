@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X
+    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -32,7 +32,7 @@ export default function KasirPage() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [products, setProducts] = React.useState<Product[]>([]);
     const [cart, setCart] = React.useState<CartItem[]>([]);
-    const [customerName, setCustomerName] = React.useState("");
+    // customerName state dihapus — digantikan customerQuery + selectedCustomerObj (autocomplete)
     const [paymentAmount, setPaymentAmount] = React.useState("");
     const [changeAmount, setChangeAmount] = React.useState(0);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -50,35 +50,64 @@ export default function KasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
-    // Auto-detect member by NRP for Tunai/QRIS
+    // Autocomplete search untuk Tunai/QRIS
+    const [customerQuery, setCustomerQuery] = React.useState(""); // teks yang diketik
+    const [customerSuggestions, setCustomerSuggestions] = React.useState<MemberResult[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
     const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
+    const customerRef = React.useRef<HTMLDivElement>(null);
 
+    // Close dropdown on outside click
     React.useEffect(() => {
-        const detectNrp = async () => {
-            if (!customerName || customerName.length < 4) {
-               if (selectedCustomerObj && selectedCustomerObj.nrp !== customerName) {
-                   setSelectedCustomerObj(null);
-               }
-               return; 
+        const handler = (e: MouseEvent) => {
+            if (customerRef.current && !customerRef.current.contains(e.target as Node)) {
+                setShowCustomerDropdown(false);
             }
-            if (selectedCustomerObj && (selectedCustomerObj.name === customerName || selectedCustomerObj.nrp === customerName)) return;
-
-            try {
-                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerName)}`);
-                const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    const exactMatch = json.data.find((m: any) => m.nrp === customerName || m.memberNo === customerName);
-                    if (exactMatch) {
-                        setSelectedCustomerObj(exactMatch);
-                        setCustomerName(exactMatch.name); 
-                        toast.success(`Anggota terdeteksi otomatis: ${exactMatch.name}`);
-                    }
-                }
-            } catch (err) {}
         };
-        const timeout = setTimeout(detectNrp, 800);
-        return () => clearTimeout(timeout);
-    }, [customerName, selectedCustomerObj]);
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    // Debounce autocomplete: fetch saat ≥2 karakter
+    React.useEffect(() => {
+        if (selectedCustomerObj) return; // sudah dipilih, jangan fetch lagi
+        if (!customerQuery || customerQuery.length < 2) {
+            setCustomerSuggestions([]);
+            setShowCustomerDropdown(false);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerQuery)}`);
+                const json = await res.json();
+                const results: MemberResult[] = json.data || [];
+                setCustomerSuggestions(results);
+                setShowCustomerDropdown(results.length > 0);
+            } catch {
+                setCustomerSuggestions([]);
+            } finally {
+                setIsSearchingCustomer(false);
+            }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [customerQuery, selectedCustomerObj]);
+
+    const selectCustomer = (m: MemberResult) => {
+        setSelectedCustomerObj(m);
+        setCustomerQuery(m.name);
+        setCustomerSuggestions([]);
+        setShowCustomerDropdown(false);
+    };
+
+    const clearCustomer = () => {
+        setSelectedCustomerObj(null);
+        setCustomerQuery("");
+        setCustomerSuggestions([]);
+        setShowCustomerDropdown(false);
+    };
+
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -211,7 +240,7 @@ export default function KasirPage() {
         try {
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
-                customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerName || undefined),
+                customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerQuery || undefined),
                 paymentMethod: method,
                 unitType: "toko",
             };
@@ -247,7 +276,7 @@ export default function KasirPage() {
             const receiptData: KasirReceiptData = {
                 saleNo: json.data.saleNo,
                 saleDate: new Date().toISOString(),
-                customerName: method === "salary_cut" ? selectedMember?.name : customerName,
+                customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerQuery || undefined),
                 cashierName: "Kasir Toko",
                 items: cart.map(item => ({
                     name: item.product.name,
@@ -267,9 +296,8 @@ export default function KasirPage() {
 
             setCart([]);
             setPaymentAmount("");
-            setCustomerName("");
+            clearCustomer();
             setSelectedMember(null);
-            setSelectedCustomerObj(null);
             setShowCreditDialog(false);
 
             const productsRes = await fetch("/api/toko/products");
@@ -387,29 +415,76 @@ export default function KasirPage() {
                         <CardContent className="space-y-4">
                             <div>
                                 <Label className="text-xs">Identitas Pelanggan (opsional)</Label>
-                                <div className="flex gap-2 mt-1 relative">
-                                    <User className={`h-4 w-4 mt-2 ${selectedCustomerObj ? "text-emerald-500" : "text-muted-foreground"}`} />
-                                    <Input placeholder="Nama Walk-in atau NRP" value={customerName}
-                                        onChange={(e) => setCustomerName(e.target.value)}
-                                        className={selectedCustomerObj ? "border-emerald-500 bg-emerald-50/50 pr-28" : ""}
-                                    />
-                                    {selectedCustomerObj && (
-                                        <div className="absolute right-2 top-1.5 flex items-center gap-1">
-                                            <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300">Terdeteksi</Badge>
-                                            <button 
+                                <div className="mt-1 relative" ref={customerRef}>
+                                    <div className="relative">
+                                        {selectedCustomerObj ? (
+                                            <Check className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+                                        ) : isSearchingCustomer ? (
+                                            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                                        ) : (
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        )}
+                                        <Input
+                                            placeholder="Cari nama atau NRP anggota..."
+                                            value={customerQuery}
+                                            disabled={!!selectedCustomerObj}
+                                            onChange={(e) => {
+                                                setCustomerQuery(e.target.value);
+                                                if (selectedCustomerObj) clearCustomer();
+                                            }}
+                                            onFocus={() => customerSuggestions.length > 0 && setShowCustomerDropdown(true)}
+                                            className={`pl-9 pr-8 ${
+                                                selectedCustomerObj
+                                                    ? "border-emerald-500 bg-emerald-50/50"
+                                                    : ""
+                                            }`}
+                                        />
+                                        {(selectedCustomerObj || customerQuery) && (
+                                            <button
                                                 type="button"
-                                                className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-700"
-                                                onClick={() => {
-                                                    setSelectedCustomerObj(null);
-                                                    setCustomerName("");
-                                                }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
+                                                onClick={clearCustomer}
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
+                                        )}
+                                    </div>
+
+                                    {/* Autocomplete dropdown */}
+                                    {showCustomerDropdown && customerSuggestions.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-52 overflow-y-auto">
+                                            {customerSuggestions.map((m) => (
+                                                <div
+                                                    key={m.id}
+                                                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors"
+                                                    onMouseDown={(e) => { e.preventDefault(); selectCustomer(m); }}
+                                                >
+                                                    <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                                                        {m.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate">{m.name}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            NRP: {m.nrp || "-"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Selected member info bar */}
+                                    {selectedCustomerObj && (
+                                        <div className="mt-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-md flex items-center gap-2">
+                                            <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                            <div className="text-xs text-emerald-800 min-w-0">
+                                                <span className="font-semibold">{selectedCustomerObj.name}</span>
+                                                <span className="text-emerald-600 ml-1.5">NRP: {selectedCustomerObj.nrp || "-"}</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground mt-1">Ketik NRP/No. Anggota untuk sinkronisasi histori</p>
+                                <p className="text-[10px] text-muted-foreground mt-1">Ketik nama/NRP anggota untuk autocomplete (opsional)</p>
                             </div>
 
                             <Separator />
