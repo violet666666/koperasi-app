@@ -921,3 +921,16 @@ model UnitServicePackage {
   @@index([isActive])
   @@map("unit_service_packages")
 }
+// =================================================================
+// UNIT SETTINGS
+// Menyimpan konfigurasi per unit (seperti QRIS base64) tanpa butuh FS upload.
+// =================================================================
+model UnitSetting {
+  id          Int      @id @default(autoincrement())
+  unitType    String   @unique @map("unit_type")
+  qrisBase64  String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("unit_settings")
+}

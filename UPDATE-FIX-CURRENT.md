@@ -598,7 +598,11 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [x] **FEAT-015: CRUD Pengeluaran Operasional Unit**
   - Membuat REST API tersendiri bernutrisi FormData `PUT` dan `DELETE` di `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`.
   - Menerapkan kalkulasi *Cascading Update* pada `cash_bank_transactions` (untuk menyelaraskan integrasi `balanceBefore` & `balanceAfter` saat nominal pengeluaran diisi/diubah di masa lampau).
-  - Mengimplementasikan State Modals `editExpenseId` di `[unitSlug]/laporan/page.tsx`. Menambahkan kolom "Aksi" Edit & Delete untuk peran Admin Unit.
+  - Mengimplementasikan `date-fns` `format` yang didentifikasikan penuh ke metrik ID lokal untuk format jam spesifik + nama bulan saat pelaporan rekap transaksi.
+
+**39. Pembaruan Detail UI Riwayat Pada Kasir (Dashboard)**
+   - Menambahkan param bulan dan tanggal (*contoh: 07 Apr*) pada jejak sub-waktu modul "Riwayat Transaksi Terbaru" di Dashboard Kasir. Menghilangkan kerancuan saat unit beroperasi melampaui batas tengah malam dengan menyajikan hari yang presisi, bukan sekedar jam.
+
 - [x] **Enhancement Laporan Unit Cuci Mobil**
   - Pemisahan string `[Plat Nomor]` dari sel *Keterangan* menjadi satu kesatuan elemen *Badge* dan dialihkan ke kolom Web tersendiri khusus tabel Cuci Mobil.
   - Penyesuaian `handleExportExcel` (Export XLSX) yang secara cerdas menyelipkan Header dan Row "Plat Nomor" sehingga output Microsoft Excel Unit Cuci Mobil lebih rapi dan bersih.

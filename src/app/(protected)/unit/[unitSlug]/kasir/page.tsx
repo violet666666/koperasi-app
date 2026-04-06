@@ -149,6 +149,19 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
         enabled: hasAccess && !isWrongUnit
     });
 
+    // Fetch QRIS image from DB via stats API
+    const { data: qrisUrl } = useQuery({
+        queryKey: ["unit-qris-url", unitType],
+        queryFn: async () => {
+            const res = await fetch(`/api/unit-layanan/stats?unitType=${unitType}`);
+            if (!res.ok) return null;
+            const json = await res.json();
+            return json.data?.qrisUrl ?? null;
+        },
+        enabled: hasAccess && !isWrongUnit && !!unitType,
+        staleTime: 30000,
+    });
+
     const currentUnit = UNIT_OPTIONS.find(u => u.value === unitType);
 
     // When a package is selected, auto-fill amount and description
@@ -669,23 +682,12 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                     
                     <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 min-h-[300px] relative">
                         <img 
-                            src={`/uploads/qris/qris-${unitType}.png`} 
+                            src={qrisUrl || undefined} 
                             alt={`QRIS ${unitType}`}
                             className="max-h-[350px] object-contain shadow-lg rounded-xl border-4 border-white"
-                            onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                target.nextElementSibling?.classList.remove('hidden');
-                                target.nextElementSibling?.classList.add('flex');
-                            }}
-                            onLoad={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'block';
-                                target.nextElementSibling?.classList.add('hidden');
-                                target.nextElementSibling?.classList.remove('flex');
-                            }}
+                            style={{ display: qrisUrl ? 'block' : 'none' }}
                         />
-                        <div className="hidden flex-col items-center text-muted-foreground mt-4">
+                        <div className={`${qrisUrl ? 'hidden' : 'flex'} flex-col items-center text-muted-foreground mt-4`}>
                             <AlertCircle className="h-16 w-16 mb-2 text-red-400" />
                             <p className="text-sm font-semibold text-red-600">Kode QRIS Unit Belum Diatur!</p>
                             <p className="text-xs max-w-[250px] text-center mt-1">

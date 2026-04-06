@@ -21,6 +21,7 @@ import { toast } from "sonner";
 interface UnitStats {
     unit: string;
     unitType: string;
+    qrisUrl: string | null;
     today: {
         total: number; count: number;
         cash: number; qris: number; salaryCut: number; pending: number;
@@ -235,7 +236,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-medium truncate">{t.desc || t.no}</p>
                                             <p className="text-[10px] text-muted-foreground">
-                                                {t.memberName || "Walk-in"} · {new Date(t.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                                                {t.memberName || "Walk-in"} · {new Date(t.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })} {new Date(t.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
                                             </p>
                                         </div>
                                         <div className="text-right flex-shrink-0">
@@ -292,18 +293,17 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                 <div className="space-y-4">
                     {/* Preview existing / new */}
                     <div className="border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 p-4 flex flex-col items-center justify-center min-h-[200px]">
-                        {qrisPreview ? (
-                            <img src={qrisPreview ?? undefined} alt="Preview QRIS" className="max-h-[180px] object-contain rounded-lg" />
-                        ) : (
-                            <img
-                                src={`/uploads/qris/qris-${unitType}.png?bust=${imageKey}`}
-                                alt={`QRIS ${unitType}`}
-                                className="max-h-[180px] object-contain rounded-lg"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                        )}
-                        {!qrisPreview && (
-                            <p className="text-sm text-muted-foreground mt-2">File QRIS saat ini (jika ada)</p>
+                        <div className="border-2 border-dashed rounded-lg p-2 h-40 flex items-center justify-center bg-gray-50 relative group">
+                            {(qrisPreview || stats?.qrisUrl) && (
+                                <img
+                                    src={qrisPreview || stats?.qrisUrl || ""}
+                                    alt="QRIS"
+                                    className="object-contain w-full h-full p-2"
+                                />
+                            )}
+                        </div>
+                        {!(qrisPreview || stats?.qrisUrl) && (
+                            <p className="text-sm text-muted-foreground mt-2">Belum ada QRIS</p>
                         )}
                     </div>
 

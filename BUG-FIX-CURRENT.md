@@ -882,12 +882,13 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Pada modal pop-up QRIS, tombol konfirmasi pembayaran dan batal meluber (*overflow*) ke kanan dan ke kiri layar sehingga melanggar kotak *dialog*.
 **Resolusi:** Mengganti pembungkus dari konstruktor bawaan `<DialogFooter>` yang mewarisi class `sm:flex-row sm:space-x-2` dengan `<div>` standard khusus kelas kolumnar vertikal (`flex-col gap-2 w-full`), mencegah konflik `w-full` merentang menjadi 200%.
 
-### BUG-UI-006 — QRIS Stale Cache Setelah Dihapus
+### BUG-UI-006 — Usang/Stale View pada Gambar QRIS Setelah Diperbarui (Cache Issue)
 
 **Status:** ✅ FIXED
 **Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
-**Gejala:** Saat fitur Hapus QRIS dijalankan, sistem berhasil membuang *file* dari *server*, namun UI *dashboard* (ketika pop-up kembali dibuka) tetap menampilkan *file* yang tertinggal dalam memori *cache browser*. Hal ini menimbulkan ilusi bahwa gambar tidak terhapus.
-**Resolusi:** Diimplementasikan variabel referensi `imageKey` yang bertugas memperbaharui nilai *URL query parameter* `?bust=${imageKey}` setiap kali berkas dimutakhirkan. Ini memaksa *browser* mengunduh aset terbaru (*cache busting*).
+**Gejala:** Setelah pengguna sukses mengklik tombol "Ganti QRIS" dan mengunggah gambar baru, gambar PRatinjau (Preview) tidak berubah bila *browser* masih menyimpan *cache* gambar di direktori `/uploads/qris/...`.
+**Resolusi:** Memperbarui parameter `src` pada tag `<img />` di Kasir Dashboard dengan metode *Cache Busting*:
+Menginjeksikan `?v=${imageKey}` pada _query string_ URL gambar, dengan fungsi _React State_ khusus `setImageKey(Date.now())` yang menyala ketika proses fungsi unggah QRIS terselesaikan di sisi *backend*. Ini memaksa struktur HTML untuk mengabaikan *cache cache control* pada browser Anda dan merekuisis *file* segar.
 
 ### BUG-UI-007 — Bottleneck Interaksi Utama Ke Frame Selanjutnya (INP Lag) di Kasir
 
@@ -903,7 +904,17 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Nilai transaksi baru (misal *CM07042026...*) yang dibuat pada hari ini dini hari / sewaktu-waktu bisa saja terlempar ke tanggal kemarin, misalnya "6 Apr 2026 07:00 WIB".
 **Resolusi:** Pada struktur *database*, *field* `transactionDate` disimpan sebagai wujud statis `@db.Date`. Prisma/PostgreSQL otomatis mencukur (*strip*) nilai jam (*Time*) dan menyisakan tanggal saja dalam UTC, yang ekuivalen ke `00:00:00 UTC` alias `07:00:00 WIB` keesokan paginya - mengakibatkan hilangnya akurasi detik waktu lokal. Diatasi dengan mengarahkan seluruh *endpoint* riwayat dan tabel visualnya merujuk pada metrik bayangan yang jauh lebih *rigid*, yaitu properti `createdAt` (bertipe absolut `timestamp`), lalu mengawinkannya dengan wujud waktu peramban lokal agar keakuratannya selaras 1:1.
 
+### BUG-UI-009 — Restriksi Direktori dan Blind Error pada Fitur Kelola QRIS
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-layanan/qris/route.ts`
+**Gejala:** Pesan kosong yang ambigu, "Gagal mengunggah QRIS" / "Gagal menghapus", pada instansi utama (Produksi) saat ingin memperbarui QRIS, tanpa memberikan petunjuk nyata tentang penyebab aslinya (Biasanya karena *permission server* seperti EROFS / EACCES, atau folder absen).
+**Resolusi:** 
+1. Diimplementasikan modul komando intervensi Folder Otomatis (`mkdir recursive: true`) agar *backend* mereplika dan memaksakan wujud sub-direktori *uploads/qris* jika belum di-_spawn_ oleh server *hosting*.
+2. Membongkar blok fungsi *Error 500* menjadi lebih vokal dengan mendistribusikan `error.message` internal ke respons JSON. (Mencegah Blind Error dan menampilkan masalah server bawaan - misal izin ditolak, jika muncul kembali).
+3. Pemutihan kegagalan IDEMPOTENT dari `DELETE`. Jika *file* QRIS kebetulan sudah terhapus, backend API tak akan lagi mengeluarkan *HTTP 404 Failure Exception* yang menahan siklus UI, melainkan mengembalikannya sebagai *HTTP 200 Success*.
+
 ---
 
-*Total bug tercatat: 71 | Total fitur baru: 15*
+*Total bug tercatat: 72 | Total fitur baru: 15*
 *Diperbarui: 7 April 2026*

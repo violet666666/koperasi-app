@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { writeFile, unlink } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
 const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 
-/**
- * POST /api/unit-layanan/qris
- * Upload gambar QRIS untuk sebuah unit.
- * Body: FormData { unitType: string, file: File }
- */
 export async function POST(request: Request) {
     try {
         const session = await auth();
@@ -45,24 +38,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Format file harus PNG, JPG, atau WebP" }, { status: 400 });
         }
 
-        // Sanitize unitType to prevent path traversal
         const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();
-        const filename = `qris-${safeUnitType}.png`;
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "qris");
-        const filePath = path.join(uploadDir, filename);
 
+        // Convert image to Base64 string
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+        const base64String = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+        // Upsert direct to UnitSetting table
+        await prisma.unitSetting.upsert({
+            where: { unitType: safeUnitType },
+            update: { qrisBase64: base64String },
+            create: { unitType: safeUnitType, qrisBase64: base64String }
+        });
 
         return NextResponse.json({
             message: `QRIS untuk unit ${safeUnitType} berhasil diunggah.`,
-            data: { url: `/uploads/qris/${filename}`, unitType: safeUnitType },
+            data: { url: base64String, unitType: safeUnitType },
         }, { status: 201 });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST /api/unit-layanan/qris error:", error);
-        return NextResponse.json({ message: "Gagal mengunggah QRIS" }, { status: 500 });
+        return NextResponse.json({ message: `Gagal mengunggah QRIS: ${error?.message || "Unknown error"}` }, { status: 500 });
     }
 }
 
@@ -90,19 +87,20 @@ export async function DELETE(request: Request) {
         }
 
         const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();
-        const filename = `qris-${safeUnitType}.png`;
-        const filePath = path.join(process.cwd(), "public", "uploads", "qris", filename);
 
-        if (!existsSync(filePath)) {
-            return NextResponse.json({ message: "File QRIS tidak ditemukan" }, { status: 404 });
-        }
-
-        await unlink(filePath);
+        // Nullify the Base64 in UnitSetting instead of deleting a file
+        await prisma.unitSetting.update({
+            where: { unitType: safeUnitType },
+            data: { qrisBase64: null }
+        }).catch((e: any) => {
+            // Ignore error if unit setting doesn't exist
+            if (e.code !== 'P2025') throw e; 
+        });
 
         return NextResponse.json({ message: `QRIS unit ${safeUnitType} berhasil dihapus.` });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("DELETE /api/unit-layanan/qris error:", error);
-        return NextResponse.json({ message: "Gagal menghapus QRIS" }, { status: 500 });
+        return NextResponse.json({ message: `Gagal menghapus QRIS: ${error?.message || "Unknown error"}` }, { status: 500 });
     }
 }
