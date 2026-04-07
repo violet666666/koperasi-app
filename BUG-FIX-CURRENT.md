@@ -54,6 +54,7 @@
 | **BUG-UAT-005** | **Pengajuan Pinjaman — Kolom Tenor "undefined bulan" (accessor: tenor vs tenorMonths)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-TZ-002** | **Laporan Unit — Filter "Hari Ini" Menampilkan Tanggal kemarin (UTC display tanpa WIB timezone)** | ✅ FIXED | 7 Apr 2026 |
 | **FEAT-017** | **Laporan Unit — Total Pendapatan hanya di akhir cetak + Total Pengeluaran di tabel ops** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-TZ-003** | **Data tanggal 6 April masuk juga pada filtering Hari Ini (Postgres @db.Date timezone coercion)** | ✅ FIXED | 7 Apr 2026 |
 
 
 ---
@@ -1127,3 +1128,18 @@ Form tambah entri Jurnal Umum juga menggunakan `setTimeout(resolve, 1000)` sebag
 
 *Total bug tercatat: 85 | Total fitur baru: 18*  
 *Diperbarui: 7 April 2026 — Sesi UAT Operator Fase 1*
+
+## ?? BUG-TZ-003 � Data tanggal 6 April masuk juga pada filtering Hari Ini
+
+**Tanggal ditemukan:** 7 April 2026 | **Status:** ? FIXED
+
+**Lokasi:** "src/app/api/unit/[slug]/laporan/route.ts"
+
+**Gejala:** Saat filter "Hari Ini" dipilih (7 April), data dari tanggal 6 April jam 00:00 (dan seterusnya) ikut masuk di halaman /unit/cuci-mobil/laporan.
+
+**Akar Masalah:** 
+1. Filter backend menggunakan offset jam UTC (+7 jam) sehingga boundaries menjadi gte: 2026-04-06T17:00:00Z dan lte: 2026-04-07T16:59:59Z.
+2. Namun kolom 	ransactionDate untuk pendaftaran jasa/transaksi unit di-mapping sebagai @db.Date pada Prisma schema, yang secara native di Postgres hanya menyimpan bentuk kalender (YYYY-MM-DD).
+3. Saat Postgres membandingkan tanggal kalender dengan boundary timestamp dengan zona waktu (2026-04-06T17:00:00Z), Postgres secara otomatis melonggarkan filter / melakukan *coercive timezone cast* ke boundary hari sesuai tanggal kalender yaitu 2026-04-06. Karenanya, transaksi tertanggal 6 April 00:00 terbawa dalam query.
+
+**Solusi:** Memisahkan boundaries Timestamptz dengan Date. Untuk filter tabel yang menggunakan @db.Date, string yang dimasukkan *wajib* dibulatkan sepenuhnya ke boundary UTC: 2026-04-07T00:00:00Z hingga 23:59:59Z, agar Postgres mengeksekusi dengan tanggal lokal kalender yang persis tepat sesuai UI Hari Ini.

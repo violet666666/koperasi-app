@@ -43,6 +43,7 @@ function StatusBadge({ status }: { status: string }) {
         pending: Clock,
         approved: Check,
         rejected: X,
+        disbursed: Check,
     };
     const Icon = icons[status] || Clock;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -50,6 +51,7 @@ function StatusBadge({ status }: { status: string }) {
         success: "default",
         destructive: "destructive",
         secondary: "secondary",
+        primary: "default",
     };
 
     return (

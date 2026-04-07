@@ -115,6 +115,15 @@ npx tsx prisma/seed-uat.ts
 
 ## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
 
+### [FIX] Filter "Hari Ini" Menarik Data Kemarin (Timezone Coercion)
+
+**File:** `src/app/api/unit/[slug]/laporan/route.ts`
+
+**Root cause:** Kolom `transactionDate` bertipe `@db.Date` yang hanya menangkap kalender (`YYYY-MM-DD`). Saat frontend memfilter "Hari Ini", backend mengirim boundaries berbasis UTC timestamp (contoh: April 6 `17:00:00Z`). PostgeSQL melakukan *timezone cast* dari nilai tersebut ke tanggal murni yaitu tanggal 6, sehingga laporan "Hari Ini" ikut menarik semua transaksi mulai dari tengah malam tanggal 6 (kemarin).
+
+**Solusi:** Memisahkan filter berbasis *Date* dengan *Timestamptz*. Boundaries tanggal untuk Laporan sengaja di-*force* menggunakan murni bulatan UTC 00:00:00 dengan hari lokal (misal: `2026-04-07T00:00:00Z` hingga `23:59:59Z`) agar Prisma dapat menembakkan kueri ber-presisi yang tepat menangkap "Hari Ini" menurut WIB.
+
+
 ### [FIX] Dashboard Riwayat Terbaru — Jam Transaksi Hardcode 07:00
 
 **File:** `src/app/api/unit-layanan/stats/route.ts`

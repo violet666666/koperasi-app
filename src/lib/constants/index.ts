@@ -130,6 +130,7 @@ export const APPROVAL_STATUS = {
     pending: { label: "Menunggu", color: "warning" },
     approved: { label: "Disetujui", color: "success" },
     rejected: { label: "Ditolak", color: "destructive" },
+    disbursed: { label: "Dicairkan", color: "primary" },
 } as const;
 
 export const PERIOD_STATUS = {

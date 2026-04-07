@@ -175,7 +175,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                     icon={<CreditCard className="h-5 w-5 text-orange-600" />}
                     label="Potong Gaji"
                     value={loading ? null : formatCurrency(stats?.today.salaryCut ?? 0)}
-                    sub={stats?.today.pending ? `${stats.today.pending} pending` : undefined}
+                    sub={stats?.today.pending ? `${stats.today.pending} belum lunas` : undefined}
                     bg="bg-orange-50 border-orange-200"
                 />
             </div>
