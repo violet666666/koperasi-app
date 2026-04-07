@@ -22,6 +22,7 @@ export interface ApprovalItem {
     requestType: string;
     referenceId: number;
     referenceNo: string;
+    requestNo?: string;
     description: string;
     amount?: number;
     branchId: number;
@@ -91,7 +92,7 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                 }
             } else if (approval.requestType === "unit_void" || approval.requestType === "void_store_sale") {
                 await unitTransactionsApi.voidApprove({
-                    approvalRequestNo: approval.referenceNo,
+                    approvalRequestNo: approval.requestNo || approval.referenceNo,
                     action: type === "approve" ? "approved" : "rejected",
                     notes: notes,
                 });

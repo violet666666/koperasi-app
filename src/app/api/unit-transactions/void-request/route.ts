@@ -126,6 +126,9 @@ export async function POST(request: Request) {
                         unitType: storeSale.unitType || "toko",
                         voidReason: reason,
                         itemCount: storeSale.items.length,
+                        memberName: storeSale.member?.name || (storeSale as any).customerName || "Walk-in",
+                        memberNrp: storeSale.member?.nrp || "-",
+                        kasirName: storeSale.createdBy?.name || "Kasir",
                     },
                 },
             });
