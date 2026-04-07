@@ -55,8 +55,8 @@ export default function LoginPage() {
         <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
             {/* Logo & Branding */}
             <div className="mb-8 text-center">
-                <div className="mx-auto mb-4 logo-frame-besar">
-                    <img src="/LogoPrimkoppol.png" alt="Logo PRIMKOPPOL" className="logo-inner-besar" />
+                <div className="mx-auto mb-4 logo-frame-sedang">
+                    <img src="/LogoPrimkoppol.png" alt="Logo PRIMKOPPOL" className="logo-inner-sedang" />
                 </div>
                 <div className="flex flex-col space-y-2 text-center items-center">
                     <h1 className="text-2xl font-bold text-foreground">PRIMKOPPOL RESOR LUMAJANG</h1>
