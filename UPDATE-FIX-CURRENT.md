@@ -814,7 +814,9 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 | **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
 | **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-017** | **Standarisasi Logo Primkoppol di Semua Halaman Cetak & Print** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **FEAT-018** | **Cetak 3 Lapis: Pemisahan Tabel Pengeluaran & Lembar Lampiran Bukti** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **UAT-019** | **Seed Data Staging: Akun Operator & Anggota Polri (UAT Tahap 2)** | ✅ SEEDED | 7 Apr 2026 |
 
 ---
-*Total pembaruan tercatat: 101 item (Fitur, UI, Hotfix)*
+*Total pembaruan tercatat: 103 item (Fitur, UI, Hotfix, UAT)*
 *Diperbarui: 7 April 2026*

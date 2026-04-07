@@ -180,8 +180,8 @@ export default function LaporanSHUPage() {
         <div className="space-y-6">
             {/* ===== PRINT HEADER — only visible when printing ===== */}
             <div className="hidden print:flex items-center gap-4 mb-6">
-                <div className="logo-frame-kecil">
-                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-kecil" />
+                <div className="logo-frame-sedang">
+                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
                 </div>
                 <div>
                     <h1 className="text-xl font-bold text-black">LAPORAN SHU (SISA HASIL USAHA)</h1>

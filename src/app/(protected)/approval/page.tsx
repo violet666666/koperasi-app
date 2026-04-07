@@ -32,6 +32,7 @@ const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; co
     savings_withdrawal: { label: "Penarikan Simpanan", icon: Wallet, color: "amber" },
     period_close: { label: "Tutup Periode", icon: Clock, color: "gray" },
     unit_void: { label: "Pembatalan Transaksi Unit", icon: X, color: "red" },
+    void_store_sale: { label: "Pembatalan Transaksi Toko", icon: X, color: "red" },
 };
 
 

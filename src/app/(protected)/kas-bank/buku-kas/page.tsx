@@ -312,11 +312,11 @@ export default function BukuKasPage() {
 
             {/* Print Header (only visible when printing) */}
             <div className="hidden print:flex items-center gap-4 mb-6">
-                <div className="logo-frame-kecil">
+                <div className="logo-frame-sedang">
                     <img
                         src="/LogoPrimkoppol.png"
                         alt="Logo Primkoppol"
-                        className="logo-inner-kecil"
+                        className="logo-inner-sedang"
                     />
                 </div>
                 <div>

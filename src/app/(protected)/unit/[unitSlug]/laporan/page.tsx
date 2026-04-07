@@ -447,11 +447,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
             {/* ── Print Header (only visible when printing) ────────────────── */}
             <div className="hidden print:flex flex-col items-center text-center">
-                <div className="logo-frame-besar mb-2">
+                <div className="logo-frame-sedang mb-2">
                     <img
                         src="/LogoPrimkoppol.png"
                         alt="Logo Primkoppol"
-                        className="logo-inner-besar"
+                        className="logo-inner-sedang"
                     />
                 </div>
                 <div>
@@ -509,7 +509,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Total Pendapatan</p>
                             <p className="text-lg font-bold tabular-nums text-emerald-600">
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.totalPendapatan) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPendapatan) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -522,7 +522,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Pengeluaran Ops.</p>
                             <p className="text-lg font-bold tabular-nums text-red-600">
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -535,7 +535,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
                             <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.laba) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -548,7 +548,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Jumlah Transaksi</p>
                             <p className="text-lg font-bold tabular-nums">
-                                {isLoading ? <Skeleton className="h-5 w-16" /> : summary ? `${summary.totalTransaksi} nota` : "-"}
+                                {isLoading ? <span className="block h-5 w-16 rounded-md bg-accent animate-pulse" /> : summary ? `${summary.totalTransaksi} nota` : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -801,20 +801,32 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
             {/* ── Operational Expenses Table ────────────────────────────────── */}
             {expenses.length > 0 && (
-                <Card className="print:border-0 print:shadow-none">
-                    <CardHeader className="print:pb-1">
-                        <CardTitle className="text-base text-red-700">Rincian Pengeluaran Operasional</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
+                <div className="print:break-before-page print:pt-10">
+                    <div className="hidden print:flex flex-col items-center justify-center text-center mb-6">
+                        <div className="logo-frame-sedang mb-2">
+                            <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-black">PRIMKOPPOL RESOR LUMAJANG</p>
+                            <h1 className="text-base font-bold text-black uppercase">UNIT {unitInfo.label}</h1>
+                            <h2 className="text-sm font-bold text-black">LAPORAN PENGELUARAN OPERASIONAL</h2>
+                        </div>
+                    </div>
+
+                    <Card className="print:border-0 print:shadow-none">
+                        <CardHeader className="print:hidden">
+                            <CardTitle className="text-base text-red-700">Rincian Pengeluaran Operasional</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-red-50/50">
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
-                                    <TableHead className="text-center">Bukti</TableHead>
+                                    <TableHead className="text-center print:hidden">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
-                                    {isAdmin && <TableHead className="text-center w-[120px]">Aksi</TableHead>}
+                                    {isAdmin && <TableHead className="text-center w-[120px] print:hidden">Aksi</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -827,7 +839,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
                                         </TableCell>
                                         <TableCell className="text-sm">{exp.description}</TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center print:hidden">
                                             {exp.receiptImagePath ? (
                                                 <a
                                                     href={exp.receiptImagePath}
@@ -846,7 +858,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             {formatCurrency(exp.amount)}
                                         </TableCell>
                                         {isAdmin && (
-                                            <TableCell className="text-center">
+                                            <TableCell className="text-center print:hidden">
                                                 <div className="flex justify-center flex-nowrap gap-2">
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleOpenEditExpense(exp)}>
                                                         ✏️
@@ -863,6 +875,34 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         </Table>
                     </CardContent>
                 </Card>
+                </div>
+            )}
+
+            {/* ── Lampiran Bukti Print (only visible when printing) ─────────── */}
+            {expenses.some(e => e.receiptImagePath) && (
+                <div className="hidden print:block">
+                    {expenses.filter(e => e.receiptImagePath).map((exp, idx) => (
+                        <div key={`bukti-${exp.id}`} className="break-before-page pt-10">
+                            <div className="flex flex-col items-center justify-center text-center mb-6">
+                                <div className="logo-frame-sedang mb-2">
+                                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                                </div>
+                                <h1 className="text-base font-bold uppercase mt-2">BUKTI RINCIAN PENGELUARAN</h1>
+                            </div>
+                            <div className="flex flex-col items-center text-center">
+                                <h2 className="text-sm font-bold mb-1">{idx+1}. KETERANGAN : {exp.description.toUpperCase()}</h2>
+                                <h3 className="text-sm font-medium mb-4">TANGGAL : {new Date(exp.date).toLocaleDateString("id-ID").toUpperCase()}</h3>
+                                <div className="border p-2 max-w-[80%] mx-auto mt-2 inline-block">
+                                    <img 
+                                        src={exp.receiptImagePath ?? undefined} 
+                                        alt={`Bukti ${exp.description}`} 
+                                        className="max-w-full max-h-[550px] object-contain border border-slate-100 placeholder-slate-50 text-[8px]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             )}
 
             {/* ── Tanda Tangan Print (only visible when printing) ─────────── */}
