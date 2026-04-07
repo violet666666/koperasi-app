@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -8,6 +9,14 @@ interface Params {
 // POST /api/loans/applications/[id]/approve
 export async function POST(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const allowedRoles = ["operator", "admin", "super_admin"];
+        if (!allowedRoles.includes(session.user.role)) {
+            return NextResponse.json({ message: "Tidak ada izin menyetujui pengajuan" }, { status: 403 });
+        }
         const { id } = await params;
         const body = await request.json();
         const { notes } = body;
@@ -35,7 +44,7 @@ export async function POST(request: Request, { params }: Params) {
             data: {
                 status: "approved",
                 approvedAt: new Date(),
-                approvedById: 1, // TODO: Get from session
+                approvedById: parseInt(session.user.id),
                 notes: notes || application.notes,
             },
         });

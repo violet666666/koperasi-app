@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
     Select,
     SelectContent,
@@ -16,9 +16,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Search, Calculator } from "lucide-react";
-import { formatCurrency, INTEREST_METHODS } from "@/lib/constants";
+import { Loader2, Save, Search, Calculator, AlertCircle, Info } from "lucide-react";
+import { formatCurrency } from "@/lib/constants";
 
 interface LoanProduct {
     id: number;
@@ -27,7 +28,7 @@ interface LoanProduct {
     interest_method: string;
     interest_rate: number;
     min_amount: number;
-    max_amount: number;
+    max_amount: number | null;
     min_tenor: number;
     max_tenor: number;
     admin_fee_type: string;
@@ -41,6 +42,23 @@ interface MemberResult {
     savings_balance: number;
 }
 
+// Generate tenor options with labels
+function getTenorOptions(minTenor: number, maxTenor: number): number[] {
+    // For ranges > 24, show common milestones instead of every month
+    if (maxTenor > 24) {
+        const options: number[] = [];
+        for (let i = minTenor; i <= Math.min(12, maxTenor); i++) {
+            options.push(i);
+        }
+        for (let i = 18; i <= maxTenor; i += 6) {
+            if (i > 12 && !options.includes(i)) options.push(i);
+        }
+        if (!options.includes(maxTenor)) options.push(maxTenor);
+        return options.sort((a, b) => a - b);
+    }
+    return Array.from({ length: maxTenor - minTenor + 1 }, (_, i) => minTenor + i);
+}
+
 export default function TambahPengajuanPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -50,6 +68,7 @@ export default function TambahPengajuanPage() {
     const [selectedProduct, setSelectedProduct] = React.useState<LoanProduct | null>(null);
     const [products, setProducts] = React.useState<LoanProduct[]>([]);
     const [searchResults, setSearchResults] = React.useState<MemberResult[]>([]);
+    const [isLoadingProducts, setIsLoadingProducts] = React.useState(true);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -60,48 +79,48 @@ export default function TambahPengajuanPage() {
         deductionSource: "gaji",
     });
 
-    // Calculation state
+    // Calculation state — extended with per-day and per-year
     const [calculation, setCalculation] = React.useState<{
         principal: number;
         interest: number;
+        interest_per_month: number;
+        interest_per_day: number;
+        interest_per_year: number;
         total: number;
         admin_fee: number;
         disbursed: number;
         monthly: number;
+        principal_per_month: number;
     } | null>(null);
+
+    // Validation errors
+    const [amountError, setAmountError] = React.useState<string | null>(null);
+    const [tenorError, setTenorError] = React.useState<string | null>(null);
 
     // Fetch loan products from DB
     React.useEffect(() => {
         const loadProducts = async () => {
+            setIsLoadingProducts(true);
             try {
                 const res = await fetch("/api/loans/products");
                 if (res.ok) {
                     const json = await res.json();
                     const prodData = json.data || [];
                     setProducts(prodData);
-                    if (prodData.length > 0 && !formData.product_id) {
+                    // Default to first product
+                    if (prodData.length > 0) {
                         setFormData((prev) => ({ ...prev, product_id: String(prodData[0].id) }));
                         setSelectedProduct(prodData[0]);
                     }
                 }
             } catch (e) {
-                // Fallback: use safe defaults
-                const defaultProd = {
-                    id: 1, code: "PR", name: "Pinjaman Reguler",
-                    interest_method: "flat", interest_rate: 0,
-                    min_amount: 1000000, max_amount: 20000000,
-                    min_tenor: 1, max_tenor: 36,
-                    admin_fee_type: "percent", admin_fee_value: 1,
-                };
-                setProducts([defaultProd]);
-                if (!formData.product_id) {
-                    setFormData((prev) => ({ ...prev, product_id: String(defaultProd.id) }));
-                    setSelectedProduct(defaultProd);
-                }
+                toast.error("Gagal memuat produk pinjaman");
+            } finally {
+                setIsLoadingProducts(false);
             }
         };
         loadProducts();
-    }, [formData.product_id]);
+    }, []);
 
     // Auto-select member from URL params
     React.useEffect(() => {
@@ -126,13 +145,33 @@ export default function TambahPengajuanPage() {
         }
     }, [searchParams]);
 
-    // Update selected product when product_id changes
+    // Sync selectedProduct when product_id changes
     React.useEffect(() => {
         const product = products.find((p) => p.id.toString() === formData.product_id);
         setSelectedProduct(product || null);
+        // Reset amount and tenor when product changes
+        setFormData((prev) => ({ ...prev, amount: "", tenor_months: "" }));
+        setAmountError(null);
+        setTenorError(null);
     }, [formData.product_id, products]);
 
-    // Calculate loan details
+    // Validate amount against product limits
+    const validateAmount = (val: string, product: LoanProduct | null) => {
+        if (!val || !product) { setAmountError(null); return; }
+        const amt = parseFloat(val);
+        if (isNaN(amt) || amt <= 0) { setAmountError("Jumlah tidak valid"); return; }
+        if (product.min_amount && amt < product.min_amount) {
+            setAmountError(`Minimal ${formatCurrency(product.min_amount)} untuk ${product.name}`);
+            return;
+        }
+        if (product.max_amount && amt > product.max_amount) {
+            setAmountError(`Maksimal ${formatCurrency(product.max_amount)} untuk ${product.name}`);
+            return;
+        }
+        setAmountError(null);
+    };
+
+    // Calculate loan details (uses product's actual interest_rate)
     React.useEffect(() => {
         if (!selectedProduct || !formData.amount || !formData.tenor_months) {
             setCalculation(null);
@@ -141,30 +180,42 @@ export default function TambahPengajuanPage() {
 
         const principal = parseFloat(formData.amount);
         const tenor = parseInt(formData.tenor_months);
+        if (isNaN(principal) || isNaN(tenor) || principal <= 0 || tenor <= 0) {
+            setCalculation(null);
+            return;
+        }
 
-        // Logika Baru (Sesuai Atasan)
-        // Bunga = 1% Flat per bulan dari Plafon
-        // Potongan Resiko = 2% dari Plafon, dipotong di depan
-        const admin_fee = principal * 0.02; // Potongan resiko 2%
-        const interestPerMonth = principal * 0.01; // Bunga 1% per bulan
-        const interest = interestPerMonth * tenor;
+        const ratePerMonth = selectedProduct.interest_rate / 100; // e.g. 1% → 0.01
+        const admin_fee_rate = selectedProduct.admin_fee_value / 100; // 2% → 0.02
+
+        const admin_fee = principal * admin_fee_rate;
+        const interest_per_month = principal * ratePerMonth;
+        const interest_per_day = interest_per_month / 30;
+        const interest_per_year = interest_per_month * 12;
+        const interest = interest_per_month * tenor;
         const total = principal + interest;
-        const monthly = total / tenor; // (Pokok/Tenor) + Bunga per bulan
-        const disbursed = principal - admin_fee; // Dana cair bersih
+        const principal_per_month = principal / tenor;
+        const monthly = principal_per_month + interest_per_month;
+        const disbursed = principal - admin_fee;
 
         setCalculation({
             principal,
             interest: Math.round(interest),
+            interest_per_month: Math.round(interest_per_month),
+            interest_per_day: Math.round(interest_per_day),
+            interest_per_year: Math.round(interest_per_year),
             total: Math.round(total),
             admin_fee: Math.round(admin_fee),
             disbursed: Math.round(disbursed),
             monthly: Math.round(monthly),
+            principal_per_month: Math.round(principal_per_month),
         });
     }, [selectedProduct, formData.amount, formData.tenor_months]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+        if (name === "amount") validateAmount(value, selectedProduct);
     };
 
     const handleSelectChange = (name: string, value: string) => {
@@ -202,22 +253,32 @@ export default function TambahPengajuanPage() {
             toast.error("Pilih anggota terlebih dahulu");
             return;
         }
-
         if (!formData.product_id || !formData.amount || !formData.tenor_months) {
             toast.error("Lengkapi semua field yang wajib");
+            return;
+        }
+        if (amountError) {
+            toast.error(amountError);
             return;
         }
 
         const amt = parseFloat(formData.amount);
         const tnr = parseInt(formData.tenor_months);
 
-        if (selectedProduct && amt > selectedProduct.max_amount) {
-            toast.error(`Jumlah melebihi plafon maks ${formatCurrency(selectedProduct.max_amount)}`);
-            return;
-        }
-        if (selectedProduct && tnr > selectedProduct.max_tenor) {
-            toast.error(`Tenor melebihi maks ${selectedProduct.max_tenor} bulan`);
-            return;
+        // Double-check against product limits
+        if (selectedProduct) {
+            if (selectedProduct.min_amount && amt < selectedProduct.min_amount) {
+                toast.error(`Jumlah minimal ${formatCurrency(selectedProduct.min_amount)}`);
+                return;
+            }
+            if (selectedProduct.max_amount && amt > selectedProduct.max_amount) {
+                toast.error(`Jumlah melebihi plafon maks ${formatCurrency(selectedProduct.max_amount)}`);
+                return;
+            }
+            if (tnr > selectedProduct.max_tenor) {
+                toast.error(`Tenor melebihi maks ${selectedProduct.max_tenor} bulan`);
+                return;
+            }
         }
 
         setIsLoading(true);
@@ -251,15 +312,19 @@ export default function TambahPengajuanPage() {
         }
     };
 
+    const tenorOptions = selectedProduct
+        ? getTenorOptions(selectedProduct.min_tenor || 1, selectedProduct.max_tenor || 36)
+        : [3, 6, 12, 18, 24, 36];
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Pengajuan Pinjaman Baru"
                 description="Buat pengajuan pinjaman untuk anggota"
-                backHref="/pinjaman"
+                backHref="/pinjaman/pengajuan"
             />
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+            <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
                 <div className="grid gap-6 lg:grid-cols-2">
                     {/* Left Column - Form */}
                     <div className="space-y-6">
@@ -270,23 +335,40 @@ export default function TambahPengajuanPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {!selectedMember ? (
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                placeholder="Cari nama atau no. anggota..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleMemberSearch())}
-                                                className="pl-9"
-                                            />
+                                    <>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    placeholder="Cari nama atau no. anggota..."
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleMemberSearch())}
+                                                    className="pl-9"
+                                                />
+                                            </div>
+                                            <Button type="button" onClick={handleMemberSearch}>Cari</Button>
                                         </div>
-                                        <Button type="button" onClick={handleMemberSearch}>Cari</Button>
-                                    </div>
+                                        {searchResults.length > 1 && (
+                                            <div className="border rounded-lg divide-y">
+                                                {searchResults.map((m) => (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
+                                                        onClick={() => { setSelectedMember(m); setSearchResults([]); }}
+                                                    >
+                                                        <p className="font-medium">{m.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{m.member_no}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
                                         <div className="flex items-center gap-4">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
                                                 {selectedMember.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                                             </div>
                                             <div>
@@ -294,15 +376,71 @@ export default function TambahPengajuanPage() {
                                                 <p className="text-sm text-muted-foreground">{selectedMember.member_no}</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-muted-foreground">Simpanan</p>
-                                            <p className="font-bold text-emerald-600 tabular-nums">
-                                                {formatCurrency(selectedMember.savings_balance)}
-                                            </p>
-                                        </div>
                                         <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedMember(null)}>
                                             Ganti
                                         </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Loan Product Selection */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Produk Pinjaman</CardTitle>
+                                <CardDescription>Pilih jenis pinjaman sesuai kebutuhan</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {isLoadingProducts ? (
+                                    <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Memuat produk pinjaman...
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-3">
+                                        {products.map((product) => {
+                                            const isSelected = formData.product_id === String(product.id);
+                                            const maxLabel = product.max_amount
+                                                ? formatCurrency(product.max_amount)
+                                                : "Tidak Terbatas";
+                                            return (
+                                                <button
+                                                    key={product.id}
+                                                    type="button"
+                                                    onClick={() => handleSelectChange("product_id", String(product.id))}
+                                                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${isSelected
+                                                        ? "border-primary bg-primary/5"
+                                                        : "border-border hover:border-primary/40 hover:bg-muted/30"
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-semibold">{product.name}</span>
+                                                                <Badge variant={isSelected ? "default" : "outline"} className="text-[10px]">
+                                                                    {product.code}
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                Limit: {product.min_amount ? formatCurrency(product.min_amount) : "–"} s/d {maxLabel}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Tenor: {product.min_tenor || 1}–{product.max_tenor} bulan &nbsp;·&nbsp;
+                                                                Bunga: {product.interest_rate}% flat/bln &nbsp;·&nbsp;
+                                                                Resiko: {product.admin_fee_value}% (dipotong di muka)
+                                                            </p>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                                                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </CardContent>
@@ -314,11 +452,10 @@ export default function TambahPengajuanPage() {
                                 <CardTitle className="text-lg">Detail Pinjaman</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {/* Form Input - Produk Pinjaman di-hide karena sudah auto-select via AD-ART logic */}
                                 <div>
                                     <Label htmlFor="amount">Jumlah Pinjaman *</Label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
+                                    <div className="relative mt-1.5">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">Rp</span>
                                         <Input
                                             id="amount"
                                             name="amount"
@@ -327,10 +464,20 @@ export default function TambahPengajuanPage() {
                                             onChange={handleChange}
                                             placeholder="0"
                                             min={selectedProduct?.min_amount || 0}
-                                            max={selectedProduct?.max_amount}
-                                            className="pl-10"
+                                            max={selectedProduct?.max_amount || undefined}
+                                            className={`pl-10 ${amountError ? "border-red-500" : ""}`}
                                         />
                                     </div>
+                                    {amountError ? (
+                                        <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                                            <AlertCircle className="h-3 w-3" /> {amountError}
+                                        </p>
+                                    ) : selectedProduct && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {selectedProduct.min_amount ? `Min: ${formatCurrency(selectedProduct.min_amount)}` : ""}
+                                            {selectedProduct.max_amount ? ` · Maks: ${formatCurrency(selectedProduct.max_amount)}` : " · Tidak ada batas maksimal"}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -339,26 +486,36 @@ export default function TambahPengajuanPage() {
                                         value={formData.tenor_months}
                                         onValueChange={(value) => handleSelectChange("tenor_months", value)}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="mt-1.5">
                                             <SelectValue placeholder="Pilih tenor" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {selectedProduct ? (
-                                                Array.from(
-                                                    { length: selectedProduct.max_tenor - selectedProduct.min_tenor + 1 },
-                                                    (_, i) => selectedProduct.min_tenor + i
-                                                ).map((tenor) => (
-                                                    <SelectItem key={tenor} value={tenor.toString()}>
-                                                        {tenor} bulan
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                [3, 6, 12, 18, 24, 36].map((tenor) => (
-                                                    <SelectItem key={tenor} value={tenor.toString()}>
-                                                        {tenor} bulan
-                                                    </SelectItem>
-                                                ))
-                                            )}
+                                            {tenorOptions.map((tenor) => (
+                                                <SelectItem key={tenor} value={tenor.toString()}>
+                                                    {tenor} bulan {tenor >= 12 ? `(${Math.floor(tenor / 12)} thn ${tenor % 12 > 0 ? `${tenor % 12} bln` : ""})` : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedProduct && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Maks tenor: {selectedProduct.max_tenor} bulan
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="deductionSource">Sumber Pemotongan Angsuran *</Label>
+                                    <Select
+                                        value={formData.deductionSource}
+                                        onValueChange={(value) => handleSelectChange("deductionSource", value)}
+                                    >
+                                        <SelectTrigger className="mt-1.5">
+                                            <SelectValue placeholder="Pilih sumber potongan" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="gaji">Potongan Gaji</SelectItem>
+                                            <SelectItem value="tunkin">Potongan Tunjangan Kinerja (Tunkin)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -372,23 +529,8 @@ export default function TambahPengajuanPage() {
                                         onChange={handleChange}
                                         placeholder="Jelaskan tujuan penggunaan pinjaman..."
                                         rows={3}
+                                        className="mt-1.5"
                                     />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="deductionSource">Sumber Pemotongan Angsuran *</Label>
-                                    <Select
-                                        value={formData.deductionSource}
-                                        onValueChange={(value) => handleSelectChange("deductionSource", value)}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Pilih sumber potongan" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="gaji">Potongan Gaji</SelectItem>
-                                            <SelectItem value="tunkin">Potongan Tunjangan Kinerja (Tunkin)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                             </CardContent>
                         </Card>
@@ -402,53 +544,106 @@ export default function TambahPengajuanPage() {
                                     <Calculator className="h-5 w-5" />
                                     Simulasi Pinjaman
                                 </CardTitle>
+                                {selectedProduct && (
+                                    <CardDescription>
+                                        Berdasarkan: <strong>{selectedProduct.name}</strong>
+                                    </CardDescription>
+                                )}
                             </CardHeader>
                             <CardContent>
                                 {calculation ? (
                                     <div className="space-y-4">
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Plafon Pinjaman</span>
+                                        {/* Dana Cair Section */}
+                                        <div className="space-y-2.5">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">Plafon Pinjaman</span>
                                                 <span className="font-medium tabular-nums">{formatCurrency(calculation.principal)}</span>
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Potongan Resiko (2%)</span>
-                                                <span className="font-medium tabular-nums text-red-600">- {formatCurrency(calculation.admin_fee)}</span>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-muted-foreground">
+                                                    Potongan Resiko ({selectedProduct?.admin_fee_value || 2}%)
+                                                </span>
+                                                <span className="font-medium tabular-nums text-red-600">
+                                                    − {formatCurrency(calculation.admin_fee)}
+                                                </span>
                                             </div>
                                             <Separator />
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between items-center">
                                                 <span className="font-semibold">Dana Cair (Bersih)</span>
-                                                <span className="text-lg font-bold text-emerald-600 tabular-nums">{formatCurrency(calculation.disbursed)}</span>
+                                                <span className="text-xl font-bold text-emerald-600 tabular-nums">
+                                                    {formatCurrency(calculation.disbursed)}
+                                                </span>
                                             </div>
                                         </div>
 
                                         <Separator />
 
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-muted-foreground">Angsuran Pokok /bln</span>
-                                                <span className="tabular-nums">{formatCurrency(calculation.principal / parseInt(formData.tenor_months))}</span>
-                                            </div>
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-muted-foreground">Bunga (1%) /bln</span>
-                                                <span className="tabular-nums">{formatCurrency(calculation.interest / parseInt(formData.tenor_months))}</span>
+                                        {/* Bunga Akumulatif */}
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                                                <Info className="h-3 w-3" />
+                                                Akumulasi Bunga ({selectedProduct?.interest_rate || 1}% Flat)
+                                            </p>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-950/30 rounded-md px-3 py-2">
+                                                    <span className="text-muted-foreground">Per Hari (~1/30 bln)</span>
+                                                    <span className="font-medium tabular-nums text-blue-700 dark:text-blue-400">
+                                                        {formatCurrency(calculation.interest_per_day)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center bg-indigo-50 dark:bg-indigo-950/30 rounded-md px-3 py-2">
+                                                    <span className="text-muted-foreground">Per Bulan (1%)</span>
+                                                    <span className="font-medium tabular-nums text-indigo-700 dark:text-indigo-400">
+                                                        {formatCurrency(calculation.interest_per_month)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center bg-violet-50 dark:bg-violet-950/30 rounded-md px-3 py-2">
+                                                    <span className="text-muted-foreground">Per Tahun (12%)</span>
+                                                    <span className="font-medium tabular-nums text-violet-700 dark:text-violet-400">
+                                                        {formatCurrency(calculation.interest_per_year)}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="rounded-lg bg-primary/10 p-4 text-center mt-2">
-                                            <p className="text-sm text-muted-foreground">Total Angsuran per Bulan</p>
-                                            <p className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(calculation.monthly)}</p>
-                                            <p className="text-xs text-muted-foreground">Selama {formData.tenor_months} bulan</p>
+                                        <Separator />
+
+                                        {/* Angsuran Bulanan */}
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Angsuran Pokok /bln</span>
+                                                <span className="tabular-nums">{formatCurrency(calculation.principal_per_month)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Bunga /bln</span>
+                                                <span className="tabular-nums">{formatCurrency(calculation.interest_per_month)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 text-center">
+                                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Angsuran per Bulan</p>
+                                            <p className="text-3xl font-bold text-primary tabular-nums">
+                                                {formatCurrency(calculation.monthly)}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                selama {formData.tenor_months} bulan
+                                            </p>
+                                            <Separator className="my-3" />
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Total Keseluruhan</span>
+                                                <span className="font-semibold tabular-nums">{formatCurrency(calculation.total)}</span>
+                                            </div>
                                         </div>
 
                                         <p className="text-xs text-muted-foreground text-center">
-                                            (Plafon - 2% Resiko) | Bunga Flat 1%/bln
+                                            Bunga Flat {selectedProduct?.interest_rate || 1}%/bln · Resiko {selectedProduct?.admin_fee_value || 2}% dipotong di muka
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Calculator className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                        <p>Pilih produk, jumlah, dan tenor untuk melihat simulasi</p>
+                                    <div className="text-center py-8 text-muted-foreground space-y-2">
+                                        <Calculator className="h-12 w-12 mx-auto opacity-30" />
+                                        <p className="text-sm">Pilih produk, jumlah, dan tenor</p>
+                                        <p className="text-xs opacity-70">untuk melihat simulasi lengkap</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -461,7 +656,10 @@ export default function TambahPengajuanPage() {
                     <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
                         Batal
                     </Button>
-                    <Button type="submit" disabled={isLoading || !selectedMember || !calculation}>
+                    <Button
+                        type="submit"
+                        disabled={isLoading || !selectedMember || !calculation || !!amountError}
+                    >
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

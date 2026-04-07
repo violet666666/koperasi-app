@@ -977,5 +977,75 @@ Jika ada saldo/gaji berlebih di luar batas aman tersebut (Sisa Bersih > 2JT), ke
 
 ---
 
-*Total bug tercatat: 80 | Total fitur baru: 17*
+*Total bug tercatat: 80 | Total fitur baru: 17*  
+*Diperbarui: 7 April 2026*
+
+---
+
+## 📋 BUG & FITUR BARU — 7 April 2026 (Sesi 2 — Produk Pinjaman)
+
+---
+
+### BUG-066 — createdById/approvedById Hardcode = 1 di Semua Loan Routes
+
+**Status:** ✅ FIXED  
+**Tanggal:** 7 April 2026  
+**Severity:** High (Keamanan & Audit Trail)
+
+**Deskripsi:**  
+Seluruh endpoint pinjaman menggunakan nilai hardcode `userId = 1` untuk field `createdById`, `approvedById`, dan `rejectedById`. Ini berarti semua aktivitas pinjaman tercatat atas nama user dengan ID=1, membuat audit trail tidak akurat dan tidak bisa melacak siapa sebenarnya yang melakukan aksi.
+
+**Root Cause:**  
+Komentar `// TODO: Get from session` ditinggalkan di kode tidak lengkap dari versi awal pengembangan.
+
+**Files Fixed:**
+- `src/app/api/loans/applications/route.ts` → `createdById: parseInt(session.user.id)`
+- `src/app/api/loans/applications/[id]/approve/route.ts` → `approvedById: parseInt(session.user.id)` + auth guard
+- `src/app/api/loans/applications/[id]/reject/route.ts` → `rejectedById: parseInt(session.user.id)` + auth guard
+
+---
+
+### BUG-067 — Validasi Hardcode AD-ART Memblokir Pinjaman Khusus > 20jt
+
+**Status:** ✅ FIXED  
+**Tanggal:** 7 April 2026  
+**Severity:** Critical (Fitur Utama Tidak Bisa Berjalan)
+
+**Deskripsi:**  
+Endpoint `POST /api/loans/applications` memiliki validasi hardcode:
+```
+const AD_ART_MAX_LOAN = 20000000;
+if (data.amount > AD_ART_MAX_LOAN) → reject
+const AD_ART_MAX_TENOR_MONTHS = 36;
+if (data.tenorMonths > AD_ART_MAX_TENOR_MONTHS) → reject
+```
+Ini berarti Produk Pinjaman Khusus (Min 30jt, Tenor hingga 60 bln) tidak pernah bisa diproses.
+
+**Fix:** Validasi kini hanya menggunakan atribut dari `LoanProduct` (`minAmount`, `maxAmount`, `minTenorMonths`, `maxTenorMonths`). Tidak ada lagi konstanta hardcode. Jika produk tidak punya `maxAmount` (null), tidak ada batas atas.
+
+---
+
+### FEAT-020 — Produk Pinjaman Reguler & Pinjaman Khusus
+
+**Status:** ✅ IMPLEMENTED  
+**Tanggal:** 7 April 2026
+
+**Deskripsi:**  
+Implementasi lengkap 2 jenis produk pinjaman dengan kartu pilihan UI, limit per produk, dan simulasi rinci.
+
+**Komponen:**
+1. **Seed Script:** `prisma/seed-loan-products.ts`  
+   - Pinjaman Reguler (PR): Min 1jt, Maks 20jt, Tenor 1-36 bln
+   - Pinjaman Khusus (PK): Min 30jt, No Limit, Tenor 1-60 bln
+   - Keduanya dengan bunga 1% flat/bln, biaya resiko 2% di muka
+2. **Form Pengajuan UI** (`tambah/page.tsx`):  
+   - Kartu pilihan produk interaktif
+   - Input amount/tenor di-constrain ke min/max produk
+   - Simulasi per hari / per bulan / per tahun untuk bunga 1%
+3. **Detail Pengajuan** (`[id]/page.tsx`):  
+   - Tombol "Ajukan ke Operator" untuk status draft
+
+---
+
+*Total bug tercatat: 82 | Total fitur baru: 18*  
 *Diperbarui: 7 April 2026*

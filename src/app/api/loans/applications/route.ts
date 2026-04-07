@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { createLoanApplicationSchema, paginationSchema } from "@/lib/validations";
 
 // Helper to generate application number
@@ -68,6 +69,11 @@ export async function GET(request: Request) {
 // POST /api/loans/applications - Create loan application
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const currentUserId = parseInt(session.user.id);
         const body = await request.json();
         const data = createLoanApplicationSchema.parse(body);
 
@@ -116,35 +122,17 @@ export async function POST(request: Request) {
             );
         }
 
+        // Validate tenor against product limits ONLY (no hardcoded AD-ART limits)
         if (product.minTenorMonths && data.tenorMonths < product.minTenorMonths) {
             return NextResponse.json(
-                { message: `Tenor minimal ${product.minTenorMonths} bulan` },
+                { message: `Tenor minimal ${product.minTenorMonths} bulan untuk produk ${product.name}` },
                 { status: 400 }
             );
         }
 
         if (product.maxTenorMonths && data.tenorMonths > product.maxTenorMonths) {
             return NextResponse.json(
-                { message: `Tenor maksimal ${product.maxTenorMonths} bulan` },
-                { status: 400 }
-            );
-        }
-
-        // === AD-ART Pasal 26: Validate salary remainder ===
-        // Max pinjaman Rp 20.000.000
-        const AD_ART_MAX_LOAN = 20000000;
-        if (data.amount > AD_ART_MAX_LOAN) {
-            return NextResponse.json(
-                { message: `Sesuai AD-ART Pasal 26, pinjaman maksimal Rp 20.000.000` },
-                { status: 400 }
-            );
-        }
-
-        // Max tenor 3 tahun (36 bulan)
-        const AD_ART_MAX_TENOR_MONTHS = 36;
-        if (data.tenorMonths > AD_ART_MAX_TENOR_MONTHS) {
-            return NextResponse.json(
-                { message: `Sesuai AD-ART Pasal 26, tenor pinjaman maksimal 3 tahun (36 bulan)` },
+                { message: `Tenor maksimal ${product.maxTenorMonths} bulan untuk produk ${product.name}` },
                 { status: 400 }
             );
         }
@@ -173,8 +161,9 @@ export async function POST(request: Request) {
                     0
                 );
 
-                // Calculate new loan monthly installment (Flat 1% per month)
-                const interestPerMonth = data.amount * 0.01;
+                // Calculate new loan monthly installment based on product rate (Flat)
+                const ratePerMonth = Number(product.interestRate) / 100; // e.g. 1% → 0.01
+                const interestPerMonth = data.amount * ratePerMonth;
                 const totalInterest = interestPerMonth * data.tenorMonths;
                 const totalLoan = data.amount + totalInterest;
                 const newInstallment = totalLoan / data.tenorMonths;
@@ -213,7 +202,7 @@ export async function POST(request: Request) {
                 deductionSource: data.deductionSource,
                 notes: data.notes,
                 status: "draft",
-                createdById: 1, // TODO: Get from session
+                createdById: currentUserId,
             },
             include: {
                 member: { select: { id: true, memberNo: true, name: true } },

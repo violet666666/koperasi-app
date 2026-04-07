@@ -818,5 +818,64 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 | **UAT-019** | **Seed Data Staging: Akun Operator & Anggota Polri (UAT Tahap 2)** | ✅ SEEDED | 7 Apr 2026 |
 
 ---
-*Total pembaruan tercatat: 103 item (Fitur, UI, Hotfix, UAT)*
+*Total pembaruan tercatat: 103 item (Fitur, UI, Hotfix, UAT)*  
+*Diperbarui: 7 April 2026*
+
+---
+
+## 📋 UPDATE 7 April 2026 (Sesi 2) — Implementasi Produk Pinjaman
+
+### ✅ FEAT-020 — Produk Pinjaman Reguler & Khusus
+
+**Perubahan:**
+- **Database Seed:** `prisma/seed-loan-products.ts` — Menyeed 2 produk pinjaman ke staging:
+  - **Pinjaman Reguler (PR):** Min 1jt, Maks 20jt, Tenor 1–36 bln, Bunga 1% flat/bln, Resiko 2% di muka
+  - **Pinjaman Khusus (PK):** Min 30jt, No Limit, Tenor 1–60 bln, Bunga 1% flat/bln, Resiko 2% di muka
+- **Backend Fix — Hapus Hard-limit AD-ART:**
+  - `api/loans/applications/route.ts` — Dihapus validasi hardcode `AD_ART_MAX_LOAN = 20jt` dan `AD_ART_MAX_TENOR_MONTHS = 36`
+  - Validasi kini **hanya dari atribut LoanProduct** (`minAmount`, `maxAmount`, `minTenorMonths`, `maxTenorMonths`)
+  - Rate bunga cicilan juga dihitung dari `product.interestRate` (bukan hardcode 1%)
+- **Backend Fix — Session User:**
+  - `api/loans/applications/route.ts` → `createdById` kini dari session user (bukan hardcode `1`)
+  - `api/loans/applications/[id]/approve/route.ts` → `approvedById` dari session + tambah auth check
+  - `api/loans/applications/[id]/reject/route.ts` → `rejectedById` dari session + tambah auth check
+- **Frontend — Form Pengajuan Baru (`tambah/page.tsx`):**
+  - Tampilkan **kartu pilihan produk** dengan info limit, tenor, bunga, dan resiko per produk
+  - Input `amount` dan `tenor` di-limit sesuai produk yang dipilih (min/max)
+  - Penambahan **Simulasi detail:**
+    - Akumulasi bunga **per hari** (~0.033%)
+    - Akumulasi bunga **per bulan** (1%)
+    - Akumulasi bunga **per tahun** (12%)
+  - Label tenor lebih informatif: contoh "12 bulan (1 thn)"
+- **Frontend — Detail Pengajuan (`[id]/page.tsx`):**
+  - Tambah tombol **"Ajukan ke Operator"** untuk status `draft`
+  - Memungkinkan alur: Buat Pengajuan (draft) → Ajukan → Operator dapat menyetujui
+
+### ✅ UAT — Akun Operator & Anggota Siap Uji Pinjaman
+
+**Akun UAT Pinjaman (Data Lengkap):**
+
+| Role | Email | Password |
+| --- | --- | --- |
+| **Operator** | `operator.uat@primkoppol.test` | `uat123456` |
+| **Anggota 1** | `anggota.uat.uat88001@primkoppol.test` | `uat123456` |
+| **Anggota 2** | `anggota.uat.uat88002@primkoppol.test` | `uat123456` |
+| **Kasir Toko** | `kasir.uat.toko@primkoppol.test` | `uat123456` |
+
+**Alur UAT Pinjaman Lengkap:**
+1. Login sebagai Anggota1 → `/pinjaman/pengajuan/tambah`
+2. Pilih Produk Pinjaman (Reguler atau Khusus)
+3. Isi jumlah & tenor sesuai limit produk → Lihat simulasi detail
+4. Klik "Ajukan Pinjaman" → status jadi **draft**
+5. Masuk ke detail pengajuan → Klik "Ajukan ke Operator" → status jadi **submitted**
+6. Logout → Login sebagai Operator → `/approval`
+7. Setujui pengajuan pinjaman → status jadi **approved**
+8. Kembali ke `/pinjaman/pengajuan/[id]` → Klik "Cairkan & Cetak Kwitansi"
+
+| **FEAT-020** | **Produk Pinjaman Reguler & Khusus (Seed + Backend + UI)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-066** | **createdById/approvedById hardcode = 1 di semua loan routes** | ✅ FIXED | 7 Apr 2026 |
+| **UAT-020** | **Seed Produk Pinjaman ke Staging Database** | ✅ SEEDED | 7 Apr 2026 |
+
+---
+*Total pembaruan tercatat: 106 item (Fitur, UI, Hotfix, UAT)*  
 *Diperbarui: 7 April 2026*
