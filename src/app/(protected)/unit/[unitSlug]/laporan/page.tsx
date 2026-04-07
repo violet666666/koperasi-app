@@ -555,23 +555,6 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </Card>
             </div>
 
-            {/* ── Print Summary (only on print) ────────────────────────────── */}
-            </p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Tunai</p>
-                        <p className="font-bold">{formatCurrency(summary.tunai)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">QRIS</p>
-                        <p className="font-bold">{formatCurrency(summary.qris)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Potong Gaji</p>
-                        <p className="font-bold">{formatCurrency(summary.potongGaji)}</p>
-                    </div>
-                </div>
-            )}
 
             {/* ── Breakdown Metode Bayar (screen) ──────────────────────────── */}
             {summary && !isLoading && (
@@ -796,9 +779,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             </Card>
 
             {/* ── Operational Expenses Table ────────────────────────────────── */}
-            {/* Print-only: Total Pendapatan once at end of transactions */}
+            {/* Print-only: Total Pendapatan - tampil sekali di akhir tabel transaksi */}
             {transactions.length > 0 && summary && (
-                <div className="hidden print:block border-t-2 border-black pt-2 mt-1 mb-4">
+                <div className="hidden print:block border-t-2 border-gray-700 pt-2 mt-1 mb-4">
                     <table className="w-full text-sm">
                         <tbody>
                             <tr className="font-bold">
@@ -894,19 +877,17 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         </Table>
                     </CardContent>
                 </Card>
-                {/* Print-only: Total Pengeluaran once at end */}
-                {expenses.length > 0 && (
-                    <div className="hidden print:block border-t-2 border-red-700 pt-2 mt-1 mb-2 text-sm">
-                        <table className="w-full">
-                            <tbody>
-                                <tr className="font-bold">
-                                    <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
-                                    <td className="py-1 text-right tabular-nums text-red-800">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                {/* Cetak: Total Pengeluaran - tampil SEKALI di akhir tabel pengeluaran */}
+                <div className="hidden print:block border-t-2 border-red-700 pt-2 mt-1 mb-2 text-sm">
+                    <table className="w-full">
+                        <tbody>
+                            <tr className="font-bold">
+                                <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
+                                <td className="py-1 text-right tabular-nums text-red-800">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 </div>
             )}
 
