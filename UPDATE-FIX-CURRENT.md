@@ -123,6 +123,16 @@ npx tsx prisma/seed-uat.ts
 
 **Solusi:** Gunakan field `createdAt` (bertipe `DateTime` lengkap) untuk tampilan waktu di recent transactions, sementara `transactionDate` tetap dipakai untuk filter tanggal.
 
+### [FIX] Laporan Unit — Filter "Hari Ini" Melenceng Tanggalnya
+
+**File:** `src/app/api/unit/[slug]/laporan/route.ts` dan `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
+
+**Root cause:** Laporan menggunakan boundary `dateFrom` yang dikonversi ke UTC (misal: 17:00 UTC kemarin) lalu mencari berdasarkan `transactionDate` yang tersimpan sebagai tipe `@db.Date`. Hal ini membuat transaksi yang dimasukkan di dini hari terekam sebagai tanggal sebelumnya di Prisma, dan menjadi tidak masuk atau tercampur ke rentang hari lainnya.
+
+**Solusi:**
+1. Mengubah *query condition* filter data UnitTransaction di API route laporan agar menggunakan field `createdAt` ketimbang `transactionDate` sehingga sinkron secara time-series dengan komparasi `dateFrom` WIB.
+2. Menghapus block `Print Summary` pada frontend Laporan sehingga rincian "Total Pendapatan" tidak diprint berulang (cukup di `TableFooter` saja sesuai instruksi).
+
 ### [FIX] Export PDF/Excel — Kolom NRP dan Nama Anggota Kosong
 
 **File:** `src/lib/export-utils.ts`
@@ -879,3 +889,42 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 ---
 *Total pembaruan tercatat: 106 item (Fitur, UI, Hotfix, UAT)*  
 *Diperbarui: 7 April 2026*
+
+---
+
+## 🧪 UAT OPERATOR — FASE 1 (7 April 2026)
+
+### Akun UAT Resmi untuk UAT Operator & Anggota
+
+| Role | Email | Password | Keterangan |
+|------|-------|----------|------------|
+| **Operator** | `operator.uat@primkoppol.test` | `uat123456` | Akses penuh semua modul koperasi |
+| **Anggota 1** | `anggota.uat.uat88001@primkoppol.test` | `uat123456` | Slamet Riyadi, UAT88001, Gaji Rp 7.500.000 |
+| **Anggota 2** | `anggota.uat.uat88002@primkoppol.test` | `uat123456` | Wahyu Prasetyo, UAT88002, Gaji Rp 9.500.000 |
+| **Anggota 3** | `anggota.uat.uat88003@primkoppol.test` | `uat123456` | Rizki Fauzan, UAT88003 |
+| **Kasir Toko** | `kasir.uat.toko@primkoppol.test` | `uat123456` | Admin Toko PRIMKOPPOL UAT |
+
+### Progress UAT Operator (Per Sesi)
+
+| UAT ID | Modul | Status | Catatan |
+|--------|-------|--------|---------|
+| **UAT-OPS-01** | Anggota — Daftar, Detail, Kartu, Buku | ✅ PASS | Semua page load, data real dari DB |
+| **UAT-OPS-03** | Simpanan — Rekening Anggota | ✅ PASS | 8 rekening UAT terlihat, saldo benar |
+| **UAT-OPS-04** | Simpanan — Transaksi Tambah | ❌ BLOCKED | BUG-UAT-001: Form pakai MOCK data, tidak bisa dipakai |
+| **UAT-OPS-06** | Pinjaman — Pengajuan + Approval | ✅ PASS | End-to-end: Draft→Submitted→Approved berhasil |
+| **UAT-OPS-07..08** | Pinjaman — Angsuran & Jadwal | ⏳ PENDING | Belum diuji |
+| **UAT-OPS-09..10** | Kas & Bank | ⏳ PENDING | Belum diuji |
+| **UAT-OPS-11..12** | Non Simpan Pinjam | ⏳ PENDING | Belum diuji |
+| **UAT-OPS-13..14** | Transaksi Unit Layanan | ⏳ PENDING | Belum diuji |
+| **UAT-OPS-15** | Kwitansi | ⏳ PENDING | Belum diuji |
+
+### Bug Ditemukan Selama UAT Fase 1
+
+| ID | Deskripsi | Severity |
+|----|-----------|----------|
+| **BUG-UAT-001** | Simpanan Transaksi Tambah: MOCK data, bukan API real | 🔴 Critical |
+| **BUG-UAT-002** | Dashboard: Total Pinjaman Aktif = Rp 0 (belum hitungkan status approved) | 🟡 Medium |
+| **BUG-UAT-003** | Jurnal Umum Tambah Entry: setTimeout simulasi, bukan API | 🟠 High |
+
+---
+*Update: 7 April 2026 — UAT Operator Fase 1*

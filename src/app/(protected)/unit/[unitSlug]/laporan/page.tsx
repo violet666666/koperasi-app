@@ -555,27 +555,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </Card>
             </div>
 
-            {/* ── Print Summary (only on print) ────────────────────────────── */}
-            {summary && (
-                <div className="hidden print:grid grid-cols-4 gap-3 mb-4 text-sm">
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Total Pendapatan</p>
-                        <p className="font-bold">{formatCurrency(summary.totalPendapatan)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Tunai</p>
-                        <p className="font-bold">{formatCurrency(summary.tunai)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">QRIS</p>
-                        <p className="font-bold">{formatCurrency(summary.qris)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Potong Gaji</p>
-                        <p className="font-bold">{formatCurrency(summary.potongGaji)}</p>
-                    </div>
-                </div>
-            )}
+            {/* ── Print Summary (Removed per feedback) ────────────────────────────── */}
 
             {/* ── Breakdown Metode Bayar (screen) ──────────────────────────── */}
             {summary && !isLoading && (

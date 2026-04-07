@@ -40,7 +40,8 @@ interface LoanApplication {
     memberId: number;
     productId: number;
     amount: number;
-    tenor: number;
+    tenor?: number;       // legacy fallback
+    tenorMonths?: number; // field actual dari API
     status: string;
     submittedAt?: string;
     member?: { id: number; memberNo: string; name: string };
@@ -112,9 +113,12 @@ const columns: ColumnDef<LoanApplication>[] = [
         ),
     },
     {
-        accessorKey: "tenor",
+        accessorKey: "tenorMonths",
         header: "Tenor",
-        cell: ({ row }) => `${row.getValue("tenor")} bulan`,
+        cell: ({ row }) => {
+            const tenor = row.original.tenorMonths;
+            return tenor ? `${tenor} bulan` : "-";
+        },
     },
     {
         accessorKey: "status",
@@ -185,7 +189,9 @@ export default function PengajuanPinjamanPage() {
             try {
                 const params = statusFilter !== "all" ? { status: statusFilter } : {};
                 const response = await loansApi.applications(params);
-                setData((response.data as any).data || []);
+                // response is PaginatedResponse<LoanApplication> = { data: LoanApplication[], meta: {...} }
+                // response.data is already the array, not a nested object
+                setData((response as any).data || []);
             } catch (error) {
                 console.error("Failed to fetch applications:", error);
             } finally {

@@ -47,6 +47,12 @@
 | **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
 | **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-UAT-001** | **Simpanan Transaksi Tambah — Pencarian Anggota Masih Mock Data** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-002** | **Dashboard Operator — Total Pinjaman Aktif Rp 0 Meski Ada Pinjaman Approved** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-003** | **Jurnal Umum Tambah Entry — Simulasi setTimeout (Tidak Ke API Real)** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-004** | **Pengajuan Pinjaman List — Selalu Kosong (response.data.data Bug)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-UAT-005** | **Pengajuan Pinjaman — Kolom Tenor "undefined bulan" (accessor: tenor vs tenorMonths)** | ✅ FIXED | 7 Apr 2026 |
+
 
 ---
 
@@ -1049,3 +1055,73 @@ Implementasi lengkap 2 jenis produk pinjaman dengan kartu pilihan UI, limit per 
 
 *Total bug tercatat: 82 | Total fitur baru: 18*  
 *Diperbarui: 7 April 2026*
+
+---
+
+## 🔴 BUG-UAT-001 — Simpanan Transaksi Tambah: Pencarian Anggota Masih Mock Data
+
+**Ditemukan:** 7 April 2026 (UAT-OPS-04)  
+**Status:** 🔴 OPEN  
+**Severity:** Critical (fitur tidak bisa digunakan sama sekali)  
+**File:** `src/app/(protected)/simpanan/transaksi/tambah/page.tsx`
+
+**Deskripsi:**
+Halaman `/simpanan/transaksi/tambah` masih menggunakan data **hardcoded MOCK** untuk pencarian anggota. Semua data anggota (Budi Santoso, Siti Aminah, Joko Widodo) adalah data fiktif dan **NOT terhubung ke database**. Submit transaksi juga hanya `setTimeout(1000)` simulasi — **tidak ada API call real**.
+
+**Root Cause:**
+```typescript
+// src/app/(protected)/simpanan/transaksi/tambah/page.tsx
+const MOCK_MEMBERS = [
+  { id: 1, member_no: "A-001", name: "Budi Santoso", savings_balance: 5000000 },
+  { id: 2, member_no: "A-002", name: "Siti Aminah", savings_balance: 3500000 },
+  { id: 3, member_no: "A-003", name: "Joko Widodo", savings_balance: 2200000 },
+];
+// handleSubmit() → await new Promise(resolve => setTimeout(resolve, 1000)) ← TIDAK ADA API!
+```
+
+**Fix Diperlukan:**
+1. Ganti `MOCK_MEMBERS` dengan API call ke `GET /api/members?search={query}`
+2. Ganti `handleSubmit()` dengan `POST /api/savings/transactions`
+3. Dropdown Produk Simpanan harus dari `GET /api/savings/products` (bukan hardcoded id 1/2/3)
+
+---
+
+## 🔴 BUG-UAT-002 — Dashboard Operator: Total Pinjaman Aktif Rp 0
+
+**Ditemukan:** 7 April 2026 (Observasi Screenshot Dashboard)  
+**Status:** 🔴 OPEN  
+**Severity:** Medium (display issue, data ada tapi tidak ditampilkan)  
+**Lokasi:** Dashboard card "Total Pinjaman Aktif"
+
+**Deskripsi:**
+Dashboard menampilkan "Total Pinjaman Aktif: **Rp 0**" padahal dari UAT sebelumnya terbukti ada pinjaman dengan status `approved` (APP-2026-53224, Rp 3.000.000). Card linked ke `/laporan/rekap-pinjaman`.
+
+**Kemungkinan Root Cause:**
+- Query dashboard mungkin menghitung pinjaman dengan status `active` (setelah pencairan/disbursed) bukan `approved`
+- Pinjaman APP-2026-53224 mungkin masih status `submitted`/`approved` tapi belum `disbursed`
+- Perlu verifikasi query di API dashboard endpoint
+
+**Fix Diperlukan:**
+- Cek status pinjaman di DB: apakah `approved` sudah dihitung sebagai "aktif" di dashboard
+- Jika perlu, update query dashboard untuk memasukan status `approved` dan `disbursed`
+
+---
+
+## 🔴 BUG-UAT-003 — Jurnal Umum Tambah Entry: Tidak Terhubung API
+
+**Ditemukan:** 7 April 2026 (Code Review — grep setTimeout)  
+**Status:** 🔴 OPEN  
+**Severity:** High (transaksi jurnal tidak tersimpan ke database)  
+**File:** `src/app/(protected)/jurnal/umum/page.tsx` line 128
+
+**Deskripsi:**
+Form tambah entri Jurnal Umum juga menggunakan `setTimeout(resolve, 1000)` sebagai simulasi, bukan API call nyata. Jurnal yang "berhasil disimpan" tidak akan tersimpan ke database.
+
+**Fix Diperlukan:**
+- Ganti simulasi dengan `POST /api/journal/entries`
+- Validasi debit = kredit sebelum submit
+
+---
+
+*Total bug tercatat: 85 | Total fitur baru: 18*  
+*Diperbarui: 7 April 2026 — Sesi UAT Operator Fase 1*
