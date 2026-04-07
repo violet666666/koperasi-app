@@ -447,11 +447,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
             {/* ── Print Header (only visible when printing) ────────────────── */}
             <div className="hidden print:flex flex-col items-center text-center">
-                <div className="bg-black rounded-full overflow-hidden flex items-center justify-center" style={{ width: "240px", height: "240px" }}>
+                <div className="logo-frame-besar mb-2">
                     <img
                         src="/LogoPrimkoppol.png"
                         alt="Logo Primkoppol"
-                        className="w-full h-full object-contain"
+                        className="logo-inner-besar"
                     />
                 </div>
                 <div>
