@@ -812,7 +812,8 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 | **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 
 ---
-*Total pembaruan tercatat: 99 item (Fitur, UI, Hotfix)*
+*Total pembaruan tercatat: 100 item (Fitur, UI, Hotfix)*
 *Diperbarui: 7 April 2026*

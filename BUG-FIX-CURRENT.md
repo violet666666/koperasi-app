@@ -46,6 +46,7 @@
 | **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 
 ---
 
@@ -965,7 +966,16 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Akar Masalah:** Desain *Database* secara keamanan *zero-trust* mengunci profil member baru agar nilai Limit Kasir bawaan/default disetel presisi ke titik 0 di belakang layar. Untuk bisa berhutang, figur `plafonPiutang` ini **wajib** dikonfigurasi ulang secara otoritatif oleh Operator. Sayangnya, form/kolom input UI untuk profil `plafonPiutang` tersebut secara *Front-end* tertinggal belum dirajut ke formulir halaman utama "Edit Data Anggota", sehingga hal ini menyandera admin untuk tidak berdaya membuka gembok 0 Limit tersebut.
 **Resolusi:** Memasukkan *Field* khusus label `"Plafon Piutang Belanja (Limit Kasir)"` di dalam blok form Data Pribadi di antarmuka Edit Anggota sehingga Operator berwenang bisa seketika menetapkan/menurunkan limit kustom dengan leluasa.
 
+### FEAT-016 — Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)
+
+**Status:** ✅ IMPLEMENTED  
+**Lokasi:** `src/app/api/unit-transactions/validate/route.ts`, `src/app/api/unit-layanan/sales/route.ts`, `src/app/api/toko/sales/route.ts`  
+**Deskripsi:** Memberikan kemampuan kecerdasan buatan (*dynamic fallback*) pada sistem POS Kasir saat menggunakan metode pembayaran Potong Gaji.
+**Logika Bisnis Baru:**  
+Bila Operator Operator belum secara eksplisit menentukan nilai *Plafon Piutang* di Data Anggota (nilai mentah = 0), sistem TIDAK LAGI akan memblokir membabi-buta. Sistem kini merujuk pada **Gaji Bersih bulanan** ditambah **Tunjangan Kinerja**, lalu mensubtraksi/dikurangi total angsuran pinjaman berjalan. Hasilnya dicocokkan dengan **Batas Minimal Aman Rp 2.000.000** (Berdasarkan rasio *AD-ART Pasal 26 Ayat 3*). 
+Jika ada saldo/gaji berlebih di luar batas aman tersebut (Sisa Bersih > 2JT), kelebihan tersebut akan ditransfer/disihir secara *real-time* oleh Kasir menjadi Plafon Limit Belanja bagi anggota, sehingga operasional POS tetap dinamis dan mulus merespons Sisa Gaji aktual pelanggan tanpa repot menyetel satu per satu, sambil tetap memprioritaskan ketetapan Limit Override kustom jika Operator memutuskan untuk mengeset Plafon.
+
 ---
 
-*Total bug tercatat: 80 | Total fitur baru: 16*
+*Total bug tercatat: 80 | Total fitur baru: 17*
 *Diperbarui: 7 April 2026*
