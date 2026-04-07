@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -722,7 +722,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <TableRow key={tx.id} className={tx.status === "voided" ? "opacity-50 line-through" : ""}>
                                                 <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
                                                 <TableCell className="tabular-nums text-xs">
-                                                    {new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                                    {new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Asia/Jakarta" })}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="font-mono text-xs text-muted-foreground">{tx.no}</span>
@@ -768,7 +768,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 </TableBody>
                                 {/* Total Footer */}
                                 {transactions.length > 0 && summary && (
-                                    <TableFooter>
+                                    <TableFooter className="print:hidden">
                                         <TableRow className="bg-muted/60 font-bold print:break-inside-avoid">
                                             <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENDAPATAN</TableCell>
                                             <TableCell className="text-right tabular-nums text-emerald-600">
@@ -833,7 +833,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 {expenses.map((exp) => (
                                     <TableRow key={exp.id}>
                                         <TableCell className="text-xs tabular-nums">
-                                            {new Date(exp.date).toLocaleDateString("id-ID")}
+                                            {new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
                                         </TableCell>
                                         <TableCell>
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
@@ -872,6 +872,15 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     </TableRow>
                                 ))}
                             </TableBody>
+                            <TableFooter className="print:hidden">
+                                <TableRow className="bg-red-50 font-bold">
+                                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                    <TableCell className="text-right tabular-nums text-red-700 font-bold">
+                                        {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
+                                    </TableCell>
+                                    {isAdmin && <TableCell className="print:hidden" />}
+                                </TableRow>
+                            </TableFooter>
                         </Table>
                     </CardContent>
                 </Card>
@@ -891,7 +900,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </div>
                             <div className="flex flex-col items-center text-center">
                                 <h2 className="text-sm font-bold mb-1">{idx+1}. KETERANGAN : {exp.description.toUpperCase()}</h2>
-                                <h3 className="text-sm font-medium mb-4">TANGGAL : {new Date(exp.date).toLocaleDateString("id-ID").toUpperCase()}</h3>
+                                <h3 className="text-sm font-medium mb-4">TANGGAL : {new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }).toUpperCase()}</h3>
                                 <div className="border p-2 max-w-[80%] mx-auto mt-2 inline-block">
                                     <img 
                                         src={exp.receiptImagePath ?? undefined} 

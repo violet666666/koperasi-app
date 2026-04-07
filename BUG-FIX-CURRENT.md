@@ -52,6 +52,8 @@
 | **BUG-UAT-003** | **Jurnal Umum Tambah Entry — Simulasi setTimeout (Tidak Ke API Real)** | 🔴 OPEN | 7 Apr 2026 |
 | **BUG-UAT-004** | **Pengajuan Pinjaman List — Selalu Kosong (response.data.data Bug)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-UAT-005** | **Pengajuan Pinjaman — Kolom Tenor "undefined bulan" (accessor: tenor vs tenorMonths)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-TZ-002** | **Laporan Unit — Filter "Hari Ini" Menampilkan Tanggal kemarin (UTC display tanpa WIB timezone)** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-017** | **Laporan Unit — Total Pendapatan hanya di akhir cetak + Total Pengeluaran di tabel ops** | ✅ IMPLEMENTED | 7 Apr 2026 |
 
 
 ---
