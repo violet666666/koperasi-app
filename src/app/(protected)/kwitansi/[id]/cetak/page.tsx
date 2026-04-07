@@ -171,13 +171,11 @@ export default function CetakKwitansiPage() {
                     {/* ---- KOP SURAT / HEADER ---- */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 mb-2 justify-center">
                         {/* Logo Container */}
-                        <div className="bg-zinc-950 rounded-xl p-2.5 shrink-0 flex items-center justify-center" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
-                            <Image 
+                        <div className="logo-frame-kecil" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
+                            <img 
                                 src="/LogoPrimkoppol.png" 
                                 alt="Logo PRIMKOPPOL" 
-                                width={60} 
-                                height={60} 
-                                className="object-contain"
+                                className="logo-inner-kecil"
                             />
                         </div>
                         {/* Text Header */}
