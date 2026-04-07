@@ -100,13 +100,13 @@ export async function GET(
         const unitTransactions = await prisma.unitTransaction.findMany({
             where: {
                 unitType,
-                createdAt: { gte: dateFrom, lte: dateTo },
+                transactionDate: { gte: dateFrom, lte: dateTo },
                 status: { notIn: ["voided"] },
             },
             include: {
                 member: { select: { id: true, name: true, nrp: true, memberNo: true } },
             },
-            orderBy: { createdAt: "desc" },
+            orderBy: { transactionDate: "desc" },
         });
 
         // ── Fetch StoreSale (Toko only) ───────────────────────────────────────
@@ -135,9 +135,9 @@ export async function GET(
                 type: "out",
                 category: "operational",
                 description: { contains: `[${unitType.toUpperCase()}]` },
-                createdAt: { gte: dateFrom, lte: dateTo },
+                transactionDate: { gte: dateFrom, lte: dateTo },
             },
-            orderBy: { createdAt: "desc" },
+            orderBy: { transactionDate: "desc" },
         });
 
         // ── Aggregate Transactions ─────────────────────────────────────────────

@@ -123,16 +123,6 @@ npx tsx prisma/seed-uat.ts
 
 **Solusi:** Gunakan field `createdAt` (bertipe `DateTime` lengkap) untuk tampilan waktu di recent transactions, sementara `transactionDate` tetap dipakai untuk filter tanggal.
 
-### [FIX] Laporan Unit — Filter "Hari Ini" Melenceng Tanggalnya
-
-**File:** `src/app/api/unit/[slug]/laporan/route.ts` dan `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
-
-**Root cause:** Laporan menggunakan boundary `dateFrom` yang dikonversi ke UTC (misal: 17:00 UTC kemarin) lalu mencari berdasarkan `transactionDate` yang tersimpan sebagai tipe `@db.Date`. Hal ini membuat transaksi yang dimasukkan di dini hari terekam sebagai tanggal sebelumnya di Prisma, dan menjadi tidak masuk atau tercampur ke rentang hari lainnya.
-
-**Solusi:**
-1. Mengubah *query condition* filter data UnitTransaction di API route laporan agar menggunakan field `createdAt` ketimbang `transactionDate` sehingga sinkron secara time-series dengan komparasi `dateFrom` WIB.
-2. Menghapus block `Print Summary` pada frontend Laporan sehingga rincian "Total Pendapatan" tidak diprint berulang (cukup di `TableFooter` saja sesuai instruksi).
-
 ### [FIX] Export PDF/Excel — Kolom NRP dan Nama Anggota Kosong
 
 **File:** `src/lib/export-utils.ts`
