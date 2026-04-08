@@ -89,7 +89,7 @@ Jalankan perintah ini **SATU PER SATU** secara berurutan:
 $env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
 
 # 2. Push schema Prisma ke staging DB
-npx prisma db push --accept-data-loss
+![alt text](image.png) prisma db push --accept-data-loss
 
 # 3. Seed data dasar (roles, branch, CoA, akun staff)
 npx tsx prisma/seed.ts
