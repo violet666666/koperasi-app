@@ -107,7 +107,8 @@ const columns: ColumnDef<Loan>[] = [
         ),
     },
     {
-        accessorKey: "member",
+        id: "member",
+        accessorFn: (row) => `${row.member?.name || ''} ${row.member?.memberNo || ''}`,
         header: "Anggota",
         cell: ({ row }) => (
             <div>
