@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -7,6 +8,15 @@ interface Params {
 
 export async function POST(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const allowedRoles = ["operator", "admin", "super_admin"];
+        if (!allowedRoles.includes(session.user.role)) {
+            return NextResponse.json({ message: "Tidak ada izin melakukan pencairan" }, { status: 403 });
+        }
+
         const { id } = await params;
         
         const application = await prisma.loanApplication.findUnique({
@@ -35,6 +45,8 @@ export async function POST(request: Request, { params }: Params) {
         const totalAmount = principalAmount + totalInterest;
         const monthlyInstallment = Math.round(principalAmount / tenorMonths) + interestPerMonth;
         const disbursedAmount = principalAmount - adminFee; // Dana bersih cair
+
+        const currentUserId = parseInt(session.user.id);
 
         // Transaction Block for Disbursement
         const result = await prisma.$transaction(async (tx) => {
@@ -68,6 +80,7 @@ export async function POST(request: Request, { params }: Params) {
                     disbursementDate: new Date(),
                     firstDueDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
                     lastDueDate: new Date(new Date().setMonth(new Date().getMonth() + tenorMonths)),
+                    disbursedById: currentUserId,
                     status: "active",
                 }
             });
@@ -112,7 +125,7 @@ export async function POST(request: Request, { params }: Params) {
                     description: `Pencairan Pinjaman Bersih (Setelah Potong Resiko) untuk ${application.member.name} sejumlah ${disbursedAmount}`,
                     paymentMethod: "cash",
                     receiptDate: new Date(),
-                    createdById: 1, // session id
+                    createdById: currentUserId,
                 }
             });
 
