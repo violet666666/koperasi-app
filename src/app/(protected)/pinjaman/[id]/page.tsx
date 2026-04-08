@@ -205,8 +205,8 @@ export default function PinjamanDetailPage() {
                                 <InfoItem label="Biaya Admin" value={formatCurrency(Number(loan.adminFee || 0))} />
                                 <InfoItem label="Dana Cair" value={formatCurrency(Number(loan.disbursedAmount || 0))} />
                                 <InfoItem label="Tenor" value={`${loan.tenorMonths} bulan`} />
-                                <InfoItem label="Metode Bunga" value={(loan.productSnapshot?.interestMethod || 'flat').toUpperCase()} />
-                                <InfoItem label="Suku Bunga" value={`${loan.productSnapshot?.interestRate || 0}% / bulan`} />
+                                <InfoItem label="Metode Bunga" value={(loan.interestMethod || loan.productSnapshot?.interestMethod || 'flat').toUpperCase()} />
+                                <InfoItem label="Suku Bunga" value={`${loan.interestRate ?? loan.productSnapshot?.interestRate ?? 0}% / bulan`} />
                                 <InfoItem label="Angsuran/Bulan" value={<span className="text-lg font-bold text-primary">{formatCurrency(Number(loan.monthlyInstallment || 0))}</span>} />
                             </CardContent>
                         </Card>
