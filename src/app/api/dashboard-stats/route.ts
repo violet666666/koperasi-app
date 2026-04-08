@@ -41,7 +41,7 @@ export async function GET() {
 
             // Loans aggregation
             prisma.loan.aggregate({
-                _sum: { principalOutstanding: true },
+                _sum: { principalOutstanding: true, principalAmount: true },
                 _count: { _all: true },
                 where: { status: { in: ["active", "overdue"] } },
             }),
@@ -185,6 +185,7 @@ export async function GET() {
             membersWithTabunganWajib: tabunganWajibStats._count.tabunganWajib || 0,
             totalLoansOutstanding: Number(loansStats._sum.principalOutstanding) || 0,
             activeLoansCount: loansStats._count._all || 0,
+            totalPlafondAktif: Number(loansStats._sum.principalAmount) || 0,
             totalArrears: Number(arrearsStats._sum.principalOutstanding) || 0,
 
             // Today's activity
