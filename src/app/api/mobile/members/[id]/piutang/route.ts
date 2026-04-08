@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { getMobileUser, unauthorizedResponse } from "../../../middleware";
 
 export const dynamic = "force-dynamic";
 
