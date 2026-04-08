@@ -162,6 +162,11 @@ export function DataTable<TData, TValue>({
                                 setGlobalFilter(event.target.value);
                             }
                         }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.currentTarget.select();
+                            }
+                        }}
                         className="pl-9 pr-9"
                     />
                     {((globalFilterValue !== undefined ? globalFilterValue : globalFilter) || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (

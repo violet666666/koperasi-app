@@ -367,7 +367,25 @@ export default function KasirPage() {
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input placeholder="Cari produk atau scan barcode..." value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && searchQuery.trim() !== "") {
+                                            const code = searchQuery.trim();
+                                            const found = products.find(
+                                                (p) => p.sku.toLowerCase() === code.toLowerCase() ||
+                                                       p.sku.replace(/-/g, "") === code.replace(/-/g, "")
+                                            );
+                                            if (found) {
+                                                addToCart(found);
+                                                toast.success(`✓ ${found.name} ditambahkan ke keranjang`);
+                                                setSearchQuery(""); // Kosongkan input setelah sukses
+                                            } else {
+                                                toast.info(`Barcode "${code}" tidak ditemukan`);
+                                                e.currentTarget.select(); // Blok teks agar scan berikutnya otomatis menimpa
+                                            }
+                                        }
+                                    }}
+                                    className="pl-10" />
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
