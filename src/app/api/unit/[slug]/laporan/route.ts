@@ -85,6 +85,17 @@ export async function GET(
 
         const isToko = ["toko", "coffe_latar", "resto"].includes(unitType);
 
+        // --- Fixing @db.Date vs Timestamptz boundaries ---
+        // 'dateFrom' and 'dateTo' are exact UTC offsets for Timestamptz.
+        // For columns mapped to @db.Date (like UnitTransaction.transactionDate), 
+        // passing offset UTCs causes Postgres to coercively cast them, expanding the bounds erroneously.
+        // We MUST convert the UTC boundaries into exactly 00:00:00 and 23:59:59 for the Date bounds.
+        const fromWib = new Date(dateFrom.getTime() + WIB_OFFSET);
+        const toWib = new Date(dateTo.getTime() + WIB_OFFSET);
+
+        const dateFromDbDate = new Date(Date.UTC(fromWib.getUTCFullYear(), fromWib.getUTCMonth(), fromWib.getUTCDate()));
+        const dateToDbDate = new Date(Date.UTC(toWib.getUTCFullYear(), toWib.getUTCMonth(), toWib.getUTCDate(), 23, 59, 59, 999));
+
         // Helper: format period label
         const periodLabel = period === "today"
             ? `${now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`
@@ -100,7 +111,7 @@ export async function GET(
         const unitTransactions = await prisma.unitTransaction.findMany({
             where: {
                 unitType,
-                transactionDate: { gte: dateFrom, lte: dateTo },
+                transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
                 status: { notIn: ["voided"] },
             },
             include: {
@@ -115,7 +126,7 @@ export async function GET(
             const rawStoreSales = await prisma.storeSale.findMany({
                 where: {
                     unitType,
-                    createdAt: { gte: dateFrom, lte: dateTo },
+                    createdAt: { gte: dateFrom, lte: dateTo }, // StoreSale uses Timestamptz
                 },
                 include: {
                     member: { select: { id: true, name: true, nrp: true } },
@@ -135,7 +146,7 @@ export async function GET(
                 type: "out",
                 category: "operational",
                 description: { contains: `[${unitType.toUpperCase()}]` },
-                transactionDate: { gte: dateFrom, lte: dateTo },
+                transactionDate: { gte: dateFromDbDate, lte: dateToDbDate }, // CashBank uses @db.Date typically! Let's check... wait! It is @db.Date too!
             },
             orderBy: { transactionDate: "desc" },
         });

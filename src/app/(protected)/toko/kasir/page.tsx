@@ -154,7 +154,8 @@ export default function KasirPage() {
         );
         if (found) {
             addToCart(found);
-            toast.success(`✓ ${found.name} ditambahkan ke keranjang`);
+            const effStock = found.isService ? "∞" : (found.stockToko > 0 ? found.stockToko : found.stock);
+            toast.success(`✓ ${found.name} ditambahkan. (Sisa Stok: ${effStock})`);
         } else {
             // Fall back to search filter so cashier can see results
             setSearchQuery(code);
@@ -164,7 +165,7 @@ export default function KasirPage() {
 
     useBarcodeScanner(addByBarcode);
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * (Number(item.quantity) || 0)), 0);
     const change = Number(paymentAmount) - subtotal;
 
     const getEffectiveStock = (product: Product) => {
@@ -185,7 +186,7 @@ export default function KasirPage() {
                     toast.error(`Stok ${product.name} tidak mencukupi (sisa: ${effectiveStock})`);
                     return prev;
                 }
-                return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+                return prev.map(item => item.product.id === product.id ? { ...item, quantity: (Number(item.quantity) || 0) + 1 } : item);
             }
             return [...prev, { product, quantity: 1 }];
         });
@@ -194,7 +195,8 @@ export default function KasirPage() {
     const updateQuantity = (productId: number, delta: number) => {
         setCart(prev => prev.map(item => {
             if (item.product.id !== productId) return item;
-            const newQty = item.quantity + delta;
+            const currentQty = Number(item.quantity) || 0;
+            const newQty = currentQty + delta;
             if (newQty <= 0) return item;
             const effectiveStock = getEffectiveStock(item.product);
             if (!item.product.isService && newQty > effectiveStock) {
@@ -202,6 +204,33 @@ export default function KasirPage() {
                 return item;
             }
             return { ...item, quantity: newQty };
+        }));
+    };
+
+    const setItemQuantity = (productId: number, rawValue: string) => {
+        setCart(prev => prev.map(item => {
+            if (item.product.id !== productId) return item;
+            if (rawValue === "") return { ...item, quantity: "" as any };
+            
+            let qty = parseInt(rawValue, 10);
+            if (isNaN(qty)) return item;
+            
+            const effectiveStock = getEffectiveStock(item.product);
+            if (!item.product.isService && qty > effectiveStock) {
+                toast.error(`Maksimal stok membatasi input ke: ${effectiveStock}`);
+                return { ...item, quantity: effectiveStock };
+            }
+            return { ...item, quantity: qty };
+        }));
+    };
+
+    const handleQuantityBlur = (productId: number) => {
+        setCart(prev => prev.map(item => {
+            if (item.product.id !== productId) return item;
+            if ((item.quantity as any) === "" || Number(item.quantity) <= 0) {
+                return { ...item, quantity: 1 };
+            }
+            return item;
         }));
     };
 
@@ -367,7 +396,26 @@ export default function KasirPage() {
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input placeholder="Cari produk atau scan barcode..." value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && searchQuery.trim() !== "") {
+                                            const code = searchQuery.trim();
+                                            const found = products.find(
+                                                (p) => p.sku.toLowerCase() === code.toLowerCase() ||
+                                                       p.sku.replace(/-/g, "") === code.replace(/-/g, "")
+                                            );
+                                            if (found) {
+                                                addToCart(found);
+                                                const effStock = found.isService ? "∞" : (found.stockToko > 0 ? found.stockToko : found.stock);
+                                                toast.success(`✓ ${found.name} ditambahkan. (Sisa Stok: ${effStock})`);
+                                                setSearchQuery(""); // Kosongkan input setelah sukses
+                                            } else {
+                                                toast.info(`Barcode "${code}" tidak ditemukan`);
+                                                e.currentTarget.select(); // Blok teks agar scan berikutnya otomatis menimpa
+                                            }
+                                        }
+                                    }}
+                                    className="pl-10" />
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -518,11 +566,24 @@ export default function KasirPage() {
                                     <div key={item.product.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate">{item.product.name}</p>
-                                            <p className="text-xs text-muted-foreground">{formatCurrency(item.product.price)} × {item.quantity}</p>
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                <span>{formatCurrency(item.product.price)} × {item.quantity}</span>
+                                                <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                                    Sisa Stok: {item.product.isService ? "∞" : (item.product.stockToko > 0 ? item.product.stockToko : item.product.stock)}
+                                                </span>
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, -1)}><Minus className="h-3 w-3" /></Button>
-                                            <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                                            <Input
+                                                type="text"
+                                                inputMode="numeric"
+                                                className="w-12 h-7 text-center px-1 text-sm font-medium focus-visible:ring-1"
+                                                value={(item.quantity as any) === "" ? "" : item.quantity}
+                                                onChange={(e) => setItemQuantity(item.product.id, e.target.value.replace(/[^0-9]/g, ""))}
+                                                onBlur={() => handleQuantityBlur(item.product.id)}
+                                                onClick={(e) => e.currentTarget.select()}
+                                            />
                                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-3 w-3" /></Button>
                                             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeFromCart(item.product.id)}><Trash2 className="h-3 w-3" /></Button>
                                         </div>

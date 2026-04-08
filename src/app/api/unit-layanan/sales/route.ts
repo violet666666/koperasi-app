@@ -62,34 +62,45 @@ export async function POST(request: Request) {
 
         // ── Validasi anggota & plafon piutang untuk Potong Gaji ──────────────
         if (method === "salary_cut" && memberId) {
-            const member = await prisma.member.findUnique({ where: { id: Number(memberId) } });
+            const member = await prisma.member.findUnique({
+                where: { id: Number(memberId) },
+                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true, tunlesKinerja: true },
+            });
+
             if (!member) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
 
-            // Hitung total tagihan aktif: UnitTransaction (semua unit) + StoreSale potong gaji (toko)
-            const [tagihanUnitTx, tagihanStoreSale] = await Promise.all([
-                prisma.unitTransaction.aggregate({
-                    where: {
-                        memberId: member.id,
-                        paymentMethod: "salary_cut",
-                        isPaid: false,
-                        status: { in: ["completed", "pending_void"] },
-                    },
-                    _sum: { amount: true },
-                }),
-                prisma.storeSale.aggregate({
-                    where: {
-                        memberId: member.id,
-                        paymentMethod: "salary_cut",
-                        // Filter non-voided (cek di bawah)
-                    },
-                    _sum: { totalAmount: true },
-                }),
-            ]);
+            // Hitung total tagihan aktif: UnitTransaction (semua unit, karena Toko juga tersinkronisasi)
+            const tagihanUnitTx = await prisma.unitTransaction.aggregate({
+                where: {
+                    memberId: member.id,
+                    paymentMethod: "salary_cut",
+                    isPaid: false,
+                    status: { in: ["completed", "pending_void"] },
+                },
+                _sum: { amount: true },
+            });
 
-            const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0) + Number(tagihanStoreSale._sum?.totalAmount ?? 0);
-            const plafonPiutang = Number(member.plafonPiutang || 0);
+            const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
+            let plafonPiutang = Number(member.plafonPiutang || 0);
+
+            // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung limit kelayakan dari Sisa Gaji
+            if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+                const activeLoans = await prisma.loan.findMany({
+                    where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                    select: { monthlyInstallment: true }
+                });
+                const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
+                
+                const salary = Number(member.salary || 0);
+                const tunkin = Number(member.tunlesKinerja || 0);
+                const sisaBersih = salary + tunkin - totalAngsuran;
+                
+                const batasAman = 2000000;
+                plafonPiutang = Math.max(0, sisaBersih - batasAman);
+            }
+
             const sisaLimit = plafonPiutang - totalTagihan;
 
             if (totalAmount > sisaLimit) {

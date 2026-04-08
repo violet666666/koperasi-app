@@ -311,12 +311,12 @@ export default function BukuKasPage() {
             </div>
 
             {/* Print Header (only visible when printing) */}
-            <div className="hidden print:flex items-center gap-5 mb-6">
-                <div className="bg-slate-900 p-3 rounded-full flex items-center justify-center flex-shrink-0" style={{ width: "125px", height: "125px" }}>
+            <div className="hidden print:flex items-center gap-4 mb-6">
+                <div className="logo-frame-sedang">
                     <img
                         src="/LogoPrimkoppol.png"
                         alt="Logo Primkoppol"
-                        className="w-full h-full object-contain"
+                        className="logo-inner-sedang"
                     />
                 </div>
                 <div>

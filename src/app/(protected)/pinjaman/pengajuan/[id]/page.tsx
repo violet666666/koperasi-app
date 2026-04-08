@@ -177,7 +177,28 @@ export default function PengajuanDetailPage() {
                                 </Badge>
                             </div>
 
-                            {status === "submitted" && (
+                            {status === "draft" && (
+                <div className="space-y-3 pt-2 border-t">
+                    <div className="text-xs text-blue-700 bg-blue-50 p-2 rounded border border-blue-200">
+                        Pengajuan masih berstatus Draft. Klik "Ajukan" untuk mengirim ke Operator untuk disetujui.
+                    </div>
+                    <Button onClick={async () => {
+                        setIsActionLoading(true);
+                        try {
+                            const res = await fetch(`/api/loans/applications/${params.id}/submit`, { method: "POST" });
+                            const json = await res.json();
+                            if (res.ok) { toast.success("Pengajuan berhasil dikirim ke Admin!"); fetchData(); }
+                            else toast.error(json.message || "Gagal mengirim pengajuan");
+                        } catch { toast.error("Gagal mengirim pengajuan"); }
+                        finally { setIsActionLoading(false); }
+                    }} disabled={isActionLoading} className="w-full">
+                        {isActionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                        Ajukan ke Operator
+                    </Button>
+                </div>
+            )}
+
+            {status === "submitted" && (
                                 <div className="flex gap-2 w-full pt-4">
                                     <Button onClick={() => handleAction("approve")} disabled={isActionLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
                                         <CheckCircle className="w-4 h-4 mr-2" /> ACC

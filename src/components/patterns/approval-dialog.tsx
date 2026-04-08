@@ -22,6 +22,7 @@ export interface ApprovalItem {
     requestType: string;
     referenceId: number;
     referenceNo: string;
+    requestNo?: string;
     description: string;
     amount?: number;
     branchId: number;
@@ -89,9 +90,9 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                 } else {
                     await loansApi.reject(approval.referenceId, notes);
                 }
-            } else if (approval.requestType === "unit_void") {
+            } else if (approval.requestType === "unit_void" || approval.requestType === "void_store_sale") {
                 await unitTransactionsApi.voidApprove({
-                    approvalRequestNo: approval.referenceNo,
+                    approvalRequestNo: approval.requestNo || approval.referenceNo,
                     action: type === "approve" ? "approved" : "rejected",
                     notes: notes,
                 });
@@ -113,16 +114,17 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
 
     if (!approval) return null;
 
-    const isVoid = approval.requestType === "unit_void";
+    const isVoid = approval.requestType === "unit_void" || approval.requestType === "void_store_sale";
     const meta = approval.metadata || {};
 
-    // Resolve void reason from multiple possible sources
+    // Resolve void reason dari berbagai sumber (metadata atau description)
     const voidReason = isVoid
         ? (meta.voidReason ||
           meta.voidPendingReason ||
           (approval.description?.includes("—")
             ? approval.description.split("—").pop()?.trim()
             : null) ||
+          approval.description ||
           "Tidak disebutkan")
         : "";
 

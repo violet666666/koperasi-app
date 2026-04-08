@@ -179,9 +179,9 @@ export default function LaporanSHUPage() {
     return (
         <div className="space-y-6">
             {/* ===== PRINT HEADER — only visible when printing ===== */}
-            <div className="hidden print:flex items-center gap-5 mb-6">
-                <div className="bg-slate-900 rounded-full flex items-center justify-center flex-shrink-0" style={{ width: "100px", height: "100px", padding: "10px" }}>
-                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            <div className="hidden print:flex items-center gap-4 mb-6">
+                <div className="logo-frame-sedang">
+                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
                 </div>
                 <div>
                     <h1 className="text-xl font-bold text-black">LAPORAN SHU (SISA HASIL USAHA)</h1>

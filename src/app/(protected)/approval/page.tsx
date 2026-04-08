@@ -32,6 +32,7 @@ const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; co
     savings_withdrawal: { label: "Penarikan Simpanan", icon: Wallet, color: "amber" },
     period_close: { label: "Tutup Periode", icon: Clock, color: "gray" },
     unit_void: { label: "Pembatalan Transaksi Unit", icon: X, color: "red" },
+    void_store_sale: { label: "Pembatalan Transaksi Toko", icon: X, color: "red" },
 };
 
 
@@ -42,6 +43,7 @@ function StatusBadge({ status }: { status: string }) {
         pending: Clock,
         approved: Check,
         rejected: X,
+        disbursed: Check,
     };
     const Icon = icons[status] || Clock;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -49,6 +51,7 @@ function StatusBadge({ status }: { status: string }) {
         success: "default",
         destructive: "destructive",
         secondary: "secondary",
+        primary: "default",
     };
 
     return (

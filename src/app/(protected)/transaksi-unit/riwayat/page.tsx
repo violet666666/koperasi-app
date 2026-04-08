@@ -256,7 +256,7 @@ export default function RiwayatTransaksiUnitPage() {
         {
             header: "Nominal",
             accessorKey: "amount",
-            cell: ({ row }) => <div className="text-right font-medium">{formatCurrency(row.original.amount)}</div>,
+            cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.amount)}</div>,
         },
         {
             header: "Status",

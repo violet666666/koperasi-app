@@ -53,13 +53,15 @@ export async function POST(request: Request) {
         }
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
+        // Prefix TK-, POS-, TS- bisa berasal dari StoreSale (Toko POS Tunai) ATAU UnitTransaction (Potong Gaji Toko)
+        // Kita coba cari di StoreSale dulu; jika tidak ada, fall-through ke UnitTransaction di bawah
         if (String(transactionNo).startsWith("POS-") || String(transactionNo).startsWith("TK-") || String(transactionNo).startsWith("TS-") ) {
             const storeSale = await prisma.storeSale.findUnique({
                 where: { saleNo: String(transactionNo) },
                 include: { member: true, createdBy: true, items: true },
             });
 
-            if (!storeSale) return NextResponse.json({ message: `Transaksi Toko ${transactionNo} tidak ditemukan.` }, { status: 404 });
+            if (storeSale) {
             
             const metadata: any = storeSale.metadata ? (typeof storeSale.metadata === 'object' ? storeSale.metadata : JSON.parse(storeSale.metadata as string)) : {};
             if (metadata.isVoided) return NextResponse.json({ message: "Transaksi Toko ini sudah dibatalkan." }, { status: 409 });
@@ -124,6 +126,9 @@ export async function POST(request: Request) {
                         unitType: storeSale.unitType || "toko",
                         voidReason: reason,
                         itemCount: storeSale.items.length,
+                        memberName: storeSale.member?.name || (storeSale as any).customerName || "Walk-in",
+                        memberNrp: storeSale.member?.nrp || "-",
+                        kasirName: storeSale.createdBy?.name || "Kasir",
                     },
                 },
             });
@@ -132,9 +137,11 @@ export async function POST(request: Request) {
                 message: `Permintaan void untuk transaksi ${transactionNo} telah dikirim ke Admin. Menunggu persetujuan.`,
                 data: { transactionNo: storeSale.saleNo, status: "pending_void" },
             });
+            } // end if (storeSale)
+            // StoreSale tidak ditemukan dengan prefix ini → fall-through ke UnitTransaction di bawah
         }
 
-        // 2. PENANGANAN UNIT TRANSACTION LAINNYA
+        // 2. PENANGANAN UNIT TRANSACTION (termasuk Potong Gaji dengan prefix TK-, CM-, BB-, dsb.)
         const transaction = await prisma.unitTransaction.findUnique({
             where: { transactionNo: String(transactionNo) },
             include: { member: { select: { id: true, name: true, nrp: true } }, createdBy: { select: { id: true, name: true } } },

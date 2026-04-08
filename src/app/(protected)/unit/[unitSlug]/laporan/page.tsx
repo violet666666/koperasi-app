@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -446,12 +446,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             </div>
 
             {/* ── Print Header (only visible when printing) ────────────────── */}
-            <div className="hidden print:flex flex-col items-center text-center mb-6 gap-2">
-                <div className="bg-slate-900 p-3 rounded-full flex items-center justify-center" style={{ width: "80px", height: "80px" }}>
+            <div className="hidden print:flex flex-col items-center text-center">
+                <div className="logo-frame-sedang mb-2">
                     <img
                         src="/LogoPrimkoppol.png"
                         alt="Logo Primkoppol"
-                        className="w-full h-full object-contain"
+                        className="logo-inner-sedang"
                     />
                 </div>
                 <div>
@@ -509,7 +509,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Total Pendapatan</p>
                             <p className="text-lg font-bold tabular-nums text-emerald-600">
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.totalPendapatan) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPendapatan) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -522,7 +522,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Pengeluaran Ops.</p>
                             <p className="text-lg font-bold tabular-nums text-red-600">
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -535,7 +535,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
                             <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                {isLoading ? <Skeleton className="h-5 w-24" /> : summary ? formatCurrency(summary.laba) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
                             </p>
                         </div>
                     </CardContent>
@@ -548,34 +548,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <div>
                             <p className="text-xs text-muted-foreground">Jumlah Transaksi</p>
                             <p className="text-lg font-bold tabular-nums">
-                                {isLoading ? <Skeleton className="h-5 w-16" /> : summary ? `${summary.totalTransaksi} nota` : "-"}
+                                {isLoading ? <span className="block h-5 w-16 rounded-md bg-accent animate-pulse" /> : summary ? `${summary.totalTransaksi} nota` : "-"}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* ── Print Summary (only on print) ────────────────────────────── */}
-            {summary && (
-                <div className="hidden print:grid grid-cols-4 gap-3 mb-4 text-sm">
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Total Pendapatan</p>
-                        <p className="font-bold">{formatCurrency(summary.totalPendapatan)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Tunai</p>
-                        <p className="font-bold">{formatCurrency(summary.tunai)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">QRIS</p>
-                        <p className="font-bold">{formatCurrency(summary.qris)}</p>
-                    </div>
-                    <div className="border rounded p-2 text-center">
-                        <p className="text-xs text-gray-500">Potong Gaji</p>
-                        <p className="font-bold">{formatCurrency(summary.potongGaji)}</p>
-                    </div>
-                </div>
-            )}
 
             {/* ── Breakdown Metode Bayar (screen) ──────────────────────────── */}
             {summary && !isLoading && (
@@ -722,7 +701,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <TableRow key={tx.id} className={tx.status === "voided" ? "opacity-50 line-through" : ""}>
                                                 <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
                                                 <TableCell className="tabular-nums text-xs">
-                                                    {new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                                    {new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Asia/Jakarta" })}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="font-mono text-xs text-muted-foreground">{tx.no}</span>
@@ -768,7 +747,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 </TableBody>
                                 {/* Total Footer */}
                                 {transactions.length > 0 && summary && (
-                                    <TableFooter>
+                                    <TableFooter className="print:hidden">
                                         <TableRow className="bg-muted/60 font-bold print:break-inside-avoid">
                                             <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENDAPATAN</TableCell>
                                             <TableCell className="text-right tabular-nums text-emerald-600">
@@ -800,34 +779,60 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             </Card>
 
             {/* ── Operational Expenses Table ────────────────────────────────── */}
+            {/* Print-only: Total Pendapatan - tampil sekali di akhir tabel transaksi */}
+            {transactions.length > 0 && summary && (
+                <div className="hidden print:block border-t-2 border-gray-700 pt-2 mt-1 mb-4">
+                    <table className="w-full text-sm">
+                        <tbody>
+                            <tr className="font-bold">
+                                <td className="py-1 text-right pr-4">TOTAL PENDAPATAN</td>
+                                <td className="py-1 text-right tabular-nums">{formatCurrency(summary.totalPendapatan)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            )}
             {expenses.length > 0 && (
-                <Card className="print:border-0 print:shadow-none">
-                    <CardHeader className="print:pb-1">
-                        <CardTitle className="text-base text-red-700">Rincian Pengeluaran Operasional</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
+
+                <div className="print:break-before-page print:pt-10">
+                    <div className="hidden print:flex flex-col items-center justify-center text-center mb-6">
+                        <div className="logo-frame-sedang mb-2">
+                            <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-black">PRIMKOPPOL RESOR LUMAJANG</p>
+                            <h1 className="text-base font-bold text-black uppercase">UNIT {unitInfo.label}</h1>
+                            <h2 className="text-sm font-bold text-black">LAPORAN PENGELUARAN OPERASIONAL</h2>
+                        </div>
+                    </div>
+
+                    <Card className="print:border-0 print:shadow-none">
+                        <CardHeader className="print:hidden">
+                            <CardTitle className="text-base text-red-700">Rincian Pengeluaran Operasional</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-red-50/50">
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
-                                    <TableHead className="text-center">Bukti</TableHead>
+                                    <TableHead className="text-center print:hidden">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
-                                    {isAdmin && <TableHead className="text-center w-[120px]">Aksi</TableHead>}
+                                    {isAdmin && <TableHead className="text-center w-[120px] print:hidden">Aksi</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {expenses.map((exp) => (
                                     <TableRow key={exp.id}>
                                         <TableCell className="text-xs tabular-nums">
-                                            {new Date(exp.date).toLocaleDateString("id-ID")}
+                                            {new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
                                         </TableCell>
                                         <TableCell>
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
                                         </TableCell>
                                         <TableCell className="text-sm">{exp.description}</TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center print:hidden">
                                             {exp.receiptImagePath ? (
                                                 <a
                                                     href={exp.receiptImagePath}
@@ -846,7 +851,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             {formatCurrency(exp.amount)}
                                         </TableCell>
                                         {isAdmin && (
-                                            <TableCell className="text-center">
+                                            <TableCell className="text-center print:hidden">
                                                 <div className="flex justify-center flex-nowrap gap-2">
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleOpenEditExpense(exp)}>
                                                         ✏️
@@ -860,9 +865,57 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     </TableRow>
                                 ))}
                             </TableBody>
+                            <TableFooter className="print:hidden">
+                                <TableRow className="bg-red-50 font-bold">
+                                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                    <TableCell className="text-right tabular-nums text-red-700 font-bold">
+                                        {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
+                                    </TableCell>
+                                    {isAdmin && <TableCell className="print:hidden" />}
+                                </TableRow>
+                            </TableFooter>
                         </Table>
                     </CardContent>
                 </Card>
+                {/* Cetak: Total Pengeluaran - tampil SEKALI di akhir tabel pengeluaran */}
+                <div className="hidden print:block border-t-2 border-red-700 pt-2 mt-1 mb-2 text-sm">
+                    <table className="w-full">
+                        <tbody>
+                            <tr className="font-bold">
+                                <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
+                                <td className="py-1 text-right tabular-nums text-red-800">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                </div>
+            )}
+
+            {/* ── Lampiran Bukti Print (only visible when printing) ─────────── */}
+            {expenses.some(e => e.receiptImagePath) && (
+                <div className="hidden print:block">
+                    {expenses.filter(e => e.receiptImagePath).map((exp, idx) => (
+                        <div key={`bukti-${exp.id}`} className="break-before-page pt-10">
+                            <div className="flex flex-col items-center justify-center text-center mb-6">
+                                <div className="logo-frame-sedang mb-2">
+                                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                                </div>
+                                <h1 className="text-base font-bold uppercase mt-2">BUKTI RINCIAN PENGELUARAN</h1>
+                            </div>
+                            <div className="flex flex-col items-center text-center">
+                                <h2 className="text-sm font-bold mb-1">{idx+1}. KETERANGAN : {exp.description.toUpperCase()}</h2>
+                                <h3 className="text-sm font-medium mb-4">TANGGAL : {new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }).toUpperCase()}</h3>
+                                <div className="border p-2 max-w-[80%] mx-auto mt-2 inline-block">
+                                    <img 
+                                        src={exp.receiptImagePath ?? undefined} 
+                                        alt={`Bukti ${exp.description}`} 
+                                        className="max-w-full max-h-[550px] object-contain border border-slate-100 placeholder-slate-50 text-[8px]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             )}
 
             {/* ── Tanda Tangan Print (only visible when printing) ─────────── */}

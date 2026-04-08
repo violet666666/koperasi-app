@@ -42,6 +42,20 @@
 | **FEAT-007** | **Edit Plat Nomor & Keterangan di riwayat transaksi (Admin/Operator)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-UI-013** | **Isi kolom nominal tidak rata kiri sesuai skeleton** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-UAT-001** | **Simpanan Transaksi Tambah — Pencarian Anggota Masih Mock Data** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-002** | **Dashboard Operator — Total Pinjaman Aktif Rp 0 Meski Ada Pinjaman Approved** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-003** | **Jurnal Umum Tambah Entry — Simulasi setTimeout (Tidak Ke API Real)** | 🔴 OPEN | 7 Apr 2026 |
+| **BUG-UAT-004** | **Pengajuan Pinjaman List — Selalu Kosong (response.data.data Bug)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-UAT-005** | **Pengajuan Pinjaman — Kolom Tenor "undefined bulan" (accessor: tenor vs tenorMonths)** | ✅ FIXED | 7 Apr 2026 |
+| **BUG-TZ-002** | **Laporan Unit — Filter "Hari Ini" Menampilkan Tanggal kemarin (UTC display tanpa WIB timezone)** | ✅ FIXED | 7 Apr 2026 |
+| **FEAT-017** | **Laporan Unit — Total Pendapatan hanya di akhir cetak + Total Pengeluaran di tabel ops** | ✅ IMPLEMENTED | 7 Apr 2026 |
+| **BUG-TZ-003** | **Data tanggal 6 April masuk juga pada filtering Hari Ini (Postgres @db.Date timezone coercion)** | ✅ FIXED | 7 Apr 2026 |
+
 
 ---
 
@@ -937,7 +951,195 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
 **Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
 
+### BUG-064 — Foreign Key Violation ("Failed to process sale") Pada Checkout Tunai Kasir Toko
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/toko/sales/route.ts`
+**Gejala:** Modul kasir melempar error Mentah `500 Failed to process sale: Invalid prisma.storeSale.create() invocation: Foreign key constraint violated on the constraint: store_sales_created_by_id_fkey` ketika menekan Bayar Tunai.
+**Penyebab:** Kesalahan implementasi sesi otentikasi. Endpoint ini melempar nilai fallback `userId = 1` ke dalam database `store_sales.createdById` saat `body` payload dari depan tidak mengirim id pengguna. Di server Produksi/Staging, akun bernomor identitas ID 1 tidak ada atau sudah difilter ulang, sehingga *Foreign Key* ke tabel *Users* gagal secara paksa. Sayangnya, transaksi tersendat.
+**Resolusi:** Menyuntikkan pemanggilan wajib `auth()` persis di kepala baris rute *POST* untuk mengambil absolut *Session User ID* murni milik kasir yang aktif (serupa dengan sistem Unit Layanan).
+
+### BUG-P05 — Validasi Gatekeeper Double-Count Piutang (Limit Kasir Selalu Rp 0)
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/api/unit-transactions/validate/route.ts`, `src/app/api/unit-layanan/sales/route.ts`
+**Gejala:** Ketika mencoba melayani pembayaran via "Potong Gaji", Dialog Validasi memblokir transaksi dengan pesan "Sisa Limit Piutang Aktif Rp 0", padahal secara riil limit anggota tersebut masih sangat sehat sisa jutaan di Dashboard.
+**Akar Masalah:** Kendala ini merupakan sisa kepingan luput dari **BUG-P04** kemarin. Penghapusan double-counting alias penghitungan ganda (mengakumulasi `UnitTransaction + StoreSale` bersamaan) kemarin *hanya* ditambal di `toko/sales`, namun luput ditambal ke dua rute penjaga gerbang utamanya yaitu: `validate` endpoint kasir reaktif dan unit layanan. Akibatnya, plafon tagihan *dummy* masih membengkak ganda mencapai atas batas di mata sistem.
+**Resolusi:** Menghapus sepenuhnya blok agresi query ke tabel `StoreSale` dari dalam rute kalkulasi Piutang/Gatekeeper. Entitas yang dihitung kini 100% murni merujuk pada perwujudan final `UnitTransaction`.
+
+### BUG-065 — Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota
+
+**Status:** ✅ FIXED
+**Lokasi:** `src/app/(protected)/anggota/[id]/edit/page.tsx`
+**Gejala:** Pelanggan/Anggota tercatat selalu ditolak saat proses kasir karena limit "Plafon Belanja Potong Gaji" memunculkan output nilai `Rp 0`.
+**Akar Masalah:** Desain *Database* secara keamanan *zero-trust* mengunci profil member baru agar nilai Limit Kasir bawaan/default disetel presisi ke titik 0 di belakang layar. Untuk bisa berhutang, figur `plafonPiutang` ini **wajib** dikonfigurasi ulang secara otoritatif oleh Operator. Sayangnya, form/kolom input UI untuk profil `plafonPiutang` tersebut secara *Front-end* tertinggal belum dirajut ke formulir halaman utama "Edit Data Anggota", sehingga hal ini menyandera admin untuk tidak berdaya membuka gembok 0 Limit tersebut.
+**Resolusi:** Memasukkan *Field* khusus label `"Plafon Piutang Belanja (Limit Kasir)"` di dalam blok form Data Pribadi di antarmuka Edit Anggota sehingga Operator berwenang bisa seketika menetapkan/menurunkan limit kustom dengan leluasa.
+
+### FEAT-016 — Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)
+
+**Status:** ✅ IMPLEMENTED  
+**Lokasi:** `src/app/api/unit-transactions/validate/route.ts`, `src/app/api/unit-layanan/sales/route.ts`, `src/app/api/toko/sales/route.ts`  
+**Deskripsi:** Memberikan kemampuan kecerdasan buatan (*dynamic fallback*) pada sistem POS Kasir saat menggunakan metode pembayaran Potong Gaji.
+**Logika Bisnis Baru:**  
+Bila Operator Operator belum secara eksplisit menentukan nilai *Plafon Piutang* di Data Anggota (nilai mentah = 0), sistem TIDAK LAGI akan memblokir membabi-buta. Sistem kini merujuk pada **Gaji Bersih bulanan** ditambah **Tunjangan Kinerja**, lalu mensubtraksi/dikurangi total angsuran pinjaman berjalan. Hasilnya dicocokkan dengan **Batas Minimal Aman Rp 2.000.000** (Berdasarkan rasio *AD-ART Pasal 26 Ayat 3*). 
+Jika ada saldo/gaji berlebih di luar batas aman tersebut (Sisa Bersih > 2JT), kelebihan tersebut akan ditransfer/disihir secara *real-time* oleh Kasir menjadi Plafon Limit Belanja bagi anggota, sehingga operasional POS tetap dinamis dan mulus merespons Sisa Gaji aktual pelanggan tanpa repot menyetel satu per satu, sambil tetap memprioritaskan ketetapan Limit Override kustom jika Operator memutuskan untuk mengeset Plafon.
+
 ---
 
-*Total bug tercatat: 76 | Total fitur baru: 16*
+*Total bug tercatat: 80 | Total fitur baru: 17*  
 *Diperbarui: 7 April 2026*
+
+---
+
+## 📋 BUG & FITUR BARU — 7 April 2026 (Sesi 2 — Produk Pinjaman)
+
+---
+
+### BUG-066 — createdById/approvedById Hardcode = 1 di Semua Loan Routes
+
+**Status:** ✅ FIXED  
+**Tanggal:** 7 April 2026  
+**Severity:** High (Keamanan & Audit Trail)
+
+**Deskripsi:**  
+Seluruh endpoint pinjaman menggunakan nilai hardcode `userId = 1` untuk field `createdById`, `approvedById`, dan `rejectedById`. Ini berarti semua aktivitas pinjaman tercatat atas nama user dengan ID=1, membuat audit trail tidak akurat dan tidak bisa melacak siapa sebenarnya yang melakukan aksi.
+
+**Root Cause:**  
+Komentar `// TODO: Get from session` ditinggalkan di kode tidak lengkap dari versi awal pengembangan.
+
+**Files Fixed:**
+- `src/app/api/loans/applications/route.ts` → `createdById: parseInt(session.user.id)`
+- `src/app/api/loans/applications/[id]/approve/route.ts` → `approvedById: parseInt(session.user.id)` + auth guard
+- `src/app/api/loans/applications/[id]/reject/route.ts` → `rejectedById: parseInt(session.user.id)` + auth guard
+
+---
+
+### BUG-067 — Validasi Hardcode AD-ART Memblokir Pinjaman Khusus > 20jt
+
+**Status:** ✅ FIXED  
+**Tanggal:** 7 April 2026  
+**Severity:** Critical (Fitur Utama Tidak Bisa Berjalan)
+
+**Deskripsi:**  
+Endpoint `POST /api/loans/applications` memiliki validasi hardcode:
+```
+const AD_ART_MAX_LOAN = 20000000;
+if (data.amount > AD_ART_MAX_LOAN) → reject
+const AD_ART_MAX_TENOR_MONTHS = 36;
+if (data.tenorMonths > AD_ART_MAX_TENOR_MONTHS) → reject
+```
+Ini berarti Produk Pinjaman Khusus (Min 30jt, Tenor hingga 60 bln) tidak pernah bisa diproses.
+
+**Fix:** Validasi kini hanya menggunakan atribut dari `LoanProduct` (`minAmount`, `maxAmount`, `minTenorMonths`, `maxTenorMonths`). Tidak ada lagi konstanta hardcode. Jika produk tidak punya `maxAmount` (null), tidak ada batas atas.
+
+---
+
+### FEAT-020 — Produk Pinjaman Reguler & Pinjaman Khusus
+
+**Status:** ✅ IMPLEMENTED  
+**Tanggal:** 7 April 2026
+
+**Deskripsi:**  
+Implementasi lengkap 2 jenis produk pinjaman dengan kartu pilihan UI, limit per produk, dan simulasi rinci.
+
+**Komponen:**
+1. **Seed Script:** `prisma/seed-loan-products.ts`  
+   - Pinjaman Reguler (PR): Min 1jt, Maks 20jt, Tenor 1-36 bln
+   - Pinjaman Khusus (PK): Min 30jt, No Limit, Tenor 1-60 bln
+   - Keduanya dengan bunga 1% flat/bln, biaya resiko 2% di muka
+2. **Form Pengajuan UI** (`tambah/page.tsx`):  
+   - Kartu pilihan produk interaktif
+   - Input amount/tenor di-constrain ke min/max produk
+   - Simulasi per hari / per bulan / per tahun untuk bunga 1%
+3. **Detail Pengajuan** (`[id]/page.tsx`):  
+   - Tombol "Ajukan ke Operator" untuk status draft
+
+---
+
+*Total bug tercatat: 82 | Total fitur baru: 18*  
+*Diperbarui: 7 April 2026*
+
+---
+
+## 🔴 BUG-UAT-001 — Simpanan Transaksi Tambah: Pencarian Anggota Masih Mock Data
+
+**Ditemukan:** 7 April 2026 (UAT-OPS-04)  
+**Status:** 🔴 OPEN  
+**Severity:** Critical (fitur tidak bisa digunakan sama sekali)  
+**File:** `src/app/(protected)/simpanan/transaksi/tambah/page.tsx`
+
+**Deskripsi:**
+Halaman `/simpanan/transaksi/tambah` masih menggunakan data **hardcoded MOCK** untuk pencarian anggota. Semua data anggota (Budi Santoso, Siti Aminah, Joko Widodo) adalah data fiktif dan **NOT terhubung ke database**. Submit transaksi juga hanya `setTimeout(1000)` simulasi — **tidak ada API call real**.
+
+**Root Cause:**
+```typescript
+// src/app/(protected)/simpanan/transaksi/tambah/page.tsx
+const MOCK_MEMBERS = [
+  { id: 1, member_no: "A-001", name: "Budi Santoso", savings_balance: 5000000 },
+  { id: 2, member_no: "A-002", name: "Siti Aminah", savings_balance: 3500000 },
+  { id: 3, member_no: "A-003", name: "Joko Widodo", savings_balance: 2200000 },
+];
+// handleSubmit() → await new Promise(resolve => setTimeout(resolve, 1000)) ← TIDAK ADA API!
+```
+
+**Fix Diperlukan:**
+1. Ganti `MOCK_MEMBERS` dengan API call ke `GET /api/members?search={query}`
+2. Ganti `handleSubmit()` dengan `POST /api/savings/transactions`
+3. Dropdown Produk Simpanan harus dari `GET /api/savings/products` (bukan hardcoded id 1/2/3)
+
+---
+
+## 🔴 BUG-UAT-002 — Dashboard Operator: Total Pinjaman Aktif Rp 0
+
+**Ditemukan:** 7 April 2026 (Observasi Screenshot Dashboard)  
+**Status:** 🔴 OPEN  
+**Severity:** Medium (display issue, data ada tapi tidak ditampilkan)  
+**Lokasi:** Dashboard card "Total Pinjaman Aktif"
+
+**Deskripsi:**
+Dashboard menampilkan "Total Pinjaman Aktif: **Rp 0**" padahal dari UAT sebelumnya terbukti ada pinjaman dengan status `approved` (APP-2026-53224, Rp 3.000.000). Card linked ke `/laporan/rekap-pinjaman`.
+
+**Kemungkinan Root Cause:**
+- Query dashboard mungkin menghitung pinjaman dengan status `active` (setelah pencairan/disbursed) bukan `approved`
+- Pinjaman APP-2026-53224 mungkin masih status `submitted`/`approved` tapi belum `disbursed`
+- Perlu verifikasi query di API dashboard endpoint
+
+**Fix Diperlukan:**
+- Cek status pinjaman di DB: apakah `approved` sudah dihitung sebagai "aktif" di dashboard
+- Jika perlu, update query dashboard untuk memasukan status `approved` dan `disbursed`
+
+---
+
+## 🔴 BUG-UAT-003 — Jurnal Umum Tambah Entry: Tidak Terhubung API
+
+**Ditemukan:** 7 April 2026 (Code Review — grep setTimeout)  
+**Status:** 🔴 OPEN  
+**Severity:** High (transaksi jurnal tidak tersimpan ke database)  
+**File:** `src/app/(protected)/jurnal/umum/page.tsx` line 128
+
+**Deskripsi:**
+Form tambah entri Jurnal Umum juga menggunakan `setTimeout(resolve, 1000)` sebagai simulasi, bukan API call nyata. Jurnal yang "berhasil disimpan" tidak akan tersimpan ke database.
+
+**Fix Diperlukan:**
+- Ganti simulasi dengan `POST /api/journal/entries`
+- Validasi debit = kredit sebelum submit
+
+---
+
+*Total bug tercatat: 85 | Total fitur baru: 18*  
+*Diperbarui: 7 April 2026 — Sesi UAT Operator Fase 1*
+
+## ?? BUG-TZ-003 � Data tanggal 6 April masuk juga pada filtering Hari Ini
+
+**Tanggal ditemukan:** 7 April 2026 | **Status:** ? FIXED
+
+**Lokasi:** "src/app/api/unit/[slug]/laporan/route.ts"
+
+**Gejala:** Saat filter "Hari Ini" dipilih (7 April), data dari tanggal 6 April jam 00:00 (dan seterusnya) ikut masuk di halaman /unit/cuci-mobil/laporan.
+
+**Akar Masalah:** 
+1. Filter backend menggunakan offset jam UTC (+7 jam) sehingga boundaries menjadi gte: 2026-04-06T17:00:00Z dan lte: 2026-04-07T16:59:59Z.
+2. Namun kolom 	ransactionDate untuk pendaftaran jasa/transaksi unit di-mapping sebagai @db.Date pada Prisma schema, yang secara native di Postgres hanya menyimpan bentuk kalender (YYYY-MM-DD).
+3. Saat Postgres membandingkan tanggal kalender dengan boundary timestamp dengan zona waktu (2026-04-06T17:00:00Z), Postgres secara otomatis melonggarkan filter / melakukan *coercive timezone cast* ke boundary hari sesuai tanggal kalender yaitu 2026-04-06. Karenanya, transaksi tertanggal 6 April 00:00 terbawa dalam query.
+
+**Solusi:** Memisahkan boundaries Timestamptz dengan Date. Untuk filter tabel yang menggunakan @db.Date, string yang dimasukkan *wajib* dibulatkan sepenuhnya ke boundary UTC: 2026-04-07T00:00:00Z hingga 23:59:59Z, agar Postgres mengeksekusi dengan tanggal lokal kalender yang persis tepat sesuai UI Hari Ini.

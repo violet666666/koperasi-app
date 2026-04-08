@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -8,6 +9,10 @@ interface Params {
 // POST /api/loans/applications/[id]/reject
 export async function POST(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const body = await request.json();
         const { reason } = body;
@@ -42,7 +47,7 @@ export async function POST(request: Request, { params }: Params) {
             data: {
                 status: "rejected",
                 rejectedAt: new Date(),
-                rejectedById: 1, // TODO: Get from session
+                rejectedById: parseInt(session.user.id),
                 rejectionReason: reason,
             },
         });

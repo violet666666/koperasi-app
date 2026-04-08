@@ -56,3 +56,7 @@ public/uploads/qris/*
 
 
 .env.test.local
+
+# UAT scripts
+prisma/seed-uat*.ts
+prisma/cleanup-uat*.ts
