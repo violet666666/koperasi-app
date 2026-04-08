@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus, Alert } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from './storage';
 
 // ── Konfigurasi ──────────────────────────────────────────────────────────
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 menit
@@ -35,8 +35,8 @@ export function useIdleLogout({ onLogout }: { onLogout: () => void }) {
 
   const performLogout = useCallback(async () => {
     clearTimers();
-    await SecureStore.deleteItemAsync('userToken');
-    await SecureStore.deleteItemAsync('userData');
+    await StorageManager.deleteSecureItem('userToken');
+    StorageManager.deleteFastItem('userData');
     onLogout();
   }, [clearTimers, onLogout]);
 

@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../../lib/storage';
+import Toast from 'react-native-toast-message';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -78,16 +79,15 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
   };
 
   useEffect(() => {
-    SecureStore.getItemAsync('userData').then((u) => {
-      if (u) {
-        try {
-          const user = JSON.parse(u);
-          if (user.unitType) {
-            setUnitSlug(unitTypeToSlug[user.unitType] || user.unitType);
-          }
-        } catch (e) {}
-      }
-    });
+    const u = StorageManager.getFastString('userData');
+    if (u) {
+      try {
+        const user = JSON.parse(u);
+        if (user.unitType) {
+          setUnitSlug(unitTypeToSlug[user.unitType] || user.unitType);
+        }
+      } catch (e) {}
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -103,7 +103,7 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
       });
     } catch (err: any) {
       console.log('Expense fetch error:', err);
-      Alert.alert('Error', err.message || 'Gagal memuat data pengeluaran');
+      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Gagal memuat pengeluaran' });
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
 
   const handleSubmit = async () => {
     if (!formDesc || !formAmount) {
-      Alert.alert('Peringatan', 'Deskripsi dan nominal wajib diisi');
+      Toast.show({ type: 'error', text1: 'Peringatan', text2: 'Deskripsi dan nominal wajib diisi' });
       return;
     }
     setSubmitting(true);
@@ -132,9 +132,9 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
       setFormAmount('');
       setFormNotes('');
       await loadData();
-      Alert.alert('Berhasil', 'Pengeluaran berhasil dicatat');
+      Toast.show({ type: 'success', text1: 'Berhasil', text2: 'Pengeluaran berhasil dicatat' });
     } catch (err: any) {
-      Alert.alert('Gagal', err.message || 'Gagal menyimpan pengeluaran');
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || 'Gagal menyimpan pengeluaran' });
     } finally {
       setSubmitting(false);
     }

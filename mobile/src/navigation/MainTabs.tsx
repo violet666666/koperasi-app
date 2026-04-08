@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../lib/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import C from '../lib/colors';
 
@@ -28,13 +28,11 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    (async () => {
-      const userData = await SecureStore.getItemAsync('userData');
-      if (userData) {
-        const parsed = JSON.parse(userData);
-        setRole(parsed.role || 'member');
-      }
-    })();
+    const userData = StorageManager.getFastString('userData');
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      setRole(parsed.role || 'member');
+    }
   }, []);
 
   const isOperator = role === 'operator' || role === 'admin' || role === 'superadmin';

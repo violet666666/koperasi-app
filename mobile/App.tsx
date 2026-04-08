@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import * as SecureStore from "expo-secure-store";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { StorageManager } from "./src/lib/storage";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import Toast from "react-native-toast-message";
 import {
   ActivityIndicator,
@@ -236,7 +238,7 @@ export default function App() {
     const bootstrapAsync = async () => {
       let token: string | null = null;
       try {
-        token = await SecureStore.getItemAsync("userToken");
+        token = await StorageManager.getSecureItem("userToken");
       } catch (e) {
         // Token retrieval failed
       }
@@ -251,9 +253,13 @@ export default function App() {
   if (isLoading) return <SplashScreen />;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <InnerApp userToken={userToken} setUserToken={setUserToken} />
-      <Toast />
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <BottomSheetModalProvider>
+          <InnerApp userToken={userToken} setUserToken={setUserToken} />
+          <Toast />
+        </BottomSheetModalProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

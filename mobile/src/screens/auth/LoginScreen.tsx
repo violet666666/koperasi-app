@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as SecureStore from "expo-secure-store";
+import { StorageManager } from "../../lib/storage";
 import api from "../../lib/api";
 import C from "../../lib/colors";
 
@@ -31,7 +31,7 @@ export default function LoginScreen({ setToken }: any) {
   useEffect(() => {
     (async () => {
       try {
-        const saved = await SecureStore.getItemAsync(REMEMBER_KEY);
+        const saved = await StorageManager.getFastString(REMEMBER_KEY);
         if (saved) {
           setIdentifier(saved);
           setRememberMe(true);
@@ -58,13 +58,13 @@ export default function LoginScreen({ setToken }: any) {
 
       // Handle Remember Me
       if (rememberMe) {
-        await SecureStore.setItemAsync(REMEMBER_KEY, identifier);
+        StorageManager.setFastItem(REMEMBER_KEY, identifier);
       } else {
-        await SecureStore.deleteItemAsync(REMEMBER_KEY);
+        StorageManager.deleteFastItem(REMEMBER_KEY);
       }
 
-      await SecureStore.setItemAsync("userToken", token);
-      await SecureStore.setItemAsync("userData", JSON.stringify(user));
+      await StorageManager.setSecureItem("userToken", token);
+      StorageManager.setFastItem("userData", user);
       setToken(token);
     } catch (error: any) {
       const message =

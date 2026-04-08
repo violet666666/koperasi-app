@@ -1,14 +1,23 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
-  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator
+  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator, Keyboard
 } from 'react-native';
+import {
+  BottomSheetModal,
+  BottomSheetBackdrop,
+  BottomSheetTextInput,
+  BottomSheetFlatList,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../../lib/storage';
 import { CameraView, Camera } from 'expo-camera';
 import { Image as ExpoImage } from 'expo-image';
+import Toast from 'react-native-toast-message';
+import { useQuery } from '@tanstack/react-query';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -43,10 +52,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const canGoBack = navigation.canGoBack?.() ?? false;
 
   const [unitType, setUnitType] = useState('toko');
-  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [isKasirLocked, setIsKasirLocked] = useState(false);
@@ -57,15 +64,14 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [quickCustomer, setQuickCustomer] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('');
 
-  // ── S1-03: Paket Layanan Dinamis ──────────────────────────────────────
-  const [packages, setPackages] = useState<ServicePackage[]>([]);
-  const [packagesLoading, setPackagesLoading] = useState(false);
+  // ── S1-03: Paket Layanan Dinamis diambil via react-query di bawah
 
   // ── S1-04: Plat Nomor Kendaraan (cuci mobil) ─────────────────────────
   const [vehiclePlate, setVehiclePlate] = useState('');
 
   // Member Modal
-  const [showMemberModal, setShowMemberModal] = useState(false);
+  const memberModalRef = useRef<BottomSheetModal>(null);
+  const snapPointsMember = useMemo(() => ['70%', '90%'], []);
   const [memberSearch, setMemberSearch] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [searchingMember, setSearchingMember] = useState(false);
@@ -75,8 +81,16 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [loadingPiutang, setLoadingPiutang] = useState(false);
 
   // QRIS Modal State
-  const [showQrisModal, setShowQrisModal] = useState(false);
+  const qrisModalRef = useRef<BottomSheetModal>(null);
+  const snapPointsQris = useMemo(() => ['65%'], []);
   const [qrisPreviewKey, setQrisPreviewKey] = useState(Date.now().toString());
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} />
+    ),
+    []
+  );
 
   // Barcode Camera Scanner State (Toko only)
   const [showScanner, setShowScanner] = useState(false);
@@ -91,57 +105,43 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const isTokoUnit = unitType === 'toko' || unitType === 'resto_cafe';
   const isCarwash = unitType === 'cuci_mobil';
 
-  // ── S1-03: Fetch paket dari API ───────────────────────────────────────
-  const loadPackages = useCallback(async (ut: string) => {
-    if (!['cuci_mobil', 'barbershop', 'fotocopy'].includes(ut)) {
-      setPackages([]);
-      return;
-    }
-    setPackagesLoading(true);
-    try {
-      const res = await api.get(`/api/mobile/unit-packages?unitType=${ut}`);
-      setPackages(res.data.data || []);
-    } catch (err) {
-      console.log('Packages fetch error:', err);
-      setPackages([]); // Fallback: isi manual oleh kasir
-    } finally {
-      setPackagesLoading(false);
-    }
-  }, []);
+  // ── S1-03: Fetch paket via React Query ──────────────────────────────────────
+  const { data: packagesData = [], isLoading: packagesLoading } = useQuery({
+    queryKey: ['packages', unitType],
+    queryFn: async () => {
+      const res = await api.get(`/api/mobile/unit-packages?unitType=${unitType}`);
+      return res.data.data as ServicePackage[];
+    },
+    enabled: ['cuci_mobil', 'barbershop', 'fotocopy'].includes(unitType),
+  });
+  const packages = packagesData.length > 0 ? packagesData : ([] as ServicePackage[]);
 
-  const loadProducts = useCallback(async (q?: string, ut?: string) => {
-    if (ut === 'cuci_mobil' || ut === 'barbershop' || ut === 'fotocopy') {
-      setProducts([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.get(`/api/mobile/toko?search=${q ?? search}&unitType=${ut ?? unitType}`);
-      setProducts(res.data.data || []);
-    } catch (err) { console.log('Products fetch error:', err); }
-    finally { setLoading(false); }
-  }, [search, unitType]);
+  // ── S0-01: Fetch products via React Query ──────────────────────────────────
+  const { data: productsData = [], isLoading: productsLoading, refetch: refetchProducts } = useQuery({
+    queryKey: ['products', unitType, search],
+    queryFn: async () => {
+      const res = await api.get(`/api/mobile/toko?search=${search}&unitType=${unitType}`);
+      return res.data.data as Product[];
+    },
+    enabled: ['toko', 'resto_cafe'].includes(unitType),
+  });
+  const products = productsData.length > 0 ? productsData : ([] as Product[]);
+
+  const loading = packagesLoading || productsLoading;
 
   useEffect(() => {
     // Auto-detect kasir unit from session
-    SecureStore.getItemAsync('userData').then((u) => {
-      if (u) {
-        try {
-          const user = JSON.parse(u);
-          if (user.role?.name === 'kasir' && user.unitType) {
-            setUnitType(user.unitType);
-            setIsKasirLocked(true);
-            loadPackages(user.unitType);
-          }
-        } catch (e) {}
-      }
-    });
+    const u = StorageManager.getFastString('userData');
+    if (u) {
+      try {
+        const user = JSON.parse(u);
+        if (user.role?.name === 'kasir' && user.unitType) {
+          setUnitType(user.unitType);
+          setIsKasirLocked(true);
+        }
+      } catch (e) {}
+    }
   }, []);
-
-  useEffect(() => {
-    loadProducts('', unitType);
-    loadPackages(unitType);
-  }, [unitType]);
 
   const handleUnitChange = (uId: string) => {
     setUnitType(uId);
@@ -167,7 +167,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
         if (newCart[idx].quantity < product.stock) {
           newCart[idx] = { ...newCart[idx], quantity: newCart[idx].quantity + 1 };
         } else {
-          Alert.alert('Stok Habis', `Stok ${product.name} tersisa ${product.stock}`);
+          Toast.show({ type: 'error', text1: 'Stok Habis', text2: `Stok ${product.name} tersisa ${product.stock}` });
         }
         return newCart;
       }
@@ -183,7 +183,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setScanned(false);
       setShowScanner(true);
     } else {
-      Alert.alert('Izin Kamera', 'Izin kamera diperlukan untuk scan barcode produk.');
+      Toast.show({ type: 'error', text1: 'Izin Kamera', text2: 'Diperlukan untuk scan barcode' });
     }
   };
 
@@ -196,10 +196,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
     );
     if (found) {
       addToCart(found);
-      Alert.alert('✓ Produk Ditemukan', `${found.name} ditambahkan ke keranjang.`);
+      Toast.show({ type: 'success', text1: 'Ditambahkan', text2: `${found.name} ditambahkan ke keranjang.` });
     } else {
       setSearch(data);
-      Alert.alert('Barcode Tidak Ditemukan', `Kode "${data}" tidak ada di database stok.`);
+      Toast.show({ type: 'error', text1: 'Tidak Ditemukan', text2: `Kode "${data}" tidak ada di database stok.` });
     }
   };
 
@@ -243,21 +243,23 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
       setCart([]);
       setShowCart(false);
-      setShowMemberModal(false);
-      loadProducts(search, unitType);
+      memberModalRef.current?.dismiss();
+      refetchProducts();
 
-      Alert.alert('Berhasil!', `Checkout Toko ${formatRp(printedTotal)} sukses`, [
-        { text: 'Tutup', style: 'cancel' },
+      Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `Toko sukses ${formatRp(printedTotal)}.` });
+      
+      Alert.alert('Berhasil', 'Cetak struk transaksi?', [
+        { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptStandard(method, printedCart, printedTotal) }
       ]);
     } catch (err: any) {
-      Alert.alert('Gagal', err.message || err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };
 
   const performQuickCheckoutAPI = async (method: string, memberId: number | null) => {
     if (!quickAmount || Number(quickAmount) <= 0) {
-      Alert.alert('Nominal Tidak Valid', 'Masukkan nominal transaksi yang benar.');
+      Toast.show({ type: 'error', text1: 'Nominal Tidak Valid', text2: 'Masukkan nominal transaksi yang benar.' });
       return;
     }
     setProcessing(true);
@@ -279,27 +281,28 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setQuickCustomer('');
       setSelectedPackage('');
       setVehiclePlate(''); // S1-04: reset plate
-      setShowMemberModal(false);
+      memberModalRef.current?.dismiss();
       setMemberPiutang(null);
 
-      Alert.alert('Berhasil!', `Checkout ${UNIT_TYPES.find(u => u.id === unitType)?.name} ${formatRp(printedTotal)} sukses`, [
-        { text: 'Tutup', style: 'cancel' },
+      Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `${UNIT_TYPES.find(u => u.id === unitType)?.name} sukses ${formatRp(printedTotal)}` });
+      Alert.alert('Berhasil', 'Cetak struk transaksi?', [
+        { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptQuick(method, printedDesc, printedTotal) }
       ]);
     } catch (err: any) {
-      Alert.alert('Gagal', err.message || err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };
 
   const handleCheckoutInit = (method: 'cash' | 'qris' | 'salary_cut') => {
     if (!isQuickSale && cart.length === 0) return;
     if (isQuickSale && (!quickAmount || Number(quickAmount) <= 0)) {
-      Alert.alert('Nominal Kosong', 'Masukkan nominal transaksi');
+      Toast.show({ type: 'error', text1: 'Nominal Kosong', text2: 'Masukkan nominal transaksi' });
       return;
     }
 
     if (method === 'qris') {
-      setShowQrisModal(true);
+      qrisModalRef.current?.present();
       return;
     }
 
@@ -307,7 +310,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setMemberPiutang(null);
       setMemberSearch('');
       setMembers([]);
-      setShowMemberModal(true);
+      memberModalRef.current?.present();
       return;
     }
 
@@ -473,10 +476,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
                 placeholderTextColor="#94A3B8"
                 value={search}
                 onChangeText={setSearch}
-                onSubmitEditing={() => loadProducts(search, unitType)}
+                onSubmitEditing={() => refetchProducts()}
                 returnKeyType="search"
               />
-              <TouchableOpacity style={styles.searchBtn} onPress={() => loadProducts(search, unitType)}>
+              <TouchableOpacity style={styles.searchBtn} onPress={() => refetchProducts()}>
                 <Ionicons name="search" size={20} color={C.primary} />
               </TouchableOpacity>
               {isTokoUnit && (
@@ -600,7 +603,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
               </TouchableOpacity>
             )}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={false} onRefresh={() => loadProducts(search, unitType)} colors={[C.accent]} />}
+            refreshControl={<RefreshControl refreshing={productsLoading} onRefresh={() => refetchProducts()} colors={[C.accent]} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyIcon}>{loading ? '⏳' : '📦'}</Text>
@@ -687,52 +690,54 @@ export default function KasirScreen({ navigation: navProp }: any) {
   // ── QRIS Modal ───────────────────────────────────────────────────────────
   function renderQrisModal() {
     return (
-      <Modal visible={showQrisModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { alignItems: 'center' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 15 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.accent }}>Pindai QRIS Unit</Text>
-              <TouchableOpacity onPress={() => setShowQrisModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ backgroundColor: '#F0F9FF', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#BAE6FD', borderStyle: 'dashed' }}>
-              <Text style={{ fontSize: 12, color: '#0369A1', marginBottom: 10, textAlign: 'center' }}>
-                Arahkan layar ini ke pelanggan untuk melakukan Scan Kode QR.
-              </Text>
-              <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 12, elevation: 4 }}>
-                <ExpoImage
-                  source={{ uri: `${BASE_URL}/uploads/qris/qris-${unitType}.png` }}
-                  style={{ width: 200, height: 200 }}
-                  contentFit="contain"
-                  transition={200}
-                  cachePolicy="disk"
-                  placeholder={{ blurhash: 'L4M?1Q~q000000M{000000M{%Mof' }} // Optional standard blurhash
-                />
-              </View>
-              <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0369A1', marginTop: 15 }}>
-                {formatRp(total)}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]}
-              onPress={() => {
-                setShowQrisModal(false);
-                if (isQuickSale) {
-                  performQuickCheckoutAPI('qris', null);
-                } else {
-                  performStandardCheckoutAPI('qris', null);
-                }
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={[styles.cashText, { color: '#FFF' }]}>Pelanggan Sudah Membayar</Text>
+      <BottomSheetModal
+        ref={qrisModalRef}
+        snapPoints={snapPointsQris}
+        backdropComponent={renderBackdrop}
+      >
+        <BottomSheetScrollView contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 15 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.accent }}>Pindai QRIS Unit</Text>
+            <TouchableOpacity onPress={() => qrisModalRef.current?.dismiss()}>
+              <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+
+          <View style={{ backgroundColor: '#F0F9FF', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#BAE6FD', borderStyle: 'dashed' }}>
+            <Text style={{ fontSize: 12, color: '#0369A1', marginBottom: 10, textAlign: 'center' }}>
+              Arahkan layar ini ke pelanggan untuk melakukan Scan Kode QR.
+            </Text>
+            <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 12, elevation: 4 }}>
+              <ExpoImage
+                source={{ uri: `${BASE_URL}/uploads/qris/qris-${unitType}.png` }}
+                style={{ width: 200, height: 200 }}
+                contentFit="contain"
+                transition={200}
+                cachePolicy="disk"
+                placeholder={{ blurhash: 'L4M?1Q~q000000M{000000M{%Mof' }} // Optional standard blurhash
+              />
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0369A1', marginTop: 15 }}>
+              {formatRp(total)}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]}
+            onPress={() => {
+              qrisModalRef.current?.dismiss();
+              if (isQuickSale) {
+                performQuickCheckoutAPI('qris', null);
+              } else {
+                performStandardCheckoutAPI('qris', null);
+              }
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+            <Text style={[styles.cashText, { color: '#FFF' }]}>Pelanggan Sudah Membayar</Text>
+          </TouchableOpacity>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
     );
   }
 
@@ -744,12 +749,11 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
     return (
       <>
-        <Modal visible={showMemberModal} animationType="slide" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+        <BottomSheetModal ref={memberModalRef} snapPoints={snapPointsMember} backdropComponent={renderBackdrop} keyboardBehavior="extend">
+          <View style={{ flex: 1, padding: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                 <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Cari Nama Anggota</Text>
-                <TouchableOpacity onPress={() => { setShowMemberModal(false); setMemberPiutang(null); }}>
+                <TouchableOpacity onPress={() => { memberModalRef.current?.dismiss(); setMemberPiutang(null); }}>
                   <Ionicons name="close" size={24} color="#666" />
                 </TouchableOpacity>
               </View>
@@ -784,7 +788,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
               )}
 
               {/* S2-04: Search input */}
-              <TextInput
+              <BottomSheetTextInput
                 style={styles.modalInput}
                 placeholder="Ketik Nama atau NRP..."
                 value={memberSearch}
@@ -797,11 +801,11 @@ export default function KasirScreen({ navigation: navProp }: any) {
               ) : members.length === 0 && memberSearch.length > 1 ? (
                 <Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>Anggota tidak ditemukan</Text>
               ) : (
-                <FlatList
+                <BottomSheetFlatList
                   data={members}
-                  keyExtractor={(item) => String(item.id)}
-                  style={{ marginTop: 15, maxHeight: 300 }}
-                  renderItem={({ item }) => (
+                  keyExtractor={(item: Member) => String(item.id)}
+                  style={{ marginTop: 15 }}
+                  renderItem={({ item }: { item: Member }) => (
                     <TouchableOpacity
                       style={styles.modalMemberItem}
                       onPress={async () => {
@@ -855,8 +859,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-        </Modal>
+        </BottomSheetModal>
 
         {/* Barcode Camera Scanner Modal */}
         <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>

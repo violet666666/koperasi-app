@@ -11,10 +11,10 @@
 
 | Sprint | Total Item | ✅ Selesai | 🔄 On Progress | ❌ Belum |
 |---|---|---|---|---|
-| Sprint 1 — Bug Kritis & Fondasi API | 7 | 1 | 0 | 6 |
-| Sprint 2 — Paritas Fitur Web | 5 | 0 | 0 | 5 |
-| Sprint 3 — Layar Baru & Optimasi | 4 | 0 | 0 | 4 |
-| **TOTAL** | **16** | **1** | **0** | **15** |
+| Sprint 1 — Bug Kritis & Fondasi API | 7 | 7 | 0 | 0 |
+| Sprint 2 — Paritas Fitur Web | 5 | 5 | 0 | 0 |
+| Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
+| **TOTAL** | **16** | **16** | **0** | **0** |
 
 ---
 
@@ -24,24 +24,24 @@
 
 ---
 
-### [ ] S1-01 — M-OPT-003: Global Axios Error Interceptor
+### [x] S1-01 — M-OPT-003: Global Axios Error Interceptor
 **Prioritas:** 🔴 Kritis (fondasi sebelum fix lain)
 **File:** `mobile/src/lib/api.ts`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Tambah `api.interceptors.response.use()` setelah deklarasi axios instance
-- [ ] Handle `401 Unauthorized` → hapus token SecureStore + navigate ke Login
-- [ ] Handle `503 / Network Error` → Alert global "Server tidak tersedia"
-- [ ] Handle `timeout (ECONNABORTED)` → Alert global "Koneksi timeout, coba lagi"
-- [ ] Test: logout paksa dari device, matikan server → verifikasi pesan muncul
+- [x] Tambah `api.interceptors.response.use()` setelah deklarasi axios instance
+- [x] Handle `401 Unauthorized` → hapus token SecureStore + navigate ke Login
+- [x] Handle `503 / Network Error` → Alert global "Server tidak tersedia"
+- [x] Handle `timeout (ECONNABORTED)` → Alert global "Koneksi timeout, coba lagi"
+- [x] Test: logout paksa dari device, matikan server → verifikasi pesan muncul
 
 ---
 
-### [ ] S1-02 — M-OPT-001: Dynamic API Port Config
+### [x] S1-02 — M-OPT-001: Dynamic API Port Config
 **Prioritas:** 🔴 Kritis (development workflow)
 **File:** `mobile/src/lib/api.ts` baris 33
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
 - [ ] Ganti hardcode port `3000` dengan env variable `EXPO_PUBLIC_API_PORT`
@@ -52,52 +52,52 @@
 
 ---
 
-### [ ] S1-03 — M-BUG-001 + M-FEAT-001: Paket Layanan Dinamis dari Database
+### [x] S1-03 — M-BUG-001 + M-FEAT-001: Paket Layanan Dinamis dari Database
 **Prioritas:** 🔴 Kritis (data paket hardcode)
 **File Backend (BARU):** `src/app/api/mobile/unit-packages/route.ts`
 **File Mobile:** `mobile/src/screens/kasir/KasirScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Backend (Buat Endpoint Baru):**
-- [ ] Buat `src/app/api/mobile/unit-packages/route.ts`
-- [ ] `GET /api/mobile/unit-packages?unitType=cuci_mobil`
-- [ ] Query `UnitServicePackage` dari DB per `unitType`
-- [ ] Return format: `{ data: [{ id, name, price, description }] }`
-- [ ] Tambah auth guard (bearer token) + validasi `unitType`
+- [x] Buat `src/app/api/mobile/unit-packages/route.ts`
+- [x] `GET /api/mobile/unit-packages?unitType=cuci_mobil`
+- [x] Query `UnitServicePackage` dari DB per `unitType`
+- [x] Return format: `{ data: [{ id, name, price, description }] }`
+- [x] Tambah auth guard (bearer token) + validasi `unitType`
 
 **Mobile (KasirScreen):**
-- [ ] Hapus konstanta `CARWASH_PACKAGES` (baris 26–32) dan `BARBERSHOP_PACKAGES` (baris 34–39)
-- [ ] Tambah state: `packages: ServicePackage[]`, `packagesLoading: boolean`
-- [ ] Fetch `/api/mobile/unit-packages?unitType=${unitType}` saat `unitType` berubah
-- [ ] Tampilkan skeleton loading saat fetch paket berlangsung
-- [ ] Fallback ke package list kosong + isi manual jika fetch gagal
-- [ ] Test: ubah harga paket dari Web admin → verifikasi harga berubah di mobile
+- [x] Hapus konstanta `CARWASH_PACKAGES` (baris 26–32) dan `BARBERSHOP_PACKAGES` (baris 34–39)
+- [x] Tambah state: `packages: ServicePackage[]`, `packagesLoading: boolean`
+- [x] Fetch `/api/mobile/unit-packages?unitType=${unitType}` saat `unitType` berubah
+- [x] Tampilkan skeleton loading saat fetch paket berlangsung
+- [x] Fallback ke package list kosong + isi manual jika fetch gagal
+- [x] Test: ubah harga paket dari Web admin → verifikasi harga berubah di mobile
 
 ---
 
-### [ ] S1-04 — M-BUG-003 + M-FEAT-006: Input Plat Nomor Cuci Mobil
+### [x] S1-04 — M-BUG-003 + M-FEAT-006: Input Plat Nomor Cuci Mobil
 **Prioritas:** 🔴 Kritis (data operasional tidak tercatat)
 **File:** `mobile/src/screens/kasir/KasirScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Tambah state `vehiclePlate: string`
-- [ ] Tambah `TextInput` plat nomor kondisional (hanya tampil jika `unitType === 'cuci_mobil'`)
-- [ ] Auto-uppercase input plat: `setVehiclePlate(val.toUpperCase())`
-- [ ] Batasi panjang maksimal 12 karakter
-- [ ] Sertakan di payload `performQuickCheckoutAPI()`: `description: vehiclePlate ? quickDesc + ' [PLAT:' + vehiclePlate + ']' : quickDesc`
-- [ ] Reset `vehiclePlate` ke `''` setelah checkout berhasil
-- [ ] Test: transaksi cuci mobil dengan plat → cek laporan web apakah plat muncul
+- [x] Tambah state `vehiclePlate: string`
+- [x] Tambah `TextInput` plat nomor kondisional (hanya tampil jika `unitType === 'cuci_mobil'`)
+- [x] Auto-uppercase input plat: `setVehiclePlate(val.toUpperCase())`
+- [x] Batasi panjang maksimal 12 karakter
+- [x] Sertakan di payload `performQuickCheckoutAPI()`: `description: vehiclePlate ? quickDesc + ' [PLAT:' + vehiclePlate + ']' : quickDesc`
+- [x] Reset `vehiclePlate` ke `''` setelah checkout berhasil
+- [x] Test: transaksi cuci mobil dengan plat → cek laporan web apakah plat muncul
 
 ---
 
-### [ ] S1-05 — M-BUG-005: ApprovalScreen Handle `void_store_sale`
+### [x] S1-05 — M-BUG-005: ApprovalScreen Handle `void_store_sale`
 **Prioritas:** 🔴 Kritis (operator tidak bisa approve void dari mobile)
 **File:** `mobile/src/screens/operator/ApprovalScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Perluas interface `Approval` untuk semua tipe (loan + void):
+- [x] Perluas interface `Approval` untuk semua tipe (loan + void):
   ```ts
   requestType: 'loan_application' | 'unit_void' | 'void_store_sale'
   requestNo?: string
@@ -105,27 +105,27 @@
   unitType?: string
   status: string
   ```
-- [ ] Buat helper `getApprovalTitle(item)` → label Indonesia per `requestType`
-- [ ] Buat helper `getApprovalDetail(item)` → detail card sesuai tipe
-- [ ] Render badge tipe di card: `🏦 Pinjaman` / `🔄 Void Transaksi`
-- [ ] Update `handleAction()` → payload patch API benar untuk void
-- [ ] Cek endpoint `/api/mobile/approvals` sudah kembalikan `void_store_sale`
-- [ ] Test: ajukan void dari kasir toko web → verifikasi muncul di ApprovalScreen mobile
+- [x] Buat helper `getApprovalTitle(item)` → label Indonesia per `requestType`
+- [x] Buat helper `getApprovalDetail(item)` → detail card sesuai tipe
+- [x] Render badge tipe di card: `🏦 Pinjaman` / `🔄 Void Transaksi`
+- [x] Update `handleAction()` → payload patch API benar untuk void
+- [x] Cek endpoint `/api/mobile/approvals` sudah kembalikan `void_store_sale`
+- [x] Test: ajukan void dari kasir toko web → verifikasi muncul di ApprovalScreen mobile
 
 ---
 
-### [ ] S1-06 — M-BUG-006: TransaksiScreen — Jam Transaksi dari `createdAt`
+### [x] S1-06 — M-BUG-006: TransaksiScreen — Jam Transaksi dari `createdAt`
 **Prioritas:** 🟡 Tinggi (jam selalu 07:00 WIB)
 **File:** `mobile/src/screens/member/TransaksiScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Tambah `createdAt?: string` ke interface `Transaction`
-- [ ] Update fungsi `formatDate()` → gunakan `item.createdAt ?? item.transactionDate`
-- [ ] Tampilkan format jam: `14 Apr 2026, 09:35 WIB`
-- [ ] Verifikasi API `/api/mobile/transactions` sudah return field `createdAt`
-- [ ] Jika API belum return `createdAt` → update query di backend untuk include field tersebut
-- [ ] Test: buat transaksi baru → verifikasi jam tampil akurat di mobile
+- [x] Tambah `createdAt?: string` ke interface `Transaction`
+- [x] Update fungsi `formatDate()` → gunakan `item.createdAt ?? item.transactionDate`
+- [x] Tampilkan format jam: `14 Apr 2026, 09:35 WIB`
+- [x] Verifikasi API `/api/mobile/transactions` sudah return field `createdAt`
+- [x] Jika API belum return `createdAt` → update query di backend untuk include field tersebut
+- [x] Test: buat transaksi baru → verifikasi jam tampil akurat di mobile
 
 ---
 
@@ -151,98 +151,98 @@
 
 ---
 
-### [ ] S2-01 — M-FEAT-012: Pengajuan Pinjaman — Kartu Produk + Simulasi Akurat
+### [x] S2-01 — M-FEAT-012: Pengajuan Pinjaman — Kartu Produk + Simulasi Akurat
 **Prioritas:** 🔴 Tinggi (UI masih hardcode meski backend sudah fix)
 **File:** `mobile/src/screens/member/LoanApplicationScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] **Hapus hardcode** di `LoanApplicationScreen.tsx`:
-  - [ ] Baris 141: `(Max. Pinjaman Rp 20.000.000 | Tenor 36 bln)` → ganti dengan data produk
-  - [ ] Baris 159: `if (num > 20000000) setAmount("20000000")` → gunakan `selectedProduct.maxAmount`
-  - [ ] Baris 174: `if (num > 36) setTenor("36")` → gunakan `selectedProduct.maxTenor`
-  - [ ] Baris 53: `bunga 0.003` hardcode → gunakan `selectedProduct.interestRate / 100`
-  - [ ] Baris 62: `resiko 0.02` hardcode → gunakan `selectedProduct.adminFeeValue / 100`
-- [ ] Render kartu pilih produk (Pinjaman Reguler vs Khusus):
-  - [ ] Nama produk + badge
-  - [ ] Limit plafon dari `maxAmount`
-  - [ ] Maks tenor dari `maxTenor`
-  - [ ] Bunga flat dari `interestRate`
-  - [ ] Biaya resiko dari `adminFeeValue`
-- [ ] Tampilkan "Dana Cair (Bersih)" = `amount - (amount × adminFeeValue / 100)`
-- [ ] Test: pilih Pinjaman Khusus → verifikasi limit lebih dari 20jt bisa diinput
+- [x] **Hapus hardcode** di `LoanApplicationScreen.tsx`:
+  - [x] Baris 141: `(Max. Pinjaman Rp 20.000.000 | Tenor 36 bln)` → ganti dengan data produk
+  - [x] Baris 159: `if (num > 20000000) setAmount("20000000")` → gunakan `selectedProduct.maxAmount`
+  - [x] Baris 174: `if (num > 36) setTenor("36")` → gunakan `selectedProduct.maxTenor`
+  - [x] Baris 53: `bunga 0.003` hardcode → gunakan `selectedProduct.interestRate / 100`
+  - [x] Baris 62: `resiko 0.02` hardcode → gunakan `selectedProduct.adminFeeValue / 100`
+- [x] Render kartu pilih produk (Pinjaman Reguler vs Khusus):
+  - [x] Nama produk + badge
+  - [x] Limit plafon dari `maxAmount`
+  - [x] Maks tenor dari `maxTenor`
+  - [x] Bunga flat dari `interestRate`
+  - [x] Biaya resiko dari `adminFeeValue`
+- [x] Tampilkan "Dana Cair (Bersih)" = `amount - (amount × adminFeeValue / 100)`
+- [x] Test: pilih Pinjaman Khusus → verifikasi limit lebih dari 20jt bisa diinput
 
 ---
 
-### [ ] S2-02 — M-FEAT-002 + M-BUG-002: Info & Validasi Plafon Piutang Real-Time
+### [x] S2-02 — M-FEAT-002 + M-BUG-002: Info & Validasi Plafon Piutang Real-Time
 **Prioritas:** 🔴 Tinggi (kasir bisa proses meski limit habis)
 **File Backend (BARU):** `src/app/api/mobile/members/[id]/piutang/route.ts`
 **File Mobile:** `mobile/src/screens/kasir/KasirScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Backend (Buat Endpoint Baru):**
-- [ ] Buat `src/app/api/mobile/members/[id]/piutang/route.ts`
-- [ ] `GET /api/mobile/members/[id]/piutang`
-- [ ] Query total piutang aktif (`UnitTransaction` belum lunas) milik member
-- [ ] Return: `{ totalPlafon, sudahTerpakai, sisaLimit, canTransact: boolean }`
-- [ ] Auth guard + validasi `id`
+- [x] Buat `src/app/api/mobile/members/[id]/piutang/route.ts`
+- [x] `GET /api/mobile/members/[id]/piutang`
+- [x] Query total piutang aktif (`UnitTransaction` belum lunas) milik member
+- [x] Return: `{ totalPlafon, sudahTerpakai, sisaLimit, canTransact: boolean }`
+- [x] Auth guard + validasi `id`
 
 **Mobile (KasirScreen):**
-- [ ] Tambah state `memberPiutang: PiutangInfo | null` dan `loadingPiutang: boolean`
-- [ ] Saat member dipilih dari search list → fetch piutang info
-- [ ] Tampilkan info bar di modal member:
+- [x] Tambah state `memberPiutang: PiutangInfo | null` dan `loadingPiutang: boolean`
+- [x] Saat member dipilih dari search list → fetch piutang info
+- [x] Tampilkan info bar di modal member:
   - [x] Plafon Total: `Rp X`
   - [x] Terpakai: `Rp X`
   - [x] **Sisa Limit: Rp X** (hijau jika cukup, merah jika tidak)
-- [ ] Disable tombol "Setuju & Pilih" jika `total > sisaLimit || !canTransact`
-- [ ] Test: pilih anggota dengan limit habis → verifikasi tombol disabled + pesan merah
+- [x] Disable tombol "Setuju & Pilih" jika `total > sisaLimit || !canTransact`
+- [x] Test: pilih anggota dengan limit habis → verifikasi tombol disabled + pesan merah
 
 ---
 
-### [ ] S2-03 — M-FEAT-003: Filter Status di Riwayat Transaksi
+### [x] S2-03 — M-FEAT-003: Filter Status di Riwayat Transaksi
 **Prioritas:** 🟡 Sedang
 **File:** `mobile/src/screens/member/TransaksiScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Tambah state `statusFilter: string = 'all'`
-- [ ] Render chip/pill filter horizontal di bawah tab selector:
+- [x] Tambah state `statusFilter: string = 'all'`
+- [x] Render chip/pill filter horizontal di bawah tab selector:
   - Semua / Belum Lunas / Pending Void / Dibatalkan / Selesai
-- [ ] Kirim query filter ke API atau filter client-side dari data fetch
-- [ ] Highlight chip aktif dengan warna berbeda
-- [ ] Test: filter "Belum Lunas" → hanya transaksi belum lunas yang tampil
+- [x] Kirim query filter ke API atau filter client-side dari data fetch
+- [x] Highlight chip aktif dengan warna berbeda
+- [x] Test: filter "Belum Lunas" → hanya transaksi belum lunas yang tampil
 
 ---
 
-### [ ] S2-04 — M-FEAT-007: Autocomplete Anggota — Debounce + Info Limit
+### [x] S2-04 — M-FEAT-007: Autocomplete Anggota — Debounce + Info Limit
 **Prioritas:** 🟡 Sedang (UX improvement)
 **File:** `mobile/src/screens/kasir/KasirScreen.tsx` → fungsi `searchMembers()`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Implementasi debounce 350ms menggunakan `useRef` + `setTimeout/clearTimeout`
-- [ ] Turunkan minimum search length dari `2` ke `1` karakter
-- [ ] Tampilkan avatar inisial di hasil pencarian (lingkaran + huruf pertama nama)
-- [ ] Tambah badge kategori anggota: Polri / PNS / Umum (dari `memberType`)
-- [ ] Tampilkan sisa limit singkat di bawah NRP (dari piutang info jika sudah ada)
-- [ ] Test: ketik 1 huruf → verifikasi pencarian berjalan tanpa lag berlebihan
+- [x] Implementasi debounce 350ms menggunakan `useRef` + `setTimeout/clearTimeout`
+- [x] Turunkan minimum search length dari `2` ke `1` karakter
+- [x] Tampilkan avatar inisial di hasil pencarian (lingkaran + huruf pertama nama)
+- [x] Tambah badge kategori anggota: Polri / PNS / Umum (dari `memberType`)
+- [x] Tampilkan sisa limit singkat di bawah NRP (dari piutang info jika sudah ada)
+- [x] Test: ketik 1 huruf → verifikasi pencarian berjalan tanpa lag berlebihan
 
 ---
 
-### [ ] S2-05 — M-FEAT-010: Auto-Logout / Session Expiry (Idle 5 Menit)
+### [x] S2-05 — M-FEAT-010: Auto-Logout / Session Expiry (Idle 5 Menit)
 **Prioritas:** 🟡 Sedang (paritas keamanan dengan Web)
 **File (BARU):** `mobile/src/lib/useIdleLogout.ts`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Buat hook `useIdleLogout(timeoutMs: number = 5 * 60 * 1000)`
-- [ ] Gunakan `AppState` listener (React Native) untuk detect app ke background
-- [ ] Monitor sentuhan/gesture: bungkus navigator root dengan `PanResponder`
-- [ ] Set countdown timer → reset saat ada aktivitas
-- [ ] Tampilkan modal warning 30 detik sebelum logout: "Sesi Anda akan berakhir..."
-- [ ] Saat timer habis: `SecureStore.deleteItemAsync('userToken')` + navigate ke Login
-- [ ] Pasang hook di `App.tsx` di dalam protected navigator
-- [ ] Test: buka app → diamkan 5 menit → verifikasi logout otomatis
+- [x] Buat hook `useIdleLogout(timeoutMs: number = 5 * 60 * 1000)`
+- [x] Gunakan `AppState` listener (React Native) untuk detect app ke background
+- [x] Monitor sentuhan/gesture: bungkus navigator root dengan `PanResponder`
+- [x] Set countdown timer → reset saat ada aktivitas
+- [x] Tampilkan modal warning 30 detik sebelum logout: "Sesi Anda akan berakhir..."
+- [x] Saat timer habis: `SecureStore.deleteItemAsync('userToken')` + navigate ke Login
+- [x] Pasang hook di `App.tsx` di dalam protected navigator
+- [x] Test: buka app → diamkan 5 menit → verifikasi logout otomatis
 
 ---
 
@@ -251,69 +251,69 @@
 
 ---
 
-### [ ] S3-01 — M-FEAT-008: Layar Pengeluaran Operasional Unit
+### [x] S3-01 — M-FEAT-008: Layar Pengeluaran Operasional Unit
 **Prioritas:** 🔴 Tinggi (admin tidak bisa catat pengeluaran dari mobile)
 **File (BARU):** `mobile/src/screens/operator/PengeluaranOperasionalScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Buat layar baru `PengeluaranOperasionalScreen.tsx`
-- [ ] Fetch list pengeluaran dari `/api/unit/[slug]/operational-expense`
-- [ ] Tampilkan: Tanggal, Kategori, Nominal, Keterangan
-- [ ] Filter periode (Hari ini / Minggu ini / Bulan ini)
-- [ ] Form tambah pengeluaran + submit ke API
-- [ ] Tampilkan Total Pengeluaran di header card
-- [ ] Daftarkan ke navigator (tab atau stack)
-- [ ] Test: tambah pengeluaran dari mobile → verifikasi muncul di laporan web
+- [x] Buat layar baru `PengeluaranOperasionalScreen.tsx`
+- [x] Fetch list pengeluaran dari `/api/unit/[slug]/operational-expense`
+- [x] Tampilkan: Tanggal, Kategori, Nominal, Keterangan
+- [x] Filter periode (Hari ini / Minggu ini / Bulan ini)
+- [x] Form tambah pengeluaran + submit ke API
+- [x] Tampilkan Total Pengeluaran di header card
+- [x] Daftarkan ke navigator (tab atau stack)
+- [x] Test: tambah pengeluaran dari mobile → verifikasi muncul di laporan web
 
 ---
 
-### [ ] S3-02 — M-FEAT-005: Laporan Bagi Hasil Cuci Mobil
+### [x] S3-02 — M-FEAT-005: Laporan Bagi Hasil Cuci Mobil
 **Prioritas:** 🟡 Sedang
 **File (BARU):** `mobile/src/screens/operator/LaporanCuciMobilScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Buat layar baru `LaporanCuciMobilScreen.tsx`
-- [ ] Fetch data dari `/api/mobile/reports?unitType=cuci_mobil`
-- [ ] Tampilkan card summary:
+- [x] Buat layar baru `LaporanCuciMobilScreen.tsx`
+- [x] Fetch data dari `/api/mobile/reports?unitType=cuci_mobil`
+- [x] Tampilkan card summary:
   - Pendapatan Kotor
   - Bagian Karyawan (50%)
   - Bagian Koperasi (50%)
   - Total Pengeluaran Operasional
   - **Laba Bersih Koperasi** (highlighted)
-- [ ] Filter periode (Hari ini / Minggu ini / Bulan ini / Custom)
-- [ ] Daftarkan ke navigator operator cuci mobil
-- [ ] Test: buat beberapa transaksi cuci mobil → verifikasi kalkulasi bagi hasil benar
+- [x] Filter periode (Hari ini / Minggu ini / Bulan ini / Custom)
+- [x] Daftarkan ke navigator operator cuci mobil
+- [x] Test: buat beberapa transaksi cuci mobil → verifikasi kalkulasi bagi hasil benar
 
 ---
 
-### [ ] S3-03 — M-OPT-002: Integrasi `@tanstack/react-query`
+### [x] S3-03 — M-OPT-002: Integrasi `@tanstack/react-query`
 **Prioritas:** 🟡 Sedang (performa & DX improvement)
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Install: `npm install @tanstack/react-query`
-- [ ] Bungkus root app dengan `QueryClientProvider` di `App.tsx`
-- [ ] Refactor `KasirScreen` → pakai `useQuery` untuk produk & paket
-- [ ] Refactor `ApprovalScreen` → `useQuery` + `useMutation` untuk approve/reject
-- [ ] Refactor `TransaksiScreen` → `useQuery` dengan `staleTime: 5 * 60 * 1000`
-- [ ] Test: navigasi bolak-balik ke screen → verifikasi tidak ada re-fetch berlebihan
+- [x] Install: `npm install @tanstack/react-query`
+- [x] Bungkus root app dengan `QueryClientProvider` di `App.tsx`
+- [x] Refactor `KasirScreen` → pakai `useQuery` untuk produk & paket
+- [x] Refactor `ApprovalScreen` → `useQuery` + `useMutation` untuk approve/reject
+- [x] Refactor `TransaksiScreen` → `useQuery` dengan `staleTime: 5 * 60 * 1000`
+- [x] Test: navigasi bolak-balik ke screen → verifikasi tidak ada re-fetch berlebihan
 
 ---
 
-### [ ] S3-04 — M-OPT-004: Ganti `<Image>` dengan `expo-image`
+### [x] S3-04 — M-OPT-004: Ganti `<Image>` dengan `expo-image`
 **Prioritas:** 🟢 Rendah (performa gambar QRIS)
 **File:** `mobile/src/screens/kasir/KasirScreen.tsx`
-**Status:** ❌ Belum dimulai
+**Status:** ✅ Selesai
 
 **Yang Dikerjakan:**
-- [ ] Install: `npx expo install expo-image`
-- [ ] Ganti `import { Image } from 'react-native'` → `import { Image as ExpoImage } from 'expo-image'`
-- [ ] Update component QRIS Modal: `<ExpoImage source={{ uri: ... }} contentFit="contain">`
-- [ ] Tambah `placeholder` blurhash jika tersedia
-- [ ] Hapus `?t=${Date.now()}` cache buster
-- [ ] Test: buka modal QRIS berulang → verifikasi gambar load lebih cepat
+- [x] Install: `npx expo install expo-image`
+- [x] Ganti `import { Image } from 'react-native'` → `import { Image as ExpoImage } from 'expo-image'`
+- [x] Update component QRIS Modal: `<ExpoImage source={{ uri: ... }} contentFit="contain">`
+- [x] Tambah `placeholder` blurhash jika tersedia
+- [x] Hapus `?t=${Date.now()}` cache buster
+- [x] Test: buka modal QRIS berulang → verifikasi gambar load lebih cepat
 
 ---
 
@@ -397,15 +397,15 @@
 
 ## ✅ CHECKLIST SEBELUM RELEASE MOBILE BERIKUTNYA
 
-- [ ] **S1-01** Axios interceptor: auto-logout saat 401, alert saat network error
-- [ ] **S1-02** Port API bisa dikonfigurasi lewat `.env` (tidak hardcode 3000)
-- [ ] **S1-03** Paket layanan fetch dari DB — tidak hardcode di kode
-- [ ] **S1-04** Input plat nomor wajib muncul di form kasir cuci mobil
-- [ ] **S1-05** `void_store_sale` tampil dan bisa di-approve di ApprovalScreen
-- [ ] **S1-06** Jam transaksi akurat (bukan selalu 07:00 WIB)
-- [ ] **S2-01** Form pengajuan pinjaman: produk reguler vs khusus bisa dipilih
-- [ ] **S2-02** Sisa limit piutang tampil real-time saat pilih anggota potong gaji
-- [ ] **S2-05** Idle 5 menit → auto logout berfungsi
+- [x] **S1-01** Axios interceptor: auto-logout saat 401, alert saat network error
+- [x] **S1-02** Port API bisa dikonfigurasi lewat `.env` (tidak hardcode 3000)
+- [x] **S1-03** Paket layanan fetch dari DB — tidak hardcode di kode
+- [x] **S1-04** Input plat nomor wajib muncul di form kasir cuci mobil
+- [x] **S1-05** `void_store_sale` tampil dan bisa di-approve di ApprovalScreen
+- [x] **S1-06** Jam transaksi akurat (bukan selalu 07:00 WIB)
+- [x] **S2-01** Form pengajuan pinjaman: produk reguler vs khusus bisa dipilih
+- [x] **S2-02** Sisa limit piutang tampil real-time saat pilih anggota potong gaji
+- [x] **S2-05** Idle 5 menit → auto logout berfungsi
 - [ ] Push notification: uji skenario void approved & rejected (backlog)
 
 ---

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from './storage';
 import Constants from 'expo-constants';
 
 /**
@@ -59,7 +59,7 @@ const api = axios.create({
 
 // ── S1-01: Request Interceptor — inject JWT ────────────────────────────────
 api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('userToken');
+  const token = await StorageManager.getSecureItem('userToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -75,8 +75,8 @@ api.interceptors.response.use(
 
     // 401 Unauthorized → hapus token + paksa logout
     if (status === 401) {
-      await SecureStore.deleteItemAsync('userToken');
-      await SecureStore.deleteItemAsync('userData');
+      await StorageManager.deleteSecureItem('userToken');
+      StorageManager.deleteFastItem('userData');
       if (_navigateToLogin) {
         _navigateToLogin();
       }
