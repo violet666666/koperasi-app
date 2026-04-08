@@ -60,3 +60,9 @@ public/uploads/qris/*
 # UAT scripts
 prisma/seed-uat*.ts
 prisma/cleanup-uat*.ts
+
+# One-time migration & fix scripts
+fix-interest-rate.ts
+analyze-interest.ts
+test-check-loans.ts
+test-stats-prisma.js

@@ -1,5 +1,5 @@
 import * as dotenv from "dotenv";
-dotenv.config({ path: ".env.test.local" });
+dotenv.config({ path: ".env.prod.local" });
 import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
