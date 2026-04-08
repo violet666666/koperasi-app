@@ -129,9 +129,12 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     );
 }
 
+import { AutoLogout } from "@/components/layout/auto-logout";
+
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
+            <AutoLogout timeoutMinutes={5} />
             <ProtectedContent>{children}</ProtectedContent>
         </AuthProvider>
     );

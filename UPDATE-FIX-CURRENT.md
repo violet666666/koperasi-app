@@ -136,6 +136,10 @@ npx tsx prisma/seed-uat.ts
   3. Skrip memindahkan saldo bawaan excel ke pos Simpanan Pokok dan Simpanan Wajib dengan tipe *Correction*.
   4. Laman *Preview Data/Pratinjau Tabel* kini mengeluarkan rangkuman cerdas berbungkus *badge emerald* ("Dideteksi: PKK (x), WJB_Awl (y), +3 bln setoran") agar meyakinkan operator sesaat sebelum klik **Import**.
 
+### [SECURITY] Auto-Logout (Idle Timeout)
+- **Komponen:** `src/components/layout/auto-logout.tsx`
+- **Implementasi:** Sistem kini memantau aktivitas kursor, sentuhan layar, dan keyboard secara *real-time*. Jika mendapati Web Operator/Kasir ditelantarkan tanpa disentuh selama **5 Menit**, maka Aplikasi akan mencekik sesi aktif dengan sebuah pop-up *warning* lalu mendepak Operator tersebut (*Force Logout*) ke halaman Login.
+
 ---
 
 ## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
