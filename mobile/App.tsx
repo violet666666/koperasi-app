@@ -270,6 +270,7 @@ export default function App() {
     const bootstrapAsync = async () => {
       let token: string | null = null;
       try {
+        await StorageManager.hydrateFastStorage();
         token = await StorageManager.getSecureItem("userToken");
       } catch (e) {
         // Token retrieval failed

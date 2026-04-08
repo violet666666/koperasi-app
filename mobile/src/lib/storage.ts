@@ -1,14 +1,31 @@
-import { MMKV } from 'react-native-mmkv';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
-// Initialize MMKV instance
-export const storage = new MMKV();
+// In-memory cache for synchronous reads (to maintain backwards compatibility with MMKV sync APIs)
+const memoryCache: Record<string, string | boolean | number> = {};
 
 /**
  * Storage Wrapper
  * Memisahkan penyimpanan secure (token) dan fast storage (preferences, user data)
  */
 export const StorageManager = {
+  // Hydrate memory from AsyncStorage on app startup
+  hydrateFastStorage: async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const pairs = await AsyncStorage.multiGet(keys);
+      pairs.forEach(([key, value]) => {
+        if (value !== null) {
+          if (value === 'true') memoryCache[key] = true;
+          else if (value === 'false') memoryCache[key] = false;
+          else memoryCache[key] = value;
+        }
+      });
+    } catch (err) {
+      console.log('Failed to hydrate fast storage:', err);
+    }
+  },
+
   // --- Secure Storage (JWT, Passwords) ---
   setSecureItem: async (key: string, value: string) => {
     await SecureStore.setItemAsync(key, value);
@@ -22,21 +39,39 @@ export const StorageManager = {
 
   // --- Fast Storage (User Data, settings, cache) ---
   setFastItem: (key: string, value: string | object | number | boolean) => {
+    let strValue = '';
     if (typeof value === 'object') {
-      storage.set(key, JSON.stringify(value));
+      strValue = JSON.stringify(value);
+      memoryCache[key] = strValue;
     } else if (typeof value === 'boolean') {
-      storage.set(key, value);
+      strValue = value ? 'true' : 'false';
+      memoryCache[key] = value;
     } else if (typeof value === 'number') {
-      storage.set(key, value);
+      strValue = String(value);
+      memoryCache[key] = value;
     } else {
-      storage.set(key, value as string);
+      strValue = value as string;
+      memoryCache[key] = value as string;
     }
+    // Fire and forget async write
+    AsyncStorage.setItem(key, strValue).catch(() => {});
   },
-  getFastString: (key: string) => storage.getString(key),
-  getFastNumber: (key: string) => storage.getNumber(key),
-  getFastBoolean: (key: string) => storage.getBoolean(key),
+  getFastString: (key: string): string | undefined => {
+    const val = memoryCache[key];
+    return val !== undefined ? String(val) : undefined;
+  },
+  getFastNumber: (key: string): number | undefined => {
+    const val = memoryCache[key];
+    return val !== undefined ? Number(val) : undefined;
+  },
+  getFastBoolean: (key: string): boolean | undefined => {
+    const val = memoryCache[key];
+    if (val === 'true' || val === true) return true;
+    if (val === 'false' || val === false) return false;
+    return undefined;
+  },
   getFastObject: <T>(key: string): T | null => {
-    const data = storage.getString(key);
+    const data = StorageManager.getFastString(key);
     if (!data) return null;
     try {
       return JSON.parse(data) as T;
@@ -45,9 +80,13 @@ export const StorageManager = {
     }
   },
   deleteFastItem: (key: string) => {
-    storage.delete(key);
+    delete memoryCache[key];
+    AsyncStorage.removeItem(key).catch(() => {});
   },
   clearAllFastItems: () => {
-    storage.clearAll();
+    for (const key in memoryCache) {
+      delete memoryCache[key];
+    }
+    AsyncStorage.clear().catch(() => {});
   }
 };
