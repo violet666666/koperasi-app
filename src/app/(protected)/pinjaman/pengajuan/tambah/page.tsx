@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Search, Calculator, AlertCircle, Info } from "lucide-react";
+import { Loader2, Save, Search, Calculator, AlertCircle, Info, Banknote, Zap } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
 interface LoanProduct {
@@ -311,6 +311,47 @@ export default function TambahPengajuanPage() {
             }
         } catch (error) {
             toast.error("Gagal membuat pengajuan");
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // untuk Operator: Buat pengajuan DAN langsung cairkan dalam satu klik
+    const handleDirectDisburse = async () => {
+        if (!selectedMember) { toast.error("Pilih anggota terlebih dahulu"); return; }
+        if (!formData.product_id || !formData.amount || !formData.tenor_months) { toast.error("Lengkapi semua field"); return; }
+        if (amountError) { toast.error(amountError); return; }
+
+        const amt = parseFloat(formData.amount);
+        const tnr = parseInt(formData.tenor_months);
+
+        setIsLoading(true);
+        try {
+            const res = await fetch("/api/loans/applications/direct-disburse", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    memberId: selectedMember.id,
+                    productId: parseInt(formData.product_id),
+                    amount: amt,
+                    tenorMonths: tnr,
+                    purpose: formData.purpose || "Pencairan Pinjaman",
+                    deductionSource: formData.deductionSource,
+                    ...(formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
+                }),
+            });
+
+            const json = await res.json();
+            if (res.ok) {
+                toast.success(`✅ Berhasil! Pinjaman ${json.loanNo} dicairkan & Kwitansi diterbitkan.`);
+                // Langsung buka halaman cetak kwitansi
+                router.push(`/kwitansi/${json.receiptId}/cetak`);
+            } else {
+                toast.error(json.message || "Gagal memproses direct disburse");
+            }
+        } catch (error) {
+            toast.error("Gagal memproses. Cek koneksi.");
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -677,26 +718,52 @@ export default function TambahPengajuanPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-4 pt-4">
-                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
-                        Batal
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={isLoading || !selectedMember || !calculation || !!amountError}
-                    >
-                        {isLoading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Menyimpan...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="mr-2 h-4 w-4" />
-                                Ajukan Pinjaman
-                            </>
-                        )}
-                    </Button>
+                <div className="flex flex-col gap-3 pt-4">
+                    {/* Tombol Cairkan Langsung — hanya untuk Operator */}
+                    {isOperator && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-4 space-y-3">
+                            <div className="flex items-start gap-2">
+                                <Zap className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">Mode Operator: Cairkan Langsung</p>
+                                    <p className="text-xs text-amber-700/80 dark:text-amber-500/80 mt-0.5">
+                                        Buat pengajuan, ACC, dan cairkan sekaligus dalam satu klik. Kwitansi otomatis diterbitkan & Jadwal Angsuran langsung terbuat.
+                                        {formData.backdatedDate && ` Tanggal akan di-set ke ${new Date(formData.backdatedDate).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}.`}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={handleDirectDisburse}
+                                disabled={isLoading || !selectedMember || !calculation || !!amountError}
+                                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                                size="lg"
+                            >
+                                {isLoading ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses Pencairan...</>
+                                ) : (
+                                    <><Banknote className="mr-2 h-5 w-5" />Cairkan Langsung & Terbitkan Kwitansi</>
+                                )}
+                            </Button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-4">
+                        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={isLoading || !selectedMember || !calculation || !!amountError}
+                        >
+                            {isLoading ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</>
+                            ) : (
+                                <><Save className="mr-2 h-4 w-4" />{isOperator ? "Ajukan Dulu (Draft)" : "Ajukan Pinjaman"}</>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </div>

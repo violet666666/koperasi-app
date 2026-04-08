@@ -128,7 +128,7 @@ export async function POST(request: Request, { params }: Params) {
             // 4. Create Kvintasi (Receipt) for Disbursement
             const receiptRandom = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
             const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-            const monthRomawi = romawi[baseDate.getMonth() + 1] || monthRomawi; // fallback
+            const monthRomawi = romawi[baseDate.getMonth() + 1] ?? "I";
             const currentYear = baseDate.getFullYear();
             
             const receipt = await tx.receipt.create({
