@@ -240,7 +240,7 @@ ${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><
     <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Operator</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.createdBy || "-"}</p><p style="font-size:10px;color:#888;">Petugas</p></div>
   </div>
 </div>
-<div class="footer">Kwitansi ini sah sebagai bukti pembayaran resmi Koperasi PRIMKOPPOL Resor Lumajang.</div>
+<div class="footer">Kwitansi ini sah sebagai bukti pembayaran resmi PRIMKOPPOL Resor Lumajang.</div>
 <script>window.onload = () => window.print();</script>
 </body></html>`;
     const win = window.open("", "_blank");

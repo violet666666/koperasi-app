@@ -339,7 +339,7 @@ export default function CetakKwitansiPage() {
                     {/* ---- FOOTER ---- */}
                     <div className="text-center mt-4">
                         <p className="text-[10px] text-muted-foreground">
-                            Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh Koperasi PRIMKOPPOL Resor Lumajang.
+                            Kwitansi ini sah dan merupakan bukti pembayaran resmi yang diterbitkan oleh PRIMKOPPOL Resor Lumajang.
                         </p>
                     </div>
 
