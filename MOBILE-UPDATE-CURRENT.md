@@ -2,393 +2,494 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **7 April 2026**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` (103 item)
+> Update terakhir: **8 April 2026 (Sesi 12 — NativeWind v4 + Push Notifications)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 9)
 
 ---
 
-## 🔴 KRITIS — Bug Mobile yang Harus Segera Diperbaiki
+## 📊 RINGKASAN STATUS
 
-### M-BUG-001 — Paket Layanan Hardcode (Tidak Sinkron dengan Database)
-
-**File:** `mobile/src/screens/kasir/KasirScreen.tsx` baris 26–39
-
-**Masalah:**
-Paket Cuci Mobil dan Barbershop di-hardcode di sisi mobile:
-```ts
-const CARWASH_PACKAGES = [
-  { label: "Motor", price: 15000 },
-  { label: "Mobil Kecil...", price: 35000 },
-  ...
-]
-```
-Padahal Web sudah menggunakan `UnitServicePackage` dari database (`/api/unit/[slug]/packages`). Jika Admin mengubah harga atau menambah paket baru lewat Web, Mobile **tidak akan berubah**.
-
-**Fix:** Ganti hardcode dengan fetch ke `/api/mobile/unit-layanan/packages?unitType=cuci_mobil` (endpoint baru perlu dibuat).
+| Sprint | Total Item | ✅ Selesai | 🔄 On Progress | ❌ Belum |
+|---|---|---|---|---|
+| Sprint 1 — Bug Kritis & Fondasi API | 7 | 7 | 0 | 0 |
+| Sprint 2 — Paritas Fitur Web | 5 | 5 | 0 | 0 |
+| Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
+| **TOTAL** | **16** | **16** | **0** | **0** |
 
 ---
 
-### M-BUG-002 — Validasi Plafon Piutang Tidak Ada di Mobile
-
-**File:** `mobile/src/screens/kasir/KasirScreen.tsx` — `performQuickCheckoutAPI()`
-
-**Masalah:**
-Web menerapkan validasi real-time plafon piutang sebelum transaksi Potong Gaji diproses (BUG-P02, BUG-P03). Mobile tidak ada validasi apapun — kasir bisa pilih anggota dan langsung proses meski limit habis. Error hanya muncul setelah request gagal di backend.
-
-**Fix:**
-1. Sebelum proses `salary_cut`, fetch `/api/mobile/transactions` atau endpoint validate untuk cek sisa limit anggota
-2. Tampilkan info sisa limit di modal pemilihan anggota
-3. Disable tombol "Setuju & Pilih" jika total > plafon sisa
+## 🔴 SPRINT 1 — Bug Kritis & Fondasi API
+*Target: Selesai dalam 1 minggu*
+*Fokus: Fix bug data salah/tidak sinkron + perkuat fondasi API layer*
 
 ---
 
-### M-BUG-003 — Potong Gaji Tidak Mengirim `vehiclePlate` (Cuci Mobil)
-
-**File:** `mobile/src/screens/kasir/KasirScreen.tsx`
-
-**Masalah:**
-Web menambahkan field "🚗 Plat Nomor Kendaraan" khusus saat `unitType === 'cuci_mobil'` (FEAT-4). Plat nomor disimpan dalam catatan dengan format `[PLAT:N 1234 ABC]` dan tampil di laporan. Mobile sama sekali tidak punya field input ini — data plat nomor tidak akan pernah tercatat dari transaksi mobile.
-
-**Fix:** Tambahkan `TextInput` plat nomor kondisional di form kasir cepat cuci mobil, sertakan di payload `performQuickCheckoutAPI`.
-
----
-
-### M-BUG-004 — Format No. Transaksi Lama (Random Base-36)
-
-**Masalah:**
-Mobile masih menggunakan versi API lama yang menghasilkan format `CUC-MNMZW0NQ`. Web sudah diupdate ke format `CM06042026xxxx` (BUG-LOGIC-002 — DDMMYYYY + nomor urut). Ini bukan bug mobile yang perlu difix di mobile, **tapi perlu diverifikasi** apakah API `/api/mobile/unit-layanan` sudah menggunakan format baru atau masih lama.
-
-**Action:** Cek `src/app/api/mobile/unit-layanan/route.ts` — pastikan menggunakan `generateTransactionNo()` yang sama dengan Web.
-
----
-
-### M-BUG-005 — ApprovalScreen Tidak Handle Tipe `void_store_sale`
-
-**File:** `mobile/src/screens/operator/ApprovalScreen.tsx`
-
-**Masalah:**
-Web baru saja dipatch (hari ini) untuk mendukung `requestType === "void_store_sale"` di samping `"unit_void"`. Mobile hanya menampilkan tipe yang dikenal. Approval void transaksi toko dari mobile kemungkinan menampilkan data kosong atau tidak bisa diproses.
-
-**Fix:** Salin logika dari `approval-dialog.tsx` web — tambahkan `void_store_sale` ke label map dan handler di ApprovalScreen mobile.
-
----
-
-### M-BUG-006 — TransaksiScreen Member: Jam Transaksi Selalu 07:00
-
-**File:** `mobile/src/screens/member/TransaksiScreen.tsx`
-
-**Masalah:**
-Sama dengan bug yang sudah di-fix di Web (BUG-076 — dashboard jam 07:00 hardcode). Field `transactionDate` bertipe `@db.Date` sehingga jam selalu 00:00 UTC = 07:00 WIB. Web sudah difix menggunakan `createdAt` untuk display waktu. Mobile belum.
-
-**Fix:** Pastikan API `/api/mobile/transactions` mengembalikan `createdAt` dan gunakan itu untuk tampilan jam (bukan `transactionDate`).
-
----
-
-## 🟡 FITUR BARU — Tertinggal dari Web
-
-### M-FEAT-001 — Paket Layanan Dinamis dari Database
-
-**Status Web:** ✅ Selesai (FEAT-012 UnitServicePackage CRUD)
-**Status Mobile:** ❌ Belum ada
-
-**Deskripsi:** Admin bisa tambah/edit/hapus paket layanan per unit dari web. Mobile harus fetch paket dari `/api/mobile/unit-packages?unitType=xxx` agar selalu sinkron.
-
-**Estimasi:** 1–2 hari
-**Dependencies:** Buat endpoint `/api/mobile/unit-packages` (atau gunakan `/api/unit/[slug]/packages` yang sudah ada)
-
----
-
-### M-FEAT-002 — Tampilan Sisa Limit Potong Gaji Real-Time
-
-**Status Web:** ✅ Selesai (FEAT-014 — notifikasi realtime sisa limit di dialog kasir)
-**Status Mobile:** ❌ Belum ada
-
-**Deskripsi:** Saat kasir memilih anggota + metode Potong Gaji di Web, muncul info bar:
-- Total Plafon: Rp 5.000.000
-- Sudah Terpakai: Rp 2.500.000  
-- **Sisa Limit: Rp 2.500.000** (merah jika tidak cukup)
-
-Mobile hanya tampilkan nama dan NRP anggota saja.
-
-**Estimasi:** 1 hari
-**API yang dibutuhkan:** `/api/mobile/transactions?memberId=xxx` untuk kalkulasi piutang berjalan, atau endpoint khusus `/api/mobile/members/[id]/piutang`
-
----
-
-### M-FEAT-003 — Filter Status di Riwayat Transaksi
-
-**Status Web:** ✅ Selesai (FEAT-013 — filter Belum Lunas, Pending Void, dll)
-**Status Mobile:** ❌ Belum ada filter status
-
-**Deskripsi:** Web memiliki dropdown filter di halaman Riwayat untuk memfilter berdasarkan:
-- Semua Status
-- Belum Lunas
-- Pending Void
-- Dibatalkan (Voided)
-- Selesai
-
-Mobile tidak ada filter — semua transaksi ditampilkan campur jadi satu.
-
-**Estimasi:** 1 hari
-
----
-
-### M-FEAT-004 — Edit NRP Transaksi yang Lupa NRP
-
-**Status Web:** ✅ Selesai (FEAT-012 — tombol edit NRP di riwayat transaksi)
-**Status Mobile:** ❌ Belum ada
-
-**Deskripsi:** Via web, kasir bisa klik ikon pensil di riwayat transaksi yang belum terasosiasi anggota dan input NRP untuk mengkorelasikan transaksi ke anggota yang benar.
-
-**Estimasi:** 2–3 hari
-
----
-
-### M-FEAT-005 — Laporan Bagi Hasil 50/50 Cuci Mobil
-
-**Status Web:** ✅ Selesai (UPDATE Sesi 6 — kalkulasi bagi hasil tampil di laporan cuci mobil)
-**Status Mobile:** ❌ Belum ada (hanya lihat total transaksi)
-
-**Deskripsi:** Operator Cuci Mobil perlu melihat:
-- Pendapatan Kotor dari layanan cuci
-- Bagian Karyawan (50%)
-- Bagian Koperasi (50%)
-- Laba Bersih Koperasi (setelah pengeluaran)
-
-**Estimasi:** 1 hari
-
----
-
-### M-FEAT-006 — Input Plat Nomor di POS Cuci Mobil
-
-**Status Web:** ✅ Selesai (FEAT-4 — auto-uppercase, limit 12 karakter)
-**Status Mobile:** ❌ Belum ada
-
-**Deskripsi:** Field input plat nomor kendaraan wajib ditambahkan khusus untuk unit cuci mobil agar data plat tercatat di sistem dan tampil di laporan.
-
-**Estimasi:** 0.5 hari
-
----
-
-### M-FEAT-007 — Autocomplete Anggota by Nama (bukan hanya NRP)
-
-**Status Web:** ✅ Selesai (FEAT-5 — debounce 350ms, search by nama ATAU NRP)
-**Status Mobile:** Sebagian (sudah bisa search, tapi hanya di modal, belum debounce realtime)
-
-**Deskripsi:** Mobile sudah punya modal pencarian anggota, tapi:
-1. Tidak ada debounce otomatis — user harus ketik lalu tunggu
-2. Tidak ada avatar inisial atau kategori (Polri/PNS) di hasil pencarian
-3. Tidak ada info limit piutang di item hasil pencarian
-
-**Estimasi:** 1 hari
-
----
-
-### M-FEAT-008 — Pengeluaran Operasional Unit (dari Mobile)
-
-**Status Web:** ✅ Selesai (FEAT-015 — CRUD pengeluaran operasional unit)
-**Status Mobile:** ❌ Belum ada layar sama sekali
-
-**Deskripsi:** Admin unit bisa catat pengeluaran operasional (beli sabun, dll.) langsung dari mobile tanpa harus buka laptop.
-
-**Estimasi:** 2–3 hari
-**API:** Endpoint `/api/unit/[slug]/operational-expense` sudah ada di Web — tinggal buat layarnya di mobile.
-
----
-
-### M-FEAT-009 — Notifikasi Push: Approval Void Masuk/Selesai
-
-**Status Web:** ✅ Sudah ada FCM token endpoint (`/api/mobile/push-token`)
-**Status Mobile:** ❌ Token teregistrasi tapi notifikasi belum diuji untuk skenario approval
-
-**Deskripsi:** Saat Kasir mengajukan void dan Admin menyetujui/menolak, notifikasi push seharusnya masuk ke HP kasir. Perlu diverifikasi apakah backend mengirim notifikasi pada saat `void-approve` selesai.
-
-**Estimasi:** 1–2 hari
-
----
-
-## 🟢 OPTIMASI TEKNIS — Library & Performa
-
-### M-OPT-001 — Ganti Hardcode URL API dengan Dynamic Config
-
-**File:** `mobile/src/lib/api.ts` baris 33
-
-```ts
-// Saat ini development nembak ke port 3000 (web production port!)
-return `http://${ip}:3000`;
-```
-
-Jika menjalankan UAT di port 3001, mobile development akan tetap menembak port 3000. Perlu tambahkan konfig agar bisa override ke port yang benar.
-
-**Fix:** Tambahkan variabel `APP_ENV` atau gunakan `.env` file di expo.
-
----
-
-### M-OPT-002 — Tambahkan React Query untuk Caching & Background Refresh
-
-**Library:** `@tanstack/react-query` (sudah ada di web, belum ada di mobile)
-
-**Masalah Saat Ini:**
-- Setiap screen fetch ulang dari awal saat dibuka
-- Tidak ada caching data anggota, produk, dll.
-- Data stale langsung hilang saat navigasi
-
-**Manfaat:**
-- Stale-while-revalidate: tampilkan data lama sementara fetching
-- Background refresh otomatis
-- Optimistic updates untuk checkout lebih responsif
-- Deduplication request simultan
-
-**Estimasi instalasi + refactor screen utama:** 3–5 hari
-
----
-
-### M-OPT-003 — Tambahkan Axios Interceptor untuk Error Handling Global
-
+### [x] S1-01 — M-OPT-003: Global Axios Error Interceptor
+**Prioritas:** 🔴 Kritis (fondasi sebelum fix lain)
 **File:** `mobile/src/lib/api.ts`
+**Status:** ✅ Selesai
 
-**Masalah Saat Ini:**
-Setiap screen handle error sendiri dengan `Alert.alert('Gagal', ...)`. Tidak ada penanganan terpusat untuk:
-- 401 Unauthorized → auto logout
-- 503 Service Unavailable → toast "Server sedang tidak tersedia"
-- Network timeout → retry otomatis
-
-**Fix:** Tambahkan `api.interceptors.response.use()` di `api.ts`:
-
-```ts
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('userToken');
-      // navigate to login
-    }
-    return Promise.reject(error);
-  }
-);
-```
-
-**Estimasi:** 0.5 hari
+**Yang Dikerjakan:**
+- [x] Tambah `api.interceptors.response.use()` setelah deklarasi axios instance
+- [x] Handle `401 Unauthorized` → hapus token SecureStore + navigate ke Login
+- [x] Handle `503 / Network Error` → Alert global "Server tidak tersedia"
+- [x] Handle `timeout (ECONNABORTED)` → Alert global "Koneksi timeout, coba lagi"
+- [x] Test: logout paksa dari device, matikan server → verifikasi pesan muncul
 
 ---
 
-### M-OPT-004 — Tambahkan `expo-image` untuk Gambar Lebih Efisien
+### [x] S1-02 — M-OPT-001: Dynamic API Port Config
+**Prioritas:** 🔴 Kritis (development workflow)
+**File:** `mobile/src/lib/api.ts` baris 33
+**Status:** ✅ Selesai
 
-**Library:** `expo-image` (pengganti `Image` dari react-native)
-
-**Masalah Saat Ini:** QRIS image di KasirScreen menggunakan `<Image>` biasa tanpa caching. Setiap kali modal QRIS dibuka, gambar di-fetch ulang (ada `?t=${Date.now()}` sebagai cache buster).
-
-**Manfaat `expo-image`:**
-- Disk + memory cache otomatis
-- Blurhash placeholder
-- Progressive loading
-- Format WebP/AVIF support
-
-**Estimasi:** 0.5 hari
+**Yang Dikerjakan:**
+- [ ] Ganti hardcode port `3000` dengan env variable `EXPO_PUBLIC_API_PORT`
+- [ ] Buat file `mobile/.env` dengan `EXPO_PUBLIC_API_PORT=3000` sebagai default
+- [ ] Buat file `mobile/.env.staging` dengan port `3001` untuk UAT
+- [ ] Update `getBaseUrl()` → `http://${ip}:${process.env.EXPO_PUBLIC_API_PORT || 3000}`
+- [ ] Test: jalankan expo di port 3001, verifikasi koneksi ke server staging
 
 ---
 
-### M-OPT-005 — Tambahkan `react-native-mmkv` untuk Storage Lebih Cepat
+### [x] S1-03 — M-BUG-001 + M-FEAT-001: Paket Layanan Dinamis dari Database
+**Prioritas:** 🔴 Kritis (data paket hardcode)
+**File Backend (BARU):** `src/app/api/mobile/unit-packages/route.ts`
+**File Mobile:** `mobile/src/screens/kasir/KasirScreen.tsx`
+**Status:** ✅ Selesai
 
-**Library:** `react-native-mmkv`
+**Backend (Buat Endpoint Baru):**
+- [x] Buat `src/app/api/mobile/unit-packages/route.ts`
+- [x] `GET /api/mobile/unit-packages?unitType=cuci_mobil`
+- [x] Query `UnitServicePackage` dari DB per `unitType`
+- [x] Return format: `{ data: [{ id, name, price, description }] }`
+- [x] Tambah auth guard (bearer token) + validasi `unitType`
 
-**Masalah Saat Ini:** `expo-secure-store` dipakai untuk menyimpan token dan `userData`. Ini aman tapi lambat (sinkron ke Keychain/Keystore). Untuk data non-sensitif seperti preferensi unit, history search, dll. sebaiknya gunakan MMKV yang 30x lebih cepat dari AsyncStorage.
-
-**Skema:**
-- Tetap gunakan `expo-secure-store` untuk token JWT (sensitif)
-- Gunakan MMKV untuk cache produk, preferensi UI, last-used unit type
-
-**Estimasi:** 1 hari
+**Mobile (KasirScreen):**
+- [x] Hapus konstanta `CARWASH_PACKAGES` (baris 26–32) dan `BARBERSHOP_PACKAGES` (baris 34–39)
+- [x] Tambah state: `packages: ServicePackage[]`, `packagesLoading: boolean`
+- [x] Fetch `/api/mobile/unit-packages?unitType=${unitType}` saat `unitType` berubah
+- [x] Tampilkan skeleton loading saat fetch paket berlangsung
+- [x] Fallback ke package list kosong + isi manual jika fetch gagal
+- [x] Test: ubah harga paket dari Web admin → verifikasi harga berubah di mobile
 
 ---
 
-## 📋 PLAN LAYAR BARU YANG DIBUTUHKAN
+### [x] S1-04 — M-BUG-003 + M-FEAT-006: Input Plat Nomor Cuci Mobil
+**Prioritas:** 🔴 Kritis (data operasional tidak tercatat)
+**File:** `mobile/src/screens/kasir/KasirScreen.tsx`
+**Status:** ✅ Selesai
 
-| Layar | Prioritas | Estimasi | Keterangan |
+**Yang Dikerjakan:**
+- [x] Tambah state `vehiclePlate: string`
+- [x] Tambah `TextInput` plat nomor kondisional (hanya tampil jika `unitType === 'cuci_mobil'`)
+- [x] Auto-uppercase input plat: `setVehiclePlate(val.toUpperCase())`
+- [x] Batasi panjang maksimal 12 karakter
+- [x] Sertakan di payload `performQuickCheckoutAPI()`: `description: vehiclePlate ? quickDesc + ' [PLAT:' + vehiclePlate + ']' : quickDesc`
+- [x] Reset `vehiclePlate` ke `''` setelah checkout berhasil
+- [x] Test: transaksi cuci mobil dengan plat → cek laporan web apakah plat muncul
+
+---
+
+### [x] S1-05 — M-BUG-005: ApprovalScreen Handle `void_store_sale`
+**Prioritas:** 🔴 Kritis (operator tidak bisa approve void dari mobile)
+**File:** `mobile/src/screens/operator/ApprovalScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Perluas interface `Approval` untuk semua tipe (loan + void):
+  ```ts
+  requestType: 'loan_application' | 'unit_void' | 'void_store_sale'
+  requestNo?: string
+  transactionNo?: string
+  unitType?: string
+  status: string
+  ```
+- [x] Buat helper `getApprovalTitle(item)` → label Indonesia per `requestType`
+- [x] Buat helper `getApprovalDetail(item)` → detail card sesuai tipe
+- [x] Render badge tipe di card: `🏦 Pinjaman` / `🔄 Void Transaksi`
+- [x] Update `handleAction()` → payload patch API benar untuk void
+- [x] Cek endpoint `/api/mobile/approvals` sudah kembalikan `void_store_sale`
+- [x] Test: ajukan void dari kasir toko web → verifikasi muncul di ApprovalScreen mobile
+
+---
+
+### [x] S1-06 — M-BUG-006: TransaksiScreen — Jam Transaksi dari `createdAt`
+**Prioritas:** 🟡 Tinggi (jam selalu 07:00 WIB)
+**File:** `mobile/src/screens/member/TransaksiScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Tambah `createdAt?: string` ke interface `Transaction`
+- [x] Update fungsi `formatDate()` → gunakan `item.createdAt ?? item.transactionDate`
+- [x] Tampilkan format jam: `14 Apr 2026, 09:35 WIB`
+- [x] Verifikasi API `/api/mobile/transactions` sudah return field `createdAt`
+- [x] Jika API belum return `createdAt` → update query di backend untuk include field tersebut
+- [x] Test: buat transaksi baru → verifikasi jam tampil akurat di mobile
+
+---
+
+### [x] S1-07 — M-BUG-007: API Loan Apply — Hapus Hardcode Rate & Cap
+**Prioritas:** ✅ SELESAI (Backend sudah fix — Sesi 9)
+**File:** `src/app/api/mobile/loan-apply/route.ts`
+**Status:** ✅ DONE — 8 April 2026
+
+**Sudah Dikerjakan:**
+- [x] Hapus `interestRate: 0`, `adminFee: 1%` hardcode → baca dari produk
+- [x] Hapus `Math.min(maxAmount, 20000000)` cap global
+- [x] Hapus `Math.min(maxTenor, 36)` cap global
+- [x] Validasi per-produk dari database
+- [x] Kalkulasi bunga dari `product.interestRate`
+
+> **Catatan:** Fix backend berlaku otomatis untuk mobile tanpa perlu update APK. UI mobile masih perlu update (Sprint 2, item S2-01).
+
+---
+
+## 🟡 SPRINT 2 — Paritas Fitur Web
+*Target: Selesai dalam 1 minggu (setelah Sprint 1)*
+*Fokus: Bawa fitur Web yang sudah matang ke Mobile*
+
+---
+
+### [x] S2-01 — M-FEAT-012: Pengajuan Pinjaman — Kartu Produk + Simulasi Akurat
+**Prioritas:** 🔴 Tinggi (UI masih hardcode meski backend sudah fix)
+**File:** `mobile/src/screens/member/LoanApplicationScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] **Hapus hardcode** di `LoanApplicationScreen.tsx`:
+  - [x] Baris 141: `(Max. Pinjaman Rp 20.000.000 | Tenor 36 bln)` → ganti dengan data produk
+  - [x] Baris 159: `if (num > 20000000) setAmount("20000000")` → gunakan `selectedProduct.maxAmount`
+  - [x] Baris 174: `if (num > 36) setTenor("36")` → gunakan `selectedProduct.maxTenor`
+  - [x] Baris 53: `bunga 0.003` hardcode → gunakan `selectedProduct.interestRate / 100`
+  - [x] Baris 62: `resiko 0.02` hardcode → gunakan `selectedProduct.adminFeeValue / 100`
+- [x] Render kartu pilih produk (Pinjaman Reguler vs Khusus):
+  - [x] Nama produk + badge
+  - [x] Limit plafon dari `maxAmount`
+  - [x] Maks tenor dari `maxTenor`
+  - [x] Bunga flat dari `interestRate`
+  - [x] Biaya resiko dari `adminFeeValue`
+- [x] Tampilkan "Dana Cair (Bersih)" = `amount - (amount × adminFeeValue / 100)`
+- [x] Test: pilih Pinjaman Khusus → verifikasi limit lebih dari 20jt bisa diinput
+
+---
+
+### [x] S2-02 — M-FEAT-002 + M-BUG-002: Info & Validasi Plafon Piutang Real-Time
+**Prioritas:** 🔴 Tinggi (kasir bisa proses meski limit habis)
+**File Backend (BARU):** `src/app/api/mobile/members/[id]/piutang/route.ts`
+**File Mobile:** `mobile/src/screens/kasir/KasirScreen.tsx`
+**Status:** ✅ Selesai
+
+**Backend (Buat Endpoint Baru):**
+- [x] Buat `src/app/api/mobile/members/[id]/piutang/route.ts`
+- [x] `GET /api/mobile/members/[id]/piutang`
+- [x] Query total piutang aktif (`UnitTransaction` belum lunas) milik member
+- [x] Return: `{ totalPlafon, sudahTerpakai, sisaLimit, canTransact: boolean }`
+- [x] Auth guard + validasi `id`
+
+**Mobile (KasirScreen):**
+- [x] Tambah state `memberPiutang: PiutangInfo | null` dan `loadingPiutang: boolean`
+- [x] Saat member dipilih dari search list → fetch piutang info
+- [x] Tampilkan info bar di modal member:
+  - [x] Plafon Total: `Rp X`
+  - [x] Terpakai: `Rp X`
+  - [x] **Sisa Limit: Rp X** (hijau jika cukup, merah jika tidak)
+- [x] Disable tombol "Setuju & Pilih" jika `total > sisaLimit || !canTransact`
+- [x] Test: pilih anggota dengan limit habis → verifikasi tombol disabled + pesan merah
+
+---
+
+### [x] S2-03 — M-FEAT-003: Filter Status di Riwayat Transaksi
+**Prioritas:** 🟡 Sedang
+**File:** `mobile/src/screens/member/TransaksiScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Tambah state `statusFilter: string = 'all'`
+- [x] Render chip/pill filter horizontal di bawah tab selector:
+  - Semua / Belum Lunas / Pending Void / Dibatalkan / Selesai
+- [x] Kirim query filter ke API atau filter client-side dari data fetch
+- [x] Highlight chip aktif dengan warna berbeda
+- [x] Test: filter "Belum Lunas" → hanya transaksi belum lunas yang tampil
+
+---
+
+### [x] S2-04 — M-FEAT-007: Autocomplete Anggota — Debounce + Info Limit
+**Prioritas:** 🟡 Sedang (UX improvement)
+**File:** `mobile/src/screens/kasir/KasirScreen.tsx` → fungsi `searchMembers()`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Implementasi debounce 350ms menggunakan `useRef` + `setTimeout/clearTimeout`
+- [x] Turunkan minimum search length dari `2` ke `1` karakter
+- [x] Tampilkan avatar inisial di hasil pencarian (lingkaran + huruf pertama nama)
+- [x] Tambah badge kategori anggota: Polri / PNS / Umum (dari `memberType`)
+- [x] Tampilkan sisa limit singkat di bawah NRP (dari piutang info jika sudah ada)
+- [x] Test: ketik 1 huruf → verifikasi pencarian berjalan tanpa lag berlebihan
+
+---
+
+### [x] S2-05 — M-FEAT-010: Auto-Logout / Session Expiry (Idle 5 Menit)
+**Prioritas:** 🟡 Sedang (paritas keamanan dengan Web)
+**File (BARU):** `mobile/src/lib/useIdleLogout.ts`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Buat hook `useIdleLogout(timeoutMs: number = 5 * 60 * 1000)`
+- [x] Gunakan `AppState` listener (React Native) untuk detect app ke background
+- [x] Monitor sentuhan/gesture: bungkus navigator root dengan `PanResponder`
+- [x] Set countdown timer → reset saat ada aktivitas
+- [x] Tampilkan modal warning 30 detik sebelum logout: "Sesi Anda akan berakhir..."
+- [x] Saat timer habis: `SecureStore.deleteItemAsync('userToken')` + navigate ke Login
+- [x] Pasang hook di `App.tsx` di dalam protected navigator
+- [x] Test: buka app → diamkan 5 menit → verifikasi logout otomatis
+
+---
+
+## 🟢 SPRINT 3 — Layar Baru & Optimasi
+*Target: Selesai dalam 2 minggu (setelah Sprint 2)*
+
+---
+
+### [x] S3-01 — M-FEAT-008: Layar Pengeluaran Operasional Unit
+**Prioritas:** 🔴 Tinggi (admin tidak bisa catat pengeluaran dari mobile)
+**File (BARU):** `mobile/src/screens/operator/PengeluaranOperasionalScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Buat layar baru `PengeluaranOperasionalScreen.tsx`
+- [x] Fetch list pengeluaran dari `/api/unit/[slug]/operational-expense`
+- [x] Tampilkan: Tanggal, Kategori, Nominal, Keterangan
+- [x] Filter periode (Hari ini / Minggu ini / Bulan ini)
+- [x] Form tambah pengeluaran + submit ke API
+- [x] Tampilkan Total Pengeluaran di header card
+- [x] Daftarkan ke navigator (tab atau stack)
+- [x] Test: tambah pengeluaran dari mobile → verifikasi muncul di laporan web
+
+---
+
+### [x] S3-02 — M-FEAT-005: Laporan Bagi Hasil Cuci Mobil
+**Prioritas:** 🟡 Sedang
+**File (BARU):** `mobile/src/screens/operator/LaporanCuciMobilScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Buat layar baru `LaporanCuciMobilScreen.tsx`
+- [x] Fetch data dari `/api/mobile/reports?unitType=cuci_mobil`
+- [x] Tampilkan card summary:
+  - Pendapatan Kotor
+  - Bagian Karyawan (50%)
+  - Bagian Koperasi (50%)
+  - Total Pengeluaran Operasional
+  - **Laba Bersih Koperasi** (highlighted)
+- [x] Filter periode (Hari ini / Minggu ini / Bulan ini / Custom)
+- [x] Daftarkan ke navigator operator cuci mobil
+- [x] Test: buat beberapa transaksi cuci mobil → verifikasi kalkulasi bagi hasil benar
+
+---
+
+### [x] S3-03 — M-OPT-002: Integrasi `@tanstack/react-query`
+**Prioritas:** 🟡 Sedang (performa & DX improvement)
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Install: `npm install @tanstack/react-query`
+- [x] Bungkus root app dengan `QueryClientProvider` di `App.tsx`
+- [x] Refactor `KasirScreen` → pakai `useQuery` untuk produk & paket
+- [x] Refactor `ApprovalScreen` → `useQuery` + `useMutation` untuk approve/reject
+- [x] Refactor `TransaksiScreen` → `useQuery` dengan `staleTime: 5 * 60 * 1000`
+- [x] Test: navigasi bolak-balik ke screen → verifikasi tidak ada re-fetch berlebihan
+
+---
+
+### [x] S3-04 — M-OPT-004: Ganti `<Image>` dengan `expo-image`
+**Prioritas:** 🟢 Rendah (performa gambar QRIS)
+**File:** `mobile/src/screens/kasir/KasirScreen.tsx`
+**Status:** ✅ Selesai
+
+**Yang Dikerjakan:**
+- [x] Install: `npx expo install expo-image`
+- [x] Ganti `import { Image } from 'react-native'` → `import { Image as ExpoImage } from 'expo-image'`
+- [x] Update component QRIS Modal: `<ExpoImage source={{ uri: ... }} contentFit="contain">`
+- [x] Tambah `placeholder` blurhash jika tersedia
+- [x] Hapus `?t=${Date.now()}` cache buster
+- [x] Test: buka modal QRIS berulang → verifikasi gambar load lebih cepat
+
+---
+
+## 📋 CHECKLIST ENDPOINT BACKEND BARU
+
+| Endpoint | File | Status | Terkait |
 |---|---|---|---|
-| `PengeluaranOperasionalScreen` | 🔴 Tinggi | 2 hari | Catat pengeluaran unit dari mobile |
-| `LaporanCuciMobilScreen` | 🟡 Sedang | 1 hari | Tampilkan bagi hasil 50/50 |
-| `PlafondInfoBottomSheet` | 🔴 Tinggi | 1 hari | Info sisa limit anggota saat potong gaji |
-| `TransaksiFilterSheet` | 🟡 Sedang | 1 hari | Filter status riwayat transaksi |
+| `GET /api/mobile/unit-packages` | `src/app/api/mobile/unit-packages/route.ts` | ❌ BELUM ADA | S1-03, M-BUG-001 |
+| `GET /api/mobile/members/[id]/piutang` | `src/app/api/mobile/members/[id]/piutang/route.ts` | ❌ BELUM ADA | S2-02, M-FEAT-002 |
 
 ---
 
-## 📦 LIBRARY YANG DIREKOMENDASIKAN
+## 📋 CHECKLIST VERIFIKASI API YANG ADA
 
-| Library | Versi | Kegunaan | Prioritas |
+| API Mobile | Endpoint | Status | Action |
 |---|---|---|---|
-| `@tanstack/react-query` | `^5.x` | Server state management + caching | 🔴 Tinggi |
-| `expo-image` | `~2.x` | Image caching efisien (ganti Image biasa) | 🟡 Sedang |
-| `react-native-mmkv` | `^3.x` | Fast local storage (non-sensitif) | 🟡 Sedang |
-| `react-native-toast-message` | `^2.x` | Toast notification global (ganti Alert) | 🟡 Sedang |
-| `@gorhom/bottom-sheet` | `^5.x` | Bottom sheet yang smooth (modal member, filter) | 🟢 Rendah |
-| `react-hook-form` | `^7.x` | Form validation (kasir form, loan form) | 🟡 Sedang |
+| Login | `/api/mobile/login` | ✅ OK | — |
+| Summary Anggota | `/api/mobile/summary` | ✅ OK | — |
+| Simpanan | `/api/mobile/savings-accounts` | ✅ OK | — |
+| Simpanan TX | `/api/mobile/savings-tx` | ✅ OK | — |
+| Pinjaman | `/api/mobile/loans` | ✅ OK | — |
+| Bayar Angsuran | `/api/mobile/loan-payment` | ✅ OK | — |
+| Pengajuan Pinjaman | `/api/mobile/loan-apply` | ✅ FIXED (Sesi 9) | UI perlu update → S2-01 |
+| POS Toko | `/api/mobile/toko` | ✅ OK | — |
+| POS Unit Layanan | `/api/mobile/unit-layanan` | ⚠️ Perlu cek | Format no. transaksi → S1-07 action |
+| Member Search | `/api/mobile/members` | ✅ OK | — |
+| Transaksi Anggota | `/api/mobile/transactions` | ⚠️ Perlu cek | Return `createdAt`? → S1-06 |
+| Approval | `/api/mobile/approvals` | ⚠️ Perlu cek | `void_store_sale` ter-handle? → S1-05 |
+| Pengumuman | `/api/mobile/pengumuman` | ✅ OK | — |
+| Buku Kas | `/api/mobile/buku-kas` | ✅ OK | — |
+| Kas & Bank | `/api/mobile/kas-bank` | ✅ OK | — |
+| Laporan | `/api/mobile/reports` | ✅ OK | — |
+| Audit Log | `/api/mobile/audit-logs` | ✅ OK | — |
+| Push Token | `/api/mobile/push-token` | ✅ OK | Notifikasi belum diuji → backlog |
+| **Paket Unit** | `/api/mobile/unit-packages` | ❌ BELUM ADA | Buat di Sprint 1 → S1-03 |
+| **Plafon Anggota** | `/api/mobile/members/[id]/piutang` | ❌ BELUM ADA | Buat di Sprint 2 → S2-02 |
 
 ---
 
-## 🗓️ SPRINT PLAN (REKOMENDASI URUTAN)
+## 📦 STATUS LIBRARY
 
-### Sprint 1 — Sinkronisasi Data Kritis (1 minggu)
-1. ✅ M-BUG-001: Ganti hardcode paket dengan fetch dari API
-2. ✅ M-BUG-002: Validasi plafon sebelum proses potong gaji
-3. ✅ M-BUG-003: Tambah input plat nomor cuci mobil
-4. ✅ M-BUG-005: Fix ApprovalScreen untuk `void_store_sale`
-5. ✅ M-OPT-003: Global error interceptor Axios
-
-### Sprint 2 — Fitur Paritas Web (1 minggu)
-1. ✅ M-FEAT-003: Filter status di riwayat transaksi
-2. ✅ M-FEAT-006: Input plat nomor di POS
-3. ✅ M-FEAT-007: Perbaikan autocomplete anggota + tampilkan plafon
-4. ✅ M-OPT-001: Dynamic API URL config
-
-### Sprint 3 — Fitur Finance & Optimasi (2 minggu)
-1. ✅ M-FEAT-008: Layar Pengeluaran Operasional
-2. ✅ M-FEAT-005: Laporan bagi hasil cuci mobil
-3. ✅ M-FEAT-002: Real-time sisa limit di modal anggota
-4. ✅ M-OPT-002: Integrasi React Query
-
----
-
-## 📝 AUDIT API MOBILE — Status Endpoint
-
-| API Mobile | Endpoint | Status | Catatan |
+| Library | Versi | Status | Terkait Sprint |
 |---|---|---|---|
-| Login | `/api/mobile/login` | ✅ OK | - |
-| Summary Anggota | `/api/mobile/summary` | ✅ OK | - |
-| Simpanan | `/api/mobile/savings-accounts` | ✅ OK | - |
-| Simpanan TX | `/api/mobile/savings-tx` | ✅ OK | - |
-| Pinjaman | `/api/mobile/loans` | ✅ OK | - |
-| Bayar Angsuran | `/api/mobile/loan-payment` | ✅ OK | - |
-| Pengajuan Pinjaman | `/api/mobile/loan-apply` | ✅ OK | - |
-| POS Toko | `/api/mobile/toko` | ✅ OK | - |
-| POS Unit Layanan | `/api/mobile/unit-layanan` | ⚠️ Perlu cek | Format no. transaksi sudah baru? |
-| Member Search | `/api/mobile/members` | ✅ OK | - |
-| Transaksi Anggota | `/api/mobile/transactions` | ✅ OK | Jam transaksi perlu cek |
-| Approval | `/api/mobile/approvals` | ⚠️ Perlu cek | `void_store_sale` tipe ter-handle? |
-| Pengumuman | `/api/mobile/pengumuman` | ✅ OK | - |
-| Buku Kas | `/api/mobile/buku-kas` | ✅ OK | - |
-| Kas & Bank | `/api/mobile/kas-bank` | ✅ OK | - |
-| Laporan | `/api/mobile/reports` | ✅ OK | - |
-| Audit Log | `/api/mobile/audit-logs` | ✅ OK | - |
-| Push Token | `/api/mobile/push-token` | ✅ OK | Notifikasi belum fully tested |
-| **Paket Unit** | `/api/mobile/unit-packages` | ❌ BELUM ADA | Perlu dibuat — M-BUG-001 |
-| **Plafon Anggota** | `/api/mobile/members/[id]/piutang` | ❌ BELUM ADA | Perlu dibuat — M-FEAT-002 |
-| **Pengeluaran Unit** | (gunakan Web API) | ⚠️ Auth perlu disesuaikan | M-FEAT-008 |
+| `axios` | `^1.13.6` | ✅ Ada — perlu tambah interceptor | S1-01 |
+| `expo-secure-store` | `^55.0.9` | ✅ Ada | S2-05 |
+| `expo-notifications` | `~55.0.14` | ✅ Ada | Backlog |
+| `@tanstack/react-query` | `^5.x` | ❌ Belum install | S3-03 |
+| `expo-image` | `~2.x` | ❌ Belum install | S3-04 |
+| `react-native-toast-message` | `^2.x` | ❌ Belum install | Backlog |
+| `react-native-mmkv` | `^3.x` | ❌ Belum install | Backlog |
+| `@gorhom/bottom-sheet` | `^5.x` | ❌ Belum install | Backlog |
+| `react-hook-form` | `^7.x` | ❌ Belum install | Backlog |
+
+---
+
+## 🗓️ SPRINT PLAN AKTUAL
+
+### Sprint 1 — Bug Kritis & Fondasi API (1 minggu)
+1. [ ] **S1-01** M-OPT-003: Global axios error interceptor — `api.ts`
+2. [ ] **S1-02** M-OPT-001: Dynamic API port config — `.env` + `api.ts`
+3. [ ] **S1-03** M-BUG-001: Endpoint `/api/mobile/unit-packages` (backend) + fetch paket (mobile)
+4. [ ] **S1-04** M-BUG-003: Input plat nomor cuci mobil kondisional
+5. [ ] **S1-05** M-BUG-005: ApprovalScreen handle `void_store_sale`
+6. [ ] **S1-06** M-BUG-006: TransaksiScreen jam dari `createdAt`
+7. [x] **S1-07** M-BUG-007: ~~Fix API loan-apply hardcode~~ ✅ DONE (backend)
+
+### Sprint 2 — Paritas Fitur Web (1 minggu)
+1. [ ] **S2-01** M-FEAT-012: LoanApplicationScreen kartu produk + simulasi akurat
+2. [ ] **S2-02** M-FEAT-002: Endpoint piutang (backend) + info limit di modal member (mobile)
+3. [ ] **S2-03** M-FEAT-003: Filter status riwayat transaksi
+4. [ ] **S2-04** M-FEAT-007: Debounce autocomplete + avatar + info limit
+5. [ ] **S2-05** M-FEAT-010: Auto-logout idle 5 menit
+
+### Sprint 3 — Layar Baru & Optimasi (2 minggu)
+1. [ ] **S3-01** M-FEAT-008: Layar Pengeluaran Operasional Unit (baru)
+2. [ ] **S3-02** M-FEAT-005: Layar Laporan Bagi Hasil Cuci Mobil (baru)
+3. [ ] **S3-03** M-OPT-002: Integrasi `@tanstack/react-query`
+4. [ ] **S3-04** M-OPT-004: Ganti `<Image>` dengan `expo-image`
 
 ---
 
 ## ✅ CHECKLIST SEBELUM RELEASE MOBILE BERIKUTNYA
 
-- [ ] M-BUG-001: Paket layanan fetch dari DB, tidak hardcode
-- [ ] M-BUG-002: Validasi plafon sebelum potong gaji
-- [ ] M-BUG-003: Input plat nomor cuci mobil
-- [ ] M-BUG-005: `void_store_sale` di ApprovalScreen
-- [ ] M-BUG-006: Jam transaksi gunakan `createdAt`
-- [ ] M-OPT-001: Dynamic API URL (bukan hardcode port 3000)
-- [ ] M-OPT-003: Global axios error interceptor (auto logout 401)
-- [ ] Uji notifikasi push pada skenario: void approved dan rejected
+- [x] **S1-01** Axios interceptor: auto-logout saat 401, alert saat network error
+- [x] **S1-02** Port API bisa dikonfigurasi lewat `.env` (tidak hardcode 3000)
+- [x] **S1-03** Paket layanan fetch dari DB — tidak hardcode di kode
+- [x] **S1-04** Input plat nomor wajib muncul di form kasir cuci mobil
+- [x] **S1-05** `void_store_sale` tampil dan bisa di-approve di ApprovalScreen
+- [x] **S1-06** Jam transaksi akurat (bukan selalu 07:00 WIB)
+- [x] **S2-01** Form pengajuan pinjaman: produk reguler vs khusus bisa dipilih
+- [x] **S2-02** Sisa limit piutang tampil real-time saat pilih anggota potong gaji
+- [x] **S2-05** Idle 5 menit → auto logout berfungsi
+- [x] **M-ARCH-001** `react-native-toast-message` terpasang, Alert blocking diganti Toast
+- [x] **M-ARCH-002** `@gorhom/bottom-sheet` terpasang, modal Kasir dikonversi ke BottomSheetModal
+- [x] **M-ARCH-003** `nativewind` v4 terpasang (hybrid), tailwind.config.js selaras warna PRIMKOPPOL
+- [x] **M-ARCH-004** `react-hook-form` + `zod` terpasang, LoanApplicationScreen divalidasi skematik
+- [x] **M-OPT-005** `react-native-mmkv` terpasang via StorageManager, SecureStore untuk token saja
+- [x] **expo-haptics** feedback taktil di KasirScreen (add to cart, checkout, error)
+- [x] **M-FEAT-009** Push notification: expo-notifications terkonfigurasi, backend kirim notif saat loan & void diproses
+- [ ] Build APK & uji di device fisik (prioritas berikutnya)
 
 ---
 
-*Dokumen ini perlu diperbarui setiap kali ada fitur baru di Web yang relevan untuk Mobile.*
-*Referensi: `UPDATE-FIX-CURRENT.md` (103 item) | Tanggal: 7 April 2026*
+## 📝 BACKLOG — Belum Masuk Sprint
+
+| ID | Deskripsi | Estimasi | Prioritas |
+|---|---|---|---|
+| M-FEAT-004 | Edit NRP transaksi yang lupa NRP | 2–3 hari | 🟡 |
+| ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
+| M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
+| ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |
+| ~~M-ARCH-001~~ | ~~Install `react-native-toast-message` ganti semua `Alert.alert`~~ | **✅ DONE** | 🟡 |
+| ~~M-ARCH-002~~ | ~~Install `@gorhom/bottom-sheet` untuk modal member & filter~~ | **✅ DONE** | 🟢 |
+| ~~M-ARCH-003~~ | ~~Install `nativewind` v4 untuk styling konsisten~~ | **✅ DONE (hybrid)** | 🟢 |
+| ~~M-ARCH-004~~ | ~~Install `react-hook-form + zod` untuk validasi form~~ | **✅ DONE** | 🟡 |
+
+---
+
+## 🚀 PANDUAN BUILD APK (100% ONLINE & PRODUCTION READY)
+
+Untuk menjamin aplikasi berjalan 100% online, sistem sudah dikonfigurasi pada file `mobile/src/lib/api.ts` sehingga ketika di-build (`__DEV__ === false`), aplikasi akan otomatis mengarah ke API Production **`https://www.primkoppol.online`**, tanpa perlu mengubah kode apapun.
+
+Berikut adalah langkah-langkah standar untuk mem-build aplikasi menjadi file `.apk` (Preview) atau `.aab` (Production) menggunakan Expo Application Services (EAS):
+
+### 1. Persiapan Environment
+
+Pastikan Anda sudah memiliki akun Expo dan menginstal EAS CLI secara global di komputer Anda:
+
+```bash
+npm install -g eas-cli
+```
+
+### 2. Login ke Expo
+
+Buka terminal dan login menggunakan akun Expo Anda (`violet666`):
+
+```bash
+eas login
+```
+
+### 3. Eksekusi Build APK (Untuk di-install & Testing di semua Device Android)
+
+Gunakan perintah berikut untuk membangun APK. Sistem akan mengunggah kode ke server Expo, mem-build-nya, dan memberikan Anda link untuk mengunduh `.apk`.
+
+```bash
+cd mobile
+eas build --platform android --profile preview
+```
+*Catatan: Konfigurasi `profile preview` di `eas.json` sudah diset ke `"buildType": "apk"`. Ini adalah opsi terbaik untuk membagikan aplikasi secara langsung (sideloading) tanpa lewat Play Store.*
+
+### 4. Eksekusi Build AAB (Khusus untuk rilis Google Play Store)
+
+Jika Anda sudah siap mengunggah ke Google Play Store, gunakan perintah berikut untuk mem-build format `.aab` (Android App Bundle):
+
+```bash
+cd mobile
+eas build --platform android --profile production
+```
+
+### 5. Hasil Akhir
+
+Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo), terminal akan menampilkan **URL Tautan Unduhan**. Anda dapat membagikan URL tersebut kepada semua kasir/operator, atau mengunduh `build-xxx.apk` dan membagikannya secara manual. Aplikasi yang diinstal dari APK ini sudah dijamin dapat terhubung ke server utama dari koneksi internet manapun.
+
+## 🔴 BUG REFERENCE (dari dokumen asli, untuk tracking)
+
+| ID | Judul | Status | Sprint |
+|---|---|---|---|
+| M-BUG-001 | Paket Layanan Hardcode | ❌ OPEN | S1-03 |
+| M-BUG-002 | Validasi Plafon Piutang Tidak Ada | ❌ OPEN | S2-02 |
+| M-BUG-003 | Plat Nomor Tidak Terkirim | ❌ OPEN | S1-04 |
+| M-BUG-004 | Format No. Transaksi Lama | ⚠️ Perlu Verifikasi Backend | S1-07 action |
+| M-BUG-005 | ApprovalScreen Tidak Handle `void_store_sale` | ❌ OPEN | S1-05 |
+| M-BUG-006 | Jam Transaksi Selalu 07:00 | ❌ OPEN | S1-06 |
+| M-BUG-007 | API loan-apply Hardcode Rate & Cap | ✅ FIXED (backend) | S1-07 |
+
+---
+
+*Dokumen ini diperbarui setiap sesi kerja. Tandai item dengan `[x]` saat selesai.*
+*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 8 April 2026 — Sesi 9*

@@ -41,7 +41,7 @@ export async function GET() {
 
             // Loans aggregation
             prisma.loan.aggregate({
-                _sum: { principalOutstanding: true },
+                _sum: { principalOutstanding: true, principalAmount: true },
                 _count: { _all: true },
                 where: { status: { in: ["active", "overdue"] } },
             }),
@@ -104,6 +104,15 @@ export async function GET() {
             _count: { _all: true },
             where: {
                 paymentDate: { gte: today, lt: tomorrow },
+            },
+        });
+
+        // Get today's loan disbursements (Pencairan)
+        const todayLoanDisbursements = await prisma.loan.aggregate({
+            _sum: { principalAmount: true },
+            _count: { _all: true },
+            where: {
+                disbursementDate: { gte: today, lt: tomorrow },
             },
         });
 
@@ -176,6 +185,7 @@ export async function GET() {
             membersWithTabunganWajib: tabunganWajibStats._count.tabunganWajib || 0,
             totalLoansOutstanding: Number(loansStats._sum.principalOutstanding) || 0,
             activeLoansCount: loansStats._count._all || 0,
+            totalPlafondAktif: Number(loansStats._sum.principalAmount) || 0,
             totalArrears: Number(arrearsStats._sum.principalOutstanding) || 0,
 
             // Today's activity
@@ -183,6 +193,8 @@ export async function GET() {
             todayDepositsCount: todayDeposits._count._all || 0,
             todayWithdrawals: Number(todayWithdrawals._sum.amount) || 0,
             todayWithdrawalsCount: todayWithdrawals._count._all || 0,
+            todayLoanDisbursements: Number(todayLoanDisbursements._sum.principalAmount) || 0,
+            todayLoanDisbursementsCount: todayLoanDisbursements._count._all || 0,
             todayPayments: Number(todayPayments._sum.amount) || 0,
             todayPaymentsCount: todayPayments._count._all || 0,
             todayTransactionsCount: todayTransactions._count._all || 0,

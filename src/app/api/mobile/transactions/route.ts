@@ -47,8 +47,10 @@ export async function GET(request: Request) {
                     balanceBefore: Number(t.balanceBefore),
                     balanceAfter: Number(t.balanceAfter),
                     transactionDate: t.transactionDate,
+                    createdAt: t.createdAt.toISOString(), // S1-06: jam akurat (bukan @db.Date)
                     description: t.notes || t.account?.product?.name || "",
                     productName: t.account?.product?.name,
+                    status: t.status,
                 })),
                 meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
             });
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
             const [transactions, total] = await Promise.all([
                 prisma.unitTransaction.findMany({
                     where: { memberId },
-                    orderBy: { transactionDate: "desc" },
+                    orderBy: { createdAt: "desc" },
                     skip: (page - 1) * limit,
                     take: limit,
                 }),
@@ -73,7 +75,9 @@ export async function GET(request: Request) {
                     amount: Number(t.amount),
                     description: t.description,
                     transactionDate: t.transactionDate,
+                    createdAt: t.createdAt.toISOString(), // S1-06: jam akurat
                     isPaid: t.isPaid,
+                    status: t.status, // S2-03: untuk filter (pending_void, voided, completed)
                 })),
                 meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
             });
@@ -100,6 +104,7 @@ export async function GET(request: Request) {
                     principalPortion: Number(p.principalPortion),
                     interestPortion: Number(p.interestPortion),
                     transactionDate: p.paymentDate,
+                    createdAt: p.createdAt.toISOString(), // S1-06: jam akurat
                     description: `Angsuran ${p.loan?.loanNo || ""}`,
                 })),
                 meta: { page, limit, total, totalPages: Math.ceil(total / limit) },

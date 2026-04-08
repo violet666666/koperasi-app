@@ -31,10 +31,11 @@ import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-util
 const shuExportColumns: ExportColumn[] = [
     { header: "NRP", key: "memberNo", width: 14 },
     { header: "Nama Anggota", key: "name", width: 28 },
-    { header: "Jasa Modal (Simpanan)", key: "savingsContribution", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
-    { header: "Jasa Pelayanan (Pinjaman)", key: "loanContribution", width: 24, format: (v) => formatCurrency(Number(v || 0)) },
-    { header: "Total Kontribusi", key: "totalContribution", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
-    { header: "SHU Diterima", key: "shuShare", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Poin Simpanan", key: "savingsContribution", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Poin Usaha", key: "loanContribution", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "SHU Jasa Modal", key: "modalPortion", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "SHU Jasa Usaha", key: "usahaPortion", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "Total SHU Diterima", key: "shuShare", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
 ];
 
 interface SHUAllocation {
@@ -49,8 +50,9 @@ interface MemberSHU {
     name: string;
     savingsContribution: number;
     loanContribution: number;
-    purchaseContribution: number;
     totalContribution: number;
+    modalPortion: number;
+    usahaPortion: number;
     shuShare: number;
 }
 
@@ -105,27 +107,27 @@ const columns: ColumnDef<MemberSHU>[] = [
     },
     {
         accessorKey: "savingsContribution",
-        header: () => <div className="text-right">Simpanan</div>,
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("savingsContribution"))}</div>,
+        header: () => <div className="text-right">Poin Simpanan</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.getValue("savingsContribution"))}</div>,
     },
     {
         accessorKey: "loanContribution",
-        header: () => <div className="text-right">Pinjaman</div>,
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("loanContribution"))}</div>,
+        header: () => <div className="text-right">Poin Usaha</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.getValue("loanContribution"))}</div>,
     },
     {
-        accessorKey: "purchaseContribution",
-        header: () => <div className="text-right">Belanja</div>,
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("purchaseContribution"))}</div>,
+        accessorKey: "modalPortion",
+        header: () => <div className="text-right">SHU Jasa Modal</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums font-medium text-blue-600">{formatCurrency(row.getValue("modalPortion"))}</div>,
     },
     {
-        accessorKey: "totalContribution",
-        header: () => <div className="text-right">Total Kontribusi</div>,
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.getValue("totalContribution"))}</div>,
+        accessorKey: "usahaPortion",
+        header: () => <div className="text-right">SHU Jasa Usaha</div>,
+        cell: ({ row }) => <div className="text-right tabular-nums font-medium text-orange-600">{formatCurrency(row.getValue("usahaPortion"))}</div>,
     },
     {
         accessorKey: "shuShare",
-        header: () => <div className="text-right font-bold">SHU Diterima</div>,
+        header: () => <div className="text-right font-bold">Total Diterima</div>,
         cell: ({ row }) => <div className="text-right tabular-nums font-bold text-emerald-600">{formatCurrency(row.getValue("shuShare"))}</div>,
     },
 ];
@@ -485,10 +487,9 @@ export default function LaporanSHUPage() {
                                             <th className="text-left py-2 px-2 font-bold">No</th>
                                             <th className="text-left py-2 px-2 font-bold">NRP</th>
                                             <th className="text-left py-2 px-2 font-bold">Nama Anggota</th>
-                                            <th className="text-right py-2 px-2 font-bold">Jasa Modal</th>
-                                            <th className="text-right py-2 px-2 font-bold">Jasa Pelayanan</th>
-                                            <th className="text-right py-2 px-2 font-bold">Total Kontribusi</th>
-                                            <th className="text-right py-2 px-2 font-bold">SHU Diterima</th>
+                                            <th className="text-right py-2 px-2 font-bold">SHU Jasa Modal</th>
+                                            <th className="text-right py-2 px-2 font-bold">SHU Jasa Usaha</th>
+                                            <th className="text-right py-2 px-2 font-bold">Total SHU Diterima</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -497,19 +498,17 @@ export default function LaporanSHUPage() {
                                                 <td className="py-1.5 px-2 text-gray-500">{index + 1}</td>
                                                 <td className="py-1.5 px-2 font-mono text-xs">{member.memberNo}</td>
                                                 <td className="py-1.5 px-2 font-medium">{member.name}</td>
-                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.savingsContribution)}</td>
-                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.loanContribution)}</td>
-                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.totalContribution)}</td>
-                                                <td className="py-1.5 px-2 text-right tabular-nums font-bold">{formatCurrency(member.shuShare)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.modalPortion)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.usahaPortion)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums font-bold text-emerald-600">{formatCurrency(member.shuShare)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
                                         <tr className="border-t-2 border-gray-400 bg-gray-100 font-bold">
                                             <td colSpan={3} className="py-2 px-2 text-right">TOTAL</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.savingsContribution, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.loanContribution, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(totalMemberContribution)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.modalPortion, 0) || 0)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.usahaPortion, 0) || 0)}</td>
                                             <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatCurrency(totalMemberShuShare)}</td>
                                         </tr>
                                     </tfoot>

@@ -111,10 +111,14 @@ export const createMemberSchema = z.object({
     salary: z.coerce.number().nonnegative().optional().nullable(),
     tunlesKinerja: z.coerce.number().nonnegative().optional().nullable(),
     plafonPiutang: z.coerce.number().nonnegative().optional(),
+    tabunganWajib: z.coerce.number().nonnegative().optional().nullable(),
     status: z.enum(["active", "inactive", "resigned"]).default("active"),
 });
 
-export const updateMemberSchema = createMemberSchema.partial();
+export const updateMemberSchema = createMemberSchema.partial().extend({
+    overrideSavings: z.record(z.string(), z.coerce.number().nonnegative()).optional(),
+    roleId: z.coerce.number().int().positive().optional().nullable(),
+});
 
 // Savings Transaction validation schemas
 export const createSavingsTransactionSchema = z.object({

@@ -3,7 +3,7 @@
  * SEED — Produk Pinjaman Reguler & Khusus
  * ============================================================
  * Membuat / memperbarui 2 produk pinjaman sesuai ketentuan:
- *   1. Pinjaman Reguler  → Maks 20 Jt, Tenor 1–36 Bln, Bunga 1% Flat/Bln, Resiko 2%
+ *   1. Pinjaman Reguler  → Min 0, Maks 20 Jt, Tenor 1–36 Bln, Bunga 1% Flat/Bln, Resiko 2%
  *   2. Pinjaman Khusus   → Min 30 Jt, No Max, Tenor 1–60 Bln, Bunga 1% Flat/Bln, Resiko 2%
  *
  * Jalankan: npx tsx prisma/seed-loan-products.ts
@@ -40,7 +40,7 @@ async function main() {
       interestCalculation: "monthly",
       minTenorMonths: 1,
       maxTenorMonths: 36,
-      minAmount: 1_000_000,
+      minAmount: 0,
       maxAmount: 20_000_000,
       adminFeeType: "percent",
       adminFeeValue: 2.00,
@@ -58,7 +58,7 @@ async function main() {
       interestCalculation: "monthly",
       minTenorMonths: 1,
       maxTenorMonths: 36,          // Maks 36 bulan (3 tahun)
-      minAmount: 1_000_000,        // Min 1 Juta
+      minAmount: 0,              // Tidak ada batas minimal
       maxAmount: 20_000_000,       // Maks 20 Juta
       adminFeeType: "percent",
       adminFeeValue: 2.00,         // Biaya resiko 2% dipotong di muka
@@ -70,7 +70,7 @@ async function main() {
     },
   });
   console.log(`  ✓ Pinjaman Reguler [ID: ${reguler.id}]`);
-  console.log(`     Limit: Rp1jt – Rp20jt | Tenor: 1–36 bln | Bunga: 1%/bln Flat | Resiko: 2%`);
+  console.log(`     Limit: Rp0 – Rp20jt | Tenor: 1–36 bln | Bunga: 1%/bln Flat | Resiko: 2%`);
 
   // ── 2. Pinjaman Khusus ───────────────────────────────────────
   const khusus = await prisma.loanProduct.upsert({

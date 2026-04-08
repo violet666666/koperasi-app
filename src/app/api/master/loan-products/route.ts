@@ -68,13 +68,8 @@ export async function POST(request: Request) {
             );
         }
 
-        // === AD-ART Pasal 26: Tenor maksimal 36 bulan ===
-        if (data.maxTenorMonths && data.maxTenorMonths > 36) {
-            return NextResponse.json(
-                { message: `Sesuai AD-ART Pasal 26, tenor pinjaman maksimal 3 tahun (36 bulan)` },
-                { status: 400 }
-            );
-        }
+        // Tenor limit is now product-specific (Reguler: 36, Khusus: 60)
+        // No global AD-ART cap needed
 
         // Check for existing current version and deprecate
         const existing = await prisma.loanProduct.findFirst({

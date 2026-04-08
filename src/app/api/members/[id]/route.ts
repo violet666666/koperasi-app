@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { updateMemberSchema } from "@/lib/validations";
+import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -21,8 +22,13 @@ export async function GET(request: Request, { params }: Params) {
                     },
                 },
                 loans: true,
+                userAccount: {
+                    select: { id: true, roleId: true }
+                }
             },
         });
+
+        const activeRoles = await prisma.role.findMany({ select: { id: true, name: true, displayName: true }});
 
         if (!member) {
             return NextResponse.json(
@@ -112,86 +118,14 @@ export async function GET(request: Request, { params }: Params) {
             }
         }
 
-        // Estimasi SHU — real-time calculation with minimum floor
+        // Estimasi SHU — real-time SSOT lookup
         let estimasi_shu = 0;
         try {
             const currentYear = new Date().getFullYear();
-            const yearStart = new Date(currentYear, 0, 1);
-            const yearEnd = new Date(currentYear, 11, 31);
-
-            // Get journal net income for current year
-            const journalLines = await prisma.journalLine.findMany({
-                where: {
-                    journal: {
-                        transactionDate: { gte: yearStart, lte: yearEnd },
-                        isPosted: true,
-                    },
-                },
-                include: { account: { select: { type: true } } },
-            });
-
-            let totalIncome = 0, totalExpense = 0;
-            for (const line of journalLines) {
-                const debit = Number(line.debit);
-                const credit = Number(line.credit);
-                if (line.account.type === "income") totalIncome += (credit - debit);
-                else if (line.account.type === "expense") totalExpense += (debit - credit);
-            }
-            const netIncome = totalIncome - totalExpense;
-
-            // Get all active members savings + loan totals for proportional calc
-            const allMembers = await prisma.member.findMany({
-                where: { status: "active", deletedAt: null },
-                select: {
-                    id: true,
-                    tabunganWajib: true,
-                    savingsAccounts: {
-                        where: { status: "active" },
-                        include: { product: { select: { type: true } } },
-                    },
-                    loans: {
-                        where: { status: { in: ["active", "overdue", "paid_off"] } },
-                        select: { principalPaid: true },
-                    },
-                },
-            });
-
-            let totalSavingsAll = 0, totalLoanAll = 0;
-            let thisMemberSavings = 0, thisMemberLoan = 0;
-
-            for (const m of allMembers) {
-                // Include ALL savings types (pokok, wajib, sukarela) + tabunganWajib
-                const sav = m.savingsAccounts
-                    .reduce((s, sa) => s + Number(sa.balance), 0) + Number(m.tabunganWajib || 0);
-                const loan = m.loans.reduce((s, l) => s + Number(l.principalPaid), 0);
-                totalSavingsAll += sav;
-                totalLoanAll += loan;
-                if (m.id === member.id) {
-                    thisMemberSavings = sav;
-                    thisMemberLoan = loan;
-                }
-            }
-
-            if (netIncome > 0) {
-                // Use actual journal-based calculation
-                const memberNetIncome = Math.round(netIncome * 0.8);
-                const jasaSimpananPool = Math.round((memberNetIncome * 25) / 100);
-                const jasaUsahaPool = Math.round((memberNetIncome * 25) / 100);
-
-                const savShare = totalSavingsAll > 0 ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) : 0;
-                const loanShare = totalLoanAll > 0 ? Math.round((thisMemberLoan / totalLoanAll) * jasaUsahaPool) : 0;
-                estimasi_shu = savShare + loanShare;
-            } else {
-                // Fallback: estimate based on minimum 6% annual return on savings capital
-                // This ensures members with savings always see a non-zero SHU estimation
-                const estimatedReturnRate = 0.06; // 6% annual
-                const estimatedTotalReturn = totalSavingsAll * estimatedReturnRate;
-                const jasaSimpananPool = Math.round(estimatedTotalReturn * 0.25); // 25% to Jasa Modal
-                
-                const savShare = totalSavingsAll > 0 
-                    ? Math.round((thisMemberSavings / totalSavingsAll) * jasaSimpananPool) 
-                    : 0;
-                estimasi_shu = savShare;
+            const shuData = await calculateSystemSHU(currentYear);
+            const myShu = shuData.memberDistribution.find(m => m.id === member.id);
+            if (myShu) {
+                estimasi_shu = myShu.shuAmount;
             }
         } catch (e) {
             console.error("Error calculating estimasi SHU:", e);
@@ -289,7 +223,8 @@ export async function GET(request: Request, { params }: Params) {
                     netPosition: totalSavings - totalOutstanding,
                     estimasi_shu,
                 }
-            } 
+            },
+            meta: { roles: activeRoles }
         });
     } catch (error) {
         console.error("GET /api/members/[id] error:", error);
@@ -360,10 +295,11 @@ export async function PUT(request: Request, { params }: Params) {
         const { id } = await params;
         const body = await request.json();
         const data = updateMemberSchema.parse(body);
+        const { overrideSavings, roleId, ...memberData } = data;
 
         // Proteksi plafonPiutang — hanya Operator/Admin yang boleh mengubah
         const operatorRoles = ["operator", "admin", "super_admin"];
-        if (data.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
+        if (memberData.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
             return NextResponse.json(
                 { message: "Hanya Operator yang dapat mengubah Plafon Piutang anggota." },
                 { status: 403 }
@@ -372,6 +308,7 @@ export async function PUT(request: Request, { params }: Params) {
 
         const member = await prisma.member.findUnique({
             where: { id: parseInt(id), deletedAt: null },
+            include: { userAccount: true, savingsAccounts: { include: { product: true } } }
         });
 
         if (!member) {
@@ -382,22 +319,67 @@ export async function PUT(request: Request, { params }: Params) {
         }
 
         // Check for duplicate memberNo if being updated
-        if (data.memberNo && data.memberNo !== member.memberNo) {
+        if (memberData.memberNo && memberData.memberNo !== member.memberNo) {
             const existing = await prisma.member.findUnique({
-                where: { memberNo: data.memberNo },
+                where: { memberNo: memberData.memberNo },
             });
             if (existing) {
                 return NextResponse.json(
-                    { message: "NRP sudah digunakan" },
+                    { message: "NRP/Nomor Anggota sudah digunakan" },
                     { status: 400 }
                 );
             }
         }
 
-        const updated = await prisma.member.update({
-            where: { id: parseInt(id) },
-            data,
-            include: { branch: true },
+        const updated = await prisma.$transaction(async (tx) => {
+            // Lakukan pemotongan/koreksi saldo (Override)
+            if (overrideSavings && Object.keys(overrideSavings).length > 0) {
+                for (const [sType, sAmount] of Object.entries(overrideSavings)) {
+                    const acc = member.savingsAccounts.find(a => a.product.type === sType);
+                    if (acc) {
+                        const oldBal = Number(acc.balance);
+                        const newBal = Number(sAmount);
+                        if (oldBal !== newBal) {
+                            const diff = newBal - oldBal;
+                            await tx.savingsAccount.update({
+                                where: { id: acc.id },
+                                data: { balance: newBal }
+                            });
+                            // Catat history sebagai Correction
+                            await tx.savingsTransaction.create({
+                                data: {
+                                    transactionNo: `CORR-${Date.now()}-${acc.id}`,
+                                    accountId: acc.id,
+                                    memberId: member.id,
+                                    productId: acc.productId,
+                                    branchId: member.branchId,
+                                    type: 'correction',
+                                    amount: Math.abs(diff),
+                                    balanceBefore: oldBal,
+                                    balanceAfter: newBal,
+                                    notes: `Koreksi manual saldo Simpanan ${sType.toUpperCase()} dari Rp ${oldBal} menjadi Rp ${newBal}`,
+                                    transactionDate: new Date(),
+                                    createdById: Number(session?.user?.id) || 1,
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Update user role jika terhubung dengan akun
+            if (roleId && member.userAccount && member.userAccount.roleId !== roleId) {
+                await tx.user.update({
+                    where: { id: member.userAccount.id },
+                    data: { roleId },
+                });
+            }
+
+            return await tx.member.update({
+                where: { id: parseInt(id) },
+                data: memberData,
+                include: { branch: true },
+            });
         });
 
         return NextResponse.json({ data: updated });

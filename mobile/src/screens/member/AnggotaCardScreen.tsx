@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../../lib/storage';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -15,7 +15,7 @@ export default function AnggotaCardScreen({ navigation }: any) {
     const load = async () => {
       try {
         const res = await api.get('/api/mobile/summary');
-        const userData = await SecureStore.getItemAsync('userData');
+        const userData = StorageManager.getFastString('userData');
         const user = userData ? JSON.parse(userData) : {};
         setData({ ...res.data.data, user: { ...res.data.data?.user, ...user } });
       } catch (err) {

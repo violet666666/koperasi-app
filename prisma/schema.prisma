@@ -934,3 +934,16 @@ model UnitSetting {
 
   @@map("unit_settings")
 }
+
+// =================================================================
+// PENGATURAN / KONFIGURASI SISTEM MENDALAM
+// =================================================================
+
+model SystemSetting {
+  id          String   @id @default("global") // Singleton pattern: just use "global"
+  shuConfig   Json     // Konfigurasi dinamis persentase SHU (berdasarkan AD ART)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById Int?     @map("updated_by_id")
+
+  @@map("system_settings")
+}

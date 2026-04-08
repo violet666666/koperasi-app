@@ -494,7 +494,7 @@ export default function ImportDataPage() {
                                 </p>
                             ) : importType === "tajib" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem membaca <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">JML</strong> / JUMLAH.
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem membaca <strong>NRP/NIP</strong>, <strong>NAMA</strong>, <strong>POKOK</strong> (Simp. Pokok), <strong>WAJIB</strong> (Saldo Awal Wajib), lalu sisa kolom bulan <strong className="bg-yellow-200">JANUARI - DESEMBER</strong> akan otomatis dicatat sebagai Setoran Historis. Total kolom diperiksa berdasar kolom <strong>JML</strong>.
                                 </p>
                             ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
@@ -679,11 +679,14 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Tajib Baru" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Tajib Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" ? "Keterangan" : "Gaji Saat Ini"}
+                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" ? "Keterangan" : "Gaji Saat Ini"}
                                                 </TableHead>
+                                                {importType === "tajib" && (
+                                                    <TableHead className="text-right">Skema Deteksi Data</TableHead>
+                                                )}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -733,6 +736,11 @@ export default function ImportDataPage() {
                                                             ) : "-";
                                                         })()}
                                                     </TableCell>
+                                                    {importType === "tajib" && (
+                                                        <TableCell className="text-right font-mono text-muted-foreground">
+                                                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{r.reason}</span>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                         </TableBody>

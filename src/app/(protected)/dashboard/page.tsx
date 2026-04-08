@@ -37,8 +37,7 @@ interface DashboardStats {
     angsuranHariIni: number;
     angsuranHariIniCount: number;
     pendingApproval: number;
-    totalTunkin: number;
-    membersWithTunkin: number;
+    totalPlafondAktif: number;
     cashFlowChart: any[];
 }
 
@@ -202,8 +201,7 @@ export default function DashboardPage() {
         angsuranHariIni: 0,
         angsuranHariIniCount: 0,
         pendingApproval: 0,
-        totalTunkin: 0,
-        membersWithTunkin: 0,
+        totalPlafondAktif: 0,
         cashFlowChart: [],
     });
     const [pendingApprovals, setPendingApprovals] = useState<FullApprovalItem[]>([]);
@@ -231,13 +229,12 @@ export default function DashboardPage() {
                     tunggakan: data.totalArrears || 0,
                     simpananHariIni: data.todayDeposits || 0,
                     simpananHariIniCount: data.todayDepositsCount || 0,
-                    pencairanHariIni: data.todayWithdrawals || 0,
-                    pencairanHariIniCount: data.todayWithdrawalsCount || 0,
+                    pencairanHariIni: data.todayLoanDisbursements || 0,
+                    pencairanHariIniCount: data.todayLoanDisbursementsCount || 0,
                     angsuranHariIni: data.todayPayments || 0,
                     angsuranHariIniCount: data.todayPaymentsCount || 0,
                     pendingApproval: data.pendingApprovals || 0,
-                    totalTunkin: data.totalTunkin || 0,
-                    membersWithTunkin: data.membersWithTunkin || 0,
+                    totalPlafondAktif: data.totalPlafondAktif || 0,
                     cashFlowChart: data.cashFlowChart || [],
                 });
             }
@@ -316,17 +313,17 @@ export default function DashboardPage() {
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper
-                    tooltip="Total Tunjangan Kinerja (Tunkin) seluruh anggota yang tercatat."
-                    detailTitle="Total Tunkin"
-                    detailDescription={"Menampilkan total Tunjangan Kinerja (Tunkin) seluruh anggota yang sudah didata.\n\nTunkin digunakan sebagai salah satu sumber pemotongan angsuran pinjaman, selain gaji pokok. Anggota dapat memilih sumber pemotongan saat mengajukan pinjaman sesuai ketentuan AD-ART 2026."}
+                    tooltip="Total potensi pendapatan bunga (1% flat) per bulan berdasarkan plafond pinjaman yang masih aktif."
+                    detailTitle="Bunga 1% Aktif"
+                    detailDescription={"Menampilkan total akumulasi estimasi bunga pinjaman per bulan berdasarkan jumlah akumulasi plafond (pokok pinjaman asli) dari seluruh pinjaman yang berstatus aktif/berjalan saat ini.\n\nMengacu kepada AD-ART PRIMKOPPOL, bunga flat yang ditetapkan adalah 1%."}
                 >
                     <StatsCard
-                        title="Total Tunkin"
-                        value={formatCurrency(stats.totalTunkin)}
-                        subtitle={`${stats.membersWithTunkin} anggota`}
-                        icon={Award}
-                        color="primary"
+                        title="Potensi Bunga (1%/Bln)"
+                        value={formatCurrency(Math.round(stats.totalPlafondAktif * 0.01))}
+                        icon={TrendingUp}
+                        color="success"
                         isLoading={isLoading}
+                        href="/pinjaman"
                     />
                 </InfoCardWrapper>
                 <InfoCardWrapper

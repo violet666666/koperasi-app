@@ -19,11 +19,15 @@ export async function GET(request: Request) {
                 id: p.id,
                 code: p.code,
                 name: p.name,
-                interestRate: 0, // 0% per kebijakan Koperasi PRIMKOPPOL RESOR LUMAJANG
-                adminFee: 1, // 1%
-                maxAmount: Math.min(Number(p.maxAmount), 20000000),
-                maxTenor: Math.min(p.maxTenorMonths || 36, 36),
-                description: "Biaya jasa admin pemotongan sebesar 1% di awal.",
+                interestRate: Number(p.interestRate), // dari database (1% flat/bln)
+                adminFee: p.adminFeeValue ? Number(p.adminFeeValue) : 2, // dari database (2% resiko)
+                minAmount: p.minAmount ? Number(p.minAmount) : null,
+                maxAmount: p.maxAmount ? Number(p.maxAmount) : null, // null = No Limit
+                minTenor: p.minTenorMonths || 1,
+                maxTenor: p.maxTenorMonths || 60, // dari database
+                description: p.maxAmount
+                    ? `Limit s/d Rp ${Number(p.maxAmount).toLocaleString('id-ID')} · Tenor ${p.maxTenorMonths} bln · Bunga ${Number(p.interestRate)}% flat/bln · Resiko ${p.adminFeeValue ? Number(p.adminFeeValue) : 2}%`
+                    : `Min Rp ${Number(p.minAmount || 0).toLocaleString('id-ID')} · No Limit · Tenor ${p.maxTenorMonths} bln · Bunga ${Number(p.interestRate)}% flat/bln · Resiko ${p.adminFeeValue ? Number(p.adminFeeValue) : 2}%`,
             })),
         });
     } catch (error) {
@@ -70,32 +74,34 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Produk pinjaman tidak ditemukan" }, { status: 404 });
         }
 
-        if (amount > Number(product.maxAmount)) {
+        // Validasi jumlah minimal (per produk)
+        if (product.minAmount && amount < Number(product.minAmount)) {
             return NextResponse.json(
-                { message: `Jumlah melebihi plafon maksimum produk Rp ${Number(product.maxAmount).toLocaleString('id-ID')}` },
+                { message: `Jumlah minimal untuk ${product.name} adalah Rp ${Number(product.minAmount).toLocaleString('id-ID')}` },
                 { status: 400 }
             );
         }
 
-        const AD_ART_MAX_LOAN = 20000000;
-        if (amount > AD_ART_MAX_LOAN) {
+        // Validasi jumlah maksimal (per produk — null berarti No Limit)
+        if (product.maxAmount && amount > Number(product.maxAmount)) {
             return NextResponse.json(
-                { message: `Sesuai AD-ART Pasal 26, maksimal pinjaman adalah Rp 20.000.000` },
+                { message: `Jumlah melebihi plafon maksimum ${product.name}: Rp ${Number(product.maxAmount).toLocaleString('id-ID')}` },
                 { status: 400 }
             );
         }
 
+        // Validasi tenor minimal (per produk)
+        if (product.minTenorMonths && tenor < product.minTenorMonths) {
+            return NextResponse.json(
+                { message: `Tenor minimal ${product.minTenorMonths} bulan untuk ${product.name}` },
+                { status: 400 }
+            );
+        }
+
+        // Validasi tenor maksimal (per produk)
         if (product.maxTenorMonths && tenor > product.maxTenorMonths) {
             return NextResponse.json(
-                { message: `Tenor melebihi maksimum produk ${product.maxTenorMonths} bulan` },
-                { status: 400 }
-            );
-        }
-
-        const AD_ART_MAX_TENOR = 36;
-        if (tenor > AD_ART_MAX_TENOR) {
-            return NextResponse.json(
-                { message: `Sesuai AD-ART Pasal 26, maksimal tenor adalah 36 bulan` },
+                { message: `Tenor melebihi maksimum ${product.name}: ${product.maxTenorMonths} bulan` },
                 { status: 400 }
             );
         }
@@ -112,9 +118,11 @@ export async function POST(request: Request) {
             );
         }
 
-        // Hitung angsuran per bulan (Pokok + 1% Jasa Admin dikapitalisasi)
-        const adminFee = amount * 0.01; // Biaya jasa 1%
-        const totalPiutang = amount + adminFee;
+        // Hitung angsuran per bulan (Pokok + Bunga flat dari produk)
+        const ratePerMonth = Number(product.interestRate) / 100; // e.g. 1% → 0.01
+        const interestPerMonth = amount * ratePerMonth;
+        const totalInterest = interestPerMonth * tenor;
+        const totalPiutang = amount + totalInterest;
         const monthlyInstallment = totalPiutang / tenor;
 
         // Buat aplikasi pinjaman

@@ -1,20 +1,41 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
-  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator, Image
+  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator, Keyboard
 } from 'react-native';
+import {
+  BottomSheetModal,
+  BottomSheetBackdrop,
+  BottomSheetTextInput,
+  BottomSheetFlatList,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../../lib/storage';
 import { CameraView, Camera } from 'expo-camera';
+import { Image as ExpoImage } from 'expo-image';
+import Toast from 'react-native-toast-message';
+import { useQuery } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 
+// ── Types ──────────────────────────────────────────────────────────────────
 interface Product { id: number; sku: string; name: string; price: number; stock: number; unit: string; }
 interface CartItem { product: Product; quantity: number; }
-interface Member { id: number; name: string; nrp: string; }
+interface Member { id: number; name: string; nrp: string; category?: string; }
+interface ServicePackage { id: number; name: string; label: string; price: number; description?: string; }
+interface PiutangInfo {
+  totalPlafon: number;
+  sudahTerpakai: number;
+  sisaLimit: number;
+  canTransact: boolean;
+  memberName: string;
+}
 
+// ── Constants ──────────────────────────────────────────────────────────────
 const UNIT_TYPES = [
   { id: 'toko', name: 'Toko Sembako' },
   { id: 'resto_cafe', name: 'Resto & Cafe' },
@@ -23,33 +44,17 @@ const UNIT_TYPES = [
   { id: 'fotocopy', name: 'Fotocopy' },
 ];
 
-const CARWASH_PACKAGES = [
-    { label: "Motor", price: 15000 },
-    { label: "Mobil Kecil (Avanza, Xenia, dll)", price: 35000 },
-    { label: "Mobil Sedang (Innova, Ertiga, dll)", price: 40000 },
-    { label: "Mobil Besar (Fortuner, Pajero, dll)", price: 45000 },
-    { label: "Mobil Jumbo (Hiace, Minibus, dll)", price: 50000 },
-];
-
-const BARBERSHOP_PACKAGES = [
-    { label: "Potong Rambut Biasa", price: 15000 },
-    { label: "Potong + Creambath", price: 30000 },
-    { label: "Cukur Jenggot", price: 10000 },
-    { label: "Potong + Pewarnaan", price: 50000 },
-];
-
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
+// ── Main Component ─────────────────────────────────────────────────────────
 export default function KasirScreen({ navigation: navProp }: any) {
   const navHook = useNavigation<any>();
   const navigation = navProp || navHook;
   const canGoBack = navigation.canGoBack?.() ?? false;
-  
+
   const [unitType, setUnitType] = useState('toko');
-  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [isKasirLocked, setIsKasirLocked] = useState(false);
@@ -60,54 +65,84 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [quickCustomer, setQuickCustomer] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('');
 
-  const [showMemberModal, setShowMemberModal] = useState(false);
+  // ── S1-03: Paket Layanan Dinamis diambil via react-query di bawah
+
+  // ── S1-04: Plat Nomor Kendaraan (cuci mobil) ─────────────────────────
+  const [vehiclePlate, setVehiclePlate] = useState('');
+
+  // Member Modal
+  const memberModalRef = useRef<BottomSheetModal>(null);
+  const snapPointsMember = useMemo(() => ['70%', '90%'], []);
   const [memberSearch, setMemberSearch] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [searchingMember, setSearchingMember] = useState(false);
 
+  // ── S2-02: Piutang Info ───────────────────────────────────────────────
+  const [memberPiutang, setMemberPiutang] = useState<PiutangInfo | null>(null);
+  const [loadingPiutang, setLoadingPiutang] = useState(false);
+
   // QRIS Modal State
-  const [showQrisModal, setShowQrisModal] = useState(false);
+  const qrisModalRef = useRef<BottomSheetModal>(null);
+  const snapPointsQris = useMemo(() => ['65%'], []);
   const [qrisPreviewKey, setQrisPreviewKey] = useState(Date.now().toString());
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} />
+    ),
+    []
+  );
 
   // Barcode Camera Scanner State (Toko only)
   const [showScanner, setShowScanner] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
 
+  // ── S2-04: Debounce ref for member search ─────────────────────────────
+  const memberSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Flags for mode
   const isQuickSale = unitType === 'cuci_mobil' || unitType === 'barbershop' || unitType === 'fotocopy';
   const isTokoUnit = unitType === 'toko' || unitType === 'resto_cafe';
-  const quickSalePackages = unitType === 'cuci_mobil' ? CARWASH_PACKAGES : unitType === 'barbershop' ? BARBERSHOP_PACKAGES : [];
+  const isCarwash = unitType === 'cuci_mobil';
 
-  const loadProducts = useCallback(async (q?: string, ut?: string) => {
-    if (ut === 'cuci_mobil' || ut === 'barbershop' || ut === 'fotocopy') {
-      setProducts([]); 
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.get(`/api/mobile/toko?search=${q ?? search}&unitType=${ut ?? unitType}`);
-      setProducts(res.data.data || []);
-    } catch (err) { console.log('Products fetch error:', err); }
-    finally { setLoading(false); }
-  }, [search, unitType]);
+  // ── S1-03: Fetch paket via React Query ──────────────────────────────────────
+  const { data: packagesData = [], isLoading: packagesLoading } = useQuery({
+    queryKey: ['packages', unitType],
+    queryFn: async () => {
+      const res = await api.get(`/api/mobile/unit-packages?unitType=${unitType}`);
+      return res.data.data as ServicePackage[];
+    },
+    enabled: ['cuci_mobil', 'barbershop', 'fotocopy'].includes(unitType),
+  });
+  const packages = packagesData.length > 0 ? packagesData : ([] as ServicePackage[]);
 
-  useEffect(() => { 
+  // ── S0-01: Fetch products via React Query ──────────────────────────────────
+  const { data: productsData = [], isLoading: productsLoading, refetch: refetchProducts } = useQuery({
+    queryKey: ['products', unitType, search],
+    queryFn: async () => {
+      const res = await api.get(`/api/mobile/toko?search=${search}&unitType=${unitType}`);
+      return res.data.data as Product[];
+    },
+    enabled: ['toko', 'resto_cafe'].includes(unitType),
+  });
+  const products = productsData.length > 0 ? productsData : ([] as Product[]);
+
+  const loading = packagesLoading || productsLoading;
+
+  useEffect(() => {
     // Auto-detect kasir unit from session
-    SecureStore.getItemAsync('userData').then((u) => {
-        if (u) {
-            try {
-                const user = JSON.parse(u);
-                if (user.role?.name === 'kasir' && user.unitType) {
-                    setUnitType(user.unitType);
-                    setIsKasirLocked(true);
-                }
-            } catch (e) {}
+    const u = StorageManager.getFastString('userData');
+    if (u) {
+      try {
+        const user = JSON.parse(u);
+        if (user.role?.name === 'kasir' && user.unitType) {
+          setUnitType(user.unitType);
+          setIsKasirLocked(true);
         }
-    });
+      } catch (e) {}
+    }
   }, []);
-
-  useEffect(() => { loadProducts('', unitType); }, [unitType]);
 
   const handleUnitChange = (uId: string) => {
     setUnitType(uId);
@@ -116,12 +151,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
     setQuickDesc('');
     setQuickCustomer('');
     setSelectedPackage('');
+    setVehiclePlate('');
   };
 
-  const handlePackageSelect = (label: string, price: number) => {
-    setSelectedPackage(label);
-    setQuickDesc(label);
-    setQuickAmount(price.toString());
+  const handlePackageSelect = (pkg: ServicePackage) => {
+    setSelectedPackage(pkg.name);
+    setQuickDesc(pkg.name);
+    setQuickAmount(pkg.price.toString());
   };
 
   const addToCart = (product: Product) => {
@@ -131,8 +167,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
         const newCart = [...prev];
         if (newCart[idx].quantity < product.stock) {
           newCart[idx] = { ...newCart[idx], quantity: newCart[idx].quantity + 1 };
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } else {
-          Alert.alert('Stok Habis', `Stok ${product.name} tersisa ${product.stock}`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          Toast.show({ type: 'error', text1: 'Stok Habis', text2: `Stok ${product.name} tersisa ${product.stock}` });
         }
         return newCart;
       }
@@ -148,7 +186,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setScanned(false);
       setShowScanner(true);
     } else {
-      Alert.alert('Izin Kamera', 'Izin kamera diperlukan untuk scan barcode produk.');
+      Toast.show({ type: 'error', text1: 'Izin Kamera', text2: 'Diperlukan untuk scan barcode' });
     }
   };
 
@@ -161,13 +199,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
     );
     if (found) {
       addToCart(found);
-      Alert.alert('✓ Produk Ditemukan', `${found.name} ditambahkan ke keranjang.`);
+      Toast.show({ type: 'success', text1: 'Ditambahkan', text2: `${found.name} ditambahkan ke keranjang.` });
     } else {
       setSearch(data);
-      Alert.alert('Barcode Tidak Ditemukan', `Kode "${data}" tidak ada di database stok.`);
+      Toast.show({ type: 'error', text1: 'Tidak Ditemukan', text2: `Kode "${data}" tidak ada di database stok.` });
     }
   };
-
 
   const updateQty = (productId: number, delta: number) => {
     setCart((prev) => {
@@ -185,10 +222,15 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   const total = isQuickSale ? Number(quickAmount) : cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
 
-  // -------------------------------------------------------------
-  // API Checkouts
-  // -------------------------------------------------------------
-  
+  // ── S1-04: Build description with vehicle plate ─────────────────────
+  const buildQuickDesc = () => {
+    if (isCarwash && vehiclePlate.trim()) {
+      return `${quickDesc} [PLAT:${vehiclePlate.trim().toUpperCase()}]`;
+    }
+    return quickDesc;
+  };
+
+  // ── API Checkouts ──────────────────────────────────────────────────────
   const performStandardCheckoutAPI = async (method: string, memberId: number | null) => {
     setProcessing(true);
     try {
@@ -198,27 +240,30 @@ export default function KasirScreen({ navigation: navProp }: any) {
         unitType,
         memberId
       });
-      
+
       const printedCart = [...cart];
       const printedTotal = total;
-      
+
       setCart([]);
       setShowCart(false);
-      setShowMemberModal(false);
-      loadProducts(search, unitType);
+      memberModalRef.current?.dismiss();
+      refetchProducts();
 
-      Alert.alert('Berhasil!', `Checkout Toko ${formatRp(printedTotal)} sukses`, [
-        { text: 'Tutup', style: 'cancel' },
+      Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `Toko sukses ${formatRp(printedTotal)}.` });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Berhasil', 'Cetak struk transaksi?', [
+        { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptStandard(method, printedCart, printedTotal) }
       ]);
     } catch (err: any) {
-      Alert.alert('Gagal', err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };
 
   const performQuickCheckoutAPI = async (method: string, memberId: number | null) => {
     if (!quickAmount || Number(quickAmount) <= 0) {
-      Alert.alert('Nominal Tidak Valid', 'Masukkan nominal transaksi yang benar.');
+      Toast.show({ type: 'error', text1: 'Nominal Tidak Valid', text2: 'Masukkan nominal transaksi yang benar.' });
       return;
     }
     setProcessing(true);
@@ -228,45 +273,53 @@ export default function KasirScreen({ navigation: navProp }: any) {
         amount: Number(quickAmount),
         paymentMethod: method,
         memberId,
-        description: quickDesc,
+        description: buildQuickDesc(),  // S1-04: include vehicle plate
         customerName: quickCustomer
       });
-      
+
       const printedDesc = quickDesc;
       const printedTotal = Number(quickAmount);
-      
+
       setQuickAmount('');
       setQuickDesc('');
       setQuickCustomer('');
       setSelectedPackage('');
-      setShowMemberModal(false);
+      setVehiclePlate(''); // S1-04: reset plate
+      memberModalRef.current?.dismiss();
+      setMemberPiutang(null);
 
-      Alert.alert('Berhasil!', `Checkout ${UNIT_TYPES.find(u => u.id === unitType)?.name} ${formatRp(printedTotal)} sukses`, [
-        { text: 'Tutup', style: 'cancel' },
+      Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `${UNIT_TYPES.find(u => u.id === unitType)?.name} sukses ${formatRp(printedTotal)}` });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Berhasil', 'Cetak struk transaksi?', [
+        { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptQuick(method, printedDesc, printedTotal) }
       ]);
     } catch (err: any) {
-      Alert.alert('Gagal', err.response?.data?.message || 'Terjadi kesalahan saat proses checkout');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };
 
   const handleCheckoutInit = (method: 'cash' | 'qris' | 'salary_cut') => {
     if (!isQuickSale && cart.length === 0) return;
     if (isQuickSale && (!quickAmount || Number(quickAmount) <= 0)) {
-        Alert.alert('Nominal Kosong', 'Masukkan nominal transaksi');
-        return;
+      Toast.show({ type: 'error', text1: 'Nominal Kosong', text2: 'Masukkan nominal transaksi' });
+      return;
     }
 
     if (method === 'qris') {
-      setShowQrisModal(true);
+      qrisModalRef.current?.present();
       return;
     }
 
     if (method === 'salary_cut') {
-      setShowMemberModal(true);
+      setMemberPiutang(null);
+      setMemberSearch('');
+      setMembers([]);
+      memberModalRef.current?.present();
       return;
     }
-    
+
     // Cash
     Alert.alert(
       'Konfirmasi',
@@ -278,20 +331,42 @@ export default function KasirScreen({ navigation: navProp }: any) {
     );
   };
 
-  const searchMembers = async (q: string) => {
+  // ── S2-04: Member search dengan debounce 350ms ─────────────────────
+  const searchMembers = (q: string) => {
     setMemberSearch(q);
-    if (q.length < 2) return;
-    setSearchingMember(true);
+    if (memberSearchDebounceRef.current) clearTimeout(memberSearchDebounceRef.current);
+    if (q.length < 1) {
+      setMembers([]);
+      return;
+    }
+    memberSearchDebounceRef.current = setTimeout(async () => {
+      setSearchingMember(true);
+      try {
+        const res = await api.get(`/api/mobile/members?search=${q}&limit=10`);
+        setMembers(res.data.data || []);
+      } catch (e) {
+        console.log('Member search error', e);
+      } finally {
+        setSearchingMember(false);
+      }
+    }, 350);
+  };
+
+  // ── S2-02: Fetch piutang info saat member dipilih ─────────────────
+  const fetchMemberPiutang = async (memberId: number) => {
+    setLoadingPiutang(true);
     try {
-      const res = await api.get(`/api/mobile/members?search=${q}&limit=10`);
-      setMembers(res.data.data || []);
+      const res = await api.get(`/api/mobile/members/${memberId}/piutang`);
+      setMemberPiutang(res.data);
     } catch (e) {
-      console.log('Member search error', e);
+      console.log('Piutang fetch error', e);
+      setMemberPiutang(null);
     } finally {
-      setSearchingMember(false);
+      setLoadingPiutang(false);
     }
   };
 
+  // ── Receipt Printing ───────────────────────────────────────────────
   const getHtmlHeader = (method: string) => `
     <html>
       <head>
@@ -347,6 +422,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           <div class="item-name">Jasa Layanan<br/>${desc || 'Walk-in'}</div>
           <div>${amount.toLocaleString('id-ID')}</div>
         </div>
+        ${vehiclePlate ? `<div class="item-row"><div class="item-name">Plat: ${vehiclePlate}</div></div>` : ''}
         <div class="total-section">
           <span>TOTAL</span>
           <span>Rp ${amount.toLocaleString('id-ID')}</span>
@@ -356,9 +432,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
     } catch (err) { console.log('Print error:', err); }
   };
 
-  // -------------------------------------------------------------
-  // RENDER UI
-  // -------------------------------------------------------------
+  // ── RENDER UI ──────────────────────────────────────────────────────────
 
   if (!showCart) {
     return (
@@ -373,31 +447,31 @@ export default function KasirScreen({ navigation: navProp }: any) {
             )}
             <Text style={styles.headerTitle}>🛒 Kasir POS</Text>
           </View>
-          
+
           {/* Unit Type Chips */}
           {!isKasirLocked && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexDirection: 'row' }}>
-                {UNIT_TYPES.map(u => (
-                  <TouchableOpacity 
-                    key={u.id} 
-                    style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginRight: 8 }}
-                    onPress={() => handleUnitChange(u.id)}
-                  >
-                    <Text style={{ color: unitType === u.id ? C.primary : '#FFF', fontWeight: unitType === u.id ? 'bold' : 'normal', fontSize: 13 }}>
-                      {u.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexDirection: 'row' }}>
+              {UNIT_TYPES.map(u => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={{ backgroundColor: unitType === u.id ? C.accent : 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginRight: 8 }}
+                  onPress={() => handleUnitChange(u.id)}
+                >
+                  <Text style={{ color: unitType === u.id ? C.primary : '#FFF', fontWeight: unitType === u.id ? 'bold' : 'normal', fontSize: 13 }}>
+                    {u.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           )}
           {isKasirLocked && (
-             <View style={{ marginBottom: 16, flexDirection: 'row' }}>
-                  <View style={{ backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 }}>
-                    <Text style={{ color: C.primary, fontWeight: 'bold', fontSize: 13 }}>
-                      🛒 {UNIT_TYPES.find(u => u.id === unitType)?.name || unitType.toUpperCase()}
-                    </Text>
-                  </View>
-             </View>
+            <View style={{ marginBottom: 16, flexDirection: 'row' }}>
+              <View style={{ backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 }}>
+                <Text style={{ color: C.primary, fontWeight: 'bold', fontSize: 13 }}>
+                  🛒 {UNIT_TYPES.find(u => u.id === unitType)?.name || unitType.toUpperCase()}
+                </Text>
+              </View>
+            </View>
           )}
 
           {!isQuickSale && (
@@ -408,13 +482,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
                 placeholderTextColor="#94A3B8"
                 value={search}
                 onChangeText={setSearch}
-                onSubmitEditing={() => loadProducts(search, unitType)}
+                onSubmitEditing={() => refetchProducts()}
                 returnKeyType="search"
               />
-              <TouchableOpacity style={styles.searchBtn} onPress={() => loadProducts(search, unitType)}>
+              <TouchableOpacity style={styles.searchBtn} onPress={() => refetchProducts()}>
                 <Ionicons name="search" size={20} color={C.primary} />
               </TouchableOpacity>
-              {/* Barcode Camera Scanner Button — Toko/Resto only */}
               {isTokoUnit && (
                 <TouchableOpacity
                   style={[styles.searchBtn, { backgroundColor: C.primary, marginLeft: 4 }]}
@@ -428,68 +501,100 @@ export default function KasirScreen({ navigation: navProp }: any) {
         </View>
 
         {isQuickSale ? (
-          // ======================= KASIR CEPAT (Carwash / Barbershop) =======================
+          // ── KASIR CEPAT (Carwash / Barbershop) ────────────────────────────
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
-            {quickSalePackages.length > 0 && (
-                <View style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: C.foreground }}>Pilih Paket Layanan:</Text>
-                    {quickSalePackages.map(pkg => (
-                        <TouchableOpacity 
-                          key={pkg.label}
-                          style={[styles.packageCard, selectedPackage === pkg.label && styles.packageCardSelected]}
-                          onPress={() => handlePackageSelect(pkg.label, pkg.price)}
-                        >
-                            <Text style={[styles.packageName, selectedPackage === pkg.label && {color: C.primary}]}>{pkg.label}</Text>
-                            <Text style={[styles.packagePrice, selectedPackage === pkg.label && {color: C.primary}]}>{formatRp(pkg.price)}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
+
+            {/* S1-03: Paket dari DB — skeleton loading */}
+            {packagesLoading ? (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: C.foreground }}>Pilih Paket Layanan:</Text>
+                {[1, 2, 3].map(i => (
+                  <View key={i} style={[styles.packageCard, { backgroundColor: '#F1F5F9' }]}>
+                    <View style={{ width: 120, height: 16, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                    <View style={{ width: 60, height: 16, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                  </View>
+                ))}
+              </View>
+            ) : packages.length > 0 ? (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: C.foreground }}>Pilih Paket Layanan:</Text>
+                {packages.map(pkg => (
+                  <TouchableOpacity
+                    key={pkg.id}
+                    style={[styles.packageCard, selectedPackage === pkg.name && styles.packageCardSelected]}
+                    onPress={() => handlePackageSelect(pkg)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.packageName, selectedPackage === pkg.name && { color: C.primary }]}>{pkg.name}</Text>
+                      {pkg.description ? (
+                        <Text style={{ fontSize: 11, color: C.mutedForeground, marginTop: 2 }}>{pkg.description}</Text>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.packagePrice, selectedPackage === pkg.name && { color: C.primary }]}>{formatRp(pkg.price)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
 
             <View style={{ backgroundColor: '#FFF', padding: 16, borderRadius: 12, elevation: 1 }}>
-                <Text style={styles.label}>Nominal Transaksi (Rp)</Text>
-                <TextInput
-                    style={styles.inputBold}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    value={quickAmount}
-                    onChangeText={setQuickAmount}
-                />
+              <Text style={styles.label}>Nominal Transaksi (Rp)</Text>
+              <TextInput
+                style={styles.inputBold}
+                keyboardType="numeric"
+                placeholder="0"
+                value={quickAmount}
+                onChangeText={setQuickAmount}
+              />
 
-                <Text style={styles.label}>Keterangan / Jasa (Opsional)</Text>
-                <TextInput
-                    style={styles.inputForm}
-                    placeholder="Contoh: Paket VIP salju"
-                    value={quickDesc}
-                    onChangeText={setQuickDesc}
-                />
+              <Text style={styles.label}>Keterangan / Jasa (Opsional)</Text>
+              <TextInput
+                style={styles.inputForm}
+                placeholder="Contoh: Paket VIP salju"
+                value={quickDesc}
+                onChangeText={setQuickDesc}
+              />
 
-                <Text style={styles.label}>Nama Pelanggan Walk-In (Opsional)</Text>
-                <TextInput
-                    style={styles.inputForm}
-                    placeholder="Isi nama jika diperlukan"
-                    value={quickCustomer}
-                    onChangeText={setQuickCustomer}
-                />
+              {/* S1-04: Input plat nomor — hanya tampil untuk cuci_mobil */}
+              {isCarwash && (
+                <>
+                  <Text style={styles.label}>🚗 Plat Nomor Kendaraan <Text style={{ color: C.destructive }}>*</Text></Text>
+                  <TextInput
+                    style={[styles.inputForm, { textTransform: 'uppercase', letterSpacing: 2 }]}
+                    placeholder="Cth: B 1234 ABC"
+                    value={vehiclePlate}
+                    onChangeText={(val) => setVehiclePlate(val.toUpperCase().slice(0, 12))}
+                    autoCapitalize="characters"
+                    maxLength={12}
+                  />
+                </>
+              )}
+
+              <Text style={styles.label}>Nama Pelanggan Walk-In (Opsional)</Text>
+              <TextInput
+                style={styles.inputForm}
+                placeholder="Isi nama jika diperlukan"
+                value={quickCustomer}
+                onChangeText={setQuickCustomer}
+              />
             </View>
 
             <View style={{ marginTop: 20 }}>
-                <TouchableOpacity style={styles.cashBtn} onPress={() => handleCheckoutInit('cash')} disabled={processing || !quickAmount}>
+              <TouchableOpacity style={styles.cashBtn} onPress={() => handleCheckoutInit('cash')} disabled={processing || !quickAmount}>
                 <Ionicons name="cash-outline" size={20} color={C.primary} />
                 <Text style={styles.cashText}>Bayar Tunai</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.cashBtn, { backgroundColor: '#2563EB', marginTop: 10 }]} onPress={() => handleCheckoutInit('qris')} disabled={processing || !quickAmount}>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.cashBtn, { backgroundColor: '#2563EB', marginTop: 10 }]} onPress={() => handleCheckoutInit('qris')} disabled={processing || !quickAmount}>
                 <Ionicons name="qr-code-outline" size={20} color="#FFF" />
                 <Text style={[styles.cashText, { color: '#FFF' }]}>Bayar QRIS</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.creditBtn, { marginTop: 10 }]} onPress={() => handleCheckoutInit('salary_cut')} disabled={processing || !quickAmount}>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.creditBtn, { marginTop: 10 }]} onPress={() => handleCheckoutInit('salary_cut')} disabled={processing || !quickAmount}>
                 <Ionicons name="card-outline" size={20} color="#FFF" />
                 <Text style={styles.creditText}>Kredit / Potong Gaji</Text>
-                </TouchableOpacity>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         ) : (
-          // ======================= KASIR NORMAL (Toko, Resto) =======================
+          // ── KASIR NORMAL (Toko, Resto) ─────────────────────────────────────
           <FlatList
             data={products}
             keyExtractor={(item) => String(item.id)}
@@ -504,7 +609,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
               </TouchableOpacity>
             )}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={false} onRefresh={() => loadProducts(search, unitType)} colors={[C.accent]} />}
+            refreshControl={<RefreshControl refreshing={productsLoading} onRefresh={() => refetchProducts()} colors={[C.accent]} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyIcon}>{loading ? '⏳' : '📦'}</Text>
@@ -523,14 +628,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
           </TouchableOpacity>
         )}
 
-        {/* Member Modal for Salary Cut (Both Kasir Modes) */}
         {renderMemberModal()}
         {renderQrisModal()}
       </View>
     );
   }
 
-  // ======================= KERANJANG VIEW (Untuk Kasir Normal) =======================
+  // ── KERANJANG VIEW (Untuk Kasir Normal) ─────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
@@ -570,7 +674,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           <Ionicons name="cash-outline" size={20} color={C.primary} />
           <Text style={styles.cashText}>Bayar Tunai</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={[styles.cashBtn, { backgroundColor: '#2563EB', marginTop: 10 }]} onPress={() => handleCheckoutInit('qris')} disabled={processing}>
           <Ionicons name="qr-code-outline" size={20} color="#FFF" />
           <Text style={[styles.cashText, { color: '#FFF' }]}>Bayar QRIS</Text>
@@ -589,140 +693,211 @@ export default function KasirScreen({ navigation: navProp }: any) {
     </View>
   );
 
+  // ── QRIS Modal ───────────────────────────────────────────────────────────
   function renderQrisModal() {
     return (
-      <Modal visible={showQrisModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { alignItems: 'center' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 15 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.accent }}>Pindai QRIS Unit</Text>
-              <TouchableOpacity onPress={() => setShowQrisModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={{ backgroundColor: '#F0F9FF', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#BAE6FD', borderStyle: 'dashed' }}>
-              <Text style={{ fontSize: 12, color: '#0369A1', marginBottom: 10, textAlign: 'center' }}>
-                Arahkan layar ini ke pelanggan untuk melakukan Scan Kode QR.
-              </Text>
-              <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 12, elevation: 4 }}>
-                <Image 
-                  source={{ uri: `${BASE_URL}/uploads/qris/qris-${unitType}.png?t=${qrisPreviewKey}` }} 
-                  style={{ width: 200, height: 200, resizeMode: 'contain' }} 
-                />
-              </View>
-              <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0369A1', marginTop: 15 }}>
-                {formatRp(total)}
-              </Text>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]} 
-              onPress={() => {
-                setShowQrisModal(false);
-                if (isQuickSale) {
-                  performQuickCheckoutAPI('qris', null);
-                } else {
-                  performStandardCheckoutAPI('qris', null);
-                }
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={[styles.cashText, { color: '#FFF' }]}>Pelanggan Sudah Membayar</Text>
+      <BottomSheetModal
+        ref={qrisModalRef}
+        snapPoints={snapPointsQris}
+        backdropComponent={renderBackdrop}
+      >
+        <BottomSheetScrollView contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 15 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: C.accent }}>Pindai QRIS Unit</Text>
+            <TouchableOpacity onPress={() => qrisModalRef.current?.dismiss()}>
+              <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+
+          <View style={{ backgroundColor: '#F0F9FF', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#BAE6FD', borderStyle: 'dashed' }}>
+            <Text style={{ fontSize: 12, color: '#0369A1', marginBottom: 10, textAlign: 'center' }}>
+              Arahkan layar ini ke pelanggan untuk melakukan Scan Kode QR.
+            </Text>
+            <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 12, elevation: 4 }}>
+              <ExpoImage
+                source={{ uri: `${BASE_URL}/uploads/qris/qris-${unitType}.png` }}
+                style={{ width: 200, height: 200 }}
+                contentFit="contain"
+                transition={200}
+                cachePolicy="disk"
+                placeholder={{ blurhash: 'L4M?1Q~q000000M{000000M{%Mof' }} // Optional standard blurhash
+              />
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0369A1', marginTop: 15 }}>
+              {formatRp(total)}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]}
+            onPress={() => {
+              qrisModalRef.current?.dismiss();
+              if (isQuickSale) {
+                performQuickCheckoutAPI('qris', null);
+              } else {
+                performStandardCheckoutAPI('qris', null);
+              }
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+            <Text style={[styles.cashText, { color: '#FFF' }]}>Pelanggan Sudah Membayar</Text>
+          </TouchableOpacity>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
     );
   }
 
+  // ── Member Modal (Potong Gaji) ────────────────────────────────────────────
   function renderMemberModal() {
+    // S2-02: Cek apakah bisa transaksi berdasarkan piutang
+    const canProceed = !memberPiutang || memberPiutang.canTransact && total <= memberPiutang.sisaLimit;
+    const limitTooLow = memberPiutang && total > memberPiutang.sisaLimit;
+
     return (
       <>
-      <Modal visible={showMemberModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <BottomSheetModal ref={memberModalRef} snapPoints={snapPointsMember} backdropComponent={renderBackdrop} keyboardBehavior="extend">
+          <View style={{ flex: 1, padding: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Cari Nama Anggota</Text>
-              <TouchableOpacity onPress={() => setShowMemberModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
+                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Cari Nama Anggota</Text>
+                <TouchableOpacity onPress={() => { memberModalRef.current?.dismiss(); setMemberPiutang(null); }}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Ketik Nama atau NRP..."
-              value={memberSearch}
-              onChangeText={searchMembers}
-              autoFocus
-            />
+              {/* S2-02: Info piutang saat member dipilih */}
+              {memberPiutang && !loadingPiutang && (
+                <View style={{
+                  backgroundColor: limitTooLow ? '#FEF2F2' : '#F0FDF4',
+                  borderRadius: 10, padding: 12, marginBottom: 12,
+                  borderWidth: 1, borderColor: limitTooLow ? '#FECACA' : '#BBF7D0'
+                }}>
+                  <Text style={{ fontWeight: 'bold', color: limitTooLow ? '#DC2626' : '#15803D', marginBottom: 4 }}>
+                    {limitTooLow ? '⛔ Limit Tidak Mencukupi' : '✅ Limit Tersedia'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#64748B' }}>Plafon Total: {formatRp(memberPiutang.totalPlafon)}</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B' }}>Terpakai: {formatRp(memberPiutang.sudahTerpakai)}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: limitTooLow ? '#DC2626' : '#15803D' }}>
+                    Sisa Limit: {formatRp(memberPiutang.sisaLimit)}
+                  </Text>
+                  {limitTooLow && (
+                    <Text style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>
+                      Transaksi {formatRp(total)} melebihi sisa limit anggota.
+                    </Text>
+                  )}
+                </View>
+              )}
+              {loadingPiutang && (
+                <View style={{ padding: 8, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color={C.primary} />
+                  <Text style={{ textAlign: 'center', color: '#64748B', fontSize: 12, marginTop: 4 }}>Memuat info limit...</Text>
+                </View>
+              )}
 
-            {searchingMember ? (
-              <ActivityIndicator style={{ marginTop: 20 }} color={C.primary} />
-            ) : members.length === 0 && memberSearch.length > 2 ? (
-              <Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>Anggota tidak ditemukan</Text>
-            ) : (
-              <FlatList
-                data={members}
-                keyExtractor={(item) => String(item.id)}
-                style={{ marginTop: 15, maxHeight: 300 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalMemberItem}
-                    onPress={() => {
-                      Alert.alert(
-                        'Konfirmasi Anggota',
-                        `Potong Gaji atas nama:\n${item.name}\nNRP: ${item.nrp}\nTotal: ${formatRp(total)}`,
-                        [
-                          { text: 'Batal', style: 'cancel' },
-                          { text: 'Setuju & Pilih', onPress: () => isQuickSale ? performQuickCheckoutAPI('salary_cut', item.id) : performStandardCheckoutAPI('salary_cut', item.id) }
-                        ]
-                      );
-                    }}
-                  >
-                    <Text style={{ fontWeight: 'bold', fontSize: 15 }}>{item.name}</Text>
-                    <Text style={{ color: '#666', fontSize: 13 }}>NRP: {item.nrp}</Text>
-                  </TouchableOpacity>
-                )}
+              {/* S2-04: Search input */}
+              <BottomSheetTextInput
+                style={styles.modalInput}
+                placeholder="Ketik Nama atau NRP..."
+                value={memberSearch}
+                onChangeText={searchMembers}
+                autoFocus
               />
+
+              {searchingMember ? (
+                <ActivityIndicator style={{ marginTop: 20 }} color={C.primary} />
+              ) : members.length === 0 && memberSearch.length > 1 ? (
+                <Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>Anggota tidak ditemukan</Text>
+              ) : (
+                <BottomSheetFlatList
+                  data={members}
+                  keyExtractor={(item: Member) => String(item.id)}
+                  style={{ marginTop: 15 }}
+                  renderItem={({ item }: { item: Member }) => (
+                    <TouchableOpacity
+                      style={styles.modalMemberItem}
+                      onPress={async () => {
+                        // S2-02: Fetch piutang info sebelum konfirmasi
+                        await fetchMemberPiutang(item.id);
+                        // Setelah fetch, cek kembali limitTooLow
+                      }}
+                    >
+                      {/* S2-04: Avatar inisial */}
+                      <View style={styles.memberAvatar}>
+                        <Text style={styles.memberAvatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontWeight: 'bold', fontSize: 15 }}>{item.name}</Text>
+                          {item.category && (
+                            <View style={styles.categoryBadge}>
+                              <Text style={styles.categoryBadgeText}>{item.category}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ color: '#666', fontSize: 13 }}>NRP: {item.nrp}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+
+              {/* Tombol konfirmasi — muncul setelah member di-tap dan piutang di-fetch */}
+              {memberPiutang && !loadingPiutang && (
+                <TouchableOpacity
+                  style={[styles.cashBtn, { marginTop: 16, opacity: limitTooLow ? 0.4 : 1 }]}
+                  disabled={!!limitTooLow || processing}
+                  onPress={() => {
+                    const selectedMember = members.find(m => m.name === memberPiutang.memberName);
+                    if (!selectedMember) return;
+                    Alert.alert(
+                      'Konfirmasi Anggota',
+                      `Potong Gaji atas nama:\n${memberPiutang.memberName}\nTotal: ${formatRp(total)}\nSisa Limit: ${formatRp(memberPiutang.sisaLimit)}`,
+                      [
+                        { text: 'Batal', style: 'cancel' },
+                        { text: 'Setuju & Proses', onPress: () => isQuickSale ? performQuickCheckoutAPI('salary_cut', selectedMember.id) : performStandardCheckoutAPI('salary_cut', selectedMember.id) }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color={C.primary} />
+                  <Text style={styles.cashText}>
+                    {limitTooLow ? 'Limit Tidak Cukup' : `Setuju & Potong Gaji`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+        </BottomSheetModal>
+
+        {/* Barcode Camera Scanner Modal */}
+        <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+          <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <CameraView
+              style={{ flex: 1 }}
+              facing="back"
+              onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+              barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128', 'code39', 'qr'] }}
+            />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
+              <View style={{ width: 240, height: 160, borderWidth: 2, borderColor: '#34D399', borderRadius: 12 }} />
+              <Text style={{ color: '#FFF', marginTop: 16, fontSize: 14, textAlign: 'center' }}>
+                Arahkan kamera ke barcode produk
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={{ position: 'absolute', top: 48, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 10 }}
+              onPress={() => setShowScanner(false)}
+            >
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+            {scanned && (
+              <TouchableOpacity
+                style={{ position: 'absolute', bottom: 40, left: 40, right: 40, backgroundColor: '#34D399', borderRadius: 12, padding: 16, alignItems: 'center' }}
+                onPress={() => { setScanned(false); }}
+              >
+                <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Scan Lagi</Text>
+              </TouchableOpacity>
             )}
           </View>
-        </View>
-      </Modal>
-
-      {/* ── Barcode Camera Scanner Modal ── */}
-      <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <CameraView
-            style={{ flex: 1 }}
-            facing="back"
-            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-            barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128', 'code39', 'qr'] }}
-          />
-          {/* Overlay */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <View style={{ width: 240, height: 160, borderWidth: 2, borderColor: '#34D399', borderRadius: 12 }} />
-            <Text style={{ color: '#FFF', marginTop: 16, fontSize: 14, textAlign: 'center' }}>
-              Arahkan kamera ke barcode produk
-            </Text>
-          </View>
-          {/* Close button */}
-          <TouchableOpacity
-            style={{ position: 'absolute', top: 48, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 10 }}
-            onPress={() => setShowScanner(false)}
-          >
-            <Ionicons name="close" size={24} color="#FFF" />
-          </TouchableOpacity>
-          {scanned && (
-            <TouchableOpacity
-              style={{ position: 'absolute', bottom: 40, left: 40, right: 40, backgroundColor: '#34D399', borderRadius: 12, padding: 16, alignItems: 'center' }}
-              onPress={() => { setScanned(false); }}
-            >
-              <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Scan Lagi</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </Modal>
+        </Modal>
       </>
     );
   }
@@ -737,7 +912,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
   searchRow: { flexDirection: 'row', gap: 8 },
   searchInput: {
-    flex: 1, backgroundColor: C.primaryLight, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
     fontSize: 14, color: '#FFF',
   },
   searchBtn: { backgroundColor: C.accent, borderRadius: 12, padding: 12 },
@@ -790,14 +965,23 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: C.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300, maxHeight: '90%' },
   modalInput: { backgroundColor: '#F1F5F9', borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0' },
-  modalMemberItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  
+  modalMemberItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // S2-04: Avatar & badge styles
+  memberAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+  },
+  memberAvatarText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  categoryBadge: {
+    backgroundColor: '#EFF6FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  categoryBadgeText: { fontSize: 10, fontWeight: '700', color: '#2563EB' },
   // Kasir Cepat Styles
   label: { fontSize: 13, color: '#64748B', marginBottom: 6, marginTop: 12, fontWeight: '600' },
   inputBold: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', padding: 14, borderRadius: 12, fontSize: 20, fontWeight: 'bold' },
   inputForm: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', padding: 12, borderRadius: 12, fontSize: 14 },
-  packageCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, marginBottom: 8 },
-  packageCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight + '10' },
+  packageCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, marginBottom: 8 },
+  packageCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight + '15' },
   packageName: { fontSize: 14, fontWeight: '600', color: C.foreground },
-  packagePrice: { fontSize: 14, fontWeight: 'bold', color: C.foreground }
+  packagePrice: { fontSize: 14, fontWeight: 'bold', color: C.accent },
 });

@@ -8,7 +8,7 @@ import {
   StatusBar,
   TouchableOpacity,
 } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import { StorageManager } from "../../lib/storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { registerForPushNotificationsAsync } from "../../lib/notifications";
@@ -51,7 +51,7 @@ export default function DashboardScreen({ setToken }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const userData = await SecureStore.getItemAsync("userData");
+      const userData = StorageManager.getFastString("userData");
       if (userData) setUser(JSON.parse(userData));
     } catch (err) {
       console.log("Error reading user data:", err);
@@ -85,7 +85,7 @@ export default function DashboardScreen({ setToken }: any) {
         err?.response?.data?.message || err?.message,
       );
       if (err.response?.status === 401) {
-        await SecureStore.deleteItemAsync("userToken");
+        await StorageManager.deleteSecureItem("userToken");
         setToken(null);
         return;
       }

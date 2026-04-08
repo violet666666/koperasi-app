@@ -34,13 +34,18 @@ export default function EditAnggotaPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
 
+    const [activeRoles, setActiveRoles] = React.useState<{ id: number; name: string; displayName: string }[]>([]);
+
     const [formData, setFormData] = React.useState({
         name: "",
+        memberNo: "",
         nrp: "",
         nik: "",
         gender: "",
         category: "",
         salary: "",
+        tunlesKinerja: "",
+        tabunganWajib: "",
         birthPlace: "",
         birthDate: "",
         maritalStatus: "",
@@ -54,6 +59,10 @@ export default function EditAnggotaPage() {
         province: "",
         postalCode: "",
         plafonPiutang: "",
+        roleId: "",
+        spBalance: "",
+        swBalance: "",
+        ssBalance: "",
     });
 
     React.useEffect(() => {
@@ -63,26 +72,42 @@ export default function EditAnggotaPage() {
             try {
                 const res = await membersApi.get(memberId);
                 const m = (res.data as any).data || res.data;
+                const mData = m.data ? m.data : m; // Adjust depending on response structure
+                const roles = res.data?.meta?.roles || [];
+                setActiveRoles(roles);
+
+                const getBal = (type: string) => {
+                    if (!mData.savingsAccounts) return "0";
+                    const acc = mData.savingsAccounts.find((a: any) => a.product?.type === type);
+                    return acc ? String(acc.balance) : "0";
+                };
                 setFormData({
-                    name: m.name || "",
-                    nrp: m.nrp || "",
-                    nik: m.nik || "",
-                    gender: m.gender || "",
-                    category: m.category || "",
-                    salary: m.salary ? String(m.salary) : "",
-                    birthPlace: m.birthPlace || "",
-                    birthDate: m.birthDate ? m.birthDate.split("T")[0] : "",
-                    maritalStatus: m.maritalStatus || "",
-                    religion: m.religion || "",
-                    education: m.education || "",
-                    occupation: m.occupation || "",
-                    phone: m.phone || "",
-                    email: m.email || "",
-                    address: m.address || "",
-                    city: m.city || "",
-                    province: m.province || "",
-                    postalCode: m.postalCode || "",
-                    plafonPiutang: m.plafonPiutang ? String(m.plafonPiutang) : "0",
+                    name: mData.name || "",
+                    memberNo: mData.memberNo || "",
+                    nrp: mData.nrp || "",
+                    nik: mData.nik || "",
+                    gender: mData.gender || "",
+                    category: mData.category || "",
+                    salary: mData.salary ? String(mData.salary) : "",
+                    tunlesKinerja: mData.tunlesKinerja ? String(mData.tunlesKinerja) : "",
+                    tabunganWajib: mData.tabunganWajib ? String(mData.tabunganWajib) : "",
+                    birthPlace: mData.birthPlace || "",
+                    birthDate: mData.birthDate ? mData.birthDate.split("T")[0] : "",
+                    maritalStatus: mData.maritalStatus || "",
+                    religion: mData.religion || "",
+                    education: mData.education || "",
+                    occupation: mData.occupation || "",
+                    phone: mData.phone || "",
+                    email: mData.email || "",
+                    address: mData.address || "",
+                    city: mData.city || "",
+                    province: mData.province || "",
+                    postalCode: mData.postalCode || "",
+                    plafonPiutang: mData.plafonPiutang ? String(mData.plafonPiutang) : "0",
+                    roleId: mData.userAccount?.roleId ? String(mData.userAccount.roleId) : "",
+                    spBalance: getBal('pokok'),
+                    swBalance: getBal('wajib'),
+                    ssBalance: getBal('sukarela'),
                 });
             } catch {
                 toast.error("Gagal memuat data anggota");
@@ -120,9 +145,23 @@ export default function EditAnggotaPage() {
         setIsSaving(true);
         try {
             const payload: Record<string, any> = { ...formData };
+            delete payload.spBalance;
+            delete payload.swBalance;
+            delete payload.ssBalance;
+
             Object.keys(payload).forEach((key) => {
                 if (payload[key] === "") delete payload[key];
             });
+
+            // Re-mount numeric fields
+            if (payload.roleId) payload.roleId = Number(payload.roleId);
+
+            payload.overrideSavings = {
+                pokok: Number(formData.spBalance || 0),
+                wajib: Number(formData.swBalance || 0),
+                sukarela: Number(formData.ssBalance || 0),
+            };
+
             await membersApi.update(memberId, payload);
             toast.success("Data anggota berhasil diperbarui");
             router.push(`/anggota/${memberId}`);
@@ -167,8 +206,13 @@ export default function EditAnggotaPage() {
                         </div>
 
                         <div>
-                            <Label htmlFor="nrp">NRP</Label>
-                            <Input id="nrp" name="nrp" value={formData.nrp} onChange={handleChange} placeholder="Nomor Registrasi Pokok" />
+                            <Label htmlFor="memberNo">Nomor Anggota Koperasi (ID)</Label>
+                            <Input id="memberNo" name="memberNo" value={formData.memberNo} onChange={handleChange} placeholder="Misal: 001/PBL/123" />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="nrp">NRP / NIP</Label>
+                            <Input id="nrp" name="nrp" value={formData.nrp} onChange={handleChange} placeholder="Nomor Registrasi Pokok / NIP" />
                         </div>
 
                         <div>
@@ -188,15 +232,21 @@ export default function EditAnggotaPage() {
                         </div>
 
                         <div>
-                            <Label>Kategori Anggota</Label>
-                            <Select value={formData.category} onValueChange={(v) => handleSelectChange("category", v)}>
-                                <SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Polri">Polri</SelectItem>
-                                    <SelectItem value="PNS">PNS</SelectItem>
-                                    <SelectItem value="Purnawirawan">Purnawirawan</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="category">Kategori Anggota</Label>
+                            <Input 
+                                id="category" 
+                                list="category-options" 
+                                name="category" 
+                                value={formData.category} 
+                                onChange={handleChange} 
+                                placeholder="Pilih atau ketik kategori baru" 
+                            />
+                            <datalist id="category-options">
+                                <option value="Polri" />
+                                <option value="PNS" />
+                                <option value="Purnawirawan" />
+                                <option value="Karyawan" />
+                            </datalist>
                         </div>
 
                         <div>
@@ -298,6 +348,77 @@ export default function EditAnggotaPage() {
                         <div>
                             <Label>Pekerjaan</Label>
                             <Input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Pekerjaan saat ini" />
+                        </div>
+
+                        {activeRoles.length > 0 && formData.roleId !== undefined && (
+                            <div className="sm:col-span-2 border-t pt-4 mt-2">
+                                <Label className="text-blue-600 font-semibold mb-2 block">Hak Akses Sistem (Role Akun Login)</Label>
+                                <Select value={formData.roleId} onValueChange={(v) => handleSelectChange("roleId", v)}>
+                                    <SelectTrigger><SelectValue placeholder="Pilih Hak Akses" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">-- Tidak Memiliki Hak Akses Khusus --</SelectItem>
+                                        {activeRoles.map(role => (
+                                            <SelectItem key={role.id} value={String(role.id)}>{role.displayName}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground mt-1">Ubah jika anggota ini menggunakan aplikasi untuk mengelola koperasi.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Data Finansial */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Setoran Bulanan (Gaji & Tabungan)</CardTitle>
+                        <p className="text-sm text-muted-foreground">Konfigurasi potongan atau limit yang dikenakan pada anggota ini pada setiap periode bulanannya.</p>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="salary">Gaji Bersih (Per Bulan)</Label>
+                            <Input id="salary" name="salary" type="number" min="0" value={formData.salary} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Patokan gaji untuk acuan kredit.</p>
+                        </div>
+                        <div>
+                            <Label htmlFor="tunlesKinerja">Tunles / Tunkin (Per Bulan)</Label>
+                            <Input id="tunlesKinerja" name="tunlesKinerja" type="number" min="0" value={formData.tunlesKinerja} onChange={handleChange} placeholder="Rp" />
+                        </div>
+                        <div>
+                            <Label htmlFor="tabunganWajib">Target Setoran Wajib Per Bulan</Label>
+                            <Input id="tabunganWajib" name="tabunganWajib" type="number" min="0" value={formData.tabunganWajib} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-orange-600 mt-1 font-semibold">⚠ Ini adalah TARGET BULANAN (Misal: 50.000). BUKAN total saldo saat ini!</p>
+                        </div>
+                        <div>
+                            <Label htmlFor="plafonPiutang">Plafon Piutang Unit (Limit Kasir)</Label>
+                            <Input id="plafonPiutang" name="plafonPiutang" type="number" min="0" value={formData.plafonPiutang} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Batas maksimal ngutang/kasbon di toko.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Override Saldo Simpanan */}
+                <Card className="border-orange-200 bg-orange-50/30">
+                    <CardHeader>
+                        <CardTitle className="text-lg text-orange-700">Penyesuaian Total Saldo Simpanan Terkini</CardTitle>
+                        <p className="text-sm text-orange-600/90 font-medium">Berapa total uang tabungan anggota ini yang SEBENARNYA ada hari ini secara Real-Time?</p>
+                        <p className="text-xs text-orange-600/80 mt-1 leading-relaxed">
+                            Nilai di bawah ini ditarik <strong>langsung dari database (Real-Time)</strong>. Apabila saldo ini salah (misal gara-gara salah Import Excel / cacat hitung lama), silakan ganti angkanya. 
+                            Sistem akan otomatis merebakannya sebagai <strong>Nota Koreksi (Auto-Correction)</strong> di riwayat transaksi anggotanya agar Saldo Dompet Pusat Koperasi tetap aman.
+                        </p>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <Label htmlFor="spBalance" className="text-orange-900">Saldo Simpanan Pokok</Label>
+                            <Input id="spBalance" name="spBalance" type="number" value={formData.spBalance} onChange={handleChange} className="border-orange-200" />
+                        </div>
+                        <div>
+                            <Label htmlFor="swBalance" className="text-orange-900">Saldo Simpanan Wajib</Label>
+                            <Input id="swBalance" name="swBalance" type="number" value={formData.swBalance} onChange={handleChange} className="border-orange-200" />
+                        </div>
+                        <div>
+                            <Label htmlFor="ssBalance" className="text-orange-900">Saldo Simpanan Sukarela</Label>
+                            <Input id="ssBalance" name="ssBalance" type="number" value={formData.ssBalance} onChange={handleChange} className="border-orange-200" />
                         </div>
                     </CardContent>
                 </Card>

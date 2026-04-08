@@ -244,6 +244,37 @@ npx tsx prisma/seed-uat.ts
 - Validasi instan yang langsung membatasi *"stuck/mentok"* di angka plafon fisik (stock maximum) produk bila kasir sengaja mengisi *oversold*.
 - Mempertahankan kegunaan icon "+" dan "-".
 
+## UPDATE 08 April 2026 — Sesi 8.1: Manajemen Profil Lanjutan & Import Historis TAJIB
+
+### [FEATURE] Manajemen Finansial Real-Time di Form Anggota
+- **File:** `src/app/(protected)/anggota/[id]/edit/page.tsx`
+- **Tujuan:** Memberikan kendali penuh pada Operator untuk mengubah parameter finansial tanpa masuk ke database mentah.
+- **Implementasi:**
+  1. Penambahan input `Setoran Bulanan`: Gaji Bersih, Tunkin, Target Tabungan Wajib, dan Plafon Piutang (Kredit Toko).
+  2. Implementasi **Override Saldo Simpanan (Real-Time)**: Input untuk saldo Pokok, Wajib, dan Sukarela yang otomatis terkoneksi ke data `SavingsAccount`.
+  3. **Auto-Correction System:** Pengubahan saldo secara manual (Override) tidak mengubah saldo secara barbar, melainkan mencetak **Nota Koreksi (*Correction*)** di tabel `SavingsTransaction` demi menjaga integritas Ledger dan Kas Bank Koperasi.
+  4. Penambahan UI Helper text informatif untuk mengurangi kebingungan operator.
+
+### [ROLES] Manajemen Hak Akses Lintas Operator Langsung dari Profil
+- Admin kini bisa memasang peran akun (*User Role*) kepada anggota jika yang bersangkutan adalah staff Koperasi. Pemasangan akses ini disinkronisasikan menggunakan *Prisma Transaction Database*.
+
+### [FEATURE] Perekaman Historis Otomatis via Import TAJIB
+- **File:** `src/app/api/members/import/route.ts` & `src/app/(protected)/master/import-data/page.tsx`
+- **Konteks:** Mekanisme import TAJIB sebelumnya keliru: kolom *JML* tabungan dimasukkan ke kolom *Target Potongan Bulanan*, bukan ke rekening dompet saldo.
+- **Solusi:**
+  1. Skrip dirombak agar mampu memakan payload kompleks berisi: `POKOK`, `WAJIB`, serta pilar bulan: `JANUARI - DESEMBER` sekaligus dalam satu *Spreadsheet*.
+  2. Skrip otomatis menembak ke `SavingsTransaction` untuk mencetak Riwayat Setoran masing-masing bulan yang ada nominalnya.
+  3. Skrip memindahkan saldo bawaan excel ke pos Simpanan Pokok dan Simpanan Wajib dengan tipe *Correction*.
+  4. Laman *Preview Data/Pratinjau Tabel* kini mengeluarkan rangkuman cerdas berbungkus *badge emerald* ("Dideteksi: PKK (x), WJB_Awl (y), +3 bln setoran") agar meyakinkan operator sesaat sebelum klik **Import**.
+
+### [SECURITY] Auto-Logout (Idle Timeout)
+- **Komponen:** `src/components/layout/auto-logout.tsx`
+- **Implementasi:** Sistem kini memantau aktivitas kursor, sentuhan layar, dan keyboard secara *real-time*. Jika mendapati Web Operator/Kasir ditelantarkan tanpa disentuh selama **5 Menit**, maka Aplikasi akan mencekik sesi aktif dengan sebuah pop-up *warning* lalu mendepak Operator tersebut (*Force Logout*) ke halaman Login.
+
+### [UI/UX] Penyesuaian Posisi Bottom Navigation (Android PWA View)
+- **Komponen:** `src/components/layout/bottom-nav.tsx`
+- **Perbaikan:** Menambahkan bantalan pengaman ruang bawah statis 16px ekstra dipadukan dengan penghitungan `safe-area-inset-bottom`. Ini akan mendongkrak bilah menu navigasi ('Beranda, Approval, Anggota, dll') sedikit ke atas ala *Instagram* sehingga tidak lagi tumpang tindih atau dimakan oleh bilah kendali gestur (Home/Back) bawaan Android.
+
 ---
 
 ## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
@@ -1021,6 +1052,84 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 ---
 *Total pembaruan tercatat: 106 item (Fitur, UI, Hotfix, UAT)*  
 *Diperbarui: 7 April 2026*
+
+---
+
+## UPDATE 08 April 2026 — Sesi 9: Perbaikan Produk Pinjaman & Portal Pengajuan
+
+### [CRITICAL FIX] 5 API Endpoint Pinjaman — Hapus Semua Hardcode
+
+**Konteks:** Setelah atasan menyampaikan aturan baru produk pinjaman (Reguler: Max 20jt/36bln, Khusus: Min 30jt/No Limit/60bln), ditemukan 5 endpoint yang masih menerapkan pembatasan hardcode sehingga Pinjaman Khusus tidak bisa diproses.
+
+**Endpoint yang diperbaiki:**
+
+1. **`/api/loans/products`** (BUG-068)
+   - Hapus override `interest_rate: 1` dan `admin_fee_value: 2`
+   - Kini baca langsung dari database
+
+2. **`/api/mobile/loan-apply`** (BUG-069)
+   - Hapus `interestRate: 0`, `adminFee: 1%`, cap `Math.min(maxAmount, 20jt)`, cap `Math.min(maxTenor, 36)`
+   - Hapus validasi AD-ART hardcode 20jt/36bln
+   - Validasi kini per-produk dari database
+
+3. **`/api/member-portal/loan-application`** (BUG-070)
+   - Hapus validasi `AD_ART_MAX_LOAN = 20jt` dan `AD_ART_MAX_TENOR_MONTHS = 36`
+   - Validasi per-produk (sudah ada di lines 48-63) menjadi satu-satunya gatekeeper
+
+4. **`/api/master/loan-products` POST** (BUG-071)
+   - Hapus blokade `maxTenorMonths > 36 → reject`
+   - Admin kini bisa buat produk dengan tenor > 36 bulan
+
+5. **`/api/loans/applications`** (sudah di-fix sebelumnya — BUG-067)
+   - Dikonfirmasi tetap berfungsi per-produk
+
+### [CRITICAL FIX] Portal Pengajuan Pinjaman — Produk Tidak Tampil (BUG-072)
+
+**File:** `src/app/portal/pengajuan-pinjaman/page.tsx`
+
+**Masalah:** Halaman `/portal/pengajuan-pinjaman` di `primkoppol.online` tidak menampilkan produk pinjaman sama sekali. Ditemukan 5 masalah kritis:
+
+1. **Field mismatch:** API mengembalikan `minTenorMonths` (Prisma camelCase), UI mengharapkan `minTenor` → produk gagal di-parse
+2. **Hidden selector:** Pilihan produk disembunyikan (`<input type="hidden">`)
+3. **Hardcode limit:** Input dicap keras ke 20jt/36bln
+4. **Bunga salah:** Estimasi bunga 0.3% (seharusnya 1%)
+5. **Admin fee salah:** "Biaya Jasa 1%" (seharusnya "Biaya Resiko 2%")
+
+**Fix:**
+- Normalize Prisma field names (`minTenorMonths` → `minTenor`, Decimal → Number)
+- Tampilkan **kartu pilihan produk** (selectable cards) dengan info limit, tenor, bunga, resiko
+- Input amount/tenor dinamis sesuai produk (bukan hardcode)
+- Kalkulasi bunga/resiko dari data produk aktual
+- Tambah info **"Dana Cair (Bersih)"** setelah potong resiko di muka
+
+### [DATA] Seed Produk Pinjaman ke Production (FEAT-021)
+
+**Eksekusi:** `npx tsx prisma/seed-loan-products.ts` — berhasil dijalankan ke production database.
+
+**Hasil:**
+```
+[5] PR — Pinjaman Reguler:  Rp0 s/d Rp20.000.000 | Tenor: 1–36 bln
+[6] PK — Pinjaman Khusus:   Rp30.000.000 s/d Tidak Terbatas | Tenor: 1–60 bln
+```
+
+### [BUILD] Verifikasi
+- `npm run build` → Exit code: 0 (Sukses)
+- Semua 172 halaman compile tanpa error
+
+| ID | Deskripsi | Status | Tanggal |
+| --- | --- | --- | --- |
+| **BUG-068** | API loans/products hardcode bunga & resiko | ✅ FIXED | 8 Apr 2026 |
+| **BUG-069** | Mobile loan-apply hardcode rate & cap 20jt/36bln | ✅ FIXED | 8 Apr 2026 |
+| **BUG-070** | Portal loan-application hardcode AD-ART limit | ✅ FIXED | 8 Apr 2026 |
+| **BUG-071** | Master loan-products POST blokir tenor > 36 | ✅ FIXED | 8 Apr 2026 |
+| **BUG-072** | Portal pengajuan pinjaman: produk tidak tampil | ✅ FIXED | 8 Apr 2026 |
+| **BUG-073** | Dashboard: Pie Chart 'Pendapatan Unit Usaha' hanya Toko | ✅ FIXED | 8 Apr 2026 |
+| **BUG-074** | Dashboard: Data 'Pencairan Hari Ini' ter-mapping nilai penarikan simpanan | ✅ FIXED | 8 Apr 2026 |
+| **FEAT-021** | Seed produk pinjaman accurate (Reguler & Khusus) | ✅ IMPLEMENTED | 8 Apr 2026 |
+
+---
+*Total pembaruan tercatat: 114 item (Fitur, UI, Hotfix, UAT)*  
+*Diperbarui: 8 April 2026 — Sesi 9*
 
 ---
 

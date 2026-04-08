@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, ScrollView } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { StorageManager } from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import C from '../../lib/colors';
@@ -11,7 +11,7 @@ export default function ProfileScreen({ setToken }: any) {
 
   useEffect(() => {
     const loadUser = async () => {
-      const data = await SecureStore.getItemAsync('userData');
+      const data = StorageManager.getFastString('userData');
       if (data) setUser(JSON.parse(data));
     };
     loadUser();
@@ -23,8 +23,8 @@ export default function ProfileScreen({ setToken }: any) {
       {
         text: 'Logout', style: 'destructive',
         onPress: async () => {
-          await SecureStore.deleteItemAsync('userToken');
-          await SecureStore.deleteItemAsync('userData');
+          await StorageManager.deleteSecureItem('userToken');
+          StorageManager.deleteFastItem('userData');
           setToken(null);
         }
       },

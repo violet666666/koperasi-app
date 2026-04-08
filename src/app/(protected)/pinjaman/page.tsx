@@ -107,7 +107,8 @@ const columns: ColumnDef<Loan>[] = [
         ),
     },
     {
-        accessorKey: "member",
+        id: "member",
+        accessorFn: (row) => `${row.member?.name || ''} ${row.member?.memberNo || ''}`,
         header: "Anggota",
         cell: ({ row }) => (
             <div>
@@ -187,6 +188,19 @@ const columns: ColumnDef<Loan>[] = [
         },
     },
     {
+        id: "bungaPerBulan",
+        header: "Bunga/Bulan (1%)",
+        cell: ({ row }) => {
+            const plafond = Number(row.original.principalAmount || 0);
+            const interest = Math.round(plafond * 0.01);
+            return (
+                <span className="font-medium tabular-nums text-sm text-amber-600">
+                    {formatCurrency(interest)}
+                </span>
+            );
+        },
+    },
+    {
         accessorKey: "principalOutstanding",
         header: "Sisa Pinjaman",
         cell: ({ row }) => (
@@ -262,6 +276,10 @@ export default function PinjamanListPage() {
             paidOffThisMonth: globalStats.paidOffCount,
         };
     }, [globalStats]);
+
+    const estimatedInterest = React.useMemo(() => {
+        return loans.filter(l => l.status === "active").reduce((sum, l) => sum + (Number(l.principalAmount || 0) * 0.01), 0);
+    }, [loans]);
 
     // Fetch data from API
     React.useEffect(() => {
@@ -344,11 +362,13 @@ export default function PinjamanListPage() {
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-emerald-100 p-3 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            <CheckCircle className="h-5 w-5" />
+                            <CreditCard className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Lunas Bulan Ini</p>
-                            <p className="text-2xl font-bold">{stats.paidOffThisMonth}</p>
+                            <p className="text-sm text-muted-foreground">Potensi Bunga (1%/Bln)</p>
+                            <p className="text-xl font-bold tabular-nums text-emerald-700">
+                                {formatCurrency(estimatedInterest)}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
