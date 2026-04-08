@@ -22,8 +22,13 @@ export async function GET(request: Request, { params }: Params) {
                     },
                 },
                 loans: true,
+                userAccount: {
+                    select: { id: true, roleId: true }
+                }
             },
         });
+
+        const activeRoles = await prisma.role.findMany({ select: { id: true, name: true, displayName: true }});
 
         if (!member) {
             return NextResponse.json(
@@ -218,7 +223,8 @@ export async function GET(request: Request, { params }: Params) {
                     netPosition: totalSavings - totalOutstanding,
                     estimasi_shu,
                 }
-            } 
+            },
+            meta: { roles: activeRoles }
         });
     } catch (error) {
         console.error("GET /api/members/[id] error:", error);
@@ -289,10 +295,11 @@ export async function PUT(request: Request, { params }: Params) {
         const { id } = await params;
         const body = await request.json();
         const data = updateMemberSchema.parse(body);
+        const { overrideSavings, roleId, ...memberData } = data;
 
         // Proteksi plafonPiutang — hanya Operator/Admin yang boleh mengubah
         const operatorRoles = ["operator", "admin", "super_admin"];
-        if (data.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
+        if (memberData.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
             return NextResponse.json(
                 { message: "Hanya Operator yang dapat mengubah Plafon Piutang anggota." },
                 { status: 403 }
@@ -301,6 +308,7 @@ export async function PUT(request: Request, { params }: Params) {
 
         const member = await prisma.member.findUnique({
             where: { id: parseInt(id), deletedAt: null },
+            include: { userAccount: true, savingsAccounts: { include: { product: true } } }
         });
 
         if (!member) {
@@ -311,22 +319,67 @@ export async function PUT(request: Request, { params }: Params) {
         }
 
         // Check for duplicate memberNo if being updated
-        if (data.memberNo && data.memberNo !== member.memberNo) {
+        if (memberData.memberNo && memberData.memberNo !== member.memberNo) {
             const existing = await prisma.member.findUnique({
-                where: { memberNo: data.memberNo },
+                where: { memberNo: memberData.memberNo },
             });
             if (existing) {
                 return NextResponse.json(
-                    { message: "NRP sudah digunakan" },
+                    { message: "NRP/Nomor Anggota sudah digunakan" },
                     { status: 400 }
                 );
             }
         }
 
-        const updated = await prisma.member.update({
-            where: { id: parseInt(id) },
-            data,
-            include: { branch: true },
+        const updated = await prisma.$transaction(async (tx) => {
+            // Lakukan pemotongan/koreksi saldo (Override)
+            if (overrideSavings && Object.keys(overrideSavings).length > 0) {
+                for (const [sType, sAmount] of Object.entries(overrideSavings)) {
+                    const acc = member.savingsAccounts.find(a => a.product.type === sType);
+                    if (acc) {
+                        const oldBal = Number(acc.balance);
+                        const newBal = Number(sAmount);
+                        if (oldBal !== newBal) {
+                            const diff = newBal - oldBal;
+                            await tx.savingsAccount.update({
+                                where: { id: acc.id },
+                                data: { balance: newBal }
+                            });
+                            // Catat history sebagai Correction
+                            await tx.savingsTransaction.create({
+                                data: {
+                                    transactionNo: `CORR-${Date.now()}-${acc.id}`,
+                                    accountId: acc.id,
+                                    memberId: member.id,
+                                    productId: acc.productId,
+                                    branchId: member.branchId,
+                                    type: 'correction',
+                                    amount: Math.abs(diff),
+                                    balanceBefore: oldBal,
+                                    balanceAfter: newBal,
+                                    notes: `Koreksi manual saldo Simpanan ${sType.toUpperCase()} dari Rp ${oldBal} menjadi Rp ${newBal}`,
+                                    transactionDate: new Date(),
+                                    createdById: Number(session?.user?.id) || 1,
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Update user role jika terhubung dengan akun
+            if (roleId && member.userAccount && member.userAccount.roleId !== roleId) {
+                await tx.user.update({
+                    where: { id: member.userAccount.id },
+                    data: { roleId },
+                });
+            }
+
+            return await tx.member.update({
+                where: { id: parseInt(id) },
+                data: memberData,
+                include: { branch: true },
+            });
         });
 
         return NextResponse.json({ data: updated });
