@@ -372,23 +372,27 @@ export default function EditAnggotaPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Setoran Bulanan (Gaji & Tabungan)</CardTitle>
+                        <p className="text-sm text-muted-foreground">Konfigurasi potongan atau limit yang dikenakan pada anggota ini pada setiap periode bulanannya.</p>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <Label htmlFor="salary">Gaji Bersih (Per Bulan)</Label>
                             <Input id="salary" name="salary" type="number" min="0" value={formData.salary} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Patokan gaji untuk acuan kredit.</p>
                         </div>
                         <div>
                             <Label htmlFor="tunlesKinerja">Tunles / Tunkin (Per Bulan)</Label>
                             <Input id="tunlesKinerja" name="tunlesKinerja" type="number" min="0" value={formData.tunlesKinerja} onChange={handleChange} placeholder="Rp" />
                         </div>
                         <div>
-                            <Label htmlFor="tabunganWajib">Potongan Tabungan Wajib (Target Per Bulan)</Label>
+                            <Label htmlFor="tabunganWajib">Target Setoran Wajib Per Bulan</Label>
                             <Input id="tabunganWajib" name="tabunganWajib" type="number" min="0" value={formData.tabunganWajib} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-orange-600 mt-1 font-semibold">⚠ Ini adalah TARGET BULANAN (Misal: 50.000). BUKAN total saldo saat ini!</p>
                         </div>
                         <div>
                             <Label htmlFor="plafonPiutang">Plafon Piutang Unit (Limit Kasir)</Label>
                             <Input id="plafonPiutang" name="plafonPiutang" type="number" min="0" value={formData.plafonPiutang} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Batas maksimal ngutang/kasbon di toko.</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -396,8 +400,12 @@ export default function EditAnggotaPage() {
                 {/* Override Saldo Simpanan */}
                 <Card className="border-orange-200 bg-orange-50/30">
                     <CardHeader>
-                        <CardTitle className="text-lg text-orange-700">Override Saldo Simpanan Langsung</CardTitle>
-                        <p className="text-sm text-orange-600">⚠ Perubahan di sini akan otomatis mencetak Nota Koreksi agar kas/ledger koperasi tidak bocor.</p>
+                        <CardTitle className="text-lg text-orange-700">Penyesuaian Total Saldo Simpanan Terkini</CardTitle>
+                        <p className="text-sm text-orange-600/90 font-medium">Berapa total uang tabungan anggota ini yang SEBENARNYA ada hari ini secara Real-Time?</p>
+                        <p className="text-xs text-orange-600/80 mt-1 leading-relaxed">
+                            Nilai di bawah ini ditarik <strong>langsung dari database (Real-Time)</strong>. Apabila saldo ini salah (misal gara-gara salah Import Excel / cacat hitung lama), silakan ganti angkanya. 
+                            Sistem akan otomatis merebakannya sebagai <strong>Nota Koreksi (Auto-Correction)</strong> di riwayat transaksi anggotanya agar Saldo Dompet Pusat Koperasi tetap aman.
+                        </p>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-3">
                         <div>

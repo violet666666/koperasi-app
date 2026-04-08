@@ -494,7 +494,7 @@ export default function ImportDataPage() {
                                 </p>
                             ) : importType === "tajib" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem membaca <strong>NRP/NIP</strong>, <strong>NAMA</strong>, dan <strong className="bg-yellow-200">JML</strong> / JUMLAH.
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem membaca <strong>NRP/NIP</strong>, <strong>NAMA</strong>, <strong>POKOK</strong> (Simp. Pokok), <strong>WAJIB</strong> (Saldo Awal Wajib), lalu sisa kolom bulan <strong className="bg-yellow-200">JANUARI - DESEMBER</strong> akan otomatis dicatat sebagai Setoran Historis. Total kolom diperiksa berdasar kolom <strong>JML</strong>.
                                 </p>
                             ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
