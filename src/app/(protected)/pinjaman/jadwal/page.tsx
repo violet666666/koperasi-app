@@ -171,13 +171,27 @@ export default function JadwalAngsuranPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Determine fetch path based on periodFilter
-                let url = "/api/loans/schedules?limit=50";
+                // Fetch up to 5000 to cover all pending schedules
+                let url = "/api/loans/schedules?limit=5000";
                 
                 const response = await fetch(url);
                 if (response.ok) {
                     const json = await response.json();
-                    setData(json.data || []);
+                    let fetchedData = json.data || [];
+                    
+                    // Client-side filtering based on periodFilter
+                    if (periodFilter === "today") {
+                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue === 0 || d.status === "due_today");
+                    } else if (periodFilter === "week") {
+                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue <= 7);
+                    } else if (periodFilter === "month") {
+                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue <= 30);
+                    } else if (periodFilter === "overdue") {
+                        fetchedData = fetchedData.filter((d: any) => d.status === "overdue");
+                    }
+                    // Else if we ever add an "all" option, do not filter.
+                    
+                    setData(fetchedData);
                 } else {
                     console.error("Gagal mengambil data jadwal");
                 }
@@ -256,6 +270,7 @@ export default function JadwalAngsuranPage() {
                                 <SelectValue placeholder="Periode" />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="all">Semua Pending</SelectItem>
                                 <SelectItem value="today">Hari Ini</SelectItem>
                                 <SelectItem value="week">Minggu Ini</SelectItem>
                                 <SelectItem value="month">Bulan Ini</SelectItem>
