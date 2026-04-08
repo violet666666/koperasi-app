@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/lib/hooks";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,8 @@ interface MemberResult {
 }
 
 function TambahPengajuanContent() {
-    const { user } = useAuth();
-    const isOperator = user?.permissions?.includes("manage_all");
+    const { data: session } = useSession();
+    const isOperator = !!(session?.user as any)?.permissions?.includes("manage_all");
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = React.useState(false);
