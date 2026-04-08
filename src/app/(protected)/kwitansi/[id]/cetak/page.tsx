@@ -230,7 +230,7 @@ export default function CetakKwitansiPage() {
                     {/* ---- TERBILANG (HURUF) ---- */}
                     <div className="border border-dashed border-slate-300 rounded-md px-4 py-2 mb-5 bg-slate-50/50">
                         <p className="text-xs text-muted-foreground italic">
-                            Terbilang: <span className="font-semibold text-foreground not-italic capitalize">{terbilang(receipt.amount)}</span>
+                            Terbilang: <span className="font-semibold text-foreground capitalize">{terbilang(receipt.amount)}</span>
                         </p>
                     </div>
 

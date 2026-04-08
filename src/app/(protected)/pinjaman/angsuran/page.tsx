@@ -103,49 +103,9 @@ export default function AngsuranPage() {
         }
     };
 
-    // Load schedules when loan is selected
-    const handleSelectLoan = async (loan: Loan) => {
+    // Handle loan selected
+    const handleSelectLoan = (loan: Loan) => {
         setSelectedLoan(loan);
-        setIsLoadingSchedules(true);
-        try {
-            const response = await loansApi.payments(loan.id);
-            // For now, simulate schedules since API may not have endpoint
-            // In real implementation, fetch from /loans/:id/schedules
-            setSchedules([]);
-        } catch (error) {
-            console.error("Failed to load schedules:", error);
-        } finally {
-            setIsLoadingSchedules(false);
-        }
-    };
-
-    // Open payment dialog
-    const handlePayment = (schedule: LoanSchedule) => {
-        setSelectedSchedule(schedule);
-        const remaining = schedule.totalAmount - schedule.principalPaid - schedule.interestPaid;
-        setPaymentAmount(remaining.toString());
-        setPaymentDialogOpen(true);
-    };
-
-    // Process payment
-    const handleSubmitPayment = async () => {
-        if (!selectedLoan || !selectedSchedule) return;
-
-        setIsProcessing(true);
-        try {
-            await loansApi.createPayment(selectedLoan.id, {
-                amount: Number(paymentAmount),
-                paymentMethod: "cash",
-            });
-            toast.success("Pembayaran berhasil dicatat");
-            setPaymentDialogOpen(false);
-            // Refresh data
-            handleSelectLoan(selectedLoan);
-        } catch (error) {
-            toast.error("Gagal memproses pembayaran");
-        } finally {
-            setIsProcessing(false);
-        }
     };
 
     return (
@@ -254,51 +214,14 @@ export default function AngsuranPage() {
                             </div>
                         </div>
 
-                        {/* Quick Payment */}
-                        <div className="mt-6 pt-6 border-t">
-                            <h4 className="font-medium mb-4">Pembayaran Cepat</h4>
-                            <div className="flex gap-4 flex-wrap">
-                                <div className="flex-1 min-w-[200px]">
-                                    <Label>Jumlah Bayar</Label>
-                                    <Input
-                                        type="number"
-                                        placeholder="Masukkan jumlah"
-                                        value={paymentAmount}
-                                        onChange={(e) => setPaymentAmount(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-[200px]">
-                                    <Label>Metode Pembayaran</Label>
-                                    <Select defaultValue="cash">
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="cash">Tunai</SelectItem>
-                                            <SelectItem value="transfer">Transfer Bank</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button
-                                        onClick={() => {
-                                            if (Number(paymentAmount) > 0) {
-                                                handleSubmitPayment();
-                                            } else {
-                                                toast.error("Masukkan jumlah pembayaran");
-                                            }
-                                        }}
-                                        disabled={isProcessing}
-                                    >
-                                        {isProcessing ? (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Receipt className="mr-2 h-4 w-4" />
-                                        )}
-                                        Bayar
-                                    </Button>
-                                </div>
-                            </div>
+                        {/* Action Bayar */}
+                        <div className="mt-6 pt-6 border-t flex justify-end">
+                            <Button asChild className="w-full sm:w-auto">
+                                <Link href={`/pinjaman/angsuran/bayar?loan_id=${selectedLoan.id}`}>
+                                    <CreditCard className="mr-2 h-4 w-4" />
+                                    Lanjut ke Proses Pembayaran
+                                </Link>
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>

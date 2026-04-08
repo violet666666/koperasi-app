@@ -115,9 +115,13 @@ export async function POST(request: Request, { params }: Params) {
 
             // 4. Create Kvintasi (Receipt) for Disbursement
             const receiptRandom = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+            const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+            const monthRomawi = romawi[new Date().getMonth() + 1];
+            const currentYear = new Date().getFullYear();
+            
             const receipt = await tx.receipt.create({
                 data: {
-                    receiptNo: `KWT-PJM-${dateStr}-${receiptRandom}`,
+                    receiptNo: `${receiptRandom}/BKK-PJM/PRIM/${monthRomawi}/${currentYear}`,
                     type: "pinjaman",
                     memberId: application.memberId,
                     amount: disbursedAmount,

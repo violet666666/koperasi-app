@@ -22,6 +22,9 @@ import {
     Clock,
     CheckCircle,
     CreditCard,
+    ArrowUp,
+    ArrowDown,
+    Filter
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { loansApi } from "@/lib/api/services";
@@ -155,6 +158,24 @@ export default function JadwalAngsuranPage() {
     const [data, setData] = React.useState<UpcomingInstallment[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [periodFilter, setPeriodFilter] = React.useState<string>("week");
+    const [statusFilter, setStatusFilter] = React.useState<string>("all");
+    const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
+
+    const processedData = React.useMemo(() => {
+        let result = [...data];
+        
+        if (statusFilter !== "all") {
+            result = result.filter(v => v.status === statusFilter);
+        }
+
+        result.sort((a, b) => {
+            const dateA = new Date(a.dueDate).getTime();
+            const dateB = new Date(b.dueDate).getTime();
+            return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+        });
+
+        return result;
+    }, [data, statusFilter, sortOrder]);
 
     // Stats
     const stats = React.useMemo(() => {
@@ -252,19 +273,46 @@ export default function JadwalAngsuranPage() {
             {/* Filters */}
             <Card>
                 <CardContent className="p-4">
-                    <div className="flex flex-wrap gap-4">
-                        <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Periode" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Pending</SelectItem>
-                                <SelectItem value="today">Hari Ini</SelectItem>
-                                <SelectItem value="week">Minggu Ini</SelectItem>
-                                <SelectItem value="month">Bulan Ini</SelectItem>
-                                <SelectItem value="overdue">Terlambat</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="flex flex-wrap gap-4 items-center">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Periode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Waktu</SelectItem>
+                                    <SelectItem value="today">Hari Ini</SelectItem>
+                                    <SelectItem value="week">Minggu Ini</SelectItem>
+                                    <SelectItem value="month">Bulan Ini</SelectItem>
+                                    <SelectItem value="overdue">Terlambat (Semua Waktu)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    <SelectItem value="upcoming">Mendatang</SelectItem>
+                                    <SelectItem value="due_today">Jatuh Tempo Hari Ini</SelectItem>
+                                    <SelectItem value="overdue">Terlambat</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2 lg:ml-auto"
+                            onClick={() => setSortOrder(o => o === "asc" ? "desc" : "asc")}
+                        >
+                            Urutan: Jatuh Tempo {sortOrder === "asc" ? "Terlama (Naik)" : "Terbaru (Turun)"}
+                            {sortOrder === "asc" ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
@@ -291,7 +339,7 @@ export default function JadwalAngsuranPage() {
             ) : (
                 <DataTable
                     columns={columns}
-                    data={data}
+                    data={processedData}
                     searchColumn="memberName"
                     searchPlaceholder="Cari nama anggota..."
                 />
