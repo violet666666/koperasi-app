@@ -365,9 +365,13 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
         include: { savingsAccounts: { include: { product: true } } }
     });
 
+    const globalPProd = await prisma.savingsProduct.findFirst({ where: { type: "pokok" }});
+    const globalWProd = await prisma.savingsProduct.findFirst({ where: { type: "wajib" }});
+
     const results: any[] = [];
     let successCount = 0;
     let failCount = 0;
+    const commitTasks: (() => Promise<void>)[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -415,144 +419,144 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
         const member = matches[0];
 
         if (mode === "commit") {
-            try {
-                await prisma.$transaction(async (tx) => {
-                    let pokokAcc = member.savingsAccounts.find(a => a.product.type === "pokok");
-                    let wajibAcc = member.savingsAccounts.find(a => a.product.type === "wajib");
+            commitTasks.push(async () => {
+                try {
+                    await prisma.$transaction(async (tx) => {
+                        let pokokAcc = member.savingsAccounts.find((a: any) => a.product.type === "pokok");
+                        let wajibAcc = member.savingsAccounts.find((a: any) => a.product.type === "wajib");
 
-                    // Create account if not exists
-                    if (!pokokAcc && pokok > 0) {
-                        const pProd = await tx.savingsProduct.findFirst({ where: { type: "pokok" }});
-                        if (pProd) {
+                        // Create account if not exists
+                        if (!pokokAcc && pokok > 0 && globalPProd) {
                             pokokAcc = await tx.savingsAccount.create({
-                                data: { memberId: member.id, productId: pProd.id, balance: 0, status: "active" },
+                                data: { memberId: member.id, productId: globalPProd.id, balance: 0, status: "active" },
                                 include: { product: true }
                             });
                         }
-                    }
-                    if (!wajibAcc && (wajibAwal > 0 || monthlyDeposits.length > 0)) {
-                        const wProd = await tx.savingsProduct.findFirst({ where: { type: "wajib" }});
-                        if (wProd) {
+                        if (!wajibAcc && (wajibAwal > 0 || monthlyDeposits.length > 0) && globalWProd) {
                             wajibAcc = await tx.savingsAccount.create({
-                                data: { memberId: member.id, productId: wProd.id, balance: 0, status: "active" },
+                                data: { memberId: member.id, productId: globalWProd.id, balance: 0, status: "active" },
                                 include: { product: true }
                             });
                         }
-                    }
 
-                    let currentPokok = pokokAcc ? Number(pokokAcc.balance) : 0;
-                    let currentWajib = wajibAcc ? Number(wajibAcc.balance) : 0;
+                        let currentPokok = pokokAcc ? Number(pokokAcc.balance) : 0;
+                        let currentWajib = wajibAcc ? Number(wajibAcc.balance) : 0;
 
-                    // 1. Simpanan Pokok
-                    if (pokokAcc && pokok > 0) {
-                        const diff = pokok - currentPokok;
-                        if (diff !== 0) {
-                            await tx.savingsTransaction.create({
-                                data: {
-                                    transactionNo: `IMP-PKK-${member.id}-${Date.now()}-${i}`,
-                                    accountId: pokokAcc.id,
-                                    memberId: member.id,
-                                    productId: pokokAcc.productId,
-                                    branchId: member.branchId,
-                                    type: 'correction',
-                                    amount: Math.abs(diff),
-                                    balanceBefore: currentPokok,
-                                    balanceAfter: pokok,
-                                    notes: 'Import Saldo Awal Pokok (Excel TAJIB)',
-                                    transactionDate: new Date(),
-                                    createdById: 1
-                                }
-                            });
-                            currentPokok = pokok;
+                        // 1. Simpanan Pokok
+                        if (pokokAcc && pokok > 0) {
+                            const diff = pokok - currentPokok;
+                            if (diff !== 0) {
+                                await tx.savingsTransaction.create({
+                                    data: {
+                                        transactionNo: `IMP-PKK-${member.id}-${Date.now()}-${i}`,
+                                        accountId: pokokAcc.id,
+                                        memberId: member.id,
+                                        productId: pokokAcc.productId,
+                                        branchId: member.branchId,
+                                        type: 'correction',
+                                        amount: Math.abs(diff),
+                                        balanceBefore: currentPokok,
+                                        balanceAfter: pokok,
+                                        notes: 'Import Saldo Awal Pokok (Excel TAJIB)',
+                                        transactionDate: new Date(),
+                                        createdById: 1
+                                    }
+                                });
+                                currentPokok = pokok;
+                            }
                         }
-                    }
 
-                    // 2. Simpanan Wajib (Saldo Awal Kolom WAJIB)
-                    if (wajibAcc && wajibAwal > 0) {
-                        const wDiff = wajibAwal - currentWajib;
-                        if (wDiff !== 0) {
-                            await tx.savingsTransaction.create({
-                                data: {
-                                    transactionNo: `IMP-WJB-${member.id}-${Date.now()}-${i}`,
-                                    accountId: wajibAcc.id,
-                                    memberId: member.id,
-                                    productId: wajibAcc.productId,
-                                    branchId: member.branchId,
-                                    type: 'correction',
-                                    amount: Math.abs(wDiff),
-                                    balanceBefore: currentWajib,
-                                    balanceAfter: wajibAwal,
-                                    notes: 'Import Saldo Wajib Awal (Excel TAJIB)',
-                                    transactionDate: new Date(),
-                                    createdById: 1
-                                }
-                            });
-                            currentWajib = wajibAwal;
+                        // 2. Simpanan Wajib (Saldo Awal Kolom WAJIB)
+                        if (wajibAcc && wajibAwal > 0) {
+                            const wDiff = wajibAwal - currentWajib;
+                            if (wDiff !== 0) {
+                                await tx.savingsTransaction.create({
+                                    data: {
+                                        transactionNo: `IMP-WJB-${member.id}-${Date.now()}-${i}`,
+                                        accountId: wajibAcc.id,
+                                        memberId: member.id,
+                                        productId: wajibAcc.productId,
+                                        branchId: member.branchId,
+                                        type: 'correction',
+                                        amount: Math.abs(wDiff),
+                                        balanceBefore: currentWajib,
+                                        balanceAfter: wajibAwal,
+                                        notes: 'Import Saldo Wajib Awal (Excel TAJIB)',
+                                        transactionDate: new Date(),
+                                        createdById: 1
+                                    }
+                                });
+                                currentWajib = wajibAwal;
+                            }
                         }
-                    }
 
-                    // 3. Simpanan Wajib (Monthly Deposits)
-                    if (wajibAcc) {
-                        for (const dep of monthlyDeposits) {
-                            // Dummy date for month
-                            let mNum = monthNames.indexOf(dep.monthName.toLowerCase()) + 1;
-                            if (mNum <= 0) mNum = 1; // fallback
-                            const yr = new Date().getFullYear();
-                            const mockDate = new Date(yr, mNum - 1, 28); 
+                        // 3. Simpanan Wajib (Monthly Deposits)
+                        if (wajibAcc) {
+                            for (const dep of monthlyDeposits) {
+                                let mNum = monthNames.indexOf(dep.monthName.toLowerCase()) + 1;
+                                if (mNum <= 0) mNum = 1; 
+                                const yr = new Date().getFullYear();
+                                const mockDate = new Date(yr, mNum - 1, 28); 
 
-                            await tx.savingsTransaction.create({
-                                data: {
-                                    transactionNo: `IMP-${dep.monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
-                                    accountId: wajibAcc.id,
-                                    memberId: member.id,
-                                    productId: wajibAcc.productId,
-                                    branchId: member.branchId,
-                                    type: 'deposit',
-                                    amount: dep.amount,
-                                    balanceBefore: currentWajib,
-                                    balanceAfter: currentWajib + dep.amount,
-                                    notes: `Setoran Import TAJIB: ${dep.monthName.toUpperCase()}`,
-                                    transactionDate: mockDate,
-                                    createdById: 1
-                                }
-                            });
-                            currentWajib += dep.amount;
+                                await tx.savingsTransaction.create({
+                                    data: {
+                                        transactionNo: `IMP-${dep.monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
+                                        accountId: wajibAcc.id,
+                                        memberId: member.id,
+                                        productId: wajibAcc.productId,
+                                        branchId: member.branchId,
+                                        type: 'deposit',
+                                        amount: dep.amount,
+                                        balanceBefore: currentWajib,
+                                        balanceAfter: currentWajib + dep.amount,
+                                        notes: `Setoran Import TAJIB: ${dep.monthName.toUpperCase()}`,
+                                        transactionDate: mockDate,
+                                        createdById: 1
+                                    }
+                                });
+                                currentWajib += dep.amount;
+                            }
                         }
-                    }
 
-                    // Update balances at the end
-                    if (pokokAcc) {
-                        await tx.savingsAccount.update({ where: { id: pokokAcc.id }, data: { balance: currentPokok } });
-                    }
-                    if (wajibAcc) {
-                        await tx.savingsAccount.update({ where: { id: wajibAcc.id }, data: { balance: currentWajib } });
-                    }
-                });
+                        // Update balances at the end
+                        if (pokokAcc) await tx.savingsAccount.update({ where: { id: pokokAcc.id }, data: { balance: currentPokok } });
+                        if (wajibAcc) await tx.savingsAccount.update({ where: { id: wajibAcc.id }, data: { balance: currentWajib } });
+                    });
 
-                results.push({
-                    row: i + 2, nrp: member.nrp || nrp, nama: rawNama, 
-                    tajib: totalJmlNum, // Untuk UI Preview
-                    memberId: member.id, memberName: member.name,
-                    status: 'valid', reason: `Masuk: PKK (${pokok}), WJB_Awl (${wajibAwal}), +${monthlyDeposits.length} bln`,
-                });
-                successCount++;
-
-            } catch(e) {
-                results.push({
-                    row: i + 2, nrp, nama: rawNama, tajib: totalJmlNum,
-                    status: 'error', reason: 'Database Error: ' + e,
-                });
-                failCount++;
-            }
+                    results.push({
+                        row: i + 2, nrp: member.nrp || nrp, nama: rawNama, 
+                        tajib: totalJmlNum, 
+                        memberId: member.id, memberName: member.name,
+                        status: 'valid', reason: `Masuk: PKK (${pokok}), WJB_Awl (${wajibAwal}), +${monthlyDeposits.length} bln`,
+                        currentTajib: (wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)),
+                    });
+                    successCount++;
+                } catch(e) {
+                    results.push({
+                        row: i + 2, nrp, nama: rawNama, tajib: totalJmlNum,
+                        status: 'error', reason: 'Database Error: ' + e,
+                    });
+                    failCount++;
+                }
+            });
         } else {
             // Preview
             results.push({
                 row: i + 2, nrp: member.nrp || nrp, nama: rawNama, tajib: totalJmlNum,
+
                 memberId: member.id, memberName: member.name,
                 status: 'valid', reason: `Dideteksi: PKK (${pokok}), WJB_Awl (${wajibAwal}), +${monthlyDeposits.length} bln setoran`,
                 currentTajib: (wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)), // Math check
             });
             successCount++;
+        }
+    }
+
+    if (mode === "commit") {
+        const CHUNK_SIZE = 20; // Concurrency limit to prevent Vercel timeout / Prisma connection overflow
+        for (let i = 0; i < commitTasks.length; i += CHUNK_SIZE) {
+            const chunk = commitTasks.slice(i, i + CHUNK_SIZE);
+            await Promise.all(chunk.map(fn => fn()));
         }
     }
 

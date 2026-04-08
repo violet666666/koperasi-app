@@ -113,6 +113,31 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
+## UPDATE 08 April 2026 — Sesi 8: Manajemen Profil Lanjutan & Import Historis TAJIB
+
+### [FEATURE] Manajemen Finansial Real-Time di Form Anggota
+- **File:** `src/app/(protected)/anggota/[id]/edit/page.tsx`
+- **Tujuan:** Memberikan kendali penuh pada Operator untuk mengubah parameter finansial tanpa masuk ke database mentah.
+- **Implementasi:**
+  1. Penambahan input `Setoran Bulanan`: Gaji Bersih, Tunkin, Target Tabungan Wajib, dan Plafon Piutang (Kredit Toko).
+  2. Implementasi **Override Saldo Simpanan (Real-Time)**: Input untuk saldo Pokok, Wajib, dan Sukarela yang otomatis terkoneksi ke data `SavingsAccount`.
+  3. **Auto-Correction System:** Pengubahan saldo secara manual (Override) tidak mengubah saldo secara barbar, melainkan mencetak **Nota Koreksi (*Correction*)** di tabel `SavingsTransaction` demi menjaga integritas Ledger dan Kas Bank Koperasi.
+  4. Penambahan UI Helper text informatif untuk mengurangi kebingungan operator.
+
+### [ROLES] Manajemen Hak Akses Lintas Operator Langsung dari Profil
+- Admin kini bisa memasang peran akun (*User Role*) kepada anggota jika yang bersangkutan adalah staff Koperasi. Pemasangan akses ini disinkronisasikan menggunakan *Prisma Transaction Database*.
+
+### [FEATURE] Perekaman Historis Otomatis via Import TAJIB
+- **File:** `src/app/api/members/import/route.ts` & `src/app/(protected)/master/import-data/page.tsx`
+- **Konteks:** Mekanisme import TAJIB sebelumnya keliru: kolom *JML* tabungan dimasukkan ke kolom *Target Potongan Bulanan*, bukan ke rekening dompet saldo.
+- **Solusi:**
+  1. Skrip dirombak agar mampu memakan payload kompleks berisi: `POKOK`, `WAJIB`, serta pilar bulan: `JANUARI - DESEMBER` sekaligus dalam satu *Spreadsheet*.
+  2. Skrip otomatis menembak ke `SavingsTransaction` untuk mencetak Riwayat Setoran masing-masing bulan yang ada nominalnya.
+  3. Skrip memindahkan saldo bawaan excel ke pos Simpanan Pokok dan Simpanan Wajib dengan tipe *Correction*.
+  4. Laman *Preview Data/Pratinjau Tabel* kini mengeluarkan rangkuman cerdas berbungkus *badge emerald* ("Dideteksi: PKK (x), WJB_Awl (y), +3 bln setoran") agar meyakinkan operator sesaat sebelum klik **Import**.
+
+---
+
 ## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
 
 ### [FIX] Filter "Hari Ini" Menarik Data Kemarin (Timezone Coercion)

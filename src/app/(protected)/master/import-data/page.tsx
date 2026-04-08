@@ -679,11 +679,14 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi Total JML" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Skema Deteksi Data" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" ? "Keterangan" : "Gaji Saat Ini"}
+                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" ? "Keterangan" : "Gaji Saat Ini"}
                                                 </TableHead>
+                                                {importType === "tajib" && (
+                                                    <TableHead className="text-right">Skema Deteksi Data</TableHead>
+                                                )}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -722,10 +725,10 @@ export default function ImportDataPage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
-                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" || importType === "tajib" ? (
-                                                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{r.reason}</span>
+                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" ? (
+                                                            <span className="text-xs">{r.reason}</span>
                                                         ) : (() => {
-                                                            const val = importType === "tunkin" ? r.currentTunkin : r.currentGaji;
+                                                            const val = importType === "tunkin" ? r.currentTunkin : importType === "tajib" ? r.currentTajib : r.currentGaji;
                                                             return val != null ? (
                                                                 val < 0 ? (
                                                                     <span className="text-red-600 font-bold bg-red-50 px-1 py-0.5 rounded">{formatCurrency(val)}</span>
@@ -733,6 +736,11 @@ export default function ImportDataPage() {
                                                             ) : "-";
                                                         })()}
                                                     </TableCell>
+                                                    {importType === "tajib" && (
+                                                        <TableCell className="text-right font-mono text-muted-foreground">
+                                                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{r.reason}</span>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                         </TableBody>

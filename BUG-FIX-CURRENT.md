@@ -1,7 +1,7 @@
 # 🛠️ LAPORAN KERJA: CATATAN BUG, PERBAIKAN & FITUR BARU
 
 **Sistem:** PRIMKOPPOL RESOR LUMAJANG — Aplikasi Manajemen Koperasi
-**Terakhir Diperbarui:** 7 April 2026 (Sesi 8 — Timezone WIB, KPI Fix, Unit-Specific Columns)
+**Terakhir Diperbarui:** 8 April 2026 (Sesi 8 — Realtime Override & Import TAJIB)
 **Pemelihara Dokumen:** Engineering Team
 
 > Dokumen ini adalah satu-satunya sumber kebenaran (Source of Truth) untuk semua perubahan, perbaikan bug, dan penambahan fitur pada sistem. Gunakan sebagai referensi sebelum melakukan debugging ulang agar tidak terjadi pekerjaan redundan.
@@ -18,6 +18,7 @@
 | BUG-004 | Inbox Approval Kosong & Tab Riwayat Crash | ✅ FIXED | Apr 2026 |
 | BUG-005 | Kolom Angsuran Ke- Selalu 0 | ✅ FIXED | Apr 2026 |
 | BUG-006 | Fitur Cetak Kartu Hilang | ✅ FIXED | Apr 2026 |
+| BUG-007 | Skrip Import TAJIB Memasukkan Angka Target Potongan ke Balance Terakhir | ✅ FIXED | Apr 2026 | Mengalihkan Target ke Balance SavingsTransaction |
 | BUG-007 | Approval Kosong & Dashboard Data Acak | ✅ FIXED | Apr 2026 |
 | BUG-008 | Limit Pinjaman 20 Juta Tidak Dikunci | ✅ FIXED | Apr 2026 |
 | BUG-009 | Buku Anggota Selalu Data Hardcoded | ✅ FIXED | Apr 2026 |
@@ -1129,7 +1130,7 @@ Form tambah entri Jurnal Umum juga menggunakan `setTimeout(resolve, 1000)` sebag
 *Total bug tercatat: 85 | Total fitur baru: 18*  
 *Diperbarui: 7 April 2026 — Sesi UAT Operator Fase 1*
 
-## ?? BUG-TZ-003 � Data tanggal 6 April masuk juga pada filtering Hari Ini
+## ?? BUG-TZ-003  Data tanggal 6 April masuk juga pada filtering Hari Ini
 
 **Tanggal ditemukan:** 7 April 2026 | **Status:** ? FIXED
 
