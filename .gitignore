@@ -63,6 +63,7 @@ prisma/cleanup-uat*.ts
 
 # One-time migration & fix scripts
 fix-interest-rate.ts
+fix-receipt-text.ts
 analyze-interest.ts
 test-check-loans.ts
 test-stats-prisma.js

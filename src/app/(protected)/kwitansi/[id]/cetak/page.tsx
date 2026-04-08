@@ -183,7 +183,6 @@ export default function CetakKwitansiPage() {
                         {/* Text Header */}
                         <div className="text-center sm:text-left">
                             <h2 className="text-2xl font-bold tracking-tight uppercase print:text-xl">PRIMKOPPOL RESOR LUMAJANG</h2>
-                            <p className="text-xs text-muted-foreground">Badan Hukum No: ....../BH/M.KUKM/........</p>
                             <p className="text-xs text-muted-foreground">Alamat: Jl. Jend Panjaitan 46, Lumajang, Jawa Timur</p>
                         </div>
                     </div>
