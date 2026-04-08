@@ -201,7 +201,7 @@ export function generateReceiptPDF(data: ReceiptData) {
   .field-row { display: grid; grid-template-columns: 160px 12px 1fr; margin-bottom: 6px; }
   .amount-box { border: 2px solid #333; padding: 12px 16px; border-radius: 4px; display: flex; justify-content: space-between; margin: 16px 0 4px; }
   .amount-big { font-size: 22px; font-weight: bold; }
-  .terbilang { border: 1px dashed #999; padding: 6px 12px; border-radius: 4px; font-style: italic; margin-bottom: 16px; font-size: 11px; }
+  .terbilang { border: 1px dashed #999; padding: 6px 12px; border-radius: 4px; margin-bottom: 16px; font-size: 11px; }
   .ttd-area { display: flex; justify-content: space-between; margin-top: 32px; }
   .ttd-box { text-align: center; min-width: 140px; }
   .ttd-line { border-bottom: 1px dashed #999; height: 60px; }
@@ -227,7 +227,7 @@ export function generateReceiptPDF(data: ReceiptData) {
 <div class="field-row"><span style="color:#666;">Kategori</span><span>:</span><span>${data.category || "-"}</span></div>
 <div class="field-row"><span style="color:#666;">NRP / NIP Anggota</span><span>:</span><span>${data.nrp || data.memberNo || "-"}</span></div>
 <div class="amount-box"><span>Banyaknya Uang</span><span class="amount-big">Rp ${Number(data.amount).toLocaleString("id-ID")}</span></div>
-<div class="terbilang">Terbilang: <em style="text-transform: capitalize;">${numberToWords(data.amount)}</em></div>
+<div class="terbilang">Terbilang: <strong style="font-style: italic; text-transform: capitalize;">${numberToWords(data.amount)}</strong></div>
 <div class="field-row"><span style="color:#666;">Untuk Pembayaran</span><span>:</span><span>${typeLabels[data.type] || data.type}</span></div>
 <div class="field-row"><span style="color:#666;">Keterangan</span><span>:</span><span>${data.description}</span></div>
 <div class="field-row" style="margin-top:8px;"><span style="color:#666;">Metode Bayar</span><span>:</span><span>${data.paymentMethod}</span></div>
