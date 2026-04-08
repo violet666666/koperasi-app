@@ -4,13 +4,23 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/hooks";
 import { toast } from "sonner";
 
-export function AutoLogout({ timeoutMinutes = 5 }: { timeoutMinutes?: number }) {
+export function AutoLogout() {
     const { logout, user } = useAuth();
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         // Jika tidak ada user yang login, timer tidak perlu berjalan
         if (!user) return;
+
+        const roleName = user?.role?.name || "";
+        
+        // Aturan timeout (dalam menit):
+        // Kasir & Admin Unit = 12 jam (720 menit)
+        // Operator / Default = 1 jam (60 menit)
+        let timeoutMinutes = 60; 
+        if (roleName === "kasir" || roleName === "admin") {
+            timeoutMinutes = 12 * 60;
+        }
 
         const timeoutMs = timeoutMinutes * 60 * 1000;
 
@@ -20,7 +30,9 @@ export function AutoLogout({ timeoutMinutes = 5 }: { timeoutMinutes?: number }) 
             }
             timeoutRef.current = setTimeout(() => {
                 toast.warning("Sesi Berakhir Otomatis", {
-                    description: `Sistem mendeteksi Anda meninggalkan layar selama ${timeoutMinutes} menit. Demi keamanan, Anda telah dilogout.`,
+                    description: `Sistem mendeteksi Anda meninggalkan layar tanpa aktivitas selama ${
+                        timeoutMinutes >= 60 ? `${timeoutMinutes / 60} jam` : `${timeoutMinutes} menit`
+                    }. Demi keamanan, Anda telah dilogout.`,
                     duration: 6000,
                 });
                 logout();
