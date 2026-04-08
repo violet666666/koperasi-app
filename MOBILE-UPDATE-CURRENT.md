@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **7 April 2026**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` (103 item)
+> Update terakhir: **8 April 2026**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 8)
 
 ---
 
@@ -85,6 +85,25 @@ Sama dengan bug yang sudah di-fix di Web (BUG-076 — dashboard jam 07:00 hardco
 ---
 
 ## 🟡 FITUR BARU — Tertinggal dari Web
+
+### M-FEAT-010 — Auto-Logout / Session Expiry (Idle Screen)
+
+**Status Web:** ✅ Selesai (Update Sesi 8 — Auto Logout dalam 5 menit)
+**Status Mobile:** ❌ Belum ada
+**Deskripsi:** Web telah dilindungi sistem *idle-timeout* 5 menit. Mobile perlu implementasi serupa memanfaatkan API `AppState` dari React Native + timer untuk me-reset token di `SecureStore` (mungkin `force logout` bila dibiarkan terbuka).
+**Estimasi:** 0.5 hari
+**Dependencies:** `AppState` listener + auth context reset.
+
+---
+
+### M-FEAT-011 — Form Edit Anggota Lanjutan (Finansial & Role)
+
+**Status Web:** ✅ Selesai (Update Sesi 8 — Tunkin, Limit Piutang, Override Simpanan)
+**Status Mobile:** ❌ Admin Mobile belum dapat mengintip/mengedit parameter ini
+**Deskripsi:** Mobile butuh halaman *Detil Anggota Ekstra* bagi level Admin agar bisa mengontrol Plafon Pinjaman maupun setoran wajib tiap anggota selayaknya form Web.
+**Estimasi:** 1–2 hari
+
+---
 
 ### M-FEAT-001 — Paket Layanan Dinamis dari Database
 

@@ -43,8 +43,8 @@ export function BottomNav() {
 
     return (
         <>
-            <div className="h-16 lg:hidden print:hidden" aria-hidden="true" /> {/* Spacer for scroll safely */}
-            <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <div className="h-20 lg:hidden print:hidden" aria-hidden="true" /> {/* Spacer for scroll safely (h-16 + 16px safe calc) */}
+            <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}>
                 <div className="flex h-16 items-center justify-around px-2">
                     {bottomNavigation
                         .filter(item => {

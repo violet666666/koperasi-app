@@ -140,6 +140,10 @@ npx tsx prisma/seed-uat.ts
 - **Komponen:** `src/components/layout/auto-logout.tsx`
 - **Implementasi:** Sistem kini memantau aktivitas kursor, sentuhan layar, dan keyboard secara *real-time*. Jika mendapati Web Operator/Kasir ditelantarkan tanpa disentuh selama **5 Menit**, maka Aplikasi akan mencekik sesi aktif dengan sebuah pop-up *warning* lalu mendepak Operator tersebut (*Force Logout*) ke halaman Login.
 
+### [UI/UX] Penyesuaian Posisi Bottom Navigation (Android PWA View)
+- **Komponen:** `src/components/layout/bottom-nav.tsx`
+- **Perbaikan:** Menambahkan bantalan pengaman ruang bawah statis 16px ekstra dipadukan dengan penghitungan `safe-area-inset-bottom`. Ini akan mendongkrak bilah menu navigasi ('Beranda, Approval, Anggota, dll') sedikit ke atas ala *Instagram* sehingga tidak lagi tumpang tindih atau dimakan oleh bilah kendali gestur (Home/Back) bawaan Android.
+
 ---
 
 ## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment

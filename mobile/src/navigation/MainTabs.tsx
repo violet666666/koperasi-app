@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import C from '../lib/colors';
 
 // Screens — all roles
@@ -24,6 +25,7 @@ const Tab = createBottomTabNavigator();
 
 export default function MainTabs({ setToken }: { setToken: (t: string | null) => void }) {
   const [role, setRole] = useState<string>('member');
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -38,6 +40,8 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
   const isOperator = role === 'operator' || role === 'admin' || role === 'superadmin';
   const isKasir = role === 'kasir';
 
+  const bottomPadding = Math.max(insets.bottom, 12);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -48,9 +52,9 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
           backgroundColor: C.card,
           borderTopWidth: 1,
           borderTopColor: C.border,
-          paddingBottom: 6,
-          paddingTop: 6,
-          height: 60,
+          paddingBottom: bottomPadding,
+          paddingTop: 8,
+          height: 50 + bottomPadding,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ focused, color, size }) => {
