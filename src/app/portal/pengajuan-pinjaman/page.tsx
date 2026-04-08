@@ -28,10 +28,15 @@ interface LoanProduct {
     code: string;
     name: string;
     interestRate: number;
-    minAmount: number;
-    maxAmount: number;
+    minAmount: number | null;
+    maxAmount: number | null;
     minTenor: number;
     maxTenor: number;
+    interestMethod: string;
+    adminFeeType: string;
+    adminFeeValue: number;
+    minTenorMonths: number;
+    maxTenorMonths: number;
 }
 
 export default function PengajuanPinjamanPage() {
@@ -72,7 +77,23 @@ export default function PengajuanPinjamanPage() {
             const productsRes = await fetch("/api/master/loan-products");
             if (productsRes.ok) {
                 const productsData = await productsRes.json();
-                const products = productsData.data || [];
+                const rawProducts = productsData.data || [];
+                // Normalize field names from Prisma camelCase to expected interface
+                const products: LoanProduct[] = rawProducts.map((p: any) => ({
+                    id: p.id,
+                    code: p.code,
+                    name: p.name,
+                    interestRate: Number(p.interestRate),
+                    interestMethod: p.interestMethod || "flat",
+                    minAmount: p.minAmount ? Number(p.minAmount) : null,
+                    maxAmount: p.maxAmount ? Number(p.maxAmount) : null,
+                    minTenor: p.minTenorMonths || 1,
+                    maxTenor: p.maxTenorMonths || 36,
+                    minTenorMonths: p.minTenorMonths || 1,
+                    maxTenorMonths: p.maxTenorMonths || 36,
+                    adminFeeType: p.adminFeeType || "percent",
+                    adminFeeValue: p.adminFeeValue ? Number(p.adminFeeValue) : 2,
+                }));
                 setLoanProducts(products);
                 if (products.length > 0) {
                     setSelectedProduct(String(products[0].id));
@@ -107,14 +128,20 @@ export default function PengajuanPinjamanPage() {
         const parsedAmount = parseFloat(amount);
         const parsedTenor = parseInt(tenor);
 
-        if (parsedAmount > 20000000) {
-            toast.error("Sesuai AD-ART Pasal 26, maksimal pinjaman adalah Rp 20.000.000");
-            return;
-        }
-
-        if (parsedTenor > 36) {
-            toast.error("Sesuai AD-ART Pasal 26, maksimal tenor adalah 36 bulan");
-            return;
+        // Validate against selected product limits
+        if (selectedProductData) {
+            if (selectedProductData.minAmount && parsedAmount < selectedProductData.minAmount) {
+                toast.error(`Jumlah minimal untuk ${selectedProductData.name}: Rp ${selectedProductData.minAmount.toLocaleString('id-ID')}`);
+                return;
+            }
+            if (selectedProductData.maxAmount && parsedAmount > selectedProductData.maxAmount) {
+                toast.error(`Jumlah melebihi plafon maksimum ${selectedProductData.name}: Rp ${selectedProductData.maxAmount.toLocaleString('id-ID')}`);
+                return;
+            }
+            if (parsedTenor > (selectedProductData.maxTenor || 36)) {
+                toast.error(`Tenor melebihi maksimum ${selectedProductData.name}: ${selectedProductData.maxTenor} bulan`);
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -293,12 +320,59 @@ export default function PengajuanPinjamanPage() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Loan Product - Hidden as requested */}
-                        <input
-                            type="hidden"
-                            name="product"
-                            value={selectedProduct}
-                        />
+                        {/* Pilihan Produk Pinjaman */}
+                        <div className="space-y-3 mb-4">
+                            <Label>Pilih Produk Pinjaman *</Label>
+                            <div className="grid gap-3">
+                                {loanProducts.map((product) => {
+                                    const isSelected = selectedProduct === String(product.id);
+                                    const maxLabel = product.maxAmount
+                                        ? formatCurrency(product.maxAmount)
+                                        : "Tidak Terbatas";
+                                    return (
+                                        <div
+                                            key={product.id}
+                                            className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                                                isSelected
+                                                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                                                    : "border-border hover:border-primary/40 hover:bg-muted/30"
+                                            }`}
+                                            onClick={() => {
+                                                setSelectedProduct(String(product.id));
+                                                setAmount("");
+                                                setTenor("");
+                                            }}
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold">{product.name}</span>
+                                                        <Badge variant={isSelected ? "default" : "outline"} className="text-[10px]">
+                                                            {product.code}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        Limit: {product.minAmount ? formatCurrency(product.minAmount) : "–"} s/d {maxLabel}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Tenor: {product.minTenor || 1}–{product.maxTenor} bulan &nbsp;·&nbsp;
+                                                        Bunga: {product.interestRate}% flat/bln &nbsp;·&nbsp;
+                                                        Resiko: {product.adminFeeValue}% (dipotong di muka)
+                                                    </p>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                                                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
 
                         {/* Amount */}
                         <div className="space-y-2">
@@ -306,20 +380,30 @@ export default function PengajuanPinjamanPage() {
                             <Input
                                 id="amount"
                                 type="number"
-                                placeholder="Maks: Rp 20.000.000"
+                                placeholder={selectedProductData?.maxAmount
+                                    ? `Maks: ${formatCurrency(selectedProductData.maxAmount)}`
+                                    : "Tidak ada batas maksimal"
+                                }
                                 value={amount}
                                 onChange={(e) => {
                                     const val = Number(e.target.value);
-                                    if (val <= 20000000) {
-                                        setAmount(e.target.value);
+                                    const maxVal = selectedProductData?.maxAmount || null;
+                                    if (maxVal && val > maxVal) {
+                                        setAmount(String(maxVal));
                                     } else {
-                                        setAmount("20000000"); // Auto cap to 20M
+                                        setAmount(e.target.value);
                                     }
                                 }}
-                                min={0}
-                                max={20000000}
+                                min={selectedProductData?.minAmount || 0}
+                                max={selectedProductData?.maxAmount || undefined}
                                 required
                             />
+                            {selectedProductData && (
+                                <p className="text-xs text-muted-foreground">
+                                    {selectedProductData.minAmount ? `Min: ${formatCurrency(selectedProductData.minAmount)}` : ""}
+                                    {selectedProductData.maxAmount ? ` · Maks: ${formatCurrency(selectedProductData.maxAmount)}` : " · Tidak ada batas maksimal"}
+                                </p>
+                            )}
                         </div>
 
                         {/* Tenor */}
@@ -328,20 +412,26 @@ export default function PengajuanPinjamanPage() {
                             <Input
                                 id="tenor"
                                 type="number"
-                                placeholder="Maks: 36 Bulan"
+                                placeholder={`Maks: ${selectedProductData?.maxTenor || 36} Bulan`}
                                 value={tenor}
                                 onChange={(e) => {
                                     const val = Number(e.target.value);
-                                    if (val <= 36) {
+                                    const maxTenor = selectedProductData?.maxTenor || 36;
+                                    if (val <= maxTenor) {
                                         setTenor(e.target.value);
                                     } else {
-                                        setTenor("36"); // Auto cap to 36
+                                        setTenor(String(maxTenor));
                                     }
                                 }}
                                 min={1}
-                                max={36}
+                                max={selectedProductData?.maxTenor || 36}
                                 required
                             />
+                            {selectedProductData && (
+                                <p className="text-xs text-muted-foreground">
+                                    Maks tenor: {selectedProductData.maxTenor} bulan
+                                </p>
+                            )}
                         </div>
 
                         {/* Purpose */}
@@ -423,36 +513,43 @@ export default function PengajuanPinjamanPage() {
                         </div>
 
                         {/* Estimated Monthly Installment */}
-                        {amount && tenor && (
+                        {amount && tenor && selectedProductData && (
                             <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
                                 <p className="text-sm font-semibold text-emerald-800">Estimasi Angsuran Per Bulan</p>
                                 <div className="grid grid-cols-2 gap-2 text-sm text-emerald-700">
                                     <div>Angsuran Pokok:</div>
                                     <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) / parseInt(tenor)))}</div>
-                                    <div>Angsuran Bunga (0.3%):</div>
-                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * 0.003))}</div>
+                                    <div>Angsuran Bunga ({selectedProductData.interestRate}%):</div>
+                                    <div className="text-right font-medium">{formatCurrency(Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 100)))}</div>
                                     <div className="col-span-2 border-t border-emerald-200 my-1"></div>
-                                    <div className="font-semibold text-emerald-900">Total Potongan Gaji/Bulan:</div>
+                                    <div className="font-semibold text-emerald-900">Total Potongan /Bulan:</div>
                                     <div className="text-right font-bold text-lg text-emerald-900 tabular-nums">
                                         {formatCurrency(
                                             Math.ceil(parseFloat(amount) / parseInt(tenor)) + 
-                                            Math.ceil(parseFloat(amount) * 0.003)
+                                            Math.ceil(parseFloat(amount) * (selectedProductData.interestRate / 100))
                                         )}
                                     </div>
                                 </div>
                                 <div className="border-t border-emerald-200 my-2"></div>
                                 <div className="grid grid-cols-2 gap-2 text-sm text-violet-800">
-                                    <div className="font-semibold">Biaya Jasa Primkoppol (1%):</div>
+                                    <div className="font-semibold">Biaya Resiko ({selectedProductData.adminFeeValue}%):</div>
                                     <div className="text-right font-bold tabular-nums">
-                                        {formatCurrency(Math.ceil(parseFloat(amount) * 0.01))}
+                                        {formatCurrency(Math.ceil(parseFloat(amount) * (selectedProductData.adminFeeValue / 100)))}
                                     </div>
                                     <div className="col-span-2 text-xs opacity-80">
-                                        *Biaya jasa/admin 1% ini cukup dibayarkan 1x dan akan dipotong langsung di awal saat pencairan pinjaman.
+                                        *Biaya resiko {selectedProductData.adminFeeValue}% dipotong langsung di awal saat pencairan pinjaman.
+                                    </div>
+                                </div>
+                                <div className="border-t border-emerald-200 my-2"></div>
+                                <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
+                                    <div className="font-semibold">Dana Cair (Bersih):</div>
+                                    <div className="text-right font-bold text-lg tabular-nums text-blue-900">
+                                        {formatCurrency(Math.ceil(parseFloat(amount) - (parseFloat(amount) * (selectedProductData.adminFeeValue / 100))))}
                                     </div>
                                 </div>
                                 <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
                                     <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                                    <p>Sistem ini menggunakan metode <strong>kredit otomatis</strong>. Total angsuran per bulan di atas akan langsung <strong>memotong Gaji Netto Anda</strong> setiap bulannya (Sesuai AD-ART). Pemotongan izin potong gaji ini akan diotorisasi saat pencairan.</p>
+                                    <p>Sistem ini menggunakan metode <strong>kredit otomatis</strong>. Total angsuran per bulan di atas akan langsung <strong>memotong {deductionSource === "tunkin" ? "Tunjangan Kinerja" : "Gaji Netto"} Anda</strong> setiap bulannya.</p>
                                 </div>
                             </div>
                         )}
