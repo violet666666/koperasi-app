@@ -65,7 +65,7 @@ export function AutoLogout() {
                 window.removeEventListener(event, handleActivity);
             });
         };
-    }, [user, logout, timeoutMinutes]);
+    }, [user, logout]);
 
     return null; // Komponen background (tanpa UI)
 }

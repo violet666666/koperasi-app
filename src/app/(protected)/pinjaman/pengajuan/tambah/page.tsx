@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,8 @@ function getTenorOptions(minTenor: number, maxTenor: number): number[] {
 }
 
 export default function TambahPengajuanPage() {
+    const { user } = useAuth();
+    const isOperator = user?.permissions?.includes("manage_all");
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = React.useState(false);
@@ -77,6 +80,7 @@ export default function TambahPengajuanPage() {
         tenor_months: "",
         purpose: "",
         deductionSource: "gaji",
+        backdatedDate: "",
     });
 
     // Calculation state — extended with per-day and per-year
@@ -294,6 +298,7 @@ export default function TambahPengajuanPage() {
                     tenorMonths: tnr,
                     purpose: formData.purpose || "Keperluan pribadi",
                     deductionSource: formData.deductionSource,
+                    ...(isOperator && formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
                 }),
             });
 
@@ -519,6 +524,26 @@ export default function TambahPengajuanPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+
+                                {isOperator && (
+                                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-3 border border-amber-200 dark:border-amber-900">
+                                        <Label htmlFor="backdatedDate" className="text-amber-800 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                            <AlertCircle className="h-3 w-3" />
+                                            Tanggal Pelaksanaan Pinjaman (Mundur)
+                                        </Label>
+                                        <Input
+                                            id="backdatedDate"
+                                            name="backdatedDate"
+                                            type="date"
+                                            value={formData.backdatedDate}
+                                            onChange={handleChange}
+                                            className="mt-1.5 border-amber-300 dark:border-amber-800 focus-visible:ring-amber-500"
+                                        />
+                                        <p className="text-xs text-amber-700/80 dark:text-amber-500/80 mt-1">
+                                            Biarkan KOSONG untuk pinjaman hari ini. Isi HANYA JIKA Anda mendata pinjaman yang telah berjalan di masa lalu. (Fitur Khusus Operator)
+                                        </p>
+                                    </div>
+                                )}
 
                                 <div>
                                     <Label htmlFor="purpose">Tujuan Pinjaman</Label>

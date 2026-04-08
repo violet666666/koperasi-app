@@ -189,6 +189,16 @@ export async function POST(request: Request) {
             }
         }
 
+        // Format Notes & CreatedAt conditionally for backdating
+        let finalNotes = data.notes;
+        let forcedCreatedAt: Date | undefined = undefined;
+
+        if (data.backdatedDate && session.user.permissions?.includes("manage_all")) {
+            forcedCreatedAt = new Date(data.backdatedDate);
+            const backdateTag = `[BACKDATED_TO:${data.backdatedDate}]`;
+            finalNotes = finalNotes ? `${finalNotes}\n${backdateTag}` : backdateTag;
+        }
+
         const application = await prisma.loanApplication.create({
             data: {
                 applicationNo: generateApplicationNo(),
@@ -200,9 +210,11 @@ export async function POST(request: Request) {
                 purpose: data.purpose,
                 collateralDescription: data.collateralDescription,
                 deductionSource: data.deductionSource,
-                notes: data.notes,
+                notes: finalNotes,
                 status: "draft",
                 createdById: currentUserId,
+                createdAt: forcedCreatedAt,
+                submittedAt: forcedCreatedAt,
             },
             include: {
                 member: { select: { id: true, memberNo: true, name: true } },

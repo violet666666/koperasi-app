@@ -56,8 +56,20 @@ export async function POST(request: Request, { params }: Params) {
                 data: { status: "disbursed" }
             });
 
+            // Parse Base Date for Backdating
+            let baseDate = new Date();
+            if (application.notes) {
+                const backdateMatch = application.notes.match(/\[BACKDATED_TO:(.*?)\]/);
+                if (backdateMatch && backdateMatch[1]) {
+                    const parsedDate = new Date(backdateMatch[1]);
+                    if (!isNaN(parsedDate.getTime())) {
+                        baseDate = parsedDate;
+                    }
+                }
+            }
+
             // 2. Generate new Loan
-            const dateStr = new Date().getFullYear().toString();
+            const dateStr = baseDate.getFullYear().toString();
             const randomId = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
             const newLoan = await tx.loan.create({
                 data: {
@@ -77,9 +89,9 @@ export async function POST(request: Request, { params }: Params) {
                     monthlyInstallment,
                     principalOutstanding: principalAmount,
                     interestOutstanding: totalInterest,
-                    disbursementDate: new Date(),
-                    firstDueDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-                    lastDueDate: new Date(new Date().setMonth(new Date().getMonth() + tenorMonths)),
+                    disbursementDate: baseDate,
+                    firstDueDate: new Date(new Date(baseDate).setMonth(baseDate.getMonth() + 1)),
+                    lastDueDate: new Date(new Date(baseDate).setMonth(baseDate.getMonth() + tenorMonths)),
                     disbursedById: currentUserId,
                     status: "active",
                 }
@@ -90,7 +102,7 @@ export async function POST(request: Request, { params }: Params) {
             let currentPrincipal = principalAmount;
             
             for (let i = 1; i <= tenorMonths; i++) {
-                const dueDate = new Date();
+                const dueDate = new Date(baseDate);
                 dueDate.setMonth(dueDate.getMonth() + i);
                 
                 schedules.push({
@@ -116,8 +128,8 @@ export async function POST(request: Request, { params }: Params) {
             // 4. Create Kvintasi (Receipt) for Disbursement
             const receiptRandom = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
             const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-            const monthRomawi = romawi[new Date().getMonth() + 1];
-            const currentYear = new Date().getFullYear();
+            const monthRomawi = romawi[baseDate.getMonth() + 1] || monthRomawi; // fallback
+            const currentYear = baseDate.getFullYear();
             
             const receipt = await tx.receipt.create({
                 data: {
@@ -128,7 +140,7 @@ export async function POST(request: Request, { params }: Params) {
                     receivedFrom: application.member.name,
                     description: `Pencairan Pinjaman Bersih (Setelah Dipotong Biaya Resiko) untuk ${application.member.name} sejumlah ${disbursedAmount}`,
                     paymentMethod: "cash",
-                    receiptDate: new Date(),
+                    receiptDate: baseDate,
                     createdById: currentUserId,
                 }
             });
