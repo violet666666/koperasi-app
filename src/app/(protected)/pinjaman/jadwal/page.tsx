@@ -171,25 +171,13 @@ export default function JadwalAngsuranPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Fetch up to 5000 to cover all pending schedules
-                let url = "/api/loans/schedules?limit=5000";
+                // Fetch schedules using server-side filtering
+                let url = `/api/loans/schedules?period=${periodFilter}&limit=1000`;
                 
                 const response = await fetch(url);
                 if (response.ok) {
                     const json = await response.json();
                     let fetchedData = json.data || [];
-                    
-                    // Client-side filtering based on periodFilter
-                    if (periodFilter === "today") {
-                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue === 0 || d.status === "due_today");
-                    } else if (periodFilter === "week") {
-                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue <= 7);
-                    } else if (periodFilter === "month") {
-                        fetchedData = fetchedData.filter((d: any) => d.daysUntilDue <= 30);
-                    } else if (periodFilter === "overdue") {
-                        fetchedData = fetchedData.filter((d: any) => d.status === "overdue");
-                    }
-                    // Else if we ever add an "all" option, do not filter.
                     
                     setData(fetchedData);
                 } else {

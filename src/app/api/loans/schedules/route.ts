@@ -9,34 +9,39 @@ export async function GET(request: Request) {
 
         const statusArray = status.split(",");
 
-        // Get schedules
-        const schedules = await prisma.loanSchedule.findMany({
+        const period = searchParams.get("period") || "all";
+
+        // Ambil semua pinjaman aktif beserta jadwal angsuran pertama/terdekat yang belum dibayar
+        const activeLoans = await prisma.loan.findMany({
             where: {
-                status: { in: statusArray },
-                loan: {
-                    status: "active"
-                }
+                status: "active"
             },
             include: {
-                loan: {
-                    include: {
-                        member: {
-                            select: { name: true, memberNo: true }
-                        }
-                    }
+                member: {
+                    select: { name: true, memberNo: true }
+                },
+                schedules: {
+                    where: {
+                        status: { in: statusArray }
+                    },
+                    orderBy: {
+                        installmentNo: "asc" // Angsuran yang tagihannya paling awal
+                    },
+                    take: 1
                 }
-            },
-            orderBy: {
-                dueDate: "asc",
-            },
-            take: limit
+            }
         });
 
-        // Format for frontend
+        // Format for frontend and filtering
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const data = schedules.map(schedule => {
+        let data = [];
+
+        for (const loan of activeLoans) {
+            if (loan.schedules.length === 0) continue; // Tidak ada jadwal pending untuk pinjaman ini
+
+            const schedule = loan.schedules[0];
             const dueDate = new Date(schedule.dueDate);
             dueDate.setHours(0, 0, 0, 0);
             const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -48,21 +53,42 @@ export async function GET(request: Request) {
                 currentStatus = "due_today";
             }
 
-            return {
-                id: schedule.id,
-                loanId: schedule.loan.id,
-                loanNo: schedule.loan.loanNo,
-                memberName: schedule.loan.member.name,
-                memberNo: schedule.loan.member.memberNo,
-                installmentNo: schedule.installmentNo,
-                dueDate: schedule.dueDate,
-                principalAmount: Number(schedule.principalAmount),
-                interestAmount: Number(schedule.interestAmount),
-                totalAmount: Number(schedule.totalAmount),
-                status: currentStatus,
-                daysUntilDue
-            };
-        });
+            // Server-side filtering
+            let matchFilter = true;
+            if (period === "today") {
+                matchFilter = (daysUntilDue === 0 || currentStatus === "due_today");
+            } else if (period === "week") {
+                matchFilter = (daysUntilDue <= 7);
+            } else if (period === "month") {
+                matchFilter = (daysUntilDue <= 30);
+            } else if (period === "overdue") {
+                matchFilter = (currentStatus === "overdue");
+            }
+
+            if (matchFilter) {
+                data.push({
+                    id: schedule.id,
+                    loanId: loan.id,
+                    loanNo: loan.loanNo,
+                    memberName: loan.member.name,
+                    memberNo: loan.member.memberNo,
+                    installmentNo: schedule.installmentNo,
+                    dueDate: schedule.dueDate,
+                    principalAmount: Number(schedule.principalAmount),
+                    interestAmount: Number(schedule.interestAmount),
+                    totalAmount: Number(schedule.totalAmount),
+                    status: currentStatus,
+                    daysUntilDue
+                });
+            }
+        }
+
+        // Urutkan berdasarkan dueDate terdekat
+        data.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+        if (limit && data.length > limit) {
+            data = data.slice(0, limit);
+        }
 
         return NextResponse.json({ data });
     } catch (error: any) {
