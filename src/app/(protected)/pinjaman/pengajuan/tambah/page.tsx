@@ -43,23 +43,6 @@ interface MemberResult {
     savings_balance: number;
 }
 
-// Generate tenor options with labels
-function getTenorOptions(minTenor: number, maxTenor: number): number[] {
-    // For ranges > 24, show common milestones instead of every month
-    if (maxTenor > 24) {
-        const options: number[] = [];
-        for (let i = minTenor; i <= Math.min(12, maxTenor); i++) {
-            options.push(i);
-        }
-        for (let i = 18; i <= maxTenor; i += 6) {
-            if (i > 12 && !options.includes(i)) options.push(i);
-        }
-        if (!options.includes(maxTenor)) options.push(maxTenor);
-        return options.sort((a, b) => a - b);
-    }
-    return Array.from({ length: maxTenor - minTenor + 1 }, (_, i) => minTenor + i);
-}
-
 export default function TambahPengajuanPage() {
     const { user } = useAuth();
     const isOperator = user?.permissions?.includes("manage_all");
@@ -528,24 +511,38 @@ export default function TambahPengajuanPage() {
 
                                 <div>
                                     <Label htmlFor="tenor_months">Tenor (Bulan) *</Label>
-                                    <Select
-                                        value={formData.tenor_months}
-                                        onValueChange={(value) => handleSelectChange("tenor_months", value)}
-                                    >
-                                        <SelectTrigger className="mt-1.5">
-                                            <SelectValue placeholder="Pilih tenor" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {tenorOptions.map((tenor) => (
-                                                <SelectItem key={tenor} value={tenor.toString()}>
-                                                    {tenor} bulan {tenor >= 12 ? `(${Math.floor(tenor / 12)} thn ${tenor % 12 > 0 ? `${tenor % 12} bln` : ""})` : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="relative mt-1.5">
+                                        <Input
+                                            id="tenor_months"
+                                            name="tenor_months"
+                                            type="number"
+                                            value={formData.tenor_months}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                const maxT = selectedProduct?.max_tenor || 360;
+                                                const minT = selectedProduct?.min_tenor || 1;
+                                                if (val > maxT) {
+                                                    handleSelectChange("tenor_months", String(maxT));
+                                                } else {
+                                                    handleSelectChange("tenor_months", e.target.value);
+                                                }
+                                            }}
+                                            placeholder={selectedProduct ? `${selectedProduct.min_tenor || 1} – ${selectedProduct.max_tenor} bulan` : "Contoh: 12"}
+                                            min={selectedProduct?.min_tenor || 1}
+                                            max={selectedProduct?.max_tenor || 360}
+                                            className="pr-16"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">bulan</span>
+                                    </div>
                                     {selectedProduct && (
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            Maks tenor: {selectedProduct.max_tenor} bulan
+                                            Min: {selectedProduct.min_tenor || 1} bulan · Maks: {selectedProduct.max_tenor} bulan
+                                            {formData.tenor_months && parseInt(formData.tenor_months) >= 12 && (
+                                                <span className="ml-1 text-primary font-medium">
+                                                    ({Math.floor(parseInt(formData.tenor_months) / 12)} thn
+                                                    {parseInt(formData.tenor_months) % 12 > 0 ? ` ${parseInt(formData.tenor_months) % 12} bln` : ""})
+                                                </span>
+                                            )}
                                         </p>
                                     )}
                                 </div>
