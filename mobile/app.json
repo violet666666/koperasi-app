@@ -27,7 +27,16 @@
       "expo-sharing",
       "expo-font",
       "expo-secure-store",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/LogoPrimkoppol.png",
+          "color": "#1A2A44",
+          "sounds": [],
+          "mode": "production"
+        }
+      ]
     ],
     "extra": {
       "eas": {

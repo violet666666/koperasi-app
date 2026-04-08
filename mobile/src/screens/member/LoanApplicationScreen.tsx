@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, StatusBar,
-  ScrollView, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar,
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { TextInput } from 'react-native';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -13,7 +19,7 @@ interface Product {
   code: string;
   name: string;
   interestRate: number;
-  adminFeeValue: number;   // S2-01: dari DB, bukan hardcode 2%
+  adminFeeValue: number;
   adminFeeType: string;
   maxAmount: number;
   maxTenor: number;
@@ -23,15 +29,59 @@ interface Product {
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
+// ── Zod Schema (dibuat dinamis berdasarkan produk yang dipilih) ────────────
+const buildSchema = (product: Product | null) =>
+  z.object({
+    amount: z
+      .string()
+      .min(1, 'Jumlah pinjaman wajib diisi')
+      .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Masukkan angka yang valid')
+      .refine(
+        (v) => !product || Number(v) >= (product.minAmount ?? 0),
+        { message: product ? `Minimum pinjaman ${formatRp(product.minAmount ?? 0)}` : 'Pilih produk terlebih dahulu' }
+      )
+      .refine(
+        (v) => !product || Number(v) <= product.maxAmount,
+        { message: product ? `Maksimum pinjaman ${formatRp(product.maxAmount)}` : '' }
+      ),
+    tenor: z
+      .string()
+      .min(1, 'Tenor wajib diisi')
+      .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Masukkan angka yang valid')
+      .refine(
+        (v) => !product || Number(v) >= (product.minTenor ?? 1),
+        { message: product ? `Minimum tenor ${product.minTenor ?? 1} bulan` : '' }
+      )
+      .refine(
+        (v) => !product || Number(v) <= product.maxTenor,
+        { message: product ? `Maksimum tenor ${product.maxTenor} bulan` : '' }
+      ),
+    purpose: z.string().min(5, 'Tujuan pinjaman minimal 5 karakter'),
+  });
+
+type LoanFormData = { amount: string; tenor: string; purpose: string };
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function LoanApplicationScreen({ navigation }: any) {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [amount, setAmount] = useState('');
-  const [tenor, setTenor] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [loading, setLoading] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<LoanFormData>({
+    resolver: zodResolver(buildSchema(selectedProduct)),
+    defaultValues: { amount: '', tenor: '', purpose: '' },
+    mode: 'onChange',
+  });
+
+  const amountVal = watch('amount');
+  const tenorVal = watch('tenor');
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -40,12 +90,9 @@ export default function LoanApplicationScreen({ navigation }: any) {
         const res = await api.get('/api/mobile/loan-apply');
         const prods = res.data.data || [];
         setProducts(prods);
-        if (prods.length > 0 && !selectedProduct) {
-          setSelectedProduct(prods[0]);
-        }
+        if (prods.length > 0) setSelectedProduct(prods[0]);
       } catch (err: any) {
-        console.log('Load products error:', err);
-        Alert.alert('Error', err.message || 'Gagal memuat produk pinjaman');
+        Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || 'Gagal memuat produk pinjaman' });
       } finally {
         setLoadingProducts(false);
       }
@@ -53,97 +100,58 @@ export default function LoanApplicationScreen({ navigation }: any) {
     loadProducts();
   }, []);
 
-  // S2-01: Kalkulasi dinamis dari data produk — TIDAK hardcode
+  // ── Kalkulasi Simulasi ──────────────────────────────────────────────────
   const getInterestRate = () => selectedProduct ? Number(selectedProduct.interestRate) / 100 : 0;
   const getAdminFeeRate = () => selectedProduct ? Number(selectedProduct.adminFeeValue) / 100 : 0;
 
   const monthlyInstallment = () => {
-    if (!selectedProduct || !amount || !tenor) return 0;
-    const amt = parseFloat(amount);
-    const tnr = parseInt(tenor);
+    const amt = parseFloat(amountVal);
+    const tnr = parseInt(tenorVal);
     if (!amt || !tnr) return 0;
-    const interestPerMonth = Math.round(amt * getInterestRate());
-    const principalPerMonth = Math.round(amt / tnr);
-    return principalPerMonth + interestPerMonth;
+    return Math.round(amt * getInterestRate()) + Math.round(amt / tnr);
   };
 
   const adminFeeAmount = () => {
-    if (!amount) return 0;
-    const amt = parseFloat(amount);
+    const amt = parseFloat(amountVal);
     if (!amt) return 0;
     return Math.round(amt * getAdminFeeRate());
   };
 
   const disbursedAmount = () => {
-    const amt = parseFloat(amount);
+    const amt = parseFloat(amountVal);
     if (!amt) return 0;
     return amt - adminFeeAmount();
   };
 
-  // S2-01: Validasi berdasarkan produk yang dipilih
-  const handleAmountChange = (val: string) => {
-    if (!selectedProduct) { setAmount(val); return; }
-    const num = Number(val);
-    if (num > selectedProduct.maxAmount) setAmount(String(selectedProduct.maxAmount));
-    else setAmount(val);
+  // ── Submit ──────────────────────────────────────────────────────────────
+  const onSubmit = async (data: LoanFormData) => {
+    if (!selectedProduct) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const amt = parseFloat(data.amount);
+    const tnr = parseInt(data.tenor);
+
+    setSubmitting(true);
+    try {
+      await api.post('/api/mobile/loan-apply', {
+        productId: selectedProduct.id,
+        amount: amt,
+        tenorMonths: tnr,
+        purpose: data.purpose,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({ type: 'success', text1: 'Pengajuan Terkirim!', text2: 'Menunggu persetujuan dari admin.' });
+      setTimeout(() => navigation.goBack(), 1500);
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Gagal mengajukan pinjaman' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleTenorChange = (val: string) => {
-    if (!selectedProduct) { setTenor(val); return; }
-    const num = Number(val);
-    if (num > selectedProduct.maxTenor) setTenor(String(selectedProduct.maxTenor));
-    else setTenor(val);
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedProduct) {
-      Alert.alert('Peringatan', 'Sistem sedang memuat konfigurasi pinjaman. Cobalah beberapa saat lagi.');
-      return;
-    }
-    if (!amount || !tenor || !purpose) {
-      Alert.alert('Peringatan', 'Lengkapi semua data');
-      return;
-    }
-
-    const amt = parseFloat(amount);
-    const tnr = parseInt(tenor);
-
-    if (amt > selectedProduct.maxAmount) {
-      Alert.alert('Limit', `Jumlah melebihi plafon maksimal ${formatRp(selectedProduct.maxAmount)}`);
-      return;
-    }
-    if (tnr > selectedProduct.maxTenor) {
-      Alert.alert('Limit', `Tenor maksimal ${selectedProduct.maxTenor} bulan`);
-      return;
-    }
-
-    Alert.alert(
-      'Konfirmasi Pengajuan',
-      `Produk: ${selectedProduct.name}\nJumlah: ${formatRp(amt)}\nTenor: ${tnr} bulan\nAngsuran ~${formatRp(monthlyInstallment())}/bulan\n\nDana Cair: ${formatRp(disbursedAmount())}\n(setelah potongan resiko ${selectedProduct.adminFeeValue}%)`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Ajukan Sekarang',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await api.post('/api/mobile/loan-apply', {
-                productId: selectedProduct.id,
-                amount: amt,
-                tenorMonths: tnr,
-                purpose,
-              });
-              Alert.alert('Berhasil', 'Pengajuan pinjaman berhasil dibuat dan menunggu persetujuan.');
-              navigation.goBack();
-            } catch (err: any) {
-              Alert.alert('Gagal', err.message || err.response?.data?.message || 'Gagal mengajukan pinjaman');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const onError = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   };
 
   return (
@@ -159,11 +167,12 @@ export default function LoanApplicationScreen({ navigation }: any) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
 
-          {/* S2-01: Kartu pilih produk dinamis */}
+          {/* Pilih Produk */}
           <Text style={styles.sectionLabel}>Pilih Produk Pinjaman</Text>
           {loadingProducts ? (
             <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={{ color: C.mutedForeground }}>Memuat produk...</Text>
+              <ActivityIndicator color={C.primary} />
+              <Text style={{ color: C.mutedForeground, marginTop: 8 }}>Memuat produk...</Text>
             </View>
           ) : (
             <View style={{ gap: 10, marginBottom: 16 }}>
@@ -174,9 +183,9 @@ export default function LoanApplicationScreen({ navigation }: any) {
                     key={prod.id}
                     style={[styles.productCard, isSelected && styles.productSelected]}
                     onPress={() => {
+                      Haptics.selectionAsync();
                       setSelectedProduct(prod);
-                      setAmount('');
-                      setTenor('');
+                      reset({ amount: '', tenor: '', purpose: '' });
                     }}
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -205,56 +214,89 @@ export default function LoanApplicationScreen({ navigation }: any) {
 
           {selectedProduct && (
             <>
-              {/* Jumlah */}
+              {/* ── Jumlah Pinjaman ── */}
               <Text style={styles.label}>Jumlah Pinjaman (Rp)</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={handleAmountChange}
-                placeholder={`Maks: ${formatRp(selectedProduct.maxAmount)}`}
-                placeholderTextColor="#94A3B8"
+              <Controller
+                control={control}
+                name="amount"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.amount && styles.inputError]}
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder={`Maks: ${formatRp(selectedProduct.maxAmount)}`}
+                    placeholderTextColor="#94A3B8"
+                  />
+                )}
               />
+              {errors.amount && (
+                <Text style={styles.errorText}>
+                  <Ionicons name="alert-circle-outline" size={12} /> {errors.amount.message}
+                </Text>
+              )}
 
-              {/* Tenor */}
+              {/* ── Tenor ── */}
               <Text style={styles.label}>Tenor (Bulan)</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={tenor}
-                onChangeText={handleTenorChange}
-                placeholder={`Maks: ${selectedProduct.maxTenor} Bulan`}
-                placeholderTextColor="#94A3B8"
+              <Controller
+                control={control}
+                name="tenor"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.tenor && styles.inputError]}
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder={`Maks: ${selectedProduct.maxTenor} Bulan`}
+                    placeholderTextColor="#94A3B8"
+                  />
+                )}
               />
+              {errors.tenor && (
+                <Text style={styles.errorText}>
+                  <Ionicons name="alert-circle-outline" size={12} /> {errors.tenor.message}
+                </Text>
+              )}
 
-              {/* Tujuan */}
+              {/* ── Tujuan ── */}
               <Text style={styles.label}>Tujuan Pinjaman</Text>
-              <TextInput
-                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                multiline
-                value={purpose}
-                onChangeText={setPurpose}
-                placeholder="Opsional: keperluan apa?"
-                placeholderTextColor="#94A3B8"
+              <Controller
+                control={control}
+                name="purpose"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    style={[styles.input, { height: 80, textAlignVertical: 'top' }, errors.purpose && styles.inputError]}
+                    multiline
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="Minimal 5 karakter, contoh: renovasi rumah"
+                    placeholderTextColor="#94A3B8"
+                  />
+                )}
               />
+              {errors.purpose && (
+                <Text style={styles.errorText}>
+                  <Ionicons name="alert-circle-outline" size={12} /> {errors.purpose.message}
+                </Text>
+              )}
 
-              {/* S2-01: Preview simulasi dinamis */}
-              {amount && tenor && (
+              {/* ── Preview Simulasi Dinamis ── */}
+              {amountVal && tenorVal && !errors.amount && !errors.tenor && (
                 <View style={styles.previewCard}>
                   <View style={styles.previewRow}>
                     <Text style={styles.previewLabel}>Jumlah Pinjaman</Text>
-                    <Text style={styles.previewValue}>{formatRp(Number(amount))}</Text>
+                    <Text style={styles.previewValue}>{formatRp(Number(amountVal))}</Text>
                   </View>
                   <View style={styles.previewRow}>
                     <Text style={styles.previewLabel}>Potongan Resiko ({selectedProduct.adminFeeValue}%)</Text>
-                    <Text style={[styles.previewValue, { color: '#EF4444' }]}>- {formatRp(adminFeeAmount())}</Text>
+                    <Text style={[styles.previewValue, { color: '#F87171' }]}>- {formatRp(adminFeeAmount())}</Text>
                   </View>
-                  <View style={[styles.previewRow, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 12, marginTop: 4 }]}>
+                  <View style={[styles.previewRow, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 12, marginTop: 4 }]}>
                     <Text style={[styles.previewLabel, { fontWeight: 'bold', color: '#FFF' }]}>Dana Cair (Bersih)</Text>
                     <Text style={[styles.previewValue, { color: '#4ADE80', fontSize: 18 }]}>{formatRp(disbursedAmount())}</Text>
                   </View>
                   <View style={[styles.previewRow, { marginTop: 12 }]}>
-                    <Text style={styles.previewLabel}>Angsuran / Bulan ({tenor} bln)</Text>
+                    <Text style={styles.previewLabel}>Angsuran / Bulan ({tenorVal} bln)</Text>
                     <Text style={styles.previewValue}>{formatRp(monthlyInstallment())}</Text>
                   </View>
                   <Text style={styles.previewNote}>
@@ -263,13 +305,16 @@ export default function LoanApplicationScreen({ navigation }: any) {
                 </View>
               )}
 
+              {/* ── Tombol Submit ── */}
               <TouchableOpacity
-                style={[styles.submitBtn, loading && { opacity: 0.7 }]}
-                onPress={handleSubmit}
-                disabled={loading}
+                style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+                onPress={handleSubmit(onSubmit, onError)}
+                disabled={submitting}
               >
-                <Ionicons name="send" size={18} color="#FFF" />
-                <Text style={styles.submitText}>{loading ? 'Mengirim...' : 'Ajukan Pinjaman'}</Text>
+                {submitting
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Ionicons name="send" size={18} color="#FFF" />}
+                <Text style={styles.submitText}>{submitting ? 'Mengirim...' : 'Ajukan Pinjaman'}</Text>
               </TouchableOpacity>
 
               <View style={{ height: 40 }} />
@@ -295,6 +340,12 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 15, color: C.foreground, borderWidth: 1, borderColor: C.border,
+  },
+  inputError: {
+    borderColor: '#EF4444', borderWidth: 1.5,
+  },
+  errorText: {
+    color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4,
   },
   productCard: {
     backgroundColor: C.card, borderRadius: 14, padding: 16,

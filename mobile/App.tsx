@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { setNavigateToLogin } from "./src/lib/api";
 import { useIdleLogout } from "./src/lib/useIdleLogout";
+import { registerForPushNotificationsAsync } from "./src/lib/notifications";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import MainTabs from "./src/navigation/MainTabs";
@@ -142,6 +143,37 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
       navRef.current?.reset({ index: 0, routes: [{ name: "Login" }] });
     },
   });
+
+  // Push Notifications: registrasi token + handle tap notifikasi
+  useEffect(() => {
+    if (!userToken) return;
+
+    // Daftarkan push token ke backend setelah login
+    registerForPushNotificationsAsync().catch(() => {});
+
+    // Handle saat user mengetuk notifikasi (app background/killed)
+    let Notifications: any = null;
+    let subscription: any = null;
+    try {
+      Notifications = require('expo-notifications');
+      subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+        const data = response.notification.request.content.data;
+        if (!data?.screen) return;
+        // Navigasi ke layar yang relevan berdasarkan data notifikasi
+        setTimeout(() => {
+          if (data.screen === 'TransaksiScreen') {
+            navRef.current?.navigate('Main');
+          } else if (data.screen === 'ApprovalScreen') {
+            navRef.current?.navigate('Approval');
+          }
+        }, 500);
+      });
+    } catch (e) {}
+
+    return () => {
+      if (subscription?.remove) subscription.remove();
+    };
+  }, [userToken]);
 
   return (
     <NavigationContainer ref={navRef}>

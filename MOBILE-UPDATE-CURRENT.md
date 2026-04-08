@@ -2,7 +2,7 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **8 April 2026 (Sesi 9 — Restrukturisasi Checklist)**
+> Update terakhir: **8 April 2026 (Sesi 12 — NativeWind v4 + Push Notifications)**
 > Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 9)
 
 ---
@@ -406,7 +406,14 @@
 - [x] **S2-01** Form pengajuan pinjaman: produk reguler vs khusus bisa dipilih
 - [x] **S2-02** Sisa limit piutang tampil real-time saat pilih anggota potong gaji
 - [x] **S2-05** Idle 5 menit → auto logout berfungsi
-- [ ] Push notification: uji skenario void approved & rejected (backlog)
+- [x] **M-ARCH-001** `react-native-toast-message` terpasang, Alert blocking diganti Toast
+- [x] **M-ARCH-002** `@gorhom/bottom-sheet` terpasang, modal Kasir dikonversi ke BottomSheetModal
+- [x] **M-ARCH-003** `nativewind` v4 terpasang (hybrid), tailwind.config.js selaras warna PRIMKOPPOL
+- [x] **M-ARCH-004** `react-hook-form` + `zod` terpasang, LoanApplicationScreen divalidasi skematik
+- [x] **M-OPT-005** `react-native-mmkv` terpasang via StorageManager, SecureStore untuk token saja
+- [x] **expo-haptics** feedback taktil di KasirScreen (add to cart, checkout, error)
+- [x] **M-FEAT-009** Push notification: expo-notifications terkonfigurasi, backend kirim notif saat loan & void diproses
+- [ ] Build APK & uji di device fisik (prioritas berikutnya)
 
 ---
 
@@ -415,15 +422,60 @@
 | ID | Deskripsi | Estimasi | Prioritas |
 |---|---|---|---|
 | M-FEAT-004 | Edit NRP transaksi yang lupa NRP | 2–3 hari | 🟡 |
-| M-FEAT-009 | Push notification approval void masuk/selesai | 1–2 hari | 🟡 |
+| ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
 | M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
-| M-OPT-005 | Install `react-native-mmkv` untuk cache non-sensitif | 1 hari | 🟢 |
-| M-ARCH-001 | Install `react-native-toast-message` ganti semua `Alert.alert` | 1 hari | 🟡 |
-| M-ARCH-002 | Install `@gorhom/bottom-sheet` untuk modal member & filter | 2 hari | 🟢 |
-| M-ARCH-003 | Install `nativewind` v4 untuk styling konsisten | 3 hari | 🟢 |
-| M-ARCH-004 | Install `react-hook-form + zod` untuk validasi form | 2 hari | 🟡 |
+| ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |
+| ~~M-ARCH-001~~ | ~~Install `react-native-toast-message` ganti semua `Alert.alert`~~ | **✅ DONE** | 🟡 |
+| ~~M-ARCH-002~~ | ~~Install `@gorhom/bottom-sheet` untuk modal member & filter~~ | **✅ DONE** | 🟢 |
+| ~~M-ARCH-003~~ | ~~Install `nativewind` v4 untuk styling konsisten~~ | **✅ DONE (hybrid)** | 🟢 |
+| ~~M-ARCH-004~~ | ~~Install `react-hook-form + zod` untuk validasi form~~ | **✅ DONE** | 🟡 |
 
 ---
+
+## 🚀 PANDUAN BUILD APK (100% ONLINE & PRODUCTION READY)
+
+Untuk menjamin aplikasi berjalan 100% online, sistem sudah dikonfigurasi pada file `mobile/src/lib/api.ts` sehingga ketika di-build (`__DEV__ === false`), aplikasi akan otomatis mengarah ke API Production **`https://www.primkoppol.online`**, tanpa perlu mengubah kode apapun.
+
+Berikut adalah langkah-langkah standar untuk mem-build aplikasi menjadi file `.apk` (Preview) atau `.aab` (Production) menggunakan Expo Application Services (EAS):
+
+### 1. Persiapan Environment
+
+Pastikan Anda sudah memiliki akun Expo dan menginstal EAS CLI secara global di komputer Anda:
+
+```bash
+npm install -g eas-cli
+```
+
+### 2. Login ke Expo
+
+Buka terminal dan login menggunakan akun Expo Anda (`violet666`):
+
+```bash
+eas login
+```
+
+### 3. Eksekusi Build APK (Untuk di-install & Testing di semua Device Android)
+
+Gunakan perintah berikut untuk membangun APK. Sistem akan mengunggah kode ke server Expo, mem-build-nya, dan memberikan Anda link untuk mengunduh `.apk`.
+
+```bash
+cd mobile
+eas build --platform android --profile preview
+```
+*Catatan: Konfigurasi `profile preview` di `eas.json` sudah diset ke `"buildType": "apk"`. Ini adalah opsi terbaik untuk membagikan aplikasi secara langsung (sideloading) tanpa lewat Play Store.*
+
+### 4. Eksekusi Build AAB (Khusus untuk rilis Google Play Store)
+
+Jika Anda sudah siap mengunggah ke Google Play Store, gunakan perintah berikut untuk mem-build format `.aab` (Android App Bundle):
+
+```bash
+cd mobile
+eas build --platform android --profile production
+```
+
+### 5. Hasil Akhir
+
+Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo), terminal akan menampilkan **URL Tautan Unduhan**. Anda dapat membagikan URL tersebut kepada semua kasir/operator, atau mengunduh `build-xxx.apk` dan membagikannya secara manual. Aplikasi yang diinstal dari APK ini sudah dijamin dapat terhubung ke server utama dari koneksi internet manapun.
 
 ## 🔴 BUG REFERENCE (dari dokumen asli, untuk tracking)
 

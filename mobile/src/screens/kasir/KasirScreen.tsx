@@ -18,6 +18,7 @@ import { CameraView, Camera } from 'expo-camera';
 import { Image as ExpoImage } from 'expo-image';
 import Toast from 'react-native-toast-message';
 import { useQuery } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 
@@ -166,7 +167,9 @@ export default function KasirScreen({ navigation: navProp }: any) {
         const newCart = [...prev];
         if (newCart[idx].quantity < product.stock) {
           newCart[idx] = { ...newCart[idx], quantity: newCart[idx].quantity + 1 };
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           Toast.show({ type: 'error', text1: 'Stok Habis', text2: `Stok ${product.name} tersisa ${product.stock}` });
         }
         return newCart;
@@ -247,12 +250,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
       refetchProducts();
 
       Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `Toko sukses ${formatRp(printedTotal)}.` });
-      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Berhasil', 'Cetak struk transaksi?', [
         { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptStandard(method, printedCart, printedTotal) }
       ]);
     } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };
@@ -285,11 +289,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setMemberPiutang(null);
 
       Toast.show({ type: 'success', text1: 'Checkout Berhasil!', text2: `${UNIT_TYPES.find(u => u.id === unitType)?.name} sukses ${formatRp(printedTotal)}` });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Berhasil', 'Cetak struk transaksi?', [
         { text: 'Tidak', style: 'cancel' },
         { text: 'Cetak Struk', onPress: () => printReceiptQuick(method, printedDesc, printedTotal) }
       ]);
     } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Toast.show({ type: 'error', text1: 'Gagal', text2: err.message || err.response?.data?.message || 'Terjadi kesalahan checkout' });
     } finally { setProcessing(false); }
   };

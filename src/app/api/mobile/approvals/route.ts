@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { sendPushNotification } from "@/lib/expo-push";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,39 @@ export async function PATCH(request: Request) {
             where: { id: Number(id) },
             data: updateData,
         });
+
+        // ── Kirim Push Notification ke pemohon ─────────────────────────────
+        try {
+            const fullApplication = await prisma.loanApplication.findUnique({
+                where: { id: Number(id) },
+                include: {
+                    member: {
+                        include: { user: { select: { fcmToken: true } } }
+                    }
+                }
+            });
+
+            const pushToken = fullApplication?.member?.user?.fcmToken;
+            if (pushToken) {
+                const isApproved = action === "approve";
+                await sendPushNotification({
+                    to: pushToken,
+                    title: isApproved ? "✅ Pinjaman Disetujui!" : "❌ Pinjaman Ditolak",
+                    body: isApproved
+                        ? `Pengajuan pinjaman ${fullApplication?.applicationNo} Anda telah disetujui. Dana akan segera dicairkan.`
+                        : `Pengajuan pinjaman ${fullApplication?.applicationNo} ditolak.${notes ? ` Alasan: ${notes}` : ""}`,
+                    data: {
+                        screen: "TransaksiScreen",
+                        type: "loan_status",
+                        applicationId: id,
+                        status: isApproved ? "approved" : "rejected",
+                    },
+                });
+            }
+        } catch (notifErr) {
+            // Jangan gagalkan response hanya karena notif gagal
+            console.error("[Push] Gagal kirim notifikasi loan approval:", notifErr);
+        }
 
         await logAudit({
             userId: Number(user.id),
