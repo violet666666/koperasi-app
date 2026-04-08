@@ -107,6 +107,15 @@ export async function GET() {
             },
         });
 
+        // Get today's loan disbursements (Pencairan)
+        const todayLoanDisbursements = await prisma.loan.aggregate({
+            _sum: { principalAmount: true },
+            _count: { _all: true },
+            where: {
+                disbursementDate: { gte: today, lt: tomorrow },
+            },
+        });
+
         // Total Tunjangan Kinerja (Tunkin)
         const tunkinStats = await prisma.member.aggregate({
             _sum: { tunlesKinerja: true },
@@ -183,6 +192,8 @@ export async function GET() {
             todayDepositsCount: todayDeposits._count._all || 0,
             todayWithdrawals: Number(todayWithdrawals._sum.amount) || 0,
             todayWithdrawalsCount: todayWithdrawals._count._all || 0,
+            todayLoanDisbursements: Number(todayLoanDisbursements._sum.principalAmount) || 0,
+            todayLoanDisbursementsCount: todayLoanDisbursements._count._all || 0,
             todayPayments: Number(todayPayments._sum.amount) || 0,
             todayPaymentsCount: todayPayments._count._all || 0,
             todayTransactionsCount: todayTransactions._count._all || 0,

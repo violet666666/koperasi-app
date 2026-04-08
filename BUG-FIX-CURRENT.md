@@ -1,7 +1,7 @@
 # 🛠️ LAPORAN KERJA: CATATAN BUG, PERBAIKAN & FITUR BARU
 
 **Sistem:** PRIMKOPPOL RESOR LUMAJANG — Aplikasi Manajemen Koperasi
-**Terakhir Diperbarui:** 8 April 2026 (Sesi 8 — Realtime Override & Import TAJIB)
+**Terakhir Diperbarui:** 8 April 2026 (Sesi 9 — Perbaikan Produk Pinjaman & Portal Pengajuan)
 **Pemelihara Dokumen:** Engineering Team
 
 > Dokumen ini adalah satu-satunya sumber kebenaran (Source of Truth) untuk semua perubahan, perbaikan bug, dan penambahan fitur pada sistem. Gunakan sebagai referensi sebelum melakukan debugging ulang agar tidak terjadi pekerjaan redundan.
@@ -1144,3 +1144,141 @@ Form tambah entri Jurnal Umum juga menggunakan `setTimeout(resolve, 1000)` sebag
 3. Saat Postgres membandingkan tanggal kalender dengan boundary timestamp dengan zona waktu (2026-04-06T17:00:00Z), Postgres secara otomatis melonggarkan filter / melakukan *coercive timezone cast* ke boundary hari sesuai tanggal kalender yaitu 2026-04-06. Karenanya, transaksi tertanggal 6 April 00:00 terbawa dalam query.
 
 **Solusi:** Memisahkan boundaries Timestamptz dengan Date. Untuk filter tabel yang menggunakan @db.Date, string yang dimasukkan *wajib* dibulatkan sepenuhnya ke boundary UTC: 2026-04-07T00:00:00Z hingga 23:59:59Z, agar Postgres mengeksekusi dengan tanggal lokal kalender yang persis tepat sesuai UI Hari Ini.
+
+---
+
+## 📋 BUG & FITUR BARU — 8 April 2026 (Sesi 9 — Perbaikan Produk Pinjaman)
+
+---
+
+### BUG-068 — API `/api/loans/products` Hardcode Bunga & Resiko (Override Database)
+
+**Status:** ✅ FIXED  
+**Tanggal:** 8 April 2026  
+**Severity:** Critical (Data UI tidak sesuai database)
+
+**Deskripsi:**  
+API `GET /api/loans/products` menimpa nilai bunga (`interest_rate: 1`) dan biaya resiko (`admin_fee_value: 2`) secara hardcode, mengabaikan data yang tersimpan di tabel `LoanProduct` database. Akibatnya, jika Admin mengubah rate dari halaman Master, perubahan tidak pernah tampil di UI.
+
+**File:** `src/app/api/loans/products/route.ts`  
+**Fix:** Hapus hardcode. API kini mengembalikan nilai `interestRate` dan `adminFeeValue` langsung dari database. Handle `maxAmount: null` sebagai "Tidak Terbatas".
+
+---
+
+### BUG-069 — API Mobile `/api/mobile/loan-apply` Hardcode Rate & Cap Global 20jt/36bln
+
+**Status:** ✅ FIXED  
+**Tanggal:** 8 April 2026  
+**Severity:** Critical (Pinjaman Khusus tidak bisa diajukan dari mobile)
+
+**Deskripsi:**  
+Endpoint mobile loan apply memiliki 3 masalah kritis:
+1. Hardcode `interestRate: 0`, `adminFee: 1%` — mengabaikan data produk
+2. `Math.min(maxAmount, 20000000)` — cap global membatasi Pinjaman Khusus ke 20jt
+3. `Math.min(maxTenor, 36)` — cap global membatasi tenor ke 36 bulan
+4. Validasi AD-ART hardcode `AD_ART_MAX_LOAN = 20000000` dan `AD_ART_MAX_TENOR = 36`
+
+**File:** `src/app/api/mobile/loan-apply/route.ts`  
+**Fix:** Hapus semua hardcode. Validasi kini per-produk dari database. Kalkulasi bunga dari `product.interestRate`.
+
+---
+
+### BUG-070 — API Portal `/api/member-portal/loan-application` Hardcode AD-ART Limit
+
+**Status:** ✅ FIXED  
+**Tanggal:** 8 April 2026  
+**Severity:** Critical (Member portal tidak bisa ajukan Pinjaman Khusus)
+
+**Deskripsi:**  
+Endpoint portal anggota memiliki validasi hardcode:
+```
+AD_ART_MAX_LOAN = 20000000 → reject jika amount > 20jt
+AD_ART_MAX_TENOR_MONTHS = 36 → reject jika tenor > 36 bulan
+```
+Padahal validasi per-produk sudah diterapkan di baris sebelumnya (lines 48-63). Validasi ganda ini memblokir Pinjaman Khusus.
+
+**File:** `src/app/api/member-portal/loan-application/route.ts`  
+**Fix:** Hapus validasi AD-ART hardcode. Validasi per-produk (sudah ada) menjadi satu-satunya gatekeeper.
+
+---
+
+### BUG-071 — API Master `/api/master/loan-products` POST Blokir Tenor > 36
+
+**Status:** ✅ FIXED  
+**Tanggal:** 8 April 2026  
+**Severity:** High (Admin tidak bisa buat/edit Pinjaman Khusus 60 bulan)
+
+**Deskripsi:**  
+Endpoint POST untuk membuat produk pinjaman baru memiliki validasi:
+```
+if (data.maxTenorMonths > 36) → reject "tenor maksimal 36 bulan"
+```
+Ini mencegah Admin membuat Produk Pinjaman Khusus yang memiliki tenor 60 bulan.
+
+**File:** `src/app/api/master/loan-products/route.ts`  
+**Fix:** Hapus pembatasan tenor global. Tenor limit kini product-specific (Reguler: 36, Khusus: 60).
+
+---
+
+### BUG-072 — Portal Pengajuan Pinjaman: Produk Tidak Tampil & Field Mismatch
+
+**Status:** ✅ FIXED  
+**Tanggal:** 8 April 2026  
+**Severity:** Critical (Halaman pengajuan pinjaman portal tidak berfungsi)
+
+**Deskripsi:**  
+Halaman `/portal/pengajuan-pinjaman` memiliki 5 masalah kritis:
+1. **Field name mismatch:** API `/api/master/loan-products` mengembalikan `minTenorMonths`, `maxTenorMonths`, `minAmount` (Decimal/string). UI mengharapkan `minTenor`, `maxTenor`, `maxAmount` (number). Akibatnya produk gagal di-parse dan tidak tampil.
+2. **Produk tersembunyi:** Selector produk disembunyikan sebagai `<input type="hidden">`. Member tidak bisa memilih produk.
+3. **Hardcode limit 20jt/36bln:** Input amount dicap keras ke Rp 20.000.000, input tenor dicap keras ke 36 bulan — menghalangi Pinjaman Khusus.
+4. **Bunga salah:** Estimasi bunga dihitung 0.3% padahal seharusnya 1% flat/bulan.
+5. **Biaya admin salah:** Ditampilkan "Biaya Jasa 1%" padahal seharusnya "Biaya Resiko 2%".
+
+**File:** `src/app/portal/pengajuan-pinjaman/page.tsx`  
+**Fix:**
+- Normalize field names dari Prisma camelCase ke interface (`minTenorMonths` → `minTenor`, Decimal → Number)
+- Tampilkan kartu pilihan produk (selectable cards dengan info limit, tenor, bunga, resiko)
+- Limit amount/tenor dinamis sesuai produk yang dipilih
+- Bunga dan biaya resiko dihitung dari data produk aktual
+- Tambah kalkulasi "Dana Cair (Bersih)" = nominal - biaya resiko
+
+---
+
+### FEAT-021 — Seed Data Produk Pinjaman Accurate (Pinjaman Reguler & Khusus)
+
+**Status:** ✅ IMPLEMENTED  
+**Tanggal:** 8 April 2026
+
+**Deskripsi:**  
+Update data seed produk pinjaman agar sesuai aturan bisnis terbaru:
+
+| Produk | Min Amount | Max Amount | Tenor | Bunga | Resiko |
+|--------|-----------|-----------|-------|-------|--------|
+| **Pinjaman Reguler (PR)** | Rp 0 | Rp 20.000.000 | 1–36 bln | 1% flat/bln | 2% di muka |
+| **Pinjaman Khusus (PK)** | Rp 30.000.000 | Tidak Terbatas | 1–60 bln | 1% flat/bln | 2% di muka |
+
+**File:** `prisma/seed-loan-products.ts`, `prisma/seed.ts`  
+**Eksekusi:** Seed berhasil dijalankan ke production database.
+
+---
+
+### BUG-073 (8 April 2026) - Chart "Pendapatan per Unit Usaha" Tidak Menampilkan Unit Jasa
+**Masalah:** Pada Dashboard Operator, pie chart "Pendapatan per Unit Usaha" hanya memunculkan unit "Toko PRIMKOPPOL", sedangkan data penjualan unit jasa (seperti Cuci Mobil, Resto, Barbershop, dsb) tidak muncul sama sekali meski sudah ada transaksi.
+**Investigasi:** API `/api/dashboard-charts?days=30` hanya memverifikasi dan menjumlahkan tabel `StoreSale` (yang spesifik milik toko), namun sama sekali tidak melakukan *query* ke model `UnitTransaction` tempat di mana data layanan jasa dicatat.
+**Solusi:** Memperbarui logika query pada endpoint `GET /api/dashboard-charts/route.ts` dengan menyertakan aggregate dari `UnitTransaction` untuk transaksi berstatus `completed`, lalu menggabungkan (merge) hasil pendapatannya dengan `StoreSale` sebelum disajikan ke frontend.
+**File:** `/src/app/api/dashboard-charts/route.ts`
+
+---
+
+### BUG-074 (8 April 2026) - Data "Pencairan Hari Ini" di Dashboard Menampilkan Nominal Penarikan Simpanan
+**Masalah:** Kartu statistik "Pencairan Hari Ini" di Dashboard (yang deskripsinya menjelaskan tentang pencairan *loan/pinjaman*) justru menampilkan nominal dari "Penarikan Simpanan Sukarela".
+**Investigasi:** Terdapat *salah mapping payload*. Interface frontend `pencairanHariIni` diisi dengan data dari `todayWithdrawals` (yang diambil dari agregasi transaksi simpanan bertipe "withdrawal"). Belum ada agregasi untuk *pencairan pinjaman* yang mengarah ke tanggal pencairan (`disbursementDate`) pada tabel `Loan`.
+**Solusi:** Menambahkan agregasi sum baru `todayLoanDisbursements` untuk tabel `Loan` berdasarkan `disbursementDate`, memastikan nilainya merepresentasikan uang kelar untuk pinjaman, lalu memetakan ulang nilai tersebut pada file `page.tsx` Dashboard.
+**File:** 
+- `/src/app/api/dashboard-stats/route.ts`
+- `/src/app/(protected)/dashboard/page.tsx`
+
+---
+
+*Total bug tercatat: 89 | Total fitur baru: 21*  
+*Diperbarui: 8 April 2026 — Sesi 9*

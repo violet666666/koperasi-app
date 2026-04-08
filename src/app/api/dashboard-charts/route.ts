@@ -15,7 +15,7 @@ export async function GET(request: Request) {
         // ============================================================
         // 1. Daily kas masuk vs kas keluar (last N days)
         // ============================================================
-        const [kasIn, kasOut, storeSales, loanPayments] = await Promise.all([
+        const [kasIn, kasOut, storeSales, unitTxSales, loanPayments] = await Promise.all([
             // Kas masuk transactions
             prisma.cashBankTransaction.groupBy({
                 by: ["transactionDate"],
@@ -43,6 +43,16 @@ export async function GET(request: Request) {
                     createdAt: { gte: startDate },
                 },
                 _sum: { totalAmount: true },
+                _count: { _all: true },
+            }),
+            // Penjualan unit jasa per unit (last 30 days)
+            prisma.unitTransaction.groupBy({
+                by: ["unitType"],
+                where: {
+                    transactionDate: { gte: startDate },
+                    status: "completed",
+                },
+                _sum: { amount: true },
                 _count: { _all: true },
             }),
             // Loan angsuran terbayar (last 30 days)
@@ -99,11 +109,28 @@ export async function GET(request: Request) {
             laundry: "Laundry",
         };
 
-        const unitSales = storeSales.map(u => ({
-            unit: UNIT_LABELS[u.unitType] || u.unitType,
-            unitType: u.unitType,
-            total: Number(u._sum.totalAmount || 0),
-            count: u._count._all,
+        const storeSalesMap: Record<string, { total: number; count: number }> = {};
+        
+        for (const u of storeSales) {
+            storeSalesMap[u.unitType] = {
+                total: Number(u._sum.totalAmount || 0),
+                count: u._count._all,
+            };
+        }
+
+        for (const u of unitTxSales) {
+            if (!storeSalesMap[u.unitType]) {
+                storeSalesMap[u.unitType] = { total: 0, count: 0 };
+            }
+            storeSalesMap[u.unitType].total += Number(u._sum.amount || 0);
+            storeSalesMap[u.unitType].count += u._count._all;
+        }
+
+        const unitSales = Object.entries(storeSalesMap).map(([unitType, data]) => ({
+            unit: UNIT_LABELS[unitType] || unitType,
+            unitType,
+            total: data.total,
+            count: data.count,
         }));
 
         // ============================================================

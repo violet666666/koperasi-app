@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **8 April 2026**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 8)
+> Update terakhir: **8 April 2026 (Sesi 9)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 9)
 
 ---
 
@@ -62,6 +62,25 @@ Mobile masih menggunakan versi API lama yang menghasilkan format `CUC-MNMZW0NQ`.
 
 ---
 
+### M-BUG-007 — API `/api/mobile/loan-apply` Hardcode Rate, Cap 20jt & 36bln
+
+**File:** `src/app/api/mobile/loan-apply/route.ts`
+
+**Masalah (Sudah Diperbaiki di Web — BUG-069):**
+Endpoint mobile loan apply memiliki hardcode kritis:
+1. `interestRate: 0`, `adminFee: 1%` — mengabaikan data produk
+2. `Math.min(maxAmount, 20000000)` — cap global membatasi Pinjaman Khusus
+3. `Math.min(maxTenor, 36)` — cap global membatasi tenor
+4. Validasi AD-ART hardcode `AD_ART_MAX_LOAN = 20jt` dan `AD_ART_MAX_TENOR = 36`
+
+**Status:** ✅ FIXED (8 April 2026 — backend API diperbaiki, berlaku otomatis untuk mobile)
+
+**Fix:** Semua hardcode dihapus. Validasi per-produk dari database. Kalkulasi bunga dan biaya resiko dari `product.interestRate` dan `product.adminFeeValue`.
+
+> **Catatan:** Fix ini di backend (API route), sehingga mobile otomatis mendapat manfaatnya tanpa perlu update APK. Tapi UI mobile masih perlu dicek apakah menampilkan info bunga/resiko yang benar.
+
+---
+
 ### M-BUG-005 — ApprovalScreen Tidak Handle Tipe `void_store_sale`
 
 **File:** `mobile/src/screens/operator/ApprovalScreen.tsx`
@@ -93,6 +112,28 @@ Sama dengan bug yang sudah di-fix di Web (BUG-076 — dashboard jam 07:00 hardco
 **Deskripsi:** Web telah dilindungi sistem *idle-timeout* 5 menit. Mobile perlu implementasi serupa memanfaatkan API `AppState` dari React Native + timer untuk me-reset token di `SecureStore` (mungkin `force logout` bila dibiarkan terbuka).
 **Estimasi:** 0.5 hari
 **Dependencies:** `AppState` listener + auth context reset.
+
+---
+
+### M-FEAT-012 — Portal Pengajuan Pinjaman: Kartu Pilihan Produk
+
+**Status Web:** ✅ Selesai (Update Sesi 9 — BUG-072)
+**Status Mobile:** ⚠️ Backend sudah fix, UI mobile perlu disesuaikan
+
+**Deskripsi:**
+Web portal pengajuan pinjaman sekarang menampilkan:
+- Kartu pilihan produk (Pinjaman Reguler vs Pinjaman Khusus)
+- Limit amount/tenor dinamis sesuai produk
+- Simulasi bunga & biaya resiko dari data produk aktual (1% flat/bln, resiko 2%)
+- Estimasi "Dana Cair (Bersih)"
+
+Mobile perlu memastikan:
+1. Screen pengajuan pinjaman menampilkan kedua produk untuk dipilih
+2. Limit input amount dan tenor menyesuaikan produk yang dipilih
+3. Simulasi di mobile menggunakan data bunga dari API (bukan hardcode)
+
+**Estimasi:** 1 hari
+**API:** `/api/mobile/loan-apply` sudah diperbaiki — mengembalikan data produk yang benar
 
 ---
 
@@ -368,6 +409,55 @@ api.interceptors.response.use(
 
 ---
 
+## 📱 REKOMENDASI ARSITEKTUR & LIBRARY (BACKLOG)
+
+> Catatan: Daftar library dan improvement ini berstatus **Belum Diimplementasi**. Ini adalah pedoman (*roadmap*) bagi tim mobile agar kualitas UI/UX, performa, dan kestabilan aplikasi Expo / React Native sejajar dengan versi Web.
+
+### TIER 1 — Wajib (Dampak Terbesar, Effort Rendah-Sedang)
+
+1. **`@tanstack/react-query` — Server State Management**
+   - **Tujuan:** Data caching, *stale-while-revalidate*, auto-retry, *optimistic updates*. Menghapus loading manual di setiap screen.
+   - **Tingkat Prioritas:** 🔴 Kritis
+
+2. **`react-native-toast-message` — Non-blocking Notification**
+   - **Tujuan:** Menghentikan kebiasaan `Alert.alert()` yang memblokir UI thread, menggantinya dengan toast notifikasi halus ala Instagram/WhatsApp.
+   - **Tingkat Prioritas:** 🔴 Kritis
+
+3. **`expo-image` — Image Caching & Performance**
+   - **Tujuan:** Fitur disk/memory cache otomatis untuk gambar, load super cepat, support image lazy loading dan *blurhash* placeholder.
+   - **Tingkat Prioritas:** 🔴 Tinggi
+
+4. **`nativewind` v4 — Utility-First Styling (TailwindCSS untuk RN)**
+   - **Tujuan:** Menyudahi duplikasi raw `StyleSheet`. Mendukung konsistensi antarmuka UI dengan design token baku yang setara dengan web `globals.css`.
+   - **Tingkat Prioritas:** 🟡 Sedang
+
+### TIER 2 — Sangat Direkomendasikan (Premium Feel UI/UX)
+
+5. **`@gorhom/bottom-sheet` — Bottom Sheet Super Smooth**
+   - **Tujuan:** Standar modal interaksi mobile mutakhir (swipe-to-dismiss, keyboard aware). Sangat cocok untuk filter transaksi atau pemilihan anggota di layar Kasir.
+   - **Tingkat Prioritas:** 🟡 Sedang
+
+6. **`react-native-reanimated` — Fluid Animations**
+   - **Tujuan:** Menghidupkan screen dengan transisi state animasi 60fps (page transition, tab bouncy icon, loading shimmer skeleton).
+   - **Tingkat Prioritas:** 🟡 Sedang
+
+7. **`react-hook-form` + `zod` — Form Validation**
+   - **Tujuan:** Mengakhiri validasi manual primitif; pesan error yang merespon inline, sekaligus dapat me-*reuse* schema validasi dari Web.
+   - **Tingkat Prioritas:** 🟡 Sedang
+
+8. **`react-native-mmkv` — Blazing Fast Local Storage**
+   - **Tujuan:** Hybrid storage. Gunakan **30x lipat lebih kencang** MMKV untuk preferensi UI/user data non-sensitif, biarkan `expo-secure-store` hanya untuk token JWT.
+   - **Tingkat Prioritas:** 🟡 Sedang
+
+### TIER 3 — Nice-to-Have (Polish & Future-Proofing)
+
+9. **`expo-haptics`** — Untuk *haptic feedback* (getaran device) saat aksi kasir selesai atau gagal. (🟢 Rendah)
+10. **`expo-splash-screen`** — Membasmi *white flash delay* yang sering muncul saat rendering awal pembukaan aplikasi. (🟢 Rendah)
+11. **`victory-native` + `react-native-svg`** — Khusus untuk menampilkan grafis *chart* mutakhir di Dashboard. (🟢 Rendah)
+12. **`@expo-google-fonts/inter`** — Mengganti system default dengan tipografi konsisten sama persis seperti di antarmuka Web. (🟢 Rendah)
+
+---
+
 ## 📝 AUDIT API MOBILE — Status Endpoint
 
 | API Mobile | Endpoint | Status | Catatan |
@@ -378,7 +468,7 @@ api.interceptors.response.use(
 | Simpanan TX | `/api/mobile/savings-tx` | ✅ OK | - |
 | Pinjaman | `/api/mobile/loans` | ✅ OK | - |
 | Bayar Angsuran | `/api/mobile/loan-payment` | ✅ OK | - |
-| Pengajuan Pinjaman | `/api/mobile/loan-apply` | ✅ OK | - |
+| Pengajuan Pinjaman | `/api/mobile/loan-apply` | ✅ FIXED (Sesi 9) | Hapus hardcode rate, cap 20jt/36bln — BUG-069 |
 | POS Toko | `/api/mobile/toko` | ✅ OK | - |
 | POS Unit Layanan | `/api/mobile/unit-layanan` | ⚠️ Perlu cek | Format no. transaksi sudah baru? |
 | Member Search | `/api/mobile/members` | ✅ OK | - |
@@ -405,9 +495,10 @@ api.interceptors.response.use(
 - [ ] M-BUG-006: Jam transaksi gunakan `createdAt`
 - [ ] M-OPT-001: Dynamic API URL (bukan hardcode port 3000)
 - [ ] M-OPT-003: Global axios error interceptor (auto logout 401)
+- [ ] M-FEAT-012: UI pengajuan pinjaman tampilkan kartu pilih produk + simulasi akurat
 - [ ] Uji notifikasi push pada skenario: void approved dan rejected
 
 ---
 
-*Dokumen ini perlu diperbarui setiap kali ada fitur baru di Web yang relevan untuk Mobile.*
-*Referensi: `UPDATE-FIX-CURRENT.md` (103 item) | Tanggal: 7 April 2026*
+*Dokumen ini perlu diperbarui setiap kali ada fitur baru di Web yang relevan untuk Mobile.*  
+*Referensi: `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 8 April 2026 — Sesi 9*
