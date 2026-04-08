@@ -43,7 +43,7 @@ interface MemberResult {
     savings_balance: number;
 }
 
-export default function TambahPengajuanPage() {
+function TambahPengajuanContent() {
     const { user } = useAuth();
     const isOperator = user?.permissions?.includes("manage_all");
     const router = useRouter();
@@ -764,5 +764,17 @@ export default function TambahPengajuanPage() {
                 </div>
             </form>
         </div>
+    );
+}
+
+export default function TambahPengajuanPage() {
+    return (
+        <React.Suspense fallback={
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <TambahPengajuanContent />
+        </React.Suspense>
     );
 }
