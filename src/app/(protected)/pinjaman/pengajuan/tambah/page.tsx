@@ -341,10 +341,6 @@ function TambahPengajuanContent() {
         }
     };
 
-    const tenorOptions = selectedProduct
-        ? getTenorOptions(selectedProduct.min_tenor || 1, selectedProduct.max_tenor || 36)
-        : [3, 6, 12, 18, 24, 36];
-
     return (
         <div className="space-y-6">
             <PageHeader
