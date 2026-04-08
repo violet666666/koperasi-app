@@ -105,11 +105,144 @@ npx tsx prisma/seed-uat.ts
 
 | File | Keterangan |
 | --- | --- |
+# Catatan Update Aplikasi
+
+---
+
+## ⚠️ PANDUAN UAT STAGING — WAJIB BACA SEBELUM TESTING ⚠️
+
+> **KRITIS:** Panduan ini **WAJIB** diikuti sebelum melakukan UAT apapun.
+> Semua testing **HARUS** di staging database (Supabase), **BUKAN** production (Neon).
+> **Hanya jalankan prosedur ini jika ada request UAT dari Browser Agent atau user.**
+
+---
+
+### 🔑 AKUN UAT — COPY-PASTE LANGSUNG
+
+**Password SEMUA akun UAT:** `uat123456`
+
+**Akun yang paling sering dipakai untuk testing:**
+
+| Akun | Email | Password |
+| --- | --- | --- |
+| **Admin Cuci Mobil** | `admin.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| **Kasir Cuci Mobil** | `kasir.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| **Admin Toko** | `admin.uat.toko@primkoppol.test` | `uat123456` |
+| **Kasir Toko** | `kasir.uat.toko@primkoppol.test` | `uat123456` |
+
+**Daftar lengkap akun UAT (dari `prisma/seed-uat.ts`):**
+
+| No | Role | Unit | Email | Password |
+| --- | --- | --- | --- | --- |
+| 1 | Kasir | Toko | `kasir.uat.toko@primkoppol.test` | `uat123456` |
+| 2 | Admin | Toko | `admin.uat.toko@primkoppol.test` | `uat123456` |
+| 3 | Kasir | Cuci Mobil | `kasir.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| 4 | Admin | Cuci Mobil | `admin.uat.cuci_mobil@primkoppol.test` | `uat123456` |
+| 5 | Kasir | Barbershop | `kasir.uat.barbershop@primkoppol.test` | `uat123456` |
+| 6 | Admin | Barbershop | `admin.uat.barbershop@primkoppol.test` | `uat123456` |
+| 7 | Kasir | PlayStation | `kasir.uat.play_station@primkoppol.test` | `uat123456` |
+| 8 | Admin | PlayStation | `admin.uat.play_station@primkoppol.test` | `uat123456` |
+| 9 | Kasir | Fitness | `kasir.uat.fitness@primkoppol.test` | `uat123456` |
+| 10 | Admin | Fitness | `admin.uat.fitness@primkoppol.test` | `uat123456` |
+| 11 | Kasir | Resto | `kasir.uat.resto@primkoppol.test` | `uat123456` |
+| 12 | Admin | Resto | `admin.uat.resto@primkoppol.test` | `uat123456` |
+
+**Anggota Test UAT:**
+
+| Fungsi | MemberNo | NRP | Nama | Plafon |
+| --- | --- | --- | --- | --- |
+| Test OK | UAT-0001 | UAT99001 | Anggota Test OK | Rp 5.000.000 |
+| Test Blokir | UAT-0002 | UAT99002 | Anggota Test Blokir | Rp 0 (over limit) |
+
+> **⚠️ JANGAN** login dengan akun `@koperasi.com` — itu akun **PRODUCTION**.
+> **⚠️ GUNAKAN** hanya akun `@primkoppol.test` dengan password `uat123456`.
+> **⚠️ JANGAN** gunakan "Forgot Password" — password sudah fix, tidak perlu reset.
+> **⚠️ JANGAN** jalankan seed.ts atau seed-uat.ts ke database production (Neon).
+
+---
+
+### 📖 STEP-BY-STEP MENJALANKAN UAT (Hanya jika request UAT Browser Agent)
+
+**Prasyarat:** Terminal PowerShell, folder `koperasi-app`.
+
+**Step 1 — Set environment variables staging:**
+
+```powershell
+$env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+$env:NEXTAUTH_SECRET="uat-staging-secret-primkoppol-2026"
+$env:NEXTAUTH_URL="http://localhost:3001"
+```
+
+**Step 2 — Jalankan dev server di port 3001:**
+
+```powershell
+npm run dev -- -p 3001
+```
+
+**Step 3 — Buka browser dan login:**
+
+- URL: `http://localhost:3001`
+- Email: (pilih dari tabel akun di atas, misal `admin.uat.cuci_mobil@primkoppol.test`)
+- Password: `uat123456`
+
+**Step 4 — Lakukan testing sesuai request.**
+
+### 🔄 JIKA STAGING DB KOSONG (Pertama Kali / Setelah Reset)
+
+Jalankan perintah ini **SATU PER SATU** secara berurutan:
+
+```powershell
+# 1. Set DATABASE_URL ke staging (WAJIB)
+$env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
+
+# 2. Push schema Prisma ke staging DB
+npx prisma db push --accept-data-loss
+
+# 3. Seed data dasar (roles, branch, CoA, akun staff)
+npx tsx prisma/seed.ts
+
+# 4. Seed data UAT (akun @primkoppol.test, produk dummy, member test)
+npx tsx prisma/seed-uat.ts
+```
+
+> **Catatan:** Step 3 membuat data dasar sistem. Step 4 membuat akun UAT `@primkoppol.test`.
+> Keduanya **WAJIB** dijalankan agar bisa login.
+
+### 📁 File Penting UAT
+
+| File | Keterangan |
+| --- | --- |
 | `.env.test.local` | Env staging referensi (sudah di `.gitignore`) |
 | `prisma/seed.ts` | Seed data dasar (roles, branch, CoA, akun staff) |
 | `prisma/seed-uat.ts` | Seed data UAT (akun `@primkoppol.test`, produk dummy, member test) |
 | `tmp_query.sql` | File temp query (sudah di `.gitignore`) |
 | `tmp_query.ts` | File temp script (sudah di `.gitignore`) |
+
+---
+
+## UPDATE 08 April 2026 — Sesi 8: Optimasi UX Barcode Scanner & Keranjang POS Toko
+
+### [FIX] Input Barcode Scanner Terakumulasi (Menyambung Panjang)
+**File:** `src/app/(protected)/toko/kasir/page.tsx` & `src/components/patterns/data-table.tsx`
+**Masalah:** Saat kasir melakukan scan barcode mesin lebih dari satu kali, input mesin yang cepat diakhiri dengan tombol "Enter" secara default tidak mereset nilai kolom *Search*. Akibatnya rentetan panjang barcode malah menyatu satu baris seperti `457241851351331523183153851`.
+**Solusi:** Menambahkan penanganan `onKeyDown` secara spesifik pada `Input` pencarian.
+- Jika *scan* sukses masuk keranjang, kotak pencarian langsung **dikosongkan (`""`)**.
+- Jika *scan* tidak ada di DB, atau *scan* digunakan pada `data-table` untuk ngecek barang, teks yang bersangkutan otomatis kena **blok (`e.currentTarget.select()`)** begitu tombol enter terdeteksi. Sehingga scan baru akan menimpa string yang lama dengan persis.
+
+### [UX] Informasi Instan Sisa Stok Fisik pada Menu Keranjang
+**File:** `src/app/(protected)/toko/kasir/page.tsx`
+**Masalah:** Petugas kerap tidak bisa mengecek nominal sisa stok ketika menu pencarian langsung loncat mendaratkan item ke keranjang.
+**Solusi:**
+- Memodifikasi *Toast* (Popup Sukses) agar menampilkan `(Sisa Stok: X)` ketika kasir menggunakan bar scanner.
+- Menyematkan *Badge Lencana Sisa Stok* berwarna biru yang menempel eksplisit tepat pada komponen baris produk di dalam antrean Keranjang.
+
+### [UX] Input Kuantitas Pembelian Grosir Langsung via Keyboard
+**File:** `src/app/(protected)/toko/kasir/page.tsx`
+**Masalah:** Kasir protes harus me-*klik* tombol "+" berkali-kali untuk mengakomodasi pembelian yang lebih dari satuan tunggal.
+**Solusi:** Merombak elemen `span` menjadi kolom `Input[type="numeric"]` yang dinamis:
+- Dukungan mengetik angka spesifik via *keyboard*.
+- Validasi instan yang langsung membatasi *"stuck/mentok"* di angka plafon fisik (stock maximum) produk bila kasir sengaja mengisi *oversold*.
+- Mempertahankan kegunaan icon "+" dan "-".
 
 ---
 
