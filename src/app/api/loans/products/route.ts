@@ -15,13 +15,13 @@ export async function GET() {
                 code: p.code,
                 name: p.name,
                 interest_method: p.interestMethod,
-                interest_rate: 1, // 1% flat per month
-                min_amount: Number(p.minAmount),
-                max_amount: Number(p.maxAmount),
+                interest_rate: Number(p.interestRate), // dari database
+                min_amount: p.minAmount ? Number(p.minAmount) : null,
+                max_amount: p.maxAmount ? Number(p.maxAmount) : null, // null = No Limit
                 min_tenor: p.minTenorMonths,
                 max_tenor: p.maxTenorMonths,
-                admin_fee_type: "percent",
-                admin_fee_value: 2, // 2% risk reduction upfront
+                admin_fee_type: p.adminFeeType || "percent",
+                admin_fee_value: p.adminFeeValue ? Number(p.adminFeeValue) : 2, // dari database
             })),
         });
     } catch (error) {

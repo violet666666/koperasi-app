@@ -62,18 +62,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: `Tenor maksimal ${product.maxTenorMonths} bulan` }, { status: 400 });
         }
 
-        // === AD-ART Pasal 26: Validate limits ===
-        const AD_ART_MAX_LOAN = 20000000;
-        if (amount > AD_ART_MAX_LOAN) {
-            return NextResponse.json({ message: `Sesuai AD-ART Pasal 26, pinjaman maksimal Rp 20.000.000` }, { status: 400 });
-        }
+        // Validasi limit mengikuti produk (sudah dicek di atas lines 48-63)
+        // Pinjaman Reguler: max 20jt, tenor 36 bln
+        // Pinjaman Khusus: min 30jt, no limit, tenor 60 bln
 
-        const AD_ART_MAX_TENOR_MONTHS = 36;
-        if (tenorMonths > AD_ART_MAX_TENOR_MONTHS) {
-            return NextResponse.json({ message: `Sesuai AD-ART Pasal 26, tenor pinjaman maksimal 3 tahun (36 bulan)` }, { status: 400 });
-        }
-
-        // TODO: Validate salary remainder limits based on pending installments
+        // Validate salary remainder limits
         const netSalary = Number(member.salary || 0);
         if (netSalary === 0) {
             return NextResponse.json({ message: `Gaji Anda belum terdaftar. Harap hubungi Admin.` }, { status: 400 });

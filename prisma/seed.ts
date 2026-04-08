@@ -67,8 +67,8 @@ const SAVINGS_PRODUCTS = [
 
 // ======= LOAN PRODUCTS =======
 const LOAN_PRODUCTS = [
-    { code: "PR", name: "Pinjaman Reguler", version: 1, interestMethod: "flat", interestRate: 3.6, interestCalculation: "monthly", minTenorMonths: 3, maxTenorMonths: 36, minAmount: 1000000, maxAmount: 20000000, adminFeeType: "percent", adminFeeValue: 1.0, lateFeeType: "percent_per_day", lateFeeValue: 0.05, gracePeriodDays: 3, requiresCollateral: false, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
-    { code: "PK", name: "Pinjaman Khusus", version: 1, interestMethod: "flat", interestRate: 3.6, interestCalculation: "monthly", minTenorMonths: 6, maxTenorMonths: 36, minAmount: 5000000, maxAmount: 20000000, adminFeeType: "percent", adminFeeValue: 1.5, lateFeeType: "percent_per_day", lateFeeValue: 0.1, gracePeriodDays: 7, requiresCollateral: true, effectiveDate: new Date("2025-01-01"), isCurrent: true, isActive: true },
+    { code: "PR", name: "Pinjaman Reguler", version: 1, interestMethod: "flat", interestRate: 1.0, interestCalculation: "monthly", minTenorMonths: 1, maxTenorMonths: 36, minAmount: 0, maxAmount: 20000000, adminFeeType: "percent", adminFeeValue: 2.0, lateFeeType: "percent_per_day", lateFeeValue: 0.05, gracePeriodDays: 3, requiresCollateral: false, effectiveDate: new Date("2024-01-01"), isCurrent: true, isActive: true },
+    { code: "PK", name: "Pinjaman Khusus", version: 1, interestMethod: "flat", interestRate: 1.0, interestCalculation: "monthly", minTenorMonths: 1, maxTenorMonths: 60, minAmount: 30000000, maxAmount: null, adminFeeType: "percent", adminFeeValue: 2.0, lateFeeType: "percent_per_day", lateFeeValue: 0.1, gracePeriodDays: 7, requiresCollateral: true, effectiveDate: new Date("2024-01-01"), isCurrent: true, isActive: true },
 ];
 
 // ======= CHART OF ACCOUNTS (CoA) =======
