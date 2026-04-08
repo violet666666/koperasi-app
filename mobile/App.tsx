@@ -57,6 +57,8 @@ import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
 import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
 import BukuKasScreen from "./src/screens/operator/BukuKasScreen";
 import PengeluaranOperasionalScreen from "./src/screens/operator/PengeluaranOperasionalScreen";
+import DirectDisburseScreen from "./src/screens/operator/DirectDisburseScreen";
+import KwitansiViewerScreen from "./src/screens/common/KwitansiViewerScreen";
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient({
@@ -254,6 +256,8 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="KasirFull" component={KasirScreen} />
             <Stack.Screen name="StokFull" component={StokScreen} />
             <Stack.Screen name="PengeluaranOperasional" component={PengeluaranOperasionalScreen} />
+            <Stack.Screen name="DirectDisburse" component={DirectDisburseScreen} />
+            <Stack.Screen name="KwitansiViewer" component={KwitansiViewerScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -250,6 +250,7 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="checkmark-circle-outline" label="Persetujuan" color="#10B981" onPress={() => navigation.navigate("ApprovalFull")} />
                         <MenuItem icon="cash-outline" label="Bayar Angsuran" color={C.success} onPress={() => navigation.navigate("MemberListFull")} />
                         <MenuItem icon="list-outline" label="Daftar Pinjam" color="#7C3AED" onPress={() => navigation.navigate("DaftarPinjaman")} />
+                        <MenuItem icon="flash-outline" label="Cairkan Lgsg" color="#EF4444" onPress={() => navigation.navigate("DirectDisburse")} />
                     </View>
                 </CollapsibleSection>
 

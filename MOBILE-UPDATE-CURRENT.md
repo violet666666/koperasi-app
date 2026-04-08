@@ -18,6 +18,23 @@
 
 ---
 
+## 🆕 UPDATE SINKRONISASI WEB (9 APRIL 2026)
+> *Daftar perubahan terbaru di Web yang berdampak pada fungsionalitas Backend atau butuh penyetaraan (paritas) fitur di Mobile App.*
+
+### 1. Paritas UI: Input Manual Tenor Pinjaman
+- **Web:** Dropdown `Select` untuk pilihan Tenor Bulan telah resmi dihapus dan diganti menjadi input teks angka (Number Input) untuk membebaskan input tenor dalam batas maksimal produk (contoh: 20 bulan, 25 bulan).
+- **Tugas Mobile (Backlog `M-FEAT-013`):** Pastikan `LoanApplicationScreen.tsx` untuk bagian tenor sudah menggunakan `<TextInput keyboardType="numeric">` tanpa opsi picker/dropdown terbatas, lengkap dengan placeholder batas minimum dan maksimum.
+
+### 2. Fitur Baru Operator: "Direct Disburse" & Tanggal Mundur (Backdated)
+- **Web/Backend:** Telah dibuat API baru `POST /api/loans/applications/direct-disburse`. Endpoint ini memungkinkan membuat pengajuan pinjaman, otomatis menyetujuinya, mencairkannya, mencetak kwitansi, serta menjadwalkan angsuran secara atomik dalam satu request. Terdapat juga support penambahan tanggal mundur (`backdatedDate`).
+- **Tugas Mobile (Backlog `M-FEAT-014`):** Jika role Operator di-support di mobile untuk pengajuan, harus ditambahkan layar/mode "Pencairan Langsung" menggunakan API baru tersebut. Anggota biasa tetap menggunakan `/api/mobile/loan-apply` biasa.
+
+### 3. Backend Fix: Kwitansi & Route Error (Otomatis Teraplikasi)
+- **Web/Backend:** Telah diperbaiki _bug logic_ kwitansi cetak (Nomor Kwitansi) dan _ReferenceError_ pada _Route/Context_ di pengajuan staff Web.
+- **Tugas Mobile:** Tidak butuh perbaikan spesifik karena backend sudah _clean_, tetapi menjadi catatan bahwa `receiptId` yang dikembalikan sesudah disburse akan menunjuk pada record kwitansi yang datanya lebih rapi/akurat (teks terbilang, penomoran instansi formal).
+
+---
+
 ## 🔴 SPRINT 1 — Bug Kritis & Fondasi API
 *Target: Selesai dalam 1 minggu*
 *Fokus: Fix bug data salah/tidak sinkron + perkuat fondasi API layer*
