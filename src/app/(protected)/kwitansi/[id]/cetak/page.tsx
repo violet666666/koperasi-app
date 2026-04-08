@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Printer, Loader2, ArrowLeft } from "lucide-react";
 import { receiptsApi } from "@/lib/api/services";
 import { generateReceiptPDF, generateThermalReceiptPDF, type ReceiptData } from "@/lib/export-utils";
-import { terbilang, getPaymentMethodLabel, PAYMENT_METHODS } from "@/lib/terbilang";
+import { terbilang, PAYMENT_METHODS } from "@/lib/terbilang";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -31,6 +31,7 @@ interface ReceiptDetail {
     printedAt?: string;
     member?: { id: number; memberNo: string; nrp?: string; name: string; phone?: string; category?: string };
     createdBy?: { id: number; name: string };
+    category?: string;
 }
 
 const typeLabels: Record<string, string> = {
@@ -86,6 +87,7 @@ export default function CetakKwitansiPage() {
                 notes: receipt.notes,
                 referenceNo: receipt.referenceNo,
                 createdBy: receipt.createdBy?.name || "-",
+                category: receipt.member?.category || "-",
             };
 
             if (isThermal) {
@@ -171,18 +173,18 @@ export default function CetakKwitansiPage() {
                     {/* ---- KOP SURAT / HEADER ---- */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 mb-2 justify-center">
                         {/* Logo Container */}
-                        <div className="logo-frame-sedang" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
+                        <div className="logo-frame-kecil" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                             <img 
                                 src="/LogoPrimkoppol.png" 
                                 alt="Logo PRIMKOPPOL" 
-                                className="logo-inner-sedang"
+                                className="logo-inner-kecil"
                             />
                         </div>
                         {/* Text Header */}
                         <div className="text-center sm:text-left">
-                            <h2 className="text-2xl font-bold tracking-tight uppercase print:text-xl">KOPERASI PRIMKOPPOL RESOR LUMAJANG</h2>
+                            <h2 className="text-2xl font-bold tracking-tight uppercase print:text-xl">PRIMKOPPOL RESOR LUMAJANG</h2>
                             <p className="text-xs text-muted-foreground">Badan Hukum No: ....../BH/M.KUKM/........</p>
-                            <p className="text-xs text-muted-foreground">Alamat: Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</p>
+                            <p className="text-xs text-muted-foreground">Alamat: Jl. Jend Panjaitan 46, Lumajang, Jawa Timur</p>
                         </div>
                     </div>
                     <div className="border-b-4 border-double border-foreground my-3" />
@@ -207,8 +209,8 @@ export default function CetakKwitansiPage() {
                     <div className="space-y-2.5 mb-5">
                         {[
                             ["Sudah Terima Dari", receipt.receivedFrom],
-                            ["Nomor Anggota", receipt.member?.memberNo || "-"],
-                            ["NRP / NIP", receipt.member?.nrp || "-"],
+                            ["Kategori", receipt.member?.category || "-"],
+                            ["NRP / NIP Anggota", receipt.member?.nrp || receipt.member?.memberNo || "-"],
                         ].map(([label, value]) => (
                             <div key={label} className="grid grid-cols-[160px_16px_1fr] text-sm">
                                 <span className="font-medium text-muted-foreground">{label}</span>
@@ -317,7 +319,7 @@ export default function CetakKwitansiPage() {
 
                             {/* Kasir / Bendahara */}
                             <div className="text-center min-w-[140px]">
-                                <p className="text-xs text-muted-foreground mb-1">Kasir / Bendahara,</p>
+                                <p className="text-xs text-muted-foreground mb-1">Operator</p>
                                 <div className="h-16 border-b border-dashed border-muted-foreground/30 flex items-end justify-center">
                                     {/* Placeholder area cap stempel */}
                                     <span className="text-[9px] text-muted-foreground/30 mb-1">(Cap & Stempel)</span>

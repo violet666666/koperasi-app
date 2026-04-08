@@ -242,9 +242,21 @@ export default function EditAnggotaPage() {
                                 placeholder="Pilih atau ketik kategori baru" 
                             />
                             <datalist id="category-options">
-                                <option value="Polri" />
+                                <option value="AKBP" />
+                                <option value="KOMPOL" />
+                                <option value="AKP" />
+                                <option value="IPTU" />
+                                <option value="IPDA" />
+                                <option value="AIPTU" />
+                                <option value="AIPDA" />
+                                <option value="BRIPKA" />
+                                <option value="BRIGADIR" />
+                                <option value="BRIPTU" />
+                                <option value="BRIPDA" />
                                 <option value="PNS" />
+                                <option value="PHL" />
                                 <option value="Purnawirawan" />
+                                <option value="Polri" />
                                 <option value="Karyawan" />
                             </datalist>
                         </div>

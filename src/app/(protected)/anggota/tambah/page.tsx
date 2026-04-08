@@ -129,20 +129,32 @@ export default function TambahAnggotaPage() {
 
                         <div>
                             <Label htmlFor="category">Kategori Anggota *</Label>
-                            <Select
+                            <Input
+                                id="category"
+                                list="category-options-tambah"
+                                name="category"
                                 value={formData.category}
-                                onValueChange={(value) => handleSelectChange("category", value)}
+                                onChange={handleChange}
+                                placeholder="Pilih atau ketik kategori baru"
                                 required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih kategori" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Polri">Polri</SelectItem>
-                                    <SelectItem value="PNS">PNS</SelectItem>
-                                    <SelectItem value="Purnawirawan">Purnawirawan</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            />
+                            <datalist id="category-options-tambah">
+                                <option value="AKBP" />
+                                <option value="KOMPOL" />
+                                <option value="AKP" />
+                                <option value="IPTU" />
+                                <option value="IPDA" />
+                                <option value="AIPTU" />
+                                <option value="AIPDA" />
+                                <option value="BRIPKA" />
+                                <option value="BRIGADIR" />
+                                <option value="BRIPTU" />
+                                <option value="BRIPDA" />
+                                <option value="PNS" />
+                                <option value="PHL" />
+                                <option value="Purnawirawan" />
+                                <option value="Polri" />
+                            </datalist>
                         </div>
                     </CardContent>
                 </Card>

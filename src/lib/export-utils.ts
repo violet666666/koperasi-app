@@ -5,6 +5,7 @@
  */
 
 import * as XLSX from "xlsx";
+import { terbilang } from "./terbilang";
 
 export interface ExportColumn {
     header: string;
@@ -176,6 +177,7 @@ export interface ReceiptData {
     notes?: string;
     referenceNo?: string;
     createdBy?: string;
+    category?: string;
 }
 
 /** Generate A4 Official Kwitansi PDF (new print window) */
@@ -212,8 +214,8 @@ export function generateReceiptPDF(data: ReceiptData) {
     <img src="/LogoPrimkoppol.png" width="50" height="50" style="object-fit:contain;display:block;" />
   </div>
   <div>
-    <div class="org-name">Koperasi PRIMKOPPOL Resor Lumajang</div>
-    <div style="font-size:10px;color:#666;">Jl. Alun-alun Timur No. 1, Lumajang, Jawa Timur</div>
+    <div class="org-name">PRIMKOPPOL Resor Lumajang</div>
+    <div style="font-size:10px;color:#666;">Jl. Jend Panjaitan 46, Lumajang, Jawa Timur</div>
   </div>
 </div>
 <div class="divider"></div>
@@ -222,10 +224,10 @@ export function generateReceiptPDF(data: ReceiptData) {
   <div style="text-align:right;"><div style="font-size:10px;color:#666;">No. Kwitansi</div><div style="font-family:monospace;font-weight:bold;">${data.receiptNo}</div></div>
 </div>
 <div class="field-row"><span style="color:#666;">Sudah Terima Dari</span><span>:</span><strong>${data.receivedFrom}</strong></div>
-<div class="field-row"><span style="color:#666;">Nomor Anggota</span><span>:</span><span>${data.memberNo}</span></div>
-<div class="field-row"><span style="color:#666;">NRP / NIP</span><span>:</span><span>${data.nrp || "-"}</span></div>
-<div class="amount-box"><span>Banyaknya Uang</span><span class="amount-big">Rp ${data.amount.toLocaleString("id-ID")}</span></div>
-<div class="terbilang">Terbilang: <em>${numberToWords(data.amount)}</em></div>
+<div class="field-row"><span style="color:#666;">Kategori</span><span>:</span><span>${data.category || "-"}</span></div>
+<div class="field-row"><span style="color:#666;">NRP / NIP Anggota</span><span>:</span><span>${data.nrp || data.memberNo || "-"}</span></div>
+<div class="amount-box"><span>Banyaknya Uang</span><span class="amount-big">Rp ${Number(data.amount).toLocaleString("id-ID")}</span></div>
+<div class="terbilang">Terbilang: <em style="text-transform: capitalize;">${numberToWords(data.amount)}</em></div>
 <div class="field-row"><span style="color:#666;">Untuk Pembayaran</span><span>:</span><span>${typeLabels[data.type] || data.type}</span></div>
 <div class="field-row"><span style="color:#666;">Keterangan</span><span>:</span><span>${data.description}</span></div>
 <div class="field-row" style="margin-top:8px;"><span style="color:#666;">Metode Bayar</span><span>:</span><span>${data.paymentMethod}</span></div>
@@ -235,7 +237,7 @@ ${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><
   <div style="font-size:11px;color:#666;">Lumajang, ${receiptDate}</div>
   <div style="display:flex;gap:40px;">
     <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.receivedFrom}</p><p style="font-size:10px;color:#888;">Anggota</p></div>
-    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Kasir / Bendahara,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.createdBy || "-"}</p><p style="font-size:10px;color:#888;">Petugas</p></div>
+    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Operator</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.createdBy || "-"}</p><p style="font-size:10px;color:#888;">Petugas</p></div>
   </div>
 </div>
 <div class="footer">Kwitansi ini sah sebagai bukti pembayaran resmi Koperasi PRIMKOPPOL Resor Lumajang.</div>
@@ -283,7 +285,7 @@ ${data.referenceNo ? `<div class="row"><span class="label">Ref</span><span>${dat
 /** Simple number-to-words (Indonesian terbilang) — fallback */
 function numberToWords(n: number): string {
     try {
-        return n.toLocaleString("id-ID") + " Rupiah";
+        return terbilang(Number(n));
     } catch { return String(n); }
 }
 

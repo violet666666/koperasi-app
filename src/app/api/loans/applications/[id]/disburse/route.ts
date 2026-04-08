@@ -122,7 +122,7 @@ export async function POST(request: Request, { params }: Params) {
                     memberId: application.memberId,
                     amount: disbursedAmount,
                     receivedFrom: application.member.name,
-                    description: `Pencairan Pinjaman Bersih (Setelah Potong Resiko) untuk ${application.member.name} sejumlah ${disbursedAmount}`,
+                    description: `Pencairan Pinjaman Bersih (Setelah Dipotong Biaya Resiko) untuk ${application.member.name} sejumlah ${disbursedAmount}`,
                     paymentMethod: "cash",
                     receiptDate: new Date(),
                     createdById: currentUserId,
