@@ -15,24 +15,40 @@ export async function GET(request: Request) {
         const memberId = searchParams.get("memberId");
         const branchId = searchParams.get("branchId");
         const status = searchParams.get("status");
+        const search = searchParams.get("search") || query.search;
+
+        const searchWhere = search
+            ? {
+                  OR: [
+                      { loanNo: { contains: search, mode: "insensitive" as const } },
+                      { member: { name: { contains: search, mode: "insensitive" as const } } },
+                      { member: { memberNo: { contains: search, mode: "insensitive" as const } } },
+                      { member: { nrp: { contains: search, mode: "insensitive" as const } } },
+                  ],
+              }
+            : {};
 
         const where = {
+            ...searchWhere,
             ...(memberId && { memberId: parseInt(memberId) }),
             ...(branchId && { branchId: parseInt(branchId) }),
             ...(status && { status }),
         };
 
+        // Use higher per-page limit when searching
+        const perPage = search ? 50 : query.perPage;
+
         const [loans, total, activeStats, paidOffCount] = await Promise.all([
             prisma.loan.findMany({
                 where,
                 include: {
-                    member: { select: { id: true, memberNo: true, name: true } },
+                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
                     branch: { select: { id: true, name: true } },
                     _count: { select: { schedules: { where: { status: { in: ["paid"] } } } } },
                 },
                 orderBy: { createdAt: "desc" },
-                skip: (query.page - 1) * query.perPage,
-                take: query.perPage,
+                skip: (query.page - 1) * perPage,
+                take: perPage,
             }),
             prisma.loan.count({ where }),
             prisma.loan.aggregate({
