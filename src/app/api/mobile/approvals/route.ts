@@ -3,7 +3,12 @@ import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 
-// GET /api/mobile/approvals — List pending loan applications
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/mobile/approvals
+ * Mengembalikan semua permintaan pending: loan applications + void requests
+ */
 export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
@@ -12,38 +17,84 @@ export async function GET(request: Request) {
     }
 
     try {
-        const applications = await prisma.loanApplication.findMany({
+        // ── 1. Pengajuan Pinjaman ────────────────────────────────────────
+        const loanApplications = await prisma.loanApplication.findMany({
             where: { status: "submitted" },
             include: {
                 member: { select: { id: true, memberNo: true, name: true, nrp: true } },
                 product: { select: { name: true, interestRate: true } },
+                createdBy: { select: { name: true } },
             },
             orderBy: { createdAt: "desc" },
             take: 50,
         });
 
-        return NextResponse.json({
-            data: applications.map((a) => ({
-                id: a.id,
-                memberName: a.member.name,
-                memberNo: a.member.memberNo,
-                nrp: a.member.nrp,
-                productName: a.product.name,
-                amount: Number(a.amount),
-                tenor: a.tenorMonths,
-                interestRate: Number(a.product.interestRate),
-                purpose: a.purpose,
-                status: a.status,
-                submittedAt: (a.submittedAt || a.createdAt).toISOString(),
-            })),
+        // ── 2. Void Requests (ApprovalRequest dengan status pending) ─────
+        const voidRequests = await prisma.approvalRequest.findMany({
+            where: {
+                status: "pending",
+                type: { in: ["unit_void", "void_store_sale"] },
+            },
+            include: {
+                requestedBy: { select: { name: true, unitType: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 50,
         });
+
+        // ── Gabung & normalisasi ──────────────────────────────────────────
+        const loanItems = loanApplications.map((a) => ({
+            id: a.id,
+            requestType: "loan_application" as const,
+            requestNo: a.applicationNo,
+            status: a.status,
+            amount: Number(a.amount),
+            submittedAt: (a.submittedAt || a.createdAt).toISOString(),
+            submittedBy: a.createdBy?.name || "-",
+            // Loan-specific
+            memberName: a.member.name,
+            memberNo: a.member.memberNo,
+            nrp: a.member.nrp,
+            productName: a.product.name,
+            tenor: a.tenorMonths,
+            interestRate: Number(a.product.interestRate),
+            purpose: a.purpose,
+        }));
+
+        const voidItems = voidRequests.map((v) => {
+            // Parse metadata untuk ambil transactionNo & voidReason
+            const meta = (v.metadata as any) || {};
+            return {
+                id: v.id,
+                requestType: v.type as "unit_void" | "void_store_sale",
+                requestNo: v.requestNo,
+                status: v.status,
+                amount: Number(v.amount ?? 0),
+                submittedAt: v.requestedAt.toISOString(),
+                submittedBy: v.requestedBy?.name || "-",
+                // Void-specific
+                transactionNo: meta.transactionNo || v.requestNo?.replace("VOID-", "") || "-",
+                unitType: v.requestedBy?.unitType || meta.unitType || "-",
+                voidReason: meta.reason || v.description || "-",
+                description: v.description,
+            };
+        });
+
+        // Sort gabungan by submittedAt desc
+        const allItems = [...loanItems, ...voidItems].sort(
+            (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        );
+
+        return NextResponse.json({ data: allItems });
     } catch (error) {
         console.error("GET /api/mobile/approvals error:", error);
         return NextResponse.json({ message: "Gagal memuat data approval" }, { status: 500 });
     }
 }
 
-// PATCH /api/mobile/approvals — Approve or Reject
+/**
+ * PATCH /api/mobile/approvals — Approve or Reject LOAN applications
+ */
 export async function PATCH(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();

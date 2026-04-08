@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useEffect, useRef, useState } from "react";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as SecureStore from "expo-secure-store";
+import Toast from "react-native-toast-message";
 import {
   ActivityIndicator,
   View,
@@ -10,6 +12,8 @@ import {
   StatusBar,
   Image,
 } from "react-native";
+import { setNavigateToLogin } from "./src/lib/api";
+import { useIdleLogout } from "./src/lib/useIdleLogout";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import MainTabs from "./src/navigation/MainTabs";
@@ -49,8 +53,12 @@ import ImportDataScreen from "./src/screens/operator/ImportDataScreen";
 import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
 import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
 import BukuKasScreen from "./src/screens/operator/BukuKasScreen";
+import PengeluaranOperasionalScreen from "./src/screens/operator/PengeluaranOperasionalScreen";
 
 const Stack = createNativeStackNavigator();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 2 } },
+});
 
 // ========== SPLASH SCREEN ==========
 function SplashScreen() {
@@ -113,33 +121,28 @@ const splashStyles = StyleSheet.create({
   },
 });
 
-// ========== MAIN APP ==========
-export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userToken, setUserToken] = useState<string | null>(null);
+// ========== INNER APP (dalam QueryClientProvider) ==========
+function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUserToken: (t: string | null) => void }) {
+  const navRef = useRef<NavigationContainerRef<any>>(null);
 
+  // S1-01: Daftarkan fungsi navigasi ke axios interceptor
   useEffect(() => {
-    const bootstrapAsync = async () => {
-      let token: string | null = null;
-      try {
-        token = await SecureStore.getItemAsync("userToken");
-      } catch (e) {
-        // Token retrieval failed
-      }
-      // Simulated minimum splash duration for branding
-      await new Promise((resolve) => setTimeout(resolve, 1800));
-      setUserToken(token || null);
-      setIsLoading(false);
-    };
-    bootstrapAsync();
-  }, []);
+    setNavigateToLogin(() => {
+      setUserToken(null);
+      navRef.current?.reset({ index: 0, routes: [{ name: "Login" }] });
+    });
+  }, [setUserToken]);
 
-  if (isLoading) {
-    return <SplashScreen />;
-  }
+  // S2-05: Idle logout (aktif hanya saat sudah login)
+  useIdleLogout({
+    onLogout: () => {
+      setUserToken(null);
+      navRef.current?.reset({ index: 0, routes: [{ name: "Login" }] });
+    },
+  });
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userToken == null ? (
           <Stack.Screen name="Login">
@@ -216,9 +219,41 @@ export default function App() {
             <Stack.Screen name="MemberListFull" component={MemberListScreen} />
             <Stack.Screen name="KasirFull" component={KasirScreen} />
             <Stack.Screen name="StokFull" component={StokScreen} />
+            <Stack.Screen name="PengeluaranOperasional" component={PengeluaranOperasionalScreen} />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+// ========== MAIN APP ==========
+export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [userToken, setUserToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const bootstrapAsync = async () => {
+      let token: string | null = null;
+      try {
+        token = await SecureStore.getItemAsync("userToken");
+      } catch (e) {
+        // Token retrieval failed
+      }
+      // Simulated minimum splash duration for branding
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      setUserToken(token || null);
+      setIsLoading(false);
+    };
+    bootstrapAsync();
+  }, []);
+
+  if (isLoading) return <SplashScreen />;
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <InnerApp userToken={userToken} setUserToken={setUserToken} />
+      <Toast />
+    </QueryClientProvider>
   );
 }
