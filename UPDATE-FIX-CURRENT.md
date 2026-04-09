@@ -1137,3 +1137,48 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 *Update: 7 April 2026 â€” UAT Operator Fase 1*
+
+---
+
+## UPDATE 10 April 2026 — Sesi Kas & Bank + Automasi
+
+### [FIX] Perbaikan Filter & Search Kas & Bank (kas-bank/page.tsx)
+
+| ID | Deskripsi | Status |
+|----|-----------|--------|
+| **BUG-075** | Riwayat Kas & Bank: fitur search tidak berfungsi (searchColumn tidak di-pass ke DataTable) | ? FIXED |
+| **BUG-076** | Tab Transaksi Unit: tidak ada filter berdasarkan unit usaha | ? FIXED |
+
+**Detail Fix:**
+- DataTable di tab Riwayat Kas sekarang menerima searchColumn="description" untuk pencarian real-time
+- Tab Transaksi Unit sekarang memiliki Select dropdown filter: Toko, Simpan Pinjam, Cuci Mobil & Resto, Playstation, Gym — menggunakan ilteredUnitTransactions yang di-compute via useMemo
+
+### [FIX] Perbaikan Import Excel Buku Kas (api/cash-bank/import/route.ts)
+
+| ID | Deskripsi | Status |
+|----|-----------|--------|
+| **BUG-077** | Import Excel: data sampah angka kecil (contoh: 9 rupiah) masuk sebagai transaksi valid | ? FIXED |
+| **BUG-078** | Import Excel: stop-sequence terlalu agresif (kata 'sisa' memotong baris 'Sisa Setelah Serah Terima') | ? FIXED |
+| **BUG-079** | Import Excel: seluruh baris satu tanggal memiliki timestamp sama sehingga urutan acak di Buku Kas | ? FIXED |
+| **BUG-080** | Import Excel: isSaldoAwal tidak menangkap kata kunci 'sisa awal' | ? FIXED |
+
+**Detail Fix:**
+- Threshold minimum Rp 10 diterapkan: if (debet < 10) debet = 0
+- Stop-sequence dipersempit ke: "jumlah bulan ini", "jumlah s.d bulan", secondCol === "sisa akhir"
+- Time-offset per-baris: 
+ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
+- isSaldoAwal diperluas: "sisa awal" dan "sisa setelah serah terima" keduanya dikenali
+
+### [SCRIPT] Pelunasan Manual Pinjaman via Database Script
+
+| ID | Deskripsi | Status |
+|----|-----------|--------|
+| **FIX-DATA-001** | Pinjaman LN-SP-mnf9ky60-0013 (SUGESTI) dilunaskan via script karena dana sudah masuk di Buku Kas BANK JATIM | ? EXECUTED |
+
+**File:** prisma/resolve-sugesti-loan.ts  
+**Eksekusi:** 10 April 2026 — berhasil dijalankan ke Production DB  
+**Catatan:** Sisa pokok Rp 24.995.000 + bunga Rp 15.000.000 dihapuskan. Dana riil Rp 25.328.000 sudah tercatat di Buku Kas.
+
+---
+
+*Diperbarui: 10 April 2026 — Sesi Kas & Bank*

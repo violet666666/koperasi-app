@@ -121,32 +121,134 @@ export async function POST(request: Request) {
                 ? currentBalance + data.amount
                 : currentBalance - data.amount;
 
-        const transaction = await prisma.cashBankTransaction.create({
-            data: {
-                transactionNo: generateTransactionNo(data.type),
-                accountId: data.accountId,
-                branchId: account.branchId,
-                type: data.type,
-                category: data.category,
-                amount: data.amount,
-                balanceBefore: currentBalance,
-                balanceAfter,
-                description: data.description,
-                transactionDate: data.transactionDate,
-                createdById: finalUserId,
-            },
-            include: {
-                account: true,
-            },
+        // ================================================================
+        // SPLIT LEDGER LOGIC (Cuci Mobil)
+        // ================================================================
+        const isCuciMobilPendapatan = 
+            data.unitType === "cuci_mobil" && 
+            data.category === "pendapatan_unit" && 
+            data.type === "in";
+
+        const MITRA_SHARE_PERCENT = 0.5;  // 50% ke mitra
+        const SHU_ANGGOTA_AMOUNT = 2000;  // Rp2.000 dari jatah koperasi
+
+        let mitraShare = 0;
+        let shuAnggota = 0;
+        let netKoperasi = data.amount;
+
+        if (isCuciMobilPendapatan) {
+            mitraShare = Math.floor(data.amount * MITRA_SHARE_PERCENT);
+            const koperasiGross = data.amount - mitraShare;
+            
+            if (data.memberId) {
+                shuAnggota = Math.min(SHU_ANGGOTA_AMOUNT, koperasiGross);
+            }
+            netKoperasi = koperasiGross - shuAnggota;
+        }
+
+        // ================================================================
+        // ATOMIC TRANSACTION
+        // ================================================================
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Create the main CashBankTransaction
+            const transaction = await tx.cashBankTransaction.create({
+                data: {
+                    transactionNo: generateTransactionNo(data.type),
+                    accountId: data.accountId,
+                    branchId: account.branchId,
+                    type: data.type,
+                    category: data.category,
+                    amount: data.amount,
+                    balanceBefore: currentBalance,
+                    balanceAfter,
+                    description: data.description,
+                    transactionDate: data.transactionDate,
+                    unitType: data.unitType || null,
+                    memberId: data.memberId || null,
+                    createdById: finalUserId!,
+                },
+                include: {
+                    account: true,
+                },
+            });
+
+            // 2. Update account balance
+            await tx.cashBankAccount.update({
+                where: { id: data.accountId },
+                data: { currentBalance: balanceAfter },
+            });
+
+            // 3. Split Ledger for Cuci Mobil — record mitra hutang
+            if (isCuciMobilPendapatan && mitraShare > 0) {
+                // Record hutang mitra as a separate CashBankTransaction (type=out, virtual)
+                // This doesn't actually move money out of the bank — it's a liability marker
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: generateTransactionNo("out") + "-MITRA",
+                        accountId: data.accountId,
+                        branchId: account.branchId,
+                        type: "out",
+                        category: "hutang_mitra",
+                        amount: mitraShare,
+                        balanceBefore: balanceAfter,
+                        balanceAfter: balanceAfter, // saldo tetap — ini virtual/liability
+                        description: `[AUTO] Hutang Mitra Cuci Mobil (50% dari ${data.description || "Pendapatan CM"})`,
+                        transactionDate: data.transactionDate,
+                        unitType: "cuci_mobil",
+                        referenceType: "cash_bank_split",
+                        referenceId: transaction.id,
+                        createdById: finalUserId!,
+                    },
+                });
+            }
+
+            // 4. SHU Anggota — credit Rp2.000 to TabunganSejahtera
+            if (isCuciMobilPendapatan && shuAnggota > 0 && data.memberId) {
+                const now = new Date(data.transactionDate);
+                const tahun = now.getFullYear();
+                const bulan = now.getMonth() + 1;
+
+                await tx.tabunganSejahteraHistory.upsert({
+                    where: {
+                        memberId_tahun_bulan: {
+                            memberId: data.memberId,
+                            tahun,
+                            bulan,
+                        },
+                    },
+                    update: {
+                        kasMasuk: { increment: shuAnggota },
+                        saldoAkhir: { increment: shuAnggota },
+                    },
+                    create: {
+                        memberId: data.memberId,
+                        tahun,
+                        bulan,
+                        kasMasuk: shuAnggota,
+                        kasKeluar: 0,
+                        saldoAkhir: shuAnggota,
+                    },
+                });
+            }
+
+            return {
+                transaction,
+                splitInfo: isCuciMobilPendapatan ? {
+                    totalMasuk: data.amount,
+                    mitraShare,
+                    shuAnggota,
+                    netKoperasi,
+                } : null,
+            };
         });
 
-        // Update account balance
-        await prisma.cashBankAccount.update({
-            where: { id: data.accountId },
-            data: { currentBalance: balanceAfter },
-        });
-
-        return NextResponse.json({ data: transaction }, { status: 201 });
+        return NextResponse.json({ 
+            data: result.transaction, 
+            splitInfo: result.splitInfo,
+            message: result.splitInfo 
+                ? `Transaksi berhasil! Hutang Mitra: Rp${mitraShare.toLocaleString("id-ID")}, SHU Anggota: Rp${shuAnggota.toLocaleString("id-ID")}`
+                : "Transaksi berhasil dicatat",
+        }, { status: 201 });
     } catch (error) {
         console.error("POST /api/cash-bank/transactions error:", error);
         if (error instanceof Error && error.name === "ZodError") {

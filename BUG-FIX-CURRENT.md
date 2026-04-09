@@ -1319,3 +1319,23 @@ Kode sebelumnya **selalu menjumlahkan keduanya tanpa pengecekan**, sehingga jika
 - Jika TIDAK ? `tabunganWajibFallback = Member.tabunganWajib` (data CSV lama masih relevan)
 - Perbaikan yang sama diterapkan di SHU Calculator agar distribusi SHU per anggota juga tidak bias.
 **Status:** FIXED ?
+
+---
+
+## BUG REPORT — 10 April 2026
+
+| ID | Modul | Deskripsi Bug | Severity | Status |
+|----|-------|---------------|----------|--------|
+| **BUG-075** | Kas & Bank / Riwayat | Search bar tidak berfungsi — searchColumn tidak di-pass ke DataTable component | Medium | ? FIXED |
+| **BUG-076** | Kas & Bank / Transaksi Unit | Tidak ada filter per-unit pada tab Transaksi Unit | Medium | ? FIXED |
+| **BUG-077** | Import Excel Kas | Angka artifact kecil (< Rp 10) dari sel Excel kosong terimpor sebagai transaksi valid | High | ? FIXED |
+| **BUG-078** | Import Excel Kas | Stop-sequence 'sisa' terlalu broad — memotong baris 'Sisa Setelah Serah Terima' (Saldo Awal) sehingga tidak diimpor | Critical | ? FIXED |
+| **BUG-079** | Import Excel Kas | Semua baris dalam satu tanggal mendapat timestamp persis sama, membuat urutan Buku Kas acak/non-deterministik | High | ? FIXED |
+| **BUG-080** | Import Excel Kas | isSaldoAwal tidak mengenali keyword 'sisa awal' — hanya 'saldo awal' | Medium | ? FIXED |
+| **BUG-081** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Tanggal (hardcode 
+ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — Target: Sesi berikutnya |
+| **BUG-082** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Unit Usaha — tidak bisa trigger automasi Split Ledger Cuci Mobil | High | ?? OPEN — Target: Sesi berikutnya |
+| **BUG-083** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Anggota — SHU Rp2.000 tidak dapat dipotong otomatis | High | ?? OPEN — Target: Sesi berikutnya |
+| **BUG-084** | Kas & Bank Schema | Tabel CashBankTransaction tidak memiliki kolom unitType dan memberId — laporan Arus Kas per-Unit tidak bisa disajikan secara efisien | Medium | ?? OPEN — Target: Schema Migration |
+
+---
