@@ -397,7 +397,7 @@ export default function TransaksiKasPage() {
                                     Kas Keluar
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-lg">
+                            <DialogContent className="max-w-2xl">
                                 <DialogHeader>
                                     <DialogTitle>
                                         {transactionType === "in" ? "Kas Masuk" : "Kas Keluar"}
@@ -406,15 +406,15 @@ export default function TransaksiKasPage() {
                                         Catat transaksi {transactionType === "in" ? "pemasukan" : "pengeluaran"} kas
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
+                                <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="sm:col-span-2">
                                             <Label>Akun Kas</Label>
                                             <Select
                                                 value={formData.accountId}
                                                 onValueChange={(v) => setFormData(prev => ({ ...prev, accountId: v }))}
                                             >
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Pilih akun kas" />
                                                 </SelectTrigger>
                                                 <SelectContent>

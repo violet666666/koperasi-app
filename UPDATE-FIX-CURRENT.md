@@ -1182,3 +1182,27 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 ---
 
 *Diperbarui: 10 April 2026 — Sesi Kas & Bank*
+
+---
+
+## UPDATE 10 April 2026 - Sesi 10
+
+### FIX: Saldo Awal Buku Kas (BUG-085)
+- **API `/api/cash-bank/book`**: Ditambahkan logika deteksi otomatis baris "Sisa Setelah Serah Terima" / "Saldo Awal" sebagai opening balance
+- Jika `openingBalance == 0`, sistem memeriksa transaksi dalam periode yang mengandung keyword saldo awal
+- Transaksi tersebut diekstrak sebagai saldo awal (tidak ditampilkan sebagai transaksi biasa)
+- Per-account breakdown ditambahkan ke response API
+
+### FIX: Cleanup Data Sampah Production (BUG-086)
+- Skrip `prisma/cleanup-garbage-transactions.ts` berhasil menghapus 2 transaksi < Rp 10
+- Saldo akun Bank BRI dan Kas Tunai direkalkukasi ulang
+
+### FIX: Modal Kas Masuk/Keluar Overflow (BUG-087)
+- Modal diperbesar dari `max-w-lg` ke `max-w-2xl`
+- Layout baris pertama diubah menjadi responsive 3-kolom (Akun Kas = 2 kolom, Tanggal = 1 kolom)
+
+### NEW: Kartu Detail Saldo Awal Per Akun
+- Komponen baru di `buku-kas/page.tsx` menampilkan breakdown saldo awal per rekening
+- Muncul otomatis ketika system mendeteksi transaksi "Sisa Setelah Serah Terima"
+- Grid 3-kolom responsif dengan desain gradient biru
+

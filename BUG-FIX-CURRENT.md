@@ -1339,3 +1339,48 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 | **BUG-084** | Kas & Bank Schema | Tabel CashBankTransaction tidak memiliki kolom unitType dan memberId — laporan Arus Kas per-Unit tidak bisa disajikan secara efisien | Medium | ?? OPEN — Target: Schema Migration |
 
 ---
+
+### BUG-085 (10 April 2026) - Saldo Awal Periode Selalu Rp 0 di Buku Kas
+**File:** `src/app/api/cash-bank/book/route.ts`
+**Masalah:** Saat membuka halaman Buku Kas (`/kas-bank/buku-kas`), baris "Saldo Awal Periode" selalu menunjukkan Rp 0. Padahal data "Sisa Setelah Serah Terima" sudah diimpor dari Excel.
+**Root Cause:** API `/api/cash-bank/book` menghitung `openingBalance` dari transaksi **sebelum** periode yang dipilih. Namun saat user memilih "Semua Bulan" pada tahun dimana data pertama kali diimpor, tidak ada transaksi sebelumnya, sehingga `openingBalance = 0`. Sementara itu, baris "Sisa Setelah Serah Terima" diperlakukan sebagai transaksi biasa (`category: lainnya`), bukan sebagai saldo awal.
+**Solusi:** Menambahkan logika deteksi `isOpeningBalanceDescription()` yang mengenali keyword: "saldo bulan", "saldo awal", "sisa awal", "sisa setelah serah terima". Jika `openingBalance == 0` dan terdapat transaksi bertipe saldo awal di periode tersebut, maka:
+1. Jumlahkan sebagai `detectedOpeningBalance`
+2. Ekstrak dari daftar entri (tidak ditampilkan sebagai transaksi biasa)
+3. Tampilkan sebagai Saldo Awal di kartu ringkasan dan baris pembuka tabel
+4. Hitung per-akun breakdown untuk ditampilkan di UI
+**Status:** FIXED
+
+---
+
+### BUG-086 (10 April 2026) - Transaksi Sampah < Rp 10 Masih Ada di Production
+**File:** `prisma/cleanup-garbage-transactions.ts`
+**Masalah:** Meski filter `< 10` sudah ditambahkan ke logika import (BUG-077), 2 transaksi sampah yang **sudah terimpor sebelumnya** masih bertengger di database production:
+- ID 1625: Bank BRI | Rp 9 | "[IMPORT EXCEL - MARET] 4"
+- ID 1641: Kas Tunai | Rp 7 | "[IMPORT EXCEL - MARET] 4"
+**Solusi:** Membuat dan menjalankan skrip cleanup (`prisma/cleanup-garbage-transactions.ts`) yang:
+1. Menemukan semua transaksi `amount < 10`
+2. Menghapus transaksi tersebut
+3. Merekalkukasi ulang `balanceBefore` dan `balanceAfter` untuk seluruh transaksi di akun yang terdampak
+4. Memperbarui `currentBalance` akun
+- Akun 9 (Bank BRI): Saldo dikoreksi ke 2.207.282.591
+- Akun 12 (Kas Tunai): Saldo dikoreksi ke 10.814.076
+**Status:** FIXED + DATA CLEANED
+
+---
+
+### BUG-087 (10 April 2026) - Modal Kas Masuk/Keluar Overflow (Teks Akun Menutupi Tanggal)
+**File:** `src/app/(protected)/kas-bank/kas/page.tsx`
+**Masalah:** Saat memilih Akun Kas di modal Kas Masuk/Keluar, teks nama akun yang panjang (misal "KAS TUNAI KOPERASI (Rp 10.814.076)") meluap (overflow) keluar dari batas selector dan menutupi field Tanggal Transaksi di sebelahnya.
+**Root Cause:** Modal menggunakan `max-w-lg` (512px) yang terlalu sempit untuk layout 2-kolom dengan teks akun panjang. SelectTrigger tidak memiliki constraint `w-full` dan tidak ada truncation.
+**Solusi:**
+1. Memperbesar modal dari `max-w-lg` menjadi `max-w-2xl` (672px)
+2. Mengubah layout baris pertama dari `grid-cols-2` menjadi `grid-cols-1 sm:grid-cols-3` dengan Akun Kas mendapat `col-span-2`
+3. Menambahkan `className="w-full"` pada SelectTrigger
+4. Memperbesar scroll area dari `max-h-[60vh]` ke `max-h-[70vh]`
+**Status:** FIXED
+
+---
+
+*Total bug tercatat: 92 | Total fitur baru: 22*
+*Diperbarui: 10 April 2026 - Sesi 10*
