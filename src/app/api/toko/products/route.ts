@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 // GET /api/toko/products - List store products
 export async function GET(request: Request) {
@@ -52,6 +53,9 @@ export async function GET(request: Request) {
 // POST /api/toko/products - Create a new product
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        const userId = session?.user?.id ? parseInt(session.user.id) : null;
+
         const body = await request.json();
         const { sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, minStock, unit, isService } = body;
 
@@ -77,6 +81,20 @@ export async function POST(request: Request) {
                 isService: isService || false,
             },
         });
+
+        // Insert log inisialisasi jika mengisi sisa stok pada produk baru
+        if (product.stock > 0 && !product.isService) {
+            await prisma.storeStockMovement.create({
+                 data: {
+                     productId: product.id,
+                     type: "in",
+                     quantity: product.stock,
+                     reference: "Stok Awal Produk Baru",
+                     notes: "Inisialisasi sistem",
+                     operatorId: userId
+                 }
+            });
+        }
 
         return NextResponse.json({ data: product }, { status: 201 });
     } catch (error) {

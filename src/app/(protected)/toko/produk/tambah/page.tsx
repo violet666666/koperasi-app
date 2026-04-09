@@ -97,7 +97,14 @@ export default function TambahProdukPage() {
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="sku">SKU / Kode Produk <span className="text-red-500">*</span></Label>
-                                <Input id="sku" placeholder="Contoh: BRS-001" value={form.sku}
+                                <Input id="sku" placeholder="Contoh: atau Scan Barcode di sini..." value={form.sku}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            document.getElementById('name')?.focus();
+                                        }
+                                    }}
                                     onChange={e => handleChange("sku", e.target.value)} />
                             </div>
                             <div className="space-y-2">
