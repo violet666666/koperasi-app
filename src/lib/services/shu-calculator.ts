@@ -237,14 +237,15 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 select: { totalAmount: true, metadata: true }
             },
             unitTransactions: {
-                where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed" },
-                select: { amount: true }
+                where: { transactionDate: { gte: startDate, lte: endDate }, status: "completed" },
+                select: { amount: true, unitType: true }
             }
         }
     });
 
     let totalSystemSavings = 0;
     let totalSystemTransactions = 0;
+    const CARWASH_BONUS_PER_TX = 2000;
 
     const memberStats = members.map(m => {
         // Modal: Simpanan Pokok + Wajib — pisahkan untuk transparansi UI
@@ -271,6 +272,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             .reduce((sum, sale) => sum + toNum(sale.totalAmount), 0);
         const unitContrib = m.unitTransactions.reduce((sum, ut) => sum + toNum(ut.amount), 0);
 
+        // SHU Cuci Mobil: Hitung jumlah transaksi cuci_mobil milik anggota ini
+        const carwashCount = m.unitTransactions.filter(ut => ut.unitType === "cuci_mobil").length;
+        const carwashBonus = carwashCount * CARWASH_BONUS_PER_TX;
+
         const transactionContrib = loanContrib + storeContrib + unitContrib;
 
         totalSystemSavings += savingsBal;
@@ -284,15 +289,26 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             simpananWajib,
             savingsContribution: savingsBal,
             loanContribution: transactionContrib,
-            totalContribution: savingsBal + transactionContrib
+            totalContribution: savingsBal + transactionContrib,
+            carwashCount,
+            carwashBonus,
         };
     });
 
+    // Hitung total beban SHU Cuci Mobil secara nasional (dibebankan ke pendapatan kotor koperasi)
+    const totalCarwashBonus = memberStats.reduce((sum, m) => sum + m.carwashBonus, 0);
+
+    // Potong beban SHU Cuci Mobil dari Laba Bersih agar Koperasi tidak tombok
+    const adjustedNetSurplus = Math.max(0, netSurplus - totalCarwashBonus);
+    const adjustedMemberSurplus = Math.round(adjustedNetSurplus * memberRatio);
+    const adjustedJasaModalPool = Math.round((adjustedMemberSurplus * (modalAlloc?.percentage || 20)) / 100);
+    const adjustedJasaUsahaPool = Math.round((adjustedMemberSurplus * (usahaAlloc?.percentage || 25)) / 100);
+
     const memberDistribution = memberStats.map(m => {
-        const modalPortion = totalSystemSavings > 0 ? Math.round((m.savingsContribution / totalSystemSavings) * jasaModalPool) : 0;
-        const usahaPortion = totalSystemTransactions > 0 ? Math.round((m.loanContribution / totalSystemTransactions) * jasaUsahaPool) : 0;
-        const totalSHU = modalPortion + usahaPortion;
-        const memberDividend = jasaModalPool + jasaUsahaPool;
+        const modalPortion = totalSystemSavings > 0 ? Math.round((m.savingsContribution / totalSystemSavings) * adjustedJasaModalPool) : 0;
+        const usahaPortion = totalSystemTransactions > 0 ? Math.round((m.loanContribution / totalSystemTransactions) * adjustedJasaUsahaPool) : 0;
+        const totalSHU = modalPortion + usahaPortion + m.carwashBonus;
+        const memberDividend = adjustedJasaModalPool + adjustedJasaUsahaPool + totalCarwashBonus;
 
         return {
             ...m,
@@ -312,17 +328,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         month,
         periodLabel,
         totalIncome,
-        totalExpense,
-        netSurplus,
+        totalExpense: totalExpense + totalCarwashBonus, // Beban SHU Cuci Mobil masuk ke total pengeluaran
+        netSurplus: adjustedNetSurplus,
         memberRatio,
         nonMemberRatio,
-        memberSurplus,
+        memberSurplus: adjustedMemberSurplus,
         nonMemberSurplus,
-        jasaModalPool,
-        jasaUsahaPool,
-        memberDividend: jasaModalPool + jasaUsahaPool,
+        jasaModalPool: adjustedJasaModalPool,
+        jasaUsahaPool: adjustedJasaUsahaPool,
+        memberDividend: adjustedJasaModalPool + adjustedJasaUsahaPool + totalCarwashBonus,
         totalSavingsCapital: totalSystemSavings,
         memberCount: members.length,
+        totalCarwashBonus,
 
         allocationsMember,
         allocationsNonMember,
@@ -330,7 +347,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         memberDistribution: memberDistribution.sort((a, b) => b.shuAmount - a.shuAmount),
 
         incomeDetails,
-        expenseDetails
+        expenseDetails: [
+            ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
+            ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : [])
+        ]
     };
 }
 

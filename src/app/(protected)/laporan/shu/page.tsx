@@ -37,6 +37,7 @@ const shuExportColumns: ExportColumn[] = [
     { header: "Poin Usaha", key: "loanContribution", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
     { header: "SHU Jasa Modal", key: "modalPortion", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
     { header: "SHU Jasa Usaha", key: "usahaPortion", width: 22, format: (v) => formatCurrency(Number(v || 0)) },
+    { header: "SHU Cuci Mobil", key: "carwashBonus", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
     { header: "Total SHU Diterima", key: "shuShare", width: 20, format: (v) => formatCurrency(Number(v || 0)) },
 ];
 
@@ -57,6 +58,8 @@ interface MemberSHU {
     totalContribution: number;
     modalPortion: number;
     usahaPortion: number;
+    carwashBonus: number;
+    carwashCount: number;
     shuShare: number;
 }
 
@@ -133,6 +136,19 @@ const columns: ColumnDef<MemberSHU>[] = [
         accessorKey: "usahaPortion",
         header: () => <div className="text-right">SHU Jasa Usaha</div>,
         cell: ({ row }) => <div className="text-right tabular-nums font-medium text-orange-600">{formatCurrency(row.getValue("usahaPortion"))}</div>,
+    },
+    {
+        accessorKey: "carwashBonus",
+        header: () => <div className="text-right">SHU Cuci Mobil</div>,
+        cell: ({ row }) => {
+            const bonus = Number(row.getValue("carwashBonus") || 0);
+            const count = row.original.carwashCount || 0;
+            return (
+                <div className="text-right tabular-nums font-medium text-cyan-600" title={`${count} transaksi x Rp 2.000`}>
+                    {bonus > 0 ? formatCurrency(bonus) : "-"}
+                </div>
+            );
+        },
     },
     {
         accessorKey: "shuShare",
@@ -500,6 +516,7 @@ export default function LaporanSHUPage() {
                                             <th className="text-right py-2 px-2 font-bold">Simp. Wajib</th>
                                             <th className="text-right py-2 px-2 font-bold">SHU Jasa Modal</th>
                                             <th className="text-right py-2 px-2 font-bold">SHU Jasa Usaha</th>
+                                            <th className="text-right py-2 px-2 font-bold">SHU Cuci Mobil</th>
                                             <th className="text-right py-2 px-2 font-bold">Total SHU Diterima</th>
                                         </tr>
                                     </thead>
@@ -513,6 +530,7 @@ export default function LaporanSHUPage() {
                                                 <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.simpananWajib)}</td>
                                                 <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.modalPortion)}</td>
                                                 <td className="py-1.5 px-2 text-right tabular-nums">{formatCurrency(member.usahaPortion)}</td>
+                                                <td className="py-1.5 px-2 text-right tabular-nums text-cyan-600">{member.carwashBonus > 0 ? formatCurrency(member.carwashBonus) : "-"}</td>
                                                 <td className="py-1.5 px-2 text-right tabular-nums font-bold text-emerald-600">{formatCurrency(member.shuShare)}</td>
                                             </tr>
                                         ))}
@@ -524,6 +542,7 @@ export default function LaporanSHUPage() {
                                             <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.simpananWajib, 0) || 0)}</td>
                                             <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.modalPortion, 0) || 0)}</td>
                                             <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.usahaPortion, 0) || 0)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums text-cyan-600">{formatCurrency(data.memberShu?.reduce((s, m) => s + (m.carwashBonus || 0), 0) || 0)}</td>
                                             <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatCurrency(totalMemberShuShare)}</td>
                                         </tr>
                                     </tfoot>

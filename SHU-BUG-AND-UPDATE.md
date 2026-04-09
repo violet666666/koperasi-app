@@ -56,3 +56,25 @@ Seluruh perlintasan ini telah terverifikasi menembak server `SSOT` akurat dan me
 - **Bug Omzet Lenyap (JSON Filter):** Sukses diubah dari deteksi positif ke *Negative Matching* pada layanan *back-end* kalkulator, mengembalikan pembacaan struktur ribuan omzet unit toko yang sempat tak kasat mata.
 
 *Status: Modul Sisa Hasil Usaha (SHU) Koperasi PRIMKOPPOL dinyatakan 100% Lulus UAT internal dan Siap diuji Staging secara Riil.*
+
+---
+
+## 6. FITUR BARU & BUG KASIR CUCI MOBIL (10 April 2026)
+
+### D. Bug Kritis Kasir Cuci Mobil
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi |
+|:---|:---|:---|:---|:---|:---|
+| **9** | POS Kasir Cuci Mobil | `src/app/(protected)/cuci-mobil/kasir/page.tsx` (L133) | 🔴 **CRITICAL** | **memberId Hilang pada Pembayaran Cash/QRIS:** Kode `if (method === "salary_cut") body.memberId = selectedMember?.id` hanya mengirim ID anggota saat potong gaji. Pembayaran tunai & QRIS kehilangan data anggota 100%, sehingga SHU Cuci Mobil tidak pernah bisa dihitung. | **✓ [CLOSED]** Diubah menjadi `if (selectedMember?.id) body.memberId = selectedMember.id` tanpa syarat metode bayar. |
+| **10** | POS Kasir Cuci Mobil | `src/app/(protected)/cuci-mobil/kasir/page.tsx` (L135) | 🔴 **CRITICAL** | **Salah Tembak API Endpoint:** Kasir Cuci Mobil menembak `/api/toko/sales` (API Toko), bukan `/api/unit-layanan/sales`. Akibatnya, transaksi cuci mobil masuk ke tabel `StoreSale` alih-alih `UnitTransaction`, menyebabkan data tidak tersedot oleh Kalkulator SHU Unit. | **✓ [CLOSED]** Diubah menjadi `/api/unit-layanan/sales` dengan payload yang disesuaikan (`amount`, `description`, `unitType`). |
+
+### E. Fitur Baru: SHU Cuci Mobil Rp 2.000/Transaksi
+
+Sesuai kebijakan AD-ART, setiap anggota yang mencuci mobil di unit Cuci Mobil Koperasi berhak atas **SHU Fix Rp 2.000 per transaksi** (nominal berapapun). Implementasi menggunakan **Opsi B (Penahanan Akhir Tahun)** agar aman secara likuiditas.
+
+**File yang dimodifikasi:**
+- `src/lib/services/shu-calculator.ts`: Menambahkan deteksi `unitType === "cuci_mobil"`, menghitung `carwashCount * 2000` per anggota, memotong total bonus dari Laba Bersih Koperasi, lalu menyuntikkan bonus ke distribusi SHU individu.
+- `src/app/(protected)/laporan/shu/page.tsx`: Menambahkan kolom **"SHU Cuci Mobil"** (warna cyan) di DataTable, Print View, dan Export Excel/PDF.
+- `src/app/(protected)/cuci-mobil/kasir/page.tsx`: Memperbaiki bug memberId & endpoint agar data tercatat benar ke `UnitTransaction`.
+
+**Transparansi:** Kolom SHU Cuci Mobil tampil real-time di estimasi dan hover tooltip menunjukkan rincian `N transaksi x Rp 2.000`.
