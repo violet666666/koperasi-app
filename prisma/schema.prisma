@@ -257,8 +257,48 @@ model Member {
   receipts            Receipt[]
   tabunganSejahteraHistory TabunganSejahteraHistory[]
   cashBankTransactions CashBankTransaction[] @relation("CashBankMember")
+  shuDistributions     ShuDistribution[]
 
   @@map("members")
+}
+
+// =================================================================
+// SISA HASIL USAHA (SHU)
+// =================================================================
+
+model ShuPeriod {
+  id              Int               @id @default(autoincrement())
+  year            Int               @unique
+  status          String            @default("calculated") // calculated, distributed
+  totalIncome     Decimal           @default(0) @map("total_income") @db.Decimal(15, 2)
+  totalExpense    Decimal           @default(0) @map("total_expense") @db.Decimal(15, 2)
+  netSurplus      Decimal           @default(0) @map("net_surplus") @db.Decimal(15, 2)
+  memberDividend  Decimal           @default(0) @map("member_dividend") @db.Decimal(15, 2)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  distributions   ShuDistribution[]
+
+  @@map("shu_periods")
+}
+
+model ShuDistribution {
+  id              Int       @id @default(autoincrement())
+  periodId        Int       @map("period_id")
+  memberId        Int       @map("member_id")
+  modalPortion    Decimal   @default(0) @map("modal_portion") @db.Decimal(15, 2)
+  usahaPortion    Decimal   @default(0) @map("usaha_portion") @db.Decimal(15, 2)
+  totalAmount     Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
+  status          String    @default("pending") // pending, transferred, savings_credited
+  distributedAt   DateTime? @map("distributed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  period          ShuPeriod @relation(fields: [periodId], references: [id])
+  member          Member    @relation(fields: [memberId], references: [id])
+
+  @@unique([periodId, memberId])
+  @@map("shu_distributions")
 }
 
 // =================================================================

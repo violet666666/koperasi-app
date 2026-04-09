@@ -111,11 +111,19 @@ const columns: ColumnDef<MemberSHU>[] = [
 ];
 
 export default function SHUCalculationPage() {
-    const currentYear = new Date().getFullYear().toString();
-    const [selectedYear, setSelectedYear] = React.useState<string>(currentYear);
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = React.useState<string>(String(now.getFullYear()));
     const [shuData, setShuData] = React.useState<SHUCalculation | null>(null);
     const [memberSHU, setMemberSHU] = React.useState<MemberSHU[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+
+    const yearOptions = React.useMemo(() => {
+        const years: string[] = [];
+        for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
+            years.push(String(y));
+        }
+        return years;
+    }, []);
 
     // Fetch data
     const fetchData = React.useCallback(async () => {
@@ -152,8 +160,9 @@ export default function SHUCalculationPage() {
 
     const nonMemberDistribution = shuData ? [
         { name: "Dana Cadangan", amount: shuData.nonMemberSurplus * 0.60, percentage: 60, color: "bg-indigo-500" },
-        { name: "Dana Pendidikan PRIMKOPPOL", amount: shuData.nonMemberSurplus * 0.20, percentage: 20, color: "bg-pink-500" },
+        { name: "Dana Pendidikan Koperasi (Bag. 1)", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-pink-500" },
         { name: "Kesejahteraan Karyawan", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-amber-500" },
+        { name: "Dana Pendidikan Koperasi (Bag. 2)", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-cyan-500" },
         { name: "Dana Sosial", amount: shuData.nonMemberSurplus * 0.10, percentage: 10, color: "bg-rose-500" },
     ] : [];
 
@@ -194,9 +203,9 @@ export default function SHUCalculationPage() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                                <SelectItem value="2026">2026</SelectItem>
+                                {yearOptions.map(y => (
+                                    <SelectItem key={y} value={y}>Tahun {y}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         {shuData && statusBadge(shuData.status)}

@@ -1,205 +1,205 @@
-/**
- * ============================================================
- * SEED UAT — PRIMKOPPOL Koperasi UAT Environment
- * ============================================================
- * Membuat data uji (test fixtures) yang diperlukan untuk UAT:
- *   - User: Kasir & Admin tiap unit usaha
- *   - Anggota dummy (tag "[UAT]") dengan plafon piutang yang cukup
- *   - Produk Toko sample (untuk POS Toko)
- *   - Paket Layanan Jasa (untuk POS per Unit)
- *
- * Jalankan: npx tsx prisma/seed-uat.ts
- * Cleanup : npx tsx prisma/cleanup-uat.ts
- * ============================================================
- */
-
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// ─── Konstanta UAT ─────────────────────────────────────────────
-const UAT_TAG = "[UAT]";
-const UAT_PASSWORD = "uat123456"; // Password semua akun UAT
-// BRANCH_ID akan di-query otomatis di main() agar tidak perlu hardcode
+// ======= PERMISSIONS & ROLES =======
+const PERMISSIONS = [
+    { name: "manage_all", displayName: "Akses Penuh", module: "system" },
+    { name: "user_management", displayName: "Kelola Pengguna", module: "users" },
+    { name: "master_data", displayName: "Master Data", module: "master" },
+    { name: "manage_anggota", displayName: "Kelola Anggota", module: "members" },
+    { name: "view_anggota", displayName: "Lihat Anggota", module: "members" },
+    { name: "manage_simpanan", displayName: "Kelola Simpanan", module: "savings" },
+    { name: "view_simpanan", displayName: "Lihat Simpanan", module: "savings" },
+    { name: "manage_pinjaman", displayName: "Kelola Pinjaman", module: "loans" },
+    { name: "view_pinjaman", displayName: "Lihat Pinjaman", module: "loans" },
+    { name: "approve_pinjaman", displayName: "Approve Pinjaman", module: "loans" },
+    { name: "manage_kas_bank", displayName: "Kelola Kas & Bank", module: "cash_bank" },
+    { name: "view_jurnal", displayName: "Lihat Jurnal", module: "accounting" },
+    { name: "manage_jurnal", displayName: "Kelola Jurnal", module: "accounting" },
+    { name: "view_laporan", displayName: "Lihat Laporan", module: "reports" },
+    { name: "tutup_buku", displayName: "Tutup Buku", module: "period" },
+    { name: "alokasi_shu", displayName: "Alokasi SHU", module: "shu" },
+    { name: "approve_transactions", displayName: "Approve Transaksi", module: "approval" },
+    { name: "view_audit_log", displayName: "Lihat Audit Log", module: "audit" },
+    { name: "manage_toko", displayName: "Kelola Toko", module: "shop" },
+    { name: "manage_pengumuman", displayName: "Kelola Pengumuman", module: "communication" },
+    { name: "edit_profil", displayName: "Edit Profil Koperasi", module: "settings" },
+    { name: "manage_aset", displayName: "Kelola Aset", module: "assets" },
+    { name: "manage_unit_transactions", displayName: "Kelola Transaksi Unit", module: "unit_transactions" },
+    { name: "view_own_data", displayName: "Lihat Data Sendiri", module: "portal" },
+];
 
-// Unit usaha yang akan diuji
-const UNIT_TYPES = [
-  { slug: "toko",         label: "Toko PRIMKOPPOL", isToko: true  },
-  { slug: "cuci_mobil",   label: "Cuci Mobil",      isToko: false },
-  { slug: "barbershop",   label: "Barbershop",       isToko: false },
-  { slug: "play_station", label: "PlayStation",      isToko: false },
-  { slug: "fitness",      label: "Fitness",          isToko: false },
-  { slug: "resto",        label: "Resto",            isToko: true  },
+const ROLES = [
+    { name: "operator", displayName: "Operator", description: "Super Admin", isSystem: true, permissions: ["manage_all"] },
+    { name: "admin", displayName: "Admin Unit", description: "Admin per unit", isSystem: true, permissions: ["manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "approve_pinjaman", "manage_kas_bank", "view_jurnal", "view_laporan", "approve_transactions", "manage_toko", "manage_unit_transactions", "manage_pengumuman"] },
+    { name: "kasir", displayName: "Kasir", description: "Cashier per unit", isSystem: true, permissions: ["view_anggota", "manage_simpanan", "view_simpanan", "view_pinjaman", "manage_kas_bank", "manage_toko", "manage_unit_transactions"] },
+    { name: "anggota", displayName: "Anggota", description: "Member Portal", isSystem: true, permissions: ["view_own_data"] },
+];
+
+const COA = [
+    // ASSETS
+    { code: "1000", name: "Aset", type: "asset", level: 1, isDetail: false, normalBalance: "debit", category: "asset" },
+    { code: "1100", name: "Kas & Bank", type: "asset", level: 2, isDetail: false, normalBalance: "debit", parentCode: "1000", category: "current_asset" },
+    { code: "1101", name: "Kas Besar", type: "asset", level: 3, isDetail: true, normalBalance: "debit", parentCode: "1100", category: "current_asset" },
+    { code: "1103", name: "Bank BRI", type: "asset", level: 3, isDetail: true, normalBalance: "debit", parentCode: "1100", category: "current_asset" },
+    { code: "1104", name: "Bank Jatim", type: "asset", level: 3, isDetail: true, normalBalance: "debit", parentCode: "1100", category: "current_asset" },
+    { code: "1200", name: "Piutang", type: "asset", level: 2, isDetail: false, normalBalance: "debit", parentCode: "1000", category: "current_asset" },
+    { code: "1201", name: "Piutang Pinjaman Anggota", type: "asset", level: 3, isDetail: true, normalBalance: "debit", parentCode: "1200", category: "current_asset" },
+    
+    // LIABILITIES
+    { code: "2000", name: "Kewajiban", type: "liability", level: 1, isDetail: false, normalBalance: "credit", category: "liability" },
+    { code: "2100", name: "Simpanan Anggota", type: "liability", level: 2, isDetail: false, normalBalance: "credit", parentCode: "2000", category: "current_liability" },
+    { code: "2101", name: "Simpanan Pokok", type: "liability", level: 3, isDetail: true, normalBalance: "credit", parentCode: "2100", category: "current_liability" },
+    { code: "2102", name: "Simpanan Wajib", type: "liability", level: 3, isDetail: true, normalBalance: "credit", parentCode: "2100", category: "current_liability" },
+    { code: "2103", name: "Simpanan Sukarela", type: "liability", level: 3, isDetail: true, normalBalance: "credit", parentCode: "2100", category: "current_liability" },
+    
+    // EQUITY
+    { code: "3000", name: "Modal", type: "equity", level: 1, isDetail: false, normalBalance: "credit", category: "equity" },
+    { code: "3103", name: "SHU Tahun Berjalan", type: "equity", level: 2, isDetail: true, normalBalance: "credit", parentCode: "3000", category: "equity" },
+    
+    // INCOME
+    { code: "4000", name: "Pendapatan", type: "income", level: 1, isDetail: false, normalBalance: "credit", category: "income" },
+    { code: "4101", name: "Pendapatan Bunga Pinjaman", type: "income", level: 2, isDetail: true, normalBalance: "credit", parentCode: "4000", category: "income" },
+    { code: "4201", name: "Pendapatan Toko", type: "income", level: 2, isDetail: true, normalBalance: "credit", parentCode: "4000", category: "income" },
+    
+    // EXPENSE
+    { code: "5000", name: "Beban", type: "expense", level: 1, isDetail: false, normalBalance: "debit", category: "expense" },
+    { code: "5101", name: "Beban Operasional", type: "expense", level: 2, isDetail: true, normalBalance: "debit", parentCode: "5000", category: "expense" }
 ];
 
 async function main() {
-  console.log("🚀 Memulai UAT Seed...\n");
+    console.log("🌱 STARTING UAT STAGING SEED...");
+    const defaultPassword = await bcrypt.hash("password123", 10);
 
-  // ── 0. Ambil Branch ID otomatis ─────────────────────────────────
-  const branch = await prisma.branch.findFirstOrThrow({ where: { code: "LMJ" } });
-  const BRANCH_ID = branch.id;
-  console.log(`📍 Branch: ${branch.name} (id=${BRANCH_ID})`);
+    console.log("🧹 1. Cleaning Database (TRUNCATE ALL)...");
+    const cleanupOrder = [
+        "StoreSaleItem", "StoreSale", "StoreProduct", "LoanPaymentAllocation", "LoanPayment", 
+        "LoanSchedule", "Loan", "LoanApplication", "UnitTransaction", "SavingsTransaction", 
+        "SavingsAccount", "CashBankTransaction", "JournalLine", "Journal", "CashBankAccount", 
+        "ApprovalRequest", "Receipt", "User", "Member", "FiscalPeriod", "SavingsProduct", 
+        "LoanProduct", "Account", "RolePermission", "Permission", "Branch", "Role"
+    ];
 
-  // ── 1. Ambil Role ID dari database ────────────────────────────
-  const kasirRole  = await prisma.role.findFirstOrThrow({ where: { name: "kasir"  } });
-  const adminRole  = await prisma.role.findFirstOrThrow({ where: { name: "admin"  } });
-  const hashedPwd  = await bcrypt.hash(UAT_PASSWORD, 10);
-
-  // ── 2. Buat User Kasir & Admin untuk setiap unit ───────────────
-  console.log("👥 Membuat akun UAT per unit...");
-  const createdUsers: number[] = [];
-
-  for (const unit of UNIT_TYPES) {
-    // Kasir
-    const kasir = await prisma.user.upsert({
-      where:  { email: `kasir.uat.${unit.slug}@primkoppol.test` },
-      update: { password: hashedPwd },
-      create: {
-        name:     `${UAT_TAG} Kasir ${unit.label}`,
-        email:    `kasir.uat.${unit.slug}@primkoppol.test`,
-        password: hashedPwd,
-        roleId:   kasirRole.id,
-        branchId: BRANCH_ID,
-        unitType: unit.slug,
-        isActive: true,
-      },
-    });
-    createdUsers.push(kasir.id);
-    console.log(`  ✓ Kasir ${unit.label}: ${kasir.email}`);
-
-    // Admin
-    const admin = await prisma.user.upsert({
-      where:  { email: `admin.uat.${unit.slug}@primkoppol.test` },
-      update: { password: hashedPwd },
-      create: {
-        name:     `${UAT_TAG} Admin ${unit.label}`,
-        email:    `admin.uat.${unit.slug}@primkoppol.test`,
-        password: hashedPwd,
-        roleId:   adminRole.id,
-        branchId: BRANCH_ID,
-        unitType: unit.slug,
-        isActive: true,
-      },
-    });
-    createdUsers.push(admin.id);
-    console.log(`  ✓ Admin ${unit.label}: ${admin.email}`);
-  }
-
-  // ── 3. Buat Anggota UAT ────────────────────────────────────────
-  console.log("\n👤 Membuat anggota UAT dummy...");
-  const uatMember = await prisma.member.upsert({
-    where:  { memberNo: "UAT-0001" },
-    update: {},
-    create: {
-      memberNo:      "UAT-0001",
-      nrp:           "UAT99001",
-      branchId:      BRANCH_ID,
-      name:          `${UAT_TAG} Anggota Test Utama`,
-      joinDate:      new Date("2024-01-01"),
-      status:        "active",
-      salary:        6000000,
-      plafonPiutang: 5000000, // Limit piutang Rp5 Juta untuk test Potong Gaji
-    },
-  });
-  console.log(`  ✓ Anggota: ${uatMember.name} (NRP: ${uatMember.nrp})`);
-
-  // Anggota kedua dengan plafon habis (untuk test blokir)
-  const uatMemberBlocked = await prisma.member.upsert({
-    where:  { memberNo: "UAT-0002" },
-    update: {},
-    create: {
-      memberNo:      "UAT-0002",
-      nrp:           "UAT99002",
-      branchId:      BRANCH_ID,
-      name:          `${UAT_TAG} Anggota Over Limit`,
-      joinDate:      new Date("2024-01-01"),
-      status:        "active",
-      salary:        4000000,
-      plafonPiutang: 0, // Plafon nol → akan diblokir saat Potong Gaji
-    },
-  });
-  console.log(`  ✓ Anggota Over-Limit: ${uatMemberBlocked.name}`);
-
-  // ── 4. Buat Produk Toko Sample ─────────────────────────────────
-  console.log("\n📦 Membuat produk toko UAT...");
-  const tokoProducts = [
-    { sku: "UAT-P001", name: `${UAT_TAG} Mie Instan Goreng`, sellPrice: 4500,  stock: 100, category: "Makanan" },
-    { sku: "UAT-P002", name: `${UAT_TAG} Air Mineral 600ml`, sellPrice: 3000,  stock: 150, category: "Minuman" },
-    { sku: "UAT-P003", name: `${UAT_TAG} Sabun Mandi`,       sellPrice: 8500,  stock: 80,  category: "Toiletries" },
-    { sku: "UAT-P004", name: `${UAT_TAG} Deterjen 500g`,     sellPrice: 12500, stock: 60,  category: "Peralatan Rumah" },
-    { sku: "UAT-P005", name: `${UAT_TAG} Gula Putih 1kg`,    sellPrice: 16000, stock: 40,  category: "Sembako" },
-  ];
-
-  for (const p of tokoProducts) {
-    await prisma.storeProduct.upsert({
-      where:  { sku: p.sku },
-      update: {},
-      create: { ...p, sellPrice: p.sellPrice, costPrice: p.sellPrice * 0.8, stockToko: p.stock, stockGdg: 0 },
-    });
-    console.log(`  ✓ Produk: ${p.name} @ Rp${p.sellPrice.toLocaleString("id-ID")}`);
-  }
-
-  // ── 5. Buat Paket Layanan Unit Jasa ────────────────────────────
-  // (hanya jika model UnitServicePackage ada)
-  console.log("\n⚡ Membuat paket layanan unit jasa UAT...");
-  const jasaPackages: { unitType: string; name: string; price: number }[] = [
-    // Cuci Mobil
-    { unitType: "cuci_mobil", name: `${UAT_TAG} Motor`,              price: 15000 },
-    { unitType: "cuci_mobil", name: `${UAT_TAG} Mobil Kecil`,        price: 35000 },
-    { unitType: "cuci_mobil", name: `${UAT_TAG} Mobil Sedang`,       price: 40000 },
-    // Barbershop
-    { unitType: "barbershop", name: `${UAT_TAG} Potong Rambut Pria`, price: 20000 },
-    { unitType: "barbershop", name: `${UAT_TAG} Cukur + Creambath`,  price: 45000 },
-    // PlayStation
-    { unitType: "play_station", name: `${UAT_TAG} Main 1 Jam`,       price: 10000 },
-    { unitType: "play_station", name: `${UAT_TAG} Paket 3 Jam`,      price: 25000 },
-    // Fitness
-    { unitType: "fitness",    name: `${UAT_TAG} Member Harian`,      price: 15000 },
-    { unitType: "fitness",    name: `${UAT_TAG} Member Bulanan`,      price: 150000 },
-  ];
-
-  const kasirUserForSeed = await prisma.user.findFirst({
-    where: { email: `kasir.uat.cuci_mobil@primkoppol.test` },
-  });
-
-  if (kasirUserForSeed) {
-    for (const pkg of jasaPackages) {
-      const existing = await prisma.unitServicePackage.findFirst({
-        where: { unitType: pkg.unitType, name: pkg.name },
-      });
-      if (!existing) {
-        await prisma.unitServicePackage.create({
-          data: {
-            unitType: pkg.unitType,
-            name:     pkg.name,
-            price:    pkg.price,
-            isActive: true,
-            createdById: kasirUserForSeed.id,
-          },
-        });
-      }
-      console.log(`  ✓ [${pkg.unitType}] ${pkg.name} @ Rp${pkg.price.toLocaleString("id-ID")}`);
+    for (const table of cleanupOrder) {
+        await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table === 'Account' ? 'accounts' : table === 'User' ? 'users' : table === 'Role' ? 'roles' : table === 'Member' ? 'members' : table === 'Branch' ? 'branches' : table === 'StoreSale' ? 'store_sales' : table === 'StoreSaleItem' ? 'store_sale_items' : table === 'StoreProduct' ? 'store_products' : table === 'Permission' ? 'permissions' : table === 'RolePermission' ? 'role_permissions' : table === 'Loan' ? 'loans' : table === 'LoanPayment' ? 'loan_payments' : table === 'LoanPaymentAllocation' ? 'loan_payment_allocations' : table === 'LoanSchedule' ? 'loan_schedules' : table === 'LoanApplication' ? 'loan_applications' : table === 'UnitTransaction' ? 'unit_transactions' : table === 'SavingsTransaction' ? 'savings_transactions' : table === 'SavingsAccount' ? 'savings_accounts' : table === 'CashBankTransaction' ? 'cash_bank_transactions' : table === 'CashBankAccount' ? 'cash_bank_accounts' : table === 'Journal' ? 'journals' : table === 'JournalLine' ? 'journal_lines' : table === 'ApprovalRequest' ? 'approval_requests' : table === 'Receipt' ? 'receipts' : table === 'FiscalPeriod' ? 'fiscal_periods' : table === 'SavingsProduct' ? 'savings_products' : table === 'LoanProduct' ? 'loan_products' : table}" CASCADE;`);
     }
-  }
 
-  // ── Ringkasan ──────────────────────────────────────────────────
-  console.log("\n✅ UAT Seed selesai!");
-  console.log("─".repeat(50));
-  console.log("📋 AKUN UAT (password: uat123456):");
-  console.log("─".repeat(50));
-  for (const unit of UNIT_TYPES) {
-    console.log(`  [KASIR] kasir.uat.${unit.slug}@primkoppol.test`);
-    console.log(`  [ADMIN] admin.uat.${unit.slug}@primkoppol.test`);
-  }
-  console.log("─".repeat(50));
-  console.log("👥 ANGGOTA TEST:");
-  console.log("  UAT-0001 / NRP: UAT99001 → Plafon Rp5 Juta (untuk test Potong Gaji OK)");
-  console.log("  UAT-0002 / NRP: UAT99002 → Plafon Rp0    (untuk test Potong Gaji BLOKIR)");
-  console.log("─".repeat(50));
-  console.log("🗑️  Hapus semua data ini: npx tsx prisma/cleanup-uat.ts");
+    console.log("🔑 2. Roles & Branches...");
+    for (const perm of PERMISSIONS) await prisma.permission.create({ data: perm });
+    const roleMap: Record<string, number> = {};
+    for (const role of ROLES) {
+        const { permissions, ...roleData } = role;
+        const created = await prisma.role.create({ data: roleData });
+        roleMap[role.name] = created.id;
+        for (const p of permissions) {
+            const rp = await prisma.permission.findUnique({ where: { name: p } });
+            if (rp) await prisma.rolePermission.create({ data: { roleId: created.id, permissionId: rp.id } });
+        }
+    }
+
+    const branch = await prisma.branch.create({
+        data: { code: "UAT", name: "Primkoppol Resor Lumajang (STAGING)", isHeadOffice: true, isActive: true }
+    });
+    const branchId = branch.id;
+
+    console.log("📊 3. Chart of Accounts & Products...");
+    const accountMap: Record<string, number> = {};
+    for (const acc of COA) {
+        const { parentCode, ...data } = acc as any;
+        const created = await prisma.account.create({ data });
+        accountMap[acc.code] = created.id;
+    }
+    for (const acc of COA) {
+        const { parentCode } = acc as any;
+        if (parentCode && accountMap[parentCode]) {
+            await prisma.account.update({ where: { id: accountMap[acc.code] }, data: { parentId: accountMap[parentCode] } });
+        }
+    }
+
+    const sp1 = await prisma.savingsProduct.create({ data: { code: "SP", name: "Simpanan Pokok", type: "pokok", isMandatory: true, depositPeriod: "once", minimumAmount: 100000, canWithdraw: false, glAccountId: accountMap["2101"] }});
+    const sp2 = await prisma.savingsProduct.create({ data: { code: "SW", name: "Simpanan Wajib", type: "wajib", isMandatory: true, depositPeriod: "monthly", minimumAmount: 50000, canWithdraw: false, glAccountId: accountMap["2102"] }});
+    const sp3 = await prisma.savingsProduct.create({ data: { code: "SS", name: "Simpanan Sukarela", type: "sukarela", isMandatory: false, depositPeriod: "optional", minimumAmount: 10000, canWithdraw: true, glAccountId: accountMap["2103"] }});
+    const lp1 = await prisma.loanProduct.create({ data: { code: "PR", name: "Pinjaman UAT Khusus", version: 1, interestMethod: "flat", interestRate: 1.0, interestCalculation: "monthly", minTenorMonths: 1, maxTenorMonths: 36, minAmount: 1000000, maxAmount: 50000000, adminFeeType: "percent", adminFeeValue: 1.0, lateFeeType: "fixed", lateFeeValue: 50000, effectiveDate: new Date("2024-01-01") }});
+
+    console.log("💵 4. Set Up Cash & Bank...");
+    const cashBankMap: Record<string, number> = {};
+    const cashBankData = [
+        { code: "KAS-01", name: "KAS TUNAI (KOPERASI)", type: "cash", branchId, glAccountId: accountMap["1101"], currentBalance: 15400000 },
+        { code: "BRI-01", name: "BANK BRI 009-XXXXX", type: "bank", bankName: "BRI", branchId, glAccountId: accountMap["1103"], currentBalance: 250000000 },
+        { code: "JATIM-01", name: "BANK JATIM 018-XXXX", type: "bank", bankName: "JATIM", branchId, glAccountId: accountMap["1104"], currentBalance: 88500000 },
+    ];
+    for(const c of cashBankData) {
+        const created = await prisma.cashBankAccount.create({ data: c });
+        cashBankMap[c.code] = created.id;
+    }
+
+    console.log("👨‍💼 5. Creating Users (Operator, Admins, Kasirs)...");
+    
+    // Operator
+    await prisma.user.create({ data: { name: "Operator UAT", email: "operator@uat.com", password: defaultPassword, roleId: roleMap["operator"], branchId, isActive: true } });
+
+    // Multi-Unit Roles
+    const ALL_UNITS = ["simpan_pinjam", "toko", "fitness", "cuci_mobil", "fotocopy", "laundry", "resto_cafe", "playstation", "barbershop", "aset"];
+    
+    for (const unit of ALL_UNITS) {
+        await prisma.user.create({ data: { name: `Admin ${unit.toUpperCase()}`, email: `admin.${unit}@uat.com`, password: defaultPassword, roleId: roleMap["admin"], branchId, unitType: unit, isActive: true }});
+        await prisma.user.create({ data: { name: `Kasir ${unit.toUpperCase()}`, email: `kasir.${unit}@uat.com`, password: defaultPassword, roleId: roleMap["kasir"], branchId, unitType: unit, isActive: true }});
+    }
+
+    console.log("👥 6. Creating 10 Unique UAT Members...");
+    const dummyMembers = [
+        { nrp: "111", name: "Kompol Anton", sal: 12000000, cat: "Polri" },
+        { nrp: "222", name: "AKP Budi", sal: 8000000, cat: "Polri" },
+        { nrp: "333", name: "Iptu Cahyo", sal: 6500000, cat: "Polri" },
+        { nrp: "444", name: "Aiptu Didik", sal: 5000000, cat: "Polri" },
+        { nrp: "555", name: "Bripka Eko", sal: 4000000, cat: "Polri" },
+        { nrp: "666", name: "PNS Fajar", sal: 5500000, cat: "PNS" },
+        { nrp: "777", name: "PNS Galih", sal: 4800000, cat: "PNS" },
+        { nrp: "888", name: "PNS Hendra", sal: 3500000, cat: "PNS" },
+        { nrp: "999", name: "PHL Iwan", sal: 2500000, cat: "PHL" },
+        { nrp: "000", name: "PHL Joko (Non-Aktif)", sal: 0, cat: "PHL", status: "inactive" },
+    ];
+
+    for (const m of dummyMembers) {
+        const member = await prisma.member.create({
+            data: {
+                nrp: m.nrp, memberNo: m.nrp, name: m.name, salary: m.sal, category: m.cat, city: "Lumajang", branchId, status: m.status || "active",
+                tabunganWajib: (m.sal > 0) ? (Math.random() * 500000) : 0,
+                tunlesKinerja: (m.sal > 5000000) ? 200000 : 0
+            }
+        });
+        
+        // Buat Akun Sistem Anggota
+        await prisma.user.create({ data: { name: m.name, email: `anggota.${m.nrp}@uat.com`, password: defaultPassword, roleId: roleMap["anggota"], branchId, memberId: member.id, isActive: true }});
+
+        // Buat Rekening Pokok & Wajib defaults
+        if (m.status !== "inactive") {
+            // Pokok
+            const acc1 = await prisma.savingsAccount.create({ data: { memberId: member.id, productId: sp1.id, branchId, accountNumber: `SPK-${m.nrp}`, balance: 100000, status: "active" }});
+            await prisma.savingsTransaction.create({ data: { accountId: acc1.id, branchId, transactionDate: new Date(), type: "deposit", amount: 100000, balanceBefore: 0, balanceAfter: 100000, referenceNo: `DEP-SP-${m.nrp}`, description: "Penyetoran Simpanan Pokok Awal" }});
+            // Wajib
+            const acc2 = await prisma.savingsAccount.create({ data: { memberId: member.id, productId: sp2.id, branchId, accountNumber: `SWJ-${m.nrp}`, balance: 250000, status: "active" }});
+            await prisma.savingsTransaction.create({ data: { accountId: acc2.id, branchId, transactionDate: new Date(), type: "deposit", amount: 250000, balanceBefore: 0, balanceAfter: 250000, referenceNo: `DEP-SW-${m.nrp}`, description: "Penyetoran Simpanan Wajib Awal" }});
+        }
+    }
+
+    // 7. Inject Some Operational Transactions into Kas/Bank
+    console.log("💰 7. Injecting Dummy Transactions...");
+    await prisma.cashBankTransaction.create({
+        data: {
+            accountId: cashBankMap["KAS-01"], branchId, transactionDate: new Date(new Date().getTime() - 86400000), 
+            type: "out", amount: 150000, balanceBefore: 15550000, balanceAfter: 15400000, category: "biaya_operasional", 
+            referenceNo: "CB-001", description: "Pembayaran ATK dan Kebutuhan Kantor Staging", status: "completed"
+        }
+    });
+
+    console.log("🎉 UAT DATA SEED FINISHED SUCCESSFULLY!");
+    console.log("User Admin Toko: admin.toko@uat.com | kasir.toko@uat.com");
+    console.log("User Cuci Mobil: admin.cuci_mobil@uat.com | kasir.cuci_mobil@uat.com");
+    console.log("User Anggota   : anggota.111@uat.com");
+    console.log("Password All   : password123");
 }
 
-main()
-  .catch((e) => { console.error("❌ Seed error:", e); process.exit(1); })
-  .finally(() => prisma.$disconnect());
+main().catch(e => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });

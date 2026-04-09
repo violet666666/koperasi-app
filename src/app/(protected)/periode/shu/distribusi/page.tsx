@@ -87,10 +87,19 @@ const columns: ColumnDef<MemberDistribution>[] = [
 ];
 
 export default function SHUDistributionPage() {
-    const [selectedYear, setSelectedYear] = React.useState<string>("2025");
+    const now = new Date();
+    const [selectedYear, setSelectedYear] = React.useState<string>(String(now.getFullYear()));
     const [data, setData] = React.useState<MemberDistribution[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
+
+    const yearOptions = React.useMemo(() => {
+        const years: string[] = [];
+        for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
+            years.push(String(y));
+        }
+        return years;
+    }, []);
 
     // Stats
     const stats = React.useMemo(() => {
@@ -134,10 +143,22 @@ export default function SHUDistributionPage() {
     const handleDistribute = async () => {
         setIsProcessing(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            toast.success("Proses distribusi SHU dimulai");
-        } catch (error) {
-            toast.error("Gagal memproses distribusi");
+            const res = await fetch('/api/reports/shu/distribute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ year: selectedYear })
+            });
+            const result = await res.json();
+            
+            if (!res.ok) {
+                throw new Error(result.error || "Gagal memproses distribusi");
+            }
+            
+            toast.success("SHU berhasil dikunci dan distribusikan");
+            // Refresh data setelah berhasil
+            if (typeof window !== 'undefined') window.location.reload();
+        } catch (error: any) {
+            toast.error(error.message || "Gagal memproses distribusi");
         } finally {
             setIsProcessing(false);
         }
@@ -176,8 +197,9 @@ export default function SHUDistributionPage() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
+                                {yearOptions.map(y => (
+                                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
