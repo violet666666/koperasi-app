@@ -209,17 +209,44 @@ export async function POST(request: Request) {
 
                 const determineCategory = (txType: string) => {
                     let category = "lainnya";
-                    if (checkString.includes("angsur")) category = "angsuran_pokok";
+                    
+                    // 1. ANGSURAN (IN)
+                    if (checkString.includes("angsur") || checkString.includes("cicil") || checkString.includes("pelunas") || checkString.includes("pembayaran sp")) {
+                        if (txType === "in") category = "angsuran_pokok";
+                    } 
+                    // 2. SIMPANAN (IN) - Termasuk Tabungan Sejahtera
                     else if (checkString.includes("simpan") || checkString.includes("tabung")) {
-                         if (checkString.includes("pokok")) category = "simpanan_pokok";
-                         else if (checkString.includes("wajib")) category = "simpanan_wajib";
-                         else category = "simpanan_sukarela";
-                         if (txType === "out") category = "lainnya";
-                    } else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
-                         if (txType === "out") category = "pencairan_pinjaman";
-                    } else if (checkString.includes("gaji") || checkString.includes("pengurus") || checkString.includes("karyawan")) {
-                         if (txType === "out") category = "biaya_operasional";
+                        if (checkString.includes("pokok")) {
+                            category = "simpanan_pokok";
+                        } else if (checkString.includes("wajib")) {
+                            category = "simpanan_wajib";
+                        } else {
+                            // Jatuh ke Sini: "Tabungan Sejahtera" -> Simpanan Sukarela
+                            category = "simpanan_sukarela";
+                        }
+                        if (txType === "out") category = "lainnya"; // Safety fallback
+                    } 
+                    // 3. PINJAMAN / PENCAIRAN
+                    else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
+                        // Jika Uang Keluar (OUT) -> Pencairan Pinjaman
+                        if (txType === "out") {
+                            category = "pencairan_pinjaman";
+                        } 
+                        // Jika Uang Masuk (IN) tapi memuat kata Pinjaman -> Ditebak sbg Cicilan/Angsuran
+                        else if (txType === "in") {
+                            category = "angsuran_pokok";
+                        }
+                    } 
+                    // 4. BIAYA / OPERASIONAL (OUT)
+                    else if (
+                        checkString.includes("gaji") || checkString.includes("pengurus") || checkString.includes("karyawan") || 
+                        checkString.includes("honor") || checkString.includes("listrik") || checkString.includes("pdam") ||
+                        checkString.includes("belanja") || checkString.includes("pembayaran barang") || checkString.includes("kebutuhan kantor") ||
+                        checkString.includes("operasional") || checkString.includes("atk")
+                    ) {
+                        if (txType === "out") category = "biaya_operasional";
                     }
+
                     return category;
                 };
 
