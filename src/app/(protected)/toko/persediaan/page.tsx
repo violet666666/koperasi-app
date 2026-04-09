@@ -13,13 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
     Warehouse, Plus, Minus, ArrowDownCircle, ArrowUpCircle, Loader2,
+    Check, ChevronsUpDown
 } from "lucide-react";
 
 interface StockMovement {
@@ -68,6 +69,7 @@ export default function PersediaanPage() {
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [movementType, setMovementType] = React.useState<"in" | "out">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [openProductSelect, setOpenProductSelect] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
 
     const stats = React.useMemo(() => {
@@ -175,15 +177,51 @@ export default function PersediaanPage() {
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div>
-                                        <Label>Produk</Label>
-                                        <Select value={formData.productId} onValueChange={v => setFormData(prev => ({ ...prev, productId: v }))}>
-                                            <SelectTrigger><SelectValue placeholder="Pilih produk" /></SelectTrigger>
-                                            <SelectContent>
-                                                {products.map(p => (
-                                                    <SelectItem key={p.id} value={String(p.id)}>{p.sku} - {p.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label className="mb-1 block">Produk (Cari / Scan Barcode)</Label>
+                                        <Popover open={openProductSelect} onOpenChange={setOpenProductSelect}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openProductSelect}
+                                                    className="w-full justify-between"
+                                                >
+                                                    {formData.productId
+                                                        ? `${products.find((p) => String(p.id) === formData.productId)?.sku} - ${products.find((p) => String(p.id) === formData.productId)?.name}`
+                                                        : "Pilih atau scan produk..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[400px] p-0" align="start">
+                                                <Command>
+                                                    <CommandInput placeholder="Ketik nama produk atau scan barcode..." autoFocus />
+                                                    <CommandList>
+                                                        <CommandEmpty>Produk tidak ditemukan.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {products.map((p) => (
+                                                                <CommandItem
+                                                                    key={p.id}
+                                                                    value={`${p.sku} ${p.name}`}
+                                                                    onSelect={() => {
+                                                                        setFormData(prev => ({ ...prev, productId: String(p.id) }));
+                                                                        setOpenProductSelect(false);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            formData.productId === String(p.id) ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    <span className="font-mono mr-2">{p.sku}</span>
+                                                                    <span>{p.name}</span>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                     <div><Label>Jumlah</Label><Input type="number" min={1} value={formData.quantity} onChange={e => setFormData(prev => ({ ...prev, quantity: e.target.value }))} /></div>
                                     <div><Label>Keterangan</Label><Input value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} placeholder={movementType === "in" ? "Pengadaan supplier" : "Penjualan/rusak"} /></div>
