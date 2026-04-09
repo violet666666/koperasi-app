@@ -80,18 +80,14 @@ export async function GET(request: Request) {
 // POST /api/savings/transactions - Create deposit or withdrawal
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const userId = (session.user as any).id as number;
+
         const body = await request.json();
         const data = createSavingsTransactionSchema.parse(body);
-
-        // Find or create savings account for member + product
-        let account = await prisma.savingsAccount.findUnique({
-            where: {
-                memberId_productId: {
-                    memberId: data.memberId,
-                    productId: data.productId,
-                },
-            },
-        });
 
         const member = await prisma.member.findUnique({
             where: { id: data.memberId },
@@ -105,8 +101,17 @@ export async function POST(request: Request) {
             );
         }
 
+        // Find or create savings account for member + product
+        let account = await prisma.savingsAccount.findUnique({
+            where: {
+                memberId_productId: {
+                    memberId: data.memberId,
+                    productId: data.productId,
+                },
+            },
+        });
+
         if (!account) {
-            // Create new savings account
             const accountNo = `SAV-${data.memberId}-${data.productId}`;
             account = await prisma.savingsAccount.create({
                 data: {
@@ -136,40 +141,91 @@ export async function POST(request: Request) {
                 ? currentBalance + data.amount
                 : currentBalance - data.amount;
 
-        // Create transaction
-        const transaction = await prisma.savingsTransaction.create({
-            data: {
-                transactionNo: generateTransactionNo("SIM"),
-                accountId: account.id,
-                memberId: data.memberId,
-                productId: data.productId,
-                branchId: member.branchId,
-                type: data.type,
-                amount: data.amount,
-                balanceBefore: currentBalance,
-                balanceAfter,
-                paymentMethod: data.paymentMethod,
-                cashBankAccountId: data.cashBankAccountId,
-                referenceNo: data.referenceNo,
-                notes: data.notes,
-                transactionDate: data.transactionDate,
-                createdById: 1, // TODO: Get from session
-            },
-            include: {
-                member: { select: { id: true, memberNo: true, name: true } },
-                account: { include: { product: true } },
-            },
-        });
+        const txNo = generateTransactionNo("SIM");
+        const txDate = data.transactionDate instanceof Date
+            ? data.transactionDate
+            : new Date(data.transactionDate);
 
-        // Update account balance
-        await prisma.savingsAccount.update({
-            where: { id: account.id },
-            data: { balance: balanceAfter },
+        // ── ATOMIC TRANSACTION ─────────────────────────────────────────
+        const [transaction] = await prisma.$transaction(async (tx) => {
+            // 1. Buat SavingsTransaction
+            const savingsTx = await tx.savingsTransaction.create({
+                data: {
+                    transactionNo: txNo,
+                    accountId: account!.id,
+                    memberId: data.memberId,
+                    productId: data.productId,
+                    branchId: member.branchId,
+                    type: data.type,
+                    amount: data.amount,
+                    balanceBefore: currentBalance,
+                    balanceAfter,
+                    paymentMethod: data.paymentMethod,
+                    cashBankAccountId: data.cashBankAccountId ?? null,
+                    referenceNo: data.referenceNo,
+                    notes: data.notes,
+                    transactionDate: txDate,
+                    createdById: userId,
+                },
+                include: {
+                    member: { select: { id: true, memberNo: true, name: true } },
+                    account: { include: { product: true } },
+                },
+            });
+
+            // 2. Update saldo rekening anggota
+            await tx.savingsAccount.update({
+                where: { id: account!.id },
+                data: { balance: balanceAfter },
+            });
+
+            // 3. Posting ke Kas/Bank Koperasi (jika akun kas dipilih)
+            if (data.cashBankAccountId) {
+                const cashBank = await tx.cashBankAccount.findUnique({
+                    where: { id: data.cashBankAccountId },
+                });
+
+                if (cashBank) {
+                    const cashBalanceBefore = Number(cashBank.currentBalance);
+                    // Setoran → kas koperasi masuk (in); Penarikan → kas koperasi keluar (out)
+                    const cashType = (data.type === "deposit" || data.type === "interest") ? "in" : "out";
+                    const cashBalanceAfter =
+                        cashType === "in"
+                            ? cashBalanceBefore + data.amount
+                            : cashBalanceBefore - data.amount;
+
+                    await tx.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `CBT-${txNo}`,
+                            accountId: data.cashBankAccountId,
+                            branchId: member.branchId,
+                            type: cashType,
+                            category: "savings",
+                            amount: data.amount,
+                            balanceBefore: cashBalanceBefore,
+                            balanceAfter: cashBalanceAfter,
+                            referenceType: "SavingsTransaction",
+                            referenceId: savingsTx.id,
+                            description: `${data.type === "deposit" ? "Setoran" : data.type === "withdrawal" ? "Penarikan" : "Koreksi"} Simpanan — ${savingsTx.member?.name ?? "Anggota"} (${savingsTx.transactionNo})`,
+                            transactionDate: txDate,
+                            createdById: userId,
+                        },
+                    });
+
+                    // Update saldo kas/bank koperasi
+                    await tx.cashBankAccount.update({
+                        where: { id: data.cashBankAccountId },
+                        data: { currentBalance: cashBalanceAfter },
+                    });
+                }
+            }
+
+            return [savingsTx];
         });
+        // ───────────────────────────────────────────────────────────────
 
         // Audit log
         try {
-            const session = await auth();
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
             await logAudit({
@@ -177,7 +233,7 @@ export async function POST(request: Request) {
                 action: "CREATE", module: "Simpanan",
                 description: `Transaksi ${data.type}: Rp ${data.amount.toLocaleString()} untuk anggota ${transaction.member?.name || data.memberId}`,
                 targetId: String(transaction.id), targetType: "SavingsTransaction",
-                newData: { transactionNo: transaction.transactionNo, type: data.type, amount: data.amount, balanceBefore: currentBalance, balanceAfter },
+                newData: { transactionNo: transaction.transactionNo, type: data.type, amount: data.amount, balanceBefore: currentBalance, balanceAfter, cashBankAccountId: data.cashBankAccountId },
             });
         } catch (e) { /* audit log failure must not break response */ }
 

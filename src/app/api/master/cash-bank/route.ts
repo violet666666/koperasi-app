@@ -3,17 +3,32 @@ import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/master/cash-bank — list all CashBankAccounts (including inactive for admin)
-export async function GET() {
+// GET /api/master/cash-bank — list CashBankAccounts with optional query filters
+// Query params: purpose, type, unitType, isActive, perPage
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const purpose   = searchParams.get("purpose")   ?? undefined;   // e.g. "simpanan", "operasional"
+        const type      = searchParams.get("type")      ?? undefined;   // "cash" | "bank"
+        const unitType  = searchParams.get("unitType")  ?? undefined;
+        const isActiveQ = searchParams.get("isActive");
+        const perPage   = parseInt(searchParams.get("perPage") ?? "200");
+
+        const where: Record<string, unknown> = { deletedAt: null };
+        if (purpose)  where.purpose  = purpose;
+        if (type)     where.type     = type;
+        if (unitType) where.unitType = unitType;
+        if (isActiveQ !== null) where.isActive = isActiveQ !== "false";
+
         const accounts = await prisma.cashBankAccount.findMany({
-            where: { deletedAt: null },
+            where,
             include: {
-                branch: { select: { id: true, name: true, code: true } },
+                branch:    { select: { id: true, name: true, code: true } },
                 glAccount: { select: { id: true, code: true, name: true } },
-                _count: { select: { transactions: true } },
+                _count:    { select: { transactions: true } },
             },
             orderBy: [{ type: "asc" }, { code: "asc" }],
+            take: perPage,
         });
 
         return NextResponse.json({ data: accounts });

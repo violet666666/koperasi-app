@@ -113,7 +113,45 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
+## UPDATE 09 April 2026 — Sesi 10: Kas Simpanan/Tabungan & Akuntansi Ganda Setoran
+
+### [FEATURE] 2 Akun Baru: KAS TUNAI & KAS BANK JATIM Simpanan/Tabungan
+**File:** `prisma/seed-kas-bank-jatim.ts`
+**Penambahan:**
+- `KAS-JATIM-SIM` → **KAS TUNAI SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** — type: cash, purpose: simpanan
+- `BNK-JATIM-SIM` → **KAS BANK JATIM SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** — type: bank, purpose: simpanan
+- Total akun JATIM menjadi **12 akun** (sebelumnya 10)
+- ✅ **Seed berhasil dijalankan** ke staging Supabase — 12/12 akun created
+
+### [FEATURE] Akuntansi Ganda (Double-Entry) pada API Setoran Simpanan
+**File:** `src/app/api/savings/transactions/route.ts`
+**Masalah:** Setoran simpanan hanya mencatat perubahan saldo anggota (SavingsAccount), namun tidak memperbarui saldo fisik Kas/Bank Koperasi (CashBankAccount). Menyebabkan buku besar koperasi tidak merepresentasikan uang yang masuk/keluar secara nyata.
+**Solusi:**
+1. Seluruh operasi dibungkus dalam `prisma.$transaction` (atomik) — jika satu gagal, semua rollback.
+2. Setiap **setoran** → buat `CashBankTransaction` type `"in"` + update `currentBalance` akun kas/bank.
+3. Setiap **penarikan** → buat `CashBankTransaction` type `"out"` + update `currentBalance` akun kas/bank.
+4. `createdById` kini diambil dari sesi pengguna (bukan hardcode `1`).
+5. Field `cashBankAccountId` tetap opsional untuk kompatibilitas backward (correction/import).
+
+### [FEATURE] Filter Query Params pada API Master Kas & Bank
+**File:** `src/app/api/master/cash-bank/route.ts`
+**Penambahan:** GET endpoint kini mendukung query params: `purpose`, `type`, `unitType`, `isActive`, `perPage`.
+- Contoh: `GET /api/master/cash-bank?purpose=simpanan` → mengembalikan hanya KAS-JATIM-SIM & BNK-JATIM-SIM.
+
+### [UPGRADE] Form Transaksi Simpanan — Dari Mock ke Real API
+**File:** `src/app/(protected)/simpanan/transaksi/tambah/page.tsx`
+**Sebelum:** Form menggunakan mock data hardcode (3 anggota dummy, 2 rekening BCA/Mandiri palsu). Submit tidak terkoneksi ke database.
+**Sesudah:**
+1. **Autocomplete Anggota Real-time** — Debounce 350ms, search by nama atau NRP, dropdown dengan avatar inisial + kategori.
+2. **Produk Simpanan dari DB** — Dropdown diisi dari `GET /api/savings/products`.
+3. **Dropdown Kas/Bank Simpanan** — Diisi dari `GET /api/master/cash-bank?purpose=simpanan`, berubah antara Kas Tunai (metode: tunai) dan Bank JATIM (metode: transfer bank).
+4. **Preview Ringkasan** — Panel konfirmasi muncul sebelum submit (produk, jumlah, kas tujuan).
+5. **Submit Real** — `POST /api/savings/transactions` dengan `cashBankAccountId` wajib diisi operator.
+
+---
+
 ## UPDATE 09 April 2026 — Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Perbaikan Jurnal
+
 
 ### [BUGFIX & FEATURE] Integrasi API Jurnal Umum & Jurnal Penyesuaian
 **File:** `src/app/(protected)/jurnal/umum/page.tsx` & `src/app/api/journals/route.ts`
