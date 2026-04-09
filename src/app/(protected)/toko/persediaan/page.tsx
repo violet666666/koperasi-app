@@ -106,6 +106,14 @@ export default function PersediaanPage() {
         fetchData();
     }, []);
 
+    // Filter states
+    const [filterType, setFilterType] = React.useState<string>("all");
+
+    // Derived filtered data
+    const filteredMovements = React.useMemo(() => {
+        return movements.filter(m => filterType === "all" || m.type === filterType);
+    }, [movements, filterType]);
+
     const handleSubmit = async () => {
         if (!formData.productId || !formData.quantity) {
             toast.error("Lengkapi data produk dan jumlah");
@@ -249,14 +257,32 @@ export default function PersediaanPage() {
             ) : (
                 <>
                     {movements.length === 0 && (
-                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm flex items-start gap-2">
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm flex items-start gap-2 mb-4">
                             <span className="mt-0.5">ℹ️</span>
                             <div>
                                 <strong>Belum ada riwayat:</strong> Belum ada pergerakan stok (Penjualan / Stok Masuk / Keluar) yang tercatat.
                             </div>
                         </div>
                     )}
-                    <DataTable columns={columns} data={movements} searchColumn="productName" searchPlaceholder="Cari produk..." />
+                    
+                    <div className="space-y-4">
+                        <div className="flex justify-start mb-2">
+                            <select
+                                className="flex h-10 w-full sm:w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                            >
+                                <option value="all">Semua Jenis Pergerakan</option>
+                                <option value="in">Hanya Stok Masuk</option>
+                                <option value="out">Hanya Stok Keluar</option>
+                            </select>
+                        </div>
+                        <DataTable 
+                           columns={columns} 
+                           data={filteredMovements} 
+                           searchPlaceholder="Scan barcode atau cari produk..." 
+                        />
+                    </div>
                 </>
             )}
         </div>

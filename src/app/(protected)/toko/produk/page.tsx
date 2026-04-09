@@ -140,7 +140,6 @@ export default function TokoProdukPage() {
                 if (!res.ok) throw new Error('Failed to fetch data');
                 const result = await res.json();
                 
-                // Add status logic to the fetched products
                 const mappedProducts = result.data.map((p: any) => {
                     let status = "available";
                     if (p.stock <= 0) {
@@ -160,6 +159,25 @@ export default function TokoProdukPage() {
         }
         fetchData();
     }, []);
+
+    // Filter states
+    const [filterCategory, setFilterCategory] = React.useState<string>("all");
+    const [filterStatus, setFilterStatus] = React.useState<string>("all");
+
+    // Get unique categories for dropdown
+    const categories = React.useMemo(() => {
+        const cats = new Set(products.map(p => p.category).filter(Boolean));
+        return Array.from(cats);
+    }, [products]);
+
+    // Derived filtered data
+    const filteredProducts = React.useMemo(() => {
+        return products.filter(p => {
+            const matchCat = filterCategory === "all" || p.category === filterCategory;
+            const matchStatus = filterStatus === "all" || p.status === filterStatus;
+            return matchCat && matchStatus;
+        });
+    }, [products, filterCategory, filterStatus]);
 
     return (
         <div className="space-y-6">
@@ -234,7 +252,7 @@ export default function TokoProdukPage() {
                 </Card>
             </div>
 
-            {/* Data Table */}
+        {/* Data Table */}
             {isLoading ? (
                 <Card>
                     <CardContent className="p-6 space-y-4">
@@ -244,12 +262,38 @@ export default function TokoProdukPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <DataTable
-                    columns={columns}
-                    data={products}
-                    searchColumn="name"
-                    searchPlaceholder="Cari produk..."
-                />
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-2">
+                        <select
+                            className="flex h-10 w-full sm:w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                        >
+                            <option value="all">Semua Rak / Kategori</option>
+                            {categories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                        
+                        <select
+                            className="flex h-10 w-full sm:w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="all">Semua Status Stok</option>
+                            <option value="available">Tersedia Berlimpah</option>
+                            <option value="low_stock">Stok Menipis</option>
+                            <option value="out_of_stock">Stok Habis</option>
+                        </select>
+                    </div>
+
+                    <DataTable
+                        columns={columns}
+                        data={filteredProducts}
+                        searchPlaceholder="Scan barcode atau cari produk..."
+                        // Menghapus searchColumn="name" akan memicu pencarian Global (aktif ke semua kolom termasuk KODE)
+                    />
+                </div>
             )}
         </div>
     );
