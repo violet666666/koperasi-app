@@ -4,10 +4,10 @@
     "slug": "koperasi-primkoppol",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/LogoPrimkoppol.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/LogoPrimkoppol.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1A2A44"
     },
@@ -17,8 +17,11 @@
     },
     "android": {
       "package": "com.primkoppol.mobile",
-      "usesCleartextTraffic": true,
-      "predictiveBackGestureEnabled": false
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#1A2A44"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +34,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/LogoPrimkoppol.png",
+          "icon": "./assets/icon.png",
           "color": "#1A2A44",
           "sounds": [],
           "mode": "production"
