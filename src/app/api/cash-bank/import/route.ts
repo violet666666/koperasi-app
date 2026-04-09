@@ -169,8 +169,6 @@ export async function POST(request: Request) {
 
                 let rawTgl = row[tglIdx];
                 let uraian = String(row[uraianIdx] || "").trim();
-                let debet = cleanNumber(row[debetIdx]);
-                let kredit = cleanNumber(row[kreditIdx]);
 
                 // Update floating date
                 if (rawTgl && String(rawTgl).trim() !== "") {

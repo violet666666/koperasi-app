@@ -71,3 +71,4 @@ image.png
 integrasi-akun-asli/IMPORT DATA/buku-kas.json
 prisma/check-kas-tx.ts
 prisma/reset-kas-import.ts
+prisma/migrate-cm.ts
