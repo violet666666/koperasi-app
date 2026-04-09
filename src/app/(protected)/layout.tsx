@@ -65,7 +65,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (isLoading || !user) return;
 
-        const roleName = user?.role?.name || "";
+        const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "";
         const unitType = (user as any)?.unitType as string | null | undefined;
 
         // 1. Operator (manage_all) → akses penuh, tidak ada batasan

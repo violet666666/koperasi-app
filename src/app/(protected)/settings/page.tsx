@@ -60,6 +60,7 @@ interface AppSettings {
 
 export default function SettingsPage() {
     const { user } = useAuth();
+    const _roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const router = useRouter();
     const [settings, setSettings] = React.useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -276,10 +277,10 @@ export default function SettingsPage() {
             />
 
             {settings && (
-                <Tabs defaultValue={user?.role?.name === "kasir" ? "qris" : (user?.role?.name === "operator" ? "general" : "qris")} className="space-y-6">
-                    <TabsList className={`grid w-full ${user?.role?.name !== "operator" ? 'grid-cols-1' : 'grid-cols-3 lg:grid-cols-6'} lg:w-auto lg:inline-grid`}>
+                <Tabs defaultValue={_roleName === "kasir" ? "qris" : (_roleName === "operator" ? "general" : "qris")} className="space-y-6">
+                    <TabsList className={`grid w-full ${_roleName !== "operator" ? 'grid-cols-1' : 'grid-cols-3 lg:grid-cols-6'} lg:w-auto lg:inline-grid`}>
                         {/* Tab-tab berbahaya: HANYA Operator yang bisa melihat */}
-                        {user?.role?.name === "operator" && (
+                        {_roleName === "operator" && (
                             <>
                                 <TabsTrigger value="general">
                                     <Settings className="mr-2 h-4 w-4 hidden sm:inline" />
@@ -307,7 +308,7 @@ export default function SettingsPage() {
                             QRIS Unit
                         </TabsTrigger>
                         {/* Tab Reset Data: HANYA Operator */}
-                        {user?.role?.name === "operator" && (
+                        {_roleName === "operator" && (
                             <TabsTrigger value="reset">
                                 <AlertTriangle className="mr-2 h-4 w-4 hidden sm:inline text-red-500" />
                                 <span className="text-red-500 font-medium">Reset Data</span>
@@ -316,7 +317,7 @@ export default function SettingsPage() {
                     </TabsList>
                     
                     {/* Tab konten berbahaya: HANYA ditampilkan untuk Operator */}
-                    {user?.role?.name === "operator" && (
+                    {_roleName === "operator" && (
                         <>
 
                     {/* General Settings */}

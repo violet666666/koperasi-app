@@ -37,7 +37,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     
     // Auto-detect unit from user profile
     const userUnitType = (user as any)?.unitType as string | null | undefined;
-    const roleName = user?.role?.name ?? "";
+    const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const isKasir = roleName === "kasir";
     const isOperator = roleName === "operator" || user?.permissions?.includes("manage_all");
     const isAdmin = roleName === "admin" && userUnitType === unitType;

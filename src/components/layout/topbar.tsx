@@ -129,7 +129,7 @@ export function Topbar({
                                 {user?.email || "user@email.com"}
                             </p>
                             <p className="text-xs text-muted-foreground capitalize">
-                                {user?.role?.display_name || user?.role?.name || "User"}
+                                {(user as any)?.roleDisplayName || (typeof user?.role === "string" ? user.role : (user?.role as any)?.display_name || (user?.role as any)?.name) || "User"}
                             </p>
                         </div>
                     </DropdownMenuLabel>

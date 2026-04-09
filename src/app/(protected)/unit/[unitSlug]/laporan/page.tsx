@@ -142,7 +142,8 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const unitSlug = resolvedParams.unitSlug;
     const unitType = unitSlug.replace(/-/g, "_");
 
-    const roleName = user?.role?.name ?? "";
+    // Fix: In NextAuth, role is stored directly as a string, not an object.
+    const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const userUnitType = (user as any)?.unitType as string | null | undefined;
     const isOperator = roleName === "operator" || user?.permissions?.includes("manage_all");
     const isAdmin = roleName === "admin" && userUnitType === unitType;

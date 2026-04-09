@@ -40,7 +40,7 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
     const { data: session } = useSession();
     const filteredNavigation = getNavigationForUser({
         permissions: user?.permissions || [],
-        roleName: user?.role?.name || "anggota",
+        roleName: typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "anggota",
         unitType: session?.user?.unitType ?? null,
     });
 

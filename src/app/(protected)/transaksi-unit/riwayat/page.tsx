@@ -47,7 +47,8 @@ const txExportColumns: ExportColumn[] = [
 export default function RiwayatTransaksiUnitPage() {
     const { user } = useAuth();
     const userUnitType = (user as any)?.unitType as string | null | undefined;
-    const isOperator = user?.role?.name === "operator" || user?.permissions?.includes("manage_all");
+    const _roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
+    const isOperator = _roleName === "operator" || user?.permissions?.includes("manage_all");
 
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(9999);
@@ -65,7 +66,7 @@ export default function RiwayatTransaksiUnitPage() {
     const [isSubmittingVoid, setIsSubmittingVoid] = React.useState(false);
 
     // Edit NRP (Admin only)
-    const isAdmin = user?.role?.name === "admin";
+    const isAdmin = _roleName === "admin";
     const [isEditNrpOpen, setIsEditNrpOpen] = React.useState(false);
     const [editTx, setEditTx] = React.useState<UnitTransaction | null>(null);
     const [nrpInput, setNrpInput] = React.useState("");

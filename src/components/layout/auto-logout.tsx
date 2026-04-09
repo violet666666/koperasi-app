@@ -12,7 +12,7 @@ export function AutoLogout() {
         // Jika tidak ada user yang login, timer tidak perlu berjalan
         if (!user) return;
 
-        const roleName = user?.role?.name || "";
+        const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "";
         
         // Aturan timeout (dalam menit):
         // Kasir & Admin Unit = 12 jam (720 menit)
