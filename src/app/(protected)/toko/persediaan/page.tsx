@@ -69,8 +69,6 @@ export default function PersediaanPage() {
     const [movementType, setMovementType] = React.useState<"in" | "out">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
-    // Riwayat stok masuk manual (disimpan di state lokal karena belum ada tabel khusus di DB)
-    const [manualInLogs, setManualInLogs] = React.useState<StockMovement[]>([]);
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -84,41 +82,19 @@ export default function PersediaanPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Fetch sales data to derive stock movements
-                const [salesRes, productsRes] = await Promise.all([
-                    fetch("/api/toko/sales"),
+                // Fetch stock movements directly from DB
+                const [movementsRes, productsRes] = await Promise.all([
+                    fetch("/api/toko/movements"),
                     fetch("/api/toko/products"),
                 ]);
 
                 const productsJson = await productsRes.json();
                 setProducts(productsJson.data || []);
 
-                // Derive stock-out movements from sales
-                const stockMovements: StockMovement[] = [];
-
-                if (salesRes.ok) {
-                    const salesJson = await salesRes.json();
-                    const sales = salesJson.data || [];
-
-                    for (const sale of sales) {
-                        if (sale.items) {
-                            for (const item of sale.items) {
-                                stockMovements.push({
-                                    id: item.id || stockMovements.length + 1,
-                                    date: sale.createdAt || sale.date || new Date().toISOString(),
-                                    productSku: item.product?.sku || "-",
-                                    productName: item.product?.name || `Produk #${item.productId}`,
-                                    type: "out",
-                                    quantity: item.quantity,
-                                    notes: `Penjualan ${sale.saleNo || ""}`,
-                                    operator: sale.createdBy?.name || "Kasir",
-                                });
-                            }
-                        }
-                    }
+                if (movementsRes.ok) {
+                    const movementsJson = await movementsRes.json();
+                    setMovements(movementsJson.data || []);
                 }
-
-                setMovements(stockMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {
@@ -127,13 +103,6 @@ export default function PersediaanPage() {
         }
         fetchData();
     }, []);
-
-    // Gabungkan pergerakan stok keluar (dari penjualan) + stok masuk manual
-    const allMovements = React.useMemo(() => {
-        return [...manualInLogs, ...movements].sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-    }, [movements, manualInLogs]);
 
     const handleSubmit = async () => {
         if (!formData.productId || !formData.quantity) {
@@ -170,28 +139,13 @@ export default function PersediaanPage() {
 
             toast.success(json.message || `Stok ${movementType === "in" ? "masuk" : "keluar"} berhasil dicatat`);
 
-            // Tambahkan ke riwayat lokal agar langsung tampil di tabel
-            const newEntry: StockMovement = {
-                id: Date.now(),
-                date: new Date().toISOString(),
-                productSku: product.sku,
-                productName: product.name,
-                type: movementType,
-                quantity: qty,
-                notes: formData.notes || (movementType === "in" ? "Stok masuk manual" : "Stok keluar manual"),
-                operator: "Operator",
-            };
-
-            if (movementType === "in") {
-                setManualInLogs(prev => [newEntry, ...prev]);
-            } else {
-                setMovements(prev => [newEntry, ...prev]);
-            }
-
-            // Refresh daftar produk agar stok terbaru tampil
-            const productsRes = await fetch("/api/toko/products");
-            const productsJson = await productsRes.json();
-            setProducts(productsJson.data || []);
+            // Refresh daftar agar data terbaru tampil
+            const [productsRes, movementsRes] = await Promise.all([
+                 fetch("/api/toko/products"),
+                 fetch("/api/toko/movements")
+            ]);
+            if (productsRes.ok) setProducts((await productsRes.json()).data || []);
+            if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
 
             setDialogOpen(false);
             setFormData({ productId: "", quantity: "", notes: "" });
@@ -256,17 +210,15 @@ export default function PersediaanPage() {
                 <Card><CardContent className="p-6 space-y-4">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</CardContent></Card>
             ) : (
                 <>
-                    {allMovements.length === 0 && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
-                            <span className="mt-0.5">⚠️</span>
+                    {movements.length === 0 && (
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm flex items-start gap-2">
+                            <span className="mt-0.5">ℹ️</span>
                             <div>
-                                <strong>Catatan:</strong> Riwayat di bawah hanya menampilkan <em>Stok Keluar</em> dari transaksi penjualan.
-                                Stok masuk yang dicatat di sesi ini akan langsung tampil di sini.
-                                Gunakan tombol <strong>Stok Masuk</strong> untuk mencatat pembelian dari supplier.
+                                <strong>Belum ada riwayat:</strong> Belum ada pergerakan stok (Penjualan / Stok Masuk / Keluar) yang tercatat.
                             </div>
                         </div>
                     )}
-                    <DataTable columns={columns} data={allMovements} searchColumn="productName" searchPlaceholder="Cari produk..." />
+                    <DataTable columns={columns} data={movements} searchColumn="productName" searchPlaceholder="Cari produk..." />
                 </>
             )}
         </div>

@@ -50,6 +50,7 @@ model User {
   announcements           Announcement[]        @relation("AnnouncementAuthor")
   auditLogs               AuditLog[]            @relation("AuditLogUser")
   unitServicePackages     UnitServicePackage[]
+  storeStockMovements     StoreStockMovement[]
 
   @@map("users")
 }
@@ -722,9 +723,30 @@ model StoreProduct {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  saleItems StoreSaleItem[]
+  saleItems      StoreSaleItem[]
+  stockMovements StoreStockMovement[]
 
   @@map("store_products")
+}
+
+model StoreStockMovement {
+  id          Int      @id @default(autoincrement())
+  productId   Int      @map("product_id")
+  type        String   // "in" | "out"
+  quantity    Int
+  reference   String?  // Contoh: Penjualan TK-..., Pengadaan, Retur
+  notes       String?
+  operatorId  Int?     @map("operator_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  product     StoreProduct @relation(fields: [productId], references: [id])
+  operator    User?        @relation(fields: [operatorId], references: [id])
+
+  @@index([productId])
+  @@index([type])
+  @@map("store_stock_movements")
+
+
 }
 
 model StoreSale {

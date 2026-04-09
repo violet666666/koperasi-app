@@ -270,6 +270,18 @@ export async function POST(request: Request) {
                         data: { stock: { decrement: vi.quantity } },
                     });
                 }
+
+                // Insert log mutasi untuk inventori
+                await prisma.storeStockMovement.create({
+                    data: {
+                        productId: vi.productId,
+                        type: "out",
+                        quantity: vi.quantity,
+                        reference: `Penjualan ${saleNo}`,
+                        notes: `Terjual (${method})`,
+                        operatorId: userId
+                    }
+                });
             }
         }
 

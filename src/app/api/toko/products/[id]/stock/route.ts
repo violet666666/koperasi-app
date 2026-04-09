@@ -62,6 +62,18 @@ export async function POST(
             data: { stock: newStock },
         });
 
+        // Insert log mutasi
+        await prisma.storeStockMovement.create({
+            data: {
+                productId: updatedProduct.id,
+                type: type,
+                quantity: qty,
+                reference: type === "in" ? "Penambahan Manual" : "Pengurangan Manual",
+                notes: notes || null,
+                operatorId: userId
+            }
+        });
+
         return NextResponse.json({
             data: {
                 productId: updatedProduct.id,
