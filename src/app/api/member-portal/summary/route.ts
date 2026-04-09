@@ -172,7 +172,19 @@ export async function GET() {
         const myTotalMargin = myTokoMargin + myUnitMargin + myLoanMargin;
         const myUsaha = myTotalMargin * 0.25; // 25% of member's explicit transaction margin
 
-        const estimatedSHUTotal = Math.round(myModal + myUsaha);
+        // --- SHU Cuci Mobil: Rp 2.000 fix per transaksi anggota ---
+        const CARWASH_BONUS_PER_TX = 2000;
+        const myCarwashTxCount = await prisma.unitTransaction.count({
+            where: {
+                memberId,
+                unitType: "cuci_mobil",
+                status: "completed",
+                transactionDate: { gte: startDate, lte: endDate },
+            }
+        });
+        const myCarwashBonus = myCarwashTxCount * CARWASH_BONUS_PER_TX;
+
+        const estimatedSHUTotal = Math.round(myModal + myUsaha + myCarwashBonus);
         const jasaModalPercent = totalSysSavings > 0 ? (mySavCont / totalSysSavings) * 100 : 0;
         const jasaUsahaPercent = totalIncome > 0 ? (myTotalMargin / totalIncome) * 100 : 0;
 
@@ -235,6 +247,8 @@ export async function GET() {
                     total: estimatedSHUTotal,
                     jasaModal: Math.round(myModal),
                     jasaUsaha: Math.round(myUsaha),
+                    carwashBonus: myCarwashBonus,
+                    carwashCount: myCarwashTxCount,
                     jasaModalPercent,
                     jasaUsahaPercent,
                 },

@@ -92,6 +92,8 @@ export default function MemberDashboardPage() {
                 total: number;
                 jasaModal: number;
                 jasaUsaha: number;
+                carwashBonus: number;
+                carwashCount: number;
                 jasaModalPercent: number;
                 jasaUsahaPercent: number;
             };
@@ -295,6 +297,12 @@ export default function MemberDashboardPage() {
                                     <span>Jasa Modal ({data.estimatedSHU.jasaModalPercent?.toFixed(1)}%)</span>
                                     <span className="font-semibold">{formatCurrency(data.estimatedSHU.jasaModal)}</span>
                                 </div>
+                                {(data.estimatedSHU.carwashBonus || 0) > 0 && (
+                                    <div className="flex justify-between text-xs opacity-80">
+                                        <span>SHU Cuci Mobil ({data.estimatedSHU.carwashCount}x)</span>
+                                        <span className="font-semibold">{formatCurrency(data.estimatedSHU.carwashBonus)}</span>
+                                    </div>
+                                )}
                                 <p className="text-[10px] opacity-60 mt-1 italic">Ketuk untuk detail perhitungan →</p>
                             </div>
                         )}
@@ -387,6 +395,24 @@ export default function MemberDashboardPage() {
                                 </div>
                             </div>
 
+                            {/* SHU Cuci Mobil Breakdown */}
+                            {(data?.estimatedSHU?.carwashBonus || 0) > 0 && (
+                                <div className="border rounded-lg overflow-hidden">
+                                    <div className="bg-cyan-50 px-4 py-2 border-b">
+                                        <h3 className="font-semibold text-sm text-cyan-800">3. SHU Cuci Mobil — Rp 2.000/Transaksi</h3>
+                                    </div>
+                                    <div className="p-4 space-y-2 text-sm">
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Jumlah Transaksi Cuci Mobil Anda</span><span className="font-mono font-semibold">{data?.estimatedSHU?.carwashCount || 0} kali</span></div>
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Bonus Per Transaksi</span><span className="font-mono">Rp 2.000</span></div>
+                                        <div className="border-t pt-2 flex justify-between font-semibold">
+                                            <span className="text-cyan-700">Total SHU Cuci Mobil</span>
+                                            <span className="text-cyan-700 font-mono">{formatCurrency(data?.estimatedSHU?.carwashBonus || 0)}</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground italic">Setiap transaksi cuci mobil dengan ID anggota, Anda otomatis mendapat SHU fix Rp 2.000. Bonus ini dibebankan ke pendapatan kotor koperasi dan dicairkan saat distribusi SHU tahunan.</p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* AD-ART Reference Table */}
                             <div className="border rounded-lg overflow-hidden">
                                 <div className="bg-gray-50 px-4 py-2 border-b">
@@ -413,6 +439,7 @@ export default function MemberDashboardPage() {
                                 <p>• Nilai ini adalah <strong>estimasi realtime</strong> — angka resmi ditetapkan saat RAT (Rapat Anggota Tahunan).</p>
                                 <p>• Semakin besar tabungan Anda → semakin besar <strong>Jasa Simpanan</strong>.</p>
                                 <p>• Semakin sering belanja/bertransaksi → semakin besar <strong>Jasa Anggota</strong>.</p>
+                                <p>• Setiap cuci mobil dengan ID anggota → otomatis menambah <strong>SHU Cuci Mobil Rp 2.000</strong>.</p>
                             </div>
                         </div>
                     </div>
