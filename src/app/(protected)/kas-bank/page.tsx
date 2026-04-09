@@ -19,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ColumnDef } from "@tanstack/react-table";
 import {
     Plus,
@@ -414,35 +415,35 @@ export default function KasBankPage() {
                                             </span>
                                             <span className="text-muted-foreground">Total: {importPreview.length} baris</span>
                                         </div>
-                                        <div className="rounded-md border max-h-80 overflow-y-auto text-xs">
-                                            <table className="w-full">
-                                                <thead className="bg-muted sticky top-0">
-                                                    <tr>
-                                                        <th className="p-2 text-left w-10">#</th>
-                                                        <th className="p-2 text-left">Tanggal</th>
-                                                        <th className="p-2 text-left">Keterangan</th>
-                                                        <th className="p-2 text-center">Jenis</th>
-                                                        <th className="p-2 text-right">Jumlah (Rp)</th>
-                                                        <th className="p-2 text-left">Kategori</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
+                                        <div className="rounded-md border max-h-80 overflow-y-auto">
+                                            <Table>
+                                                <TableHeader className="bg-muted sticky top-0 z-10">
+                                                    <TableRow>
+                                                        <TableHead className="w-10">#</TableHead>
+                                                        <TableHead>Tanggal</TableHead>
+                                                        <TableHead>Keterangan</TableHead>
+                                                        <TableHead className="text-center">Jenis</TableHead>
+                                                        <TableHead className="text-right">Jumlah (Rp)</TableHead>
+                                                        <TableHead>Kategori</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
                                                     {importPreview.map((row, i) => (
-                                                        <tr key={i} className={`border-t ${row.type === "in" ? "bg-emerald-50/40" : "bg-amber-50/40"}`}>
-                                                            <td className="p-2 text-muted-foreground">{row.row}</td>
-                                                            <td className="p-2 whitespace-nowrap">{new Date(row.transactionDate).toLocaleDateString("id-ID")}</td>
-                                                            <td className="p-2 max-w-[180px] truncate" title={row.description}>{row.description}</td>
-                                                            <td className="p-2 text-center">
-                                                                <span className={`rounded-full px-2 py-0.5 font-medium ${row.type === "in" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                                        <TableRow key={i} className={row.type === "in" ? "bg-emerald-50/40" : "bg-amber-50/40"}>
+                                                            <TableCell className="text-muted-foreground tabular-nums text-xs">{row.row}</TableCell>
+                                                            <TableCell className="whitespace-nowrap tabular-nums text-sm">{new Date(row.transactionDate).toLocaleDateString("id-ID")}</TableCell>
+                                                            <TableCell className="max-w-[200px] truncate text-sm" title={row.description}>{row.description}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${row.type === "in" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                                                                     {row.type === "in" ? "Masuk" : "Keluar"}
                                                                 </span>
-                                                            </td>
-                                                            <td className="p-2 text-right tabular-nums font-medium">{Number(row.amount).toLocaleString("id-ID")}</td>
-                                                            <td className="p-2 text-muted-foreground">{row.category}</td>
-                                                        </tr>
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums font-semibold text-sm">{Number(row.amount).toLocaleString("id-ID")}</TableCell>
+                                                            <TableCell className="text-muted-foreground text-xs">{row.category}</TableCell>
+                                                        </TableRow>
                                                     ))}
-                                                </tbody>
-                                            </table>
+                                                </TableBody>
+                                            </Table>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
                                             ⚠️ Jika data sudah benar, klik <strong>Simpan ke Database</strong>. Jika ada yang salah, klik <strong>Kembali</strong> untuk mengulang.

@@ -165,10 +165,23 @@ export async function POST(request: Request) {
 
             for (let i = 0; i < dataRows.length; i++) {
                 const row = dataRows[i];
-                if (row.length === 0) continue;
+                if (!row || row.length === 0) continue;
 
                 let rawTgl = row[tglIdx];
                 let uraian = String(row[uraianIdx] || "").trim();
+                let firstCol = String(row[0] || "").toLowerCase();
+                let secondCol = String(row[1] || "").toLowerCase();
+                let fifthCol = String(row[4] || "").toLowerCase();
+
+                // Stop safely if we hit the bottom summary rows (JUMLAH BULAN INI, SISA AKHIR, dll)
+                if (
+                    secondCol.includes("jumlah") || 
+                    secondCol.includes("sisa") ||
+                    fifthCol.includes("jumlah") ||
+                    fifthCol.includes("sisa akhir")
+                ) {
+                    break;
+                }
 
                 // Update floating date
                 if (rawTgl && String(rawTgl).trim() !== "") {
@@ -186,7 +199,7 @@ export async function POST(request: Request) {
                 }
 
                 const checkString = uraian.toLowerCase();
-                const isSaldoAwal = checkString.includes("saldo bulan") || checkString === "saldo" || checkString.includes("saldo awal");
+                const isSaldoAwal = checkString.includes("saldo bulan") || checkString === "saldo" || checkString.includes("saldo awal") || checkString.includes("sisa setelah serah terima");
 
                 const determineCategory = (txType: string) => {
                     let category = "lainnya";
