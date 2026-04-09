@@ -173,12 +173,14 @@ export async function POST(request: Request) {
                 let secondCol = String(row[1] || "").toLowerCase();
                 let fifthCol = String(row[4] || "").toLowerCase();
 
-                // Stop safely if we hit the bottom summary rows (JUMLAH BULAN INI, SISA AKHIR, dll)
+                // Stop safely if we hit the bottom summary rows
                 if (
-                    secondCol.includes("jumlah") || 
-                    secondCol.includes("sisa") ||
-                    fifthCol.includes("jumlah") ||
-                    fifthCol.includes("sisa akhir")
+                    secondCol.includes("jumlah bulan ini") || 
+                    secondCol.includes("jumlah s.d bulan") ||
+                    firstCol.includes("jumlah bulan ini") ||
+                    firstCol.includes("jumlah s.d bulan") ||
+                    secondCol === "sisa" ||
+                    secondCol === "sisa akhir"
                 ) {
                     break;
                 }
@@ -199,7 +201,11 @@ export async function POST(request: Request) {
                 }
 
                 const checkString = uraian.toLowerCase();
-                const isSaldoAwal = checkString.includes("saldo bulan") || checkString === "saldo" || checkString.includes("saldo awal") || checkString.includes("sisa setelah serah terima");
+                const isSaldoAwal = checkString.includes("saldo bulan") || 
+                                    checkString === "saldo" || 
+                                    checkString.includes("saldo awal") || 
+                                    checkString.includes("sisa awal") ||
+                                    checkString.includes("sisa setelah serah terima");
 
                 const determineCategory = (txType: string) => {
                     let category = "lainnya";
@@ -217,10 +223,15 @@ export async function POST(request: Request) {
                     return category;
                 };
 
+                const timeOffset = i * 1000;
+                const txDate = isSaldoAwal 
+                    ? new Date(new Date(sheetYear, sheetMonth, 0).getTime() + timeOffset) 
+                    : new Date(currentValDate.getTime() + timeOffset);
+
                 const baseInfo = {
                     sheet: sheetName,
                     row: i + headerRowIndex + 2,
-                    transactionDate: isSaldoAwal ? new Date(sheetYear, sheetMonth, 0).toISOString() : new Date(currentValDate).toISOString(),
+                    transactionDate: txDate.toISOString(),
                     description: uraian,
                     status: 'valid'
                 };
@@ -236,7 +247,14 @@ export async function POST(request: Request) {
                     for (const col of columns) {
                         let debet = cleanNumber(row[col.dIdx]);
                         let kredit = cleanNumber(row[col.kIdx]);
+                        
+                        // Ignore extremely small numbers below 10 (artifact garbage)
+                        if (debet < 10) debet = 0;
+                        if (kredit < 10) kredit = 0;
+                        
                         if (debet === 0 && kredit === 0 && !isSaldoAwal) continue;
+                        // For saldo_awal, skip if amount is 0 too, unless we want a 0 starting balance? 
+                        if (isSaldoAwal && debet === 0 && kredit === 0) continue;
                         
                         let txType = "in"; let txAmount = debet;
                         if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }
@@ -257,7 +275,13 @@ export async function POST(request: Request) {
                 // SINGLE ACCOUNT MODE
                 let debet = cleanNumber(row[debetIdx]);
                 let kredit = cleanNumber(row[kreditIdx]);
+                
+                // Ignore extremely small numbers below 10
+                if (debet < 10) debet = 0;
+                if (kredit < 10) kredit = 0;
+                
                 if (debet === 0 && kredit === 0 && !isSaldoAwal) continue;
+                if (isSaldoAwal && debet === 0 && kredit === 0) continue;
 
                 let txType = "in"; let txAmount = debet;
                 if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }

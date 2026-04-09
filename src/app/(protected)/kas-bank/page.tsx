@@ -186,6 +186,7 @@ const transactionColumns: ColumnDef<CashBankTransaction>[] = [
 export default function KasBankPage() {
     const [accountFilter, setAccountFilter] = React.useState("all");
     const [typeFilter, setTypeFilter] = React.useState("all");
+    const [unitFilter, setUnitFilter] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [accounts, setAccounts] = React.useState<CashBankAccount[]>([]);
     const [transactions, setTransactions] = React.useState<CashBankTransaction[]>([]);
@@ -253,6 +254,12 @@ export default function KasBankPage() {
         });
     }, [transactions, accountFilter, typeFilter]);
 
+    const filteredUnitTransactions = React.useMemo(() => {
+        return unitTransactions.filter((tx) => {
+            return unitFilter === "all" || tx.unitType === unitFilter;
+        });
+    }, [unitTransactions, unitFilter]);
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -279,7 +286,7 @@ export default function KasBankPage() {
                                     Import Buku Kas
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                            <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>
                                         Import Buku Kas (Excel)
@@ -662,11 +669,27 @@ export default function KasBankPage() {
                         data={filteredTransactions}
                         isLoading={isLoading}
                         searchPlaceholder="Cari transaksi..."
+                        searchColumn="description"
                     />
                 </TabsContent>
 
                 {/* Unit Transactions Tab */}
                 <TabsContent value="unit-transactions" className="space-y-4">
+                    <div className="flex gap-4">
+                        <Select value={unitFilter} onValueChange={setUnitFilter}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Semua Unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Semua Unit</SelectItem>
+                                <SelectItem value="toko">Toko</SelectItem>
+                                <SelectItem value="simpan_pinjam">Simpan Pinjam</SelectItem>
+                                <SelectItem value="cuci_mobil">Cuci Mobil &amp; Resto</SelectItem>
+                                <SelectItem value="ps">Playstation</SelectItem>
+                                <SelectItem value="gym">Gym / Fitness</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="rounded-md border">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
@@ -682,10 +705,10 @@ export default function KasBankPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {unitTransactions.length === 0 && !isLoading && (
+                                {filteredUnitTransactions.length === 0 && !isLoading && (
                                     <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Tidak ada data transaksi unit</td></tr>
                                 )}
-                                {unitTransactions.map((tx) => (
+                                {filteredUnitTransactions.map((tx) => (
                                     <tr key={tx.id} className="border-t hover:bg-muted/30">
                                         <td className="p-3 text-muted-foreground whitespace-nowrap">
                                             {new Date(tx.transactionDate).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
