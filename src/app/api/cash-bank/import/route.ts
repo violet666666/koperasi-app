@@ -31,6 +31,9 @@ export async function POST(request: Request) {
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit
         const accountIdStr = formData.get("accountId") as string;
 
+        const format = (formData.get("format") as string) || "standard";
+        const koppolColumn = (formData.get("koppolColumn") as string) || "tunai";
+
         if (!file) {
             return NextResponse.json({ message: "File wajib diupload" }, { status: 400 });
         }
@@ -60,28 +63,55 @@ export async function POST(request: Request) {
             rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
             if (rows.length === 0) continue;
 
-            // Find header
             let headerRowIndex = -1;
-            for (let i = 0; i < Math.min(20, rows.length); i++) {
-                const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
-                if (rowStr.includes("tanggal") && rowStr.includes("uraian") && rowStr.includes("debet") && rowStr.includes("kredit")) {
-                    headerRowIndex = i;
-                    break;
+            let headers: string[] = [];
+            let dataRows: any[][] = [];
+            let tglIdx = -1, uraianIdx = -1, debetIdx = -1, kreditIdx = -1;
+
+            if (format === "koppol_consolidated") {
+                // For KOPPOL format, data starts around row 13 (index 12 or so).
+                // Let's just find the row that has NO and TANGGAL.
+                for (let i = 0; i < Math.min(20, rows.length); i++) {
+                    const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
+                    if (rowStr.includes("nomor buku") && rowStr.includes("atas nama")) {
+                        headerRowIndex = i;
+                        break;
+                    }
                 }
-            }
+                
+                if (headerRowIndex === -1) continue;
+                dataRows = rows.slice(headerRowIndex + 1);
 
-            if (headerRowIndex === -1) {
-                // Skip sheet if no header found
-                continue;
-            }
+                // Hardcoded index based on KOPPOL Consolidated structure
+                tglIdx = 2; // TANGGAL
+                uraianIdx = 4; // ATAS NAMA
+                if (koppolColumn === "tunai") {
+                    debetIdx = 7; kreditIdx = 8;
+                } else if (koppolColumn === "bri") {
+                    debetIdx = 9; kreditIdx = 10;
+                } else if (koppolColumn === "jatim") {
+                    debetIdx = 11; kreditIdx = 12;
+                }
+            } else {
+                // Standard mode
+                for (let i = 0; i < Math.min(20, rows.length); i++) {
+                    const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
+                    if (rowStr.includes("tanggal") && rowStr.includes("uraian") && rowStr.includes("debet") && rowStr.includes("kredit")) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
 
-            const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
-            const dataRows = rows.slice(headerRowIndex + 1);
-            
-            const tglIdx = headers.findIndex(h => h.includes("tanggal"));
-            const uraianIdx = headers.findIndex(h => h.includes("uraian"));
-            const debetIdx = headers.findIndex(h => h.includes("debet"));
-            const kreditIdx = headers.findIndex(h => h.includes("kredit"));
+                if (headerRowIndex === -1) continue;
+                
+                headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
+                dataRows = rows.slice(headerRowIndex + 1);
+                
+                tglIdx = headers.findIndex(h => h.includes("tanggal"));
+                uraianIdx = headers.findIndex(h => h.includes("uraian"));
+                debetIdx = headers.findIndex(h => h.includes("debet"));
+                kreditIdx = headers.findIndex(h => h.includes("kredit"));
+            }
 
             // Determine Year and Month from Sheet Name or data
             let sheetMonth = new Date().getMonth();

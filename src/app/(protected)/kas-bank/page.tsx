@@ -164,6 +164,8 @@ export default function KasBankPage() {
     const [uploading, setUploading] = React.useState(false);
     const [selectedUploadFile, setSelectedUploadFile] = React.useState<File | null>(null);
     const [selectedUploadAccount, setSelectedUploadAccount] = React.useState("");
+    const [importFormat, setImportFormat] = React.useState("standard");
+    const [koppolColumn, setKoppolColumn] = React.useState("tunai");
 
     // Calculate totals
     const totals = React.useMemo(() => {
@@ -238,8 +240,7 @@ export default function KasBankPage() {
                                 <DialogHeader>
                                     <DialogTitle>Import Buku Kas (Excel)</DialogTitle>
                                     <DialogDescription>
-                                        Pilih akun bank/kas yang sesuai dengan buku kas rekap Excel. 
-                                        Format wajib mengandung kolom: Tanggal, Uraian, Debet, Kredit.
+                                        Pilih akun tujuan dan format file Excel yang akan diunggah.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
@@ -261,6 +262,39 @@ export default function KasBankPage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    <div className="space-y-2">
+                                        <Label>Format File Excel</Label>
+                                        <Select
+                                            value={importFormat}
+                                            onValueChange={setImportFormat}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih format..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="standard">Standar (1 Kolom Debet/Kredit)</SelectItem>
+                                                <SelectItem value="koppol_consolidated">Laporan Konsolidasi (TUNAI & BANK)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {importFormat === "koppol_consolidated" && (
+                                        <div className="space-y-2">
+                                            <Label>Pilih Kolom Yang Akan Diimpor</Label>
+                                            <Select
+                                                value={koppolColumn}
+                                                onValueChange={setKoppolColumn}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih target kolom..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="tunai">Kolom KAS TUNAI</SelectItem>
+                                                    <SelectItem value="bri">Kolom BANK BRI</SelectItem>
+                                                    <SelectItem value="jatim">Kolom BANK JATIM</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <Label>File Excel (.xlsx)</Label>
                                         <Input
@@ -288,6 +322,10 @@ export default function KasBankPage() {
                                                 formData.append("file", selectedUploadFile);
                                                 formData.append("mode", "commit");
                                                 formData.append("accountId", selectedUploadAccount);
+                                                formData.append("format", importFormat);
+                                                if (importFormat === "koppol_consolidated") {
+                                                    formData.append("koppolColumn", koppolColumn);
+                                                }
                                                 
                                                 const res = await fetch("/api/cash-bank/import", {
                                                     method: "POST",
