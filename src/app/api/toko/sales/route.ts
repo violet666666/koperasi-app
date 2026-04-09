@@ -291,15 +291,40 @@ export async function POST(request: Request) {
         // ============================================================
         if (method === "cash" || method === "qris") {
             try {
-                // Temukan rekening kas/bank sesuai unit
-                const targetAccount = await prisma.cashBankAccount.findFirst({
+                // Temukan rekening kas/bank sesuai unit — multi-unit routing
+                // Prioritas: unitTypes[] → unitType exact → null/default
+                const accountType = method === "cash" ? "cash" : "bank";
+                let targetAccount = await prisma.cashBankAccount.findFirst({
                     where: { 
-                        type: method === "cash" ? "cash" : "bank",
-                        unitType: unitType,
-                        isActive: true 
+                        type: accountType,
+                        isActive: true,
+                        unitTypes: { array_contains: unitType } as any,
                     },
                     orderBy: { id: "asc" },
                 });
+
+                if (!targetAccount) {
+                    targetAccount = await prisma.cashBankAccount.findFirst({
+                        where: { 
+                            type: accountType,
+                            unitType: unitType,
+                            isActive: true 
+                        },
+                        orderBy: { id: "asc" },
+                    });
+                }
+
+                if (!targetAccount) {
+                    targetAccount = await prisma.cashBankAccount.findFirst({
+                        where: { 
+                            type: accountType,
+                            unitType: null,
+                            purpose: "operasional",
+                            isActive: true 
+                        },
+                        orderBy: { id: "asc" },
+                    });
+                }
 
                 if (targetAccount) {
                     const currentBal = Number(targetAccount.currentBalance);

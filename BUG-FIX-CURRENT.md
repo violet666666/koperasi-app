@@ -1287,3 +1287,35 @@ Update data seed produk pinjaman agar sesuai aturan bisnis terbaru:
 **File:** `src/app/api/master/loan-products/[id]/route.ts`
 **Masalah:** Mengubah LIMIT Pinjaman, Tenor, dan Admin Fee pada halaman /master/produk-pinjaman terlihat berhasil di layar (Toast sukses), namun setelah refresh nilainya kembali ke awal. API Endpoint PUT hanya memfilter field tertentu dan mengabaikan nilai minAmount, salah mapping maxTenorMonths, dan lupa dminFeeValue.
 **Solusi:** Membongkar ulang parameter update prisma.loanProduct.update dan menyuntikkan seluruh parsing payload yang sah: minAmount, maxAmount, minTenorMonths, maxTenorMonths, dminFeeType, dminFeeValue dari *request body*.
+
+---
+
+### BUG-075 (9 April 2026) - Void Pinjaman Build Error (Import Usang)
+**File:** `src/app/api/loans/[id]/void/route.ts`
+**Masalah:** Fitur endpoint void pinjaman baru yang dibuat menyebabkan Turbopack build failed dengan 2 error setelah deploy:
+1. `import { getServerSession } from "next-auth"` — getServerSession tidak lagi diekspor oleh versi Auth.js terbaru yang digunakan.
+2. `import { authOptions } from "@/lib/auth"` — uthOptions tidak diekspor dari uth.ts, karena project menggunakan pola NextAuth v5 baru yaitu export const { auth }.
+3. params bertipe { id: string } (non-async) sedangkan Next.js 15 / Turbopack mensyaratkan params: Promise<{ id: string }>.
+**Solusi:** Mengganti seluruh impor sesi dari pola lama ke pola baru import { auth } from "@/lib/auth" + const session = await auth(). Mengubah tipe params menjadi Promise<{id: string}> dan menerapkan const resolvedParams = await params.
+**Status:** FIXED ? — Build berhasil Exit Code 0.
+
+---
+
+### BUG-076 (9 April 2026) - Double-Count Simpanan Wajib di Halaman Anggota
+**File:** `src/app/api/members/[id]/route.ts`, `src/lib/services/shu-calculator.ts`
+**Dilaporkan Oleh:** Atasan Operasional (via pesan internal)
+**Masalah:** Nominal "Simpanan Wajib" yang terbaca di kartu ringkasan anggota (Total Simpanan) berbeda dengan angka di Tab Simpanan. Kadang Total Simpanan membengkak tidak wajar. Disinyalir ada kalkulasi ganda.
+**Root Cause:** Sistem memiliki DUA sumber data simpanan wajib:
+- `Member.tabunganWajib`: Saldo lama dari import CSV (sebelum sistem akun aktif)
+- `SavingsAccount` tipe `wajib`: Rekening resmi yang di-update real-time via transaksi setoran
+
+Kode sebelumnya **selalu menjumlahkan keduanya tanpa pengecekan**, sehingga jika anggota sudah memiliki rekening wajib resmi, nilai simpanannya dihitung 2x. Akibatnya:
+1. Kartu "Total Simpanan" menampilkan angka yang bengkak (inflated)
+2. Tab Simpanan menampilkan 2 baris "Simpanan Wajib" dengan nominal berbeda
+
+**Solusi:** Implementasi logika fallback `hasWajibAccount`:
+- Cek apakah anggota memiliki `SavingsAccount` dengan `product.type === "wajib"`
+- Jika YA ? `tabunganWajibFallback = 0` (tidak dihitung lagi, pakai saldo rekening resmi)
+- Jika TIDAK ? `tabunganWajibFallback = Member.tabunganWajib` (data CSV lama masih relevan)
+- Perbaikan yang sama diterapkan di SHU Calculator agar distribusi SHU per anggota juga tidak bias.
+**Status:** FIXED ?

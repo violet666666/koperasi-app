@@ -510,7 +510,9 @@ model CashBankAccount {
   accountNumber  String?   @map("account_number")
   branchId       Int       @map("branch_id")
   glAccountId    Int?      @map("gl_account_id")
-  unitType       String?   @map("unit_type") // toko, play_station, fitness, coffe_latar, barbershop, carwash, resto, properti, simpan_pinjam
+  unitType       String?   @map("unit_type") // single-unit compat: toko, fitness, cuci_mobil, dll
+  unitTypes      Json?     @map("unit_types") // multi-unit: ["cuci_mobil","resto"] — overrides unitType jika diset
+  purpose        String?   // "operasional" | "shu_pegawai" | "shu_cadangan" | "shu_sosial" | "shu_pengurus"
   currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
   isActive       Boolean   @default(true) @map("is_active")
   createdAt      DateTime  @default(now()) @map("created_at")

@@ -113,17 +113,32 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
-## UPDATE 09 April 2026 — Sesi 9: Fitur Void Pinjaman & Pencarian Barcode Global
+## UPDATE 09 April 2026 — Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Void Pinjaman
 
-### [FEAT] Modul "Batal Pinjaman" (Void Loan) Khusus Operator
-**File:** `src/app/(protected)/pinjaman/[id]/page.tsx` & `src/app/api/loans/[id]/void/route.ts`
-**Masalah:** Operator kerap salah memasukkan nominal pada persetujuan pinjaman, namun tidak ada mitigasi sistem untuk menghapus jadwal piutang dan mengembalikan saldo Kas Bank secara rapi.
-**Solusi:** Dibuat fitur pembersihan total (Wipe). Syarat ketat: Pinjaman belum pernah diangsur (Plafon Terbayar = 0) dan yang melakukan eksekusi wajib ber-role Administrator/Operator. Sistem ini menuntut persetujuan ketik "VOID" untuk memicu penghapusan Jejak Jadwal Piutang, Rollback Saldo Rekening Bank pencairan, dan Penghapusan Pinjaman. 
+### [FEATURE] Kas Bank Multi-Unit & Rekening Dana SHU
+**File:** `prisma/schema.prisma`, `src/app/api/toko/sales/route.ts`, `src/app/api/unit-layanan/sales/route.ts`, `src/app/(protected)/master/kas-bank/page.tsx`, `prisma/seed-kas-bank-jatim.ts`
+**Masalah:** Kebijakan Koperasi Primkoppol memiliki sistem rekening gabungan (contoh 1 rekening *Bank JATIM* dipakai 3 unit: Fitness, Toko, Coffee Latar), serta rekening penampung khusus untuk Dana Alokasi SHU (Pegawai, Cadang, Sosial) yang dipisah dari operasional. Sistem POS lama hanya mengizinkan 1 rekening untuk 1 unit.
+**Solusi:** 
+1. **Skema DB Baru:** Menambahkan kolom `unitTypes` (array JSON multi-unit) dan `purpose` (operasional vs dana_shu) pada tabel `CashBankAccount`.
+2. **Multi-Unit Routing:** Algoritma kasir POS (Toko & Unit Layanan) kini dirancang dengan 3-Tingkat Fallback: mencari `unitTypes` array → fallback ke `unitType` exact → fallback ke akun sentral.
+3. **Penyemaian Data:** 10 Akun otomatis dibuat, mengelompokkan Cuci Mobil+Resto ke satu rekening JATIM, dan Fitness+Toko+Coffee ke rekening JATIM yang lain.
+4. **Master Kas-Bank UI:** Dropdown unit telah berevolusi menjadi *multi-select checkbox*, dilengkapi pilihan kategori tujuan (purpose).
 
 ### [UX] Scan Barcode Bebas pada Data Tabel Persediaan dan Produk
 **File:** `src/app/(protected)/toko/produk/page.tsx` & `src/app/(protected)/toko/persediaan/page.tsx`
 **Masalah:** Form pencarian stok sebelumnya terkunci hanya mencari "Nama Produk", sehingga mematikan daya guna *Barcode Scanner*.
 **Solusi:** Menghapus parameter `searchColumn` pada DataTable sehingga pencarian beralih otomatis ke *Global String Filtering*. Scan barcode SKU kini langsung direspons dengan instan. Selain itu juga ditambahkan Dropdown Status Stok (Menipis, Tersedia) serta Dropdown Jenis Mutasi (Masuk, Keluar) untuk kepraktisan pelaporan unit Toko.
+
+### [FIX] Build Error Turbopack — Import Auth Usang di Void Route
+**File:** `src/app/api/loans/[id]/void/route.ts`
+**Masalah:** Route void pinjaman menyebabkan `Turbopack build failed` karena menggunakan `getServerSession` dan `authOptions` yang tidak lagi diekspor oleh Auth.js v5, serta `params` non-async yang tidak kompatibel dengan Next.js 15.
+**Solusi:** Refactor ke pola `import { auth } from "@/lib/auth"` modern dan `params: Promise<{id: string}>` sesuai standar Next.js 15. Build berhasil Exit Code 0.
+
+### [FIX] Double-Count Simpanan Wajib — Data Anggota & Kalkulasi SHU
+**File:** `src/app/api/members/[id]/route.ts` & `src/lib/services/shu-calculator.ts`
+**Masalah:** Nominal Simpanan Wajib berbeda antara kartu Summary dan Tab Simpanan detail anggota, serta kadang Total Simpanan membengkak tidak wajar.
+**Root Cause:** Sistem menggabungkan `Member.tabunganWajib` (data import CSV lama) + `SavingsAccount.balance` (rekening resmi aktif) tanpa pengecekan apakah rekening sudah ada, sehingga terjadi double-count.
+**Solusi:** Implementasi logika `hasWajibAccount` sebagai gatekeeper — `tabunganWajib` hanya dipakai sebagai fallback jika rekening wajib resmi belum ada. Perbaikan diterapkan di API member detail dan SHU Calculator.
 
 ---
 

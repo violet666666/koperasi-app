@@ -137,21 +137,38 @@ export async function POST(request: Request) {
         // 2. Synchronize to Cash / Bank if Cash/Qris
         if (method === "cash" || method === "qris") {
             try {
+                const accountType = method === "cash" ? "cash" : "bank";
+
+                // Cari akun multi-unit (unitTypes JSON array mendukung >= 2 unit sharing 1 rekening)
+                // Fallback bertingkat: multi-unit → single-unit → null (pusat/default)
                 let targetAccount = await prisma.cashBankAccount.findFirst({
-                    where: { 
-                        type: method === "cash" ? "cash" : "bank",
-                        unitType: unitType,
-                        isActive: true 
+                    where: {
+                        type: accountType,
+                        isActive: true,
+                        unitTypes: { array_contains: unitType } as any,
                     },
                     orderBy: { id: "asc" },
                 });
 
                 if (!targetAccount) {
-                    // Fallback to unitType null (pusat / default)
+                    // Fallback 1: single-unit exact match
                     targetAccount = await prisma.cashBankAccount.findFirst({
                         where: { 
-                            type: method === "cash" ? "cash" : "bank",
+                            type: accountType,
+                            unitType: unitType,
+                            isActive: true 
+                        },
+                        orderBy: { id: "asc" },
+                    });
+                }
+
+                if (!targetAccount) {
+                    // Fallback 2: akun default pusat (unitType null)
+                    targetAccount = await prisma.cashBankAccount.findFirst({
+                        where: { 
+                            type: accountType,
                             unitType: null,
+                            purpose: "operasional",
                             isActive: true 
                         },
                         orderBy: { id: "asc" },

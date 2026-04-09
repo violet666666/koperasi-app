@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { code, name, type, bankName, accountNumber, branchId, glAccountId, unitType } = body;
+        const { code, name, type, bankName, accountNumber, branchId, glAccountId, unitType, unitTypes, purpose } = body;
 
         if (!code || !name || !type || !branchId) {
             return NextResponse.json(
@@ -78,6 +78,8 @@ export async function POST(request: Request) {
                 branchId: parseInt(branchId),
                 glAccountId: glAccountId ? parseInt(glAccountId) : null,
                 unitType: unitType || null,
+                unitTypes: Array.isArray(unitTypes) && unitTypes.length > 0 ? unitTypes : undefined,
+                purpose: purpose || "operasional",
                 currentBalance: 0,
                 isActive: true,
             },

@@ -50,6 +50,8 @@ interface CashBankAccountFull {
     branchId: number;
     glAccountId?: number | null;
     unitType?: string | null;
+    unitTypes?: string[] | null;      // Multi-unit routing
+    purpose?: string | null;          // "operasional" | "shu_pegawai" | "shu_cadangan" | "shu_sosial"
     currentBalance: number;
     isActive: boolean;
     branch?: { id: number; name: string; code: string };
@@ -85,6 +87,12 @@ function CashBankForm({
     onSave: (data: Record<string, unknown>) => Promise<void>;
     onCancel: () => void;
 }) {
+    const initialUnitTypes: string[] = account?.unitTypes
+        ? (account.unitTypes as string[])
+        : account?.unitType
+        ? [account.unitType]
+        : [];
+
     const [isLoading, setIsLoading] = React.useState(false);
     const [formData, setFormData] = React.useState({
         code: account?.code || "",
@@ -94,9 +102,36 @@ function CashBankForm({
         accountNumber: account?.accountNumber || "",
         branchId: account?.branchId?.toString() || "",
         glAccountId: account?.glAccountId?.toString() || "",
-        unitType: account?.unitType || "simpan_pinjam",
+        purpose: account?.purpose || "operasional",
         isActive: account?.isActive ?? true,
     });
+    const [selectedUnits, setSelectedUnits] = React.useState<string[]>(initialUnitTypes);
+
+    const ALL_UNITS = [
+        { value: "simpan_pinjam", label: "Simpan Pinjam (Sentral)" },
+        { value: "toko", label: "Toko" },
+        { value: "fitness", label: "Fitness" },
+        { value: "coffe_latar", label: "Coffee Latar" },
+        { value: "barbershop", label: "Barbershop" },
+        { value: "cuci_mobil", label: "Cuci Mobil" },
+        { value: "resto", label: "Resto" },
+        { value: "play_station", label: "Play Station" },
+        { value: "properti", label: "Properti" },
+    ];
+
+    const PURPOSE_OPTIONS = [
+        { value: "operasional", label: "Operasional Unit Usaha" },
+        { value: "shu_pegawai", label: "Dana SHU Pegawai" },
+        { value: "shu_cadangan", label: "Dana SHU Cadangan" },
+        { value: "shu_sosial", label: "Dana SHU Sosial" },
+        { value: "shu_pengurus", label: "Dana SHU Pengurus" },
+    ];
+
+    const handleUnitToggle = (value: string) => {
+        setSelectedUnits(prev =>
+            prev.includes(value) ? prev.filter(u => u !== value) : [...prev, value]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,10 +141,14 @@ function CashBankForm({
         }
         setIsLoading(true);
         try {
+            // Kirim unitTypes (multi) dan unitType (primary/compat)
             await onSave({
                 ...formData,
                 glAccountId: formData.glAccountId ? parseInt(formData.glAccountId) : null,
                 branchId: parseInt(formData.branchId),
+                unitTypes: selectedUnits.length > 0 ? selectedUnits : null,
+                unitType: selectedUnits.length > 0 ? selectedUnits[0] : null, // primary for compat
+                purpose: formData.purpose || "operasional",
             });
         } finally {
             setIsLoading(false);
@@ -259,32 +298,51 @@ function CashBankForm({
                     </p>
                 </div>
                 <div className="sm:col-span-2">
-                    <Label htmlFor="unitType">Unit Usaha / Alokasi Rekening</Label>
+                    <Label>Tujuan / Kategori Akun</Label>
                     <Select
-                        value={formData.unitType}
+                        value={formData.purpose}
                         onValueChange={(val) =>
-                            setFormData((p) => ({ ...p, unitType: val }))
+                            setFormData((p) => ({ ...p, purpose: val }))
                         }
                     >
                         <SelectTrigger>
-                            <SelectValue placeholder="Pilih unit usaha..." />
+                            <SelectValue placeholder="Pilih kategori..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="simpan_pinjam">Simpan Pinjam (Sentral)</SelectItem>
-                            <SelectItem value="toko">Toko</SelectItem>
-                            <SelectItem value="play_station">Play Station</SelectItem>
-                            <SelectItem value="fitness">Fitnes</SelectItem>
-                            <SelectItem value="coffe_latar">Coffe Latar</SelectItem>
-                            <SelectItem value="barbershop">Barbershop</SelectItem>
-                            <SelectItem value="carwash">Carwash</SelectItem>
-                            <SelectItem value="resto">Resto</SelectItem>
-                            <SelectItem value="properti">Properti</SelectItem>
+                            {PURPOSE_OPTIONS.map(o => (
+                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
-                        Pilih unit agar sistem POS otomatis melakukan routing ke rekening ini.
+                        Pilih &quot;Operasional&quot; untuk akun unit usaha, atau &quot;Dana SHU...&quot; untuk akun distribusi SHU.
                     </p>
                 </div>
+
+                {formData.purpose === "operasional" && (
+                    <div className="sm:col-span-2">
+                        <Label>Unit Usaha yang Menggunakan Rekening Ini</Label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                            Pilih satu atau lebih unit yang berbagi satu rekening fisik ini.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-md p-3">
+                            {ALL_UNITS.map(u => (
+                                <label key={u.value} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                                    <Checkbox
+                                        checked={selectedUnits.includes(u.value)}
+                                        onCheckedChange={() => handleUnitToggle(u.value)}
+                                    />
+                                    {u.label}
+                                </label>
+                            ))}
+                        </div>
+                        {selectedUnits.length > 0 && (
+                            <p className="text-xs text-emerald-600 mt-1">
+                                ✔ Unit terpilih: {selectedUnits.join(", ")}
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
 
             {account && (

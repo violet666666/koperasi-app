@@ -10,7 +10,7 @@ export async function PUT(
         const { id: idStr } = await params;
         const id = parseInt(idStr);
         const body = await request.json();
-        const { code, name, type, bankName, accountNumber, branchId, glAccountId, isActive, unitType } = body;
+        const { code, name, type, bankName, accountNumber, branchId, glAccountId, isActive, unitType, unitTypes, purpose } = body;
 
         const existing = await prisma.cashBankAccount.findUnique({ where: { id } });
         if (!existing || existing.deletedAt) {
@@ -41,6 +41,8 @@ export async function PUT(
         if (glAccountId !== undefined) updatedData.glAccountId = glAccountId ? parseInt(glAccountId) : null;
         if (isActive !== undefined) updatedData.isActive = isActive;
         if (unitType !== undefined) updatedData.unitType = unitType || null;
+        if (unitTypes !== undefined) updatedData.unitTypes = Array.isArray(unitTypes) && unitTypes.length > 0 ? unitTypes : null;
+        if (purpose !== undefined) updatedData.purpose = purpose || null;
 
         const updated = await prisma.cashBankAccount.update({
             where: { id },
