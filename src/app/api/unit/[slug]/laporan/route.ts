@@ -108,22 +108,29 @@ export async function GET(
             ? `${new Date(dateFromParam!).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} – ${new Date(dateToParam!).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
             : `${now.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`;
 
-        // ── Fetch Unit Transactions (hanya untuk Layanan, abaikan untuk POS/Toko) ────────
-        // Toko/Resto sudah direkam utuh pendapatannya di StoreSale. Record Piutang (TK-UTG-) hanya duplikasi.
+        // ── Fetch Unit Transactions ────────────────────────────────────────
+        // Untuk unit Toko/Resto: tetap ambil UnitTransaction, tapi EXCLUDE
+        // record piutang otomatis (TK-UTG-xxx) karena angka tersebut sudah
+        // tercatat di StoreSale — menghindari duplikasi pendapatan.
         let unitTransactions: any[] = [];
-        if (!isToko) {
-            unitTransactions = await prisma.unitTransaction.findMany({
-                where: {
-                    unitType,
-                    transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
-                    status: { notIn: ["voided"] },
-                },
-                include: {
-                    member: { select: { id: true, name: true, nrp: true, memberNo: true } },
-                },
-                orderBy: { transactionDate: "desc" },
-            });
+        const unitTxWhere: any = {
+            unitType,
+            transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
+            status: { notIn: ["voided"] },
+        };
+
+        // Untuk toko, exclude auto-generated piutang records
+        if (isToko) {
+            unitTxWhere.NOT = { transactionNo: { startsWith: "TK-UTG-" } };
         }
+
+        unitTransactions = await prisma.unitTransaction.findMany({
+            where: unitTxWhere,
+            include: {
+                member: { select: { id: true, name: true, nrp: true, memberNo: true } },
+            },
+            orderBy: { transactionDate: "desc" },
+        });
 
         // ── Fetch StoreSale (Toko only) ───────────────────────────────────────
         let storeSales: any[] = [];
