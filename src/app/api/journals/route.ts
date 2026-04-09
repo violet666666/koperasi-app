@@ -70,3 +70,79 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: "Failed to fetch journals" }, { status: 500 });
     }
 }
+
+// POST /api/journals - Create a manual journal entry
+export async function POST(request: Request) {
+    try {
+        const body = await request.json();
+        const { transactionDate, description, isAdjustment, lines } = body;
+
+        if (!transactionDate || !description || !lines || !Array.isArray(lines) || lines.length < 2) {
+            return NextResponse.json(
+                { message: "Data jurnal tidak lengkap atau minimal baris kurang dari 2." },
+                { status: 400 }
+            );
+        }
+
+        const date = new Date();
+        const year = date.getFullYear();
+        const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+        const journalNo = `JRN-${year}-${random}`;
+
+        // Default references for now (e.g. branchId 1 if no auth logic provided in snippet)
+        const branchId = 1;
+        const createdById = 1;
+        
+        // Ensure there's an active period (dummy implementation for manual input)
+        // You should fetch an active FiscalPeriod, here we use periodId 1 as fallback or find latest
+        const period = await prisma.fiscalPeriod.findFirst({
+            where: { isActive: true },
+            orderBy: { id: 'desc' }
+        });
+        
+        if (!period) {
+            return NextResponse.json(
+                { message: "Tidak ada periode fiskal yang aktif." },
+                { status: 400 }
+            );
+        }
+
+        const journal = await prisma.$transaction(async (tx) => {
+            const createdJournal = await tx.journal.create({
+                data: {
+                    journalNo,
+                    branchId,
+                    transactionDate: new Date(transactionDate),
+                    description,
+                    isAdjustment: Boolean(isAdjustment),
+                    isPosted: true, // Auto post manual journals for now
+                    periodId: period.id,
+                    createdById,
+                    sourceType: isAdjustment ? 'manual_adjustment' : 'manual_general',
+                }
+            });
+
+            const journalLines = lines.map((l: any) => ({
+                journalId: createdJournal.id,
+                accountId: parseInt(l.accountId),
+                debit: Number(l.debit) || 0,
+                credit: Number(l.credit) || 0,
+                description: l.description || description,
+            }));
+
+            await tx.journalLine.createMany({
+                data: journalLines,
+            });
+
+            return createdJournal;
+        });
+
+        return NextResponse.json({ data: journal, message: "Jurnal berhasil disimpan" }, { status: 201 });
+    } catch (error) {
+        console.error("POST /api/journals error:", error);
+        return NextResponse.json(
+            { message: "Gagal menyimpan jurnal" },
+            { status: 500 }
+        );
+    }
+}

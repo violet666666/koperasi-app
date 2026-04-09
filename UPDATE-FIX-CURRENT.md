@@ -113,9 +113,17 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
-## UPDATE 09 April 2026 — Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Void Pinjaman
+## UPDATE 09 April 2026 — Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Perbaikan Jurnal
 
-### [FEATURE] Kas Bank Multi-Unit & Rekening Dana SHU
+### [BUGFIX & FEATURE] Integrasi API Jurnal Umum & Jurnal Penyesuaian
+**File:** `src/app/(protected)/jurnal/umum/page.tsx` & `src/app/api/journals/route.ts`
+**Masalah:** 
+1. **Dropdown Akun Kosong:** Operator mengeluh tidak bisa memilih "Akun" (dropdown kosong) dan hanya bisa mengetik di kolom keterangan pada form Jurnal Umum. Hal ini disebabkan kesalahan penanganan struktur JSON dari API.
+2. **Tidak Ada Integrasi (Mocking System):** Sistem penyimpanan jurnal ternyata belum dicolokkan ke Database. Tombol *Simpan* hanya mengaktifkan *dummy* loading selama 1 detik dan pura-pura berhasil membelokkan layar.
+**Solusi:**
+1. **Perbaikan Parsing Data:** Memperbaiki logika `setAccounts` di React untuk mengambil data `response.data` secara langsung dengan tepat sehingga isi dropdown Akun kini muncul semua.
+2. **Implementasi API POST:** Mengembangkan *Route API Handler* baru `POST /api/journals` menggunakan `prisma.$transaction` untuk memastikan penyimpanan `Journal` dan `JournalLines` berjalan sukses ke dalam DB secara atomik.
+3. **Penyambungan Fronend:** *Form* kini mengirim data *real* (tanggal, keterangan lengkap per baris, akun debit & kredit) menuju REST API alih-alih `setTimeout()`.
 **File:** `prisma/schema.prisma`, `src/app/api/toko/sales/route.ts`, `src/app/api/unit-layanan/sales/route.ts`, `src/app/(protected)/master/kas-bank/page.tsx`, `prisma/seed-kas-bank-jatim.ts`
 **Masalah:** Kebijakan Koperasi Primkoppol memiliki sistem rekening gabungan (contoh 1 rekening *Bank JATIM* dipakai 3 unit: Fitness, Toko, Coffee Latar), serta rekening penampung khusus untuk Dana Alokasi SHU (Pegawai, Cadang, Sosial) yang dipisah dari operasional. Sistem POS lama hanya mengizinkan 1 rekening untuk 1 unit.
 **Solusi:** 

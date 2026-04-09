@@ -72,7 +72,7 @@ export default function JurnalUmumPage() {
         async function fetchAccounts() {
             try {
                 const response = await masterApi.accounts.list();
-                setAccounts((response.data as any).data || []);
+                setAccounts((response.data as any) || []);
             } catch (error) {
                 console.error("Failed to fetch accounts:", error);
             }
@@ -124,12 +124,33 @@ export default function JurnalUmumPage() {
 
         setIsLoading(true);
         try {
-            // In production, call POST /api/journals
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Actual API call
+            const payload = {
+                transactionDate: formData.transactionDate,
+                description: formData.description,
+                lines: lines.map(l => ({
+                    accountId: l.accountId,
+                    debit: l.debit || 0,
+                    credit: l.credit || 0,
+                    description: l.description,
+                }))
+            };
+
+            const response = await fetch("/api/journals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || "Gagal menyimpan jurnal");
+            }
+
             toast.success("Jurnal berhasil disimpan");
             router.push("/jurnal/buku-besar");
-        } catch (error) {
-            toast.error("Gagal menyimpan jurnal");
+        } catch (error: any) {
+            toast.error(error.message || "Gagal menyimpan jurnal");
         } finally {
             setIsLoading(false);
         }
