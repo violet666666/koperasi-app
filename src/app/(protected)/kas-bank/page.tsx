@@ -28,7 +28,11 @@ import {
     Building,
     ArrowLeftRight,
     FileUp,
-    Loader2
+    Loader2,
+    ShoppingCart,
+    CheckCircle2,
+    AlertCircle,
+    Eye
 } from "lucide-react";
 import { formatCurrency, CASH_BANK_TRANSACTION_TYPES, CASH_BANK_CATEGORIES } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api";
@@ -59,6 +63,30 @@ interface CashBankTransaction {
     referenceNo?: string;
     transactionDate: string;
 }
+
+interface UnitTransaction {
+    id: number;
+    transactionNo: string;
+    unitType: string;
+    description: string;
+    amount: number;
+    isPaid: boolean;
+    paymentMethod?: string;
+    transactionDate: string;
+    member?: { name: string; nrp?: string };
+    status?: string;
+}
+
+type ImportPreviewRow = {
+    row: number;
+    sheet: string;
+    transactionDate: string;
+    description: string;
+    type: "in" | "out";
+    amount: number;
+    category: string;
+    status: string;
+};
 
 // Account card component
 function AccountCard({ account }: { account: CashBankAccount }) {
@@ -160,8 +188,12 @@ export default function KasBankPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [accounts, setAccounts] = React.useState<CashBankAccount[]>([]);
     const [transactions, setTransactions] = React.useState<CashBankTransaction[]>([]);
+    const [unitTransactions, setUnitTransactions] = React.useState<UnitTransaction[]>([]);
     const [uploadDialog, setUploadDialog] = React.useState(false);
     const [uploading, setUploading] = React.useState(false);
+    const [importStep, setImportStep] = React.useState<"form" | "preview" | "done">("form");
+    const [importPreview, setImportPreview] = React.useState<ImportPreviewRow[]>([]);
+    const [importSummary, setImportSummary] = React.useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
     const [selectedUploadFile, setSelectedUploadFile] = React.useState<File | null>(null);
     const [selectedUploadAccount, setSelectedUploadAccount] = React.useState("");
     const [importFormat, setImportFormat] = React.useState("standard");
@@ -190,6 +222,13 @@ export default function KasBankPage() {
 
                 if (transactionsRes.status === "fulfilled") {
                     setTransactions(transactionsRes.value.data as unknown as CashBankTransaction[]);
+                }
+
+                // Also fetch unit transactions
+                const unitRes = await fetch("/api/unit-transactions?perPage=500&sortOrder=desc");
+                if (unitRes.ok) {
+                    const unitJson = await unitRes.json();
+                    setUnitTransactions(unitJson.data || []);
                 }
             } catch (error) {
                 console.error("Failed to fetch cash bank data:", error);
@@ -236,120 +275,225 @@ export default function KasBankPage() {
                                     Import Buku Kas
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
-                                    <DialogTitle>Import Buku Kas (Excel)</DialogTitle>
+                                    <DialogTitle>
+                                        Import Buku Kas (Excel)
+                                        {importStep === "preview" && <span className="ml-2 text-sm font-normal text-muted-foreground">— Langkah 2: Preview Data</span>}
+                                    </DialogTitle>
                                     <DialogDescription>
-                                        Pilih akun tujuan dan format file Excel yang akan diunggah.
+                                        {importStep === "form"
+                                            ? "Pilih akun tujuan, format file, dan unggah file Excel."
+                                            : `Ditemukan ${importPreview.length} transaksi dari Excel. Periksa semua data sebelum disimpan ke database.`}
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label>Akun Kas/Bank Tujuan</Label>
-                                        <Select
-                                            value={selectedUploadAccount}
-                                            onValueChange={setSelectedUploadAccount}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pilih akun..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id.toString()}>
-                                                        {acc.name} ({acc.code}) - {formatCurrency(acc.currentBalance)}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Format File Excel</Label>
-                                        <Select
-                                            value={importFormat}
-                                            onValueChange={setImportFormat}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pilih format..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="standard">Standar (1 Kolom Debet/Kredit)</SelectItem>
-                                                <SelectItem value="koppol_consolidated">Laporan Konsolidasi (TUNAI & BANK)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    {importFormat === "koppol_consolidated" && (
+
+                                {/* STEP 1 — Form */}
+                                {importStep === "form" && (
+                                    <div className="grid gap-4 py-4">
                                         <div className="space-y-2">
-                                            <Label>Pilih Kolom Yang Akan Diimpor</Label>
-                                            <Select
-                                                value={koppolColumn}
-                                                onValueChange={setKoppolColumn}
-                                            >
+                                            <Label>Akun Kas/Bank Tujuan <span className="text-destructive">*</span></Label>
+                                            <Select value={selectedUploadAccount} onValueChange={setSelectedUploadAccount}>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Pilih target kolom..." />
+                                                    <SelectValue placeholder="Pilih akun..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="tunai">Kolom KAS TUNAI</SelectItem>
-                                                    <SelectItem value="bri">Kolom BANK BRI</SelectItem>
-                                                    <SelectItem value="jatim">Kolom BANK JATIM</SelectItem>
+                                                    {accounts.map(acc => (
+                                                        <SelectItem key={acc.id} value={acc.id.toString()}>
+                                                            {acc.name} ({acc.code}) — Saldo: {formatCurrency(acc.currentBalance)}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                    )}
-                                    <div className="space-y-2">
-                                        <Label>File Excel (.xlsx)</Label>
-                                        <Input
-                                            type="file"
-                                            accept=".xlsx, .xls"
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setSelectedUploadFile(e.target.files[0]);
-                                                }
-                                            }}
-                                        />
+                                        <div className="space-y-2">
+                                            <Label>Format File Excel <span className="text-destructive">*</span></Label>
+                                            <Select value={importFormat} onValueChange={setImportFormat}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih format..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="standard">📄 Standar — 1 Kolom Debet &amp; 1 Kolom Kredit</SelectItem>
+                                                    <SelectItem value="koppol_consolidated">📊 Konsolidasi KOPPOL — Kolom Tunai + BRI + JATIM</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {importFormat === "standard" && (
+                                                <p className="text-xs text-muted-foreground">Format ini cocok untuk buku kas standar yang memiliki kolom: Tanggal, Uraian, Debet, Kredit.</p>
+                                            )}
+                                            {importFormat === "koppol_consolidated" && (
+                                                <p className="text-xs text-muted-foreground">Format khusus Laporan Sisa Kas Bank KOPPOL dengan 3 kolom bank di satu file. Pilih kolom target di bawah.</p>
+                                            )}
+                                        </div>
+                                        {importFormat === "koppol_consolidated" && (
+                                            <div className="space-y-2">
+                                                <Label>Target Kolom yang Diimpor <span className="text-destructive">*</span></Label>
+                                                <Select value={koppolColumn} onValueChange={setKoppolColumn}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Pilih kolom target..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="tunai">💵 Kolom KAS TUNAI (Kol H &amp; I)</SelectItem>
+                                                        <SelectItem value="bri">🏦 Kolom BANK BRI (Kol J &amp; K)</SelectItem>
+                                                        <SelectItem value="jatim">🏦 Kolom BANK JATIM (Kol L &amp; M)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+                                                    <p className="font-semibold">Struktur Kolom Excel KOPPOL:</p>
+                                                    <p>• Kolom E = <strong>Keterangan / Atas Nama</strong></p>
+                                                    <p>• Kolom H &amp; I = Debet &amp; Kredit <strong>Kas Tunai</strong> → Akun: KAS-002</p>
+                                                    <p>• Kolom J &amp; K = Debet &amp; Kredit <strong>Bank BRI</strong> → Akun: B-001</p>
+                                                    <p>• Kolom L &amp; M = Debet &amp; Kredit <strong>Bank JATIM</strong> → Akun: B-002</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="space-y-2">
+                                            <Label>File Excel (.xlsx) <span className="text-destructive">*</span></Label>
+                                            <Input
+                                                type="file"
+                                                accept=".xlsx,.xls"
+                                                onChange={(e) => {
+                                                    if (e.target.files?.[0]) setSelectedUploadFile(e.target.files[0]);
+                                                }}
+                                            />
+                                            {selectedUploadFile && (
+                                                <p className="text-xs text-emerald-600">✓ File dipilih: {selectedUploadFile.name}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setUploadDialog(false)} disabled={uploading}>
-                                        Batal
-                                    </Button>
-                                    <Button
-                                        disabled={!selectedUploadFile || !selectedUploadAccount || uploading}
-                                        onClick={async () => {
-                                            if (!selectedUploadFile || !selectedUploadAccount) return;
-                                            setUploading(true);
-                                            try {
-                                                const formData = new FormData();
-                                                formData.append("file", selectedUploadFile);
-                                                formData.append("mode", "commit");
-                                                formData.append("accountId", selectedUploadAccount);
-                                                formData.append("format", importFormat);
-                                                if (importFormat === "koppol_consolidated") {
-                                                    formData.append("koppolColumn", koppolColumn);
-                                                }
-                                                
-                                                const res = await fetch("/api/cash-bank/import", {
-                                                    method: "POST",
-                                                    body: formData,
-                                                });
-                                                const json = await res.json();
-                                                if (!res.ok) throw new Error(json.message || "Gagal upload");
-                                                
-                                                toast.success(`Berhasil mengimpor ${json.data.success} transaksi dari excel!`);
-                                                setUploadDialog(false);
-                                                window.location.reload(); // Reload immediately to see changes
-                                            } catch (err: any) {
-                                                toast.error(err.message || "Terjadi kesalahan saat upload");
-                                            } finally {
-                                                setUploading(false);
-                                            }
-                                        }}
-                                    >
-                                        {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Upload & Proses
-                                    </Button>
+                                )}
+
+                                {/* STEP 2 — Preview Table */}
+                                {importStep === "preview" && (
+                                    <div className="py-2 space-y-3">
+                                        <div className="flex gap-4 text-sm">
+                                            <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                                                <CheckCircle2 className="h-4 w-4" /> {importPreview.filter(r => r.type === "in").length} Transaksi Masuk
+                                            </span>
+                                            <span className="flex items-center gap-1 text-amber-600 font-medium">
+                                                <AlertCircle className="h-4 w-4" /> {importPreview.filter(r => r.type === "out").length} Transaksi Keluar
+                                            </span>
+                                            <span className="text-muted-foreground">Total: {importPreview.length} baris</span>
+                                        </div>
+                                        <div className="rounded-md border max-h-80 overflow-y-auto text-xs">
+                                            <table className="w-full">
+                                                <thead className="bg-muted sticky top-0">
+                                                    <tr>
+                                                        <th className="p-2 text-left w-10">#</th>
+                                                        <th className="p-2 text-left">Tanggal</th>
+                                                        <th className="p-2 text-left">Keterangan</th>
+                                                        <th className="p-2 text-center">Jenis</th>
+                                                        <th className="p-2 text-right">Jumlah (Rp)</th>
+                                                        <th className="p-2 text-left">Kategori</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {importPreview.map((row, i) => (
+                                                        <tr key={i} className={`border-t ${row.type === "in" ? "bg-emerald-50/40" : "bg-amber-50/40"}`}>
+                                                            <td className="p-2 text-muted-foreground">{row.row}</td>
+                                                            <td className="p-2 whitespace-nowrap">{new Date(row.transactionDate).toLocaleDateString("id-ID")}</td>
+                                                            <td className="p-2 max-w-[180px] truncate" title={row.description}>{row.description}</td>
+                                                            <td className="p-2 text-center">
+                                                                <span className={`rounded-full px-2 py-0.5 font-medium ${row.type === "in" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                                                    {row.type === "in" ? "Masuk" : "Keluar"}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-2 text-right tabular-nums font-medium">{Number(row.amount).toLocaleString("id-ID")}</td>
+                                                            <td className="p-2 text-muted-foreground">{row.category}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            ⚠️ Jika data sudah benar, klik <strong>Simpan ke Database</strong>. Jika ada yang salah, klik <strong>Kembali</strong> untuk mengulang.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <DialogFooter className="gap-2">
+                                    {importStep === "form" && (
+                                        <>
+                                            <Button variant="outline" onClick={() => { setUploadDialog(false); setImportStep("form"); setImportPreview([]); }} disabled={uploading}>
+                                                Batal
+                                            </Button>
+                                            <Button
+                                                disabled={!selectedUploadFile || !selectedUploadAccount || uploading}
+                                                onClick={async () => {
+                                                    if (!selectedUploadFile || !selectedUploadAccount) return;
+                                                    setUploading(true);
+                                                    try {
+                                                        const formData = new FormData();
+                                                        formData.append("file", selectedUploadFile);
+                                                        formData.append("mode", "preview"); // PREVIEW MODE
+                                                        formData.append("accountId", selectedUploadAccount);
+                                                        formData.append("format", importFormat);
+                                                        if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+
+                                                        const res = await fetch("/api/cash-bank/import", { method: "POST", body: formData });
+                                                        const json = await res.json();
+                                                        if (!res.ok) throw new Error(json.message || "Gagal membaca file");
+
+                                                        const previews: ImportPreviewRow[] = json.data?.preview || [];
+                                                        if (previews.length === 0) {
+                                                            toast.warning("Tidak ada data yang terdeteksi dari file Excel. Pastikan format file sudah benar.");
+                                                            return;
+                                                        }
+                                                        setImportPreview(previews);
+                                                        setImportSummary({ success: json.data.success, failed: json.data.failed });
+                                                        setImportStep("preview");
+                                                    } catch (err: any) {
+                                                        toast.error(err.message || "Terjadi kesalahan saat membaca file");
+                                                    } finally {
+                                                        setUploading(false);
+                                                    }
+                                                }}
+                                            >
+                                                {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Membaca...</> : <><Eye className="mr-2 h-4 w-4" />Preview Data</>}
+                                            </Button>
+                                        </>
+                                    )}
+                                    {importStep === "preview" && (
+                                        <>
+                                            <Button variant="outline" onClick={() => setImportStep("form")} disabled={uploading}>
+                                                ← Kembali
+                                            </Button>
+                                            <Button
+                                                disabled={uploading}
+                                                onClick={async () => {
+                                                    if (!selectedUploadFile || !selectedUploadAccount) return;
+                                                    setUploading(true);
+                                                    try {
+                                                        const formData = new FormData();
+                                                        formData.append("file", selectedUploadFile);
+                                                        formData.append("mode", "commit"); // COMMIT
+                                                        formData.append("accountId", selectedUploadAccount);
+                                                        formData.append("format", importFormat);
+                                                        if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+
+                                                        const res = await fetch("/api/cash-bank/import", { method: "POST", body: formData });
+                                                        const json = await res.json();
+                                                        if (!res.ok) throw new Error(json.message || "Gagal import");
+
+                                                        toast.success(`✅ Berhasil mengimpor ${json.data.success} transaksi ke database!`);
+                                                        setUploadDialog(false);
+                                                        setImportStep("form");
+                                                        setImportPreview([]);
+                                                        window.location.reload();
+                                                    } catch (err: any) {
+                                                        toast.error(err.message || "Terjadi kesalahan saat simpan");
+                                                    } finally {
+                                                        setUploading(false);
+                                                    }
+                                                }}
+                                            >
+                                                {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Menyimpan...</> : <><CheckCircle2 className="mr-2 h-4 w-4" />Simpan ke Database ({importPreview.length} baris)</>}
+                                            </Button>
+                                        </>
+                                    )}
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
+
                     </div>
                 }
             />
@@ -395,7 +539,8 @@ export default function KasBankPage() {
             <Tabs defaultValue="accounts" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="accounts">Daftar Akun</TabsTrigger>
-                    <TabsTrigger value="transactions">Transaksi</TabsTrigger>
+                    <TabsTrigger value="transactions">Riwayat Kas &amp; Bank</TabsTrigger>
+                    <TabsTrigger value="unit-transactions"><ShoppingCart className="mr-1 h-4 w-4 inline" />Transaksi Unit</TabsTrigger>
                 </TabsList>
 
                 {/* Accounts Tab */}
@@ -463,6 +608,57 @@ export default function KasBankPage() {
                         isLoading={isLoading}
                         searchPlaceholder="Cari transaksi..."
                     />
+                </TabsContent>
+
+                {/* Unit Transactions Tab */}
+                <TabsContent value="unit-transactions" className="space-y-4">
+                    <div className="rounded-md border">
+                        <table className="w-full text-sm">
+                            <thead className="bg-muted/50">
+                                <tr>
+                                    <th className="p-3 text-left">Tgl</th>
+                                    <th className="p-3 text-left">No. Transaksi</th>
+                                    <th className="p-3 text-left">Unit</th>
+                                    <th className="p-3 text-left">Keterangan</th>
+                                    <th className="p-3 text-left">Anggota</th>
+                                    <th className="p-3 text-left">Metode</th>
+                                    <th className="p-3 text-right">Jumlah</th>
+                                    <th className="p-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unitTransactions.length === 0 && !isLoading && (
+                                    <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Tidak ada data transaksi unit</td></tr>
+                                )}
+                                {unitTransactions.map((tx) => (
+                                    <tr key={tx.id} className="border-t hover:bg-muted/30">
+                                        <td className="p-3 text-muted-foreground whitespace-nowrap">
+                                            {new Date(tx.transactionDate).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                                        </td>
+                                        <td className="p-3 font-mono text-xs">{tx.transactionNo}</td>
+                                        <td className="p-3">
+                                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium capitalize">
+                                                {tx.unitType?.replace("_", " ")}
+                                            </span>
+                                        </td>
+                                        <td className="p-3 max-w-[200px] truncate" title={tx.description}>{tx.description}</td>
+                                        <td className="p-3 text-sm">{tx.member?.name || "-"}<br/><span className="text-xs text-muted-foreground">{tx.member?.nrp}</span></td>
+                                        <td className="p-3 text-xs capitalize">{tx.paymentMethod?.replace("_", " ") || "-"}</td>
+                                        <td className="p-3 text-right font-semibold tabular-nums">{formatCurrency(Number(tx.amount))}</td>
+                                        <td className="p-3 text-center">
+                                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                tx.isPaid ? "bg-emerald-100 text-emerald-700" :
+                                                tx.status === "voided" ? "bg-red-100 text-red-700" :
+                                                "bg-amber-100 text-amber-700"
+                                            }`}>
+                                                {tx.status === "voided" ? "Dibatalkan" : tx.isPaid ? "Lunas" : "Belum Bayar"}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>
