@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
@@ -22,7 +21,8 @@ export async function POST(
             return NextResponse.json({ message: "Hanya Operator yang diizinkan untuk membatalkan pinjaman." }, { status: 403 });
         }
 
-        const loanId = parseInt(params.id);
+        const resolvedParams = await params;
+        const loanId = parseInt(resolvedParams.id);
         if (isNaN(loanId)) {
             return NextResponse.json({ message: "ID pinjaman tidak valid" }, { status: 400 });
         }
