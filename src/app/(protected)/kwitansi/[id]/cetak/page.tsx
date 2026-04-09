@@ -323,7 +323,7 @@ export default function CetakKwitansiPage() {
                                     {/* Placeholder area cap stempel */}
                                     <span className="text-[9px] text-muted-foreground/30 mb-1">(Cap & Stempel)</span>
                                 </div>
-                                <p className="font-medium text-sm mt-1">Operator PRIMKOPPOL</p>
+                                <p className="font-medium text-sm mt-1">PRIMKOPPOL</p>
                                 <p className="text-[10px] text-muted-foreground">Petugas</p>
                             </div>
                         </div>
