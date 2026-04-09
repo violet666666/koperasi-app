@@ -38,3 +38,21 @@ Setelah melakukan *code review* mendalam terhadap 3 Laman Core SHU (`/laporan/sh
 
 ---
 
+## 5. RESOLUSI TUNTAS & PENEMUAN BARU (10 April 2026 - Tahap Penyelesaian)
+
+Menindaklanjuti temuan audit di atas, seluruh cacat front-end dan back-end telah dieksekusi perbaikannya **100% mencapai status tertutup (CLOSED)**. Namun selama tahap pengecekan final *End-to-End*, ditemukan satu (1) Kepingan *Master Config* yang berstatus fatal dan luput dari pandangan awal:
+
+### B. Tabel Eksploitasi Tambahan (Konfigurasi AD-ART)
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi Dieksekusi |
+|:---|:---|:---|:---|:---|:---|
+| **8** | Parameter SHU Master | `src/app/(protected)/master/parameter-shu/page.tsx` | 🔴 **CRITICAL** | **Konfigurasi UI Ad-ART Hanyalah DUMMY:** Halaman ini sama sekali tidak memiliki fungsi *save*. Tombol simpan hanya memutar *Timeout Spinner* lalu mengeluarkan *Toast Success* Palsu tanpa memanggil API. Akibatnya, pengurus sama sekali tidak bisa mengubah *persentase* pembagian SHU sepeser pun secara riil pada basis data! | **✓ [CLOSED]** Merombak total `parameter-shu/page.tsx` untuk menghandle *Member Allocations* & *Non-Member Allocations* terpisah. Membuat Endpoint rahasia berformat transaksi `POST /api/settings/shu` yang menyimpan sinkronasi konfigurasi sah ke skema tabel database `system_settings`. |
+
+### C. Checkpoint Perbaikan (*Patch Notes* Final)
+Seluruh perlintasan ini telah terverifikasi menembak server `SSOT` akurat dan mengunci data secara legal pada server:
+- **API Distribusi Dihidupkan:** `/api/reports/shu/distribute/route.ts` kini bertugas mengunci (*Lock*) catatan SHU menggunakan model transaksi `upsert` dan `createMany` agar anti manipulasi retrospektif.
+- **Skema DB Dibuat:** Tabel `ShuPeriod` dan `ShuDistribution` sukses ditambahkan dan dimigrasikan ke `prisma/schema.prisma` di lingkungan STAGING Supabase.
+- **Transparansi UI Ditegakkan:** Kolom `Poin Simpanan` yang sumbang pada UI dan Export Excel `/laporan/shu` sukses dibelah rinciannya menjadi *Simpanan Pokok* & *Simpanan Wajib*.
+- **Bug Omzet Lenyap (JSON Filter):** Sukses diubah dari deteksi positif ke *Negative Matching* pada layanan *back-end* kalkulator, mengembalikan pembacaan struktur ribuan omzet unit toko yang sempat tak kasat mata.
+
+*Status: Modul Sisa Hasil Usaha (SHU) Koperasi PRIMKOPPOL dinyatakan 100% Lulus UAT internal dan Siap diuji Staging secara Riil.*
