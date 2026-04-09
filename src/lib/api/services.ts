@@ -130,6 +130,9 @@ export const loansApi = {
 
     createPayment: (loanId: number, data: { amount: number; paymentMethod: string }) =>
         api.post(`/loans/${loanId}/payments`, data),
+
+    voidPinjaman: (loanId: number) =>
+        api.post<{ message: string; status: string }>(`/loans/${loanId}/void`),
 };
 
 // ============================================================

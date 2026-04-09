@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Table,
     TableBody,
@@ -27,6 +38,8 @@ import {
     Clock,
     AlertTriangle,
     User,
+    Ban,
+    Loader2
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS, INSTALLMENT_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
@@ -57,9 +70,23 @@ function StatusIcon({ status }: { status: string }) {
 
 export default function PinjamanDetailPage() {
     const params = useParams();
+    const router = useRouter();
+    const { data: session } = useSession();
+    
     const [isLoading, setIsLoading] = React.useState(true);
     const [loan, setLoan] = React.useState<any>(null);
     const [schedule, setSchedule] = React.useState<any[]>([]);
+
+    // Void State
+    const [isVoidDialogOpen, setIsVoidDialogOpen] = React.useState(false);
+    const [voidConfirmationText, setVoidConfirmationText] = React.useState("");
+    const [isVoiding, setIsVoiding] = React.useState(false);
+
+    // Operator Check
+    const roleName = typeof session?.user?.role === "string" 
+         ? session.user.role 
+         : (session?.user?.role as any)?.name ?? "";
+    const isOperator = roleName === "operator" || roleName === "superadmin";
 
     React.useEffect(() => {
         async function fetchLoanData() {
@@ -121,6 +148,23 @@ export default function PinjamanDetailPage() {
     const overdueInstallments = schedule.filter((s) => s.status === "overdue").length;
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
 
+    const executeVoid = async () => {
+        if (voidConfirmationText !== "VOID") return;
+        setIsVoiding(true);
+        try {
+             const res = await loansApi.voidPinjaman(loan.id);
+             toast.success(res.data.message || "Pinjaman berhasil dibatalkan.");
+             setIsVoidDialogOpen(false);
+             // Pinjaman sudah di wipe, kembali ke daftar
+             router.replace("/pinjaman"); 
+        } catch (error: any) {
+             console.error("Void Error", error);
+             toast.error(error.response?.data?.message || "Gagal membatalkan pinjaman. Periksa server.");
+        } finally {
+             setIsVoiding(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -129,16 +173,58 @@ export default function PinjamanDetailPage() {
                 description={`${loan.productSnapshot?.name || 'Pinjaman'} - ${loan.member?.name || 'Anggota'}`}
                 backHref="/pinjaman"
                 actions={
-                    loan.status === "active" && (
-                        <Button asChild>
-                            <Link href={`/pinjaman/angsuran/bayar?loan_id=${loan.id}`}>
-                                <CreditCard className="mr-2 h-4 w-4" />
-                                Bayar Angsuran
-                            </Link>
-                        </Button>
-                    )
+                    <div className="flex gap-2">
+                        {isOperator && loan.status === "active" && totalPaid === 0 && (
+                            <Button variant="destructive" onClick={() => setIsVoidDialogOpen(true)}>
+                                <Ban className="mr-2 h-4 w-4" />
+                                Batalkan (VOID)
+                            </Button>
+                        )}
+                        {loan.status === "active" && (
+                            <Button asChild>
+                                <Link href={`/pinjaman/angsuran/bayar?loan_id=${loan.id}`}>
+                                    <CreditCard className="mr-2 h-4 w-4" />
+                                    Bayar Angsuran
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
                 }
             />
+
+            {/* Void Confirmation Dialog */}
+            <Dialog open={isVoidDialogOpen} onOpenChange={setIsVoidDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive font-bold flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            Peringatan Bahaya (VOID)
+                        </DialogTitle>
+                        <DialogDescription className="space-y-3 pt-3 text-base">
+                            Tindakan ini akan <strong>menghapus seketika</strong> jadwal tagihan Piutang pinjaman {loan.loanNo} secara permanen. <br/><br/>
+                            Jurnal Akuntansi dan Saldo Kas Bank yang sebelumnya dikeluarkan untuk menyalurkan pencairan ini akan <strong>DIKEMBALIKAN (+ Tambah)</strong> secara otomatis seolah Pinjaman tidak pernah diajukan.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <label className="text-sm font-medium">Ketik kata <strong>VOID</strong> di bawah ini untuk konfirmasi:</label>
+                        <Input 
+                             value={voidConfirmationText} 
+                             onChange={(e) => setVoidConfirmationText(e.target.value)}
+                             placeholder="VOID"
+                             className="uppercase"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setIsVoidDialogOpen(false); setVoidConfirmationText(""); }}>
+                            Batal
+                        </Button>
+                        <Button variant="destructive" onClick={executeVoid} disabled={voidConfirmationText !== "VOID" || isVoiding}>
+                            {isVoiding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Eksekusi Void
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Progress Card */}
             <Card>
