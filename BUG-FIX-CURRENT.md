@@ -1282,3 +1282,8 @@ Update data seed produk pinjaman agar sesuai aturan bisnis terbaru:
 
 *Total bug tercatat: 89 | Total fitur baru: 21*  
 *Diperbarui: 8 April 2026 — Sesi 9*
+
+### [FIX] Update Produk Pinjaman Gagal Tersimpan
+**File:** `src/app/api/master/loan-products/[id]/route.ts`
+**Masalah:** Mengubah LIMIT Pinjaman, Tenor, dan Admin Fee pada halaman /master/produk-pinjaman terlihat berhasil di layar (Toast sukses), namun setelah refresh nilainya kembali ke awal. API Endpoint PUT hanya memfilter field tertentu dan mengabaikan nilai minAmount, salah mapping maxTenorMonths, dan lupa dminFeeValue.
+**Solusi:** Membongkar ulang parameter update prisma.loanProduct.update dan menyuntikkan seluruh parsing payload yang sah: minAmount, maxAmount, minTenorMonths, maxTenorMonths, dminFeeType, dminFeeValue dari *request body*.

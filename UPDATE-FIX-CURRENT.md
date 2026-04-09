@@ -113,6 +113,20 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
+## UPDATE 09 April 2026 — Sesi 9: Fitur Void Pinjaman & Pencarian Barcode Global
+
+### [FEAT] Modul "Batal Pinjaman" (Void Loan) Khusus Operator
+**File:** `src/app/(protected)/pinjaman/[id]/page.tsx` & `src/app/api/loans/[id]/void/route.ts`
+**Masalah:** Operator kerap salah memasukkan nominal pada persetujuan pinjaman, namun tidak ada mitigasi sistem untuk menghapus jadwal piutang dan mengembalikan saldo Kas Bank secara rapi.
+**Solusi:** Dibuat fitur pembersihan total (Wipe). Syarat ketat: Pinjaman belum pernah diangsur (Plafon Terbayar = 0) dan yang melakukan eksekusi wajib ber-role Administrator/Operator. Sistem ini menuntut persetujuan ketik "VOID" untuk memicu penghapusan Jejak Jadwal Piutang, Rollback Saldo Rekening Bank pencairan, dan Penghapusan Pinjaman. 
+
+### [UX] Scan Barcode Bebas pada Data Tabel Persediaan dan Produk
+**File:** `src/app/(protected)/toko/produk/page.tsx` & `src/app/(protected)/toko/persediaan/page.tsx`
+**Masalah:** Form pencarian stok sebelumnya terkunci hanya mencari "Nama Produk", sehingga mematikan daya guna *Barcode Scanner*.
+**Solusi:** Menghapus parameter `searchColumn` pada DataTable sehingga pencarian beralih otomatis ke *Global String Filtering*. Scan barcode SKU kini langsung direspons dengan instan. Selain itu juga ditambahkan Dropdown Status Stok (Menipis, Tersedia) serta Dropdown Jenis Mutasi (Masuk, Keluar) untuk kepraktisan pelaporan unit Toko.
+
+---
+
 ## UPDATE 08 April 2026 — Sesi 8: Optimasi UX Barcode Scanner & Keranjang POS Toko
 
 ### [FIX] Input Barcode Scanner Terakumulasi (Menyambung Panjang)
