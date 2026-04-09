@@ -321,7 +321,7 @@ export default function KasBankPage() {
                                                 <SelectContent>
                                                     <SelectItem value="standard">📄 Standar — 1 Kolom Debet &amp; 1 Kolom Kredit</SelectItem>
                                                     <SelectItem value="koppol_consolidated">📊 Konsolidasi (Pilih 1 Kolom)</SelectItem>
-                                                    <SelectItem value="koppol_consolidated_auto">🚀 KOPPOL KONSOLIDASI PENUH (3 Bank Sekaligus)</SelectItem>
+                                                    <SelectItem value="koppol_consolidated_auto">🚀 PRIMKOPPOL KONSOLIDASI PENUH (3 Bank Sekaligus)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             {importFormat === "standard" && (
@@ -331,7 +331,7 @@ export default function KasBankPage() {
 
                                         {importFormat === "koppol_consolidated_auto" && (
                                             <div className="space-y-3 p-3 bg-muted/30 rounded-md border text-sm">
-                                                <p className="font-semibold mb-2">Petakan 3 Kolom Bank KOPPOL ke Akun Tujuan:</p>
+                                                <p className="font-semibold mb-2">Petakan 3 Kolom Bank PRIMKOPPOL ke Akun Tujuan:</p>
                                                 
                                                 <div className="space-y-1 block">
                                                     <Label className="text-xs">1. Target Kolom KAS TUNAI (Sebelah Kiri)</Label>
@@ -379,7 +379,7 @@ export default function KasBankPage() {
                                                     </SelectContent>
                                                 </Select>
                                                 <div className="rounded-md bg-muted p-3 text-xs space-y-1">
-                                                    <p className="font-semibold">Struktur Kolom Excel KOPPOL:</p>
+                                                    <p className="font-semibold">Struktur Kolom Excel PRIMKOPPOL:</p>
                                                     <p>• Kolom E = <strong>Keterangan / Atas Nama</strong></p>
                                                     <p>• Kolom H &amp; I = Debet &amp; Kredit <strong>Kas Tunai</strong> → Akun: KAS-002</p>
                                                     <p>• Kolom J &amp; K = Debet &amp; Kredit <strong>Bank BRI</strong> → Akun: B-001</p>
