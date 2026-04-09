@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -231,12 +231,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         if (!hasAccess || isWrongUnit) return;
         setIsLoading(true);
         try {
-            const params = new URLSearchParams({ period });
+            const params = new URLSearchParams({ period, _t: Date.now().toString() });
             if (period === "custom" && dateFrom && dateTo) {
                 params.set("dateFrom", dateFrom);
                 params.set("dateTo", dateTo);
             }
-            const res = await fetch(`/api/unit/${unitSlug}/laporan?${params.toString()}`);
+            const res = await fetch(`/api/unit/${unitSlug}/laporan?${params.toString()}`, {
+                cache: "no-store",
+            });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
             setData(json.data);
