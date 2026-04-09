@@ -19,7 +19,6 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
 import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
-import { CashFlowChart } from "@/components/patterns/cash-flow-chart";
 import { DashboardUnitChart, DashboardDailyKasChart } from "@/components/patterns/dashboard-charts";
 import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
 import { KasirDashboard } from "@/components/patterns/kasir-dashboard";
@@ -412,11 +411,6 @@ export default function DashboardPage() {
 
             {/* Charts Section */}
             <div className="grid gap-6 lg:grid-cols-2">
-                {/* Cash Flow Chart (uses dynamic component) */}
-                <div className="lg:col-span-2">
-                    <CashFlowChart data={stats.cashFlowChart} />
-                </div>
-
                 {/* Unit Sales Donut/Summary Card */}
                 <DashboardUnitChart />
 
