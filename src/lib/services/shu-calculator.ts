@@ -248,9 +248,11 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     const memberStats = members.map(m => {
         // Modal: Simpanan Pokok + Wajib
+        // NOTE: tabunganWajib hanya sebagai fallback jika belum ada SavingsAccount tipe 'wajib'
+        const hasWajibAcc = m.savingsAccounts.some(sa => sa.product.type === "wajib");
         const savingsBal = m.savingsAccounts
             .filter(sa => sa.product.type === "pokok" || sa.product.type === "wajib")
-            .reduce((sum, sa) => sum + toNum(sa.balance), 0) + Number(m.tabunganWajib || 0);
+            .reduce((sum, sa) => sum + toNum(sa.balance), 0) + (hasWajibAcc ? 0 : Number(m.tabunganWajib || 0));
 
         // Usaha: Belanja Toko (Termasuk Kas + Potong Gaji) + Jasa Unit + Bunga Pinjaman Diangsur
         const loanContrib = m.loanPayments.reduce((sum, lp) => sum + toNum(lp.interestPortion), 0); // Diubah: HANYA Bunga Pinjaman yang berkontribusi laba

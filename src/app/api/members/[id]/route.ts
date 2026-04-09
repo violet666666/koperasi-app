@@ -38,21 +38,30 @@ export async function GET(request: Request, { params }: Params) {
         }
 
         // --- Calculate Summary Inline ---
+        // NOTE: Member.tabunganWajib adalah saldo lama dari import CSV (sebelum sistem akun aktif).
+        // Jika anggota sudah punya SavingsAccount tipe 'wajib', JANGAN tambahkan tabunganWajib lagi
+        // untuk menghindari double-count yang menyebabkan nominal beda antara tab Simpanan dan kartu ringkasan.
+        const hasWajibAccount = member.savingsAccounts.some(
+            (acc) => acc.product.type === "wajib"
+        );
+        const tabunganWajibFallback = hasWajibAccount ? 0 : Number(member.tabunganWajib || 0);
+
         const totalSavings = member.savingsAccounts.reduce(
             (sum, acc) => sum + Number(acc.balance),
             0
-        ) + Number(member.tabunganWajib || 0);
+        ) + tabunganWajibFallback;
 
         const savingsByType = member.savingsAccounts.map((acc) => ({
             type: acc.product.type,
             name: acc.product.name,
             balance: Number(acc.balance),
         }));
-        if (Number(member.tabunganWajib || 0) > 0) {
+        // Hanya tampilkan baris Tabungan Wajib (legacy) jika belum ada rekening wajib resmi
+        if (!hasWajibAccount && tabunganWajibFallback > 0) {
             savingsByType.push({
                 type: 'wajib',
-                name: 'Tabungan Wajib',
-                balance: Number(member.tabunganWajib)
+                name: 'Tabungan Wajib (Import)',
+                balance: tabunganWajibFallback
             });
         }
 
