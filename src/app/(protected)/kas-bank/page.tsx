@@ -198,6 +198,9 @@ export default function KasBankPage() {
     const [selectedUploadAccount, setSelectedUploadAccount] = React.useState("");
     const [importFormat, setImportFormat] = React.useState("standard");
     const [koppolColumn, setKoppolColumn] = React.useState("tunai");
+    const [tunaiAccountId, setTunaiAccountId] = React.useState("");
+    const [briAccountId, setBriAccountId] = React.useState("");
+    const [jatimAccountId, setJatimAccountId] = React.useState("");
 
     // Calculate totals
     const totals = React.useMemo(() => {
@@ -291,21 +294,23 @@ export default function KasBankPage() {
                                 {/* STEP 1 — Form */}
                                 {importStep === "form" && (
                                     <div className="grid gap-4 py-4">
-                                        <div className="space-y-2">
-                                            <Label>Akun Kas/Bank Tujuan <span className="text-destructive">*</span></Label>
-                                            <Select value={selectedUploadAccount} onValueChange={setSelectedUploadAccount}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Pilih akun..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {accounts.map(acc => (
-                                                        <SelectItem key={acc.id} value={acc.id.toString()}>
-                                                            {acc.name} ({acc.code}) — Saldo: {formatCurrency(acc.currentBalance)}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                        {importFormat !== "koppol_consolidated_auto" && (
+                                            <div className="space-y-2">
+                                                <Label>Akun Kas/Bank Tujuan <span className="text-destructive">*</span></Label>
+                                                <Select value={selectedUploadAccount} onValueChange={setSelectedUploadAccount}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Pilih akun..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {accounts.map(acc => (
+                                                            <SelectItem key={acc.id} value={acc.id.toString()}>
+                                                                {acc.name} ({acc.code}) — Saldo: {formatCurrency(acc.currentBalance)}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
                                         <div className="space-y-2">
                                             <Label>Format File Excel <span className="text-destructive">*</span></Label>
                                             <Select value={importFormat} onValueChange={setImportFormat}>
@@ -314,16 +319,51 @@ export default function KasBankPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="standard">📄 Standar — 1 Kolom Debet &amp; 1 Kolom Kredit</SelectItem>
-                                                    <SelectItem value="koppol_consolidated">📊 Konsolidasi KOPPOL — Kolom Tunai + BRI + JATIM</SelectItem>
+                                                    <SelectItem value="koppol_consolidated">📊 Konsolidasi (Pilih 1 Kolom)</SelectItem>
+                                                    <SelectItem value="koppol_consolidated_auto">🚀 KOPPOL KONSOLIDASI PENUH (3 Bank Sekaligus)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             {importFormat === "standard" && (
                                                 <p className="text-xs text-muted-foreground">Format ini cocok untuk buku kas standar yang memiliki kolom: Tanggal, Uraian, Debet, Kredit.</p>
                                             )}
-                                            {importFormat === "koppol_consolidated" && (
-                                                <p className="text-xs text-muted-foreground">Format khusus Laporan Sisa Kas Bank KOPPOL dengan 3 kolom bank di satu file. Pilih kolom target di bawah.</p>
-                                            )}
                                         </div>
+
+                                        {importFormat === "koppol_consolidated_auto" && (
+                                            <div className="space-y-3 p-3 bg-muted/30 rounded-md border text-sm">
+                                                <p className="font-semibold mb-2">Petakan 3 Kolom Bank KOPPOL ke Akun Tujuan:</p>
+                                                
+                                                <div className="space-y-1 block">
+                                                    <Label className="text-xs">1. Target Kolom KAS TUNAI (Sebelah Kiri)</Label>
+                                                    <Select value={tunaiAccountId} onValueChange={setTunaiAccountId}>
+                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Kas Tunai..." /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-1 block">
+                                                    <Label className="text-xs">2. Target Kolom BANK BRI (Tengah)</Label>
+                                                    <Select value={briAccountId} onValueChange={setBriAccountId}>
+                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Bank BRI..." /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-1 block">
+                                                    <Label className="text-xs">3. Target Kolom BANK JATIM (Sebelah Kanan)</Label>
+                                                    <Select value={jatimAccountId} onValueChange={setJatimAccountId}>
+                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Bank Jatim..." /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {importFormat === "koppol_consolidated" && (
                                             <div className="space-y-2">
                                                 <Label>Target Kolom yang Diimpor <span className="text-destructive">*</span></Label>
@@ -417,17 +457,24 @@ export default function KasBankPage() {
                                                 Batal
                                             </Button>
                                             <Button
-                                                disabled={!selectedUploadFile || !selectedUploadAccount || uploading}
+                                                disabled={!selectedUploadFile || (importFormat !== "koppol_consolidated_auto" && !selectedUploadAccount) || (importFormat === "koppol_consolidated_auto" && (!tunaiAccountId || !briAccountId || !jatimAccountId)) || uploading}
                                                 onClick={async () => {
-                                                    if (!selectedUploadFile || !selectedUploadAccount) return;
+                                                    if (!selectedUploadFile) return;
                                                     setUploading(true);
                                                     try {
                                                         const formData = new FormData();
                                                         formData.append("file", selectedUploadFile);
                                                         formData.append("mode", "preview"); // PREVIEW MODE
-                                                        formData.append("accountId", selectedUploadAccount);
                                                         formData.append("format", importFormat);
-                                                        if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+                                                        
+                                                        if (importFormat === "koppol_consolidated_auto") {
+                                                            formData.append("tunaiAccountId", tunaiAccountId);
+                                                            formData.append("briAccountId", briAccountId);
+                                                            formData.append("jatimAccountId", jatimAccountId);
+                                                        } else {
+                                                            formData.append("accountId", selectedUploadAccount);
+                                                            if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+                                                        }
 
                                                         const res = await fetch("/api/cash-bank/import", { method: "POST", body: formData });
                                                         const json = await res.json();
@@ -460,15 +507,22 @@ export default function KasBankPage() {
                                             <Button
                                                 disabled={uploading}
                                                 onClick={async () => {
-                                                    if (!selectedUploadFile || !selectedUploadAccount) return;
+                                                    if (!selectedUploadFile) return;
                                                     setUploading(true);
                                                     try {
                                                         const formData = new FormData();
                                                         formData.append("file", selectedUploadFile);
                                                         formData.append("mode", "commit"); // COMMIT
-                                                        formData.append("accountId", selectedUploadAccount);
                                                         formData.append("format", importFormat);
-                                                        if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+                                                        
+                                                        if (importFormat === "koppol_consolidated_auto") {
+                                                            formData.append("tunaiAccountId", tunaiAccountId);
+                                                            formData.append("briAccountId", briAccountId);
+                                                            formData.append("jatimAccountId", jatimAccountId);
+                                                        } else {
+                                                            formData.append("accountId", selectedUploadAccount);
+                                                            if (importFormat === "koppol_consolidated") formData.append("koppolColumn", koppolColumn);
+                                                        }
 
                                                         const res = await fetch("/api/cash-bank/import", { method: "POST", body: formData });
                                                         const json = await res.json();
