@@ -153,6 +153,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "SHU", href: "/laporan/shu" },
                     { title: "Rekap Simpanan", href: "/laporan/rekap-simpanan" },
                     { title: "Rekap Pinjaman", href: "/laporan/rekap-pinjaman" },
+                    { title: "Faktur Potongan", href: "/laporan/faktur-potongan" },
                 ],
             },
         ],
