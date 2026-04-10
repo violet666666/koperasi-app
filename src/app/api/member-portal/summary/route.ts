@@ -96,8 +96,7 @@ export async function GET() {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavingsDeposits, sysTajib, sysSimpananPokok,
-            mySavings, myToko, myUnit, myLoan] = await Promise.all([
+        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, myToko, myUnit, myLoan] = await Promise.all([
             // System-wide aggregates
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
@@ -163,13 +162,13 @@ export async function GET() {
             where: { sale: { memberId, createdAt: { gte: startDate, lte: endDate } } },
             include: { product: { select: { costPrice: true } } }
         });
-        const myTokoMargin = memberSales.reduce((sum, item) => {
+        const myTokoMargin = memberSales.reduce((sum: number, item: any) => {
             const cost = Number(item.product.costPrice || 0);
             const sell = Number(item.unitPrice || 0);
             return sum + ((sell - cost) * item.quantity);
         }, 0);
 
-        const myUnitMargin = Number(myUnit._sum.amount || 0) * 0.8; // Assess 80% margin on unit services
+        const myUnitMargin = myUnit && myUnit._sum ? Number(myUnit._sum.amount || 0) * 0.8 : 0; // Assess 80% margin on unit services
         
         const myLoanInterestAgg = await prisma.loanPayment.aggregate({
             where: { memberId, paymentDate: { gte: startDate, lte: endDate } },

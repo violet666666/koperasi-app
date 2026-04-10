@@ -477,55 +477,86 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                             }
                         }
 
-                        // 2. Simpanan Wajib (Saldo Awal Kolom WAJIB)
-                        if (wajibAcc && wajibAwal > 0) {
-                            const wDiff = wajibAwal - currentWajib;
-                            if (wDiff !== 0) {
-                                await tx.savingsTransaction.create({
-                                    data: {
-                                        transactionNo: `IMP-WJB-${member.id}-${Date.now()}-${i}`,
-                                        accountId: wajibAcc.id,
-                                        memberId: member.id,
-                                        productId: wajibAcc.productId,
-                                        branchId: member.branchId,
-                                        type: 'correction',
-                                        amount: Math.abs(wDiff),
-                                        balanceBefore: currentWajib,
-                                        balanceAfter: wajibAwal,
-                                        notes: 'Import Saldo Wajib Awal (Excel TAJIB)',
-                                        transactionDate: new Date(),
-                                        createdById: 1
-                                    }
-                                });
-                                currentWajib = wajibAwal;
-                            }
-                        }
-
-                        // 3. Simpanan Wajib (Monthly Deposits)
+                        // 2. Simpanan Wajib (Saldo Awal Kolom WAJIB & Monthly Idempotency)
                         if (wajibAcc) {
-                            for (const dep of monthlyDeposits) {
-                                let mNum = monthNames.indexOf(dep.monthName.toLowerCase()) + 1;
-                                if (mNum <= 0) mNum = 1; 
-                                const yr = new Date().getFullYear();
-                                const mockDate = new Date(yr, mNum - 1, 28); 
+                            // Find existing monthly deposits first to establish correct Base Wajib Awal
+                            const existingMonthlyDeps = await tx.savingsTransaction.findMany({
+                                where: { accountId: wajibAcc.id, notes: { startsWith: 'Setoran Import TAJIB:' } }
+                            });
+                            const sumMonthlyDeps = existingMonthlyDeps.reduce((sum: number, d: any) => sum + Number(d.amount), 0);
+                            const trueCurrentWajibAwal = currentWajib - sumMonthlyDeps;
+                            
+                            // 2A. Update Saldo Wajib Awal jika ada perubahan
+                            if (wajibAwal > 0) {
+                                const wDiff = wajibAwal - trueCurrentWajibAwal;
+                                if (wDiff !== 0) {
+                                    await tx.savingsTransaction.create({
+                                        data: {
+                                            transactionNo: `IMP-WJB-${member.id}-${Date.now()}-${i}`,
+                                            accountId: wajibAcc.id,
+                                            memberId: member.id,
+                                            productId: wajibAcc.productId,
+                                            branchId: member.branchId,
+                                            type: wDiff > 0 ? 'deposit' : 'correction',
+                                            amount: Math.abs(wDiff),
+                                            balanceBefore: currentWajib,
+                                            balanceAfter: currentWajib + wDiff,
+                                            notes: 'Import/Update Saldo Wajib Awal (Excel TAJIB)',
+                                            transactionDate: new Date(),
+                                            createdById: 1
+                                        }
+                                    });
+                                    currentWajib += wDiff;
+                                }
+                            }
 
-                                await tx.savingsTransaction.create({
-                                    data: {
-                                        transactionNo: `IMP-${dep.monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
-                                        accountId: wajibAcc.id,
-                                        memberId: member.id,
-                                        productId: wajibAcc.productId,
-                                        branchId: member.branchId,
-                                        type: 'deposit',
-                                        amount: dep.amount,
-                                        balanceBefore: currentWajib,
-                                        balanceAfter: currentWajib + dep.amount,
-                                        notes: `Setoran Import TAJIB: ${dep.monthName.toUpperCase()}`,
-                                        transactionDate: mockDate,
-                                        createdById: 1
+                            // 2B. Update / Insert Monthly Deposits (Idempotent)
+                            for (const dep of monthlyDeposits) {
+                                const notesLabel = `Setoran Import TAJIB: ${dep.monthName.toUpperCase()}`;
+                                const existingTx = existingMonthlyDeps.find((d: any) => d.notes === notesLabel);
+                                
+                                if (existingTx) {
+                                    const depDiff = dep.amount - Number(existingTx.amount);
+                                    if (depDiff !== 0) {
+                                        await tx.savingsTransaction.create({
+                                            data: {
+                                                transactionNo: `IMP-KOR-${dep.monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
+                                                accountId: wajibAcc.id, memberId: member.id, productId: wajibAcc.productId, branchId: member.branchId,
+                                                type: depDiff > 0 ? 'deposit' : 'correction', 
+                                                amount: Math.abs(depDiff), 
+                                                balanceBefore: currentWajib, 
+                                                balanceAfter: currentWajib + depDiff,
+                                                notes: `Koreksi Edit ${notesLabel}`, 
+                                                transactionDate: new Date(), 
+                                                createdById: 1
+                                            }
+                                        });
+                                        currentWajib += depDiff;
                                     }
-                                });
-                                currentWajib += dep.amount;
+                                } else {
+                                    let mNum = monthNames.indexOf(dep.monthName.toLowerCase()) + 1;
+                                    if (mNum <= 0) mNum = 1; 
+                                    const yr = new Date().getFullYear();
+                                    const mockDate = new Date(yr, mNum - 1, 28); 
+                                    
+                                    await tx.savingsTransaction.create({
+                                        data: {
+                                            transactionNo: `IMP-${dep.monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
+                                            accountId: wajibAcc.id,
+                                            memberId: member.id,
+                                            productId: wajibAcc.productId,
+                                            branchId: member.branchId,
+                                            type: 'deposit',
+                                            amount: dep.amount,
+                                            balanceBefore: currentWajib,
+                                            balanceAfter: currentWajib + dep.amount,
+                                            notes: notesLabel,
+                                            transactionDate: mockDate,
+                                            createdById: 1
+                                        }
+                                    });
+                                    currentWajib += dep.amount;
+                                }
                             }
                         }
 
