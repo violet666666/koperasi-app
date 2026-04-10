@@ -537,30 +537,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </Card>
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
-                        <div className={`rounded-lg p-2.5 ${isCuciMobil ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30"}`}>
-                            {isCuciMobil ? <Award className="h-5 w-5" /> : <BarChart2 className="h-5 w-5" />}
+                        <div className="rounded-lg bg-blue-100 p-2.5 text-blue-600 dark:bg-blue-900/30">
+                            <BarChart2 className="h-5 w-5" />
                         </div>
                         <div>
-                            {isCuciMobil ? (
-                                <>
-                                    <p className="text-xs text-muted-foreground">Potongan SHU Langsung</p>
-                                    <p className="text-lg font-bold tabular-nums text-purple-600">
-                                        {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? `(${formatCurrency(summary.potonganSHUMember)})` : "-"}
-                                    </p>
-                                    {!isLoading && summary && summary.jumlahCuciAnggota > 0 && (
-                                        <p className="text-[10px] text-muted-foreground">
-                                            {summary.jumlahCuciAnggota} cuci anggota × Rp{(summary.shuPerCuci).toLocaleString("id-ID")}
-                                        </p>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
-                                    <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                        {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
-                                    </p>
-                                </>
-                            )}
+                            <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
+                            <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
