@@ -58,6 +58,7 @@ import {
     X,
     FileImage,
     Send,
+    Award,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -112,6 +113,9 @@ interface LaporanSummary {
     qris: number;
     potongGaji: number;
     totalPengeluaran: number;
+    potonganSHUMember: number;
+    jumlahCuciAnggota: number;
+    shuPerCuci: number;
     laba: number;
 }
 
@@ -397,8 +401,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const isCuciMobil = unitType === "cuci_mobil";
     const bagiHasilKaryawan = isCuciMobil && summary ? Math.floor(summary.totalPendapatan * 0.5) : 0;
     const bagianKoperasiKotor = isCuciMobil && summary ? summary.totalPendapatan - bagiHasilKaryawan : 0;
+    const potonganSHU = isCuciMobil && summary ? summary.potonganSHUMember : 0;
     const bagianKoperasiBersih = isCuciMobil && summary
-        ? bagianKoperasiKotor - summary.totalPengeluaran
+        ? bagianKoperasiKotor - summary.totalPengeluaran - potonganSHU
         : 0;
 
     return (
@@ -532,14 +537,30 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </Card>
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
-                        <div className="rounded-lg bg-blue-100 p-2.5 text-blue-600 dark:bg-blue-900/30">
-                            <BarChart2 className="h-5 w-5" />
+                        <div className={`rounded-lg p-2.5 ${isCuciMobil ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30"}`}>
+                            {isCuciMobil ? <Award className="h-5 w-5" /> : <BarChart2 className="h-5 w-5" />}
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
-                            <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
-                            </p>
+                            {isCuciMobil ? (
+                                <>
+                                    <p className="text-xs text-muted-foreground">Potongan SHU Langsung</p>
+                                    <p className="text-lg font-bold tabular-nums text-purple-600">
+                                        {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? `(${formatCurrency(summary.potonganSHUMember)})` : "-"}
+                                    </p>
+                                    {!isLoading && summary && summary.jumlahCuciAnggota > 0 && (
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {summary.jumlahCuciAnggota} cuci anggota × Rp{(summary.shuPerCuci).toLocaleString("id-ID")}
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
+                                    <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                        {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -617,6 +638,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <p className="font-bold text-lg text-blue-700">{formatCurrency(bagianKoperasiKotor)}</p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">50% dari pendapatan kotor</p>
                             </div>
+                            {potonganSHU > 0 && (
+                                <div className="p-3 rounded-lg bg-white border border-purple-200">
+                                    <p className="text-xs text-muted-foreground">Potongan SHU Langsung</p>
+                                    <p className="font-bold text-lg text-purple-600">({formatCurrency(potonganSHU)})</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{summary?.jumlahCuciAnggota} cuci anggota × Rp{(summary?.shuPerCuci || 0).toLocaleString("id-ID")}</p>
+                                </div>
+                            )}
                             <div className={`p-3 rounded-lg border-2 ${
                                 bagianKoperasiBersih >= 0
                                     ? "bg-emerald-50 border-emerald-300"
@@ -626,7 +654,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <p className={`font-bold text-lg ${
                                     bagianKoperasiBersih >= 0 ? "text-emerald-700" : "text-red-700"
                                 }`}>{formatCurrency(bagianKoperasiBersih)}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Setelah pengeluaran ops.</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Setelah ops. & SHU anggota</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -652,6 +680,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <tr>
                                         <td className="py-0.5 text-gray-600">Pengeluaran Operasional</td>
                                         <td className="text-right font-medium text-red-700">({formatCurrency(summary.totalPengeluaran)})</td>
+                                    </tr>
+                                )}
+                                {potonganSHU > 0 && (
+                                    <tr>
+                                        <td className="py-0.5 text-gray-600">Potongan SHU Langsung ({summary.jumlahCuciAnggota} cuci × Rp{(summary.shuPerCuci).toLocaleString("id-ID")})</td>
+                                        <td className="text-right font-medium text-purple-700">({formatCurrency(potonganSHU)})</td>
                                     </tr>
                                 )}
                                 <tr style={{ borderTop: "2px solid black" }}>
@@ -757,14 +791,26 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                 {formatCurrency(summary.totalPendapatan)}
                                             </TableCell>
                                         </TableRow>
-                                        {summary.totalPengeluaran > 0 && (
+                                        {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
                                             <>
-                                                <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
-                                                    <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
-                                                    <TableCell className="text-right tabular-nums text-red-600">
-                                                        ({formatCurrency(summary.totalPengeluaran)})
-                                                    </TableCell>
-                                                </TableRow>
+                                                {summary.totalPengeluaran > 0 && (
+                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                                        <TableCell className="text-right tabular-nums text-red-600">
+                                                            ({formatCurrency(summary.totalPengeluaran)})
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                                {isCuciMobil && summary.potonganSHUMember > 0 && (
+                                                    <TableRow className="bg-purple-50/50 font-medium text-purple-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">
+                                                            POTONGAN SHU LANGSUNG ({summary.jumlahCuciAnggota} cuci × Rp{(summary.shuPerCuci).toLocaleString("id-ID")})
+                                                        </TableCell>
+                                                        <TableCell className="text-right tabular-nums text-purple-600">
+                                                            ({formatCurrency(summary.potonganSHUMember)})
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                                 <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
                                                     <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
                                                     <TableCell className={`text-right tabular-nums font-bold ${summary.laba >= 0 ? "text-emerald-700" : "text-red-700"}`}>

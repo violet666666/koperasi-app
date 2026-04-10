@@ -397,7 +397,7 @@ export default function DashboardScreen({ setToken }: any) {
             </View>
             <View style={styles.cardRow}>
               <StatCard
-                label="Tunjangan Kerja"
+                label="SISA TUNKIN"
                 value={formatRp(data.member?.tunlesKinerja || 0)}
                 icon="🏅"
                 color={C.secondary}

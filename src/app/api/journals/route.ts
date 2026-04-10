@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         // Ensure there's an active period (dummy implementation for manual input)
         // You should fetch an active FiscalPeriod, here we use periodId 1 as fallback or find latest
         const period = await prisma.fiscalPeriod.findFirst({
-            where: { isActive: true },
+            where: { status: 'open' },
             orderBy: { id: 'desc' }
         });
         

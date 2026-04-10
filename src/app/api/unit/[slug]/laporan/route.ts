@@ -85,6 +85,8 @@ export async function GET(
         }
 
         const isToko = ["toko", "coffe_latar", "resto"].includes(unitType);
+        const isCuciMobil = unitType === "cuci_mobil";
+        const SHU_PER_CUCI_ANGGOTA = 2000; // Rp 2.000 per transaksi anggota
 
         // --- Fixing @db.Date vs Timestamptz boundaries ---
         // 'dateFrom' and 'dateTo' are exact UTC offsets for Timestamptz.
@@ -192,6 +194,19 @@ export async function GET(
         const storeSaleAgg = aggregateStoreSales(storeSales);
         const totalExpenses = operationalExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
+        // ── Hitung Potongan SHU Langsung (khusus Cuci Mobil) ──────────────────
+        // Setiap transaksi cuci mobil yang dilakukan oleh ANGGOTA (memberId != null)
+        // dan statusnya BUKAN voided, akan dipotong Rp 2.000 dari laba unit.
+        let potonganSHUMember = 0;
+        let jumlahCuciAnggota = 0;
+        if (isCuciMobil) {
+            const txAnggotaValid = unitTransactions.filter(
+                (tx: any) => tx.memberId != null && tx.status !== "voided"
+            );
+            jumlahCuciAnggota = txAnggotaValid.length;
+            potonganSHUMember = jumlahCuciAnggota * SHU_PER_CUCI_ANGGOTA;
+        }
+
         // ── Build unified transaction list ─────────────────────────────────────
         // Unit Transactions
         const unitTxRows = unitTransactions.map((tx) => {
@@ -232,6 +247,8 @@ export async function GET(
         const allTransactions = [...(isToko ? storeSaleRows : []), ...unitTxRows]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+        const totalPendapatan = (isToko ? storeSaleAgg.total : 0) + unitTxAgg.total;
+
         return NextResponse.json({
             data: {
                 unitType,
@@ -240,13 +257,18 @@ export async function GET(
                 dateFrom: dateFrom.toISOString(),
                 dateTo: dateTo.toISOString(),
                 summary: {
-                    totalPendapatan: (isToko ? storeSaleAgg.total : 0) + unitTxAgg.total,
+                    totalPendapatan,
                     totalTransaksi: (isToko ? storeSaleAgg.count : 0) + unitTxAgg.count,
                     tunai: (isToko ? storeSaleAgg.tunai : 0) + unitTxAgg.tunai,
                     qris: (isToko ? storeSaleAgg.qris : 0) + unitTxAgg.qris,
                     potongGaji: (isToko ? storeSaleAgg.potongGaji : 0) + unitTxAgg.potongGaji,
                     totalPengeluaran: totalExpenses,
-                    laba: ((isToko ? storeSaleAgg.total : 0) + unitTxAgg.total) - totalExpenses,
+                    // Potongan SHU Langsung (khusus cuci_mobil)
+                    potonganSHUMember: isCuciMobil ? potonganSHUMember : 0,
+                    jumlahCuciAnggota: isCuciMobil ? jumlahCuciAnggota : 0,
+                    shuPerCuci: isCuciMobil ? SHU_PER_CUCI_ANGGOTA : 0,
+                    // Laba sudah dikurangi potongan SHU
+                    laba: totalPendapatan - totalExpenses - (isCuciMobil ? potonganSHUMember : 0),
                 },
                 transactions: allTransactions,
                 operationalExpenses: operationalExpenses.map((e) => {
