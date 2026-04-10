@@ -329,10 +329,22 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
     
     // Temukan POKOK dan WAJIB dasar
-    const pokokIdx = headers.findIndex(h => h === "pokok" || h === "simpanan pokok");
-    const wajibIdx = headers.findIndex(h => h === "wajib" || h.includes("saldo wajib"));
-    const sukarelaIdx = headers.findIndex(h => h === "ms" || h === "m s" || h.includes("sukarela") || h === "manasuka" || h === "m.s" || h === "m.s.");
+    // PENTING: Excel punya 2 kelompok kolom identik (Saldo Lama & Saldo Baru).
+    // Kita HARUS mengambil kolom TERAKHIR (Grup 2 = Saldo Terkini) menggunakan reverse search.
+    const findLastIdx = (predicate: (h: string) => boolean): number => {
+        for (let i = headers.length - 1; i >= 0; i--) {
+            if (predicate(headers[i])) return i;
+        }
+        return -1;
+    };
+    const pokokIdx = findLastIdx(h => h === "pokok" || h === "simpanan pokok");
+    const wajibIdx = findLastIdx(h => h === "wajib" || h.includes("saldo wajib"));
+    const sukarelaIdx = findLastIdx(h => h === "ms" || h === "m s" || h.includes("sukarela") || h === "manasuka" || h === "m.s" || h === "m.s.");
     
+    // Safety check for createdById
+    const sysUser = await prisma.user.findFirst({ where: { isActive: true } });
+    const sysUserId = sysUser ? sysUser.id : 1;
+
     // Temukan kolom JML
     let tajibIdx = -1;
     for (let i = headers.length - 1; i >= 0; i--) {
@@ -470,7 +482,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                         balanceAfter: pokok,
                                         notes: 'Import Saldo Awal Pokok (Excel TAJIB)',
                                         transactionDate: new Date(),
-                                        createdById: 1
+                                        createdById: sysUserId
                                     }
                                 });
                                 currentPokok = pokok;
@@ -503,7 +515,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                             balanceAfter: currentWajib + wDiff,
                                             notes: 'Import/Update Saldo Wajib Awal (Excel TAJIB)',
                                             transactionDate: new Date(),
-                                            createdById: 1
+                                            createdById: sysUserId
                                         }
                                     });
                                     currentWajib += wDiff;
@@ -528,7 +540,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                                 balanceAfter: currentWajib + depDiff,
                                                 notes: `Koreksi Edit ${notesLabel}`, 
                                                 transactionDate: new Date(), 
-                                                createdById: 1
+                                                createdById: sysUserId
                                             }
                                         });
                                         currentWajib += depDiff;
@@ -552,7 +564,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                             balanceAfter: currentWajib + dep.amount,
                                             notes: notesLabel,
                                             transactionDate: mockDate,
-                                            createdById: 1
+                                            createdById: sysUserId
                                         }
                                     });
                                     currentWajib += dep.amount;
@@ -577,7 +589,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                         balanceAfter: sukarelaAwal,
                                         notes: 'Import Saldo Sukarela / MS (Excel TAJIB)',
                                         transactionDate: new Date(),
-                                        createdById: 1
+                                        createdById: sysUserId
                                     }
                                 });
                                 currentSukarela = sukarelaAwal;

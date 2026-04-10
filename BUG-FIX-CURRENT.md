@@ -1384,3 +1384,10 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 
 *Total bug tercatat: 92 | Total fitur baru: 22*
 *Diperbarui: 10 April 2026 - Sesi 10*
+
+
+### BUG-090 (11 April 2026) - Import TAJIB Membaca Kolom Saldo LAMA (Grup 1) Bukan Saldo TERKINI (Grup 2)
+**File:** src/app/api/members/import/route.ts
+**Masalah:** Excel TABUNGAN WAJIB memiliki 2 kelompok kolom identik (Pokok/Wajib/MS/JML masing-masing muncul 2x). Grup 1 = saldo periode lalu, Grup 2 = saldo terkini + kolom bulanan. Script menggunakan indIndex yang selalu mengambil Grup 1 (kolom pertama), sehingga saldo Wajib terbaca 7.800.000 padahal seharusnya 7.900.000.
+**Solusi:** Mengganti indIndex menjadi indLastIdx (reverse search) untuk kolom Pokok, Wajib, dan MS agar selalu mengambil kolom dari Grup 2 (Saldo Terkini) yang berdampingan dengan kolom bulan.
+**Status:** FIXED

@@ -36,6 +36,24 @@ export async function GET() {
                         type: true,
                     },
                 },
+                transactions: {
+                    where: {
+                        OR: [
+                            { notes: { startsWith: "Setoran Import TAJIB:" } },
+                            { notes: { startsWith: "Import Saldo" } },
+                            { notes: { startsWith: "Import/Update Saldo" } },
+                            { notes: { startsWith: "Koreksi Edit" } },
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        type: true,
+                        amount: true,
+                        notes: true,
+                        transactionDate: true,
+                    },
+                    orderBy: { transactionDate: "asc" },
+                },
             },
         });
 
@@ -220,6 +238,13 @@ export async function GET() {
                         product: acc.product,
                         balance: Number(acc.balance),
                         status: acc.status,
+                        history: acc.transactions.map((t) => ({
+                            id: t.id,
+                            type: t.type,
+                            amount: Number(t.amount),
+                            notes: t.notes,
+                            date: t.transactionDate,
+                        })),
                     })),
                     totalBalance: totalSavings,
                 },

@@ -330,21 +330,77 @@ export default function MemberDashboardPage() {
                                 <p className="text-sm text-muted-foreground">Total Tabungan Anda</p>
                                 <p className="text-3xl font-bold text-teal-700">{formatCurrency(totalTabungan)}</p>
                             </div>
-                            <div className="space-y-3">
-                                <h3 className="font-semibold text-sm text-gray-700 border-b pb-1">Rincian per Produk Simpanan</h3>
-                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <div><p className="font-medium text-sm">Simpanan Wajib (Tajib)</p><p className="text-xs text-muted-foreground">Potongan wajib bulanan per {currentMonthName}</p></div>
-                                    <p className="font-bold text-teal-700">{formatCurrency(tabunganWajib)}</p>
-                                </div>
-                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <div><p className="font-medium text-sm">Simpanan Pokok</p><p className="text-xs text-muted-foreground">Setoran awal saat menjadi anggota</p></div>
-                                    <p className="font-bold text-teal-700">{formatCurrency(simpananPokok)}</p>
-                                </div>
-                                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                    <div><p className="font-medium text-sm">Simpanan Sukarela</p><p className="text-xs text-muted-foreground">Tabungan sukarela yang bisa ditarik</p></div>
-                                    <p className="font-bold text-teal-700">{formatCurrency(simpananSukarela)}</p>
+
+                            {/* === SIMPANAN WAJIB (dengan rincian bulan) === */}
+                            {(() => {
+                                const wajibAcc = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
+                                const wajibHistory = wajibAcc?.history || [];
+                                const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal'));
+                                const monthlyEntries = wajibHistory.filter((h: any) => h.notes?.startsWith('Setoran Import TAJIB:'));
+                                const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + e.amount, 0);
+                                const hasDetail = saldoAwalEntries.length > 0 || monthlyEntries.length > 0;
+
+                                return (
+                                    <div className="border rounded-lg overflow-hidden">
+                                        {/* Header: Saldo Awal sebagai judul utama */}
+                                        {hasDetail ? (
+                                            <div className="bg-teal-50 px-4 py-3 border-b">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-semibold text-teal-800">💰 Tabungan Wajib (Akumulasi)</span>
+                                                    <span className="font-bold text-teal-800 font-mono">{formatCurrency(saldoAwal)}</span>
+                                                </div>
+                                            </div>
+                                        ) : null}
+
+                                        {/* Rincian setoran bulanan */}
+                                        {monthlyEntries.length > 0 && (
+                                            <div className="px-4 py-2 space-y-0.5 border-b bg-white">
+                                                {monthlyEntries.map((entry: any) => {
+                                                    const monthLabel = entry.notes?.replace('Setoran Import TAJIB: ', '') || '';
+                                                    return (
+                                                        <div key={entry.id} className="flex justify-between items-center text-sm py-1.5">
+                                                            <span className="text-muted-foreground">📅 {monthLabel}</span>
+                                                            <span className="font-mono text-teal-700">+ {formatCurrency(entry.amount)}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Footer: Total Simpanan Wajib */}
+                                        <div className="bg-teal-100/60 px-4 py-3 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-semibold text-sm text-teal-900">Tabungan Wajib (Tajib)</p>
+                                                {!hasDetail && <p className="text-xs text-teal-600">Potongan wajib bulanan</p>}
+                                            </div>
+                                            <p className="font-bold text-teal-900 text-lg font-mono">{formatCurrency(tabunganWajib)}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* === SIMPANAN POKOK === */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-blue-50 px-4 py-3 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold text-sm text-blue-800">Simpanan Pokok</p>
+                                        <p className="text-xs text-blue-600">Setoran awal saat menjadi anggota</p>
+                                    </div>
+                                    <p className="font-bold text-blue-800 text-lg font-mono">{formatCurrency(simpananPokok)}</p>
                                 </div>
                             </div>
+
+                            {/* === SIMPANAN SUKARELA === */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-emerald-50 px-4 py-3 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold text-sm text-emerald-800">Simpanan Sukarela</p>
+                                        <p className="text-xs text-emerald-600">Tabungan sukarela yang bisa ditarik</p>
+                                    </div>
+                                    <p className="font-bold text-emerald-800 text-lg font-mono">{formatCurrency(simpananSukarela)}</p>
+                                </div>
+                            </div>
+
                             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
                                 <p className="font-semibold">ℹ️ Catatan Penting:</p>
                                 <p>• Simpanan <strong>Pokok</strong> dan <strong>Wajib</strong> tidak dapat ditarik kecuali saat keluar keanggotaan.</p>

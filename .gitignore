@@ -75,3 +75,10 @@ prisma/migrate-cm.ts
 prisma/cleanup-garbage-transactions.ts
 temp-shu-query.ts
 query-db.js
+read-nrp.js
+test-members.js
+.gitignore
+.gitignore
+test-import.js
+verify-fix.js
+verify-import.js
