@@ -19,8 +19,8 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
 import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
-import { CashFlowChart } from "@/components/patterns/cash-flow-chart";
 import { DashboardUnitChart, DashboardDailyKasChart } from "@/components/patterns/dashboard-charts";
+import { DashboardBankAccounts } from "@/components/patterns/dashboard-bank-accounts";
 import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
 import { KasirDashboard } from "@/components/patterns/kasir-dashboard";
 import { useAuth } from "@/lib/hooks";
@@ -39,6 +39,7 @@ interface DashboardStats {
     pendingApproval: number;
     totalPlafondAktif: number;
     cashFlowChart: any[];
+    cashBankAccounts: { id: number; code: string; name: string; currentBalance: number }[];
 }
 
 
@@ -203,6 +204,7 @@ export default function DashboardPage() {
         pendingApproval: 0,
         totalPlafondAktif: 0,
         cashFlowChart: [],
+        cashBankAccounts: [],
     });
     const [pendingApprovals, setPendingApprovals] = useState<FullApprovalItem[]>([]);
     
@@ -236,6 +238,7 @@ export default function DashboardPage() {
                     pendingApproval: data.pendingApprovals || 0,
                     totalPlafondAktif: data.totalPlafondAktif || 0,
                     cashFlowChart: data.cashFlowChart || [],
+                    cashBankAccounts: data.cashBankAccounts || [],
                 });
             }
 
@@ -412,9 +415,9 @@ export default function DashboardPage() {
 
             {/* Charts Section */}
             <div className="grid gap-6 lg:grid-cols-2">
-                {/* Cash Flow Chart (uses dynamic component) */}
+                {/* Live Bank Accounts Widget */}
                 <div className="lg:col-span-2">
-                    <CashFlowChart data={stats.cashFlowChart} />
+                    <DashboardBankAccounts accounts={stats.cashBankAccounts} isLoading={isLoading} />
                 </div>
 
                 {/* Unit Sales Donut/Summary Card */}

@@ -55,6 +55,7 @@ interface BukuKasData {
     totalCredit: number;
     entries: BukuKasEntry[];
     accounts: { id: number; code: string; name: string; type: string }[];
+    accountOpeningBreakdown?: { accountName: string; balance: number }[];
 }
 
 const categoryLabels: Record<string, string> = Object.fromEntries(
@@ -309,6 +310,26 @@ export default function BukuKasPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Saldo Awal Per-Account Breakdown */}
+            {data?.accountOpeningBreakdown && data.accountOpeningBreakdown.length > 0 && (
+                <Card className="print:hidden border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">Detail Saldo Awal Per Akun</h3>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                            {data.accountOpeningBreakdown.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between rounded-lg bg-white/70 dark:bg-slate-900/50 px-3 py-2 border border-blue-100 dark:border-blue-900">
+                                    <span className="text-xs font-medium text-muted-foreground">{item.accountName}</span>
+                                    <span className="text-sm font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatCurrency(item.balance)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Print Header (only visible when printing) */}
             <div className="hidden print:flex items-center gap-4 mb-6">

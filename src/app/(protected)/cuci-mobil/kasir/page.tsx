@@ -120,19 +120,20 @@ export default function CuciMobilKasirPage() {
 
         setIsProcessing(true);
         try {
+            const desc = cart.map(i => `${i.product.name} x${i.quantity}`).join(", ");
             const body: any = {
-                items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
-                customerName: vehiclePlate, // Using vehicle plate as customer identifier
-                paymentMethod: method,
                 unitType: "cuci_mobil",
-                metadata: { vehiclePlate, washerName }
+                amount: subtotal,
+                paymentMethod: method,
+                description: desc,
+                customerName: vehiclePlate || "Walk-in",
+                vehiclePlate,
             };
             
-            if (method === "cash") body.cashReceived = Number(paymentAmount);
-            if (method === "qris") body.cashReceived = subtotal;
-            if (method === "salary_cut") body.memberId = selectedMember?.id;
+            // BUG FIX: Selalu kirim memberId jika anggota terpilih, apapun metode bayarnya
+            if (selectedMember?.id) body.memberId = selectedMember.id;
 
-            const res = await fetch("/api/toko/sales", {
+            const res = await fetch("/api/unit-layanan/sales", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
@@ -140,10 +141,10 @@ export default function CuciMobilKasirPage() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
 
-            toast.success(`Transaksi Cuci Mobil ${json.data.saleNo} Berhasil!`);
+            toast.success(`Transaksi Cuci Mobil ${json.data.transactionNo} Berhasil!`);
 
             const receiptInfo: ReceiptData = {
-                notaNo: json.data.saleNo,
+                notaNo: json.data.transactionNo,
                 tanggal: new Date().toLocaleString("id-ID"),
                 nrpNip: selectedMember?.nrp || "-",
                 namaAnggota: selectedMember?.name || "Umum",

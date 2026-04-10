@@ -31,16 +31,22 @@ export async function POST(request: Request) {
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit
         const accountIdStr = formData.get("accountId") as string;
 
+        const format = (formData.get("format") as string) || "standard";
+        const koppolColumn = (formData.get("koppolColumn") as string) || "tunai";
+        const tunaiAccountIdStr = formData.get("tunaiAccountId") as string;
+        const briAccountIdStr = formData.get("briAccountId") as string;
+        const jatimAccountIdStr = formData.get("jatimAccountId") as string;
+
         if (!file) {
             return NextResponse.json({ message: "File wajib diupload" }, { status: 400 });
         }
         
         let accountId: number | undefined;
         if (mode === "commit") {
-             if (!accountIdStr) {
+             if (!accountIdStr && format !== "koppol_consolidated_auto") {
                  return NextResponse.json({ message: "Akun Kas/Bank tujuan wajib dipilih" }, { status: 400 });
              }
-             accountId = parseInt(accountIdStr, 10);
+             if (accountIdStr) accountId = parseInt(accountIdStr, 10);
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -60,28 +66,55 @@ export async function POST(request: Request) {
             rows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ""));
             if (rows.length === 0) continue;
 
-            // Find header
             let headerRowIndex = -1;
-            for (let i = 0; i < Math.min(20, rows.length); i++) {
-                const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
-                if (rowStr.includes("tanggal") && rowStr.includes("uraian") && rowStr.includes("debet") && rowStr.includes("kredit")) {
-                    headerRowIndex = i;
-                    break;
+            let headers: string[] = [];
+            let dataRows: any[][] = [];
+            let tglIdx = -1, uraianIdx = -1, debetIdx = -1, kreditIdx = -1;
+
+            if (format === "koppol_consolidated" || format === "koppol_consolidated_auto") {
+                // For KOPPOL format, data starts around row 13 (index 12 or so).
+                // Let's just find the row that has NO and TANGGAL.
+                for (let i = 0; i < Math.min(20, rows.length); i++) {
+                    const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
+                    if (rowStr.includes("nomor buku") && rowStr.includes("atas nama")) {
+                        headerRowIndex = i;
+                        break;
+                    }
                 }
-            }
+                
+                if (headerRowIndex === -1) continue;
+                dataRows = rows.slice(headerRowIndex + 1);
 
-            if (headerRowIndex === -1) {
-                // Skip sheet if no header found
-                continue;
-            }
+                // Hardcoded index based on KOPPOL Consolidated structure
+                tglIdx = 2; // TANGGAL
+                uraianIdx = 4; // ATAS NAMA
+                if (koppolColumn === "tunai") {
+                    debetIdx = 7; kreditIdx = 8;
+                } else if (koppolColumn === "bri") {
+                    debetIdx = 9; kreditIdx = 10;
+                } else if (koppolColumn === "jatim") {
+                    debetIdx = 11; kreditIdx = 12;
+                }
+            } else {
+                // Standard mode
+                for (let i = 0; i < Math.min(20, rows.length); i++) {
+                    const rowStr = rows[i].map(c => String(c).toLowerCase()).join(" ");
+                    if (rowStr.includes("tanggal") && rowStr.includes("uraian") && rowStr.includes("debet") && rowStr.includes("kredit")) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
 
-            const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
-            const dataRows = rows.slice(headerRowIndex + 1);
-            
-            const tglIdx = headers.findIndex(h => h.includes("tanggal"));
-            const uraianIdx = headers.findIndex(h => h.includes("uraian"));
-            const debetIdx = headers.findIndex(h => h.includes("debet"));
-            const kreditIdx = headers.findIndex(h => h.includes("kredit"));
+                if (headerRowIndex === -1) continue;
+                
+                headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
+                dataRows = rows.slice(headerRowIndex + 1);
+                
+                tglIdx = headers.findIndex(h => h.includes("tanggal"));
+                uraianIdx = headers.findIndex(h => h.includes("uraian"));
+                debetIdx = headers.findIndex(h => h.includes("debet"));
+                kreditIdx = headers.findIndex(h => h.includes("kredit"));
+            }
 
             // Determine Year and Month from Sheet Name or data
             let sheetMonth = new Date().getMonth();
@@ -132,12 +165,25 @@ export async function POST(request: Request) {
 
             for (let i = 0; i < dataRows.length; i++) {
                 const row = dataRows[i];
-                if (row.length === 0) continue;
+                if (!row || row.length === 0) continue;
 
                 let rawTgl = row[tglIdx];
                 let uraian = String(row[uraianIdx] || "").trim();
-                let debet = cleanNumber(row[debetIdx]);
-                let kredit = cleanNumber(row[kreditIdx]);
+                let firstCol = String(row[0] || "").toLowerCase();
+                let secondCol = String(row[1] || "").toLowerCase();
+                let fifthCol = String(row[4] || "").toLowerCase();
+
+                // Stop safely if we hit the bottom summary rows
+                if (
+                    secondCol.includes("jumlah bulan ini") || 
+                    secondCol.includes("jumlah s.d bulan") ||
+                    firstCol.includes("jumlah bulan ini") ||
+                    firstCol.includes("jumlah s.d bulan") ||
+                    secondCol === "sisa" ||
+                    secondCol === "sisa akhir"
+                ) {
+                    break;
+                }
 
                 // Update floating date
                 if (rawTgl && String(rawTgl).trim() !== "") {
@@ -155,121 +201,174 @@ export async function POST(request: Request) {
                 }
 
                 const checkString = uraian.toLowerCase();
-                const isSaldoAwal = checkString.includes("saldo bulan") || checkString === "saldo" || checkString.includes("saldo awal");
+                const isSaldoAwal = checkString.includes("saldo bulan") || 
+                                    checkString === "saldo" || 
+                                    checkString.includes("saldo awal") || 
+                                    checkString.includes("sisa awal") ||
+                                    checkString.includes("sisa setelah serah terima");
 
-                // Determine type and category using Regex
-                let txType = "in";
-                let txAmount = debet;
-                if (kredit > 0 && debet === 0) {
-                    txType = "out";
-                    txAmount = kredit;
-                }
-
-                if (isSaldoAwal) {
-                    // Set to the end of the previous month so it acts as opening balance
-                    // e.g. for January (month 0), day 0 gives December 31 of prior year
-                    const dt = new Date(sheetYear, sheetMonth, 0);
+                const determineCategory = (txType: string) => {
+                    let category = "lainnya";
                     
-                    results.push({
-                        sheet: sheetName,
-                        row: i + headerRowIndex + 2,
-                        transactionDate: dt.toISOString(),
-                        description: uraian,
-                        type: txType,
-                        amount: txAmount,
-                        category: "lainnya",
-                        status: 'valid'
-                    });
-                    successCount++;
-                    continue;
-                }
+                    // 1. ANGSURAN (IN)
+                    if (checkString.includes("angsur") || checkString.includes("cicil") || checkString.includes("pelunas") || checkString.includes("pembayaran sp")) {
+                        if (txType === "in") category = "angsuran_pokok";
+                    } 
+                    // 2. SIMPANAN (IN) - Termasuk Tabungan Sejahtera
+                    else if (checkString.includes("simpan") || checkString.includes("tabung")) {
+                        if (checkString.includes("pokok")) {
+                            category = "simpanan_pokok";
+                        } else if (checkString.includes("wajib")) {
+                            category = "simpanan_wajib";
+                        } else {
+                            // Jatuh ke Sini: "Tabungan Sejahtera" -> Simpanan Sukarela
+                            category = "simpanan_sukarela";
+                        }
+                        if (txType === "out") category = "lainnya"; // Safety fallback
+                    } 
+                    // 3. PINJAMAN / PENCAIRAN
+                    else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
+                        // Jika Uang Keluar (OUT) -> Pencairan Pinjaman
+                        if (txType === "out") {
+                            category = "pencairan_pinjaman";
+                        } 
+                        // Jika Uang Masuk (IN) tapi memuat kata Pinjaman -> Ditebak sbg Cicilan/Angsuran
+                        else if (txType === "in") {
+                            category = "angsuran_pokok";
+                        }
+                    } 
+                    // 4. BIAYA / OPERASIONAL (OUT)
+                    else if (
+                        checkString.includes("gaji") || checkString.includes("pengurus") || checkString.includes("karyawan") || 
+                        checkString.includes("honor") || checkString.includes("listrik") || checkString.includes("pdam") ||
+                        checkString.includes("belanja") || checkString.includes("pembayaran barang") || checkString.includes("kebutuhan kantor") ||
+                        checkString.includes("operasional") || checkString.includes("atk")
+                    ) {
+                        if (txType === "out") category = "biaya_operasional";
+                    }
 
-                // Filtering: Skip completely empty DEBET/KREDIT
-                if (debet === 0 && kredit === 0) {
-                    continue;
-                }
+                    return category;
+                };
 
-                let category = "lainnya";
-                
-                if (checkString.includes("angsur")) {
-                     category = "angsuran_pokok";
-                } else if (checkString.includes("simpan") || checkString.includes("tabung")) {
-                     if (checkString.includes("pokok")) category = "simpanan_pokok";
-                     else if (checkString.includes("wajib")) category = "simpanan_wajib";
-                     else category = "simpanan_sukarela";
-                     if (txType === "out") category = "lainnya";
-                } else if (checkString.includes("pinjam") || checkString.includes("pencairan")) {
-                     if (txType === "out") category = "pencairan_pinjaman";
-                } else if (checkString.includes("gaji") || checkString.includes("pengurus") || checkString.includes("karyawan")) {
-                     if (txType === "out") category = "biaya_operasional";
-                }
-                
-                results.push({
+                const timeOffset = i * 1000;
+                const txDate = isSaldoAwal 
+                    ? new Date(new Date(sheetYear, sheetMonth, 0).getTime() + timeOffset) 
+                    : new Date(currentValDate.getTime() + timeOffset);
+
+                const baseInfo = {
                     sheet: sheetName,
                     row: i + headerRowIndex + 2,
-                    transactionDate: new Date(currentValDate).toISOString(),
+                    transactionDate: txDate.toISOString(),
                     description: uraian,
+                    status: 'valid'
+                };
+
+                // MULTI-ACCOUNT KOPPOL AUTO MODE
+                if (format === "koppol_consolidated_auto") {
+                    const columns = [
+                        { dIdx: 7, kIdx: 8, accId: Number(tunaiAccountIdStr), name: "KAS TUNAI" },
+                        { dIdx: 9, kIdx: 10, accId: Number(briAccountIdStr), name: "BANK BRI" },
+                        { dIdx: 11, kIdx: 12, accId: Number(jatimAccountIdStr), name: "BANK JATIM" }
+                    ];
+
+                    for (const col of columns) {
+                        let debet = cleanNumber(row[col.dIdx]);
+                        let kredit = cleanNumber(row[col.kIdx]);
+                        
+                        // Ignore extremely small numbers below 10 (artifact garbage)
+                        if (debet < 10) debet = 0;
+                        if (kredit < 10) kredit = 0;
+                        
+                        if (debet === 0 && kredit === 0 && !isSaldoAwal) continue;
+                        // For saldo_awal, skip if amount is 0 too, unless we want a 0 starting balance? 
+                        if (isSaldoAwal && debet === 0 && kredit === 0) continue;
+                        
+                        let txType = "in"; let txAmount = debet;
+                        if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }
+                        
+                        results.push({
+                            ...baseInfo,
+                            type: txType,
+                            amount: txAmount,
+                            category: isSaldoAwal ? "lainnya" : determineCategory(txType),
+                            targetAccountId: col.accId,
+                            targetAccountName: col.name
+                        });
+                        successCount++;
+                    }
+                    continue;
+                }
+
+                // SINGLE ACCOUNT MODE
+                let debet = cleanNumber(row[debetIdx]);
+                let kredit = cleanNumber(row[kreditIdx]);
+                
+                // Ignore extremely small numbers below 10
+                if (debet < 10) debet = 0;
+                if (kredit < 10) kredit = 0;
+                
+                if (debet === 0 && kredit === 0 && !isSaldoAwal) continue;
+                if (isSaldoAwal && debet === 0 && kredit === 0) continue;
+
+                let txType = "in"; let txAmount = debet;
+                if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }
+
+                results.push({
+                    ...baseInfo,
                     type: txType,
                     amount: txAmount,
-                    category: category,
-                    status: 'valid'
+                    category: isSaldoAwal ? "lainnya" : determineCategory(txType)
                 });
                 successCount++;
             }
         }
         
-        if (mode === "commit" && accountId) {
+        if (mode === "commit") {
              const session = await auth();
-             const userId = session?.user?.id ? parseInt(session.user.id) : 1; // Fallback to 1
+             const userId = session?.user?.id ? parseInt(session.user.id) : 1; 
 
-             // Start Transaction execution
+             const groupedResults: Record<string, any[]> = {};
+
+             for (const res of results) {
+                 const tId = res.targetAccountId || accountId;
+                 if (!tId || isNaN(tId)) throw new Error("Terdeteksi baris tanpa ID Akun tujuan. Pastikan semua akun terpilih pada mode Konsolidasi Penuh.");
+                 const tIdStr = tId.toString();
+                 if (!groupedResults[tIdStr]) groupedResults[tIdStr] = [];
+                 groupedResults[tIdStr].push(res);
+             }
+
              try {
                  await prisma.$transaction(async (tx) => {
-                     const account = await tx.cashBankAccount.findUnique({
-                         where: { id: accountId }
-                     });
-                     
-                     if (!account) throw new Error("Akun gagal ditemukan");
-                     
-                     let currentBalance = Number(account.currentBalance);
-                     const txDataList = [];
-
-                     for (const res of results) {
-                         const balanceAfter = res.type === "in" 
-                            ? currentBalance + res.amount 
-                            : currentBalance - res.amount;
-
-                         txDataList.push({
-                             transactionNo: generateTransactionNo(res.type),
-                             accountId: accountId,
-                             branchId: account.branchId,
-                             type: res.type,
-                             category: res.category,
-                             amount: res.amount,
-                             description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
-                             balanceBefore: currentBalance,
-                             balanceAfter: balanceAfter,
-                             transactionDate: new Date(res.transactionDate),
-                             createdById: userId
-                         });
+                     for (const accIdStr of Object.keys(groupedResults)) {
+                         const accId = Number(accIdStr);
+                         const account = await tx.cashBankAccount.findUnique({ where: { id: accId } });
+                         if (!account) throw new Error(`Akun Kas/Bank ID ${accId} gagal ditemukan`);
                          
-                         currentBalance = balanceAfter;
+                         let currentBalance = Number(account.currentBalance);
+                         const txDataList = [];
+
+                         for (const res of groupedResults[accIdStr]) {
+                             const balanceAfter = res.type === "in" ? currentBalance + res.amount : currentBalance - res.amount;
+                             txDataList.push({
+                                 transactionNo: generateTransactionNo(res.type),
+                                 accountId: accId,
+                                 branchId: account.branchId,
+                                 type: res.type,
+                                 category: res.category,
+                                 amount: res.amount,
+                                 description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
+                                 balanceBefore: currentBalance,
+                                 balanceAfter: balanceAfter,
+                                 transactionDate: new Date(res.transactionDate),
+                                 createdById: userId
+                             });
+                             currentBalance = balanceAfter;
+                         }
+                         
+                         if (txDataList.length > 0) await tx.cashBankTransaction.createMany({ data: txDataList });
+                         await tx.cashBankAccount.update({ where: { id: accId }, data: { currentBalance } });
                      }
-                     
-                     if (txDataList.length > 0) {
-                         await tx.cashBankTransaction.createMany({
-                             data: txDataList
-                         });
-                     }
-                     
-                     await tx.cashBankAccount.update({
-                         where: { id: accountId },
-                         data: { currentBalance }
-                     });
-                 }, {
-                     maxWait: 10000,
-                     timeout: 60000 // 60 seconds timeout specifically for large excel files
-                 });
+                 }, { maxWait: 10000, timeout: 60000 });
              } catch (err: any) {
                  return NextResponse.json({ message: err.message || "Gagal import transaksi" }, { status: 400 });
              }

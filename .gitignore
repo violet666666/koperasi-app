@@ -68,3 +68,9 @@ analyze-interest.ts
 test-check-loans.ts
 test-stats-prisma.js
 image.png
+integrasi-akun-asli/IMPORT DATA/buku-kas.json
+prisma/check-kas-tx.ts
+prisma/reset-kas-import.ts
+prisma/migrate-cm.ts
+prisma/cleanup-garbage-transactions.ts
+temp-shu-query.ts

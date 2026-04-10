@@ -5,30 +5,27 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import {
-    Calculator,
-    Save,
-    Loader2,
-    Percent,
-    Users,
-    Building2,
-    BookOpen,
-    HeartHandshake,
-} from "lucide-react";
+import { Calculator, Save, Loader2, Users, Building2 } from "lucide-react";
 
 interface SHUParameter {
-    id: string;
-    name: string;
-    description: string;
+    key: string;
+    label: string;
     percentage: number;
-    icon: React.ReactNode;
+    description: string;
+}
+
+interface SHUConfig {
+    memberAllocations: SHUParameter[];
+    nonMemberAllocations: SHUParameter[];
 }
 
 export default function ParameterSHUPage() {
-    const [parameters, setParameters] = React.useState<SHUParameter[]>([]);
+    const [config, setConfig] = React.useState<SHUConfig>({
+        memberAllocations: [],
+        nonMemberAllocations: [],
+    });
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
 
@@ -37,21 +34,35 @@ export default function ParameterSHUPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Mock data - Standard cooperative SHU distribution
-                setParameters([
-                    { id: "dana_cadangan", name: "Dana Cadangan", description: "Untuk pengembangan dan penguatan modal PRIMKOPPOL", percentage: 25, icon: <Building2 className="h-5 w-5" /> },
-                    { id: "jasa_anggota", name: "Jasa Anggota", description: "Dibagikan berdasarkan partisipasi simpanan", percentage: 25, icon: <Users className="h-5 w-5" /> },
-                    { id: "jasa_modal", name: "Jasa Modal", description: "Dibagikan berdasarkan kontribusi modal", percentage: 20, icon: <Percent className="h-5 w-5" /> },
-                    { id: "dana_pengurus", name: "Dana Pengurus", description: "Untuk pengurus dan pengawas PRIMKOPPOL", percentage: 10, icon: <Users className="h-5 w-5" /> },
-                    { id: "dana_pendidikan", name: "Dana Pendidikan", description: "Untuk pelatihan dan edukasi anggota", percentage: 5, icon: <BookOpen className="h-5 w-5" /> },
-                    { id: "dana_sosial", name: "Dana Sosial", description: "Untuk kegiatan sosial dan bantuan anggota", percentage: 5, icon: <HeartHandshake className="h-5 w-5" /> },
-                    { id: "dana_pembangunan", name: "Dana Pembangunan Daerah", description: "Kontribusi untuk pembangunan wilayah kerja", percentage: 5, icon: <Building2 className="h-5 w-5" /> },
-                    { id: "dana_lainnya", name: "Dana Lain-lain", description: "Untuk keperluan lain sesuai keputusan RAT", percentage: 5, icon: <Calculator className="h-5 w-5" /> },
-                ]);
+                const res = await fetch("/api/settings/shu");
+                const json = await res.json();
+                
+                if (json.data) {
+                    setConfig(json.data);
+                } else {
+                    // Fallback to defaults to match calculator
+                    setConfig({
+                        memberAllocations: [
+                            { key: "jasa_usaha", label: "Jasa Anggota", percentage: 25, description: "Berdasar kontribusi belanja & jasa (Jasa Anggota)" },
+                            { key: "jasa_modal", label: "Jasa Simpanan", percentage: 20, description: "Berdasar simpanan pokok & wajib (Jasa Simpanan)" },
+                            { key: "cadangan", label: "Cadangan", percentage: 30, description: "Dana Cadangan Koperasi (Cadangan)" },
+                            { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Insentif Pengurus & Pengawas (Dana Pengurus)" },
+                            { key: "pegawai", label: "Dana Pegawai", percentage: 5, description: "Kesejahteraan Karyawan (Dana Pegawai)" },
+                            { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan Perkoperasian (Dana Pendidikan)" },
+                            { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Bakti Sosial (Dana Sosial)" },
+                        ],
+                        nonMemberAllocations: [
+                            { key: "cadangan", label: "Dana Cadangan", percentage: 60, description: "Dana cadangan koperasi" },
+                            { key: "pendidikan1", label: "Dana Pendidikan Koperasi (Bagian 1)", percentage: 10, description: "Dana Pendidikan" },
+                            { key: "pegawai", label: "Dana Kesejahteraan Pegawai", percentage: 10, description: "Kesejahteraan pegawai/karyawan" },
+                            { key: "pendidikan2", label: "Dana Pendidikan Koperasi (Bagian 2)", percentage: 10, description: "Dana Pendidikan" },
+                            { key: "sosial", label: "Dana Sosial", percentage: 10, description: "Dana Sosial Koperasi" },
+                        ]
+                    });
+                }
             } catch (error) {
-                console.error("Failed to fetch:", error);
+                console.error("Failed to fetch parameter SHU:", error);
+                toast.error("Gagal memuat parameter SHU");
             } finally {
                 setIsLoading(false);
             }
@@ -59,27 +70,38 @@ export default function ParameterSHUPage() {
         fetchData();
     }, []);
 
-    // Calculate total
-    const totalPercentage = parameters.reduce((sum, p) => sum + p.percentage, 0);
+    // Calculate totals
+    const totalMember = config.memberAllocations.reduce((sum, p) => sum + p.percentage, 0);
+    const totalNonMember = config.nonMemberAllocations.reduce((sum, p) => sum + p.percentage, 0);
 
     // Handle change
-    const handlePercentageChange = (id: string, value: number) => {
-        setParameters(prev => prev.map(p =>
-            p.id === id ? { ...p, percentage: value } : p
-        ));
+    const handleChange = (type: "member" | "nonMember", key: string, value: number) => {
+        setConfig(prev => ({
+            ...prev,
+            [type === "member" ? "memberAllocations" : "nonMemberAllocations"]: prev[type === "member" ? "memberAllocations" : "nonMemberAllocations"].map(p =>
+                p.key === key ? { ...p, percentage: value } : p
+            )
+        }));
     };
 
     // Handle save
     const handleSave = async () => {
-        if (totalPercentage !== 100) {
-            toast.error("Total persentase harus 100%");
+        if (totalMember !== 100 || totalNonMember !== 100) {
+            toast.error("Total persentase kedua kategori harus genap 100%");
             return;
         }
 
         setIsSaving(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Parameter SHU berhasil disimpan");
+            const res = await fetch("/api/settings/shu", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(config)
+            });
+            
+            if (!res.ok) throw new Error("Gagal menyimpan");
+            
+            toast.success("Parameter SHU berhasil disimpan permanen");
         } catch (error) {
             toast.error("Gagal menyimpan parameter");
         } finally {
@@ -90,91 +112,122 @@ export default function ParameterSHUPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Parameter SHU"
-                description="Konfigurasi pembagian Sisa Hasil Usaha"
+                title="Parameter Pembagian SHU"
+                description="Konfigurasi persentase alokasi Sisa Hasil Usaha berdasarkan AD/ART PRIMKOPPOL."
                 backHref="/master"
                 actions={
-                    <Button onClick={handleSave} disabled={isSaving || totalPercentage !== 100}>
+                    <Button onClick={handleSave} disabled={isSaving || totalMember !== 100 || totalNonMember !== 100}>
                         {isSaving ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                             <Save className="mr-2 h-4 w-4" />
                         )}
-                        Simpan
+                        Simpan Permanen
                     </Button>
                 }
             />
 
-            {/* Total Card */}
-            <Card className={totalPercentage === 100 ? "border-emerald-500" : "border-red-500"}>
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Calculator className="h-5 w-5" />
-                            <span className="font-medium">Total Pembagian</span>
-                        </div>
-                        <span className={`text-2xl font-bold ${totalPercentage === 100 ? "text-emerald-600" : "text-red-600"}`}>
-                            {totalPercentage}%
-                        </span>
-                    </div>
-                    {totalPercentage !== 100 && (
-                        <p className="text-sm text-red-600 mt-2">
-                            Total harus 100%. {totalPercentage < 100 ? `Kurang ${100 - totalPercentage}%` : `Lebih ${totalPercentage - 100}%`}
-                        </p>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Parameters Grid */}
             {isLoading ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <Card key={i}>
-                            <CardContent className="p-6">
-                                <Skeleton className="h-24 w-full" />
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                 <div className="space-y-4">
+                     <Skeleton className="h-40 w-full" />
+                     <Skeleton className="h-40 w-full" />
+                 </div>
             ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {parameters.map((param) => (
-                        <Card key={param.id}>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <div className="rounded-lg bg-primary/10 p-2">
-                                        {param.icon}
+                <div className="grid lg:grid-cols-2 gap-6">
+                    {/* Member Allocations */}
+                    <div className="space-y-4">
+                        <Card className={totalMember === 100 ? "border-emerald-500 shadow-sm" : "border-red-500 shadow-sm"}>
+                            <CardHeader className="bg-gray-50 border-b pb-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Users className="h-5 w-5 text-indigo-600" />
+                                        <div>
+                                            <CardTitle className="text-lg">SHU Anggota</CardTitle>
+                                            <CardDescription>Porsi pembagian dari kontribusi anggota (Internal)</CardDescription>
+                                        </div>
                                     </div>
-                                    {param.name}
-                                </CardTitle>
-                                <CardDescription className="text-xs">
-                                    {param.description}
-                                </CardDescription>
+                                    <span className={`text-2xl font-bold ${totalMember === 100 ? "text-emerald-600" : "text-red-600"}`}>
+                                        {totalMember}%
+                                    </span>
+                                </div>
                             </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        value={param.percentage}
-                                        onChange={(e) => handlePercentageChange(param.id, Number(e.target.value))}
-                                        className="text-right text-lg font-bold"
-                                    />
-                                    <span className="text-lg font-bold text-muted-foreground">%</span>
+                            <CardContent className="p-0">
+                                <div className="divide-y">
+                                    {config.memberAllocations.map((param) => (
+                                        <div key={param.key} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div>
+                                                <p className="font-semibold text-sm">{param.label}</p>
+                                                <p className="text-xs text-muted-foreground">{param.description}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={100}
+                                                    value={param.percentage || ''}
+                                                    onChange={(e) => handleChange("member", param.key, Number(e.target.value))}
+                                                    className="w-20 text-right font-medium"
+                                                />
+                                                <span className="text-sm font-bold text-gray-500">%</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                    </div>
+
+                    {/* Non-Member Allocations */}
+                    <div className="space-y-4">
+                        <Card className={totalNonMember === 100 ? "border-blue-500 shadow-sm" : "border-red-500 shadow-sm"}>
+                            <CardHeader className="bg-gray-50 border-b pb-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Building2 className="h-5 w-5 text-blue-600" />
+                                        <div>
+                                            <CardTitle className="text-lg">SHU Non-Anggota</CardTitle>
+                                            <CardDescription>Porsi pembagian dari laba unit usaha (Eksternal)</CardDescription>
+                                        </div>
+                                    </div>
+                                    <span className={`text-2xl font-bold ${totalNonMember === 100 ? "text-blue-600" : "text-red-600"}`}>
+                                        {totalNonMember}%
+                                    </span>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="divide-y">
+                                    {config.nonMemberAllocations.map((param) => (
+                                        <div key={param.key} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                            <div>
+                                                <p className="font-semibold text-sm">{param.label}</p>
+                                                <p className="text-xs text-muted-foreground">{param.description}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={100}
+                                                    value={param.percentage || ''}
+                                                    onChange={(e) => handleChange("nonMember", param.key, Number(e.target.value))}
+                                                    className="w-20 text-right font-medium"
+                                                />
+                                                <span className="text-sm font-bold text-gray-500">%</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
 
             {/* Info */}
-            <Card>
-                <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">
-                        <strong>Catatan:</strong> Pembagian SHU mengacu pada UU No. 25 Tahun 1992 tentang Perkoperasian
-                        dan AD/ART koperasi. Perubahan parameter memerlukan persetujuan RAT.
+            <Card className="bg-blue-50/50 border-blue-100 mt-6">
+                <CardContent className="p-4 flex gap-3 text-sm text-blue-900">
+                    <Calculator className="h-5 w-5 shrink-0 text-blue-600" />
+                    <p>
+                        <strong>Peraturan AD/ART:</strong> Pastikan total persentase pada masing-masing kelompok (Anggota dan Non-Anggota) mencapai genap 100%. Data yang diisi di layar ini akan menjadi penentu tunggal (<em>Single Source of Truth</em>) untuk distribusi seluruh uang SHU Koperasi pada akhir tahun berjalan.
                     </p>
                 </CardContent>
             </Card>

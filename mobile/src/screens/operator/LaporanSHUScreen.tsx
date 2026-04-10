@@ -161,6 +161,15 @@ export default function LaporanSHUScreen({ navigation }: any) {
               )}
             </View>
 
+            {/* SHU Cuci Mobil Info */}
+            {data.totalCarwashBonus > 0 && (
+              <View style={[styles.inExCard, { borderLeftColor: '#06B6D4', borderLeftWidth: 3, marginBottom: 12 }]}>
+                <Text style={styles.inExLabel}>🚗 Beban SHU Cuci Mobil (Rp 2.000/transaksi)</Text>
+                <Text style={[styles.inExAmount, { color: '#06B6D4' }]}>{formatRupiah(data.totalCarwashBonus || 0)}</Text>
+                <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Dipotong dari Laba Bersih, dicairkan ke anggota saat distribusi SHU</Text>
+              </View>
+            )}
+
             {/* Income & Expense Row */}
             <View style={styles.inExRow}>
               <View style={[styles.inExCard, { borderLeftColor: "#10B981", borderLeftWidth: 3 }]}>
@@ -233,6 +242,11 @@ export default function LaporanSHUScreen({ navigation }: any) {
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={styles.memberShuLabel}>Jasa Modal & Pelayanan</Text>
                   <Text style={styles.memberShuAmount}>{formatRupiah(member.totalShu)}</Text>
+                  {(member.carwashBonus || 0) > 0 && (
+                    <Text style={{ fontSize: 10, color: '#06B6D4', marginTop: 2 }}>
+                      🚗 SHU Cuci Mobil: {formatRupiah(member.carwashBonus)} ({member.carwashCount}x)
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
@@ -244,6 +258,11 @@ export default function LaporanSHUScreen({ navigation }: any) {
                 Total simpanan global anggota aktif: {formatRupiah(data.summary?.totalSavingsAll || 0)}.
                 Sistem mengalkulasikan jasa modal proporsional sesuai AD-ART Pasal 42.
               </Text>
+              {data.totalCarwashBonus > 0 && (
+                <Text style={[styles.infoText, { marginTop: 4 }]}>
+                  🚗 Total SHU Cuci Mobil: {formatRupiah(data.totalCarwashBonus)} (Rp 2.000 × per transaksi anggota). Dibebankan ke pendapatan kotor koperasi.
+                </Text>
+              )}
             </View>
           </>
         )}

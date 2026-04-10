@@ -91,6 +91,8 @@ export default function TransaksiKasPage() {
     const [txToDelete, setTxToDelete] = React.useState<CashTransaction | null>(null);
     
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [members, setMembers] = React.useState<{ id: number; name: string; nrp: string | null }[]>([]);
+    const [memberSearch, setMemberSearch] = React.useState("");
 
     // Create Form state
     const [formData, setFormData] = React.useState({
@@ -98,7 +100,46 @@ export default function TransaksiKasPage() {
         amount: "",
         category: "biaya_operasional",
         description: "",
+        transactionDate: new Date().toISOString().split("T")[0],
+        unitType: "",
+        memberId: "",
     });
+
+    // Split preview calculation
+    const splitPreview = React.useMemo(() => {
+        const amount = Number(formData.amount) || 0;
+        if (formData.unitType !== "cuci_mobil" || formData.category !== "pendapatan_unit" || transactionType !== "in" || amount <= 0) {
+            return null;
+        }
+        const mitraShare = Math.floor(amount * 0.5);
+        const koperasiGross = amount - mitraShare;
+        const shuAnggota = formData.memberId ? Math.min(2000, koperasiGross) : 0;
+        const netKoperasi = koperasiGross - shuAnggota;
+        return { mitraShare, shuAnggota, netKoperasi, totalMasuk: amount };
+    }, [formData.amount, formData.unitType, formData.category, formData.memberId, transactionType]);
+
+    // UNIT_TYPES constant
+    const UNIT_TYPES = [
+        { value: "toko", label: "Toko" },
+        { value: "cuci_mobil", label: "Cuci Mobil & Resto" },
+        { value: "simpan_pinjam", label: "Simpan Pinjam" },
+        { value: "fitness", label: "Gym / Fitness" },
+        { value: "ps", label: "Playstation" },
+    ];
+
+    // Fetch members for the combobox
+    React.useEffect(() => {
+        if (!formData.unitType) return;
+        const fetchMembers = async () => {
+            try {
+                const res = await fetch(`/api/members?perPage=50&search=${memberSearch}`);
+                const json = await res.json();
+                setMembers((json.data || []).map((m: any) => ({ id: m.id, name: m.name, nrp: m.nrp })));
+            } catch {}
+        };
+        const debounce = setTimeout(fetchMembers, 300);
+        return () => clearTimeout(debounce);
+    }, [formData.unitType, memberSearch]);
 
     // Edit Form state
     const [editFormData, setEditFormData] = React.useState({
@@ -150,17 +191,23 @@ export default function TransaksiKasPage() {
 
         setIsSubmitting(true);
         try {
-            await cashBankApi.createTransaction({
+            const res = await cashBankApi.createTransaction({
                 accountId: Number(formData.accountId),
                 type: transactionType,
                 amount: Number(formData.amount),
                 category: formData.category,
                 description: formData.description,
-                transactionDate: new Date().toISOString(),
+                transactionDate: formData.transactionDate 
+                    ? new Date(formData.transactionDate).toISOString() 
+                    : new Date().toISOString(),
+                unitType: formData.unitType || undefined,
+                memberId: formData.memberId ? Number(formData.memberId) : undefined,
             });
-            toast.success("Transaksi berhasil dicatat");
+            const message = (res as any)?.message || "Transaksi berhasil dicatat";
+            toast.success(message);
             setDialogOpen(false);
-            setFormData({ accountId: "", amount: "", category: "biaya_operasional", description: "" });
+            setFormData({ accountId: "", amount: "", category: "biaya_operasional", description: "", transactionDate: new Date().toISOString().split("T")[0], unitType: "", memberId: "" });
+            setMemberSearch("");
             await fetchData();
         } catch (error) {
             toast.error("Gagal mencatat transaksi");
@@ -263,8 +310,12 @@ export default function TransaksiKasPage() {
                     simpanan_sukarela: "Simpanan Sukarela",
                     angsuran_pokok: "Angsuran Pinjaman",
                     jasa_pinjaman: "Jasa Pinjaman",
+                    pendapatan_unit: "Pendapatan Unit",
                     pencairan_pinjaman: "Pencairan Pinjaman",
                     biaya_operasional: "Operasional",
+                    beban_unit: "Beban Unit",
+                    hpp_toko: "HPP / Barang",
+                    hutang_mitra: "Hutang Mitra",
                     transfer: "Transfer",
                     lainnya: "Lainnya",
                 };
@@ -346,7 +397,7 @@ export default function TransaksiKasPage() {
                                     Kas Keluar
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-w-2xl">
                                 <DialogHeader>
                                     <DialogTitle>
                                         {transactionType === "in" ? "Kas Masuk" : "Kas Keluar"}
@@ -355,33 +406,62 @@ export default function TransaksiKasPage() {
                                         Catat transaksi {transactionType === "in" ? "pemasukan" : "pengeluaran"} kas
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div>
-                                        <Label>Akun Kas</Label>
-                                        <Select
-                                            value={formData.accountId}
-                                            onValueChange={(v) => setFormData(prev => ({ ...prev, accountId: v }))}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pilih akun kas" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {accounts.map((acc) => (
-                                                    <SelectItem key={acc.id} value={String(acc.id)}>
-                                                        {acc.name} ({formatCurrency(acc.currentBalance)})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="sm:col-span-2">
+                                            <Label>Akun Kas</Label>
+                                            <Select
+                                                value={formData.accountId}
+                                                onValueChange={(v) => setFormData(prev => ({ ...prev, accountId: v }))}
+                                            >
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Pilih akun kas" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {accounts.map((acc) => (
+                                                        <SelectItem key={acc.id} value={String(acc.id)}>
+                                                            {acc.name} ({formatCurrency(acc.currentBalance)})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label>Tanggal Transaksi</Label>
+                                            <Input
+                                                type="date"
+                                                value={formData.transactionDate}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, transactionDate: e.target.value }))}
+                                            />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <Label>Jumlah</Label>
-                                        <Input
-                                            type="number"
-                                            placeholder="0"
-                                            value={formData.amount}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                                        />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <Label>Jumlah (Rp)</Label>
+                                            <Input
+                                                type="number"
+                                                placeholder="0"
+                                                value={formData.amount}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label>Unit Usaha <span className="text-muted-foreground text-xs">(opsional)</span></Label>
+                                            <Select
+                                                value={formData.unitType}
+                                                onValueChange={(v) => setFormData(prev => ({ ...prev, unitType: v, memberId: "" }))}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="— Tanpa Unit —" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">— Tanpa Unit —</SelectItem>
+                                                    {UNIT_TYPES.map((u) => (
+                                                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                     <div>
                                         <Label>Kategori</Label>
@@ -393,18 +473,88 @@ export default function TransaksiKasPage() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="biaya_operasional">Operasional</SelectItem>
-                                                <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
-                                                <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
-                                                <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
-                                                <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
-                                                <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
-                                                <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
-                                                <SelectItem value="transfer">Transfer</SelectItem>
-                                                <SelectItem value="lainnya">Lainnya</SelectItem>
+                                                {transactionType === "in" ? (
+                                                    <>
+                                                        <SelectItem value="pendapatan_unit">Pendapatan Unit Usaha</SelectItem>
+                                                        <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
+                                                        <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
+                                                        <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
+                                                        <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
+                                                        <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
+                                                        <SelectItem value="lainnya">Lainnya</SelectItem>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <SelectItem value="biaya_operasional">Biaya Operasional</SelectItem>
+                                                        <SelectItem value="beban_unit">Beban Operasional Unit</SelectItem>
+                                                        <SelectItem value="hpp_toko">HPP / Pembelian Barang</SelectItem>
+                                                        <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
+                                                        <SelectItem value="hutang_mitra">Kewajiban Bagi Hasil Mitra</SelectItem>
+                                                        <SelectItem value="transfer">Transfer</SelectItem>
+                                                        <SelectItem value="lainnya">Lainnya</SelectItem>
+                                                    </>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {/* Member selector — appears when unit is selected */}
+                                    {formData.unitType && formData.unitType !== "none" && (
+                                        <div>
+                                            <Label>Anggota <span className="text-muted-foreground text-xs">(opsional — untuk tracking SHU)</span></Label>
+                                            <Select
+                                                value={formData.memberId}
+                                                onValueChange={(v) => setFormData(prev => ({ ...prev, memberId: v }))}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="— Pilih Anggota —" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <div className="p-2">
+                                                        <Input
+                                                            placeholder="Cari nama / NRP..."
+                                                            value={memberSearch}
+                                                            onChange={(e) => setMemberSearch(e.target.value)}
+                                                            className="h-8"
+                                                        />
+                                                    </div>
+                                                    <SelectItem value="none">— Non-Anggota —</SelectItem>
+                                                    {members.map((m) => (
+                                                        <SelectItem key={m.id} value={String(m.id)}>
+                                                            {m.name} {m.nrp ? `(${m.nrp})` : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Split Preview for Cuci Mobil */}
+                                    {splitPreview && (
+                                        <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900 p-3 space-y-1.5">
+                                            <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                                                💡 Kalkulasi Otomatis Split Cuci Mobil
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                                <span className="text-muted-foreground">Total Masuk:</span>
+                                                <span className="font-semibold text-right">{formatCurrency(splitPreview.totalMasuk)}</span>
+                                                <span className="text-muted-foreground">Bagian Mitra (50%):</span>
+                                                <span className="font-semibold text-right text-amber-600">-{formatCurrency(splitPreview.mitraShare)}</span>
+                                                {splitPreview.shuAnggota > 0 && (
+                                                    <>
+                                                        <span className="text-muted-foreground">SHU Anggota:</span>
+                                                        <span className="font-semibold text-right text-purple-600">-{formatCurrency(splitPreview.shuAnggota)}</span>
+                                                    </>
+                                                )}
+                                                <span className="text-muted-foreground font-medium border-t pt-1">Net Koperasi:</span>
+                                                <span className="font-bold text-right text-emerald-600 border-t pt-1">{formatCurrency(splitPreview.netKoperasi)}</span>
+                                            </div>
+                                            {!formData.memberId && (
+                                                <p className="text-[11px] text-amber-600 dark:text-amber-400">⚠️ Pilih Anggota untuk otomatis potong SHU Rp2.000</p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div>
                                         <Label>Keterangan</Label>
                                         <Textarea
@@ -471,6 +621,10 @@ export default function TransaksiKasPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="biaya_operasional">Operasional</SelectItem>
+                                    <SelectItem value="pendapatan_unit">Pendapatan Unit Usaha</SelectItem>
+                                    <SelectItem value="beban_unit">Beban Operasional Unit</SelectItem>
+                                    <SelectItem value="hpp_toko">HPP / Pembelian Barang</SelectItem>
+                                    <SelectItem value="hutang_mitra">Kewajiban Bagi Hasil Mitra</SelectItem>
                                     <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
                                     <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
                                     <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>

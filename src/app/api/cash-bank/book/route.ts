@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+// Check if a description represents an opening balance row
+function isOpeningBalanceDescription(desc: string): boolean {
+    const lower = (desc || "").toLowerCase();
+    return (
+        lower.includes("saldo bulan") ||
+        lower === "saldo" ||
+        lower.includes("saldo awal") ||
+        lower.includes("sisa awal") ||
+        lower.includes("sisa setelah serah terima")
+    );
+}
+
 // GET /api/cash-bank/book — Buku Kas (Cash Book) report
 // Returns transactions for a specific account and period with running balance
 // Supports month=all to show all months, or month=1-12 for specific month
@@ -55,7 +67,9 @@ export async function GET(request: Request) {
             where.category = category;
         }
 
-        // Calculate opening balance (total of all transactions before this period)
+        // ================================================================
+        // OPENING BALANCE CALCULATION
+        // ================================================================
         let openingBalance = 0;
 
         const priorWhere: Record<string, unknown> = {
@@ -103,7 +117,9 @@ export async function GET(request: Request) {
             }, 0);
         }
 
-        // Fetch transactions for the period
+        // ================================================================
+        // FETCH TRANSACTIONS FOR THE PERIOD
+        // ================================================================
         const transactions = await prisma.cashBankTransaction.findMany({
             where,
             include: {
@@ -128,9 +144,37 @@ export async function GET(request: Request) {
             ],
         });
 
-        // Calculate running balance
+        // ================================================================
+        // DETECT SALDO AWAL ROWS WITHIN THIS PERIOD
+        // ================================================================
+        // If openingBalance is 0 and the earliest transactions contain "saldo awal / sisa setelah serah terima",
+        // these ARE the opening balances and should be treated as such.
+        let detectedOpeningBalance = 0;
+        const saldoAwalTxIds = new Set<number>();
+
+        if (openingBalance === 0 && transactions.length > 0) {
+            // Find all "saldo awal" type transactions in this period
+            for (const tx of transactions) {
+                const desc = tx.description || "";
+                if (isOpeningBalanceDescription(desc)) {
+                    detectedOpeningBalance += Number(tx.amount) * (tx.type === "in" ? 1 : -1);
+                    saldoAwalTxIds.add(tx.id);
+                }
+            }
+
+            if (detectedOpeningBalance > 0) {
+                openingBalance = detectedOpeningBalance;
+            }
+        }
+
+        // ================================================================
+        // BUILD ENTRIES WITH RUNNING BALANCE
+        // ================================================================
+        // Filter out saldo awal transactions from entries (they're now part of openingBalance)
+        const filteredTransactions = transactions.filter((tx) => !saldoAwalTxIds.has(tx.id));
+        
         let runningBalance = openingBalance;
-        const entries = transactions.map((tx) => {
+        const entries = filteredTransactions.map((tx) => {
             const amount = Number(tx.amount);
             const debit = tx.type === "in" ? amount : 0;
             const credit = tx.type === "out" ? amount : 0;
@@ -173,6 +217,25 @@ export async function GET(request: Request) {
             select: { transactionDate: true },
         });
 
+        // ================================================================
+        // PER-ACCOUNT OPENING BALANCE BREAKDOWN (for summary cards)
+        // ================================================================
+        let accountOpeningBreakdown: { accountName: string; balance: number }[] = [];
+        if ((!accountId || accountId === "all") && detectedOpeningBalance > 0) {
+            // Group saldo awal transactions by account
+            const saldoAwalTxs = transactions.filter((tx) => saldoAwalTxIds.has(tx.id));
+            const grouped: Record<string, number> = {};
+            for (const tx of saldoAwalTxs) {
+                const accName = tx.account?.name || "Unknown";
+                const amt = Number(tx.amount) * (tx.type === "in" ? 1 : -1);
+                grouped[accName] = (grouped[accName] || 0) + amt;
+            }
+            accountOpeningBreakdown = Object.entries(grouped).map(([name, bal]) => ({
+                accountName: name,
+                balance: bal,
+            }));
+        }
+
         return NextResponse.json({
             data: {
                 period: {
@@ -186,6 +249,7 @@ export async function GET(request: Request) {
                 totalCredit,
                 entries,
                 accounts,
+                accountOpeningBreakdown,
                 latestTransactionDate: latestTx?.transactionDate?.toISOString() || null,
             },
         });

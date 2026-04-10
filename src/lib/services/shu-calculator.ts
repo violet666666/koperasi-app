@@ -9,13 +9,13 @@ function toNum(d: Decimal | number | null | undefined): number {
 // Default Fallback Settings jika di Database belum di-set
 const DEFAULT_SHU_CONFIG = {
     memberAllocations: [
-        { key: "jasa_usaha", label: "Jasa Anggota", percentage: 25, description: "Berdasar kontribusi belanja & jasa" },
-        { key: "jasa_modal", label: "Jasa Simpanan", percentage: 20, description: "Berdasar simpanan pokok & wajib" },
-        { key: "cadangan", label: "Cadangan", percentage: 30, description: "Dana Cadangan Koperasi" },
-        { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Insentif Pengurus & Pengawas" },
-        { key: "pegawai", label: "Dana Pegawai", percentage: 5, description: "Kesejahteraan Karyawan" },
-        { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan Perkoperasian" },
-        { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Bakti Sosial" },
+        { key: "jasa_usaha", label: "Jasa Anggota", percentage: 25, description: "Berdasar kontribusi belanja & jasa (Jasa Anggota)" },
+        { key: "jasa_modal", label: "Jasa Simpanan", percentage: 20, description: "Berdasar simpanan pokok & wajib (Jasa Simpanan)" },
+        { key: "cadangan", label: "Cadangan", percentage: 30, description: "Dana Cadangan Koperasi (Cadangan)" },
+        { key: "pengurus", label: "Dana Pengurus", percentage: 10, description: "Insentif Pengurus & Pengawas (Dana Pengurus)" },
+        { key: "pegawai", label: "Dana Pegawai", percentage: 5, description: "Kesejahteraan Karyawan (Dana Pegawai)" },
+        { key: "pendidikan", label: "Dana Pendidikan", percentage: 5, description: "Pendidikan Perkoperasian (Dana Pendidikan)" },
+        { key: "sosial", label: "Dana Sosial", percentage: 5, description: "Bakti Sosial (Dana Sosial)" },
     ],
     nonMemberAllocations: [
         { key: "cadangan", label: "Dana Cadangan", percentage: 60, description: "Dana cadangan koperasi" },
@@ -86,10 +86,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     } else {
         // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung Gross Margin (Laba Kotor) Langsung
         const expensesTx = await prisma.cashBankTransaction.findMany({
-            where: { transactionDate: { gte: startDate, lte: endDate }, category: "biaya_operasional" }
+            where: { transactionDate: { gte: startDate, lte: endDate }, category: { in: ["biaya_operasional", "beban_operasional_unit"] } }
         });
         expensesTx.forEach(tx => totalExpense += toNum(tx.amount));
-        if (totalExpense > 0) expenseAccounts["CB-EXP"] = { code: "CB-EXP", name: "Biaya Operasional (Kas)", amount: totalExpense };
+        if (totalExpense > 0) expenseAccounts["CB-EXP"] = { code: "CB-EXP", name: "Biaya Operasional (Kas & Unit)", amount: totalExpense };
 
         const incomeTx = await prisma.cashBankTransaction.findMany({
             where: { transactionDate: { gte: startDate, lte: endDate }, category: "lainnya", type: "in" }
@@ -127,9 +127,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
 
         try {
-            // Omzet Toko Bruto
+            // Omzet Toko Bruto — gunakan NOT filter agar transaksi tanpa metadata tetap terhitung
             const storeSalesInc = await prisma.storeSale.aggregate({
-                where: { createdAt: { gte: startDate, lte: endDate }, metadata: { path: ["isVoided"], equals: false } as any },
+                where: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
                 _sum: { totalAmount: true }
             });
             const storeIncTotal = toNum(storeSalesInc._sum.totalAmount);
@@ -140,19 +140,19 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
             // Kurangi dengan Harga Pokok Penjualan (HPP) Toko agar mendapat Margin!
             const soldItems = await prisma.storeSaleItem.findMany({
-                where: { sale: { createdAt: { gte: startDate, lte: endDate }, metadata: { path: ["isVoided"], equals: false } as any } },
+                where: { sale: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any } },
                 include: { product: { select: { costPrice: true } } }
             });
             let cogsTotal = 0;
             soldItems.forEach(item => {
-                cogsTotal += item.quantity * toNum(item.product.costPrice);
+                cogsTotal += item.quantity * toNum(item.product?.costPrice);
             });
             if (cogsTotal > 0) {
                 totalExpense += cogsTotal;
                 expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP Toko (Modal Barang)", amount: cogsTotal };
             }
         } catch (e) {
-            console.error(e);
+            console.error("SHU Toko calc error:", e);
         }
     }
 
@@ -163,11 +163,11 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     let nonMemberGrossIncome = 0;
     
     const storeSalesMember = await prisma.storeSale.aggregate({
-        where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, metadata: { path: ["isVoided"], equals: false } as any },
+        where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
         _sum: { totalAmount: true }
     });
     const storeSalesNonMember = await prisma.storeSale.aggregate({
-        where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, metadata: { path: ["isVoided"], equals: false } as any },
+        where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
         _sum: { totalAmount: true }
     });
     memberGrossIncome += toNum(storeSalesMember._sum.totalAmount);
@@ -237,25 +237,33 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 select: { totalAmount: true, metadata: true }
             },
             unitTransactions: {
-                where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed" },
-                select: { amount: true }
+                where: { transactionDate: { gte: startDate, lte: endDate }, status: "completed" },
+                select: { amount: true, unitType: true }
             }
         }
     });
 
     let totalSystemSavings = 0;
     let totalSystemTransactions = 0;
+    const CARWASH_BONUS_PER_TX = 2000;
 
     const memberStats = members.map(m => {
-        // Modal: Simpanan Pokok + Wajib
-        // NOTE: tabunganWajib hanya sebagai fallback jika belum ada SavingsAccount tipe 'wajib'
-        const hasWajibAcc = m.savingsAccounts.some(sa => sa.product.type === "wajib");
-        const savingsBal = m.savingsAccounts
-            .filter(sa => sa.product.type === "pokok" || sa.product.type === "wajib")
-            .reduce((sum, sa) => sum + toNum(sa.balance), 0) + (hasWajibAcc ? 0 : Number(m.tabunganWajib || 0));
+        // Modal: Simpanan Pokok + Wajib — pisahkan untuk transparansi UI
+        const simpananPokok = m.savingsAccounts
+            .filter(sa => sa.product.type === "pokok")
+            .reduce((sum, sa) => sum + toNum(sa.balance), 0);
+
+        // Simpanan Wajib: gunakan MAX(rekening_aktif, legacy_csv) untuk menghindari data hilang
+        const wajibFromAccount = m.savingsAccounts
+            .filter(sa => sa.product.type === "wajib")
+            .reduce((sum, sa) => sum + toNum(sa.balance), 0);
+        const wajibFromLegacy = Number(m.tabunganWajib || 0);
+        const simpananWajib = Math.max(wajibFromAccount, wajibFromLegacy);
+
+        const savingsBal = simpananPokok + simpananWajib;
 
         // Usaha: Belanja Toko (Termasuk Kas + Potong Gaji) + Jasa Unit + Bunga Pinjaman Diangsur
-        const loanContrib = m.loanPayments.reduce((sum, lp) => sum + toNum(lp.interestPortion), 0); // Diubah: HANYA Bunga Pinjaman yang berkontribusi laba
+        const loanContrib = m.loanPayments.reduce((sum, lp) => sum + toNum(lp.interestPortion), 0);
         const storeContrib = m.storeSales
             .filter(sale => {
                 const meta = sale.metadata as any;
@@ -263,6 +271,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             })
             .reduce((sum, sale) => sum + toNum(sale.totalAmount), 0);
         const unitContrib = m.unitTransactions.reduce((sum, ut) => sum + toNum(ut.amount), 0);
+
+        // SHU Cuci Mobil: Hitung jumlah transaksi cuci_mobil milik anggota ini
+        const carwashCount = m.unitTransactions.filter(ut => ut.unitType === "cuci_mobil").length;
+        const carwashBonus = carwashCount * CARWASH_BONUS_PER_TX;
 
         const transactionContrib = loanContrib + storeContrib + unitContrib;
 
@@ -273,17 +285,30 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             id: m.id,
             memberNo: m.memberNo,
             name: m.userAccount?.name || m.name,
+            simpananPokok,
+            simpananWajib,
             savingsContribution: savingsBal,
             loanContribution: transactionContrib,
-            totalContribution: savingsBal + transactionContrib
+            totalContribution: savingsBal + transactionContrib,
+            carwashCount,
+            carwashBonus,
         };
     });
 
+    // Hitung total beban SHU Cuci Mobil secara nasional (dibebankan ke pendapatan kotor koperasi)
+    const totalCarwashBonus = memberStats.reduce((sum, m) => sum + m.carwashBonus, 0);
+
+    // Potong beban SHU Cuci Mobil dari Laba Bersih agar Koperasi tidak tombok
+    const adjustedNetSurplus = Math.max(0, netSurplus - totalCarwashBonus);
+    const adjustedMemberSurplus = Math.round(adjustedNetSurplus * memberRatio);
+    const adjustedJasaModalPool = Math.round((adjustedMemberSurplus * (modalAlloc?.percentage || 20)) / 100);
+    const adjustedJasaUsahaPool = Math.round((adjustedMemberSurplus * (usahaAlloc?.percentage || 25)) / 100);
+
     const memberDistribution = memberStats.map(m => {
-        const modalPortion = totalSystemSavings > 0 ? Math.round((m.savingsContribution / totalSystemSavings) * jasaModalPool) : 0;
-        const usahaPortion = totalSystemTransactions > 0 ? Math.round((m.loanContribution / totalSystemTransactions) * jasaUsahaPool) : 0;
-        const totalSHU = modalPortion + usahaPortion;
-        const memberDividend = jasaModalPool + jasaUsahaPool;
+        const modalPortion = totalSystemSavings > 0 ? Math.round((m.savingsContribution / totalSystemSavings) * adjustedJasaModalPool) : 0;
+        const usahaPortion = totalSystemTransactions > 0 ? Math.round((m.loanContribution / totalSystemTransactions) * adjustedJasaUsahaPool) : 0;
+        const totalSHU = modalPortion + usahaPortion + m.carwashBonus;
+        const memberDividend = adjustedJasaModalPool + adjustedJasaUsahaPool + totalCarwashBonus;
 
         return {
             ...m,
@@ -303,17 +328,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         month,
         periodLabel,
         totalIncome,
-        totalExpense,
-        netSurplus,
+        totalExpense: totalExpense + totalCarwashBonus, // Beban SHU Cuci Mobil masuk ke total pengeluaran
+        netSurplus: adjustedNetSurplus,
         memberRatio,
         nonMemberRatio,
-        memberSurplus,
+        memberSurplus: adjustedMemberSurplus,
         nonMemberSurplus,
-        jasaModalPool,
-        jasaUsahaPool,
-        memberDividend: jasaModalPool + jasaUsahaPool,
+        jasaModalPool: adjustedJasaModalPool,
+        jasaUsahaPool: adjustedJasaUsahaPool,
+        memberDividend: adjustedJasaModalPool + adjustedJasaUsahaPool + totalCarwashBonus,
         totalSavingsCapital: totalSystemSavings,
         memberCount: members.length,
+        totalCarwashBonus,
 
         allocationsMember,
         allocationsNonMember,
@@ -321,7 +347,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         memberDistribution: memberDistribution.sort((a, b) => b.shuAmount - a.shuAmount),
 
         incomeDetails,
-        expenseDetails
+        expenseDetails: [
+            ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
+            ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : [])
+        ]
     };
 }
 

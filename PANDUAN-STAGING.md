@@ -1,8 +1,65 @@
+﻿# 🚀 PANDUAN UAT & STAGING (END-TO-END TESTING)
+
+Panduan ini ditujukan untuk eksekusi simulasi lingkungan STAGING. 
+Semua data di dalam simulasi ini adalah **Dummy Database** yang dirancang lengkap mewakili seluruh fungsionalitas Koperasi (Simpanan, Pinjaman, Transaksi Unit, Jurnal, dan Sinkronisasi Automasi).
+
+## 🛠 Aturan Main (Environment Setup)
+
+1. Pastikan Anda melakukan testing menggunakan database **SUPABASE** yang kredensialnya tersimpan di \.env.test.local\.
+2. Supaya Prisma dan Next.js Anda mutlak membaca environment tersebut, cara paling aman (karena Windows) adalah:
+   - Salin isi dari \.env.test.local\
+   - Tempel (timpa) ke dalam \.env\ dan \.env.local\ Anda untuk sementara waktu.
+3. Jalankan pembaruan skema database (Push):
+   \\\ash
+   npx prisma db push
+   \\\
+4. Jalankan script Penyuntikan Data Raksasa (Seed UAT):
+   \\\ash
+   npm run uat:seed
+   \\\
+5. Jalankan server lokal di port alternatif (misal: 3001):
+   \\\ash
+   npm run dev -- -p 3001
+   \\\
+
+---
+
+## 🔑 DAFTAR AKUN PENGUJIAN (UAT ACCOUNTS)
+
+Seluruh password untuk akun di bawah ini adalah: **\password123\**
+
+### 1. Akun Pengelola & Admin (Pusat)
+- **Super Admin / Operator** : \operator@uat.com\ *(Akses 100% Fitur Koperasi, Jurnal, Kas & Bank)*
+
+### 2. Akun Unit Usaha (10 Unit Tersedia)
+Berikut format baku email untuk setiap admin dan kasir unit:
+- **Toko**: \dmin.toko@uat.com\ | \kasir.toko@uat.com\
+- **Cuci Mobil**: \dmin.cuci_mobil@uat.com\ | \kasir.cuci_mobil@uat.com\
+- **Fotocopy**: \dmin.fotocopy@uat.com\ | \kasir.fotocopy@uat.com\
+- **Laundry**: \dmin.laundry@uat.com\ | \kasir.laundry@uat.com\
+- **Resto & Cafe**: \dmin.resto_cafe@uat.com\ | \kasir.resto_cafe@uat.com\
+- **Fitness**: \dmin.fitness@uat.com\ | \kasir.fitness@uat.com\
+- **Playstation**: \dmin.playstation@uat.com\ | \kasir.playstation@uat.com\
+- **Barbershop**: \dmin.barbershop@uat.com\ | \kasir.barbershop@uat.com\
+- **Aset (Manajemen/Rental)**: \dmin.aset@uat.com\ | \kasir.aset@uat.com\
+
+### 3. Akun Anggota (Portal Member)
+Terdapat 10 profil anggota dengan variasi jabatan (Polri/PNS/PHL) dan rentang gaji beragam (mulai Rp 0 hingga Rp 12.000.000) untuk keperluan test filter potongan/limit pinjaman.
+Format email: **\nggota.<NRP>@uat.com\**
+- \nggota.111@uat.com\ (Kompol Anton - Saldo Tinggi)
+- \nggota.222@uat.com\ (AKP Budi)
+- \nggota.666@uat.com\ (PNS Fajar)
+- \nggota.999@uat.com\ (PHL Iwan - Gaji Terendah)
+*(Anggota telah disuntik modal awal 100rb Simpanan Pokok dan 250rb Simpanan Wajib)*
+
+---
+
+
 # Catatan Update Aplikasi
 
 ---
 
-## ⚠️ PANDUAN UAT STAGING — WAJIB BACA SEBELUM TESTING ⚠️
+## âš ï¸ PANDUAN UAT STAGING â€” WAJIB BACA SEBELUM TESTING âš ï¸
 
 > **KRITIS:** Panduan ini **WAJIB** diikuti sebelum melakukan UAT apapun.
 > Semua testing **HARUS** di staging database (Supabase), **BUKAN** production (Neon).
@@ -10,7 +67,7 @@
 
 ---
 
-### 🔑 AKUN UAT — COPY-PASTE LANGSUNG
+### ðŸ”‘ AKUN UAT â€” COPY-PASTE LANGSUNG
 
 **Password SEMUA akun UAT:** `uat123456`
 
@@ -47,18 +104,18 @@
 | Test OK | UAT-0001 | UAT99001 | Anggota Test OK | Rp 5.000.000 |
 | Test Blokir | UAT-0002 | UAT99002 | Anggota Test Blokir | Rp 0 (over limit) |
 
-> **⚠️ JANGAN** login dengan akun `@koperasi.com` — itu akun **PRODUCTION**.
-> **⚠️ GUNAKAN** hanya akun `@primkoppol.test` dengan password `uat123456`.
-> **⚠️ JANGAN** gunakan "Forgot Password" — password sudah fix, tidak perlu reset.
-> **⚠️ JANGAN** jalankan seed.ts atau seed-uat.ts ke database production (Neon).
+> **âš ï¸ JANGAN** login dengan akun `@koperasi.com` â€” itu akun **PRODUCTION**.
+> **âš ï¸ GUNAKAN** hanya akun `@primkoppol.test` dengan password `uat123456`.
+> **âš ï¸ JANGAN** gunakan "Forgot Password" â€” password sudah fix, tidak perlu reset.
+> **âš ï¸ JANGAN** jalankan seed.ts atau seed-uat.ts ke database production (Neon).
 
 ---
 
-### 📖 STEP-BY-STEP MENJALANKAN UAT (Hanya jika request UAT Browser Agent)
+### ðŸ“– STEP-BY-STEP MENJALANKAN UAT (Hanya jika request UAT Browser Agent)
 
 **Prasyarat:** Terminal PowerShell, folder `koperasi-app`.
 
-**Step 1 — Set environment variables staging:**
+**Step 1 â€” Set environment variables staging:**
 
 ```powershell
 $env:DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.supabase.co:5432/postgres"
@@ -66,21 +123,21 @@ $env:NEXTAUTH_SECRET="uat-staging-secret-primkoppol-2026"
 $env:NEXTAUTH_URL="http://localhost:3001"
 ```
 
-**Step 2 — Jalankan dev server di port 3001:**
+**Step 2 â€” Jalankan dev server di port 3001:**
 
 ```powershell
 npm run dev -- -p 3001
 ```
 
-**Step 3 — Buka browser dan login:**
+**Step 3 â€” Buka browser dan login:**
 
 - URL: `http://localhost:3001`
 - Email: (pilih dari tabel akun di atas, misal `admin.uat.cuci_mobil@primkoppol.test`)
 - Password: `uat123456`
 
-**Step 4 — Lakukan testing sesuai request.**
+**Step 4 â€” Lakukan testing sesuai request.**
 
-### 🔄 JIKA STAGING DB KOSONG (Pertama Kali / Setelah Reset)
+### ðŸ”„ JIKA STAGING DB KOSONG (Pertama Kali / Setelah Reset)
 
 Jalankan perintah ini **SATU PER SATU** secara berurutan:
 
@@ -101,7 +158,7 @@ npx tsx prisma/seed-uat.ts
 > **Catatan:** Step 3 membuat data dasar sistem. Step 4 membuat akun UAT `@primkoppol.test`.
 > Keduanya **WAJIB** dijalankan agar bisa login.
 
-### 📁 File Penting UAT
+### ðŸ“ File Penting UAT
 
 | File | Keterangan |
 | --- | --- |
@@ -113,44 +170,44 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
-## UPDATE 09 April 2026 — Sesi 10: Kas Simpanan/Tabungan & Akuntansi Ganda Setoran
+## UPDATE 09 April 2026 â€” Sesi 10: Kas Simpanan/Tabungan & Akuntansi Ganda Setoran
 
 ### [FEATURE] 2 Akun Baru: KAS TUNAI & KAS BANK JATIM Simpanan/Tabungan
 **File:** `prisma/seed-kas-bank-jatim.ts`
 **Penambahan:**
-- `KAS-JATIM-SIM` → **KAS TUNAI SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** — type: cash, purpose: simpanan
-- `BNK-JATIM-SIM` → **KAS BANK JATIM SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** — type: bank, purpose: simpanan
+- `KAS-JATIM-SIM` â†’ **KAS TUNAI SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** â€” type: cash, purpose: simpanan
+- `BNK-JATIM-SIM` â†’ **KAS BANK JATIM SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)** â€” type: bank, purpose: simpanan
 - Total akun JATIM menjadi **12 akun** (sebelumnya 10)
-- ✅ **Seed berhasil dijalankan** ke staging Supabase — 12/12 akun created
+- âœ… **Seed berhasil dijalankan** ke staging Supabase â€” 12/12 akun created
 
 ### [FEATURE] Akuntansi Ganda (Double-Entry) pada API Setoran Simpanan
 **File:** `src/app/api/savings/transactions/route.ts`
 **Masalah:** Setoran simpanan hanya mencatat perubahan saldo anggota (SavingsAccount), namun tidak memperbarui saldo fisik Kas/Bank Koperasi (CashBankAccount). Menyebabkan buku besar koperasi tidak merepresentasikan uang yang masuk/keluar secara nyata.
 **Solusi:**
-1. Seluruh operasi dibungkus dalam `prisma.$transaction` (atomik) — jika satu gagal, semua rollback.
-2. Setiap **setoran** → buat `CashBankTransaction` type `"in"` + update `currentBalance` akun kas/bank.
-3. Setiap **penarikan** → buat `CashBankTransaction` type `"out"` + update `currentBalance` akun kas/bank.
+1. Seluruh operasi dibungkus dalam `prisma.$transaction` (atomik) â€” jika satu gagal, semua rollback.
+2. Setiap **setoran** â†’ buat `CashBankTransaction` type `"in"` + update `currentBalance` akun kas/bank.
+3. Setiap **penarikan** â†’ buat `CashBankTransaction` type `"out"` + update `currentBalance` akun kas/bank.
 4. `createdById` kini diambil dari sesi pengguna (bukan hardcode `1`).
 5. Field `cashBankAccountId` tetap opsional untuk kompatibilitas backward (correction/import).
 
 ### [FEATURE] Filter Query Params pada API Master Kas & Bank
 **File:** `src/app/api/master/cash-bank/route.ts`
 **Penambahan:** GET endpoint kini mendukung query params: `purpose`, `type`, `unitType`, `isActive`, `perPage`.
-- Contoh: `GET /api/master/cash-bank?purpose=simpanan` → mengembalikan hanya KAS-JATIM-SIM & BNK-JATIM-SIM.
+- Contoh: `GET /api/master/cash-bank?purpose=simpanan` â†’ mengembalikan hanya KAS-JATIM-SIM & BNK-JATIM-SIM.
 
-### [UPGRADE] Form Transaksi Simpanan — Dari Mock ke Real API
+### [UPGRADE] Form Transaksi Simpanan â€” Dari Mock ke Real API
 **File:** `src/app/(protected)/simpanan/transaksi/tambah/page.tsx`
 **Sebelum:** Form menggunakan mock data hardcode (3 anggota dummy, 2 rekening BCA/Mandiri palsu). Submit tidak terkoneksi ke database.
 **Sesudah:**
-1. **Autocomplete Anggota Real-time** — Debounce 350ms, search by nama atau NRP, dropdown dengan avatar inisial + kategori.
-2. **Produk Simpanan dari DB** — Dropdown diisi dari `GET /api/savings/products`.
-3. **Dropdown Kas/Bank Simpanan** — Diisi dari `GET /api/master/cash-bank?purpose=simpanan`, berubah antara Kas Tunai (metode: tunai) dan Bank JATIM (metode: transfer bank).
-4. **Preview Ringkasan** — Panel konfirmasi muncul sebelum submit (produk, jumlah, kas tujuan).
-5. **Submit Real** — `POST /api/savings/transactions` dengan `cashBankAccountId` wajib diisi operator.
+1. **Autocomplete Anggota Real-time** â€” Debounce 350ms, search by nama atau NRP, dropdown dengan avatar inisial + kategori.
+2. **Produk Simpanan dari DB** â€” Dropdown diisi dari `GET /api/savings/products`.
+3. **Dropdown Kas/Bank Simpanan** â€” Diisi dari `GET /api/master/cash-bank?purpose=simpanan`, berubah antara Kas Tunai (metode: tunai) dan Bank JATIM (metode: transfer bank).
+4. **Preview Ringkasan** â€” Panel konfirmasi muncul sebelum submit (produk, jumlah, kas tujuan).
+5. **Submit Real** â€” `POST /api/savings/transactions` dengan `cashBankAccountId` wajib diisi operator.
 
 ---
 
-## UPDATE 09 April 2026 — Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Perbaikan Jurnal
+## UPDATE 09 April 2026 â€” Sesi 9: Integrasi Kas Bank JATIM Multi-Unit & Perbaikan Jurnal
 
 
 ### [BUGFIX & FEATURE] Integrasi API Jurnal Umum & Jurnal Penyesuaian
@@ -166,7 +223,7 @@ npx tsx prisma/seed-uat.ts
 **Masalah:** Kebijakan Koperasi Primkoppol memiliki sistem rekening gabungan (contoh 1 rekening *Bank JATIM* dipakai 3 unit: Fitness, Toko, Coffee Latar), serta rekening penampung khusus untuk Dana Alokasi SHU (Pegawai, Cadang, Sosial) yang dipisah dari operasional. Sistem POS lama hanya mengizinkan 1 rekening untuk 1 unit.
 **Solusi:** 
 1. **Skema DB Baru:** Menambahkan kolom `unitTypes` (array JSON multi-unit) dan `purpose` (operasional vs dana_shu) pada tabel `CashBankAccount`.
-2. **Multi-Unit Routing:** Algoritma kasir POS (Toko & Unit Layanan) kini dirancang dengan 3-Tingkat Fallback: mencari `unitTypes` array → fallback ke `unitType` exact → fallback ke akun sentral.
+2. **Multi-Unit Routing:** Algoritma kasir POS (Toko & Unit Layanan) kini dirancang dengan 3-Tingkat Fallback: mencari `unitTypes` array â†’ fallback ke `unitType` exact â†’ fallback ke akun sentral.
 3. **Penyemaian Data:** 10 Akun otomatis dibuat, mengelompokkan Cuci Mobil+Resto ke satu rekening JATIM, dan Fitness+Toko+Coffee ke rekening JATIM yang lain.
 4. **Master Kas-Bank UI:** Dropdown unit telah berevolusi menjadi *multi-select checkbox*, dilengkapi pilihan kategori tujuan (purpose).
 
@@ -175,20 +232,20 @@ npx tsx prisma/seed-uat.ts
 **Masalah:** Form pencarian stok sebelumnya terkunci hanya mencari "Nama Produk", sehingga mematikan daya guna *Barcode Scanner*.
 **Solusi:** Menghapus parameter `searchColumn` pada DataTable sehingga pencarian beralih otomatis ke *Global String Filtering*. Scan barcode SKU kini langsung direspons dengan instan. Selain itu juga ditambahkan Dropdown Status Stok (Menipis, Tersedia) serta Dropdown Jenis Mutasi (Masuk, Keluar) untuk kepraktisan pelaporan unit Toko.
 
-### [FIX] Build Error Turbopack — Import Auth Usang di Void Route
+### [FIX] Build Error Turbopack â€” Import Auth Usang di Void Route
 **File:** `src/app/api/loans/[id]/void/route.ts`
 **Masalah:** Route void pinjaman menyebabkan `Turbopack build failed` karena menggunakan `getServerSession` dan `authOptions` yang tidak lagi diekspor oleh Auth.js v5, serta `params` non-async yang tidak kompatibel dengan Next.js 15.
 **Solusi:** Refactor ke pola `import { auth } from "@/lib/auth"` modern dan `params: Promise<{id: string}>` sesuai standar Next.js 15. Build berhasil Exit Code 0.
 
-### [FIX] Double-Count Simpanan Wajib — Data Anggota & Kalkulasi SHU
+### [FIX] Double-Count Simpanan Wajib â€” Data Anggota & Kalkulasi SHU
 **File:** `src/app/api/members/[id]/route.ts` & `src/lib/services/shu-calculator.ts`
 **Masalah:** Nominal Simpanan Wajib berbeda antara kartu Summary dan Tab Simpanan detail anggota, serta kadang Total Simpanan membengkak tidak wajar.
 **Root Cause:** Sistem menggabungkan `Member.tabunganWajib` (data import CSV lama) + `SavingsAccount.balance` (rekening resmi aktif) tanpa pengecekan apakah rekening sudah ada, sehingga terjadi double-count.
-**Solusi:** Implementasi logika `hasWajibAccount` sebagai gatekeeper — `tabunganWajib` hanya dipakai sebagai fallback jika rekening wajib resmi belum ada. Perbaikan diterapkan di API member detail dan SHU Calculator.
+**Solusi:** Implementasi logika `hasWajibAccount` sebagai gatekeeper â€” `tabunganWajib` hanya dipakai sebagai fallback jika rekening wajib resmi belum ada. Perbaikan diterapkan di API member detail dan SHU Calculator.
 
 ---
 
-## UPDATE 08 April 2026 — Sesi 8: Optimasi UX Barcode Scanner & Keranjang POS Toko
+## UPDATE 08 April 2026 â€” Sesi 8: Optimasi UX Barcode Scanner & Keranjang POS Toko
 
 ### [FIX] Input Barcode Scanner Terakumulasi (Menyambung Panjang)
 **File:** `src/app/(protected)/toko/kasir/page.tsx` & `src/components/patterns/data-table.tsx`
@@ -212,7 +269,7 @@ npx tsx prisma/seed-uat.ts
 - Validasi instan yang langsung membatasi *"stuck/mentok"* di angka plafon fisik (stock maximum) produk bila kasir sengaja mengisi *oversold*.
 - Mempertahankan kegunaan icon "+" dan "-".
 
-## UPDATE 08 April 2026 — Sesi 8.1: Manajemen Profil Lanjutan & Import Historis TAJIB
+## UPDATE 08 April 2026 â€” Sesi 8.1: Manajemen Profil Lanjutan & Import Historis TAJIB
 
 ### [FEATURE] Manajemen Finansial Real-Time di Form Anggota
 - **File:** `src/app/(protected)/anggota/[id]/edit/page.tsx`
@@ -245,7 +302,7 @@ npx tsx prisma/seed-uat.ts
 
 ---
 
-## UPDATE 07 April 2026 — Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
+## UPDATE 07 April 2026 â€” Sesi 7: Bug Fix Dashboard, Export PDF, dan UAT Environment
 
 ### [FIX] Filter "Hari Ini" Menarik Data Kemarin (Timezone Coercion)
 
@@ -256,7 +313,7 @@ npx tsx prisma/seed-uat.ts
 **Solusi:** Memisahkan filter berbasis *Date* dengan *Timestamptz*. Boundaries tanggal untuk Laporan sengaja di-*force* menggunakan murni bulatan UTC 00:00:00 dengan hari lokal (misal: `2026-04-07T00:00:00Z` hingga `23:59:59Z`) agar Prisma dapat menembakkan kueri ber-presisi yang tepat menangkap "Hari Ini" menurut WIB.
 
 
-### [FIX] Dashboard Riwayat Terbaru — Jam Transaksi Hardcode 07:00
+### [FIX] Dashboard Riwayat Terbaru â€” Jam Transaksi Hardcode 07:00
 
 **File:** `src/app/api/unit-layanan/stats/route.ts`
 
@@ -264,15 +321,15 @@ npx tsx prisma/seed-uat.ts
 
 **Solusi:** Gunakan field `createdAt` (bertipe `DateTime` lengkap) untuk tampilan waktu di recent transactions, sementara `transactionDate` tetap dipakai untuk filter tanggal.
 
-### [FIX] Export PDF/Excel — Kolom NRP dan Nama Anggota Kosong
+### [FIX] Export PDF/Excel â€” Kolom NRP dan Nama Anggota Kosong
 
 **File:** `src/lib/export-utils.ts`
 
-**Root cause:** Fungsi `exportToPDF()` dan `exportToExcel()` mengakses data via `row[col.key]`. Untuk key nested seperti `"member.name"` dan `"member.nrp"`, JavaScript `obj["member.name"]` berarti literal key "member.name", bukan `obj.member.name`. Hasilnya `undefined` → kolom NRP dan Nama Anggota selalu kosong di output PDF/Excel.
+**Root cause:** Fungsi `exportToPDF()` dan `exportToExcel()` mengakses data via `row[col.key]`. Untuk key nested seperti `"member.name"` dan `"member.nrp"`, JavaScript `obj["member.name"]` berarti literal key "member.name", bukan `obj.member.name`. Hasilnya `undefined` â†’ kolom NRP dan Nama Anggota selalu kosong di output PDF/Excel.
 
-**Solusi:** Tambahkan helper `resolveKey()` yang melakukan split `.` dan traverse object path secara rekursif: `"member.name"` → `obj.member.name`.
+**Solusi:** Tambahkan helper `resolveKey()` yang melakukan split `.` dan traverse object path secara rekursif: `"member.name"` â†’ `obj.member.name`.
 
-### [FIX] Seed UAT — BRANCH_ID Hardcode Tidak Match Staging
+### [FIX] Seed UAT â€” BRANCH_ID Hardcode Tidak Match Staging
 
 **File:** `prisma/seed-uat.ts`
 
@@ -284,16 +341,16 @@ npx tsx prisma/seed-uat.ts
 
 | No | Point | Status | Keterangan |
 | --- | --- | --- | --- |
-| 1 | Brainstorm bagi hasil 50/50 | ✅ Dibahas | Lihat brainstorm detail di bawah |
-| 2 | Riwayat toko tercatat? | ✅ Kode OK | StoreSale tercatat di DB. Jika ada keluhan, kemungkinan race condition browser atau cache. |
-| 3 | Dashboard jam 07:00 hardcode | ✅ FIXED | Gunakan `createdAt` bukan `transactionDate` untuk display jam. |
-| 4 | No.Transaksi format lama? | ✅ Kode OK | Format baru `CM07042026xxxx` sudah aktif. Transaksi lama (`CUC-MNMZW0NQ`) karena belum ada transaksi baru. |
-| 5 | Plat Nomor tercatat? | ✅ Kode OK | Plat nomor disimpan di field `notes` format `[PLAT:xxx]` dan di-parse ke kolom laporan & riwayat. |
-| 6 | Riwayat transaksi unit | ✅ Kode OK | Data query dari `UnitTransaction` + `StoreSale` (toko). Filter berdasarkan unit type. |
-| 7 | Cetak PDF — NRP, Nama, Total | ✅ FIXED | Bug nested key `member.name` di `export-utils.ts`. Sekarang resolve path dengan benar. |
-| 8 | Upload dokumen operasional | ✅ Dibahas | Lihat brainstorm detail di bawah |
+| 1 | Brainstorm bagi hasil 50/50 | âœ… Dibahas | Lihat brainstorm detail di bawah |
+| 2 | Riwayat toko tercatat? | âœ… Kode OK | StoreSale tercatat di DB. Jika ada keluhan, kemungkinan race condition browser atau cache. |
+| 3 | Dashboard jam 07:00 hardcode | âœ… FIXED | Gunakan `createdAt` bukan `transactionDate` untuk display jam. |
+| 4 | No.Transaksi format lama? | âœ… Kode OK | Format baru `CM07042026xxxx` sudah aktif. Transaksi lama (`CUC-MNMZW0NQ`) karena belum ada transaksi baru. |
+| 5 | Plat Nomor tercatat? | âœ… Kode OK | Plat nomor disimpan di field `notes` format `[PLAT:xxx]` dan di-parse ke kolom laporan & riwayat. |
+| 6 | Riwayat transaksi unit | âœ… Kode OK | Data query dari `UnitTransaction` + `StoreSale` (toko). Filter berdasarkan unit type. |
+| 7 | Cetak PDF â€” NRP, Nama, Total | âœ… FIXED | Bug nested key `member.name` di `export-utils.ts`. Sekarang resolve path dengan benar. |
+| 8 | Upload dokumen operasional | âœ… Dibahas | Lihat brainstorm detail di bawah |
 
-### 💡 BRAINSTORM Point 1 — Mekanisme Bagi Hasil 50/50 Cuci Mobil
+### ðŸ’¡ BRAINSTORM Point 1 â€” Mekanisme Bagi Hasil 50/50 Cuci Mobil
 
 **Konteks:**
 Unit Cuci Mobil secara informal menerapkan pembagian hasil 50/50 antara koperasi dan karyawan operasional. Mekanisme ini sudah berjalan sebagai kebiasaan tidak tertulis. Pertanyaan: bagaimana skenario terbaik untuk mengelola ini di sistem?
@@ -303,20 +360,20 @@ AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ad
 
 **3 Opsi Skenario yang Direkomendasikan:**
 
-**Opsi A — Pencatatan Manual (Status Quo)**
+**Opsi A â€” Pencatatan Manual (Status Quo)**
 
 - Karyawan dan admin unit menghitung manual dari laporan harian
 - Pro: Tidak perlu perubahan sistem
 - Kontra: Rawan salah hitung, tidak ada jejak audit digital
 
-**Opsi B — View-Only di Laporan (✅ SUDAH DIIMPLEMENTASI Sesi 6)**
+**Opsi B â€” View-Only di Laporan (âœ… SUDAH DIIMPLEMENTASI Sesi 6)**
 
 - Sistem menampilkan **rekap kalkulasi bagi hasil** di halaman Laporan Transaksi unit Cuci Mobil
-- Ditampilkan sebagai informasi: Pendapatan Kotor → Bagian Karyawan (50%) → Bagian Koperasi (50%) → Laba Bersih
+- Ditampilkan sebagai informasi: Pendapatan Kotor â†’ Bagian Karyawan (50%) â†’ Bagian Koperasi (50%) â†’ Laba Bersih
 - Pro: Transparan, ada dasar hitung yang konsisten, tidak mengubah alur akuntansi
 - Kontra: Belum otomatis memotong/memindahkan dana
 
-**Opsi C — Akuntansi Otomatis (Masa Depan)**
+**Opsi C â€” Akuntansi Otomatis (Masa Depan)**
 
 - Setiap transaksi cuci mobil otomatis membuat 2 entri jurnal: 50% ke Kas Koperasi, 50% ke Hutang/Beban Karyawan
 - Pro: Fully automated, audit-ready
@@ -324,7 +381,7 @@ AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ad
 
 **Rekomendasi Saya:**
 
-1. **Saat ini:** Pakai **Opsi B** (sudah aktif) — kalkulasi view-only di laporan sudah cukup untuk kebutuhan operasional
+1. **Saat ini:** Pakai **Opsi B** (sudah aktif) â€” kalkulasi view-only di laporan sudah cukup untuk kebutuhan operasional
 2. **Legalisasi:** Buat **SK Pengurus** (sesuai wewenang di Pasal 52 AD/ART) yang meresmikan proporsi bagi hasil 50/50 agar punya dasar hukum saat audit BPK/pengawas koperasi
 3. **Jika ingin upgrade:** Opsi C bisa diimplementasi nanti setelah SK Pengurus terbit, dengan menambah CoA khusus "Beban Bagi Hasil Karyawan"
 
@@ -333,20 +390,20 @@ AD/ART Pasal 52 mengatur pembagian SHU secara umum di tingkat koperasi. Tidak ad
 
 ---
 
-### 💡 BRAINSTORM Point 8 — Fitur Upload Dokumen Operasional
+### ðŸ’¡ BRAINSTORM Point 8 â€” Fitur Upload Dokumen Operasional
 
 **Konteks:**
 Kebutuhan untuk melampirkan bukti operasional digital (foto struk, nota pembelian, foto kerusakan, slip setoran, dsb.) yang saat ini hanya dicatat manual atau difoto di HP tanpa integrasi ke sistem.
 
 **Masalah yang Dipecahkan:**
 
-1. Bukti operasional tersebar di HP masing-masing kasir/admin — sulit dicari saat audit
+1. Bukti operasional tersebar di HP masing-masing kasir/admin â€” sulit dicari saat audit
 2. Tidak ada korelasi antara bukti fisik dengan transaksi di sistem
 3. Pengurus kesulitan memverifikasi pengeluaran operasional tanpa bukti digital
 
 **3 Opsi Arsitektur:**
 
-**Opsi A — Attachment per Transaksi**
+**Opsi A â€” Attachment per Transaksi**
 
 - Setiap transaksi (UnitTransaction/StoreSale) bisa punya 1-3 attachment foto
 - Upload dari halaman kasir saat transaksi, atau dari riwayat transaksi (post-upload)
@@ -354,18 +411,18 @@ Kebutuhan untuk melampirkan bukti operasional digital (foto struk, nota pembelia
 - Thumbnail preview di halaman riwayat dan laporan
 
 ```
-Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan → 
+Alur: Kasir buat transaksi â†’ opsional upload foto â†’ foto tersimpan â†’ 
       Admin/Operator bisa lihat dari riwayat/laporan
 ```
 
-**Opsi B — Dokumen Independen (Catatan Harian)**
+**Opsi B â€” Dokumen Independen (Catatan Harian)**
 
 - Fitur terpisah: "Catatan Operasional" / "Logbook Harian"
 - Admin/kasir upload foto + catatan teks per hari
 - Tidak terikat transaksi tertentu, tapi terikat tanggal dan unit
 - Cocok untuk: foto kondisi mesin, nota pembelian sembako, bukti transfer
 
-**Opsi C — Hybrid (A + B)**
+**Opsi C â€” Hybrid (A + B)**
 
 - Attachment per transaksi DAN dokumen independen
 - Paling lengkap tapi effort implementasi paling besar
@@ -391,7 +448,7 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 
 **Saran timeline:**
 
-- Sprint 1: Tabel DB + API upload/delete → bisa test via Postman
+- Sprint 1: Tabel DB + API upload/delete â†’ bisa test via Postman
 - Sprint 2: UI upload di halaman kasir + modal preview
 - Sprint 3: Gallery view di laporan + export attachment list
 
@@ -399,13 +456,13 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 
 ---
 
-## UPDATE 06 April 2026 — Sesi 6: POS Toko Payment Fix + Laporan Bagi Hasil Cuci Mobil
+## UPDATE 06 April 2026 â€” Sesi 6: POS Toko Payment Fix + Laporan Bagi Hasil Cuci Mobil
 
-### [FIX] POS Kasir Toko — Transaksi Tunai Tidak Bisa Diproses
+### [FIX] POS Kasir Toko â€” Transaksi Tunai Tidak Bisa Diproses
 
 **File:** `src/app/(protected)/toko/kasir/page.tsx`
 
-**Root cause:** Validasi di `processPayment` menggunakan `Number(paymentAmount) < subtotal`. Saat kasir menekan tombol "Bayar Tunai" tanpa mengisi nominal, `paymentAmount = ""` → `Number("") = 0 < subtotal` → selalu error "Pembayaran kurang" meskipun kasir ingin bayar pas/exact.
+**Root cause:** Validasi di `processPayment` menggunakan `Number(paymentAmount) < subtotal`. Saat kasir menekan tombol "Bayar Tunai" tanpa mengisi nominal, `paymentAmount = ""` â†’ `Number("") = 0 < subtotal` â†’ selalu error "Pembayaran kurang" meskipun kasir ingin bayar pas/exact.
 
 **Fix:**
 
@@ -416,7 +473,7 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
 
 ---
 
-### [NEW] Laporan Unit Cuci Mobil — Rekap Bagi Hasil Karyawan 50% / 50%
+### [NEW] Laporan Unit Cuci Mobil â€” Rekap Bagi Hasil Karyawan 50% / 50%
 
 **File:** `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx`
 
@@ -431,13 +488,13 @@ Alur: Kasir buat transaksi → opsional upload foto → foto tersimpan →
   - **Laba Bersih Koperasi** = Bagian Koperasi Kotor - Pengeluaran Operasional
 - Tampil sebagai Card khusus di screen (warna amber/kuning) dengan 4 kolom ringkasan
 - Tampil juga saat **print** sebagai tabel formal di atas tabel transaksi
-- Tidak perlu perubahan API/database — kalkulasi pure frontend dari data yang sudah ada
+- Tidak perlu perubahan API/database â€” kalkulasi pure frontend dari data yang sudah ada
 
 **Verifikasi:** Build `npm run build` sukses, exit code 0. Semua halaman compile tanpa error.
 
 ---
 
-## UPDATE 06 April 2026 — Sesi 5: POS Kasir Toko — Autocomplete Search Anggota
+## UPDATE 06 April 2026 â€” Sesi 5: POS Kasir Toko â€” Autocomplete Search Anggota
 
 ### [FIX] Autocomplete NRP/Nama di POS Kasir Unit Toko
 
@@ -447,22 +504,22 @@ Sebelum: Field "Identitas Pelanggan" di Kasir Toko menggunakan mekanisme lama (d
 
 Sesudah: Diganti dengan autocomplete realtime (debounce 350ms) identik dengan kasir unit lainnya:
 
-- Ketik ≥2 karakter (nama ATAU NRP) → dropdown muncul otomatis
-- Klik anggota di dropdown → nama terisi, NRP tampil di info bar hijau
+- Ketik â‰¥2 karakter (nama ATAU NRP) â†’ dropdown muncul otomatis
+- Klik anggota di dropdown â†’ nama terisi, NRP tampil di info bar hijau
 - Tombol X untuk reset pilihan
 - State `customerName` (lama) dihapus, diganti `customerQuery` + `selectedCustomerObj`
 - `processPayment` dan `receiptData` keduanya menggunakan state baru
 
 ---
 
-## UPDATE 06 April 2026 — Sesi 4: Riwayat Transaksi — Plat Nomor + Print Filter-Aware
+## UPDATE 06 April 2026 â€” Sesi 4: Riwayat Transaksi â€” Plat Nomor + Print Filter-Aware
 
 ### [FIX] Kolom Plat Nomor di Riwayat Transaksi Unit
 
 **File:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
 
 - Sebelum: kolom "Plat Nomor" tidak ada sama sekali di tabel riwayat
-- Sesudah: kolom baru dengan badge 🚗 menampilkan plat nomor hasil parse dari field `notes` format `[PLAT:N 1234 ABC]`
+- Sesudah: kolom baru dengan badge ðŸš— menampilkan plat nomor hasil parse dari field `notes` format `[PLAT:N 1234 ABC]`
 - Kolom juga masuk ke export Excel/PDF via `txExportColumns`
 - Baris yang tidak punya plat nomor (non-cuci-mobil) tetap menampilkan `-` dengan elegan
 
@@ -481,33 +538,33 @@ Sesudah: Diganti dengan autocomplete realtime (debounce 350ms) identik dengan ka
 
 ---
 
-## UPDATE 06 April 2026 — Sesi 3: Logic Fix + UAT Contamination Cleanup
+## UPDATE 06 April 2026 â€” Sesi 3: Logic Fix + UAT Contamination Cleanup
 
-**Build ID:** `scGTYRRp9yKVIYCWccSA5` — ✅ Deploy Ready
+**Build ID:** `scGTYRRp9yKVIYCWccSA5` â€” âœ… Deploy Ready
 
 ### [CRITICAL] Cleanup Data UAT di Production
 
 - Ditemukan 1 `ApprovalRequest` UAT di database production (Neon)
-- Root cause: Sesi UAT tanggal 5 April dijalankan di server production (port 3000, env Neon) — sebelum staging Supabase disiapkan
+- Root cause: Sesi UAT tanggal 5 April dijalankan di server production (port 3000, env Neon) â€” sebelum staging Supabase disiapkan
 - Data terhapus: `VD-TOKO-1775417610387-BLS` approval + reset flag `voidPending` di `TK-20260406-MNM5Q5XI`
 - Protocol UAT baru ditetapkan: wajib jalankan server staging port 3001 dengan `.env.test.local`
 
-### [FIX] BUG-LOGIC-001 — No. Referensi Approval Diperbaiki
+### [FIX] BUG-LOGIC-001 â€” No. Referensi Approval Diperbaiki
 
 - Sebelum: generate random `VD-TOKO-1775417610387-BLS` tidak terhubung ke No. Transaksi
-- Sesudah: format `VOID-{No.Transaksi}` → contoh: `VOID-CM060420260001`
+- Sesudah: format `VOID-{No.Transaksi}` â†’ contoh: `VOID-CM060420260001`
 - Logic di `void-request/route.ts`: fungsi `generateVoidRequestNo(originalTxNo)` menggantikan generasi random
 
-### [FIX] BUG-LOGIC-002 — Format No. Transaksi Diperbaiki
+### [FIX] BUG-LOGIC-002 â€” Format No. Transaksi Diperbaiki
 
-- Sebelum: `CUC-MNMKU4YG` — random base-36, tidak bisa dibaca, tidak ada tanggal
+- Sebelum: `CUC-MNMKU4YG` â€” random base-36, tidak bisa dibaca, tidak ada tanggal
 - Sesudah: `CM060420260001` = Singkatan + DDMMYYYY + Nomor Urut 4 digit per hari per unit
 - Nomor urut di-query dari `COUNT` transaksi hari itu, sekuensial dan mudah audit
 - Peta singkatan: CM (Cuci Mobil), BB (Barbershop), PS (PlayStation), FT (Fitness), dll
 
-### [FIX] BUG-BUILD-005 — TS Error di Member Route
+### [FIX] BUG-BUILD-005 â€” TS Error di Member Route
 
-- Fix `session.user.role?.name` → `(session.user as any).role` karena `role` bertipe `string`
+- Fix `session.user.role?.name` â†’ `(session.user as any).role` karena `role` bertipe `string`
 
 ### [FEATURE] Kolom Anggota/Pelanggan di Tabel Inbox Approval
 
@@ -527,7 +584,7 @@ npm run dev -- -p 3001
 
 ---
 
-## UPDATE 06 April 2026 — Sesi 2: 5 Fitur Unit Baru + UAT PASS 7/7
+## UPDATE 06 April 2026 â€” Sesi 2: 5 Fitur Unit Baru + UAT PASS 7/7
 
 **Kelompok fitur:** Laporan Unit, Pengeluaran Operasional, Detail Void, Plat Nomor POS, Search Anggota by Nama
 
@@ -539,11 +596,11 @@ npm run dev -- -p 3001
 - Tabel transaksi dengan badge plat nomor (khusus Cuci Mobil)
 - **Print header center-aligned**: Logo PRIMKOPPOL + "PRIMKOPPOL RESOR LUMAJANG" + "UNIT [NAMA]" + Periode
 - Tombol Export Excel
-- Menu "LAPORAN & KEUANGAN" → "Laporan Transaksi" ditambahkan ke `adminUnitNavigation` & `adminTokoNavigation`
+- Menu "LAPORAN & KEUANGAN" â†’ "Laporan Transaksi" ditambahkan ke `adminUnitNavigation` & `adminTokoNavigation`
 
 ### [FEAT-2] Pencatatan Pengeluaran Operasional Unit
 
-- Tombol "Catat Pengeluaran" (merah) di halaman laporan — hanya muncul untuk role Admin Unit
+- Tombol "Catat Pengeluaran" (merah) di halaman laporan â€” hanya muncul untuk role Admin Unit
 - Dialog form: Nominal, Keterangan, Tanggal
 - Disimpan ke `CashBankTransaction` type `out`, category `operational` dengan tag `[UNIT_TYPE]`
 - Langsung mendebit kas unit tanpa approval
@@ -557,7 +614,7 @@ npm run dev -- -p 3001
 
 ### [FEAT-4] Input Plat Nomor di POS Cuci Mobil
 
-- Field "🚗 Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
+- Field "ðŸš— Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
 - Auto-uppercase input, limit 12 karakter
 - Disimpan ke `UnitTransaction.notes` dengan format `[PLAT:N 1234 ABC]`
 - Parse dan tampil sebagai badge di laporan unit
@@ -566,9 +623,9 @@ npm run dev -- -p 3001
 ### [FEAT-5] Autocomplete Search Anggota by Nama + NRP di POS Walk-In
 
 - Ganti mekanisme detect-NRP pasif dengan **autocomplete aktif realtime**
-- Cari saat ≥ 2 karakter diketik (debounce 350ms) — bekerja untuk NRP maupun nama
+- Cari saat â‰¥ 2 karakter diketik (debounce 350ms) â€” bekerja untuk NRP maupun nama
 - Dropdown menampilkan: avatar inisial, nama, NRP, kategori (Polri/PNS)
-- Klik untuk pilih → field terkunci + info bar anggota terpilih (nama, NRP, kategori)
+- Klik untuk pilih â†’ field terkunci + info bar anggota terpilih (nama, NRP, kategori)
 - Tombol X untuk hapus pilihan dan reset ke mode search
 - Menutup dropdown otomatis saat klik di luar area input
 
@@ -587,13 +644,13 @@ npm run dev -- -p 3001
 
 ### [BUILD FIX] Production Build Deploy-Ready
 
-- Fix: BUG-BUILD-001 → Terminate dev server sebelum `npm run build`
-- Fix: BUG-BUILD-002 → Hapus Prisma JSON null filter yang tidak type-safe
-- Fix: BUG-BUILD-003 → `(e.description ?? "").replace(...)` untuk null-safe
-- Fix: BUG-BUILD-004 → Clear `.next` stale cache sebelum rebuild
-- **Build ID:** `QeeabkWK3uqoollTE_LKX` — ✅ VERIFIED
+- Fix: BUG-BUILD-001 â†’ Terminate dev server sebelum `npm run build`
+- Fix: BUG-BUILD-002 â†’ Hapus Prisma JSON null filter yang tidak type-safe
+- Fix: BUG-BUILD-003 â†’ `(e.description ?? "").replace(...)` untuk null-safe
+- Fix: BUG-BUILD-004 â†’ Clear `.next` stale cache sebelum rebuild
+- **Build ID:** `QeeabkWK3uqoollTE_LKX` â€” âœ… VERIFIED
 
-### [UAT] Hasil Testing Staging — 7/7 PASS
+### [UAT] Hasil Testing Staging â€” 7/7 PASS
 
 - Database staging: Supabase `xlxrjlcnhvtvgkbmrfkm` (bukan production)
 - Server: `npm run dev -p 3001` dengan `.env.test.local`
@@ -613,7 +670,7 @@ npm run dev -- -p 3001
 
 ---
 
-## FASE 1 — Fondasi Data & Form User
+## FASE 1 â€” Fondasi Data & Form User
 
 - [x] BUG-054: Buka dropdown unitType untuk Admin di Form User (`users/page.tsx`)
   - Admin sekarang BISA dipilihkan unitType saat dibuat/diedit
@@ -621,47 +678,47 @@ npm run dev -- -p 3001
   - Hapus `laundry` (tidak ada di daftar unit Primkoppol)
   - Validasi: Admin/Kasir WAJIB pilih unit, tombol Simpan terkunci jika belum pilih
 
-## FASE 2 — Keamanan: Middleware & Settings
+## FASE 2 â€” Keamanan: Middleware & Settings
 
 - [x] BUG-055: Perbaiki blokade middleware Admin di `proxy.ts`
   - Admin unit sekarang DIBLOKIR dari /simpanan, /pinjaman, /kas-bank, /laporan, /master, dll
   - Admin unit BISA akses /approval (untuk approve void kasirnya)
   - Peta rute unit diperbarui ke URL baru `/unit/[slug]`
 - [x] BUG-056: Sembunyikan tab berbahaya `/settings` dari Admin Unit
-  - Tab: Umum, Notifikasi, Keamanan, Backup, & Reset Data → HANYA Operator
+  - Tab: Umum, Notifikasi, Keamanan, Backup, & Reset Data â†’ HANYA Operator
   - Admin Unit hanya melihat Tab QRIS
   - Kasir tetap melihat Tab QRIS seperti sebelumnya
 
-## FASE 3 — Arsitektur Sidebar Independen
+## FASE 3 â€” Arsitektur Sidebar Independen
 
 - [x] BUG-060: Buat `adminTokoNavigation` di `navigation.ts`
   - Berisi: Dashboard, Kasir POS, Manajemen Produk, Persediaan & Stok, Riwayat Penjualan, Inbox Approval, Profil, QRIS
 - [x] BUG-060: Buat `adminUnitNavigation` di `navigation.ts`
   - Berisi: Dashboard, Panel Kasir, Kelola Layanan & Harga, Riwayat Transaksi, Inbox Approval, Profil, QRIS
-- [x] BUG-060: Update `getNavigationForUser()` — logika routing navigasi
-  - Admin Toko/Coffe Latar/Resto → `adminTokoNavigation`
-  - Admin Carwash/Barbershop/PS/Fitness/Properti → `adminUnitNavigation`
-  - Kasir Toko → `kasirTokoNavigation` (tidak berubah)
-  - Kasir unit jasa → `kasirNavigation` (tidak berubah, tapi /settings dihapus)
+- [x] BUG-060: Update `getNavigationForUser()` â€” logika routing navigasi
+  - Admin Toko/Coffe Latar/Resto â†’ `adminTokoNavigation`
+  - Admin Carwash/Barbershop/PS/Fitness/Properti â†’ `adminUnitNavigation`
+  - Kasir Toko â†’ `kasirTokoNavigation` (tidak berubah)
+  - Kasir unit jasa â†’ `kasirNavigation` (tidak berubah, tapi /settings dihapus)
 
-## FASE 4 — Dedicated POS per Unit
+## FASE 4 â€” Dedicated POS per Unit
 
 - [x] BUG-057: Buat Dynamic Route `/unit/[unitSlug]/kasir/page.tsx`
 - [x] BUG-058: Buat API CRUD paket layanan `/api/unit/[slug]/packages`
 - [x] BUG-058: Buat halaman Admin "Kelola Layanan" per unit
 - [x] Integrasi database: Buat schema `UnitServicePackage` dan jalankan seeder untuk migrasi hardcoded data.
 
-## FASE 5 — Perbaikan Logika Void
+## FASE 5 â€” Perbaikan Logika Void
 
 - [x] BUG-059: Perbaiki `void-request/route.ts` untuk Kasir Toko
-  - JALUR A: Operator → void langsung + kembalikan stok (bypass)
-  - JALUR B: Kasir/Admin → buat ApprovalRequest `pending_void` di Inbox Admin
+  - JALUR A: Operator â†’ void langsung + kembalikan stok (bypass)
+  - JALUR B: Kasir/Admin â†’ buat ApprovalRequest `pending_void` di Inbox Admin
   - Cegah double request: cek `voidPending` di metadata sebelum buat request baru
 - [x] Perbaiki `void-approve/route.ts` untuk handle tipe `void_store_sale`
   - Ditambahkan JALUR 1 untuk StoreSale: kembalikan stok saat approved, hapus voidPending saat rejected
   - JALUR 2 existing (UnitTransaction + Contra-Entry) tetap berjalan tidak berubah
 
-## FASE 6 — Security Endpoint & Data Integrity (Final Fix)
+## FASE 6 â€” Security Endpoint & Data Integrity (Final Fix)
 
 - [x] BUG-FIX: Approval Inbox "Halaman tidak tersedia"
   - Menyesuaikan `ADMIN_ALLOWED_ROUTES` di `layout.tsx` sehingga rute `/approval` kini dizinkan untuk seluruh profil Admin Eksternal (Toko, Jasa, dsb).
@@ -670,7 +727,7 @@ npm run dev -- -p 3001
   - Memperbarui `/api/dashboard-stats`, `/api/unit-layanan/stats`, dan `/api/unit-transactions` untuk men-drop atau melabelkan `StoreSale` yang memiliki *flag* JSON `metadata.isVoided: true`.
   - Sekarang laporan *Total Hari Ini* & *Tunai* tidak akan ikut menghitung nilai pesanan berstatus batal. Teks "DIBATALKAN" akan muncul tegas di Riwayat Kasir.
 
-## FASE 7 — Stabilitas Backend & Penanganan False Positive (UAT)
+## FASE 7 â€” Stabilitas Backend & Penanganan False Positive (UAT)
 
 - [x] BUG-061: Memperbaiki Exception Foreign Key `branchId: 1`
   - Pengajuan dari Void Kasir Toko kini dapat sukses tersimpan di `ApprovalRequest` dengan `branchId: 10`.
@@ -679,7 +736,7 @@ npm run dev -- -p 3001
 - [x] BUG-063: Logika Ekstensi `isOperator` Dipangkas
   - Menertibkan kembali akses "bisa Auto-Approve" untuk `role: "admin"`. Admin Unit yang mengajukan pembatalan harus diterbitkan tiket `ApprovalRequest` sebagaimana mestinya, tidak membypass Inbox Approval miliknya.
 
-## FASE 8 — Stabilisasi & QA Alur Potong Gaji (06 April Sore)
+## FASE 8 â€” Stabilisasi & QA Alur Potong Gaji (06 April Sore)
 
 - [x] BUG-P01 & BUG-P04: Perbaikan Stok & Plafon Toko
   - Pemotongan `stockToko` kini dikerjakan lebih dahulu, mundur ke `stock` induk bila habis.
@@ -695,7 +752,7 @@ npm run dev -- -p 3001
 
 ---
 
-## 🛠️ PANDUAN UAT & LINGKUNGAN STAGING (QA TEST GUIDE)
+## ðŸ› ï¸ PANDUAN UAT & LINGKUNGAN STAGING (QA TEST GUIDE)
 
 Untuk melakukan pengujian fungsionalitas (QA/UAT) di *device* manapun dengan aman (tanpa mengubah, menimpa, atau menyinggung data Sistem Produksi), silakan ikuti petunjuk Environment Setup berikut:
 
@@ -734,7 +791,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [ ] Cek status Dashboard Admin (Grafik Mingguan dan nominal Hari Ini tidak boleh ikut terhitung jika Transaksi masih *Pending Void*).
 - [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
 
-## FASE 9 — CRUD Rincian Pengeluaran & Enhancement Tabel Laporan
+## FASE 9 â€” CRUD Rincian Pengeluaran & Enhancement Tabel Laporan
 
 - [x] **FEAT-015: CRUD Pengeluaran Operasional Unit**
   - Membuat REST API tersendiri bernutrisi FormData `PUT` dan `DELETE` di `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`.
@@ -748,11 +805,11 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
   - Pemisahan string `[Plat Nomor]` dari sel *Keterangan* menjadi satu kesatuan elemen *Badge* dan dialihkan ke kolom Web tersendiri khusus tabel Cuci Mobil.
   - Penyesuaian `handleExportExcel` (Export XLSX) yang secara cerdas menyelipkan Header dan Row "Plat Nomor" sehingga output Microsoft Excel Unit Cuci Mobil lebih rapi dan bersih.
 
-### BUG-UI-013 — Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
+### BUG-UI-013 â€” Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
 
 ### [FEAT-4] Input Plat Nomor di POS Cuci Mobil
 
-- Field "🚗 Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
+- Field "ðŸš— Plat Nomor Kendaraan" muncul kondisional hanya saat `unitType === "cuci_mobil"`
 - Auto-uppercase input, limit 12 karakter
 - Disimpan ke `UnitTransaction.notes` dengan format `[PLAT:N 1234 ABC]`
 - Parse dan tampil sebagai badge di laporan unit
@@ -761,9 +818,9 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 ### [FEAT-5] Autocomplete Search Anggota by Nama + NRP di POS Walk-In
 
 - Ganti mekanisme detect-NRP pasif dengan **autocomplete aktif realtime**
-- Cari saat ≥ 2 karakter diketik (debounce 350ms) — bekerja untuk NRP maupun nama
+- Cari saat â‰¥ 2 karakter diketik (debounce 350ms) â€” bekerja untuk NRP maupun nama
 - Dropdown menampilkan: avatar inisial, nama, NRP, kategori (Polri/PNS)
-- Klik untuk pilih → field terkunci + info bar anggota terpilih (nama, NRP, kategori)
+- Klik untuk pilih â†’ field terkunci + info bar anggota terpilih (nama, NRP, kategori)
 - Tombol X untuk hapus pilihan dan reset ke mode search
 - Menutup dropdown otomatis saat klik di luar area input
 
@@ -782,13 +839,13 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ### [BUILD FIX] Production Build Deploy-Ready
 
-- Fix: BUG-BUILD-001 → Terminate dev server sebelum `npm run build`
-- Fix: BUG-BUILD-002 → Hapus Prisma JSON null filter yang tidak type-safe
-- Fix: BUG-BUILD-003 → `(e.description ?? "").replace(...)` untuk null-safe
-- Fix: BUG-BUILD-004 → Clear `.next` stale cache sebelum rebuild
-- **Build ID:** `QeeabkWK3uqoollTE_LKX` — ✅ VERIFIED
+- Fix: BUG-BUILD-001 â†’ Terminate dev server sebelum `npm run build`
+- Fix: BUG-BUILD-002 â†’ Hapus Prisma JSON null filter yang tidak type-safe
+- Fix: BUG-BUILD-003 â†’ `(e.description ?? "").replace(...)` untuk null-safe
+- Fix: BUG-BUILD-004 â†’ Clear `.next` stale cache sebelum rebuild
+- **Build ID:** `QeeabkWK3uqoollTE_LKX` â€” âœ… VERIFIED
 
-### [UAT] Hasil Testing Staging — 7/7 PASS
+### [UAT] Hasil Testing Staging â€” 7/7 PASS
 
 - Database staging: Supabase `xlxrjlcnhvtvgkbmrfkm` (bukan production)
 - Server: `npm run dev -p 3001` dengan `.env.test.local`
@@ -808,7 +865,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 
-## FASE 1 — Fondasi Data & Form User
+## FASE 1 â€” Fondasi Data & Form User
 
 - [x] BUG-054: Buka dropdown unitType untuk Admin di Form User (`users/page.tsx`)
   - Admin sekarang BISA dipilihkan unitType saat dibuat/diedit
@@ -816,47 +873,47 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
   - Hapus `laundry` (tidak ada di daftar unit Primkoppol)
   - Validasi: Admin/Kasir WAJIB pilih unit, tombol Simpan terkunci jika belum pilih
 
-## FASE 2 — Keamanan: Middleware & Settings
+## FASE 2 â€” Keamanan: Middleware & Settings
 
 - [x] BUG-055: Perbaiki blokade middleware Admin di `proxy.ts`
   - Admin unit sekarang DIBLOKIR dari /simpanan, /pinjaman, /kas-bank, /laporan, /master, dll
   - Admin unit BISA akses /approval (untuk approve void kasirnya)
   - Peta rute unit diperbarui ke URL baru `/unit/[slug]`
 - [x] BUG-056: Sembunyikan tab berbahaya `/settings` dari Admin Unit
-  - Tab: Umum, Notifikasi, Keamanan, Backup, & Reset Data → HANYA Operator
+  - Tab: Umum, Notifikasi, Keamanan, Backup, & Reset Data â†’ HANYA Operator
   - Admin Unit hanya melihat Tab QRIS
   - Kasir tetap melihat Tab QRIS seperti sebelumnya
 
-## FASE 3 — Arsitektur Sidebar Independen
+## FASE 3 â€” Arsitektur Sidebar Independen
 
 - [x] BUG-060: Buat `adminTokoNavigation` di `navigation.ts`
   - Berisi: Dashboard, Kasir POS, Manajemen Produk, Persediaan & Stok, Riwayat Penjualan, Inbox Approval, Profil, QRIS
 - [x] BUG-060: Buat `adminUnitNavigation` di `navigation.ts`
   - Berisi: Dashboard, Panel Kasir, Kelola Layanan & Harga, Riwayat Transaksi, Inbox Approval, Profil, QRIS
-- [x] BUG-060: Update `getNavigationForUser()` — logika routing navigasi
-  - Admin Toko/Coffe Latar/Resto → `adminTokoNavigation`
-  - Admin Carwash/Barbershop/PS/Fitness/Properti → `adminUnitNavigation`
-  - Kasir Toko → `kasirTokoNavigation` (tidak berubah)
-  - Kasir unit jasa → `kasirNavigation` (tidak berubah, tapi /settings dihapus)
+- [x] BUG-060: Update `getNavigationForUser()` â€” logika routing navigasi
+  - Admin Toko/Coffe Latar/Resto â†’ `adminTokoNavigation`
+  - Admin Carwash/Barbershop/PS/Fitness/Properti â†’ `adminUnitNavigation`
+  - Kasir Toko â†’ `kasirTokoNavigation` (tidak berubah)
+  - Kasir unit jasa â†’ `kasirNavigation` (tidak berubah, tapi /settings dihapus)
 
-## FASE 4 — Dedicated POS per Unit
+## FASE 4 â€” Dedicated POS per Unit
 
 - [x] BUG-057: Buat Dynamic Route `/unit/[unitSlug]/kasir/page.tsx`
 - [x] BUG-058: Buat API CRUD paket layanan `/api/unit/[slug]/packages`
 - [x] BUG-058: Buat halaman Admin "Kelola Layanan" per unit
 - [x] Integrasi database: Buat schema `UnitServicePackage` dan jalankan seeder untuk migrasi hardcoded data.
 
-## FASE 5 — Perbaikan Logika Void
+## FASE 5 â€” Perbaikan Logika Void
 
 - [x] BUG-059: Perbaiki `void-request/route.ts` untuk Kasir Toko
-  - JALUR A: Operator → void langsung + kembalikan stok (bypass)
-  - JALUR B: Kasir/Admin → buat ApprovalRequest `pending_void` di Inbox Admin
+  - JALUR A: Operator â†’ void langsung + kembalikan stok (bypass)
+  - JALUR B: Kasir/Admin â†’ buat ApprovalRequest `pending_void` di Inbox Admin
   - Cegah double request: cek `voidPending` di metadata sebelum buat request baru
 - [x] Perbaiki `void-approve/route.ts` untuk handle tipe `void_store_sale`
   - Ditambahkan JALUR 1 untuk StoreSale: kembalikan stok saat approved, hapus voidPending saat rejected
   - JALUR 2 existing (UnitTransaction + Contra-Entry) tetap berjalan tidak berubah
 
-## FASE 6 — Security Endpoint & Data Integrity (Final Fix)
+## FASE 6 â€” Security Endpoint & Data Integrity (Final Fix)
 
 - [x] BUG-FIX: Approval Inbox "Halaman tidak tersedia"
   - Menyesuaikan `ADMIN_ALLOWED_ROUTES` di `layout.tsx` sehingga rute `/approval` kini dizinkan untuk seluruh profil Admin Eksternal (Toko, Jasa, dsb).
@@ -865,7 +922,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
   - Memperbarui `/api/dashboard-stats`, `/api/unit-layanan/stats`, dan `/api/unit-transactions` untuk men-drop atau melabelkan `StoreSale` yang memiliki *flag* JSON `metadata.isVoided: true`.
   - Sekarang laporan *Total Hari Ini* & *Tunai* tidak akan ikut menghitung nilai pesanan berstatus batal. Teks "DIBATALKAN" akan muncul tegas di Riwayat Kasir.
 
-## FASE 7 — Stabilitas Backend & Penanganan False Positive (UAT)
+## FASE 7 â€” Stabilitas Backend & Penanganan False Positive (UAT)
 
 - [x] BUG-061: Memperbaiki Exception Foreign Key `branchId: 1`
   - Pengajuan dari Void Kasir Toko kini dapat sukses tersimpan di `ApprovalRequest` dengan `branchId: 10`.
@@ -874,7 +931,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [x] BUG-063: Logika Ekstensi `isOperator` Dipangkas
   - Menertibkan kembali akses "bisa Auto-Approve" untuk `role: "admin"`. Admin Unit yang mengajukan pembatalan harus diterbitkan tiket `ApprovalRequest` sebagaimana mestinya, tidak membypass Inbox Approval miliknya.
 
-## FASE 8 — Stabilisasi & QA Alur Potong Gaji (06 April Sore)
+## FASE 8 â€” Stabilisasi & QA Alur Potong Gaji (06 April Sore)
 
 - [x] BUG-P01 & BUG-P04: Perbaikan Stok & Plafon Toko
   - Pemotongan `stockToko` kini dikerjakan lebih dahulu, mundur ke `stock` induk bila habis.
@@ -890,7 +947,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 
-## 🛠️ PANDUAN UAT & LINGKUNGAN STAGING (QA TEST GUIDE)
+## ðŸ› ï¸ PANDUAN UAT & LINGKUNGAN STAGING (QA TEST GUIDE)
 
 Untuk melakukan pengujian fungsionalitas (QA/UAT) di *device* manapun dengan aman (tanpa mengubah, menimpa, atau menyinggung data Sistem Produksi), silakan ikuti petunjuk Environment Setup berikut:
 
@@ -929,7 +986,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 - [ ] Cek status Dashboard Admin (Grafik Mingguan dan nominal Hari Ini tidak boleh ikut terhitung jika Transaksi masih *Pending Void*).
 - [ ] Lakukan percobaan klik logo Pensil (Edit NRP) pada Riwayat Transaksi yang belum punya nama Anggota, ketik "UAT99001" dan lihat apa *member detect* bekerja baik.
 
-## FASE 9 — CRUD Rincian Pengeluaran & Enhancement Tabel Laporan
+## FASE 9 â€” CRUD Rincian Pengeluaran & Enhancement Tabel Laporan
 
 - [x] **FEAT-015: CRUD Pengeluaran Operasional Unit**
   - Membuat REST API tersendiri bernutrisi FormData `PUT` dan `DELETE` di `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`.
@@ -943,20 +1000,20 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
   - Pemisahan string `[Plat Nomor]` dari sel *Keterangan* menjadi satu kesatuan elemen *Badge* dan dialihkan ke kolom Web tersendiri khusus tabel Cuci Mobil.
   - Penyesuaian `handleExportExcel` (Export XLSX) yang secara cerdas menyelipkan Header dan Row "Plat Nomor" sehingga output Microsoft Excel Unit Cuci Mobil lebih rapi dan bersih.
 
-### BUG-UI-013 — Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
+### BUG-UI-013 â€” Isi Kolom Nominal Tidak Rata Kiri Sesuai Skeleton
 
-**Status:** ✅ FIXED
+**Status:** âœ… FIXED
 **Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
 **Gejala:** Nilai angka nominal transaksi pada tabel sebelumnya diratakan kanan (`text-right`), padahal skeleton tabel dan gaya kolom lainnya menggunakan format default rata kiri. Perbedaan ini menyebabkan desain kolom "Nominal" beserta isi baris di bawahnya terlihat melenceng dan tidak sejajar.
 **Resolusi:** Menghapus class `text-right` pada detail transaksi nominal dan mengembalikan properti `header` ke format standar. Kini isi data rata kiri mengacu pada kerangka dasar (`skeleton`) tabel aplikasi.
 
-| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
-| **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
-| **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
-| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
-| **FEAT-017** | **Standarisasi Logo Primkoppol di Semua Halaman Cetak & Print** | ✅ IMPLEMENTED | 7 Apr 2026 |
-| **FEAT-018** | **Cetak 3 Lapis: Pemisahan Tabel Pengeluaran & Lembar Lampiran Bukti** | ✅ IMPLEMENTED | 7 Apr 2026 |
-| **UAT-019** | **Seed Data Staging: Akun Operator & Anggota Polri (UAT Tahap 2)** | ✅ SEEDED | 7 Apr 2026 |
+| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | âœ… FIXED | 7 Apr 2026 |
+| **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | âœ… FIXED | 7 Apr 2026 |
+| **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | âœ… FIXED | 7 Apr 2026 |
+| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | âœ… IMPLEMENTED | 7 Apr 2026 |
+| **FEAT-017** | **Standarisasi Logo Primkoppol di Semua Halaman Cetak & Print** | âœ… IMPLEMENTED | 7 Apr 2026 |
+| **FEAT-018** | **Cetak 3 Lapis: Pemisahan Tabel Pengeluaran & Lembar Lampiran Bukti** | âœ… IMPLEMENTED | 7 Apr 2026 |
+| **UAT-019** | **Seed Data Staging: Akun Operator & Anggota Polri (UAT Tahap 2)** | âœ… SEEDED | 7 Apr 2026 |
 
 ---
 *Total pembaruan tercatat: 103 item (Fitur, UI, Hotfix, UAT)*  
@@ -964,23 +1021,23 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 
-## 📋 UPDATE 7 April 2026 (Sesi 2) — Implementasi Produk Pinjaman
+## ðŸ“‹ UPDATE 7 April 2026 (Sesi 2) â€” Implementasi Produk Pinjaman
 
-### ✅ FEAT-020 — Produk Pinjaman Reguler & Khusus
+### âœ… FEAT-020 â€” Produk Pinjaman Reguler & Khusus
 
 **Perubahan:**
-- **Database Seed:** `prisma/seed-loan-products.ts` — Menyeed 2 produk pinjaman ke staging:
-  - **Pinjaman Reguler (PR):** Min 1jt, Maks 20jt, Tenor 1–36 bln, Bunga 1% flat/bln, Resiko 2% di muka
-  - **Pinjaman Khusus (PK):** Min 30jt, No Limit, Tenor 1–60 bln, Bunga 1% flat/bln, Resiko 2% di muka
-- **Backend Fix — Hapus Hard-limit AD-ART:**
-  - `api/loans/applications/route.ts` — Dihapus validasi hardcode `AD_ART_MAX_LOAN = 20jt` dan `AD_ART_MAX_TENOR_MONTHS = 36`
+- **Database Seed:** `prisma/seed-loan-products.ts` â€” Menyeed 2 produk pinjaman ke staging:
+  - **Pinjaman Reguler (PR):** Min 1jt, Maks 20jt, Tenor 1â€“36 bln, Bunga 1% flat/bln, Resiko 2% di muka
+  - **Pinjaman Khusus (PK):** Min 30jt, No Limit, Tenor 1â€“60 bln, Bunga 1% flat/bln, Resiko 2% di muka
+- **Backend Fix â€” Hapus Hard-limit AD-ART:**
+  - `api/loans/applications/route.ts` â€” Dihapus validasi hardcode `AD_ART_MAX_LOAN = 20jt` dan `AD_ART_MAX_TENOR_MONTHS = 36`
   - Validasi kini **hanya dari atribut LoanProduct** (`minAmount`, `maxAmount`, `minTenorMonths`, `maxTenorMonths`)
   - Rate bunga cicilan juga dihitung dari `product.interestRate` (bukan hardcode 1%)
-- **Backend Fix — Session User:**
-  - `api/loans/applications/route.ts` → `createdById` kini dari session user (bukan hardcode `1`)
-  - `api/loans/applications/[id]/approve/route.ts` → `approvedById` dari session + tambah auth check
-  - `api/loans/applications/[id]/reject/route.ts` → `rejectedById` dari session + tambah auth check
-- **Frontend — Form Pengajuan Baru (`tambah/page.tsx`):**
+- **Backend Fix â€” Session User:**
+  - `api/loans/applications/route.ts` â†’ `createdById` kini dari session user (bukan hardcode `1`)
+  - `api/loans/applications/[id]/approve/route.ts` â†’ `approvedById` dari session + tambah auth check
+  - `api/loans/applications/[id]/reject/route.ts` â†’ `rejectedById` dari session + tambah auth check
+- **Frontend â€” Form Pengajuan Baru (`tambah/page.tsx`):**
   - Tampilkan **kartu pilihan produk** dengan info limit, tenor, bunga, dan resiko per produk
   - Input `amount` dan `tenor` di-limit sesuai produk yang dipilih (min/max)
   - Penambahan **Simulasi detail:**
@@ -988,11 +1045,11 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
     - Akumulasi bunga **per bulan** (1%)
     - Akumulasi bunga **per tahun** (12%)
   - Label tenor lebih informatif: contoh "12 bulan (1 thn)"
-- **Frontend — Detail Pengajuan (`[id]/page.tsx`):**
+- **Frontend â€” Detail Pengajuan (`[id]/page.tsx`):**
   - Tambah tombol **"Ajukan ke Operator"** untuk status `draft`
-  - Memungkinkan alur: Buat Pengajuan (draft) → Ajukan → Operator dapat menyetujui
+  - Memungkinkan alur: Buat Pengajuan (draft) â†’ Ajukan â†’ Operator dapat menyetujui
 
-### ✅ UAT — Akun Operator & Anggota Siap Uji Pinjaman
+### âœ… UAT â€” Akun Operator & Anggota Siap Uji Pinjaman
 
 **Akun UAT Pinjaman (Data Lengkap):**
 
@@ -1004,18 +1061,18 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 | **Kasir Toko** | `kasir.uat.toko@primkoppol.test` | `uat123456` |
 
 **Alur UAT Pinjaman Lengkap:**
-1. Login sebagai Anggota1 → `/pinjaman/pengajuan/tambah`
+1. Login sebagai Anggota1 â†’ `/pinjaman/pengajuan/tambah`
 2. Pilih Produk Pinjaman (Reguler atau Khusus)
-3. Isi jumlah & tenor sesuai limit produk → Lihat simulasi detail
-4. Klik "Ajukan Pinjaman" → status jadi **draft**
-5. Masuk ke detail pengajuan → Klik "Ajukan ke Operator" → status jadi **submitted**
-6. Logout → Login sebagai Operator → `/approval`
-7. Setujui pengajuan pinjaman → status jadi **approved**
-8. Kembali ke `/pinjaman/pengajuan/[id]` → Klik "Cairkan & Cetak Kwitansi"
+3. Isi jumlah & tenor sesuai limit produk â†’ Lihat simulasi detail
+4. Klik "Ajukan Pinjaman" â†’ status jadi **draft**
+5. Masuk ke detail pengajuan â†’ Klik "Ajukan ke Operator" â†’ status jadi **submitted**
+6. Logout â†’ Login sebagai Operator â†’ `/approval`
+7. Setujui pengajuan pinjaman â†’ status jadi **approved**
+8. Kembali ke `/pinjaman/pengajuan/[id]` â†’ Klik "Cairkan & Cetak Kwitansi"
 
-| **FEAT-020** | **Produk Pinjaman Reguler & Khusus (Seed + Backend + UI)** | ✅ IMPLEMENTED | 7 Apr 2026 |
-| **BUG-066** | **createdById/approvedById hardcode = 1 di semua loan routes** | ✅ FIXED | 7 Apr 2026 |
-| **UAT-020** | **Seed Produk Pinjaman ke Staging Database** | ✅ SEEDED | 7 Apr 2026 |
+| **FEAT-020** | **Produk Pinjaman Reguler & Khusus (Seed + Backend + UI)** | âœ… IMPLEMENTED | 7 Apr 2026 |
+| **BUG-066** | **createdById/approvedById hardcode = 1 di semua loan routes** | âœ… FIXED | 7 Apr 2026 |
+| **UAT-020** | **Seed Produk Pinjaman ke Staging Database** | âœ… SEEDED | 7 Apr 2026 |
 
 ---
 *Total pembaruan tercatat: 106 item (Fitur, UI, Hotfix, UAT)*  
@@ -1023,9 +1080,9 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 
-## UPDATE 08 April 2026 — Sesi 9: Perbaikan Produk Pinjaman & Portal Pengajuan
+## UPDATE 08 April 2026 â€” Sesi 9: Perbaikan Produk Pinjaman & Portal Pengajuan
 
-### [CRITICAL FIX] 5 API Endpoint Pinjaman — Hapus Semua Hardcode
+### [CRITICAL FIX] 5 API Endpoint Pinjaman â€” Hapus Semua Hardcode
 
 **Konteks:** Setelah atasan menyampaikan aturan baru produk pinjaman (Reguler: Max 20jt/36bln, Khusus: Min 30jt/No Limit/60bln), ditemukan 5 endpoint yang masih menerapkan pembatasan hardcode sehingga Pinjaman Khusus tidak bisa diproses.
 
@@ -1045,26 +1102,26 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
    - Validasi per-produk (sudah ada di lines 48-63) menjadi satu-satunya gatekeeper
 
 4. **`/api/master/loan-products` POST** (BUG-071)
-   - Hapus blokade `maxTenorMonths > 36 → reject`
+   - Hapus blokade `maxTenorMonths > 36 â†’ reject`
    - Admin kini bisa buat produk dengan tenor > 36 bulan
 
-5. **`/api/loans/applications`** (sudah di-fix sebelumnya — BUG-067)
+5. **`/api/loans/applications`** (sudah di-fix sebelumnya â€” BUG-067)
    - Dikonfirmasi tetap berfungsi per-produk
 
-### [CRITICAL FIX] Portal Pengajuan Pinjaman — Produk Tidak Tampil (BUG-072)
+### [CRITICAL FIX] Portal Pengajuan Pinjaman â€” Produk Tidak Tampil (BUG-072)
 
 **File:** `src/app/portal/pengajuan-pinjaman/page.tsx`
 
 **Masalah:** Halaman `/portal/pengajuan-pinjaman` di `primkoppol.online` tidak menampilkan produk pinjaman sama sekali. Ditemukan 5 masalah kritis:
 
-1. **Field mismatch:** API mengembalikan `minTenorMonths` (Prisma camelCase), UI mengharapkan `minTenor` → produk gagal di-parse
+1. **Field mismatch:** API mengembalikan `minTenorMonths` (Prisma camelCase), UI mengharapkan `minTenor` â†’ produk gagal di-parse
 2. **Hidden selector:** Pilihan produk disembunyikan (`<input type="hidden">`)
 3. **Hardcode limit:** Input dicap keras ke 20jt/36bln
 4. **Bunga salah:** Estimasi bunga 0.3% (seharusnya 1%)
 5. **Admin fee salah:** "Biaya Jasa 1%" (seharusnya "Biaya Resiko 2%")
 
 **Fix:**
-- Normalize Prisma field names (`minTenorMonths` → `minTenor`, Decimal → Number)
+- Normalize Prisma field names (`minTenorMonths` â†’ `minTenor`, Decimal â†’ Number)
 - Tampilkan **kartu pilihan produk** (selectable cards) dengan info limit, tenor, bunga, resiko
 - Input amount/tenor dinamis sesuai produk (bukan hardcode)
 - Kalkulasi bunga/resiko dari data produk aktual
@@ -1072,36 +1129,36 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ### [DATA] Seed Produk Pinjaman ke Production (FEAT-021)
 
-**Eksekusi:** `npx tsx prisma/seed-loan-products.ts` — berhasil dijalankan ke production database.
+**Eksekusi:** `npx tsx prisma/seed-loan-products.ts` â€” berhasil dijalankan ke production database.
 
 **Hasil:**
 ```
-[5] PR — Pinjaman Reguler:  Rp0 s/d Rp20.000.000 | Tenor: 1–36 bln
-[6] PK — Pinjaman Khusus:   Rp30.000.000 s/d Tidak Terbatas | Tenor: 1–60 bln
+[5] PR â€” Pinjaman Reguler:  Rp0 s/d Rp20.000.000 | Tenor: 1â€“36 bln
+[6] PK â€” Pinjaman Khusus:   Rp30.000.000 s/d Tidak Terbatas | Tenor: 1â€“60 bln
 ```
 
 ### [BUILD] Verifikasi
-- `npm run build` → Exit code: 0 (Sukses)
+- `npm run build` â†’ Exit code: 0 (Sukses)
 - Semua 172 halaman compile tanpa error
 
 | ID | Deskripsi | Status | Tanggal |
 | --- | --- | --- | --- |
-| **BUG-068** | API loans/products hardcode bunga & resiko | ✅ FIXED | 8 Apr 2026 |
-| **BUG-069** | Mobile loan-apply hardcode rate & cap 20jt/36bln | ✅ FIXED | 8 Apr 2026 |
-| **BUG-070** | Portal loan-application hardcode AD-ART limit | ✅ FIXED | 8 Apr 2026 |
-| **BUG-071** | Master loan-products POST blokir tenor > 36 | ✅ FIXED | 8 Apr 2026 |
-| **BUG-072** | Portal pengajuan pinjaman: produk tidak tampil | ✅ FIXED | 8 Apr 2026 |
-| **BUG-073** | Dashboard: Pie Chart 'Pendapatan Unit Usaha' hanya Toko | ✅ FIXED | 8 Apr 2026 |
-| **BUG-074** | Dashboard: Data 'Pencairan Hari Ini' ter-mapping nilai penarikan simpanan | ✅ FIXED | 8 Apr 2026 |
-| **FEAT-021** | Seed produk pinjaman accurate (Reguler & Khusus) | ✅ IMPLEMENTED | 8 Apr 2026 |
+| **BUG-068** | API loans/products hardcode bunga & resiko | âœ… FIXED | 8 Apr 2026 |
+| **BUG-069** | Mobile loan-apply hardcode rate & cap 20jt/36bln | âœ… FIXED | 8 Apr 2026 |
+| **BUG-070** | Portal loan-application hardcode AD-ART limit | âœ… FIXED | 8 Apr 2026 |
+| **BUG-071** | Master loan-products POST blokir tenor > 36 | âœ… FIXED | 8 Apr 2026 |
+| **BUG-072** | Portal pengajuan pinjaman: produk tidak tampil | âœ… FIXED | 8 Apr 2026 |
+| **BUG-073** | Dashboard: Pie Chart 'Pendapatan Unit Usaha' hanya Toko | âœ… FIXED | 8 Apr 2026 |
+| **BUG-074** | Dashboard: Data 'Pencairan Hari Ini' ter-mapping nilai penarikan simpanan | âœ… FIXED | 8 Apr 2026 |
+| **FEAT-021** | Seed produk pinjaman accurate (Reguler & Khusus) | âœ… IMPLEMENTED | 8 Apr 2026 |
 
 ---
 *Total pembaruan tercatat: 114 item (Fitur, UI, Hotfix, UAT)*  
-*Diperbarui: 8 April 2026 — Sesi 9*
+*Diperbarui: 8 April 2026 â€” Sesi 9*
 
 ---
 
-## 🧪 UAT OPERATOR — FASE 1 (7 April 2026)
+## ðŸ§ª UAT OPERATOR â€” FASE 1 (7 April 2026)
 
 ### Akun UAT Resmi untuk UAT Operator & Anggota
 
@@ -1117,30 +1174,30 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 | UAT ID | Modul | Status | Catatan |
 |--------|-------|--------|---------|
-| **UAT-OPS-01** | Anggota — Daftar, Detail, Kartu, Buku | ✅ PASS | Semua page load, data real dari DB |
-| **UAT-OPS-03** | Simpanan — Rekening Anggota | ✅ PASS | 8 rekening UAT terlihat, saldo benar |
-| **UAT-OPS-04** | Simpanan — Transaksi Tambah | ❌ BLOCKED | BUG-UAT-001: Form pakai MOCK data, tidak bisa dipakai |
-| **UAT-OPS-06** | Pinjaman — Pengajuan + Approval | ✅ PASS | End-to-end: Draft→Submitted→Approved berhasil |
-| **UAT-OPS-07..08** | Pinjaman — Angsuran & Jadwal | ⏳ PENDING | Belum diuji |
-| **UAT-OPS-09..10** | Kas & Bank | ⏳ PENDING | Belum diuji |
-| **UAT-OPS-11..12** | Non Simpan Pinjam | ⏳ PENDING | Belum diuji |
-| **UAT-OPS-13..14** | Transaksi Unit Layanan | ⏳ PENDING | Belum diuji |
-| **UAT-OPS-15** | Kwitansi | ⏳ PENDING | Belum diuji |
+| **UAT-OPS-01** | Anggota â€” Daftar, Detail, Kartu, Buku | âœ… PASS | Semua page load, data real dari DB |
+| **UAT-OPS-03** | Simpanan â€” Rekening Anggota | âœ… PASS | 8 rekening UAT terlihat, saldo benar |
+| **UAT-OPS-04** | Simpanan â€” Transaksi Tambah | âŒ BLOCKED | BUG-UAT-001: Form pakai MOCK data, tidak bisa dipakai |
+| **UAT-OPS-06** | Pinjaman â€” Pengajuan + Approval | âœ… PASS | End-to-end: Draftâ†’Submittedâ†’Approved berhasil |
+| **UAT-OPS-07..08** | Pinjaman â€” Angsuran & Jadwal | â³ PENDING | Belum diuji |
+| **UAT-OPS-09..10** | Kas & Bank | â³ PENDING | Belum diuji |
+| **UAT-OPS-11..12** | Non Simpan Pinjam | â³ PENDING | Belum diuji |
+| **UAT-OPS-13..14** | Transaksi Unit Layanan | â³ PENDING | Belum diuji |
+| **UAT-OPS-15** | Kwitansi | â³ PENDING | Belum diuji |
 
 ### Bug Ditemukan Selama UAT Fase 1
 
 | ID | Deskripsi | Severity |
 |----|-----------|----------|
-| **BUG-UAT-001** | Simpanan Transaksi Tambah: MOCK data, bukan API real | 🔴 Critical |
-| **BUG-UAT-002** | Dashboard: Total Pinjaman Aktif = Rp 0 (belum hitungkan status approved) | 🟡 Medium |
-| **BUG-UAT-003** | Jurnal Umum Tambah Entry: setTimeout simulasi, bukan API | 🟠 High |
+| **BUG-UAT-001** | Simpanan Transaksi Tambah: MOCK data, bukan API real | ðŸ”´ Critical |
+| **BUG-UAT-002** | Dashboard: Total Pinjaman Aktif = Rp 0 (belum hitungkan status approved) | ðŸŸ¡ Medium |
+| **BUG-UAT-003** | Jurnal Umum Tambah Entry: setTimeout simulasi, bukan API | ðŸŸ  High |
 
 ---
-*Update: 7 April 2026 — UAT Operator Fase 1*
+*Update: 7 April 2026 â€” UAT Operator Fase 1*
 
 ---
 
-## UPDATE 10 April 2026 � Sesi Kas & Bank + Automasi
+## UPDATE 10 April 2026 — Sesi Kas & Bank + Automasi
 
 ### [FIX] Perbaikan Filter & Search Kas & Bank (kas-bank/page.tsx)
 
@@ -1151,7 +1208,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 **Detail Fix:**
 - DataTable di tab Riwayat Kas sekarang menerima searchColumn="description" untuk pencarian real-time
-- Tab Transaksi Unit sekarang memiliki Select dropdown filter: Toko, Simpan Pinjam, Cuci Mobil & Resto, Playstation, Gym � menggunakan ilteredUnitTransactions yang di-compute via useMemo
+- Tab Transaksi Unit sekarang memiliki Select dropdown filter: Toko, Simpan Pinjam, Cuci Mobil & Resto, Playstation, Gym — menggunakan ilteredUnitTransactions yang di-compute via useMemo
 
 ### [FIX] Perbaikan Import Excel Buku Kas (api/cash-bank/import/route.ts)
 
@@ -1176,12 +1233,12 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 | **FIX-DATA-001** | Pinjaman LN-SP-mnf9ky60-0013 (SUGESTI) dilunaskan via script karena dana sudah masuk di Buku Kas BANK JATIM | ? EXECUTED |
 
 **File:** prisma/resolve-sugesti-loan.ts  
-**Eksekusi:** 10 April 2026 � berhasil dijalankan ke Production DB  
+**Eksekusi:** 10 April 2026 — berhasil dijalankan ke Production DB  
 **Catatan:** Sisa pokok Rp 24.995.000 + bunga Rp 15.000.000 dihapuskan. Dana riil Rp 25.328.000 sudah tercatat di Buku Kas.
 
 ---
 
-*Diperbarui: 10 April 2026 � Sesi Kas & Bank*
+*Diperbarui: 10 April 2026 — Sesi Kas & Bank*
 
 ---
 
@@ -1205,4 +1262,5 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 - Komponen baru di `buku-kas/page.tsx` menampilkan breakdown saldo awal per rekening
 - Muncul otomatis ketika system mendeteksi transaksi "Sisa Setelah Serah Terima"
 - Grid 3-kolom responsif dengan desain gradient biru
+
 

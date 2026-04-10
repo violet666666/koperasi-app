@@ -57,6 +57,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [processing, setProcessing] = useState(false);
   const [showCart, setShowCart] = useState(false);
+  // Pending checkout method: digunakan agar member modal tahu metode bayar yang dipilih (cash/qris/salary_cut)
+  const [pendingCheckoutMethod, setPendingCheckoutMethod] = useState<'cash' | 'qris' | 'salary_cut'>('salary_cut');
   const [isKasirLocked, setIsKasirLocked] = useState(false);
 
   // Quick Sale State (Kasir Cepat)
@@ -300,6 +302,15 @@ export default function KasirScreen({ navigation: navProp }: any) {
     } finally { setProcessing(false); }
   };
 
+  // Buka member modal untuk identifikasi anggota (semua metode bayar)
+  const openMemberSelection = (method: 'cash' | 'qris' | 'salary_cut') => {
+    setPendingCheckoutMethod(method);
+    setMemberPiutang(null);
+    setMemberSearch('');
+    setMembers([]);
+    memberModalRef.current?.present();
+  };
+
   const handleCheckoutInit = (method: 'cash' | 'qris' | 'salary_cut') => {
     if (!isQuickSale && cart.length === 0) return;
     if (isQuickSale && (!quickAmount || Number(quickAmount) <= 0)) {
@@ -313,20 +324,17 @@ export default function KasirScreen({ navigation: navProp }: any) {
     }
 
     if (method === 'salary_cut') {
-      setMemberPiutang(null);
-      setMemberSearch('');
-      setMembers([]);
-      memberModalRef.current?.present();
+      openMemberSelection('salary_cut');
       return;
     }
 
-    // Cash
+    // Cash — tanya dulu apakah pelanggan anggota koperasi
     Alert.alert(
-      'Konfirmasi',
-      `Terima Pembayaran Tunai sejumlah ${formatRp(total)}?`,
+      'Pembayaran Tunai',
+      `Total: ${formatRp(total)}\n\nApakah pelanggan adalah anggota koperasi?`,
       [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Ya, Proses', onPress: () => isQuickSale ? performQuickCheckoutAPI('cash', null) : performStandardCheckoutAPI('cash', null) }
+        { text: 'Bukan Anggota', onPress: () => isQuickSale ? performQuickCheckoutAPI('cash', null) : performStandardCheckoutAPI('cash', null) },
+        { text: 'Ya, Pilih Anggota', style: 'default', onPress: () => openMemberSelection('cash') },
       ]
     );
   };
@@ -732,11 +740,15 @@ export default function KasirScreen({ navigation: navProp }: any) {
             style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]}
             onPress={() => {
               qrisModalRef.current?.dismiss();
-              if (isQuickSale) {
-                performQuickCheckoutAPI('qris', null);
-              } else {
-                performStandardCheckoutAPI('qris', null);
-              }
+              // Tanya apakah pelanggan anggota koperasi
+              Alert.alert(
+                'QRIS Berhasil',
+                'Apakah pelanggan adalah anggota koperasi?',
+                [
+                  { text: 'Bukan Anggota', onPress: () => isQuickSale ? performQuickCheckoutAPI('qris', null) : performStandardCheckoutAPI('qris', null) },
+                  { text: 'Ya, Pilih Anggota', style: 'default', onPress: () => openMemberSelection('qris') },
+                ]
+              );
             }}
           >
             <Ionicons name="checkmark-circle" size={20} color="#FFF" />
@@ -747,18 +759,19 @@ export default function KasirScreen({ navigation: navProp }: any) {
     );
   }
 
-  // ── Member Modal (Potong Gaji) ────────────────────────────────────────────
+  // ── Member Modal (Semua Metode Bayar - Identifikasi Anggota) ─────────────
   function renderMemberModal() {
-    // S2-02: Cek apakah bisa transaksi berdasarkan piutang
-    const canProceed = !memberPiutang || memberPiutang.canTransact && total <= memberPiutang.sisaLimit;
-    const limitTooLow = memberPiutang && total > memberPiutang.sisaLimit;
+    const isSalaryCut = pendingCheckoutMethod === 'salary_cut';
+    // S2-02: Cek piutang hanya untuk potong gaji
+    const canProceed = !isSalaryCut || !memberPiutang || memberPiutang.canTransact && total <= memberPiutang.sisaLimit;
+    const limitTooLow = isSalaryCut && memberPiutang && total > memberPiutang.sisaLimit;
 
     return (
       <>
         <BottomSheetModal ref={memberModalRef} snapPoints={snapPointsMember} backdropComponent={renderBackdrop} keyboardBehavior="extend">
           <View style={{ flex: 1, padding: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Cari Nama Anggota</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{isSalaryCut ? 'Kredit / Potong Gaji' : 'Pilih Anggota'}</Text>
                 <TouchableOpacity onPress={() => { memberModalRef.current?.dismiss(); setMemberPiutang(null); }}>
                   <Ionicons name="close" size={24} color="#666" />
                 </TouchableOpacity>
@@ -815,9 +828,18 @@ export default function KasirScreen({ navigation: navProp }: any) {
                     <TouchableOpacity
                       style={styles.modalMemberItem}
                       onPress={async () => {
-                        // S2-02: Fetch piutang info sebelum konfirmasi
-                        await fetchMemberPiutang(item.id);
-                        // Setelah fetch, cek kembali limitTooLow
+                        if (isSalaryCut) {
+                          // S2-02: Fetch piutang info sebelum konfirmasi
+                          await fetchMemberPiutang(item.id);
+                        } else {
+                          // Cash/QRIS: langsung proses dengan memberId
+                          memberModalRef.current?.dismiss();
+                          if (isQuickSale) {
+                            performQuickCheckoutAPI(pendingCheckoutMethod, item.id);
+                          } else {
+                            performStandardCheckoutAPI(pendingCheckoutMethod, item.id);
+                          }
+                        }
                       }}
                     >
                       {/* S2-04: Avatar inisial */}
@@ -841,7 +863,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
               )}
 
               {/* Tombol konfirmasi — muncul setelah member di-tap dan piutang di-fetch */}
-              {memberPiutang && !loadingPiutang && (
+              {/* Tombol konfirmasi hanya untuk mode Potong Gaji (perlu validasi piutang) */}
+              {isSalaryCut && memberPiutang && !loadingPiutang && (
                 <TouchableOpacity
                   style={[styles.cashBtn, { marginTop: 16, opacity: limitTooLow ? 0.4 : 1 }]}
                   disabled={!!limitTooLow || processing}

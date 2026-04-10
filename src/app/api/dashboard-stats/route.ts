@@ -22,6 +22,7 @@ export async function GET() {
             todayTransactions,
             pendingApprovals,
             todayStoreSales,
+            cashBankAccounts,
         ] = await Promise.all([
             // Total active members
             prisma.member.count({
@@ -69,6 +70,13 @@ export async function GET() {
                     createdAt: { gte: today, lt: tomorrow },
                 },
                 select: { totalAmount: true, metadata: true }
+            }),
+
+            // Active cash bank accounts for live balances
+            prisma.cashBankAccount.findMany({
+                where: { isActive: true, deletedAt: null },
+                select: { id: true, code: true, name: true, currentBalance: true },
+                orderBy: { code: "asc" }
             }),
         ]);
 
@@ -218,7 +226,15 @@ export async function GET() {
             membersWithTunkin: tunkinStats._count.tunlesKinerja || 0,
 
             // Cash Flow Chart dynamic data
-            cashFlowChart
+            cashFlowChart,
+
+            // Live Bank Balances
+            cashBankAccounts: cashBankAccounts.map(acc => ({
+                id: acc.id,
+                code: acc.code,
+                name: acc.name,
+                currentBalance: Number(acc.currentBalance)
+            }))
         };
 
         return NextResponse.json({ data: stats });

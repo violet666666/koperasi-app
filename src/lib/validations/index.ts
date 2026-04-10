@@ -167,14 +167,20 @@ export const createCashBankTransactionSchema = z.object({
         "simpanan_sukarela",
         "angsuran_pokok",
         "jasa_pinjaman",
+        "pendapatan_unit",
         "pencairan_pinjaman",
         "biaya_operasional",
+        "beban_unit",
+        "hpp_toko",
+        "hutang_mitra",
         "transfer",
         "lainnya"
     ]).optional(),
     amount: z.number().positive(),
     description: z.string().optional(),
     transactionDate: z.string().optional().default(new Date().toISOString()).transform((s) => new Date(s)),
+    unitType: z.string().optional().nullable(),
+    memberId: z.number().int().positive().optional().nullable(),
 });
 
 // Transfer validation schemas

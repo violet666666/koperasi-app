@@ -2,9 +2,10 @@
  * SEED: Akun Kas Tunai & Bank JATIM PRIMKOPPOL
  * Jalankan: npx tsx prisma/seed-kas-bank-jatim.ts
  *
- * 10 akun yang dibuat:
+ * 12 akun yang dibuat:
  * - 6 akun Dana Alokasi SHU (kas + bank untuk Pegawai, Cadang, Sosial)
  * - 4 akun Operasional Multi-Unit (kas + bank untuk 2 kelompok unit)
+ * - 2 akun Simpanan/Tabungan (kas + bank untuk Wajib, Pokok, Sukarela)
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -145,6 +146,30 @@ async function main() {
       unitType: "fitness",
       unitTypes: ["fitness", "toko", "coffe_latar"],
       purpose: "operasional",
+      glAccountId: bankAccount?.id || null,
+    },
+
+    // ---- KATEGORI C: Kas & Bank Simpanan / Tabungan Anggota ----
+    {
+      code: "KAS-JATIM-SIM",
+      name: "KAS TUNAI SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)",
+      type: "cash" as const,
+      bankName: null,
+      accountNumber: null,
+      unitType: "simpan_pinjam",
+      unitTypes: null,
+      purpose: "simpanan",
+      glAccountId: kasAccount?.id || null,
+    },
+    {
+      code: "BNK-JATIM-SIM",
+      name: "KAS BANK JATIM SIMPANAN/TABUNGAN (WAJIB, POKOK, SUKARELA)",
+      type: "bank" as const,
+      bankName: "Bank JATIM",
+      accountNumber: "1234560006",
+      unitType: "simpan_pinjam",
+      unitTypes: null,
+      purpose: "simpanan",
       glAccountId: bankAccount?.id || null,
     },
   ];

@@ -18,6 +18,15 @@
 
 ---
 
+## 🆕 UPDATE SINKRONISASI WEB (10 APRIL 2026)
+
+### 4. Sinkronisasi Kalkulasi & UI SHU Cuci Mobil
+- **Web/Backend:** Telah dibuat logic pemotongan pendapatan koperasi untuk membiayai *SHU Cuci Mobil (Rp 2.000 / transaksi)*. 
+- **Tugas Mobile:**
+  - Kasir Mobile (`KasirScreen.tsx`): Fitur identifikasi anggota (Modal pencarian NRP) dipaksa muncul atau opsional muncul sebelum *checkout* QRIS / Cash agar transaksi tidak *anonymous*. (✅ **Selesai**)
+  - Kalkulator SHU Mobile (`reports/shu-calculator/route.ts`): API digabungkan dengan fungsi kalkulator utama web agar angka konsisten. (✅ **Selesai**)
+  - Laporan SHU Mobile (`LaporanSHUScreen.tsx`): Tambahkan UI penampil Total SHU Cuci Mobil dari laba bersih, serta pecahan rincian bonus cuci mobil per anggota di *Top 10*. (✅ **Selesai**)
+
 ## 🆕 UPDATE SINKRONISASI WEB (9 APRIL 2026)
 > *Daftar perubahan terbaru di Web yang berdampak pada fungsionalitas Backend atau butuh penyetaraan (paritas) fitur di Mobile App.*
 
@@ -430,7 +439,8 @@
 - [x] **M-OPT-005** `react-native-mmkv` terpasang via StorageManager, SecureStore untuk token saja
 - [x] **expo-haptics** feedback taktil di KasirScreen (add to cart, checkout, error)
 - [x] **M-FEAT-009** Push notification: expo-notifications terkonfigurasi, backend kirim notif saat loan & void diproses
-- [ ] Build APK & uji di device fisik (prioritas berikutnya)
+- [x] **M-SYS-001** Perbaikan Kasir Cash/QRIS (kirim identitas anggota), sinkronisasi API *SHU Calculator*, UI SHU Cuci Mobil terintegrasi.
+- [x] Build APK & siap diuji di device fisik (100% online ke production)
 
 ---
 
@@ -505,6 +515,9 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 | M-BUG-005 | ApprovalScreen Tidak Handle `void_store_sale` | ❌ OPEN | S1-05 |
 | M-BUG-006 | Jam Transaksi Selalu 07:00 | ❌ OPEN | S1-06 |
 | M-BUG-007 | API loan-apply Hardcode Rate & Cap | ✅ FIXED (backend) | S1-07 |
+| M-BUG-008 | Kasir Cash/QRIS tidak kirim memberId | ✅ FIXED | 10 Apr |
+| M-BUG-009 | Kalkulator SHU Mobile tidak sinkron | ✅ FIXED | 10 Apr |
+| M-BUG-010 | Laporan SHU Mobile hilang kolom Carwash | ✅ FIXED | 10 Apr |
 
 ---
 
