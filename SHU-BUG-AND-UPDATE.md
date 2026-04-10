@@ -78,3 +78,24 @@ Sesuai kebijakan AD-ART, setiap anggota yang mencuci mobil di unit Cuci Mobil Ko
 - `src/app/(protected)/cuci-mobil/kasir/page.tsx`: Memperbaiki bug memberId & endpoint agar data tercatat benar ke `UnitTransaction`.
 
 **Transparansi:** Kolom SHU Cuci Mobil tampil real-time di estimasi dan hover tooltip menunjukkan rincian `N transaksi x Rp 2.000`.
+
+---
+
+## 7. SINKRONISASI MOBILE APP (10 April 2026)
+
+### F. Bug Kritis Mobile App
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi |
+|:---|:---|:---|:---|:---|:---|
+| **11** | Mobile POS Kasir | `mobile/src/screens/kasir/KasirScreen.tsx` (L329, L736) | 🔴 **CRITICAL** | **memberId Selalu NULL pada Cash/QRIS:** Checkout tunai & QRIS memanggil `performQuickCheckoutAPI('cash', null)` tanpa opsi identifikasi anggota. Hanya potong gaji yang membuka modal pilih anggota. Dampak: semua transaksi cuci mobil tunai/QRIS di mobile tercatat tanpa `memberId` → SHU Cuci Mobil = 0. | **✓ [CLOSED]** Cash & QRIS kini menampilkan prompt "Apakah pelanggan anggota koperasi?" sebelum proses. Jika ya → buka modal pilih anggota → `memberId` dikirim. |
+| **12** | Mobile API SHU Calculator | `src/app/api/mobile/reports/shu-calculator/route.ts` | 🟡 **MEDIUM** | **Kalkulator Terpisah:** API mobile memiliki kalkulator SHU sendiri (248 baris) yang berbeda dari kalkulator utama (`shu-calculator.ts`). Tidak include: HPP Toko, kontribusi Unit, dan **SHU Cuci Mobil**. Akibatnya data SHU di mobile berbeda dari web admin. | **✓ [CLOSED]** Diganti menjadi thin wrapper yang memanggil `calculateSystemSHU()` dari `shu-calculator.ts`, memastikan data 100% identik antara web dan mobile. |
+| **13** | Mobile Laporan SHU | `mobile/src/screens/operator/LaporanSHUScreen.tsx` (L233) | 🟡 **UI GAP** | **Kolom SHU Cuci Mobil Tidak Tampil:** Top 10 anggota penerima SHU hanya menampilkan "Jasa Modal & Pelayanan" tanpa rincian bonus cuci mobil. | **✓ [CLOSED]** Ditambahkan: (1) Card info total beban SHU Cuci Mobil nasional, (2) Rincian per-anggota `🚗 SHU Cuci Mobil: Rp X (Nx)`, (3) Info box transparansi. |
+
+### G. File Mobile yang Dimodifikasi
+
+- `mobile/src/screens/kasir/KasirScreen.tsx`: Prompt "Apakah pelanggan anggota?" pada Cash & QRIS, `pendingCheckoutMethod` state untuk tracking metode bayar.
+- `src/app/api/mobile/reports/shu-calculator/route.ts`: Direfaktor dari 248 baris → ~70 baris thin wrapper menggunakan `calculateSystemSHU()`.
+- `mobile/src/screens/operator/LaporanSHUScreen.tsx`: Kartu SHU Cuci Mobil (cyan) + rincian per anggota.
+- `src/app/api/mobile/summary/route.ts`: `carwashBonus` & `carwashCount` sudah diekspos ke estimasi SHU mobile.
+
+*Status: Mobile App kini SINKRON dengan Web App untuk fitur SHU Cuci Mobil.*
