@@ -74,3 +74,4 @@ prisma/reset-kas-import.ts
 prisma/migrate-cm.ts
 prisma/cleanup-garbage-transactions.ts
 temp-shu-query.ts
+query-db.js

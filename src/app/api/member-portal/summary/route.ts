@@ -103,12 +103,7 @@ export async function GET() {
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            // System total Simpanan Wajib & Simpanan Pokok (all active members)
-            prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
-            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
             // My contributions
-            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
@@ -121,13 +116,31 @@ export async function GET() {
         const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
 
-        // System denominators — ALL savings: deposit transactions + Simpanan Wajib + simpanan pokok balances
-        const totalSysSavings = Number(sysSavingsDeposits._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
-        // Also get total active savings balances for minimum SHU floor
-        const totalActiveSavingsBalance = await prisma.savingsAccount.aggregate({
-            where: { status: "active" }, _sum: { balance: true }
+        // --- Calculate System-Wide Savings Capital ---
+        // To prevent double counting between legacy `tabunganWajib` and new `savingsAccounts`
+        const allRelevantMembers = await prisma.member.findMany({
+            where: { status: "active", deletedAt: null },
+            select: { id: true, tabunganWajib: true, savingsAccounts: { select: { balance: true, product: { select: { type: true } } } } }
         });
-        const totalSavingsCapital = Number(totalActiveSavingsBalance._sum.balance || 0) + Number(sysTajib._sum.tabunganWajib || 0);
+        
+        let totalSysSavings = 0;
+        let mySavCont = 0;
+
+        for (const m of allRelevantMembers) {
+            let mSav = 0;
+            let hasImportedWajib = false;
+            for (const acc of m.savingsAccounts) {
+                mSav += Number(acc.balance);
+                if (acc.product.type === "wajib" && Number(acc.balance) > 0) hasImportedWajib = true;
+            }
+            if (!hasImportedWajib) mSav += Number(m.tabunganWajib || 0); // Legacy fallback
+            
+            totalSysSavings += mSav;
+            if (m.id === memberId) mySavCont = mSav;
+        }
+
+        totalSysSavings = totalSysSavings || 1;
+        const totalSavingsCapital = totalSysSavings;
 
         // --- Jasa Simpanan Pool (20%) ---
         // Based on TOTAL koperasi surplus, with a MINIMUM FLOOR based on estimated
@@ -142,11 +155,6 @@ export async function GET() {
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
 
-        // My numerators — savings includes deposits + Simpanan Wajib + simpanan pokok
-        const myTabWajib = member.tabunganWajib ? Number(member.tabunganWajib) : 0;
-        const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
-        const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
-        
         // 1. Calculate Jasa Modal (Proportional Pool)
         const myModal = (mySavCont / totalSysSavings) * jasaModalPool;
 

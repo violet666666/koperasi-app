@@ -331,6 +331,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
     // Temukan POKOK dan WAJIB dasar
     const pokokIdx = headers.findIndex(h => h === "pokok" || h === "simpanan pokok");
     const wajibIdx = headers.findIndex(h => h === "wajib" || h.includes("saldo wajib"));
+    const sukarelaIdx = headers.findIndex(h => h === "ms" || h === "m s" || h.includes("sukarela") || h === "manasuka" || h === "m.s" || h === "m.s.");
     
     // Temukan kolom JML
     let tajibIdx = -1;
@@ -367,6 +368,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
 
     const globalPProd = await prisma.savingsProduct.findFirst({ where: { type: "pokok" }});
     const globalWProd = await prisma.savingsProduct.findFirst({ where: { type: "wajib" }});
+    const globalSProd = await prisma.savingsProduct.findFirst({ where: { type: "sukarela" }});
 
     const results: any[] = [];
     let successCount = 0;
@@ -385,6 +387,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
 
         const pokok = pokokIdx >= 0 ? cleanNumber(row[pokokIdx]) : 0;
         const wajibAwal = wajibIdx >= 0 ? cleanNumber(row[wajibIdx]) : 0;
+        const sukarelaAwal = sukarelaIdx >= 0 ? cleanNumber(row[sukarelaIdx]) : 0;
         const totalJmlNum = cleanNumber(row[tajibIdx] || 0);
 
         const monthlyDeposits: { monthName: string, amount: number }[] = [];
@@ -424,6 +427,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                     await prisma.$transaction(async (tx) => {
                         let pokokAcc = member.savingsAccounts.find((a: any) => a.product.type === "pokok");
                         let wajibAcc = member.savingsAccounts.find((a: any) => a.product.type === "wajib");
+                        let sukarelaAcc = member.savingsAccounts.find((a: any) => a.product.type === "sukarela");
 
                         // Create account if not exists
                         if (!pokokAcc && pokok > 0 && globalPProd) {
@@ -438,9 +442,16 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                                 include: { product: true }
                             });
                         }
+                        if (!sukarelaAcc && sukarelaAwal > 0 && globalSProd) {
+                            sukarelaAcc = await tx.savingsAccount.create({
+                                data: { memberId: member.id, productId: globalSProd.id, balance: 0, status: "active" },
+                                include: { product: true }
+                            });
+                        }
 
                         let currentPokok = pokokAcc ? Number(pokokAcc.balance) : 0;
                         let currentWajib = wajibAcc ? Number(wajibAcc.balance) : 0;
+                        let currentSukarela = sukarelaAcc ? Number(sukarelaAcc.balance) : 0;
 
                         // 1. Simpanan Pokok
                         if (pokokAcc && pokok > 0) {
@@ -518,17 +529,42 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                             }
                         }
 
+                        // 4. Simpanan Sukarela (MS)
+                        if (sukarelaAcc && sukarelaAwal > 0) {
+                            const sDiff = sukarelaAwal - currentSukarela;
+                            if (sDiff !== 0) {
+                                await tx.savingsTransaction.create({
+                                    data: {
+                                        transactionNo: `IMP-SKR-${member.id}-${Date.now()}-${i}`,
+                                        accountId: sukarelaAcc.id,
+                                        memberId: member.id,
+                                        productId: sukarelaAcc.productId,
+                                        branchId: member.branchId,
+                                        type: 'correction',
+                                        amount: Math.abs(sDiff),
+                                        balanceBefore: currentSukarela,
+                                        balanceAfter: sukarelaAwal,
+                                        notes: 'Import Saldo Sukarela / MS (Excel TAJIB)',
+                                        transactionDate: new Date(),
+                                        createdById: 1
+                                    }
+                                });
+                                currentSukarela = sukarelaAwal;
+                            }
+                        }
+
                         // Update balances at the end
                         if (pokokAcc) await tx.savingsAccount.update({ where: { id: pokokAcc.id }, data: { balance: currentPokok } });
                         if (wajibAcc) await tx.savingsAccount.update({ where: { id: wajibAcc.id }, data: { balance: currentWajib } });
+                        if (sukarelaAcc) await tx.savingsAccount.update({ where: { id: sukarelaAcc.id }, data: { balance: currentSukarela } });
                     });
 
                     results.push({
                         row: i + 2, nrp: member.nrp || nrp, nama: rawNama, 
                         tajib: totalJmlNum, 
                         memberId: member.id, memberName: member.name,
-                        status: 'valid', reason: `Masuk: PKK (${pokok}), WJB_Awl (${wajibAwal}), +${monthlyDeposits.length} bln`,
-                        currentTajib: (wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)),
+                        status: 'valid', reason: `Masuk: PKK (${pokok}), WJB_Awl (${wajibAwal}), MS (${sukarelaAwal}), +${monthlyDeposits.length} bln`,
+                        currentTajib: (pokok + sukarelaAwal + wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)),
                     });
                     successCount++;
                 } catch(e) {
@@ -545,8 +581,8 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                 row: i + 2, nrp: member.nrp || nrp, nama: rawNama, tajib: totalJmlNum,
 
                 memberId: member.id, memberName: member.name,
-                status: 'valid', reason: `Dideteksi: PKK (${pokok}), WJB_Awl (${wajibAwal}), +${monthlyDeposits.length} bln setoran`,
-                currentTajib: (wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)), // Math check
+                status: 'valid', reason: `Dideteksi: PKK (${pokok}), WJB_Awl (${wajibAwal}), MS (${sukarelaAwal}), +${monthlyDeposits.length} bln setoran`,
+                currentTajib: (pokok + sukarelaAwal + wajibAwal + monthlyDeposits.reduce((a,b) => a+b.amount, 0)), // Math check
             });
             successCount++;
         }

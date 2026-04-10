@@ -108,15 +108,22 @@ export default function MemberDashboardPage() {
     const data = response?.data;
     const salary = data?.member?.salary || 0;
     const tunkin = data?.member?.tunlesKinerja ? Number(data.member.tunlesKinerja) : 0;
-    const tabunganWajib = data?.member?.tabunganWajib ? Number(data.member.tabunganWajib) : 0;
     const totalLoanOutstanding = data?.loans?.totalOutstanding || 0;
     const netAfterLoan = salary - totalLoanOutstanding;
     const hasApprovedLoan = data?.loans?.list?.some((l: any) => l.status === "approved") || false;
-
+    
     // Savings breakdown by product type
     const savingsAccounts = data?.savings?.accounts || [];
     const simpananPokok = savingsAccounts.filter((a: any) => a.product?.type === 'pokok').reduce((s: number, a: any) => s + a.balance, 0);
     const simpananSukarela = savingsAccounts.filter((a: any) => a.product?.type === 'sukarela' || a.product?.type === 'harian').reduce((s: number, a: any) => s + a.balance, 0);
+    
+    // Fallback: Jika sudah punya akun Simpanan Wajib dari Import TAJIB, gunakan akun tersebut.
+    // Jika belum di-import, gunakan saldo gelondongan dari legacy profil
+    const wajibAccount = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
+    const importedWajib = wajibAccount ? Number(wajibAccount.balance) : 0;
+    const legacyWajib = data?.member?.tabunganWajib ? Number(data.member.tabunganWajib) : 0;
+    
+    const tabunganWajib = importedWajib > 0 ? importedWajib : legacyWajib;
     const totalTabungan = tabunganWajib + simpananPokok + simpananSukarela;
 
     return (
