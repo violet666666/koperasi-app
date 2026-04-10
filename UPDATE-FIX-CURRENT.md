@@ -1206,3 +1206,8 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 - Muncul otomatis ketika system mendeteksi transaksi "Sisa Setelah Serah Terima"
 - Grid 3-kolom responsif dengan desain gradient biru
 
+
+
+### 11 April 2026 - Peningkatan Detail Card & Transparansi Bulanan
+1. **Detail Tabungan Accordion:** Meredesain antarmuka Card Tabungan pada Dashboard Anggota. Kini ketika anggota mengklik rincian Tabungan, sistem tidak hanya menampilkan total Simpanan Wajib, tetapi juga menjabarkan **Saldo Awal Akumulasi** beserta **rincian setoran bulan per bulan** secara rapi (contoh: + Rp 100.000 untuk Januari, Pebruari, dst).
+2. **Integrasi History API Savings:** Memutakhirkan Endpoint API /api/member-portal/summary/route.ts dengan menyisipkan riwayat mutasi 	ransactions khusus untuk import TAJIB Wajib, sehingga frontend bisa mengekstrak nama bulan setoran secara dinamis dari catatan mutasi.
