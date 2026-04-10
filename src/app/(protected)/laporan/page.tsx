@@ -10,6 +10,7 @@ import {
     Wallet,
     Building,
     Download,
+    Receipt,
 } from "lucide-react";
 
 const reportItems = [
@@ -68,6 +69,13 @@ const reportItems = [
         href: "/laporan/unduh",
         icon: Download,
         color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    },
+    {
+        title: "Faktur Potongan",
+        description: "Cetak slip potongan gaji anggota",
+        href: "/laporan/faktur-potongan",
+        icon: Receipt,
+        color: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
     },
 ];
 
