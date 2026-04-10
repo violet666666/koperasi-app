@@ -1391,3 +1391,11 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Excel TABUNGAN WAJIB memiliki 2 kelompok kolom identik (Pokok/Wajib/MS/JML masing-masing muncul 2x). Grup 1 = saldo periode lalu, Grup 2 = saldo terkini + kolom bulanan. Script menggunakan indIndex yang selalu mengambil Grup 1 (kolom pertama), sehingga saldo Wajib terbaca 7.800.000 padahal seharusnya 7.900.000.
 **Solusi:** Mengganti indIndex menjadi indLastIdx (reverse search) untuk kolom Pokok, Wajib, dan MS agar selalu mengambil kolom dari Grup 2 (Saldo Terkini) yang berdampingan dengan kolom bulan.
 **Status:** FIXED
+
+
+### BUG-091 (11 April 2026) - Gagal Import TAJIB: accountNo Wajib Diisi (Prisma Required Field)
+**File:** src/app/api/members/import/route.ts
+**Masalah:** Saat import TAJIB commit, sistem mencoba membuat akun Simpanan baru (Pokok/Sukarela) untuk anggota yang belum memiliki. Namun field ccountNo pada model SavingsAccount bersifat **required** (wajib) di Prisma schema, sementara kode tidak pernah menyediakannya. Akibatnya 789 dari 827 anggota gagal karena mereka membutuhkan pembuatan akun Pokok/Sukarela baru.
+**Kenapa 38 Berhasil?** 38 anggota tersebut kebetulan sudah memiliki akun Wajib dari import sebelumnya dan saldo Pokok/Sukarela = 0 di Excel, sehingga tidak perlu membuat akun baru.
+**Solusi:** Menambahkan auto-generate ccountNo unik (PKK-{NRP}-{timestamp}, WJB-{NRP}-{timestamp}, SKR-{NRP}-{timestamp}) pada setiap pembuatan akun simpanan baru.
+**Status:** FIXED
