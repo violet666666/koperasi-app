@@ -1430,3 +1430,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Frontend memaksa filter URL `purpose=simpanan` saat fetch akun Kas/Bank, padahal tidak ada satupun akun di database yang memiliki purpose tersebut. Akibatnya dropdown "Kas Koperasi" selalu berputar menampilkan "Memuat akun..." tanpa pernah terisi opsi.
 **Solusi:** Menghapus filter `purpose=simpanan` dan menggantinya dengan filter logis: tampilkan semua akun kas/bank umum (`!unitType && !purpose?.startsWith("shu_")`) sehingga akun operasional utama (Kas Besar, Bank BRI, Bank JATIM, dll) muncul dengan benar.
 **Status:** FIXED
+
+### BUG-097 (11 April 2026) - SHU Jasa Anggota Minus Akibat Void Contra-Entry
+**File:** `src/app/api/member-portal/summary/route.ts`
+**Masalah:** Query agregasi SHU pada `unitTransaction.aggregate` (baik system-wide maupun per-anggota) tidak mengecualikan transaksi berstatus `voided`. Contra-entry dari proses void memiliki nominal negatif (misal -Rp 15.000), sehingga saat dijumlahkan ke dalam pool SHU, total margin anggota menjadi minus dan menghasilkan persentase Jasa Anggota negatif (-0.03%).
+**Solusi:** Menambahkan filter `status: { not: "voided" }` pada seluruh query agregasi unit transaction yang terkait perhitungan SHU: `sysUnit` (system-wide income), `myUnit` (kontribusi per-anggota), dan `unitStats` (ringkasan per unit).
+**Status:** FIXED
+
+### BUG-098 (11 April 2026) - Setoran Baru Tidak Muncul di Detail Bulanan Dashboard
+**File:** `src/app/api/member-portal/summary/route.ts`, `src/app/portal/dashboard/page.tsx`
+**Masalah:** API summary hanya mengirimkan transaksi yang notes-nya dimulai dengan "Setoran Import TAJIB:" â€” sehingga setoran manual baru (bulan April dst) yang dibuat melalui form Tambah Transaksi Simpanan tidak pernah muncul di breakdown bulanan Dashboard anggota.
+**Solusi:** Menghapus filter notes yang terlalu ketat di API, dan memperbarui logika frontend agar menampilkan SEMUA transaksi deposit wajib. Label bulan sekarang diekstrak dari tanggal transaksi (untuk entri manual) atau dari notes (untuk entri import historis).
+**Status:** FIXED
