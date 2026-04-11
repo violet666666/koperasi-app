@@ -345,9 +345,9 @@ export default function MemberDashboardPage() {
                                         {/* Header: Tabungan Wajib Akumulasi */}
                                         {hasDetail && (
                                             <>
-                                                <div className="px-4 py-3 flex justify-between items-center bg-teal-50">
-                                                    <span className="text-sm font-semibold text-teal-800">💰 Tabungan Wajib (Akumulasi)</span>
-                                                    <span className="font-bold text-teal-800 font-mono">{formatCurrency(saldoAwal)}</span>
+                                                <div className="px-4 py-3 bg-teal-50/70 space-y-1 block">
+                                                    <div className="text-sm font-semibold text-teal-800">💰 Tabungan Wajib (Akumulasi)</div>
+                                                    <div className="font-bold text-teal-800 font-mono text-right">{formatCurrency(saldoAwal)}</div>
                                                 </div>
                                                 
                                                 {/* Dashed Separator */}
@@ -375,7 +375,7 @@ export default function MemberDashboardPage() {
                                         )}
 
                                         {/* Footer: Total Simpanan Wajib */}
-                                        <div className="bg-teal-50/50 px-4 py-3 flex justify-between items-center">
+                                        <div className="bg-teal-50 px-4 py-3 flex justify-between items-center">
                                             <span className="font-semibold text-sm text-teal-900">Tabungan Wajib (Tajib)</span>
                                             <span className="font-bold text-teal-900 text-base font-mono">{formatCurrency(tabunganWajib)}</span>
                                         </div>
@@ -386,30 +386,26 @@ export default function MemberDashboardPage() {
                             {/* === SIMPANAN POKOK === */}
                             <div className="border rounded-lg overflow-hidden">
                                 <div className="bg-blue-50 px-4 py-3 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-sm text-blue-800">Simpanan Pokok</p>
-                                        <p className="text-xs text-blue-600">Setoran awal saat menjadi anggota</p>
-                                    </div>
-                                    <p className="font-bold text-blue-800 text-lg font-mono">{formatCurrency(simpananPokok)}</p>
+                                    <span className="font-semibold text-sm text-blue-800">Simpanan Pokok</span>
+                                    <span className="font-bold text-blue-800 text-lg font-mono">{formatCurrency(simpananPokok)}</span>
                                 </div>
                             </div>
 
                             {/* === SIMPANAN SUKARELA === */}
                             <div className="border rounded-lg overflow-hidden">
                                 <div className="bg-emerald-50 px-4 py-3 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-sm text-emerald-800">Simpanan Sukarela</p>
-                                        <p className="text-xs text-emerald-600">Tabungan sukarela yang bisa ditarik</p>
-                                    </div>
-                                    <p className="font-bold text-emerald-800 text-lg font-mono">{formatCurrency(simpananSukarela)}</p>
+                                    <span className="font-semibold text-sm text-emerald-800">Simpanan Sukarela</span>
+                                    <span className="font-bold text-emerald-800 text-lg font-mono">{formatCurrency(simpananSukarela)}</span>
                                 </div>
                             </div>
 
-                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
-                                <p className="font-semibold">ℹ️ Catatan Penting:</p>
-                                <p>• Simpanan <strong>Pokok</strong> dan <strong>Wajib</strong> tidak dapat ditarik kecuali saat keluar keanggotaan.</p>
-                                <p>• Simpanan <strong>Sukarela</strong> dapat ditarik kapan saja melalui kasir.</p>
-                                <p>• Semakin besar tabungan Anda, semakin besar <strong>SHU Jasa Simpanan</strong> yang Anda terima.</p>
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-2">
+                                <p className="font-semibold text-sm flex items-center gap-1">ℹ️ Catatan Penting:</p>
+                                <ul className="pl-1 space-y-1">
+                                    <li>• Pokok & Wajib tidak bisa ditarik</li>
+                                    <li>• Sukarela bisa ditarik kapan saja</li>
+                                    <li>• Semakin besar = SHU semakin besar</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
