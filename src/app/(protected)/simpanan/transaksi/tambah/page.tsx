@@ -78,7 +78,7 @@ export default function TambahSimpananPage() {
     // ── Load master data on mount ──────────────────────────────────────────
     React.useEffect(() => {
         // Load savings products
-        fetch("/api/savings/products?perPage=50")
+        fetch("/api/master/savings-products?perPage=50")
             .then((r) => r.json())
             .then((json) => setProducts(json.data || []))
             .catch(() => toast.error("Gagal memuat produk simpanan"));

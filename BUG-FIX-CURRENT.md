@@ -1399,3 +1399,10 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Kenapa 38 Berhasil?** 38 anggota tersebut kebetulan sudah memiliki akun Wajib dari import sebelumnya dan saldo Pokok/Sukarela = 0 di Excel, sehingga tidak perlu membuat akun baru.
 **Solusi:** Menambahkan auto-generate ccountNo unik (PKK-{NRP}-{timestamp}, WJB-{NRP}-{timestamp}, SKR-{NRP}-{timestamp}) pada setiap pembuatan akun simpanan baru.
 **Status:** FIXED
+
+### BUG-092 (11 April 2026) - Gagal Memuat Produk Simpanan pada Transaksi Tambah
+**File:** src/app/(protected)/simpanan/transaksi/tambah/page.tsx
+**Masalah:** Saat membuka halaman Transaksi Simpanan Baru, muncul toast error "Gagal memuat produk simpanan" dan dropdown produk simpanan kosong.
+**Root Cause:** Halaman mencoba melakukan fetch data produk simpanan ke endpoint /api/savings/products, namun endpoint tersebut tidak ada (404 Not Found), karena endpoint sebenarnya adalah /api/master/savings-products.
+**Solusi:** Merubah endpoint fetch dari /api/savings/products menjadi /api/master/savings-products.
+**Status:** FIXED

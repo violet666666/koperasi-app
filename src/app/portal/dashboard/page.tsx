@@ -161,7 +161,7 @@ export default function MemberDashboardPage() {
                             <div className="text-2xl font-bold">
                                 {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
                             </div>
-                            <p className="text-xs opacity-80 mt-1">Sisa Gaji per bulan</p>
+                            <p className="text-xs opacity-80 mt-1">Sisa Gaji</p>
                         </CardContent>
                     </Card>
                 </InfoCardWrapper>
@@ -181,7 +181,7 @@ export default function MemberDashboardPage() {
                             <div className="text-2xl font-bold">
                                 {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : tunkin > 0 ? formatCurrency(tunkin) : "Belum diisi"}
                             </div>
-                            <p className="text-xs opacity-80 mt-1">Sisa Tunkin berjalan</p>
+                            <p className="text-xs opacity-80 mt-1">Sisa Tunkin</p>
                         </CardContent>
                     </Card>
                 </InfoCardWrapper>
