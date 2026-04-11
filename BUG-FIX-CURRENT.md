@@ -1418,3 +1418,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Endpoint Import API Next.js mencoba melakukan eksekusi ~800 baris x 5 transaksi secara sekuensial. Layanan Vercel Serverless Function otomatis memutus (timeout) seluruh API yang merespon lebih dari 10-15 detik. Hal ini membuat mayoritas anggota terbawah tidak pernah terimpor riwayatnya meski ada tombol berhasil di Front-End (karena proses loop terhenti paksa di Backend).
 **Solusi:** Menyuntikkan seluruh 805 histori bulanan secara manual dan langsung (bypass via script Node.js dari background) ke Neon Database Production (dengan tambahan Prisma Transaction Timeout maxWait: 10000, timeout: 30000ms).
 **Status:** FIXED secara Data Integrity
+
+### BUG-095 (11 April 2026) - Transaksi VOID Bengkak di Tagihan Piutang Dashboard Anggota
+**File:** `src/app/api/member-portal/summary/route.ts` & UI Dashboard
+**Masalah:** Saat admin toko menyetujui pembatalan/void (pembayaran dengan Potong Gaji), sistem mengubah status transaksi asli menjadi `voided` namun status `isPaid` secara default tetap `false`. Agregasi query Prisma hanya memfilter `{ isPaid: false }` tanpa mengesampingkan `status: "voided"`. Alhasil, transaksi basi yang sudah di-void masih terekam sebagai tagihan aktif (BELUM LUNAS) dan memberatkan total tagihan pada Dashboard Anggota. Selain itu, UI tidak memahami cara menampilkan baris/badge berstatus "voided".
+**Solusi:** Memasang pengecualian `status: { not: "voided" }` pada backend untuk melindungi kebersihan angka Piutang. Merombak mapping antarmuka dan `page.tsx` pada Dashboard serta Transaksi Anggota agar mendeteksi status "voided" & menempelkan badge peringatan berwarna abu-abu **"DIBATALKAN"**.
+**Status:** FIXED
+
+### BUG-096 (11 April 2026) - Dropdown Kas Koperasi Kosong pada Tambah Transaksi Simpanan
+**File:** `src/app/(protected)/simpanan/transaksi/tambah/page.tsx`
+**Masalah:** Frontend memaksa filter URL `purpose=simpanan` saat fetch akun Kas/Bank, padahal tidak ada satupun akun di database yang memiliki purpose tersebut. Akibatnya dropdown "Kas Koperasi" selalu berputar menampilkan "Memuat akun..." tanpa pernah terisi opsi.
+**Solusi:** Menghapus filter `purpose=simpanan` dan menggantinya dengan filter logis: tampilkan semua akun kas/bank umum (`!unitType && !purpose?.startsWith("shu_")`) sehingga akun operasional utama (Kas Besar, Bank BRI, Bank JATIM, dll) muncul dengan benar.
+**Status:** FIXED

@@ -1215,3 +1215,12 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 ### 11 April 2026 - Restrukturisasi Layout Dashboard & Validasi Skrip Eksekusi Import
 1. **Kesempurnaan Layout Tabungan Akumulasi:** Melakukan pembersihan ulang pada struktur visual (dashboard/page.tsx) guna mentransformasi tabel detail tabungan Anggota agar 100% presisi mengikuti mock-up ASCII. Pengaturan ini menghapus sub-teks tidak relevan dan menempatkan nominal sebaris yang rapi (termasuk bullet point catatan footer agar sesuai format terbaru).
 2. **Database Auto-Injection Script:** Menciptakan skrip injeksi do-import.js sebagai perlintasan khusus ke Database Neon guna menghindari kegagalan massal Vercel Timeout. Integrasi manual berhasil menuntaskan riwayat 805 anggota (+800 baris Mutasi Wajib, Pokok & Sukarela) tanpa kesalahan sedikit pun.
+
+### 11 April 2026 - Perbaikan Visual Status Void & Filter Piutang
+1. **Status Batal (VOID) Dashboard:** Menyelaraskan status visual transaksi anggota. Transaksi yang telah di-void oleh admin toko (seperti Potongan Gaji yang batal) kini secara otomatis berubah badge statusnya dari warna merah "BELUM LUNAS" menjadi abu-abu "DIBATALKAN" baik pada History Dashboard maupun laman List Transaksi Anggota.
+2. **Perbaikan Dropdown Kas Tambah Simpanan:** Menghapus paksaan query URL (`purpose=simpanan`) yang menyumbat drop-down "Kas Koperasi" pada halaman Transaksi Tambah. Sistem kini sanggup dan berhasil memanggil total Kas / Bank Master (Operasional) yang tersedia pada menu dropdown opsi pembayaran.
+
+### 11 April 2026 - Implementasi Fitur Brainstorm Simpanan (AD-ART Compliance)
+1. **Auto-Show Saldo Anggota:** Saat operator memilih anggota + produk simpanan pada form Tambah Transaksi, sistem otomatis mengambil dan menampilkan saldo rekening simpanan terkini milik anggota tersebut. Operator langsung tahu posisi saldo sebelum melakukan setoran/penarikan.
+2. **Blokir Penarikan Pokok & Wajib (AD-ART Pasal 26):** Opsi "Penarikan" secara otomatis dinonaktifkan (disabled + coret) jika produk yang dipilih adalah Simpanan Pokok atau Simpanan Wajib. Alert kuning muncul menjelaskan dasar hukum AD/ART Pasal 26. Backend juga diperkuat dengan guard yang memblokir request penarikan tersebut walau ada bypass.
+3. **Peningkatan Error Handling:** Pesan error saldo tidak cukup kini menyertakan informasi saldo aktual. Validasi produk tidak ditemukan juga ditambahkan di backend.
