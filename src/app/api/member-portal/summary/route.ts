@@ -104,7 +104,7 @@ export async function GET() {
         });
 
         const unpaidUnitTotal = await prisma.unitTransaction.aggregate({
-            where: { memberId, isPaid: false },
+            where: { memberId, isPaid: false, status: { not: "voided" } },
             _sum: { amount: true },
             _count: { id: true },
         });

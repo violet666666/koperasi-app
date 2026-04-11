@@ -569,7 +569,9 @@ export default function MemberDashboardPage() {
                                         </div>
                                         <div className="text-right">
                                             <div className="font-bold text-sm">{formatCurrency(tx.amount)}</div>
-                                            {!tx.isPaid ? (
+                                            {tx.status === "voided" ? (
+                                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded">DIBATALKAN</span>
+                                            ) : !tx.isPaid ? (
                                                 <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">BELUM LUNAS</span>
                                             ) : (
                                                 <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">LUNAS</span>

@@ -103,8 +103,14 @@ export default function TransaksiPortalPage() {
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <p className="font-semibold text-base">{tx.description}</p>
-                                                {!tx.isPaid && <Badge variant="destructive" className="h-5 text-[10px]">BELUM LUNAS</Badge>}
-                                                {tx.isPaid && <Badge variant="default" className="bg-emerald-500 h-5 text-[10px]">LUNAS</Badge>}
+                                                {tx.status === "voided" ? (
+                                                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300 h-5 text-[10px]">DIBATALKAN</Badge>
+                                                ) : (
+                                                    <>
+                                                        {!tx.isPaid && <Badge variant="destructive" className="h-5 text-[10px]">BELUM LUNAS</Badge>}
+                                                        {tx.isPaid && <Badge variant="default" className="bg-emerald-500 h-5 text-[10px]">LUNAS</Badge>}
+                                                    </>
+                                                )}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                                                 <span>{tx.transactionNo}</span>

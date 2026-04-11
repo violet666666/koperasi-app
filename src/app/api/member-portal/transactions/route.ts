@@ -75,6 +75,7 @@ export async function GET(request: Request) {
                 transactionDate: t.transactionDate,
                 isPaid: t.isPaid,
                 category: "unit",
+                status: t.status,
             }));
 
             const mappedStoreSales = storeSales
@@ -92,6 +93,7 @@ export async function GET(request: Request) {
                     transactionDate: s.createdAt,
                     isPaid: s.paymentMethod !== "salary_cut",
                     category: "unit",
+                    status: "completed",
                 }));
 
             // Merge & sort by date
