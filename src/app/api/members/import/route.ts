@@ -444,19 +444,19 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                         // Create account if not exists
                         if (!pokokAcc && pokok > 0 && globalPProd) {
                             pokokAcc = await tx.savingsAccount.create({
-                                data: { memberId: member.id, productId: globalPProd.id, balance: 0, status: "active", accountNo: `PKK-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
+                                data: { memberId: member.id, productId: globalPProd.id, branchId: member.branchId, balance: 0, status: "active", accountNo: `PKK-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
                                 include: { product: true }
                             });
                         }
                         if (!wajibAcc && (wajibAwal > 0 || monthlyDeposits.length > 0) && globalWProd) {
                             wajibAcc = await tx.savingsAccount.create({
-                                data: { memberId: member.id, productId: globalWProd.id, balance: 0, status: "active", accountNo: `WJB-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
+                                data: { memberId: member.id, productId: globalWProd.id, branchId: member.branchId, balance: 0, status: "active", accountNo: `WJB-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
                                 include: { product: true }
                             });
                         }
                         if (!sukarelaAcc && sukarelaAwal > 0 && globalSProd) {
                             sukarelaAcc = await tx.savingsAccount.create({
-                                data: { memberId: member.id, productId: globalSProd.id, balance: 0, status: "active", accountNo: `SKR-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
+                                data: { memberId: member.id, productId: globalSProd.id, branchId: member.branchId, balance: 0, status: "active", accountNo: `SKR-${member.memberNo || member.id}-${Date.now()}`, openedDate: new Date() },
                                 include: { product: true }
                             });
                         }
