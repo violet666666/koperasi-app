@@ -83,3 +83,6 @@ test-import.js
 verify-fix.js
 verify-import.js
 test-commit.js
+do-import.js
+test-db.js
+test-month.js
