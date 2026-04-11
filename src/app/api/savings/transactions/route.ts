@@ -89,15 +89,40 @@ export async function POST(request: Request) {
         const body = await request.json();
         const data = createSavingsTransactionSchema.parse(body);
 
-        const member = await prisma.member.findUnique({
-            where: { id: data.memberId },
-            select: { branchId: true },
-        });
+        const [member, product] = await Promise.all([
+            prisma.member.findUnique({
+                where: { id: data.memberId },
+                select: { branchId: true, status: true },
+            }),
+            prisma.savingsProduct.findUnique({
+                where: { id: data.productId },
+                select: { id: true, name: true, type: true, canWithdraw: true },
+            }),
+        ]);
 
         if (!member) {
             return NextResponse.json(
                 { message: "Anggota tidak ditemukan" },
                 { status: 404 }
+            );
+        }
+
+        if (!product) {
+            return NextResponse.json(
+                { message: "Produk simpanan tidak ditemukan" },
+                { status: 404 }
+            );
+        }
+
+        // ── AD-ART Pasal 26: Blokir penarikan Simpanan Pokok & Wajib ──
+        // Simpanan Pokok & Wajib TIDAK BOLEH ditarik selama anggota masih aktif.
+        // Hanya dapat dikembalikan saat: meninggal dunia, berhenti, atau koperasi bubar.
+        if (data.type === "withdrawal" && !product.canWithdraw && member.status === "active") {
+            return NextResponse.json(
+                {
+                    message: `${product.name} tidak dapat ditarik selama anggota masih aktif (AD/ART Pasal 26). Hanya Simpanan Sukarela yang dapat ditarik sewaktu-waktu.`
+                },
+                { status: 400 }
             );
         }
 
@@ -127,10 +152,10 @@ export async function POST(request: Request) {
 
         const currentBalance = Number(account.balance);
 
-        // Validate withdrawal
+        // Validate withdrawal — cek saldo cukup
         if (data.type === "withdrawal" && data.amount > currentBalance) {
             return NextResponse.json(
-                { message: "Saldo tidak mencukupi" },
+                { message: `Saldo tidak mencukupi. Saldo saat ini: Rp ${currentBalance.toLocaleString("id-ID")}` },
                 { status: 400 }
             );
         }

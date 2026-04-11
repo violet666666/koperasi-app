@@ -5,6 +5,29 @@ import { auth } from "@/lib/auth";
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
+
+        // ── Single-account lookup: GET /api/savings/accounts?memberId=X&productId=Y ──
+        const memberIdParam = searchParams.get("memberId");
+        const productIdParam = searchParams.get("productId");
+        if (memberIdParam && productIdParam) {
+            const account = await prisma.savingsAccount.findUnique({
+                where: {
+                    memberId_productId: {
+                        memberId: parseInt(memberIdParam),
+                        productId: parseInt(productIdParam),
+                    },
+                },
+                select: { id: true, accountNo: true, balance: true, status: true },
+            });
+            // Return balance (0 if no account yet)
+            return NextResponse.json({
+                data: account
+                    ? { balance: Number(account.balance), accountNo: account.accountNo, status: account.status }
+                    : { balance: 0, accountNo: null, status: null },
+            });
+        }
+
+        // ── Paginated list ──────────────────────────────────────────────────
         const page = parseInt(searchParams.get("page") || "1");
         const perPage = parseInt(searchParams.get("perPage") || "15");
         const search = searchParams.get("search");

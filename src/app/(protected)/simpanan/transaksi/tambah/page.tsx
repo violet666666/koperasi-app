@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Search, X, Banknote, Building2 } from "lucide-react";
+import { Loader2, Save, Search, X, Banknote, Building2, AlertTriangle, Wallet, ShieldAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatCurrency } from "@/lib/constants";
 
 interface MemberOption {
@@ -34,6 +35,7 @@ interface SavingsProduct {
     code: string;
     name: string;
     type: string;
+    canWithdraw: boolean;
 }
 
 interface CashBankAccount {
@@ -43,6 +45,8 @@ interface CashBankAccount {
     type: "cash" | "bank";
     bankName?: string | null;
     currentBalance: number;
+    unitType?: string | null;
+    purpose?: string | null;
 }
 
 export default function TambahSimpananPage() {
@@ -63,6 +67,10 @@ export default function TambahSimpananPage() {
     const [cashAccounts, setCashAccounts] = React.useState<CashBankAccount[]>([]);
     const [bankAccounts, setBankAccounts] = React.useState<CashBankAccount[]>([]);
 
+    // Member balance for selected product
+    const [memberBalance, setMemberBalance] = React.useState<number | null>(null);
+    const [balanceLoading, setBalanceLoading] = React.useState(false);
+
     // Form state
     const [formData, setFormData] = React.useState({
         type: "deposit",
@@ -74,6 +82,10 @@ export default function TambahSimpananPage() {
         notes: "",
         transactionDate: new Date().toISOString().split("T")[0],
     });
+
+    // Derived: selected product details
+    const selectedProduct = products.find((p) => String(p.id) === formData.productId) ?? null;
+    const isWithdrawBlocked = selectedProduct ? !selectedProduct.canWithdraw : false;
 
     // ── Load master data on mount ──────────────────────────────────────────
     React.useEffect(() => {
@@ -95,6 +107,33 @@ export default function TambahSimpananPage() {
             })
             .catch(() => toast.error("Gagal memuat akun Kas & Bank simpanan"));
     }, []);
+
+    // ── Auto-fetch member savings balance when member + product changes ───
+    React.useEffect(() => {
+        if (!selectedMember || !formData.productId) {
+            setMemberBalance(null);
+            return;
+        }
+        setBalanceLoading(true);
+        fetch(`/api/savings/accounts?memberId=${selectedMember.id}&productId=${formData.productId}`)
+            .then((r) => r.json())
+            .then((json) => {
+                if (json.data?.balance !== undefined) {
+                    setMemberBalance(Number(json.data.balance));
+                } else {
+                    setMemberBalance(0); // No account yet
+                }
+            })
+            .catch(() => setMemberBalance(null))
+            .finally(() => setBalanceLoading(false));
+    }, [selectedMember, formData.productId]);
+
+    // ── Auto-force deposit when product can't withdraw ────────────────────
+    React.useEffect(() => {
+        if (isWithdrawBlocked && formData.type === "withdrawal") {
+            setFormData((prev) => ({ ...prev, type: "deposit" }));
+        }
+    }, [isWithdrawBlocked, formData.type]);
 
     // ── Auto-select member from URL param ─────────────────────────────────
     React.useEffect(() => {
@@ -315,7 +354,7 @@ export default function TambahSimpananPage() {
                     <CardHeader>
                         <CardTitle className="text-lg">Jenis Transaksi</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                         <RadioGroup
                             value={formData.type}
                             onValueChange={(value) => handleSelectChange("type", value)}
@@ -328,12 +367,21 @@ export default function TambahSimpananPage() {
                                 </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="withdrawal" id="withdrawal" />
-                                <Label htmlFor="withdrawal" className="cursor-pointer font-medium text-red-600">
+                                <RadioGroupItem value="withdrawal" id="withdrawal" disabled={isWithdrawBlocked} />
+                                <Label htmlFor="withdrawal" className={`cursor-pointer font-medium ${isWithdrawBlocked ? "text-muted-foreground line-through" : "text-red-600"}`}>
                                     ↓ Penarikan
                                 </Label>
                             </div>
                         </RadioGroup>
+                        {isWithdrawBlocked && (
+                            <Alert className="border-amber-300 bg-amber-50">
+                                <ShieldAlert className="h-4 w-4 text-amber-600" />
+                                <AlertDescription className="text-amber-800 text-xs">
+                                    <strong>{selectedProduct?.name}</strong> tidak dapat ditarik selama anggota masih aktif (sesuai AD/ART Pasal 26).
+                                    Hanya <strong>Simpanan Sukarela</strong> yang dapat ditarik sewaktu-waktu.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -363,6 +411,26 @@ export default function TambahSimpananPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Saldo Saat Ini — muncul jika member + produk sudah dipilih */}
+                        {selectedMember && formData.productId && (
+                            <div className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3">
+                                <Wallet className="h-5 w-5 text-primary shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Saldo {selectedProduct?.name ?? "Simpanan"} saat ini</p>
+                                    {balanceLoading ? (
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                            <span className="text-sm">Memuat saldo...</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-base font-bold text-primary">
+                                            {memberBalance !== null ? formatCurrency(memberBalance) : "—"}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Jumlah */}
                         <div>
