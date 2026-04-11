@@ -335,10 +335,12 @@ export default function MemberDashboardPage() {
                             {(() => {
                                 const wajibAcc = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
                                 const wajibHistory = wajibAcc?.history || [];
-                                const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal'));
-                                const monthlyEntries = wajibHistory.filter((h: any) => h.notes?.startsWith('Setoran Import TAJIB:'));
+                                const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal') || h.notes?.includes('Import Saldo') || h.notes?.includes('Import/Update Saldo'));
+                                // ALL deposit entries that are NOT saldo awal = monthly detail
+                                const monthlyEntries = wajibHistory.filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h));
                                 const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + e.amount, 0);
                                 const hasDetail = saldoAwalEntries.length > 0 || monthlyEntries.length > 0;
+                                const monthNames = ['JANUARI', 'PEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
 
                                 return (
                                     <div className="border border-teal-200 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -359,7 +361,14 @@ export default function MemberDashboardPage() {
                                         {monthlyEntries.length > 0 && (
                                             <div className="px-4 py-2 space-y-1 bg-white">
                                                 {monthlyEntries.map((entry: any) => {
-                                                    const monthLabel = entry.notes?.replace('Setoran Import TAJIB: ', '') || '';
+                                                    // Label bulan: dari notes import, atau dari tanggal transaksi
+                                                    let monthLabel = '';
+                                                    if (entry.notes?.startsWith('Setoran Import TAJIB:')) {
+                                                        monthLabel = entry.notes.replace('Setoran Import TAJIB: ', '');
+                                                    } else {
+                                                        const d = new Date(entry.date || entry.transactionDate);
+                                                        monthLabel = monthNames[d.getMonth()] || '';
+                                                    }
                                                     return (
                                                         <div key={entry.id} className="flex justify-between items-center text-sm py-1">
                                                             <span className="text-muted-foreground font-medium w-32">📅 {monthLabel}</span>

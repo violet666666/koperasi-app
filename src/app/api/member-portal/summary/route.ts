@@ -37,14 +37,6 @@ export async function GET() {
                     },
                 },
                 transactions: {
-                    where: {
-                        OR: [
-                            { notes: { startsWith: "Setoran Import TAJIB:" } },
-                            { notes: { startsWith: "Import Saldo" } },
-                            { notes: { startsWith: "Import/Update Saldo" } },
-                            { notes: { startsWith: "Koreksi Edit" } },
-                        ]
-                    },
                     select: {
                         id: true,
                         type: true,
@@ -89,16 +81,21 @@ export async function GET() {
             0
         );
 
-        // Get unit transactions summary
+        // Get unit transactions summary (include voided for display but mark them)
         const unitTransactions = await prisma.unitTransaction.findMany({
             where: { memberId },
             orderBy: { transactionDate: "desc" },
             take: 10,
+            select: {
+                id: true, transactionNo: true, unitType: true, description: true,
+                amount: true, transactionDate: true, isPaid: true, paidDate: true,
+                status: true, paymentMethod: true,
+            },
         });
 
         const unitStats = await prisma.unitTransaction.groupBy({
             by: ["unitType"],
-            where: { memberId },
+            where: { memberId, status: { not: "voided" } },
             _sum: { amount: true },
             _count: { id: true },
         });
@@ -118,11 +115,11 @@ export async function GET() {
             // System-wide aggregates
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
-            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
+            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             // My contributions
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
-            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
         ]);
 
