@@ -1228,3 +1228,7 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 ### 12 April 2026 - Peningkatan UI/UX Dashboard Dashboard
 1. Menambahkan ekstensi visual `truncate` pada desain kartu statistik utama di Dashboard (`/dashboard`) agar angka miliaran / triliunan tidak mendobrak box dan membikin tampilan menjadi overflow.
 2. Memfasilitasi atribut `title` yang bersifat deskriptif jika user mengharapkan nominal utuh dengan *hovering*.
+
+### 12 April 2026 - Restrukturisasi Alur Buku Kas & Dashboard Anggota
+1. Menghapus kategori transaksional yang berpusat pada anggota (seperti Simpanan Pokok, Simpanan Wajib, Simpanan Sukarela, dan Angsuran/Jasa Pinjaman) dari formulir input manual Buku Kas (`/kas-bank/kas`). Hal ini demi mempertegas asas *Single Source of Truth* dalam sistem akuntansi; bahwa semua mutasi keuangan anggota *wajib* dilakukan lewat pintu masuk modul Anggota/Simpanan/Pinjaman, dan nantinya angka ini akan otomatis memantul/sinkron ke dalam Buku Kas tanpa campur tangan manual kedua kali.
+2. Menghapus *card* "Tagihan Unit / Tunggakan" dari layar beranda dasbor Anggota (`/portal/dashboard`). Selain memberi kesan layout yang lebih lega (kini berkonfigurasi 4 kolom sejajar alih-alih 5), ini akan membuat statistik profil pengguna tidak simpang siur.

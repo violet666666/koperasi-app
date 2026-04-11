@@ -476,11 +476,6 @@ export default function TransaksiKasPage() {
                                                 {transactionType === "in" ? (
                                                     <>
                                                         <SelectItem value="pendapatan_unit">Pendapatan Unit Usaha</SelectItem>
-                                                        <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
-                                                        <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
-                                                        <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
-                                                        <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
-                                                        <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
                                                         <SelectItem value="lainnya">Lainnya</SelectItem>
                                                     </>
                                                 ) : (
@@ -488,7 +483,6 @@ export default function TransaksiKasPage() {
                                                         <SelectItem value="biaya_operasional">Biaya Operasional</SelectItem>
                                                         <SelectItem value="beban_unit">Beban Operasional Unit</SelectItem>
                                                         <SelectItem value="hpp_toko">HPP / Pembelian Barang</SelectItem>
-                                                        <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
                                                         <SelectItem value="hutang_mitra">Kewajiban Bagi Hasil Mitra</SelectItem>
                                                         <SelectItem value="transfer">Transfer</SelectItem>
                                                         <SelectItem value="lainnya">Lainnya</SelectItem>
@@ -625,12 +619,6 @@ export default function TransaksiKasPage() {
                                     <SelectItem value="beban_unit">Beban Operasional Unit</SelectItem>
                                     <SelectItem value="hpp_toko">HPP / Pembelian Barang</SelectItem>
                                     <SelectItem value="hutang_mitra">Kewajiban Bagi Hasil Mitra</SelectItem>
-                                    <SelectItem value="simpanan_pokok">Simpanan Pokok</SelectItem>
-                                    <SelectItem value="simpanan_wajib">Simpanan Wajib</SelectItem>
-                                    <SelectItem value="simpanan_sukarela">Simpanan Sukarela</SelectItem>
-                                    <SelectItem value="angsuran_pokok">Angsuran Pinjaman</SelectItem>
-                                    <SelectItem value="jasa_pinjaman">Jasa Pinjaman</SelectItem>
-                                    <SelectItem value="pencairan_pinjaman">Pencairan Pinjaman</SelectItem>
                                     <SelectItem value="transfer">Transfer</SelectItem>
                                     <SelectItem value="lainnya">Lainnya</SelectItem>
                                 </SelectContent>

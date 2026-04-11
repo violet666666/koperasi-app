@@ -145,7 +145,7 @@ export default function MemberDashboardPage() {
             )}
 
             {/* 4 Main Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {/* 1. Gaji Bersih */}
                 <InfoCardWrapper
                     tooltip="Gaji bersih Anda yang tercatat di sistem PRIMKOPPOL."
@@ -224,25 +224,6 @@ export default function MemberDashboardPage() {
                     </Card>
                 </Link>
 
-                {/* 4. Tagihan / Bill Payment */}
-                <InfoCardWrapper
-                    tooltip="Total tagihan belanja unit PRIMKOPPOL Anda yang belum lunas."
-                    detailTitle="Tagihan Unit"
-                    detailDescription={"Menampilkan total tagihan dari seluruh unit layanan PRIMKOPPOL (Toko, Cuci Mobil, Fitness, dll) yang statusnya masih belum dibayar.\n\nTagihan ini biasanya dilunasi melalui potongan gaji bulanan atau pembayaran langsung ke kasir.\n\nUntuk melihat rincian tagihan per unit, lihat bagian 'Ringkasan Per Unit' di bawah."}
-                >
-                    <Card className="bg-gradient-to-br from-red-500 to-red-700 text-white border-0 shadow-md">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium opacity-90">Tagihan Unit</CardTitle>
-                            <Wallet className="h-4 w-4 opacity-75" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : formatCurrency(data?.unitTransactions?.unpaidTotal || 0)}
-                            </div>
-                            <p className="text-xs opacity-80 mt-1">{data?.unitTransactions?.unpaidCount || 0} transaksi belum lunas</p>
-                        </CardContent>
-                    </Card>
-                </InfoCardWrapper>
             </div>
 
             {/* Row 2: Tabungan + SHU (Clickable for detail) */}
