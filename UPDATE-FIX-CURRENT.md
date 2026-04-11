@@ -1224,3 +1224,7 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 1. **Auto-Show Saldo Anggota:** Saat operator memilih anggota + produk simpanan pada form Tambah Transaksi, sistem otomatis mengambil dan menampilkan saldo rekening simpanan terkini milik anggota tersebut. Operator langsung tahu posisi saldo sebelum melakukan setoran/penarikan.
 2. **Blokir Penarikan Pokok & Wajib (AD-ART Pasal 26):** Opsi "Penarikan" secara otomatis dinonaktifkan (disabled + coret) jika produk yang dipilih adalah Simpanan Pokok atau Simpanan Wajib. Alert kuning muncul menjelaskan dasar hukum AD/ART Pasal 26. Backend juga diperkuat dengan guard yang memblokir request penarikan tersebut walau ada bypass.
 3. **Peningkatan Error Handling:** Pesan error saldo tidak cukup kini menyertakan informasi saldo aktual. Validasi produk tidak ditemukan juga ditambahkan di backend.
+
+### 12 April 2026 - Peningkatan UI/UX Dashboard Dashboard
+1. Menambahkan ekstensi visual `truncate` pada desain kartu statistik utama di Dashboard (`/dashboard`) agar angka miliaran / triliunan tidak mendobrak box dan membikin tampilan menjadi overflow.
+2. Memfasilitasi atribut `title` yang bersifat deskriptif jika user mengharapkan nominal utuh dengan *hovering*.

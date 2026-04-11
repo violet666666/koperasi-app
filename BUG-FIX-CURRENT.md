@@ -1442,3 +1442,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** API summary hanya mengirimkan transaksi yang notes-nya dimulai dengan "Setoran Import TAJIB:" â€” sehingga setoran manual baru (bulan April dst) yang dibuat melalui form Tambah Transaksi Simpanan tidak pernah muncul di breakdown bulanan Dashboard anggota.
 **Solusi:** Menghapus filter notes yang terlalu ketat di API, dan memperbarui logika frontend agar menampilkan SEMUA transaksi deposit wajib. Label bulan sekarang diekstrak dari tanggal transaksi (untuk entri manual) atau dari notes (untuk entri import historis).
 **Status:** FIXED
+
+### BUG-099 (12 April 2026) - Total Simpanan Dashboard & Rekap Mengalami Double Counting
+**File:** `src/app/api/dashboard-stats/route.ts`, `src/app/api/reports/savings-recap/members/route.ts`
+**Masalah:** Dashboard memunculkan nominal Total Simpanan hingga 17 Miliar, padahal data asli adalah 8.5 Miliar. Penyebabnya adalah perhitungan agregasi backend secara keliru menjumlahkan saldo rekening `SavingsAccount` DITAMBAH dengan angka profil lawas di tabel `Member.tabunganWajib`. Karena data anggota sebelumnya sudah diimpor dan dipindah jadi `SavingsAccount` aktif, terjadi perhitungan ganda/dobel. Masalah serupa juga terjadi di logic halaman Rekap Anggota.
+**Solusi:** Menghapus peran ganda `member.tabunganWajib` dalam penjumlahan total. Satu-satunya Source of Truth sekarang mutlak berpatokan pada saldo aktif yang tertera di `SavingsAccount`.
+**Status:** FIXED
+
+### BUG-100 (12 April 2026) - PDF/Excel Rekap Simpanan Tidak Merekam Anggota Secara Penuh (Hanya Halaman 1) dan Kehilangan Total
+**File:** `src/app/(protected)/simpanan/rekap/page.tsx`, `src/lib/utils/export.ts`, `src/components/patterns/export-button.tsx`
+**Masalah:** User yang mencetak/export PDF dari halaman Rekap Simpanan hanya mendapatkan daftar berisi 50 data anggota saja (halaman aktif), tanpa ada ringkasan GRAND TOTAL di paling bawah.
+**Solusi:** Menyambungkan *data source* di komponen `ExportButton` menuju state `allData` (yang disokong oleh `fetchGrandTotals()` secara asinkronus). Kemudian, saya memperluas dukungan antarmuka utilitas `exportToPDF` & `exportToExcel` untuk menerima parameter baris total di bawah tabel (variabel `foot`), sehingga GRAND TOTAL dapat ditancapkan dan turut di-render oleh `jsPDF-autotable`.
+**Status:** FIXED
