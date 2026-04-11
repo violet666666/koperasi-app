@@ -186,8 +186,8 @@ export async function GET() {
             totalMembers: totalMembers,
             activeMembers: totalActiveMembers,
 
-            // Financial stats — combine SavingsAccount balances + tabunganWajib from Member
-            totalSavings: savingsAccountBalance + totalTabunganWajib,
+            // Financial stats — SavingsAccount balances already include imported Wajib
+            totalSavings: savingsAccountBalance,
             totalTabunganWajib: totalTabunganWajib,
             totalSavingsAccount: savingsAccountBalance,
             membersWithTabunganWajib: tabunganWajibStats._count.tabunganWajib || 0,

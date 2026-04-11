@@ -82,7 +82,7 @@ function StatsCard({
                         {isLoading ? (
                             <Skeleton className="h-8 w-24" />
                         ) : (
-                            <p className="text-2xl font-bold tabular-nums">{value}</p>
+                            <p className="text-2xl font-bold tabular-nums truncate" title={value}>{value}</p>
                         )}
                         {subtitle && (
                             <p className="text-xs text-muted-foreground">{subtitle}</p>

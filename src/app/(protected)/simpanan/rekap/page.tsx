@@ -58,6 +58,8 @@ export default function RekapSimpananPage() {
     });
     const [totalMembers, setTotalMembers] = React.useState(0);
 
+    const [allData, setAllData] = React.useState<MemberSavingsRecap[]>([]);
+
     // Debounce search
     React.useEffect(() => {
         const timer = setTimeout(() => {
@@ -83,9 +85,10 @@ export default function RekapSimpananPage() {
                 const json = await res.json();
 
                 setData(json.data || []);
+                if (debouncedSearch) setAllData(json.data || []); // Use filtered data for export if searching
                 setTotalPages(json.meta?.totalPages || 1);
                 setTotalMembers(json.meta?.total || 0);
-                if (json.totals) setTotals(json.totals);
+                if (json.totals && debouncedSearch) setTotals(json.totals); // When searching, totals come from this request
             } catch (error) {
                 console.error("Failed to fetch recap:", error);
             } finally {
@@ -103,6 +106,7 @@ export default function RekapSimpananPage() {
                 if (!res.ok) return;
                 const json = await res.json();
                 if (json.totals) setTotals(json.totals);
+                if (json.data) setAllData(json.data); // Save all data for export
                 setTotalMembers(json.meta?.total || 0);
             } catch {
                 // Silent fail for totals
@@ -130,7 +134,17 @@ export default function RekapSimpananPage() {
                         title="Rekap Simpanan Anggota"
                         filename="rekap_simpanan"
                         columns={exportColumns}
-                        data={data}
+                        data={allData.length > 0 ? allData : data}
+                        foot={[
+                            [
+                                "GRAND TOTAL",
+                                "",
+                                formatCurrencyExport(totals.totalPokok),
+                                formatCurrencyExport(totals.totalWajib),
+                                formatCurrencyExport(totals.totalSukarela),
+                                formatCurrencyExport(totals.grandTotal)
+                            ]
+                        ]}
                     />
                 }
             />

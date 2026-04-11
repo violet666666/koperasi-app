@@ -51,9 +51,6 @@ export async function GET(request: Request) {
                 .filter((acc) => acc.product.type === "pokok")
                 .reduce((sum, acc) => sum + Number(acc.balance), 0);
 
-            // Simpanan Wajib: from Member.tabunganWajib (imported CSV data)
-            const simpananWajib = Number(member.tabunganWajib || 0);
-
             // Simpanan Sukarela: from SavingsAccount where product type = 'sukarela'
             const simpananSukarela = member.savingsAccounts
                 .filter((acc) => acc.product.type === "sukarela")
@@ -64,12 +61,10 @@ export async function GET(request: Request) {
                 .filter((acc) => acc.product.type !== "pokok" && acc.product.type !== "sukarela" && acc.product.type !== "wajib")
                 .reduce((sum, acc) => sum + Number(acc.balance), 0);
 
-            // Also check if wajib type exists in SavingsAccount (in case some were created via transactions)
-            const simpananWajibFromAccount = member.savingsAccounts
+            // Simpanan Wajib: from SavingsAccount where product type = 'wajib'
+            const totalWajib = member.savingsAccounts
                 .filter((acc) => acc.product.type === "wajib")
                 .reduce((sum, acc) => sum + Number(acc.balance), 0);
-
-            const totalWajib = simpananWajib + simpananWajibFromAccount;
 
             return {
                 id: member.id,

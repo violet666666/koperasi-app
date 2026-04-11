@@ -26,6 +26,7 @@ interface ExportButtonProps {
     subtitle?: string;
     orientation?: "portrait" | "landscape";
     disabled?: boolean;
+    foot?: (string | number)[][];
 }
 
 /**
@@ -40,6 +41,7 @@ export function ExportButton({
     subtitle,
     orientation = "portrait",
     disabled = false,
+    foot,
 }: ExportButtonProps) {
     const [isExporting, setIsExporting] = React.useState(false);
 
@@ -62,6 +64,7 @@ export function ExportButton({
                 columns,
                 data,
                 orientation,
+                foot,
             };
 
             if (format === "excel") {

@@ -22,6 +22,7 @@ export interface ExportOptions {
     columns: ExportColumn[];
     data: Record<string, any>[];
     orientation?: "portrait" | "landscape";
+    foot?: (string | number)[][];
 }
 
 /**
@@ -46,6 +47,7 @@ export function exportToExcel(options: ExportOptions): void {
         ...(title ? [[title], []] : []),
         headers,
         ...rows,
+        ...(options.foot ? options.foot : []),
     ];
 
     // Create worksheet
@@ -114,6 +116,7 @@ export function exportToPDF(options: ExportOptions): void {
     autoTable(doc, {
         head: [headers],
         body: rows,
+        foot: options.foot || undefined,
         startY: yPos,
         theme: "grid",
         styles: {
