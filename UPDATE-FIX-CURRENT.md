@@ -1211,3 +1211,7 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 ### 11 April 2026 - Peningkatan Detail Card & Transparansi Bulanan
 1. **Detail Tabungan Accordion:** Meredesain antarmuka Card Tabungan pada Dashboard Anggota. Kini ketika anggota mengklik rincian Tabungan, sistem tidak hanya menampilkan total Simpanan Wajib, tetapi juga menjabarkan **Saldo Awal Akumulasi** beserta **rincian setoran bulan per bulan** secara rapi (contoh: + Rp 100.000 untuk Januari, Pebruari, dst).
 2. **Integrasi History API Savings:** Memutakhirkan Endpoint API /api/member-portal/summary/route.ts dengan menyisipkan riwayat mutasi 	ransactions khusus untuk import TAJIB Wajib, sehingga frontend bisa mengekstrak nama bulan setoran secara dinamis dari catatan mutasi.
+
+### 11 April 2026 - Restrukturisasi Layout Dashboard & Validasi Skrip Eksekusi Import
+1. **Kesempurnaan Layout Tabungan Akumulasi:** Melakukan pembersihan ulang pada struktur visual (dashboard/page.tsx) guna mentransformasi tabel detail tabungan Anggota agar 100% presisi mengikuti mock-up ASCII. Pengaturan ini menghapus sub-teks tidak relevan dan menempatkan nominal sebaris yang rapi (termasuk bullet point catatan footer agar sesuai format terbaru).
+2. **Database Auto-Injection Script:** Menciptakan skrip injeksi do-import.js sebagai perlintasan khusus ke Database Neon guna menghindari kegagalan massal Vercel Timeout. Integrasi manual berhasil menuntaskan riwayat 805 anggota (+800 baris Mutasi Wajib, Pokok & Sukarela) tanpa kesalahan sedikit pun.

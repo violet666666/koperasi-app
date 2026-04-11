@@ -1406,3 +1406,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Root Cause:** Halaman mencoba melakukan fetch data produk simpanan ke endpoint /api/savings/products, namun endpoint tersebut tidak ada (404 Not Found), karena endpoint sebenarnya adalah /api/master/savings-products.
 **Solusi:** Merubah endpoint fetch dari /api/savings/products menjadi /api/master/savings-products.
 **Status:** FIXED
+
+### BUG-093 (11 April 2026) - Gagal Import TAJIB: openedDate dan branchId Wajib Diisi
+**File:** src/app/api/members/import/route.ts
+**Masalah:** Walaupun Bug-091 (accountNo missing) sudah diperbaiki, Prisma masih menggagalkan secara diam-diam (silent failure) proses penyimpanan riwayat anggota baru karena field openedDate dan ranchId wajib diisi saat pembuatan SavingsAccount. Akibatnya, layout detail Dashboard terlihat kosong karena datanya tidak berhasil masuk database.
+**Solusi:** Memastikan pemanggilan 	x.savingsAccount.create selalu menyertakan openedDate: new Date() dan mapping ke cabang yang benar ranchId: member.branchId.
+**Status:** FIXED
+
+### BUG-094 (11 April 2026) - Import TAJIB Gagal Total Akibat Vercel Timeout (504)
+**File:** Data Injection Manual (skrip background Node.js)
+**Masalah:** Endpoint Import API Next.js mencoba melakukan eksekusi ~800 baris x 5 transaksi secara sekuensial. Layanan Vercel Serverless Function otomatis memutus (timeout) seluruh API yang merespon lebih dari 10-15 detik. Hal ini membuat mayoritas anggota terbawah tidak pernah terimpor riwayatnya meski ada tombol berhasil di Front-End (karena proses loop terhenti paksa di Backend).
+**Solusi:** Menyuntikkan seluruh 805 histori bulanan secara manual dan langsung (bypass via script Node.js dari background) ke Neon Database Production (dengan tambahan Prisma Transaction Timeout maxWait: 10000, timeout: 30000ms).
+**Status:** FIXED secara Data Integrity

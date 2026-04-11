@@ -83,11 +83,13 @@ export default function TambahSimpananPage() {
             .then((json) => setProducts(json.data || []))
             .catch(() => toast.error("Gagal memuat produk simpanan"));
 
-        // Load cash/bank accounts for simpanan (purpose=simpanan)
-        fetch("/api/master/cash-bank?purpose=simpanan&perPage=20")
+        // Load cash/bank accounts
+        fetch("/api/master/cash-bank?perPage=50")
             .then((r) => r.json())
             .then((json) => {
-                const accounts: CashBankAccount[] = json.data || [];
+                let accounts: CashBankAccount[] = json.data || [];
+                // Hanya gunakan akun kas/bank utama yang bukan milik unit usaha spesifik (toko/cuci mobil dll)
+                accounts = accounts.filter(a => !a.unitType && !a.purpose?.startsWith('shu_'));
                 setCashAccounts(accounts.filter((a) => a.type === "cash"));
                 setBankAccounts(accounts.filter((a) => a.type === "bank"));
             })
