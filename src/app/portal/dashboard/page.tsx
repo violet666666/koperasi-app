@@ -341,25 +341,28 @@ export default function MemberDashboardPage() {
                                 const hasDetail = saldoAwalEntries.length > 0 || monthlyEntries.length > 0;
 
                                 return (
-                                    <div className="border rounded-lg overflow-hidden">
-                                        {/* Header: Saldo Awal sebagai judul utama */}
-                                        {hasDetail ? (
-                                            <div className="bg-teal-50 px-4 py-3 border-b">
-                                                <div className="flex justify-between items-center">
+                                    <div className="border border-teal-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                                        {/* Header: Tabungan Wajib Akumulasi */}
+                                        {hasDetail && (
+                                            <>
+                                                <div className="px-4 py-3 flex justify-between items-center bg-teal-50">
                                                     <span className="text-sm font-semibold text-teal-800">💰 Tabungan Wajib (Akumulasi)</span>
                                                     <span className="font-bold text-teal-800 font-mono">{formatCurrency(saldoAwal)}</span>
                                                 </div>
-                                            </div>
-                                        ) : null}
+                                                
+                                                {/* Dashed Separator */}
+                                                <div className="border-t border-dashed border-teal-300"></div>
+                                            </>
+                                        )}
 
                                         {/* Rincian setoran bulanan */}
                                         {monthlyEntries.length > 0 && (
-                                            <div className="px-4 py-2 space-y-0.5 border-b bg-white">
+                                            <div className="px-4 py-2 space-y-1 bg-white">
                                                 {monthlyEntries.map((entry: any) => {
                                                     const monthLabel = entry.notes?.replace('Setoran Import TAJIB: ', '') || '';
                                                     return (
-                                                        <div key={entry.id} className="flex justify-between items-center text-sm py-1.5">
-                                                            <span className="text-muted-foreground">📅 {monthLabel}</span>
+                                                        <div key={entry.id} className="flex justify-between items-center text-sm py-1">
+                                                            <span className="text-muted-foreground font-medium w-32">📅 {monthLabel}</span>
                                                             <span className="font-mono text-teal-700">+ {formatCurrency(entry.amount)}</span>
                                                         </div>
                                                     );
@@ -367,13 +370,14 @@ export default function MemberDashboardPage() {
                                             </div>
                                         )}
 
+                                        {hasDetail && monthlyEntries.length > 0 && (
+                                            <div className="border-t border-teal-100"></div>
+                                        )}
+
                                         {/* Footer: Total Simpanan Wajib */}
-                                        <div className="bg-teal-100/60 px-4 py-3 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold text-sm text-teal-900">Tabungan Wajib (Tajib)</p>
-                                                {!hasDetail && <p className="text-xs text-teal-600">Potongan wajib bulanan</p>}
-                                            </div>
-                                            <p className="font-bold text-teal-900 text-lg font-mono">{formatCurrency(tabunganWajib)}</p>
+                                        <div className="bg-teal-50/50 px-4 py-3 flex justify-between items-center">
+                                            <span className="font-semibold text-sm text-teal-900">Tabungan Wajib (Tajib)</span>
+                                            <span className="font-bold text-teal-900 text-base font-mono">{formatCurrency(tabunganWajib)}</span>
                                         </div>
                                     </div>
                                 );
