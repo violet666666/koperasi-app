@@ -154,14 +154,14 @@ export default function MemberDashboardPage() {
                 >
                     <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium opacity-90">Gaji Bersih</CardTitle>
+                            <CardTitle className="text-sm font-medium opacity-90">Sisa Gaji</CardTitle>
                             <DollarSign className="h-4 w-4 opacity-75" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
                                 {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : salary > 0 ? formatCurrency(salary) : "Belum diisi"}
                             </div>
-                            <p className="text-xs opacity-80 mt-1">Gaji pokok per bulan</p>
+                            <p className="text-xs opacity-80 mt-1">Sisa Gaji per bulan</p>
                         </CardContent>
                     </Card>
                 </InfoCardWrapper>
@@ -174,14 +174,14 @@ export default function MemberDashboardPage() {
                 >
                     <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium opacity-90">Tunjangan Kinerja</CardTitle>
+                            <CardTitle className="text-sm font-medium opacity-90">Sisa Tunkin</CardTitle>
                             <Award className="h-4 w-4 opacity-75" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
                                 {isLoading ? <Skeleton className="h-8 w-32 bg-white/20" /> : tunkin > 0 ? formatCurrency(tunkin) : "Belum diisi"}
                             </div>
-                            <p className="text-xs opacity-80 mt-1">Tunkin bulan berjalan</p>
+                            <p className="text-xs opacity-80 mt-1">Sisa Tunkin berjalan</p>
                         </CardContent>
                     </Card>
                 </InfoCardWrapper>
