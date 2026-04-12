@@ -1295,3 +1295,7 @@ Untuk mencegah perubahan layout yang tidak diinginkan di masa depan (regresi UI)
 **3. UI/UX Clarity & Styling Tweaks**
 - Rekapitulasi (*Dashboard / Rekap Simpanan*): Kotak Info Total Anggota dihapus dan dialihbahasakan menjadi Card Simpanan Sukarela agar menyoroti breakdown Produk Simpanan secara runtut: Pokok > Wajib > Sukarela > Total.
 - Transaksi Tabel: Subtitle identifikasi produk simpanan sekarang melekat di bawah badge Jenis 'Setoran/Penarikan' untuk menampilkan konteks utuh riwayat; serta menyatukan Catatan/Deskripsi transaksin dalam satu lapis kolom sebelum 'Tanggal'.
+
+### UPDATE-082 (13 April 2026) - UI Auto-Pilot untuk Import Konsolidasi Kas/Bank
+**File:** `src/app/(protected)/kas-bank/page.tsx`
+**Perubahan:** Menghapus paksa tiga kotak *dropdown* yang merepotkan dan seringkali mengundang *human-error* (salah memetakan ID rekening saat Import Buku Kas). Proses sekarang 100% *Auto-Pilot* — interface difokuskan cukup mengunggah 1 file Excel tanpa konfigurasi format lagi. Sistem pintar akan otomatis me-remot koneksi server, dan mencari pemetaan absolut untuk `KAS TUNAI`, `BANK BRI`, dan `BANK JATIM`. User Interface sekarang jauh lebih luas, ringkas dan canggih (otomatis mendeteksi status "Auto-Mapping Aktif" 🟢).

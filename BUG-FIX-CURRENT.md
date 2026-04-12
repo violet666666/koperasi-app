@@ -1476,3 +1476,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **File:** src/app/(protected)/simpanan/transaksi/page.tsx`n**Masalah:** Fitur cari dari DataTable DataTables/TanStack Table gagal menemukan nama member. Penyebabnya adalah ccessorKey: 'member' me-return Objek { id, name, memberNo }, dimana mesin pencari String global hanya sanggup melakukan [object Object].includes().
 **Solusi:** Mengganti kolom identifier dari ccessorKey: 'member' menjadi custom fungsi penarik metadata teks penuh dengan ccessorFn: (row) => row.member?.name + ' ' + row.member?.memberNo.
 **Status:** FIXED
+
+### BUG-105 (13 April 2026) - Import Kas/Bank Gagal Mengenali Sisa Bulan Lalu
+**File:** `src/app/api/cash-bank/import/route.ts`
+**Masalah:** Saat file buku kas terbaru (`bukukas_04.xlsx`) diimpor, saldo awal pada sheet APRIL luput tertangkap oleh sistem. Penyebabnya adalah panitia menggunakan label yang tidak terduga yaitu "SISA BULAN LALU", dan parahnya lagi label tersebut diletakkan di Kolom 1 (kolom NO), alih-alih di Kolom 4 (kolom URAIAN) seperti pada sheet bulan MARET. Logika detektor sebelumnya statis dan hanya menscan kolom ke-4.
+**Solusi:** Merombak fungsi iterasi detektor dengan membuat agregat teks dari Kolom 1, Kolom 2, dan Kolom 4 (`allTextCols = firstCol + secondCol + uraian`) menggunakan ekspresi regex universal. Menambahkan keyword baru "sisa bulan lalu" ke dalam perbendaharaan kamus deteksi saldo koperasi, memastikan tidak ada lagi baris yang luput tanpa memandang cara admin menempatkan kolom ketikannya.
+**Status:** FIXED
+
+### BUG-106 (13 April 2026) - Auto-Mapping Import Kas Bank Salah Mengarahkan ke Bank JATIM Dana Pegawai
+**File:** `src/app/(protected)/kas-bank/page.tsx`
+**Masalah:** Saat Import Buku Kas dengan mode "Konsolidasi Penuh", kolom JATIM secara otomatis dipetakan ke akun **Bank JATIM â€“ Dana Pegawai** (BNK-JATIM-PGWI, ID=14) alih-alih akun utama **Bank JATIM** (B-002, ID=10). Penyebabnya adalah logika auto-mapping menggunakan `.includes("jatim")` yang mengembalikan akun JATIM pertama dalam array (yaitu Dana Pegawai, yang punya ID lebih kecil dan muncul lebih awal). Dampaknya fatal: 32 transaksi senilai Rp 5,29 Miliar masuk ke akun yang salah pada production.
+**Solusi:** (1) Mengubah logika auto-mapping menjadi prioritas bertingkat: pertama cari exact match `name === "bank jatim"`, kedua cari `code === "B-002"`, ketiga fallback ke akun jatim tanpa purpose/unitType khusus; (2) Memindahkan 32 transaksi dari akun ID=14 ke ID=10 via skrip migrasi dan menghitung ulang running balance kedua akun; (3) Memperbaiki logika BRI juga agar hanya match akun tanpa purpose khusus.
+**Status:** FIXED

@@ -89,3 +89,10 @@ test-month.js
 check-txs.js
 clean-kas.js
 debug-april.js
+verify-barang.js
+execute-barang.js
+execute-import.js
+fix-jatim.js
+investigate-jatim.js
+append-logs.js
+append-bug106.js

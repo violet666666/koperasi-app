@@ -48,6 +48,8 @@ interface CashBankAccount {
     accountNumber?: string;
     currentBalance: number;
     isActive: boolean;
+    purpose?: string;
+    unitType?: string;
 }
 
 interface CashBankTransaction {
@@ -226,8 +228,11 @@ export default function KasBankPage() {
                     setAccounts(accs);
                     // Automate Koppol IDs
                     const tunai = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "kas tunai");
-                    const bri = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank bri" || a.name.toLowerCase().includes("bri"));
-                    const jatim = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank jatim" || a.name.toLowerCase().includes("jatim"));
+                    const bri = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank bri" || (a.name.toLowerCase().includes("bri") && !a.purpose));
+                    // Prioritize exact "Bank JATIM" (B-002) over sub-accounts like Dana Pegawai
+                    const jatim = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank jatim")
+                        || accs.find((a: CashBankAccount) => a.code === "B-002")
+                        || accs.find((a: CashBankAccount) => a.name.toLowerCase().includes("jatim") && !a.purpose && !a.unitType);
                     
                     if (tunai) setTunaiAccountId(tunai.id.toString());
                     if (bri) setBriAccountId(bri.id.toString());
