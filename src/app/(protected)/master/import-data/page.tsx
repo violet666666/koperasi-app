@@ -117,9 +117,9 @@ function findBestSheet(workbook: any, type: ImportType): string {
 }
 
 function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: string): File {
-    if (type === "potongan") {
+    if (type === "potongan" || type === "toko_history" as string) {
         // Multi-sheet merge: combine all sheets into one CSV with BULAN column
-        return mergeMultiSheetToCSV(workbook, originalName);
+        return mergeMultiSheetToCSV(workbook, originalName, type);
     }
     const sheetName = findBestSheet(workbook, type);
     const worksheet = workbook.Sheets[sheetName];
@@ -128,22 +128,36 @@ function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: str
     return new File([csvString], newFileName, { type: "text/csv" });
 }
 
-function mergeMultiSheetToCSV(workbook: any, originalName: string): File {
+function mergeMultiSheetToCSV(workbook: any, originalName: string, type: ImportType): File {
+    // Robust month mapping to catch full names and abbreviations
     const monthMap: Record<string, string> = {
-        'januari': '1', 'jan': '1', 'february': '2', 'februari': '2', 'feb': '2',
-        'maret': '3', 'mar': '3', 'march': '3', 'april': '4', 'apr': '4',
-        'mei': '5', 'may': '5', 'juni': '6', 'jun': '6', 'juli': '7', 'jul': '7',
-        'agustus': '8', 'aug': '8', 'september': '9', 'sep': '9',
-        'oktober': '10', 'okt': '10', 'oct': '10', 'november': '11', 'nov': '11',
-        'desember': '12', 'des': '12', 'dec': '12',
+        '1': '1', 'januari': '1', 'jan': '1', 'january': '1',
+        '2': '2', 'pebruari': '2', 'februari': '2', 'feb': '2', 'peb': '2', 'february': '2',
+        '3': '3', 'maret': '3', 'mar': '3', 'mrt': '3', 'march': '3',
+        '4': '4', 'april': '4', 'apr': '4',
+        '5': '5', 'mei': '5', 'may': '5',
+        '6': '6', 'juni': '6', 'jun': '6', 'june': '6',
+        '7': '7', 'juli': '7', 'jul': '7', 'july': '7',
+        '8': '8', 'agustus': '8', 'agu': '8', 'agt': '8', 'aug': '8', 'august': '8',
+        '9': '9', 'september': '9', 'sep': '9', 'sept': '9',
+        '10': '10', 'oktober': '10', 'okt': '10', 'oct': '10', 'october': '10',
+        '11': '11', 'november': '11', 'nov': '11',
+        '12': '12', 'desember': '12', 'des': '12', 'dec': '12', 'december': '12'
     };
     
+    // Support dynamic resolving of sheet name as month numerical value
+    const getMonthNum = (sName: string, index: number) => {
+        const cleaned = sName.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        return monthMap[cleaned] || String(index + 1);
+    };
+
     const allRows: string[][] = [];
     // Header row
     allRows.push(['NRP', 'TAJIB', 'BARANG', 'SP', 'JUMLAH', 'NAMA', 'BULAN']);
     
-    for (const sheetName of workbook.SheetNames) {
-        const monthNum = monthMap[sheetName.toLowerCase().trim()] || String(workbook.SheetNames.indexOf(sheetName) + 1);
+    for (let i = 0; i < workbook.SheetNames.length; i++) {
+        const sheetName = workbook.SheetNames[i];
+        const monthNum = getMonthNum(sheetName, i);
         const ws = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as string[][];
         
@@ -217,7 +231,7 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "preview");
             
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "toko_history" as string ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
@@ -408,6 +422,9 @@ export default function ImportDataPage() {
                                         </SelectItem>
                                         <SelectItem value="potongan">
                                             Potongan Gaji Bulanan (Barang Primkoppol)
+                                        </SelectItem>
+                                        <SelectItem value="toko_history">
+                                            History Belanja Toko (Multi-bulan)
                                         </SelectItem>
                                         <SelectItem value="buku_kas">
                                             Buku Kas / Keuangan (Transaksi Bank & Tunai)
@@ -679,10 +696,10 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" ? "Keterangan" : "Gaji Saat Ini"}
+                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" || importType === "toko_history" ? "Keterangan" : "Gaji Saat Ini"}
                                                 </TableHead>
                                                 {importType === "tajib" && (
                                                     <TableHead className="text-right">Skema Deteksi Data</TableHead>
@@ -715,6 +732,8 @@ export default function ImportDataPage() {
                                                             `${r.mutasiCount} bulan`
                                                         ) : importType === "migrasi_pinjaman" || importType === "potongan" ? (
                                                             formatCurrency(r.gaji || 0)
+                                                        ) : importType === "toko_history" ? (
+                                                            <span className="text-emerald-600 font-bold">{formatCurrency(r.gaji || 0)}</span>
                                                         ) : (
                                                             (() => {
                                                                 const val = importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0);
@@ -725,7 +744,7 @@ export default function ImportDataPage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
-                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" ? (
+                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" || importType === "toko_history" ? (
                                                             <span className="text-xs">{r.reason}</span>
                                                         ) : (() => {
                                                             const val = importType === "tunkin" ? r.currentTunkin : importType === "tajib" ? r.currentTajib : r.currentGaji;
