@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-        const userId = (session.user as any).id as number;
+        const userId = Number((session.user as any).id);
 
         const body = await request.json();
         const data = createSavingsTransactionSchema.parse(body);
