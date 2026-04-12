@@ -410,12 +410,19 @@ export default function DashboardScreen({ setToken }: any) {
               />
             </View>
             <View style={styles.cardRow}>
-              <StatCard
-                label={`Simpanan Wajib Bulan ${new Date().toLocaleString('id-ID', { month: 'long' })}`}
-                value={formatRp(data.member?.tabunganWajib || 0)}
-                icon="💵"
-                color={C.primary}
-              />
+              {(() => {
+                // Ambil saldo wajib dari SavingsAccount (Single Source of Truth)
+                const wajibAcc = data.savings?.accounts?.find((a: any) => a.product?.type === 'wajib');
+                const wajibBalance = wajibAcc ? wajibAcc.balance : 0;
+                return (
+                  <StatCard
+                    label="Simpanan Wajib"
+                    value={formatRp(wajibBalance)}
+                    icon="💵"
+                    color={C.primary}
+                  />
+                );
+              })()}
               <StatCard
                 label="Tabungan Sejahtera"
                 value={formatRp(data.savings?.sejahteraBalance || 0)}
@@ -432,6 +439,74 @@ export default function DashboardScreen({ setToken }: any) {
               />
             </View>
 
+            {/* === DETAIL TABUNGAN WAJIB BULANAN (Expandable) === */}
+            {(() => {
+              const wajibAcc = data.savings?.accounts?.find((a: any) => a.product?.type === 'wajib');
+              const txs = wajibAcc?.transactions || [];
+              const MONTH_NAMES = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+              
+              // Pisahkan saldo awal vs setoran bulanan
+              const saldoAwalEntries = txs.filter((t: any) => 
+                t.notes?.includes('Saldo Wajib Awal') || t.notes?.includes('Saldo Awal') || 
+                t.notes?.includes('Import Saldo') || t.notes?.includes('Import/Update Saldo')
+              );
+              const monthlyEntries = txs.filter((t: any) => t.type === 'deposit' && !saldoAwalEntries.includes(t));
+              const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+
+              if (txs.length === 0) return null;
+
+              return (
+                <CollapsibleSection title="📊 Detail Tabungan Wajib" icon="wallet" defaultExpanded={false}>
+                  {/* Saldo Awal Akumulasi */}
+                  {saldoAwal > 0 && (
+                    <View style={{ backgroundColor: '#f0fdfa', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#99f6e4' }}>
+                      <Text style={{ fontSize: 12, color: '#0f766e', fontWeight: '600' }}>💰 Saldo Awal (Akumulasi)</Text>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0d9488', textAlign: 'right', fontFamily: 'monospace' }}>{formatRp(saldoAwal)}</Text>
+                    </View>
+                  )}
+
+                  {/* Rincian Setoran Per Bulan */}
+                  {monthlyEntries.length > 0 && (
+                    <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' }}>
+                      <View style={{ backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 8 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569' }}>Rincian Setoran Bulanan</Text>
+                      </View>
+                      {monthlyEntries.map((entry: any, idx: number) => {
+                        let monthLabel = '';
+                        if (entry.notes?.startsWith('Setoran Import TAJIB:')) {
+                          monthLabel = entry.notes.replace('Setoran Import TAJIB: ', '');
+                        } else {
+                          const d = new Date(entry.transactionDate);
+                          monthLabel = MONTH_NAMES[d.getMonth()] || '';
+                        }
+                        return (
+                          <View key={entry.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#f1f5f9' }}>
+                            <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>📅 {monthLabel}</Text>
+                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0d9488', fontFamily: 'monospace' }}>+ {formatRp(entry.amount)}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* Footer Total */}
+                  <View style={{ backgroundColor: '#0f766e', borderRadius: 10, padding: 14, marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }}>Total Simpanan Wajib</Text>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#fff', fontFamily: 'monospace' }}>{formatRp(wajibAcc?.balance || 0)}</Text>
+                  </View>
+
+                  {/* Catatan AD-ART */}
+                  <View style={{ backgroundColor: '#fffbeb', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: '#fde68a' }}>
+                    <Text style={{ fontSize: 11, color: '#92400e', fontWeight: '600', marginBottom: 4 }}>ℹ️ Catatan:</Text>
+                    <Text style={{ fontSize: 10, color: '#92400e' }}>• Pokok & Wajib tidak bisa ditarik</Text>
+                    <Text style={{ fontSize: 10, color: '#92400e' }}>• Sukarela bisa ditarik kapan saja</Text>
+                    <Text style={{ fontSize: 10, color: '#92400e' }}>• Semakin besar simpanan = SHU semakin besar</Text>
+                  </View>
+                </CollapsibleSection>
+              );
+            })()}
+
+            {/* REKENING SIMPANAN */}
             {data.savings?.accounts?.length > 0 && (
               <>
                 <Text style={styles.sectionTitle}>Rekening Simpanan</Text>

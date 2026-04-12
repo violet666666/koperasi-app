@@ -1454,3 +1454,15 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** User yang mencetak/export PDF dari halaman Rekap Simpanan hanya mendapatkan daftar berisi 50 data anggota saja (halaman aktif), tanpa ada ringkasan GRAND TOTAL di paling bawah.
 **Solusi:** Menyambungkan *data source* di komponen `ExportButton` menuju state `allData` (yang disokong oleh `fetchGrandTotals()` secara asinkronus). Kemudian, saya memperluas dukungan antarmuka utilitas `exportToPDF` & `exportToExcel` untuk menerima parameter baris total di bawah tabel (variabel `foot`), sehingga GRAND TOTAL dapat ditancapkan dan turut di-render oleh `jsPDF-autotable`.
 **Status:** FIXED
+
+### BUG-101 (12 April 2026) - Mobile API: Double Counting Total Simpanan
+**File:** `src/app/api/mobile/summary/route.ts`
+**Masalah:** Backend mobile summary masih menjumlahkan `SavingsAccount.balance` + legacy `member.tabunganWajib` sehingga Total Simpanan anggota dan operator terlihat 2x lipat. Bug ini sudah diperbaiki di Web (BUG-099) tetapi belum diterapkan di endpoint mobile.
+**Solusi:** Menghapus semua referensi ke `tabunganWajib` dalam kalkulasi total. Single Source of Truth = saldo aktif di tabel `SavingsAccount`. Berlaku untuk: (1) operator totalSavings, (2) member totalSavingsBalance, (3) SHU capital calculation.
+**Status:** FIXED
+
+### BUG-102 (12 April 2026) - Mobile API: Transaksi Void Masih Terhitung di Piutang & SHU
+**File:** `src/app/api/mobile/summary/route.ts`
+**Masalah:** Query `unitTransaction` di endpoint mobile tidak mengecualikan `status: "voided"`. Akibatnya tagihan piutang anggota bengkak dan pool SHU Jasa Anggota terkontaminasi transaksi batal. Bug paritas dari BUG-095 dan BUG-097 Web.
+**Solusi:** Menambahkan filter `status: { not: "voided" }` pada 3 query: (1) `unitUnpaid` aggregation, (2) `sysUnit` system-wide income, (3) `myUnit` per-member contribution.
+**Status:** FIXED

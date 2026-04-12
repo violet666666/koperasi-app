@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         if (isOperator || (!memberId && roleName !== "anggota")) {
             const [
                 totalMembers, totalSavings, totalLoans, totalArrears, pendingApprovals,
-                totalTunkin, membersWithTunkin, totalTabunganWajib,
+                totalTunkin, membersWithTunkin, _legacyTabWajib /* unused - Single Source of Truth is SavingsAccount */,
                 todayDeposits, todayWithdrawals, todayPayments,
             ] = await Promise.all([
                 prisma.member.count({ where: { status: "active", deletedAt: null } }),
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
                     },
                     stats: {
                         totalMembers,
-                        totalSavings: Number(totalSavings._sum.balance || 0) + Number(totalTabunganWajib._sum.tabunganWajib || 0),
+                        totalSavings: Number(totalSavings._sum.balance || 0),
                         totalLoansOutstanding: Number(totalLoans._sum.principalOutstanding || 0),
                         totalArrears: Number(totalArrears._sum.principalOutstanding || 0),
                         pendingApprovals,
@@ -142,7 +142,15 @@ export async function GET(request: Request) {
         const [savingsAccounts, loans, unitUnpaid, latestSejahtera] = await Promise.all([
             prisma.savingsAccount.findMany({
                 where: { memberId, status: "active" },
-                include: { product: { select: { name: true, type: true } } },
+                include: {
+                    product: { select: { name: true, type: true } },
+                    // Include deposit transactions for wajib accounts (untuk detail mutasi bulanan)
+                    transactions: {
+                        where: { type: { in: ['deposit', 'correction'] } },
+                        select: { id: true, type: true, amount: true, notes: true, transactionDate: true },
+                        orderBy: { transactionDate: 'asc' },
+                    },
+                },
             }),
             prisma.loan.findMany({
                 where: { memberId },
@@ -154,7 +162,7 @@ export async function GET(request: Request) {
                 },
             }),
             prisma.unitTransaction.aggregate({
-                where: { memberId, isPaid: false },
+                where: { memberId, isPaid: false, status: { not: "voided" } },
                 _sum: { amount: true }, _count: { id: true },
             }),
             prisma.tabunganSejahteraHistory.findFirst({
@@ -166,7 +174,8 @@ export async function GET(request: Request) {
             })
         ]);
 
-        const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) + Number(user.member.tabunganWajib || 0);
+        // Single Source of Truth: hanya SavingsAccount (tidak lagi menambahkan legacy tabunganWajib)
+        const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0);
         const activeLoans = loans.filter((l) => l.status === "active" || l.status === "overdue");
         const totalOutstanding = activeLoans.reduce((s, l) => s + Number(l.principalOutstanding), 0);
 
@@ -178,7 +187,7 @@ export async function GET(request: Request) {
         const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myToko, myUnit, myLoan] = await Promise.all([
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
             prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
-            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true }, _sum: { amount: true } }),
+            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             // System total Simpanan Wajib & Simpanan Pokok (all active members)
@@ -187,7 +196,7 @@ export async function GET(request: Request) {
             
             prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
-            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
+            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } })
         ]);
 
@@ -199,11 +208,12 @@ export async function GET(request: Request) {
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
 
         // Jasa Simpanan Pool (20%) — from TOTAL surplus with minimum floor
-        const totalSysSav = Number(sysSavings._sum.amount || 0) + Number(sysTajib._sum.tabunganWajib || 0) + Number(sysSimpananPokok._sum.balance || 0) || 1;
+        // Single Source of Truth: SavingsAccount balance only (no legacy tabunganWajib double-add)
         const totalActiveSavBal = await prisma.savingsAccount.aggregate({
             where: { status: "active" }, _sum: { balance: true }
         });
-        const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0) + Number(sysTajib._sum.tabunganWajib || 0);
+        const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0);
+        const totalSysSav = totalSavingsCapital || 1;
         const surplusBasedPool = totalNetSurplus * 0.20;
         const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20;
         const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
@@ -212,10 +222,8 @@ export async function GET(request: Request) {
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
 
-        // Member Numerators — include my Tajib + Simpanan Pokok
-        const myTabWajib = Number(user.member.tabunganWajib || 0);
-        const mySimpananPokokVal = savingsAccounts.filter(a => a.product.type === 'pokok').reduce((s, a) => s + Number(a.balance), 0);
-        const mySavCont = Number(mySavings._sum.amount || 0) + myTabWajib + mySimpananPokokVal;
+        // Member Numerators — Single Source of Truth from SavingsAccount balances only
+        const mySavCont = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) || 1;
         
         // 1. Calculate Jasa Modal (Proportional Pool)
         const myModal = (mySavCont / totalSysSav) * jasaModalPool;
@@ -273,6 +281,11 @@ export async function GET(request: Request) {
                 savings: {
                     accounts: savingsAccounts.map((a) => ({
                         id: a.id, accountNo: a.accountNo, balance: Number(a.balance), product: a.product,
+                        // Kirim transactions hanya untuk akun wajib (detail mutasi bulanan)
+                        transactions: a.product.type === 'wajib' ? (a as any).transactions?.map((t: any) => ({
+                            id: t.id, type: t.type, amount: Number(t.amount),
+                            notes: t.notes, transactionDate: t.transactionDate?.toISOString(),
+                        })) : undefined,
                     })),
                     totalBalance: totalSavingsBalance,
                     sejahteraBalance: latestSejahtera ? Number(latestSejahtera.saldoAkhir) : 0,

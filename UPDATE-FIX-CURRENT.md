@@ -1240,3 +1240,9 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 ### 12 April 2026 - Peningkatan Fitur Import TAJIB dan Dashboard Anggota
 1. **Import Tabungan Wajib Lebih Fleksibel**: Script import `api/members/import/route.ts` tidak lagi mematikan langkah (error) jika tidak menemukan kolom "JML". Jika kolom ini hilang, nilai akumulasinya otomatis dihitung (disimulasikan) dari akumulasi pencarian kolom bulan yang ada (Januari s.d. Desember, termasuk regex singkatan: *jan, peb, mar, apr, agt, sept,* dll).
 2. **Detail Mutasi Bulanan Dashboard**: `portal/dashboard/page.tsx` pada panel `Detail Tabungan Anda` kini dihubungkan secara akurat dengan data mutasi `transactions` milik akun Simpanan Wajib. Anggota kini bisa melihat rincian riwayat bayaran bulanannya secara jelas dalam bentuk list (contoh: 📅 APRIL  + Rp 100.000).
+
+### 12 April 2026 - Sinkronisasi Mobile App dengan Web (Sesi 13)
+1. **Fix Backend Mobile API (BUG-101, BUG-102):** Memperbaiki endpoint `/api/mobile/summary` agar konsisten dengan perbaikan Web: (a) menghapus double counting simpanan dari legacy `tabunganWajib`, (b) mengecualikan transaksi voided dari kalkulasi piutang dan SHU, (c) mengirimkan array transactions history untuk akun wajib.
+2. **Detail Mutasi Wajib Bulanan di Mobile (M-FEAT-015):** Menambahkan panel expandable/collapsible di `DashboardScreen.tsx` yang menampilkan rincian setoran wajib per bulan (Saldo Awal Akumulasi, rincian bulanan, footer total, catatan AD-ART). Desain konsisten dengan Web dashboard.
+3. **Card Simpanan Wajib Akurat:** Mengubah card "Simpanan Wajib" agar membaca saldo dari `SavingsAccount` (bukan legacy `member.tabunganWajib`). Single Source of Truth terjaga.
+4. **Dokumentasi:** Memperbarui `MOBILE-UPDATE-CURRENT.md` dengan status endpoint terbaru dan menandai M-FEAT-015 sebagai selesai.

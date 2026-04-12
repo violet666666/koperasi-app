@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **8 April 2026 (Sesi 12 — NativeWind v4 + Push Notifications)**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` (Update Sesi 9)
+> Update terakhir: **12 April 2026 (Sesi 13 — Sinkronisasi Backend API + Detail Wajib Bulanan)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md`
 
 ---
 
@@ -17,6 +17,20 @@
 | **TOTAL** | **16** | **16** | **0** | **0** |
 
 ---
+
+## 🆕 UPDATE SINKRONISASI WEB (12 APRIL 2026)
+
+### 6. Fix Kritis Backend Mobile API (BUG-099, BUG-095, BUG-097 Paritas)
+- **Web/Backend:** Telah diperbaiki 3 bug kritis di `src/app/api/mobile/summary/route.ts`:
+  1. **Double Counting Simpanan:** Total Simpanan operator & anggota tidak lagi menjumlahkan `SavingsAccount` + legacy `member.tabunganWajib`. Single Source of Truth = `SavingsAccount`.
+  2. **Voided Transactions:** Semua query `unitTransaction` di mobile API kini mengecualikan `status: "voided"` (paritas dengan BUG-095/097 di Web).
+  3. **Transactions History untuk Wajib:** API kini mengirimkan array `transactions` khusus untuk akun wajib agar mobile bisa merender detail mutasi bulanan.
+- **Tugas Mobile:** ✅ **Selesai** — `DashboardScreen.tsx` sudah diperbarui dengan panel expandable "Detail Tabungan Wajib" yang menampilkan saldo awal akumulasi + rincian setoran per bulan.
+
+### 5. Paritas UI: Rincian Mutasi Bulanan Tabungan Wajib
+- **Web/Backend:** Halaman Member Dashboard di web kini memiliki fitur akordion / breakdown yang mendetailkan akumulasi Tabungan/Simpanan Wajib ke dalam rincian per bulan (contoh: "APRIL + Rp 100.000"). Ini dimungkinkan berkat *query* ke array `transactions` pada akun berjenis `wajib`. Import Excel TAJIB juga sudah dibuat dinamis tanpa repot mewajibkan kolom "JML".
+- **Tugas Mobile (Backlog `M-FEAT-015`):** 
+  - Pada layar `SimpananScreen.tsx` atau `AnggotaCardScreen.tsx` di mobile, sebaiknya ditambahkan panel UI khusus (bila ada saldo wajib) untuk menampilkan daftar riwayat bulan layaknya yang ada di Web (Paritas Visual Dashboard Anggota).
 
 ## 🆕 UPDATE SINKRONISASI WEB (10 APRIL 2026)
 
@@ -347,8 +361,8 @@
 
 | Endpoint | File | Status | Terkait |
 |---|---|---|---|
-| `GET /api/mobile/unit-packages` | `src/app/api/mobile/unit-packages/route.ts` | ❌ BELUM ADA | S1-03, M-BUG-001 |
-| `GET /api/mobile/members/[id]/piutang` | `src/app/api/mobile/members/[id]/piutang/route.ts` | ❌ BELUM ADA | S2-02, M-FEAT-002 |
+| `GET /api/mobile/unit-packages` | `src/app/api/mobile/unit-packages/route.ts` | ✅ SUDAH ADA | S1-03, M-BUG-001 |
+| `GET /api/mobile/members/[id]/piutang` | `src/app/api/mobile/members/[id]/piutang/route.ts` | ✅ SUDAH ADA | S2-02, M-FEAT-002 |
 
 ---
 
@@ -374,8 +388,8 @@
 | Laporan | `/api/mobile/reports` | ✅ OK | — |
 | Audit Log | `/api/mobile/audit-logs` | ✅ OK | — |
 | Push Token | `/api/mobile/push-token` | ✅ OK | Notifikasi belum diuji → backlog |
-| **Paket Unit** | `/api/mobile/unit-packages` | ❌ BELUM ADA | Buat di Sprint 1 → S1-03 |
-| **Plafon Anggota** | `/api/mobile/members/[id]/piutang` | ❌ BELUM ADA | Buat di Sprint 2 → S2-02 |
+| **Paket Unit** | `/api/mobile/unit-packages` | ✅ SUDAH ADA | S1-03 |
+| **Plafon Anggota** | `/api/mobile/members/[id]/piutang` | ✅ SUDAH ADA | S2-02 |
 
 ---
 
@@ -449,6 +463,7 @@
 | ID | Deskripsi | Estimasi | Prioritas |
 |---|---|---|---|
 | M-FEAT-004 | Edit NRP transaksi yang lupa NRP | 2–3 hari | 🟡 |
+| M-FEAT-015 | ~~Paritas UI Mutasi Wajib Bulanan~~ | **✅ DONE** | 🟢 |
 | ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
 | M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
 | ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |
