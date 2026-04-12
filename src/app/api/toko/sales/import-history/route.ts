@@ -1,4 +1,4 @@
-selanimport { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";

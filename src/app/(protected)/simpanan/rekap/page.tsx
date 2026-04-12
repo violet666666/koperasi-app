@@ -153,17 +153,6 @@ export default function RekapSimpananPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-primary/10 p-3">
-                            <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Anggota</p>
-                            <p className="text-2xl font-bold">{totalMembers}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30">
                             <PiggyBank className="h-5 w-5 text-emerald-600" />
                         </div>
@@ -184,6 +173,19 @@ export default function RekapSimpananPage() {
                             <p className="text-sm text-muted-foreground">Simpanan Wajib</p>
                             <p className="text-lg font-bold tabular-nums">
                                 {formatCurrency(totals.totalWajib)}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="flex items-center gap-4 p-4">
+                        <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-900/30">
+                            <Wallet className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Simpanan Sukarela</p>
+                            <p className="text-lg font-bold tabular-nums">
+                                {formatCurrency(totals.totalSukarela)}
                             </p>
                         </div>
                     </CardContent>
