@@ -318,7 +318,9 @@ export default function MemberDashboardPage() {
                                 const wajibHistory = wajibAcc?.history || [];
                                 const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal') || h.notes?.includes('Import Saldo') || h.notes?.includes('Import/Update Saldo'));
                                 // ALL deposit entries that are NOT saldo awal = monthly detail
-                                const monthlyEntries = wajibHistory.filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h));
+                                const monthlyEntries = wajibHistory
+                                    .filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h))
+                                    .sort((a: any, b: any) => new Date(a.transactionDate || a.date).getTime() - new Date(b.transactionDate || b.date).getTime());
                                 const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + Number(e.amount), 0);
                                 const hasDetail = saldoAwalEntries.length > 0 || monthlyEntries.length > 0;
                                 const monthNames = ['JANUARI', 'PEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];

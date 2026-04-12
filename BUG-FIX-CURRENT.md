@@ -1466,3 +1466,13 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Query `unitTransaction` di endpoint mobile tidak mengecualikan `status: "voided"`. Akibatnya tagihan piutang anggota bengkak dan pool SHU Jasa Anggota terkontaminasi transaksi batal. Bug paritas dari BUG-095 dan BUG-097 Web.
 **Solusi:** Menambahkan filter `status: { not: "voided" }` pada 3 query: (1) `unitUnpaid` aggregation, (2) `sysUnit` system-wide income, (3) `myUnit` per-member contribution.
 **Status:** FIXED
+
+### BUG-103 (13 April 2026) - Filter Simpanan Hari Ini Miss Date UTC
+**File:** src/app/(protected)/simpanan/transaksi/tambah/page.tsx, src/app/api/savings/transactions/route.ts`n**Masalah:** Transaksi yang dilakukan antara jam 00:00 hingga 06:59 WIB pada form frontend ter-generate sebagai tanggal lokal UTC (tanggal kemarin) pada 	oISOString(), dan saat backend memproses tanggal string murni format YYYY-MM-DD, backend membacanya sebagai Midnight UTC, sehingga jika difilter berdasarkan rentang Hari Ini WIB, tanggal transaksi tidak terpanggil (hilang).
+**Solusi:** Merombak kalkulasi di form frontend untuk mencampur offset WIB ke dalam init state 	ransactionDate. Di Backend dipasang custom validator yang secara diam-diam memparsing setiap parameter jenis string (YYYY-MM-DD) sebagai 12:00:00+07:00 (noon time WIB) agar dijamin aman mendarat pada rentang calendar day yang semestinya saat difilter.
+**Status:** FIXED
+
+### BUG-104 (13 April 2026) - Global Search Transaksi Tidak Mengenali Nama Anggota
+**File:** src/app/(protected)/simpanan/transaksi/page.tsx`n**Masalah:** Fitur cari dari DataTable DataTables/TanStack Table gagal menemukan nama member. Penyebabnya adalah ccessorKey: 'member' me-return Objek { id, name, memberNo }, dimana mesin pencari String global hanya sanggup melakukan [object Object].includes().
+**Solusi:** Mengganti kolom identifier dari ccessorKey: 'member' menjadi custom fungsi penarik metadata teks penuh dengan ccessorFn: (row) => row.member?.name + ' ' + row.member?.memberNo.
+**Status:** FIXED
