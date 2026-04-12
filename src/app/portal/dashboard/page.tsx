@@ -501,12 +501,14 @@ export default function MemberDashboardPage() {
                                 </div>
                             </div>
 
-                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
-                                <p className="font-semibold">ℹ️ Catatan:</p>
-                                <p>• Nilai ini adalah <strong>estimasi realtime</strong> — angka resmi ditetapkan saat RAT (Rapat Anggota Tahunan).</p>
-                                <p>• Semakin besar tabungan Anda → semakin besar <strong>Jasa Simpanan</strong>.</p>
-                                <p>• Semakin sering belanja/bertransaksi → semakin besar <strong>Jasa Anggota</strong>.</p>
-                                <p>• Setiap cuci mobil dengan ID anggota → otomatis menambah <strong>SHU Cuci Mobil Rp 2.000</strong>.</p>
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-2 shadow-sm">
+                                <p className="font-semibold text-sm flex items-center gap-1">ℹ️ Catatan Penting Kepada Anggota:</p>
+                                <ul className="pl-3 space-y-1.5 list-disc marker:text-amber-500">
+                                    <li><strong>Progress Masa Buku:</strong> Angka estimasi ini proporsional terhadap Laba Bersih Koperasi sejauh ini <i>(Bulan {new Date().getMonth() + 1} dari 12)</i>. Nominal ini akan tampak sangat kecil di awal tahun dan akan bertumbuh seiring waktu menuju akhir Tahun Buku.</li>
+                                    <li><strong>Validasi RAT:</strong> Nilai ini hanya indikator berjalan. Angka pembagian rasio dividen resmi dan final selalu disahkan dan diakui keabsahannya hanya pada saat <strong>Rapat Anggota Tahunan (RAT)</strong>.</li>
+                                    <li><strong>Siklus Laba Bersih:</strong> Dana Pool pembagian dicairkan setelah memperhitungkan dan memotong Beban Operasional Ritel Koperasi sepenuhnya.</li>
+                                    <li><strong>Pengecualian Simpanan Sukarela:</strong> Sesuai standar hukum Koperasi & <strong>AD-ART</strong>, Simpanan Sukarela <strong>TIDAK DISERTAKAN</strong> ke dalam rumusan SHU Jasa Modal karena sifatnya bukan sebagai ekuitas dan sudah diberikan bunga fasilitas sendiri (Pasal 25 ayat 3).</li>
+                                </ul>
                             </div>
                         </div>
                     </div>

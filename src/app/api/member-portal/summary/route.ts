@@ -144,7 +144,10 @@ export async function GET() {
             let mSav = 0;
             let hasImportedWajib = false;
             for (const acc of m.savingsAccounts) {
-                mSav += Number(acc.balance);
+                // SHU Jasa Modal ONLY applies to Pokok and Wajib (Sukarela is excluded by definition)
+                if (acc.product.type === "pokok" || acc.product.type === "wajib") {
+                    mSav += Number(acc.balance);
+                }
                 if (acc.product.type === "wajib" && Number(acc.balance) > 0) hasImportedWajib = true;
             }
             if (!hasImportedWajib) mSav += Number(m.tabunganWajib || 0); // Legacy fallback
@@ -157,12 +160,8 @@ export async function GET() {
         const totalSavingsCapital = totalSysSavings;
 
         // --- Jasa Simpanan Pool (20%) ---
-        // Based on TOTAL koperasi surplus, with a MINIMUM FLOOR based on estimated
-        // 6% annual return on deployed savings capital (member savings fund ALL koperasi ops).
-        // This ensures members with savings always see non-zero SHU even before store/unit income.
-        const surplusBasedPool = totalNetSurplus * 0.20;
-        const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20; // 6% return × 20% Jasa Simpanan
-        const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
+        // Based on TOTAL koperasi surplus
+        const jasaModalPool = Math.max(0, totalNetSurplus * 0.20);
 
         // --- Jasa Anggota Pool (25%) ---
         // Based on member transaction surplus only (exact margin method).
