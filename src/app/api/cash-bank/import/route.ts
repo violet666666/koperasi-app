@@ -201,11 +201,15 @@ export async function POST(request: Request) {
                 }
 
                 const checkString = uraian.toLowerCase();
-                const isSaldoAwal = checkString.includes("saldo bulan") || 
-                                    checkString === "saldo" || 
-                                    checkString.includes("saldo awal") || 
-                                    checkString.includes("sisa awal") ||
-                                    checkString.includes("sisa setelah serah terima");
+                // Check ALL text columns for saldo markers (label can be in col 1 OR col 4)
+                const allTextCols = `${firstCol} ${secondCol} ${checkString}`.toLowerCase();
+                const isSaldoAwal = allTextCols.includes("saldo bulan") || 
+                                    allTextCols.includes("saldo awal") || 
+                                    allTextCols.includes("sisa awal") ||
+                                    allTextCols.includes("sisa bulan lalu") ||
+                                    allTextCols.includes("sisa bulan") ||
+                                    allTextCols.includes("sisa setelah serah terima") ||
+                                    checkString === "saldo";
 
                 const determineCategory = (txType: string) => {
                     let category = "lainnya";

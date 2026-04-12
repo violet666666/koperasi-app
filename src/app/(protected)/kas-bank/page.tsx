@@ -198,7 +198,7 @@ export default function KasBankPage() {
     const [importSummary, setImportSummary] = React.useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
     const [selectedUploadFile, setSelectedUploadFile] = React.useState<File | null>(null);
     const [selectedUploadAccount, setSelectedUploadAccount] = React.useState("");
-    const [importFormat, setImportFormat] = React.useState("standard");
+    const [importFormat, setImportFormat] = React.useState("koppol_consolidated_auto");
     const [koppolColumn, setKoppolColumn] = React.useState("tunai");
     const [tunaiAccountId, setTunaiAccountId] = React.useState("");
     const [briAccountId, setBriAccountId] = React.useState("");
@@ -222,7 +222,16 @@ export default function KasBankPage() {
                 ]);
 
                 if (accountsRes.status === "fulfilled") {
-                    setAccounts(accountsRes.value.data as unknown as CashBankAccount[]);
+                    const accs = accountsRes.value.data as unknown as CashBankAccount[];
+                    setAccounts(accs);
+                    // Automate Koppol IDs
+                    const tunai = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "kas tunai");
+                    const bri = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank bri" || a.name.toLowerCase().includes("bri"));
+                    const jatim = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank jatim" || a.name.toLowerCase().includes("jatim"));
+                    
+                    if (tunai) setTunaiAccountId(tunai.id.toString());
+                    if (bri) setBriAccountId(bri.id.toString());
+                    if (jatim) setJatimAccountId(jatim.id.toString());
                 }
 
                 if (transactionsRes.status === "fulfilled") {
@@ -337,37 +346,32 @@ export default function KasBankPage() {
                                         </div>
 
                                         {importFormat === "koppol_consolidated_auto" && (
-                                            <div className="space-y-3 p-3 bg-muted/30 rounded-md border text-sm">
-                                                <p className="font-semibold mb-2">Petakan 3 Kolom Bank PRIMKOPPOL ke Akun Tujuan:</p>
+                                            <div className="space-y-3 p-4 bg-sky-50 dark:bg-sky-950/20 rounded-lg border border-sky-100 text-sm">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <CheckCircle2 className="h-5 w-5 text-sky-600" />
+                                                    <p className="font-semibold text-sky-800">Auto-Mapping Aktif</p>
+                                                </div>
+                                                <p className="text-muted-foreground text-xs leading-relaxed">Sistem secara otomatis menyesuaikan kolom Excel Koperasi dengan dompet digital Anda:</p>
                                                 
-                                                <div className="space-y-1 block">
-                                                    <Label className="text-xs">1. Target Kolom KAS TUNAI (Sebelah Kiri)</Label>
-                                                    <Select value={tunaiAccountId} onValueChange={setTunaiAccountId}>
-                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Kas Tunai..." /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="space-y-1 block">
-                                                    <Label className="text-xs">2. Target Kolom BANK BRI (Tengah)</Label>
-                                                    <Select value={briAccountId} onValueChange={setBriAccountId}>
-                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Bank BRI..." /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="space-y-1 block">
-                                                    <Label className="text-xs">3. Target Kolom BANK JATIM (Sebelah Kanan)</Label>
-                                                    <Select value={jatimAccountId} onValueChange={setJatimAccountId}>
-                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih Bank Jatim..." /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {accounts.map(acc => <SelectItem key={acc.id} value={acc.id.toString()}>{acc.name} ({acc.code})</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
+                                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                                    {/* KAS TUNAI */}
+                                                    <div className="p-2 bg-white/60 dark:bg-black/20 rounded border text-center relative shadow-sm">
+                                                        {tunaiAccountId ? <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full shadow-sm"></div> : <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full shadow-sm"></div>}
+                                                        <Label className="text-[9px] text-muted-foreground uppercase tracking-wider block mb-0.5">Kolom H & I</Label>
+                                                        <span className="font-semibold text-xs text-sky-900 line-clamp-1">{accounts.find(a => a.id.toString() === tunaiAccountId)?.name || "KAS TUNAI"}</span>
+                                                    </div>
+                                                    {/* BRI */}
+                                                    <div className="p-2 bg-white/60 dark:bg-black/20 rounded border text-center relative shadow-sm">
+                                                        {briAccountId ? <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full shadow-sm"></div> : <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full shadow-sm"></div>}
+                                                        <Label className="text-[9px] text-muted-foreground uppercase tracking-wider block mb-0.5">Kolom J & K</Label>
+                                                        <span className="font-semibold text-xs text-sky-900 line-clamp-1">{accounts.find(a => a.id.toString() === briAccountId)?.name || "BANK BRI"}</span>
+                                                    </div>
+                                                    {/* JATIM */}
+                                                    <div className="p-2 bg-white/60 dark:bg-black/20 rounded border text-center relative shadow-sm">
+                                                        {jatimAccountId ? <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full shadow-sm"></div> : <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full shadow-sm"></div>}
+                                                        <Label className="text-[9px] text-muted-foreground uppercase tracking-wider block mb-0.5">Kolom L & M</Label>
+                                                        <span className="font-semibold text-xs text-sky-900 line-clamp-1">{accounts.find(a => a.id.toString() === jatimAccountId)?.name || "BANK JATIM"}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
