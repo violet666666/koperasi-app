@@ -86,3 +86,5 @@ test-commit.js
 do-import.js
 test-db.js
 test-month.js
+check-txs.js
+clean-kas.js
