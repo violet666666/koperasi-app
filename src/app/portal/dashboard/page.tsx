@@ -317,13 +317,24 @@ export default function MemberDashboardPage() {
                                 const wajibAcc = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
                                 const wajibHistory = wajibAcc?.history || [];
                                 const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal') || h.notes?.includes('Import Saldo') || h.notes?.includes('Import/Update Saldo'));
+                                const monthNames = ['JANUARI', 'PEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+                                
+                                const getSortValue = (entry: any) => {
+                                    if (entry.notes?.startsWith('Setoran Import TAJIB:')) {
+                                        const noteMonth = entry.notes.replace('Setoran Import TAJIB: ', '').trim().toUpperCase();
+                                        const idx = monthNames.findIndex(m => m === noteMonth);
+                                        if (idx !== -1) return new Date(2026, idx, 1).getTime();
+                                    }
+                                    return new Date(entry.transactionDate || entry.date).getTime();
+                                };
+
                                 // ALL deposit entries that are NOT saldo awal = monthly detail
                                 const monthlyEntries = wajibHistory
                                     .filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h))
-                                    .sort((a: any, b: any) => new Date(a.transactionDate || a.date).getTime() - new Date(b.transactionDate || b.date).getTime());
+                                    .sort((a: any, b: any) => getSortValue(a) - getSortValue(b));
+                                
                                 const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + Number(e.amount), 0);
                                 const hasDetail = saldoAwalEntries.length > 0 || monthlyEntries.length > 0;
-                                const monthNames = ['JANUARI', 'PEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
 
                                 return (
                                     <div className="border border-teal-200 rounded-lg overflow-hidden bg-white shadow-sm">
