@@ -27,7 +27,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas";
+type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas" | "toko_history";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -117,7 +117,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
 }
 
 function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: string): File {
-    if (type === "potongan" || type === "toko_history" as string) {
+    if (type === "potongan" || type === "toko_history") {
         // Multi-sheet merge: combine all sheets into one CSV with BULAN column
         return mergeMultiSheetToCSV(workbook, originalName, type);
     }
@@ -218,7 +218,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'toko_history') {
                 processedFile = file; // These APIs read .xlsx natively
             } else {
                 const arrayBuffer = await file.arrayBuffer();
@@ -231,7 +231,7 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "preview");
             
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "toko_history" as string ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "toko_history" ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
