@@ -247,7 +247,14 @@ export default function SimpananTransaksiPage() {
         {
             accessorKey: "type",
             header: "Jenis",
-            cell: ({ row }) => <TypeBadge type={row.getValue("type")} />,
+            cell: ({ row }) => (
+                <div className="flex flex-col gap-1">
+                    <TypeBadge type={row.getValue("type")} />
+                    <span className="text-xs text-muted-foreground font-medium">
+                        {row.original.account?.product?.name || "-"}
+                    </span>
+                </div>
+            ),
         },
         {
             accessorKey: "amount",
