@@ -355,21 +355,51 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
         }
     }
 
-    if (namaIdx === -1 || tajibIdx === -1) {
+    if (namaIdx === -1) {
         return {
             success: 0, failed: 0,
-            error: "Kolom NAMA / NRP dan Kolom JML wajib ada di header Excel Bapak.",
+            error: "Kolom NAMA / NRP wajib ada di header Excel Bapak.",
             preview: [],
         };
     }
 
-    // Temukan pilar bulan (Jan-Des)
+    // Temukan pilar bulan (Jan-Des) dengan toleransi typo
     const monthNames = ["januari", "pebruari", "februari", "maret", "april", "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember"];
     const monthCols: { name: string, idx: number }[] = [];
     headers.forEach((h, idx) => {
         const mh = h.toLowerCase().trim();
-        if (monthNames.includes(mh) || (mh === 'feb' || mh === 'jan' || mh === 'mar' || mh === 'apr' || mh === 'jun' || mh === 'jul' || mh === 'agu' || mh === 'sep' || mh === 'okt' || mh === 'nov' || mh === 'des')) {
-            monthCols.push({ name: mh, idx });
+        // Regex pencocokan singkatan atau typo bulan
+        if (
+            monthNames.includes(mh) || 
+            /^jan(uari)?$/i.test(mh) || 
+            /^feb(ruari)?|pebruari$/i.test(mh) || 
+            /^mar(et)?|mrt$/i.test(mh) || 
+            /^apr(il)?$/i.test(mh) || 
+            /^mei|may$/i.test(mh) || 
+            /^jun(i)?$/i.test(mh) || 
+            /^jul(i)?$/i.test(mh) || 
+            /^agu(stus)?|agt$/i.test(mh) || 
+            /^sep(tember)?|sept?$/i.test(mh) || 
+            /^okt(ober)?|oct$/i.test(mh) || 
+            /^nov(ember)?$/i.test(mh) || 
+            /^des(ember)?|dec$/i.test(mh)
+        ) {
+            // Mapekan nama ke format baku untuk konsistensi
+            let standardName = mh;
+            if (/^jan/i.test(mh)) standardName = "januari";
+            if (/^feb|peb/i.test(mh)) standardName = "februari";
+            if (/^mar|mrt/i.test(mh)) standardName = "maret";
+            if (/^apr/i.test(mh)) standardName = "april";
+            if (/^mei|may/i.test(mh)) standardName = "mei";
+            if (/^jun/i.test(mh)) standardName = "juni";
+            if (/^jul/i.test(mh)) standardName = "juli";
+            if (/^agu|agt/i.test(mh)) standardName = "agustus";
+            if (/^sep/i.test(mh)) standardName = "september";
+            if (/^okt|oct/i.test(mh)) standardName = "oktober";
+            if (/^nov/i.test(mh)) standardName = "november";
+            if (/^des|dec/i.test(mh)) standardName = "desember";
+            
+            monthCols.push({ name: standardName, idx });
         }
     });
 
@@ -400,7 +430,11 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
         const pokok = pokokIdx >= 0 ? cleanNumber(row[pokokIdx]) : 0;
         const wajibAwal = wajibIdx >= 0 ? cleanNumber(row[wajibIdx]) : 0;
         const sukarelaAwal = sukarelaIdx >= 0 ? cleanNumber(row[sukarelaIdx]) : 0;
-        const totalJmlNum = cleanNumber(row[tajibIdx] || 0);
+        
+        let totalJmlNum = 0;
+        if (tajibIdx >= 0) {
+            totalJmlNum = cleanNumber(row[tajibIdx]);
+        }
 
         const monthlyDeposits: { monthName: string, amount: number }[] = [];
         monthCols.forEach(mc => {
@@ -409,6 +443,11 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
                 monthlyDeposits.push({ monthName: mc.name, amount: amt });
             }
         });
+
+        // Kalkulasi dinamis jika kolom JML absen
+        if (tajibIdx === -1) {
+            totalJmlNum = pokok + wajibAwal + sukarelaAwal + monthlyDeposits.reduce((acc, curr) => acc + curr.amount, 0);
+        }
 
         const csvCleanName = cleanNameForMatch(rawNama);
 

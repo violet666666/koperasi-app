@@ -315,7 +315,7 @@ export default function MemberDashboardPage() {
                             {/* === SIMPANAN WAJIB (dengan rincian bulan) === */}
                             {(() => {
                                 const wajibAcc = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
-                                const wajibHistory = wajibAcc?.history || [];
+                                const wajibHistory = wajibAcc?.transactions || [];
                                 const saldoAwalEntries = wajibHistory.filter((h: any) => h.notes?.includes('Saldo Wajib Awal') || h.notes?.includes('Saldo Awal') || h.notes?.includes('Import Saldo') || h.notes?.includes('Import/Update Saldo'));
                                 // ALL deposit entries that are NOT saldo awal = monthly detail
                                 const monthlyEntries = wajibHistory.filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h));
