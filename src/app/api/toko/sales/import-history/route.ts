@@ -24,10 +24,17 @@ export async function POST(request: Request) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const ws = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+        
+        let allRows: { row: string[], sheetName: string, rowIndex: number }[] = [];
+        for (const sheetName of workbook.SheetNames) {
+            const ws = workbook.Sheets[sheetName];
+            const sheetRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+            for (let i = 0; i < sheetRows.length; i++) {
+                allRows.push({ row: sheetRows[i], sheetName, rowIndex: i });
+            }
+        }
 
-        if (rows.length < 2) {
+        if (allRows.length < 2) {
             return NextResponse.json({ message: "File kosong" }, { status: 400 });
         }
 
@@ -42,8 +49,8 @@ export async function POST(request: Request) {
         const allResults: any[] = [];
         const processedRows = new Set<string>(); // NRP+BULAN dedup
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+        for (let i = 0; i < allRows.length; i++) {
+            const { row, sheetName, rowIndex } = allRows[i];
             const nrpRaw = String(row[0] || '').trim();
             if (!nrpRaw) continue;
 
@@ -52,7 +59,8 @@ export async function POST(request: Request) {
             const nrp = cleanNrp(nrpRaw);
             const barang = cleanNumber(row[2]); // ONLY extracts BARANG (Col 2)
             const nama = String(row[5] || '').trim();
-            let bulan = String(row[6] || '').trim();
+            // Get month based on sheetName prioritizing, then column 6 fallback
+            let bulan = extractMonthInt(sheetName, String(row[6] || '').trim());
 
             if (barang <= 0) continue;
 
@@ -75,7 +83,7 @@ export async function POST(request: Request) {
 
             if (!match) {
                 allResults.push({
-                    row: i + 1, nrp, nama,
+                    row: rowIndex + 1, nrp, nama,
                     status: 'error', reason: `Anggota tidak ditemukan`
                 });
                 totalFail++;
@@ -258,4 +266,27 @@ function getMonthNameFromInt(monthInt: string): string {
         '7': 'Jul', '8': 'Agu', '9': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
     };
     return map[monthInt] || `Bulan ${monthInt}`;
+}
+
+function extractMonthInt(sheetName: string, fallbackNum: string): string {
+    const s = sheetName.toUpperCase();
+    if (s.includes('JAN')) return "1";
+    if (s.includes('PEB') || s.includes('FEB')) return "2";
+    if (s.includes('MAR')) return "3";
+    if (s.includes('APR')) return "4";
+    if (s.includes('MEI') || s.includes('MAY')) return "5";
+    if (s.includes('JUN')) return "6";
+    if (s.includes('JUL')) return "7";
+    if (s.includes('AGU') || s.includes('AUG')) return "8";
+    if (s.includes('SEP')) return "9";
+    if (s.includes('OKT') || s.includes('OCT')) return "10";
+    if (s.includes('NOV')) return "11";
+    if (s.includes('DES') || s.includes('DEC')) return "12";
+
+    const parsedFallback = parseInt(fallbackNum);
+    // Only accept fallback if it represents a valid real month, to avoid interpreting random column text/numbers natively
+    if (!isNaN(parsedFallback) && parsedFallback >= 1 && parsedFallback <= 12) {
+        return String(parsedFallback);
+    }
+    return "1"; // Safest fallback
 }
