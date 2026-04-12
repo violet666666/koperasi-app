@@ -1246,3 +1246,38 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 2. **Detail Mutasi Wajib Bulanan di Mobile (M-FEAT-015):** Menambahkan panel expandable/collapsible di `DashboardScreen.tsx` yang menampilkan rincian setoran wajib per bulan (Saldo Awal Akumulasi, rincian bulanan, footer total, catatan AD-ART). Desain konsisten dengan Web dashboard.
 3. **Card Simpanan Wajib Akurat:** Mengubah card "Simpanan Wajib" agar membaca saldo dari `SavingsAccount` (bukan legacy `member.tabunganWajib`). Single Source of Truth terjaga.
 4. **Dokumentasi:** Memperbarui `MOBILE-UPDATE-CURRENT.md` dengan status endpoint terbaru dan menandai M-FEAT-015 sebagai selesai.
+
+### Dokumentasi UI: Standar Layout "Detail Tabungan Anda" (Dashboard Member)
+Untuk mencegah perubahan layout yang tidak diinginkan di masa depan (regresi UI), berikut adalah struktur baku UI untuk Modal Card "Detail Tabungan Anda" di `/portal/dashboard` dan `DashboardScreen.tsx` (Mobile). Dilarang mengubah urutan pembatas/border pada area ini:
+
+```text
+┌──────────────────────────────────────────┐
+│         📊 Detail Tabungan Anda          │
+├──────────────────────────────────────────┤
+│        Total Tabungan Anda               │
+│        Rp X.XXX.XXX                      │
+├──────────────────────────────────────────┤
+│ ┌──────────────────────────────────────┐ │
+│ │💰 Tabungan Wajib (Akumulasi)         │ │
+│ │                          Rp X.XXX.XXX│ │
+│ ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤ │  <-- (Dashed Border / Garis Putus-putus)
+│ │ 📅 [NAMA_BULAN]       + Rp   XXX.XXX │ │
+│ │ 📅 [NAMA_BULAN]       + Rp   XXX.XXX │ │
+│ ├──────────────────────────────────────┤ │  <-- (Solid Border / Garis Penuh)
+│ │ Tabungan Wajib (Tajib)   Rp X.XXX.XXX│ │
+│ └──────────────────────────────────────┘ │
+│                                          │
+│ ┌──────────────────────────────────────┐ │
+│ │ Simpanan Pokok           Rp 100.000  │ │
+│ └──────────────────────────────────────┘ │
+│                                          │
+│ ┌──────────────────────────────────────┐ │
+│ │ Simpanan Sukarela        Rp 432.100  │ │
+│ └──────────────────────────────────────┘ │
+└──────────────────────────────────────────┘
+```
+
+**Kaidah Logika Rendering:**
+1. **Identifikasi Entri:** `saldoAwalEntries` mengurutkan transaksi deposit yang text `notes`-nya memuat "Saldo Wajib Awal", "Saldo Awal", "Import Saldo", dsb. `monthlyEntries` adalah transaksi `deposit` selain jenis saldo awal (misal: "Setoran Import TAJIB" / setoran dari halaman Admin).
+2. **Kalkulasi Akumulasi:** Menggunakan kode absolut numerik saat me-*reduce* `saldoAwal = saldoAwalEntries.reduce((s, e) => s + Number(e.amount), 0);` untuk menghindari Javascript menafsirkan angka sebagai string yang menyebabkan concat string (`"0" + "100" = "0100"`).
+3. **Penyekat Visual:** Dashed-border (putus-putus) *HANYA* di-render (tampil) jika blok **Akumulasi atas** DAN **List bulanan bawah** muncul secara bersamaan. Solid-border dibiarkan sebagai jeda dengan bagian Footer Card.
