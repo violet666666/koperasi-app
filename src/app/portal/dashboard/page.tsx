@@ -125,6 +125,7 @@ export default function MemberDashboardPage() {
     
     const tabunganWajib = importedWajib > 0 ? importedWajib : legacyWajib;
     const totalTabungan = tabunganWajib + simpananPokok + simpananSukarela;
+    const totalTabunganSHU = tabunganWajib + simpananPokok;
 
     return (
         <div className="space-y-6">
@@ -437,13 +438,13 @@ export default function MemberDashboardPage() {
                                     <h3 className="font-semibold text-sm text-blue-800">1. Jasa Simpanan (Modal) — 20%</h3>
                                 </div>
                                 <div className="p-4 space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Simpanan Anda</span><span className="font-mono">{formatCurrency(totalTabungan)}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Porsi Anda dari Total</span><span className="font-mono font-semibold">{data?.estimatedSHU?.jasaModalPercent?.toFixed(2) || 0}%</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Modal Berlaku (Pokok & Wajib)</span><span className="font-mono">{formatCurrency(totalTabunganSHU)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Porsi Anda dari Total Modal Koperasi</span><span className="font-mono font-semibold">{data?.estimatedSHU?.jasaModalPercent?.toFixed(2) || 0}%</span></div>
                                     <div className="border-t pt-2 flex justify-between font-semibold">
                                         <span className="text-blue-700">Estimasi Jasa Simpanan</span>
                                         <span className="text-blue-700 font-mono">{formatCurrency(data?.estimatedSHU?.jasaModal || 0)}</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground italic">Dihitung dari: (Simpanan Anda ÷ Total Simpanan Seluruh Anggota) × Kolam Jasa Simpanan (20% dari laba koperasi)</p>
+                                    <p className="text-xs text-muted-foreground italic">Dihitung dari: (Modal Berlaku ÷ Total Modal Koperasi) × Kolam Jasa Simpanan (20% laba bersih)</p>
                                 </div>
                             </div>
 
