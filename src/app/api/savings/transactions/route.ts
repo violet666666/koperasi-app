@@ -167,9 +167,20 @@ export async function POST(request: Request) {
                 : currentBalance - data.amount;
 
         const txNo = generateTransactionNo("SIM");
-        const txDate = data.transactionDate instanceof Date
-            ? data.transactionDate
-            : new Date(data.transactionDate);
+        // Parse transactionDate as WIB: date-only strings ("2026-04-13") are treated as noon WIB (05:00 UTC)
+        // to ensure they always land within the correct WIB calendar day for filtering.
+        let txDate: Date;
+        if (data.transactionDate instanceof Date) {
+            txDate = data.transactionDate;
+        } else {
+            const raw = String(data.transactionDate);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                // Date-only string → treat as noon WIB (UTC+7), i.e. 05:00 UTC
+                txDate = new Date(raw + "T12:00:00+07:00");
+            } else {
+                txDate = new Date(raw);
+            }
+        }
 
         // ── ATOMIC TRANSACTION ─────────────────────────────────────────
         const [transaction] = await prisma.$transaction(async (tx) => {

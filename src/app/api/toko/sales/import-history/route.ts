@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+selanimport { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";
@@ -88,9 +88,9 @@ export async function POST(request: Request) {
                 existing.months.add(bulan);
                 existing.records.push({ bulan, barang });
             } else {
-                memberSalesMap.set(match.id, { 
-                    totalBarang: barang, 
-                    months: new Set([bulan]), 
+                memberSalesMap.set(match.id, {
+                    totalBarang: barang,
+                    months: new Set([bulan]),
                     name: match.name,
                     records: [{ bulan, barang }]
                 });
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         for (const [memberId, data] of memberSalesMap.entries()) {
             const member = allMembers.find(m => m.id === memberId);
             if (!member) continue;
-            
+
             // Format array of month numbers back to names for better preview reading
             const monthNamesArr = Array.from(data.months).map(m => getMonthNameFromInt(m));
             const monthLabel = monthNamesArr.length > 2 ? `${monthNamesArr.length} bulan (${monthNamesArr[0]}..)` : monthNamesArr.join(", ");
@@ -128,9 +128,9 @@ export async function POST(request: Request) {
         });
 
         if (mode === "commit" && memberSalesMap.size > 0) {
-            const BATCH_SIZE = 50; 
+            const BATCH_SIZE = 50;
             const memberEntries = [...memberSalesMap.entries()];
-            
+
             const session = await auth();
             const userInfo = extractUserFromSession(session);
             let createdById = userInfo.userId;
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
             for (let batchStart = 0; batchStart < memberEntries.length; batchStart += BATCH_SIZE) {
                 const batch = memberEntries.slice(batchStart, batchStart + BATCH_SIZE);
                 await Promise.all(batch.map(async ([memberId, data]) => {
-                    
+
                     // Creates exactly 1 StoreSale per Month so the transaction dates spread out realistically
                     for (const record of data.records) {
                         const yr = new Date().getFullYear();
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
                                         subtotal: record.barang
                                     }]
                                 },
-                                createdById: createdById, 
+                                createdById: createdById,
                                 createdAt: mockDate, // Set the actual database timestamp backwards to match historical bounds if possible
                             }
                         });

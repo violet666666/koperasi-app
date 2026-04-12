@@ -80,7 +80,7 @@ export default function TambahSimpananPage() {
         cashBankAccountId: "",
         referenceNo: "",
         notes: "",
-        transactionDate: new Date().toISOString().split("T")[0],
+        transactionDate: (() => { const now = new Date(); const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000); return wib.toISOString().split("T")[0]; })(),
     });
 
     // Derived: selected product details
