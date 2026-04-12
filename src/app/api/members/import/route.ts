@@ -671,7 +671,7 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
     }
 
     if (mode === "commit") {
-        const CHUNK_SIZE = 20; // Concurrency limit to prevent Vercel timeout / Prisma connection overflow
+        const CHUNK_SIZE = 5; // Reduced concurrency limit to prevent Prisma connection pool overflow
         for (let i = 0; i < commitTasks.length; i += CHUNK_SIZE) {
             const chunk = commitTasks.slice(i, i + CHUNK_SIZE);
             await Promise.all(chunk.map(fn => fn()));
