@@ -280,6 +280,15 @@ export default function SimpananTransaksiPage() {
             ),
         },
         {
+            accessorKey: "notes",
+            header: "Catatan",
+            cell: ({ row }) => (
+                <span className="text-sm text-muted-foreground truncate max-w-[150px] inline-block" title={row.original.notes || "-"}>
+                    {row.original.notes || "-"}
+                </span>
+            ),
+        },
+        {
             accessorKey: "transactionDate",
             header: "Tanggal",
             cell: ({ row }) => {
@@ -459,6 +468,16 @@ export default function SimpananTransaksiPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Anggota</Label>
+                                <Input value={editTx?.member?.name || ""} disabled className="bg-muted" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Produk Simpanan</Label>
+                                <Input value={editTx?.account?.product?.name || ""} disabled className="bg-muted text-primary font-medium" />
+                            </div>
+                        </div>
                         <div className="space-y-2">
                             <Label>Jenis Transaksi</Label>
                             <Select value={editForm.type} onValueChange={(v) => setEditForm(f => ({ ...f, type: v }))}>
