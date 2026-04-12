@@ -733,7 +733,7 @@ export default function ImportDataPage() {
                                                         ) : importType === "migrasi_pinjaman" || importType === "potongan" ? (
                                                             formatCurrency(r.gaji || 0)
                                                         ) : importType === "toko_history" ? (
-                                                            <span className="text-emerald-600 font-bold">{formatCurrency(r.gaji || 0)}</span>
+                                                            <span className="text-emerald-600 font-bold">{formatCurrency(r.totalBarang || 0)}</span>
                                                         ) : (
                                                             (() => {
                                                                 const val = importType === "tunkin" ? (r.tunkin || 0) : importType === "tajib" ? (r.tajib || 0) : (r.gaji || 0);
