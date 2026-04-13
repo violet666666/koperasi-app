@@ -44,10 +44,8 @@
 | **FEAT-008** | **Upload foto bukti pengeluaran operasional di laporan unit** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **FEAT-009** | **Submit Laporan ke Inbox Operator (workflow review laporan unit)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **BUG-UI-013** | **Isi kolom nominal tidak rata kiri sesuai skeleton** | ✅ FIXED | 7 Apr 2026 |
-| **BUG-064** | **Foreign key constraint violation (Failed to process sale) di Kasir Toko** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-P05** | **Validasi Gatekeeper Double-Count Piutang (Limit selalu Rp 0)** | ✅ FIXED | 7 Apr 2026 |
 | **BUG-065** | **Kolom Input Plafon Piutang/Limit tidak muncul di UI Edit Anggota** | ✅ FIXED | 7 Apr 2026 |
-| **FEAT-016** | **Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)** | ✅ IMPLEMENTED | 7 Apr 2026 |
 | **BUG-UAT-001** | **Simpanan Transaksi Tambah — Pencarian Anggota Masih Mock Data** | 🔴 OPEN | 7 Apr 2026 |
 | **BUG-UAT-002** | **Dashboard Operator — Total Pinjaman Aktif Rp 0 Meski Ada Pinjaman Approved** | 🔴 OPEN | 7 Apr 2026 |
 | **BUG-UAT-003** | **Jurnal Umum Tambah Entry — Simulasi setTimeout (Tidak Ke API Real)** | 🔴 OPEN | 7 Apr 2026 |
@@ -180,11 +178,9 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 | BUG-016 | Buku Kas Default Filter Kosong | ✅ FIXED | Apr 2026 |
 | BUG-017 | Data Import Maret Masuk ke Tahun 2005 | ✅ FIXED | Apr 2026 |
 | BUG-018 | Laporan SHU Kosong / Tidak Realtime | ✅ FIXED | Apr 2026 |
-| BUG-019 | Kas Toko Tidak Masuk Buku Kas | ✅ FIXED | 4 Apr 2026 |
 | BUG-020 | Stok Masuk Silent Bug (TODO Placeholder) | ✅ FIXED | 4 Apr 2026 |
 | BUG-021 | Penjualan Kredit Tidak Membuat Piutang | ✅ FIXED | 4 Apr 2026 |
 | BUG-022 | Race Condition Nomor Penjualan (saleNo) | ✅ FIXED | 4 Apr 2026 |
-| BUG-023 | Dashboard Tidak Hitung Pendapatan Toko | ✅ FIXED | 4 Apr 2026 |
 | BUG-024 | Limit Fetch Non-SP Hanya 100 Data | ✅ FIXED | 4 Apr 2026 |
 | BUG-025 | Label Duplikat NRP di Transaksi Unit | ✅ FIXED | 4 Apr 2026 |
 | BUG-026 | COA Expand/Collapse Tidak Berfungsi | ✅ FIXED | 4 Apr 2026 |
@@ -192,13 +188,10 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 | BUG-028 | Settings Halaman Data Hardcoded | ✅ FIXED | 4 Apr 2026 |
 | BUG-029 | Tombol Backup Tampilkan Toast Palsu | ✅ FIXED | 4 Apr 2026 |
 | BUG-030 | Privilege Escalation Kasir → Operator | ✅ FIXED | 5 Apr 2026 |
-| BUG-031 | Kasir Toko Masuk ke Kasir Cepat | ✅ FIXED | 5 Apr 2026 |
 | BUG-032 | Permission kasir_pos Tidak Ada di DB | ✅ FIXED | 5 Apr 2026 |
 | BUG-033 | Type Definition unitType Hilang | ✅ FIXED | 5 Apr 2026 |
 | BUG-034 | NextAuth Session Lockout Kasir | ✅ FIXED | 5 Apr 2026 |
 | BUG-035 | Grafik Arus Kas Hardcoded | ✅ FIXED | 5 Apr 2026 |
-| BUG-036 | Link Semua Riwayat Toko Salah URL | ✅ FIXED | 5 Apr 2026 |
-| BUG-037 | Riwayat Toko Tidak Tampil (StoreSale vs UnitTransaction) | ✅ FIXED | 5 Apr 2026 |
 | BUG-038 | QRIS Tidak Bisa Di-Upload Kasir | ✅ FIXED | 5 Apr 2026 |
 | BUG-039 | Build Fail: Next.JS 16 Turbopack Errors | ✅ FIXED | 5 Apr 2026 |
 | BUG-040 | Cabang Bisa Ditambah (Single-Entity Violation) | ✅ FIXED | 5 Apr 2026 |
@@ -208,7 +201,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 | BUG-044 | Admin Unit Sidebar Sama dengan Operator | ✅ FIXED | 5 Apr 2026 |
 | BUG-045 | Kasir Cepat: Failed to Process Quick Sale (P2003) | ✅ FIXED | 5 Apr 2026 |
 | BUG-046 | Tabungan Wajib Tidak Tampil di Portal Simpanan | ✅ FIXED | 5 Apr 2026 |
-| BUG-047 | Void Toko (POS-) Ditolak Server | ✅ FIXED | 5 Apr 2026 |
 | BUG-048 | Operator Diminta Persetujuan Admin saat Void | ✅ FIXED | 5 Apr 2026 |
 | BUG-049 | Sidebar: Riwayat Transaksi → Halaman Input | ✅ FIXED | 5 Apr 2026 |
 | BUG-050 | Kasir POS: "Halaman Tidak Tersedia Untuk Unit Anda" | ✅ FIXED | 5 Apr 2026 |
@@ -220,7 +212,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 | BUG-056 | Halaman /settings Bocor ke Admin Unit (Reset Data, Backup) | 🔴 OPEN | 5 Apr 2026 |
 | BUG-057 | Shared POS Dropdown: Satu Halaman untuk Semua Unit Jasa | 🔴 OPEN | 5 Apr 2026 |
 | BUG-058 | Paket Layanan Unit Jasa Hardcoded (Hanya Carwash & Barbershop) | 🔴 OPEN | 5 Apr 2026 |
-| BUG-059 | Kasir Toko Tidak Bisa Mengajukan Void (Langsung 403) | 🔴 OPEN | 5 Apr 2026 |
 | BUG-060 | Tidak Ada Dedicated Sidebar untuk Admin Unit | 🔴 OPEN | 5 Apr 2026 |
 | FEAT-001 | POS Multi-Unit (Kasir Cepat Jasa) | ✅ DONE | 5 Apr 2026 |
 | FEAT-002 | Void System + Contra-Entry + SHA256 | ✅ DONE | 5 Apr 2026 |
@@ -341,13 +332,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 
 # 🔴 BUG KRITIS — 4 APRIL 2026
 
-## BUG-019 — Kas Penjualan Toko Tidak Masuk Buku Kas
-
-**Lokasi:** `src/app/api/toko/sales/route.ts`
-**Gejala:** Checkout tunai di Toko tidak menambah saldo Kas/Bank.
-**Akar Masalah:** API hanya buat Journal Entry — tidak buat `CashBankTransaction`.
-**Resolusi:** Ditambahkan blok sinkronisasi kas setelah deduct stok.
-
 ## BUG-020 — Stok Masuk Silent Bug (TODO Placeholder)
 
 **Lokasi:** `src/app/(protected)/toko/persediaan/page.tsx`, `src/app/api/toko/products/[id]/stock/route.ts` (baru)
@@ -366,11 +350,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Lokasi:** `src/app/api/toko/sales/route.ts`
 **Gejala:** 2 kasir checkout bersamaan → `saleNo` sama → unique constraint error.
 **Resolusi:** Ganti `count() + 1` dengan `Date.now()` + random string.
-
-## BUG-023 — Dashboard Tidak Hitung Pendapatan Toko
-
-**Lokasi:** `src/app/api/dashboard-stats/route.ts`
-**Resolusi:** Tambahkan query `StoreSale` ke dalam hitungan statistik harian.
 
 ## BUG-024 — Limit Fetch Non-SP Hanya 100 Data
 
@@ -416,14 +395,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Role Kasir dapat mengakses fitur keuangan inti seperti simpanan, pinjaman, approval.
 **Resolusi:** (1) Seed reset permissions kasir ke 2 poin saja; (2) Navigation dual-filter: role + unitType; (3) Whitelist route guard berdasar unitType; (4) Role-aware dashboard.
 
-## BUG-031 — Kasir Toko Masuk ke Kasir Cepat
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/lib/constants/navigation.ts`, `src/lib/validations/index.ts`, `src/app/api/users/[id]/route.ts`, `src/app/(protected)/master/users/page.tsx`
-**Gejala:** Login kasir Toko → sidebar Kasir Cepat (tanpa stok/barcode).
-**Akar Masalah:** 5 lapisan: navigation tidak cek unitType; schema Zod buang unitType; PUT handler users tidak ada; UI tidak ada dropdown unitType; nama hardcoded.
-**Resolusi:** Buat `kasirTokoNavigation` khusus; update schema; buat handler PUT; tambah dropdown unit di master users.
-
 ## BUG-032 — Permission kasir_pos Tidak Ada di DB
 
 **Status:** ✅ FIXED
@@ -450,20 +421,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Status:** ✅ FIXED
 **Lokasi:** `src/app/api/dashboard-stats/route.ts`, `src/components/patterns/cash-flow-chart.tsx`
 **Resolusi:** Query GroupBy bulanan `CashBankTransaction` 7 bulan terakhir; Chart menjadi prop dinamis.
-
-## BUG-036 — Link "Semua" Riwayat Toko Salah URL
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/components/patterns/kasir-dashboard.tsx`
-**Resolusi:** Kondisi href: `unitType === "toko" ? "/transaksi-unit/riwayat?unitType=toko" : "/transaksi-unit/riwayat"`.
-
-## BUG-037 — Riwayat Toko Tidak Tampil (StoreSale Terpisah)
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/unit-transactions/route.ts`, `src/app/api/unit-layanan/stats/route.ts`
-**Gejala:** Grafik dan riwayat terbaru kosong untuk kasir Toko meski transaksi ada.
-**Akar Masalah:** Stats API query hanya `UnitTransaction`, tidak menyertakan `StoreSale`.
-**Resolusi:** Detect `unitType === "toko"` → query paralel ke kedua tabel → merge & sort descending.
 
 ## BUG-038 — QRIS Tidak Bisa Di-Upload Kasir (Akses Settings Terblokir)
 
@@ -531,14 +488,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Total saldo dashboard menunjukkan angka benar, tapi card Tabungan Wajib tidak muncul.
 **Akar Masalah:** Sumber data berbeda — `tabunganWajib` ada di objek `member`, bukan di `savingsAccount`.
 **Resolusi:** Inject card statis yang membaca `response.data.member.tabunganWajib` secara langsung.
-
-## BUG-047 — Void Toko (saleNo POS-xxx) Ditolak Server
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/unit-transactions/void-request/route.ts`
-**Gejala:** API void selalu error "transaksi tidak ditemukan" untuk ID bertipe POS-xxx.
-**Akar Masalah:** API hanya mencari di tabel `UnitTransaction`, tidak mendeteksi tabel `StoreSale` untuk transaksi toko.
-**Resolusi:** Deteksi prefix `POS-` / `TK-` / `TS-` → arahkan ke `StoreSale` → kembalikan stok produk → mark voided di metadata.
 
 ## BUG-048 — Operator Diminta Persetujuan Admin saat Void
 
@@ -761,14 +710,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Akibat:** Admin unit tidak bisa mengubah harga layanan tanpa menyentuh source code. Sangat tidak profesional dan tidak scalable.
 **Resolusi (Direncanakan):** Buat tabel database `UnitServicePackage`. Buat halaman admin "Kelola Layanan & Harga" per unit. API endpoint CRUD paket.
 
-## BUG-059 — Kasir Toko Tidak Bisa Mengajukan Void (Langsung Error 403)
-
-**Status:** 🔴 OPEN
-**Lokasi:** `src/app/api/unit-transactions/void-request/route.ts` baris 38–40
-**Gejala:** Kasir Toko menekan tombol "Void/Batal" pada transaksi → sistem langsung menolak dengan pesan "Hanya Operator yang dapat mengambil tindakan void".
-**Akar Masalah:** Kode mengecek `if (!isOperator) return 403` untuk semua transaksi Toko (StoreSale), tanpa memberikan jalan alternatif bagi Kasir untuk mengajukan permintaan (Pending Void).
-**Resolusi (Direncanakan):** Ubah logika — jika bukan Operator, jangan 403, tapi buatkan `ApprovalRequest` dengan status `pending`. Admin unit bisa approve/reject dari Inbox-nya.
-
 ## BUG-060 — Tidak Ada Dedicated Sidebar untuk Admin Unit
 
 **Status:** 🔴 OPEN
@@ -781,13 +722,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 
 1. **BUG-U03 (Kelola Layanan Crash - 500 Error)**: Memperbaiki crash di `LayananUnitPage` di mana object `params` diakses secara sinkron (membawa behavior dari Next.js 14). Diperbaiki dengan meng-unwrap `params` menggunakan `React.use(params)`. ([unitSlug]/layanan/page.tsx).
 2. **BUG-U04 (Void Request Tidak Ada Action)**: Terdapat disfungsi tombol "Setujui" pada Inbox Approval bagi Admin Unit. Transaksi bertipe `"unit_void"` salah memanggil body API (menggunakan `approvalId` untuk key dan text string `approve` bukan expected `approved`). Diperbaiki di backend services dan ApprovalDialog.
-
-## BUG-061 — Void Kasir Toko Membuahkan Foreign Key Constraint (500)
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/unit-transactions/void-request/route.ts`
-**Gejala:** Kasir Toko klik Void, sistem melempar 500 internal error di *backend* karena backend mencoba *insert* record persetujuan dengan `branchId: 1`. Sementara cabang yang terdaftar di database cloud hanya memiliki ID `10`.
-**Resolusi:** Data fallback `branchId` disesuaikan dari pola *hardcoded* (1) menjadi (10).
 
 ## BUG-062 — Kasir Riwayat Mengabaikan Pesan Error dari Server (False Positive)
 
@@ -813,13 +747,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 
 ## [2026-04-06] Audit & Perbaikan Alur POTONG GAJI
 
-### BUG-P01 — Stok Toko Tidak Berkurang Saat Transaksi Potong Gaji
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/toko/sales/route.ts` baris 235–244
-**Gejala:** Stock deduction menggunakan `stock` (gudang) bukan `stockToko` (toko fisik) — menyebabkan stok toko tidak turun setelah checkout.
-**Resolusi:** Prioritaskan pengurangan `stockToko` jika > 0, fallback ke `stock` gudang.
-
 ### BUG-P02 — Tidak Ada Validasi Plafon Piutang di Unit Layanan
 
 **Status:** ✅ FIXED
@@ -834,13 +761,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Lokasi:** `src/app/api/unit-layanan/sales/route.ts`
 **Gejala:** Hanya cek `memberId` null, tidak verifikasi member ada di DB → 500 error jika `memberId` invalid.
 **Resolusi:** Tambah `prisma.member.findUnique` sebelum proses transaksi.
-
-### BUG-P04 — Double-Count Piutang Saat Validasi Plafon Toko
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/toko/sales/route.ts` baris 109–126
-**Gejala:** Validasi plafon Toko menghitung `UnitTransaction + StoreSale` — padahal checkout Toko akan membuat `UnitTransaction` baru, sehingga tagihan dihitung 2x dari StoreSale.
-**Resolusi:** Hapus query `StoreSale` dari validasi plafon Toko. Hanya hitung dari `UnitTransaction` saja sebagai sumber kebenaran piutang.
 
 ### BUG-D01 — Dashboard Counter "Potong Gaji Pending" Tidak Akurat (Ikut Hitung Voided)
 
@@ -932,34 +852,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Metrik interaksi INP mencatat *delay* ekstrim hingga 1,674ms saat tombol "Hapus QRIS" berwarna merah ditekan.
 **Resolusi:** Mengamankan eksekusi `window.confirm()` dengan mengisolasinya di dalam blok `setTimeout(..., 50)`. Hal ini mencegah pembekuan *main-thread* UI peramban saat mengeksekusi kotak dialog peringatan natif sistem operasi (Mac/Windows).
 
-### BUG-UI-011 — Kolom Metode Pembayaran Kosong (Rip) Pada Transaksi Toko di Riwayat
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/unit-transactions/route.ts`
-**Gejala:** Pada tabel Riwayat Transaksi, transaksi milik **Toko** menampilkan strip kosong `"-"` karena kehilangan jejak identitas Metode Bayarnya.
-**Resolusi:** Restrukturisasi model `mapper` pada Endpoint `unit-transactions` (yang memadukan UnitTransaction dan StoreSale). Menambahkan properti `paymentMethod: s.paymentMethod` untuk di-*passthrough* secara sempurna dari rekam *StoreSale* ke Frontend.
-
-### BUG-UI-012 — Kolom Aksi "Edit Plat Nomor" Tersesat Sampai ke Unit Toko
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
-**Gejala:** Tombol *Action* Edit "Plat Nomor & Keterangan" memunculkan batang hidungnya di tabel baris Riwayat milik Unit Toko dan lainnya, padahal Toko tidak memiliki urusan dengan Plat Nomor Kendaraan.
-**Resolusi:** Menegaskan isolasi logika komputasi visibilitas tombol tersebut, membatasi operasional `canEditDetails` secara murni eksklusif hanya jika `tx.unitType === "cuci_mobil"`.
-
-### FEAT-016 — Integrasi Dialog Pembayaran QRIS Toko & Perbaikan Sinkronisasi Jurnal
-
-**Tanggal:** 7 Apr 2026
-**File:** `src/app/(protected)/toko/kasir/page.tsx`, `src/app/api/toko/sales/route.ts`
-**Deskripsi:** Memasukkan modal antarmuka Pembayaran QRIS yang menarik tautan URL `Base64` mutakhir dari parameter Statistik Unit Toko. Mengatasi kendala "Failed to process sale" akibat tabrakan ID *race condition* pencatatan Jurnal Akuntansi Buku Besar saat dua kasir checkout tunai/QRIS persis pada detik yang sama di Neon Serverless DB.
-
-### BUG-064 — Foreign Key Violation ("Failed to process sale") Pada Checkout Tunai Kasir Toko
-
-**Status:** ✅ FIXED
-**Lokasi:** `src/app/api/toko/sales/route.ts`
-**Gejala:** Modul kasir melempar error Mentah `500 Failed to process sale: Invalid prisma.storeSale.create() invocation: Foreign key constraint violated on the constraint: store_sales_created_by_id_fkey` ketika menekan Bayar Tunai.
-**Penyebab:** Kesalahan implementasi sesi otentikasi. Endpoint ini melempar nilai fallback `userId = 1` ke dalam database `store_sales.createdById` saat `body` payload dari depan tidak mengirim id pengguna. Di server Produksi/Staging, akun bernomor identitas ID 1 tidak ada atau sudah difilter ulang, sehingga *Foreign Key* ke tabel *Users* gagal secara paksa. Sayangnya, transaksi tersendat.
-**Resolusi:** Menyuntikkan pemanggilan wajib `auth()` persis di kepala baris rute *POST* untuk mengambil absolut *Session User ID* murni milik kasir yang aktif (serupa dengan sistem Unit Layanan).
-
 ### BUG-P05 — Validasi Gatekeeper Double-Count Piutang (Limit Kasir Selalu Rp 0)
 
 **Status:** ✅ FIXED
@@ -975,22 +867,6 @@ Nomor urut di-query dari count transaksi hari ini per unit type, sehingga sekuen
 **Gejala:** Pelanggan/Anggota tercatat selalu ditolak saat proses kasir karena limit "Plafon Belanja Potong Gaji" memunculkan output nilai `Rp 0`.
 **Akar Masalah:** Desain *Database* secara keamanan *zero-trust* mengunci profil member baru agar nilai Limit Kasir bawaan/default disetel presisi ke titik 0 di belakang layar. Untuk bisa berhutang, figur `plafonPiutang` ini **wajib** dikonfigurasi ulang secara otoritatif oleh Operator. Sayangnya, form/kolom input UI untuk profil `plafonPiutang` tersebut secara *Front-end* tertinggal belum dirajut ke formulir halaman utama "Edit Data Anggota", sehingga hal ini menyandera admin untuk tidak berdaya membuka gembok 0 Limit tersebut.
 **Resolusi:** Memasukkan *Field* khusus label `"Plafon Piutang Belanja (Limit Kasir)"` di dalam blok form Data Pribadi di antarmuka Edit Anggota sehingga Operator berwenang bisa seketika menetapkan/menurunkan limit kustom dengan leluasa.
-
-### FEAT-016 — Plafon Piutang Dinamis Otomatis (Sisa Gaji Fallback)
-
-**Status:** ✅ IMPLEMENTED  
-**Lokasi:** `src/app/api/unit-transactions/validate/route.ts`, `src/app/api/unit-layanan/sales/route.ts`, `src/app/api/toko/sales/route.ts`  
-**Deskripsi:** Memberikan kemampuan kecerdasan buatan (*dynamic fallback*) pada sistem POS Kasir saat menggunakan metode pembayaran Potong Gaji.
-**Logika Bisnis Baru:**  
-Bila Operator Operator belum secara eksplisit menentukan nilai *Plafon Piutang* di Data Anggota (nilai mentah = 0), sistem TIDAK LAGI akan memblokir membabi-buta. Sistem kini merujuk pada **Gaji Bersih bulanan** ditambah **Tunjangan Kinerja**, lalu mensubtraksi/dikurangi total angsuran pinjaman berjalan. Hasilnya dicocokkan dengan **Batas Minimal Aman Rp 2.000.000** (Berdasarkan rasio *AD-ART Pasal 26 Ayat 3*). 
-Jika ada saldo/gaji berlebih di luar batas aman tersebut (Sisa Bersih > 2JT), kelebihan tersebut akan ditransfer/disihir secara *real-time* oleh Kasir menjadi Plafon Limit Belanja bagi anggota, sehingga operasional POS tetap dinamis dan mulus merespons Sisa Gaji aktual pelanggan tanpa repot menyetel satu per satu, sambil tetap memprioritaskan ketetapan Limit Override kustom jika Operator memutuskan untuk mengeset Plafon.
-
----
-
-*Total bug tercatat: 80 | Total fitur baru: 17*  
-*Diperbarui: 7 April 2026*
-
----
 
 ## 📋 BUG & FITUR BARU — 7 April 2026 (Sesi 2 — Produk Pinjaman)
 
@@ -1262,14 +1138,6 @@ Update data seed produk pinjaman agar sesuai aturan bisnis terbaru:
 
 ---
 
-### BUG-073 (8 April 2026) - Chart "Pendapatan per Unit Usaha" Tidak Menampilkan Unit Jasa
-**Masalah:** Pada Dashboard Operator, pie chart "Pendapatan per Unit Usaha" hanya memunculkan unit "Toko PRIMKOPPOL", sedangkan data penjualan unit jasa (seperti Cuci Mobil, Resto, Barbershop, dsb) tidak muncul sama sekali meski sudah ada transaksi.
-**Investigasi:** API `/api/dashboard-charts?days=30` hanya memverifikasi dan menjumlahkan tabel `StoreSale` (yang spesifik milik toko), namun sama sekali tidak melakukan *query* ke model `UnitTransaction` tempat di mana data layanan jasa dicatat.
-**Solusi:** Memperbarui logika query pada endpoint `GET /api/dashboard-charts/route.ts` dengan menyertakan aggregate dari `UnitTransaction` untuk transaksi berstatus `completed`, lalu menggabungkan (merge) hasil pendapatannya dengan `StoreSale` sebelum disajikan ke frontend.
-**File:** `/src/app/api/dashboard-charts/route.ts`
-
----
-
 ### BUG-074 (8 April 2026) - Data "Pencairan Hari Ini" di Dashboard Menampilkan Nominal Penarikan Simpanan
 **Masalah:** Kartu statistik "Pencairan Hari Ini" di Dashboard (yang deskripsinya menjelaskan tentang pencairan *loan/pinjaman*) justru menampilkan nominal dari "Penarikan Simpanan Sukarela".
 **Investigasi:** Terdapat *salah mapping payload*. Interface frontend `pencairanHariIni` diisi dengan data dari `todayWithdrawals` (yang diambil dari agregasi transaksi simpanan bertipe "withdrawal"). Belum ada agregasi untuk *pencairan pinjaman* yang mengarah ke tanggal pencairan (`disbursementDate`) pada tabel `Loan`.
@@ -1293,11 +1161,11 @@ Update data seed produk pinjaman agar sesuai aturan bisnis terbaru:
 ### BUG-075 (9 April 2026) - Void Pinjaman Build Error (Import Usang)
 **File:** `src/app/api/loans/[id]/void/route.ts`
 **Masalah:** Fitur endpoint void pinjaman baru yang dibuat menyebabkan Turbopack build failed dengan 2 error setelah deploy:
-1. `import { getServerSession } from "next-auth"` � getServerSession tidak lagi diekspor oleh versi Auth.js terbaru yang digunakan.
-2. `import { authOptions } from "@/lib/auth"` � uthOptions tidak diekspor dari uth.ts, karena project menggunakan pola NextAuth v5 baru yaitu export const { auth }.
+1. `import { getServerSession } from "next-auth"` � getServerSession tidak lagi diekspor oleh versi Auth.js terbaru yang digunakan.
+2. `import { authOptions } from "@/lib/auth"` � uthOptions tidak diekspor dari uth.ts, karena project menggunakan pola NextAuth v5 baru yaitu export const { auth }.
 3. params bertipe { id: string } (non-async) sedangkan Next.js 15 / Turbopack mensyaratkan params: Promise<{ id: string }>.
 **Solusi:** Mengganti seluruh impor sesi dari pola lama ke pola baru import { auth } from "@/lib/auth" + const session = await auth(). Mengubah tipe params menjadi Promise<{id: string}> dan menerapkan const resolvedParams = await params.
-**Status:** FIXED ? � Build berhasil Exit Code 0.
+**Status:** FIXED ? � Build berhasil Exit Code 0.
 
 ---
 
@@ -1322,21 +1190,21 @@ Kode sebelumnya **selalu menjumlahkan keduanya tanpa pengecekan**, sehingga jika
 
 ---
 
-## BUG REPORT � 10 April 2026
+## BUG REPORT � 10 April 2026
 
 | ID | Modul | Deskripsi Bug | Severity | Status |
 |----|-------|---------------|----------|--------|
-| **BUG-075** | Kas & Bank / Riwayat | Search bar tidak berfungsi � searchColumn tidak di-pass ke DataTable component | Medium | ? FIXED |
+| **BUG-075** | Kas & Bank / Riwayat | Search bar tidak berfungsi � searchColumn tidak di-pass ke DataTable component | Medium | ? FIXED |
 | **BUG-076** | Kas & Bank / Transaksi Unit | Tidak ada filter per-unit pada tab Transaksi Unit | Medium | ? FIXED |
 | **BUG-077** | Import Excel Kas | Angka artifact kecil (< Rp 10) dari sel Excel kosong terimpor sebagai transaksi valid | High | ? FIXED |
-| **BUG-078** | Import Excel Kas | Stop-sequence 'sisa' terlalu broad � memotong baris 'Sisa Setelah Serah Terima' (Saldo Awal) sehingga tidak diimpor | Critical | ? FIXED |
+| **BUG-078** | Import Excel Kas | Stop-sequence 'sisa' terlalu broad � memotong baris 'Sisa Setelah Serah Terima' (Saldo Awal) sehingga tidak diimpor | Critical | ? FIXED |
 | **BUG-079** | Import Excel Kas | Semua baris dalam satu tanggal mendapat timestamp persis sama, membuat urutan Buku Kas acak/non-deterministik | High | ? FIXED |
-| **BUG-080** | Import Excel Kas | isSaldoAwal tidak mengenali keyword 'sisa awal' � hanya 'saldo awal' | Medium | ? FIXED |
+| **BUG-080** | Import Excel Kas | isSaldoAwal tidak mengenali keyword 'sisa awal' � hanya 'saldo awal' | Medium | ? FIXED |
 | **BUG-081** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Tanggal (hardcode 
-ew Date()) � operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN � Target: Sesi berikutnya |
-| **BUG-082** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Unit Usaha � tidak bisa trigger automasi Split Ledger Cuci Mobil | High | ?? OPEN � Target: Sesi berikutnya |
-| **BUG-083** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Anggota � SHU Rp2.000 tidak dapat dipotong otomatis | High | ?? OPEN � Target: Sesi berikutnya |
-| **BUG-084** | Kas & Bank Schema | Tabel CashBankTransaction tidak memiliki kolom unitType dan memberId � laporan Arus Kas per-Unit tidak bisa disajikan secara efisien | Medium | ?? OPEN � Target: Schema Migration |
+ew Date()) � operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN � Target: Sesi berikutnya |
+| **BUG-082** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Unit Usaha � tidak bisa trigger automasi Split Ledger Cuci Mobil | High | ?? OPEN � Target: Sesi berikutnya |
+| **BUG-083** | Kas & Bank Modal | Form Kas Masuk/Keluar tidak memiliki field Anggota � SHU Rp2.000 tidak dapat dipotong otomatis | High | ?? OPEN � Target: Sesi berikutnya |
+| **BUG-084** | Kas & Bank Schema | Tabel CashBankTransaction tidak memiliki kolom unitType dan memberId � laporan Arus Kas per-Unit tidak bisa disajikan secara efisien | Medium | ?? OPEN � Target: Schema Migration |
 
 ---
 

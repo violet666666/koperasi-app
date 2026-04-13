@@ -1140,7 +1140,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 ---
 
-## UPDATE 10 April 2026 — Sesi Kas & Bank + Automasi
+## UPDATE 10 April 2026 ï¿½ Sesi Kas & Bank + Automasi
 
 ### [FIX] Perbaikan Filter & Search Kas & Bank (kas-bank/page.tsx)
 
@@ -1151,7 +1151,7 @@ DATABASE_URL="postgresql://postgres:TqMqiuDIz4WCYUno@db.xlxrjlcnhvtvgkbmrfkm.sup
 
 **Detail Fix:**
 - DataTable di tab Riwayat Kas sekarang menerima searchColumn="description" untuk pencarian real-time
-- Tab Transaksi Unit sekarang memiliki Select dropdown filter: Toko, Simpan Pinjam, Cuci Mobil & Resto, Playstation, Gym — menggunakan ilteredUnitTransactions yang di-compute via useMemo
+- Tab Transaksi Unit sekarang memiliki Select dropdown filter: Toko, Simpan Pinjam, Cuci Mobil & Resto, Playstation, Gym ï¿½ menggunakan ilteredUnitTransactions yang di-compute via useMemo
 
 ### [FIX] Perbaikan Import Excel Buku Kas (api/cash-bank/import/route.ts)
 
@@ -1176,12 +1176,12 @@ ew Date(baseDate.getTime() + i * 1000) untuk menjaga urutan deterministik
 | **FIX-DATA-001** | Pinjaman LN-SP-mnf9ky60-0013 (SUGESTI) dilunaskan via script karena dana sudah masuk di Buku Kas BANK JATIM | ? EXECUTED |
 
 **File:** prisma/resolve-sugesti-loan.ts  
-**Eksekusi:** 10 April 2026 — berhasil dijalankan ke Production DB  
+**Eksekusi:** 10 April 2026 ï¿½ berhasil dijalankan ke Production DB  
 **Catatan:** Sisa pokok Rp 24.995.000 + bunga Rp 15.000.000 dihapuskan. Dana riil Rp 25.328.000 sudah tercatat di Buku Kas.
 
 ---
 
-*Diperbarui: 10 April 2026 — Sesi Kas & Bank*
+*Diperbarui: 10 April 2026 ï¿½ Sesi Kas & Bank*
 
 ---
 
@@ -1282,10 +1282,6 @@ Untuk mencegah perubahan layout yang tidak diinginkan di masa depan (regresi UI)
 2. **Kalkulasi Akumulasi:** Menggunakan kode absolut numerik saat me-*reduce* `saldoAwal = saldoAwalEntries.reduce((s, e) => s + Number(e.amount), 0);` untuk menghindari Javascript menafsirkan angka sebagai string yang menyebabkan concat string (`"0" + "100" = "0100"`).
 3. **Penyekat Visual:** Dashed-border (putus-putus) *HANYA* di-render (tampil) jika blok **Akumulasi atas** DAN **List bulanan bawah** muncul secara bersamaan. Solid-border dibiarkan sebagai jeda dengan bagian Footer Card.
 
-### Update 13 April 2026
-**1. Import History Belanja Toko Terisolasi**
-- Dibuat custom route /api/toko/sales/import-history khusus untuk membaca file excel Import History Belanja (Tab Toko) dengan sistem pemetaaan bulan yang fleksibel (misal: 'feb', 'maret').
-- Skema impor ini mengekstraksi nilai dari sel BARANG saja (sedangkan Simpanan TAJIB dan SP diabaikan penuh agar tidak merusak data import tabungan yang dikerjakan sebelumnya). History dikonversi langsung menjadi Lunas (paymentMethod: cash) sehingga piutang tidak terdampak.
 
 **2. Simpanan Transaksi Full CRUD Support**
 - Ditambahkan kapabilitas PUT dan DELETE di backend /api/savings/transactions/[id].
