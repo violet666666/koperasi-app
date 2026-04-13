@@ -293,22 +293,65 @@ export async function POST(request: Request) {
                         if (kredit < 10) kredit = 0;
                         
                         if (debet === 0 && kredit === 0 && !isSaldoAwal) continue;
-                        // For saldo_awal, skip if amount is 0 too, unless we want a 0 starting balance? 
+                        // For saldo_awal, skip if amount is 0 too
                         if (isSaldoAwal && debet === 0 && kredit === 0) continue;
                         
-                        let txType = "in"; let txAmount = debet;
-                        if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }
-                        
-                        results.push({
-                            ...baseInfo,
-                            type: txType,
-                            amount: txAmount,
-                            category: isSaldoAwal ? "lainnya" : determineCategory(txType),
-                            targetAccountId: col.accId,
-                            targetAccountName: col.name,
-                            isSaldoAwal
-                        });
-                        successCount++;
+                        // BUG-111 FIX: Jika satu baris memiliki KEDUA Debet DAN Kredit
+                        if (debet > 0 && kredit > 0) {
+                            if (isSaldoAwal) {
+                                // Saldo Awal dengan dual kolom: gunakan nilai NET (debet - kredit)
+                                const netAmount = debet - kredit;
+                                if (netAmount !== 0) {
+                                    results.push({
+                                        ...baseInfo,
+                                        type: netAmount > 0 ? "in" : "out",
+                                        amount: Math.abs(netAmount),
+                                        category: "lainnya",
+                                        targetAccountId: col.accId,
+                                        targetAccountName: col.name,
+                                        isSaldoAwal: true
+                                    });
+                                    successCount++;
+                                }
+                            } else {
+                                // Transaksi biasa: hasilkan DUA transaksi terpisah
+                                // (contoh: pelunasan SP lama masuk + pencairan SP baru keluar)
+                                results.push({
+                                    ...baseInfo,
+                                    type: "in",
+                                    amount: debet,
+                                    category: determineCategory("in"),
+                                    targetAccountId: col.accId,
+                                    targetAccountName: col.name,
+                                    isSaldoAwal: false
+                                });
+                                successCount++;
+                                results.push({
+                                    ...baseInfo,
+                                    type: "out",
+                                    amount: kredit,
+                                    category: determineCategory("out"),
+                                    targetAccountId: col.accId,
+                                    targetAccountName: col.name,
+                                    isSaldoAwal: false
+                                });
+                                successCount++;
+                            }
+                        } else {
+                            let txType = "in"; let txAmount = debet;
+                            if (kredit > 0 && debet === 0) { txType = "out"; txAmount = kredit; }
+                            
+                            results.push({
+                                ...baseInfo,
+                                type: txType,
+                                amount: txAmount,
+                                category: isSaldoAwal ? "lainnya" : determineCategory(txType),
+                                targetAccountId: col.accId,
+                                targetAccountName: col.name,
+                                isSaldoAwal
+                            });
+                            successCount++;
+                        }
                     }
                     continue;
                 }

@@ -101,3 +101,11 @@ check-april-dates.js
 check-saldos.js
 clean-imports.js
 debug-dates.js
+investigate-bri.js
+fix-bri.js
+verify-final.js
+analyze-jatim.js
+trace-maret-jatim.js
+crosscheck-jatim.js
+check-dual-cols.js
+scan-dual-all.js

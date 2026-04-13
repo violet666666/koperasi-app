@@ -1504,3 +1504,14 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Label 'SISA BULAN LALU' pada awal lembar bulan April tertangkap oleh flag `isSaldoAwal` dengan nominal Saldo Debet yang utuh. Namun, alih-alih melewatinya, baris ini ikut diproses menjadi setoran (IN) layaknya transaksi biasa. Padahal, buku kas pada sistem secara berkesinambungan telah mengakumulasi seluruh transaksi di bulan Maret, sehingga setoran saldo awal bulan lalu tersebut memicu total Saldo Akhir bulan menjadi berlipat ganda dari buku fisik koperasi.
 **Solusi:** Menyematkan constraint validitas di engine backend. Setiap temuan row label `isSaldoAwal` akan dicek cross-reference pada database; jika `currentBalance !== 0` (sudah ada sisa berkesinambungan), maka baris penginisialisasi tersebut akan di-bypass atau dilewati sepenuhnya (continue). Baris ini hanya akan menjadi pengisian saldo setoran PERTAMA murni jika nominal ledger masih Rp 0.
 **Status:** FIXED
+### BUG-110 (13 April 2026) - Import BRI Masuk ke Akun  Bank BRI - Giro (BRI-01) Bukan B-001
+**File:** src/app/api/cash-bank/import/route.ts, src/app/(protected)/kas-bank/page.tsx
+**Masalah:** Logika auto-mapping untuk kolom BRI menggunakan .includes(bri) yang mengembalikan akun pertama yang ditemukan, yaitu Bank BRI - Giro (BRI-01, ID=7), bukan akun utama Bank BRI (B-001, ID=9). Hal ini terjadi karena BRI-01 ditemukan lebih dahulu oleh Array.find() dibanding B-001 dalam urutan array database. Akibatnya, 13 transaksi BRI senilai Rp 2,28 Miliar mendarat di akun yang salah.
+**Solusi:** Mengubah logika auto-mapping BRI menjadi prioritas bertingkat yang identik dengan JATIM: (1) exact match 
+ame === bank bri, (2) code match code === B-001, (3) fallback includes(bri) tanpa purpose/unitType. Transaksi yang salah tempat dipindahkan dari ID=7 ke ID=9 dengan recalculate running balance kedua akun.
+**Status:** FIXED
+### BUG-111 (13 April 2026) - Transaksi Hilang Saat Kolom Debet dan Kredit Keduanya Terisi
+**File:** src/app/api/cash-bank/import/route.ts, execute-import.js
+**Masalah:** Saat panitia Koperasi menginput dua aktivitas sekaligus dalam satu baris (contoh: pelunasan SP lama di kolom Debet, dan pencairan SP baru di kolom Kredit), sistem hanya membaca kolom Debet saja dan membuang nominal Kredit. Hal ini menyebabkan 3 transaksi besar hilang (Senilai Rp 105 Juta pada Bank JATIM dan puluhan juta pada Kas Tunai) dan membuat Saldo Akhir tidak cocok dengan buku fisik.
+**Solusi:** Memodifikasi parser Excel: apabila kedua kolom (Debet dan Kredit) terdeteksi terisi angka > 10, sistem kini akan otomatis menghasilkan DUA baris transaksi terpisah (1 baris IN dan 1 baris OUT). Khusus untuk baris  Sisa Bulan Lalu yang mengakumulasi debet & kredit usang, sistem menghitung NET (Debet - Kredit) agar tidak terjadi double-balance. Data telah di-reimport dan sekarang 100% cocok dengan laporan.
+**Status:** FIXED

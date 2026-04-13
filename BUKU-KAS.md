@@ -14,7 +14,13 @@ Sistem memindai seluruh data pada tabel `CashBankAccount` dan menjatuhkan piliha
 *   **KAS TUNAI (Kolom debet 8, Kredit 9)**
     Dicari akun yang memiliki nama persis `Kas Tunai`.
 *   **BANK BRI (Kolom debet 10, Kredit 11)**
-    Dicari akun dengan nama `Bank BRI`. Jika tidak ditemukan secara harfiah, sistem hanya akan menerima akun yang mengandung kata `bri` dengan syarat **bukan** akun purpose/unit spesifik (`purpose: null`).
+    Dicari secara absolut dengan prioritas:
+    1. Akun dengan nama persis `Bank BRI`.
+    2. Akun dengan kode unik `B-001`.
+    3. Akun yang memiliki nama `bri` **tanpa embel-embel** `purpose` dan tanpa `unitType`.
+    
+> *Hal ini menjamin 100% uang Anda akan mendarat di KAS UTAMA BRI (B-001), bukan ke sub-akun "Bank BRI - Giro" (BRI-01).*
+
 *   **BANK JATIM (Kolom debet 12, Kredit 13)**
     Dicari secara absolut dengan prioritas:
     1. Akun dengan nama persis `Bank JATIM`.
@@ -58,4 +64,33 @@ Sistem akan:
 
 ---
 
+## 5. Fitur Tabel Riwayat Kas & Bank
+Header kolom **Tgl** dan **Saldo** pada tabel "Riwayat Kas & Bank" kini dilengkapi tombol **sorting ascending/descending** (ikon panah atas-bawah). Klik judul kolom untuk mengurutkan data dari terlama→terbaru atau sebaliknya.
+
+---
+
+## 6. Riwayat Bug & Perbaikan Terkait Import
+
+| Bug ID | Tanggal | Masalah | Status |
+|--------|---------|---------|--------|
+| BUG-106 | 12 Apr 2026 | Import JATIM masuk ke "Dana Pegawai" (ID=14) bukan B-002 | ✅ FIXED |
+| BUG-108 | 13 Apr 2026 | Tanggal Excel DD-MM-YYYY terbaca sebagai MM-DD-YYYY (JS US Locale) | ✅ FIXED |
+| BUG-109 | 13 Apr 2026 | "Sisa Bulan Lalu" menyebabkan Double Balance | ✅ FIXED |
+| BUG-110 | 13 Apr 2026 | Import BRI masuk ke "Bank BRI - Giro" (BRI-01) bukan B-001 | ✅ FIXED |
+| BUG-111 | 13 Apr 2026 | Transaksi hilang saat satu baris excel ada Debet DAN Kredit (Parser membuang data Kredit). | ✅ FIXED |
+
+---
+
+## 7. Hasil Verifikasi Terakhir (13 April 2026)
+
+| Akun | Kode | Transaksi | Saldo Akhir | Tanggal | Rantai Saldo |
+|------|------|-----------|-------------|---------|-------------|
+| Kas Tunai | KAS-002 | 114 | Rp 41.295.576 | ✅ Valid | ✅ Berkesinambungan |
+| Bank BRI | B-001 | 13 | Rp 2.283.697.591 | ✅ Valid | ✅ Berkesinambungan |
+| Bank JATIM | B-002 | 34 | Rp 2.406.222.430 | ✅ Valid | ✅ Berkesinambungan |
+| **TOTAL** | | **161** | **Rp 4.731.215.597**| | |
+
+---
+
 **Status Integrasi:** 🟢 `STABIL` (13 April 2026)
+

@@ -253,7 +253,10 @@ export default function KasBankPage() {
                     setAccounts(accs);
                     // Automate Koppol IDs
                     const tunai = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "kas tunai");
-                    const bri = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank bri" || (a.name.toLowerCase().includes("bri") && !a.purpose));
+                    // Prioritize exact "Bank BRI" (B-001) over sub-accounts like BRI - Giro
+                    const bri = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank bri")
+                        || accs.find((a: CashBankAccount) => a.code === "B-001")
+                        || accs.find((a: CashBankAccount) => a.name.toLowerCase().includes("bri") && !a.purpose && !a.unitType);
                     // Prioritize exact "Bank JATIM" (B-002) over sub-accounts like Dana Pegawai
                     const jatim = accs.find((a: CashBankAccount) => a.name.toLowerCase().trim() === "bank jatim")
                         || accs.find((a: CashBankAccount) => a.code === "B-002")
