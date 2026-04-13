@@ -33,7 +33,8 @@ import {
     ShoppingCart,
     CheckCircle2,
     AlertCircle,
-    Eye
+    Eye,
+    ArrowUpDown
 } from "lucide-react";
 import { formatCurrency, CASH_BANK_TRANSACTION_TYPES, CASH_BANK_CATEGORIES } from "@/lib/constants";
 import { cashBankApi } from "@/lib/api";
@@ -124,7 +125,18 @@ function AccountCard({ account }: { account: CashBankAccount }) {
 const transactionColumns: ColumnDef<CashBankTransaction>[] = [
     {
         accessorKey: "transactionDate",
-        header: "Tgl",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="-ml-4"
+                >
+                    Tgl
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            );
+        },
         cell: ({ row }) => {
             const dateValue = row.getValue("transactionDate");
             if (!dateValue) return "-";
@@ -177,10 +189,23 @@ const transactionColumns: ColumnDef<CashBankTransaction>[] = [
     },
     {
         accessorKey: "balanceAfter",
-        header: "Saldo",
+        header: ({ column }) => {
+            return (
+                <div className="flex w-full justify-end">
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="-mr-4"
+                    >
+                        Saldo
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            );
+        },
         cell: ({ row }) => {
             const balance = row.getValue("balanceAfter") as number;
-            return <span className="font-bold tabular-nums text-primary">{formatCurrency(balance)}</span>;
+            return <div className="text-right font-bold tabular-nums text-primary">{formatCurrency(balance)}</div>;
         },
     },
 ];

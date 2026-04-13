@@ -1493,3 +1493,14 @@ ew Date()) — operator tidak bisa input transaksi masa lalu | Medium | ?? OPEN — 
 **Masalah:** Kalkulasi Estimasi SHU Jasa Simpanan (Modal) di endpoint mobile masih menggunakan SELURUH saldo SavingsAccount (termasuk Simpanan Sukarela) sebagai basis pembagi pool SHU. Padahal sesuai AD-ART Pasal 42, hanya Simpanan Pokok dan Wajib yang dianggap sebagai equity/modal SHU. Bug ini menyebabkan porsi SHU anggota yang memiliki Simpanan Sukarela besar menjadi terlalu tinggi (inflasi), dan sebaliknya mendeflasi porsi anggota lain.
 **Solusi:** Menambahkan filter `product.type: { in: ['pokok', 'wajib'] }` pada query aggregate system-wide (`totalActiveSavBal`) dan menambahkan `.filter()` Pokok+Wajib pada kalkulasi per-anggota (`mySavCont`). Paritas sempurna dengan web portal dashboard yang sudah diperbaiki sebelumnya.
 **Status:** FIXED
+### BUG-108 (13 April 2026) - Javascript US Locale Meleset Membaca Tanggal Excel (DD-MM-YYYY menjadi DD-Jan)
+**File:** `src/app/api/cash-bank/import/route.ts`
+**Masalah:** Saat mengimpor Buku Kas bulan April, baris transaksi yang diinput panitia dengan string tanggal regional Indonesia misalnya `01-04-2026` atau `1/4` telah diurai oleh Javascript V8 engine (yang menggunakan standard US Locale MM/DD/YYYY) menjadi tanggal 4 Januari 2026 (terbalik antara bulan dan tanggal). Transaksi April pun melompat secara keliru ke Januari.
+**Solusi:** Memodifikasi engine parser tanggal pada `import/route.ts` dengan menggunakan custom Regex `match(/^(\d{1,2})/)` yang sangat ketat untuk mendeteksi hanya susunan 1-31 dari depan string (Day of Month). Nilai integer hari ini selanjutnya dikawinkan secara absolut dengan parameter Date Konstruktor menggunakan `sheetYear` dan `sheetMonth` dari nama tab Excel (Maret=2, April=3), sehingga mencegah engine mengambil keputusan fallback ke US style default.
+**Status:** FIXED
+
+### BUG-109 (13 April 2026) - Sisa Bulan Lalu Terekam Sebagai Setoran Ekstra (Double Balance)
+**File:** `src/app/api/cash-bank/import/route.ts`
+**Masalah:** Label 'SISA BULAN LALU' pada awal lembar bulan April tertangkap oleh flag `isSaldoAwal` dengan nominal Saldo Debet yang utuh. Namun, alih-alih melewatinya, baris ini ikut diproses menjadi setoran (IN) layaknya transaksi biasa. Padahal, buku kas pada sistem secara berkesinambungan telah mengakumulasi seluruh transaksi di bulan Maret, sehingga setoran saldo awal bulan lalu tersebut memicu total Saldo Akhir bulan menjadi berlipat ganda dari buku fisik koperasi.
+**Solusi:** Menyematkan constraint validitas di engine backend. Setiap temuan row label `isSaldoAwal` akan dicek cross-reference pada database; jika `currentBalance !== 0` (sudah ada sisa berkesinambungan), maka baris penginisialisasi tersebut akan di-bypass atau dilewati sepenuhnya (continue). Baris ini hanya akan menjadi pengisian saldo setoran PERTAMA murni jika nominal ledger masih Rp 0.
+**Status:** FIXED

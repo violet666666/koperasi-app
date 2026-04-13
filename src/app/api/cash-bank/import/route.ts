@@ -188,14 +188,23 @@ export async function POST(request: Request) {
                 // Update floating date
                 if (rawTgl && String(rawTgl).trim() !== "") {
                      const dateStr = String(rawTgl).trim();
-                     if (!isNaN(Number(dateStr)) && Number(dateStr) >= 1 && Number(dateStr) <= 31) {
-                         // Day of the month
-                         currentValDate = new Date(sheetYear, sheetMonth, Number(dateStr));
+                     const numOnly = Number(dateStr);
+                     
+                     if (!isNaN(numOnly) && numOnly >= 1 && numOnly <= 31) {
+                         // Plain number: 1, 15, 30
+                         currentValDate = new Date(sheetYear, sheetMonth, numOnly);
                      } else {
-                         // Try to parse full date
-                         const d = new Date(dateStr);
-                         if (!isNaN(d.getTime())) {
-                             currentValDate = d;
+                         // Starts with number, e.g. "01-Apr" or "01-04-2026"
+                         const dayMatch = dateStr.match(/^(\d{1,2})/);
+                         if (dayMatch) {
+                             const day = parseInt(dayMatch[1], 10);
+                             if (day >= 1 && day <= 31) {
+                                  currentValDate = new Date(sheetYear, sheetMonth, day);
+                             }
+                         } else {
+                             // Fallback
+                             const d = new Date(dateStr);
+                             if (!isNaN(d.getTime())) currentValDate = d;
                          }
                      }
                 }
@@ -296,7 +305,8 @@ export async function POST(request: Request) {
                             amount: txAmount,
                             category: isSaldoAwal ? "lainnya" : determineCategory(txType),
                             targetAccountId: col.accId,
-                            targetAccountName: col.name
+                            targetAccountName: col.name,
+                            isSaldoAwal
                         });
                         successCount++;
                     }
@@ -352,6 +362,12 @@ export async function POST(request: Request) {
                          const txDataList = [];
 
                          for (const res of groupedResults[accIdStr]) {
+                             if (res.isSaldoAwal) {
+                                  // Jika currentBalance === 0, ini adalah inisialisasi awal.
+                                  // Jika bukan 0, berarti ini lanjutan dari bulan sebelumnya dan skip saldonya agar tidak double.
+                                  if (currentBalance !== 0) continue;
+                             }
+                             
                              const balanceAfter = res.type === "in" ? currentBalance + res.amount : currentBalance - res.amount;
                              txDataList.push({
                                  transactionNo: generateTransactionNo(res.type),
@@ -360,7 +376,7 @@ export async function POST(request: Request) {
                                  type: res.type,
                                  category: res.category,
                                  amount: res.amount,
-                                 description: `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
+                                 description: res.isSaldoAwal ? `[IMPORT EXCEL PENGINISIAL] Saldo Awal` : `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
                                  balanceBefore: currentBalance,
                                  balanceAfter: balanceAfter,
                                  transactionDate: new Date(res.transactionDate),
