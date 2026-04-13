@@ -2,7 +2,7 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **12 April 2026 (Sesi 13 — Sinkronisasi Backend API + Detail Wajib Bulanan)**
+> Update terakhir: **13 April 2026 (Sesi 14 — Fix SHU Modal + Sinkronisasi Import)**
 > Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md`
 
 ---
@@ -17,6 +17,22 @@
 | **TOTAL** | **16** | **16** | **0** | **0** |
 
 ---
+
+## 🆕 UPDATE SINKRONISASI WEB (13 APRIL 2026)
+
+### 7. Fix SHU Modal — Simpanan Sukarela Tidak Masuk Kalkulasi (Paritas AD-ART Pasal 42)
+- **Web/Backend:** Di web portal (`portal/dashboard/page.tsx`), kalkulasi Estimasi SHU Jasa Simpanan telah diperbaiki agar hanya menggunakan **Simpanan Pokok + Wajib** sebagai modal equity. Simpanan Sukarela secara eksplisit dikecualikan sesuai AD-ART Pasal 42.
+- **Bug Mobile Ditemukan & Diperbaiki:** Endpoint `/api/mobile/summary/route.ts` masih menjumlahkan **SEMUA** saldo (termasuk sukarela) untuk SHU modal — menyebabkan angka estimasi SHU di mobile lebih tinggi dari seharusnya.
+- **Fix:** Menambahkan filter `product.type: { in: ["pokok", "wajib"] }` pada query `totalActiveSavBal` (system-wide) dan filter `.filter(a => a.product.type === 'pokok' || a.product.type === 'wajib')` pada `mySavCont` (per-anggota).
+- **Tugas Mobile:** ✅ **Selesai** — Backend fix berlaku otomatis. Angka Estimasi SHU di mobile app sekarang konsisten dan akurat dengan AD-ART.
+
+### 8. Catatan: Bug & Update Web-Only (Tidak Berdampak Mobile)
+Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile karena fiturnya hanya tersedia di Web admin:
+- **BUG-103:** Filter tanggal menggunakan noon-time WIB (backend fix — otomatis berlaku untuk mobile)
+- **BUG-104:** Global search TanStack Table (Web UI only)
+- **BUG-105:** Import Kas/Bank deteksi "Sisa Bulan Lalu" (Web import only)
+- **BUG-106:** Auto-Mapping Jatim salah akun (Web import only)
+- **UPDATE-082:** Import Kas/Bank Auto-Pilot UI (Web import only)
 
 ## 🆕 UPDATE SINKRONISASI WEB (12 APRIL 2026)
 

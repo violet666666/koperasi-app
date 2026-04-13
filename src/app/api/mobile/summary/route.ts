@@ -209,8 +209,9 @@ export async function GET(request: Request) {
 
         // Jasa Simpanan Pool (20%) — from TOTAL surplus with minimum floor
         // Single Source of Truth: SavingsAccount balance only (no legacy tabunganWajib double-add)
+        // SHU Modal: hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
         const totalActiveSavBal = await prisma.savingsAccount.aggregate({
-            where: { status: "active" }, _sum: { balance: true }
+            where: { status: "active", product: { type: { in: ["pokok", "wajib"] } } }, _sum: { balance: true }
         });
         const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0);
         const totalSysSav = totalSavingsCapital || 1;
@@ -222,8 +223,10 @@ export async function GET(request: Request) {
         const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
         const memberSurplus = memberIncome - memberExpense;
 
-        // Member Numerators — Single Source of Truth from SavingsAccount balances only
-        const mySavCont = savingsAccounts.reduce((s, a) => s + Number(a.balance), 0) || 1;
+        // Member Numerators — hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
+        const mySavCont = savingsAccounts
+            .filter(a => a.product.type === 'pokok' || a.product.type === 'wajib')
+            .reduce((s, a) => s + Number(a.balance), 0) || 1;
         
         // 1. Calculate Jasa Modal (Proportional Pool)
         const myModal = (mySavCont / totalSysSav) * jasaModalPool;
