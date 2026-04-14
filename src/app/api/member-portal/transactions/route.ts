@@ -59,6 +59,7 @@ export async function GET(request: Request) {
                         id: true, saleNo: true, totalAmount: true,
                         paymentMethod: true, customerName: true, createdAt: true,
                         metadata: true, unitType: true,
+                        items: { select: { product: { select: { name: true } }, quantity: true } },
                     },
                 }) : Promise.resolve([]),
             ]);
@@ -83,11 +84,13 @@ export async function GET(request: Request) {
                     const meta = (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata) as Record<string, unknown> | null;
                     return !meta?.isVoided;
                 })
-                .map((s) => ({
-                    id: s.id + 10000000, // offset to avoid key collision
-                    transactionNo: s.saleNo,
-                    unitType: "toko",
-                    description: `Pembelian Toko PRIMKOPPOL`,
+                .map((s: any) => {
+                    const itemDesc = s.items?.map((i: any) => `${i.product.name} x${i.quantity}`).join(', ');
+                    return {
+                        id: s.id + 10000000, // offset to avoid key collision
+                        transactionNo: s.saleNo,
+                        unitType: "toko",
+                        description: itemDesc || `Pembelian Toko PRIMKOPPOL`,
                     amount: Number(s.totalAmount),
                     paymentMethod: s.paymentMethod,
                     transactionDate: s.createdAt,
