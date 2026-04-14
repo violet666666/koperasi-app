@@ -97,7 +97,8 @@ export async function GET(request: Request) {
                     isPaid: s.paymentMethod !== "salary_cut",
                     category: "unit",
                     status: "completed",
-                }));
+                };
+            });
 
             // Merge & sort by date
             const allUnitTxns = [...mappedUnitTxns, ...mappedStoreSales]
