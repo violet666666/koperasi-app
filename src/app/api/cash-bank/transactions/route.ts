@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         const dateTo = searchParams.get("dateTo");
 
         const where: any = {
-            ...(accountId && { accountId: parseInt(accountId) }),
+            ...(accountId && { accountId: accountId.includes(",") ? { in: accountId.split(",").map(n => parseInt(n)).filter(n => !isNaN(n)) } : parseInt(accountId) }),
             ...(branchId && { branchId: parseInt(branchId) }),
             ...(type && { type }),
             ...(category && { category }),

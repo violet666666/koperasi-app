@@ -86,6 +86,7 @@ export default function TambahTransaksiKasBankPage() {
                 category: formData.category || undefined,
                 amount,
                 description: formData.description,
+                transactionDate: new Date(formData.transaction_date).toISOString(),
             });
 
             toast.success(

@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import {
     DropdownMenu,
+    DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
@@ -76,7 +77,7 @@ interface CashAccount {
 export default function TransaksiKasPage() {
     const [transactions, setTransactions] = React.useState<CashTransaction[]>([]);
     const [accounts, setAccounts] = React.useState<CashAccount[]>([]);
-    const [selectedAccount, setSelectedAccount] = React.useState<string>("all");
+    const [selectedAccounts, setSelectedAccounts] = React.useState<string[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
@@ -169,7 +170,7 @@ export default function TransaksiKasPage() {
             const allAccounts = (accountsRes as any).data || [];
             setAccounts(allAccounts);
 
-            const params = selectedAccount !== "all" ? { accountId: Number(selectedAccount), perPage: 9999 } : { perPage: 9999 };
+            const params = selectedAccounts.length > 0 ? { accountId: selectedAccounts.join(","), perPage: 9999 } : { perPage: 9999 };
             const txRes = await cashBankApi.transactions({ ...params });
             setTransactions(((txRes as any).data || []) as CashTransaction[]);
         } catch (error) {
@@ -177,7 +178,7 @@ export default function TransaksiKasPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedAccount]);
+    }, [selectedAccounts]);
 
     React.useEffect(() => {
         fetchData();
@@ -710,19 +711,43 @@ export default function TransaksiKasPage() {
             <Card>
                 <CardContent className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-4">
-                        <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Pilih akun kas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Akun Kas</SelectItem>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-[250px] justify-start text-left">
+                                    <span className="flex-1 truncate">
+                                        {selectedAccounts.length === 0 
+                                            ? "Buku Kas (Semua Akun)" 
+                                            : `${selectedAccounts.length} Akun Dipilih`}
+                                    </span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[250px]">
+                                <DropdownMenuLabel>Pilih Akun Kas</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuCheckboxItem
+                                    checked={selectedAccounts.length === 0}
+                                    onCheckedChange={() => setSelectedAccounts([])}
+                                >
+                                    Pilih Semua (All)
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
                                 {accounts.map((acc) => (
-                                    <SelectItem key={acc.id} value={String(acc.id)}>
+                                    <DropdownMenuCheckboxItem
+                                        key={acc.id}
+                                        checked={selectedAccounts.includes(String(acc.id))}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setSelectedAccounts(prev => [...prev, String(acc.id)]);
+                                            } else {
+                                                setSelectedAccounts(prev => prev.filter(id => id !== String(acc.id)));
+                                            }
+                                        }}
+                                    >
                                         {acc.name}
-                                    </SelectItem>
+                                    </DropdownMenuCheckboxItem>
                                 ))}
-                            </SelectContent>
-                        </Select>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     <DatePeriodFilter onChange={setDateRange} showImportNote />
                     {dateRange.mode !== "all" && (
