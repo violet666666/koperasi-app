@@ -219,9 +219,8 @@ export async function GET(request: Request) {
         const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20;
         const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
 
-        // Jasa Anggota (25%) — from member transaction surplus only
-        const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
-        const memberSurplus = memberIncome - memberExpense;
+        // Jasa Anggota (25%) — AD-ART Pasal 42 POOL METHOD
+        const jasaUsahaPool = Math.max(0, totalNetSurplus * 0.25);
 
         // Member Numerators — hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
         const mySavCont = savingsAccounts
@@ -231,27 +230,20 @@ export async function GET(request: Request) {
         // 1. Calculate Jasa Modal (Proportional Pool)
         const myModal = (mySavCont / totalSysSav) * jasaModalPool;
 
-        // 2. Calculate Jasa Usaha (Exact Margin Cashback Method)
-        const memberSales = await prisma.storeSaleItem.findMany({
-            where: { sale: { memberId, createdAt: { gte: startDate, lte: endDate } } },
-            include: { product: { select: { costPrice: true } } }
-        });
-        const myTokoMargin = memberSales.reduce((sum, item) => {
-            const cost = Number(item.product.costPrice || 0);
-            const sell = Number(item.unitPrice || 0);
-            return sum + ((sell - cost) * item.quantity);
-        }, 0);
+        // 2. Calculate Jasa Usaha (Pool Method: proportional by transaction volume)
+        const totalMemberTxVolume = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const myTokoVolume = Number(myToko._sum.totalAmount || 0);
+        const myUnitVolume = Number(myUnit._sum.amount || 0);
 
-        const myUnitMargin = Number(myUnit._sum.amount || 0) * 0.8; // Assess 80% margin on unit services
-        
         const myLoanInterestAgg = await prisma.loanPayment.aggregate({
             where: { memberId, paymentDate: { gte: startDate, lte: endDate } },
             _sum: { interestPortion: true }
         });
-        const myLoanMargin = Number(myLoanInterestAgg._sum.interestPortion || 0);
+        const myLoanVolume = Number(myLoanInterestAgg._sum.interestPortion || 0);
+        const myTotalVolume = myTokoVolume + myUnitVolume + myLoanVolume;
 
-        const myTotalMargin = myTokoMargin + myUnitMargin + myLoanMargin;
-        const myUsaha = myTotalMargin * 0.25; // 25% of member's explicit transaction margin
+        // My share of the pool = (my volume / total volume) × pool
+        const myUsaha = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * jasaUsahaPool : 0;
 
         // --- SHU Cuci Mobil: Rp 2.000 fix per transaksi anggota ---
         const CARWASH_BONUS_PER_TX = 2000;

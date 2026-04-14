@@ -93,12 +93,81 @@ export async function GET() {
             },
         });
 
+        // BUG-113 FIX: Also fetch StoreSale for dashboard history
+        const storeSaleTxs = await prisma.storeSale.findMany({
+            where: { memberId },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+                id: true, saleNo: true, unitType: true, totalAmount: true,
+                createdAt: true, paymentMethod: true,
+                items: { select: { product: { select: { name: true } }, quantity: true } },
+            },
+        });
+
+        // Merge UnitTransaction + StoreSale into unified recent list
+        const mergedRecent = [
+            ...unitTransactions.map(t => ({
+                id: t.id,
+                transactionNo: t.transactionNo,
+                unitType: t.unitType,
+                description: t.description,
+                amount: Number(t.amount),
+                transactionDate: t.transactionDate,
+                isPaid: t.isPaid,
+                status: t.status,
+                paymentMethod: t.paymentMethod,
+                source: 'unit' as const,
+            })),
+            ...storeSaleTxs.map(s => {
+                const itemDesc = s.items.map(i => `${i.product.name} x${i.quantity}`).join(', ');
+                return {
+                    id: s.id + 100000, // offset to avoid ID clash in frontend keys
+                    transactionNo: s.saleNo,
+                    unitType: s.unitType || 'toko',
+                    description: itemDesc || 'Belanja Toko',
+                    amount: Number(s.totalAmount),
+                    transactionDate: s.createdAt,
+                    isPaid: true, // StoreSale is always paid (cash/QRIS at checkout)
+                    status: 'completed',
+                    paymentMethod: s.paymentMethod,
+                    source: 'store' as const,
+                };
+            }),
+        ].sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()).slice(0, 10);
+
+        // Stats: combine both tables
         const unitStats = await prisma.unitTransaction.groupBy({
             by: ["unitType"],
             where: { memberId, status: { not: "voided" } },
             _sum: { amount: true },
             _count: { id: true },
         });
+
+        const storeStats = await prisma.storeSale.groupBy({
+            by: ["unitType"],
+            where: { memberId },
+            _sum: { totalAmount: true },
+            _count: { id: true },
+        });
+
+        // Merge stats by unitType
+        const statsMap = new Map<string, { totalAmount: number; count: number }>();
+        for (const s of unitStats) {
+            const key = s.unitType;
+            const exist = statsMap.get(key) || { totalAmount: 0, count: 0 };
+            exist.totalAmount += Number(s._sum.amount || 0);
+            exist.count += s._count.id;
+            statsMap.set(key, exist);
+        }
+        for (const s of storeStats) {
+            const key = s.unitType;
+            const exist = statsMap.get(key) || { totalAmount: 0, count: 0 };
+            exist.totalAmount += Number(s._sum.totalAmount || 0);
+            exist.count += s._count.id;
+            statsMap.set(key, exist);
+        }
+        const mergedStats = Array.from(statsMap.entries()).map(([unitType, v]) => ({ unitType, ...v }));
 
         const unpaidUnitTotal = await prisma.unitTransaction.aggregate({
             where: { memberId, isPaid: false, status: { not: "voided" } },
@@ -163,35 +232,30 @@ export async function GET() {
         // Based on TOTAL koperasi surplus
         const jasaModalPool = Math.max(0, totalNetSurplus * 0.20);
 
-        // --- Jasa Anggota Pool (25%) ---
-        // Based on member transaction surplus only (exact margin method).
-        const memberExpense = totalIncome > 0 ? (memberIncome / totalIncome) * totalExpense : 0;
-        const memberSurplus = memberIncome - memberExpense;
+        // --- Jasa Anggota Pool (25%) — AD-ART Pasal 42 POOL METHOD ---
+        // Pool = 25% × Laba Bersih, distributed by member's transaction share
+        const jasaUsahaPool = Math.max(0, totalNetSurplus * 0.25);
 
-        // 1. Calculate Jasa Modal (Proportional Pool)
+        // 1. Calculate Jasa Modal (Proportional Pool by savings capital)
         const myModal = (mySavCont / totalSysSavings) * jasaModalPool;
 
-        // 2. Calculate Jasa Usaha (Exact Margin Cashback Method)
-        const memberSales = await prisma.storeSaleItem.findMany({
-            where: { sale: { memberId, createdAt: { gte: startDate, lte: endDate } } },
-            include: { product: { select: { costPrice: true } } }
-        });
-        const myTokoMargin = memberSales.reduce((sum: number, item: any) => {
-            const cost = Number(item.product.costPrice || 0);
-            const sell = Number(item.unitPrice || 0);
-            return sum + ((sell - cost) * item.quantity);
-        }, 0);
+        // 2. Calculate Jasa Usaha (Pool Method: proportional by transaction volume)
+        // System-wide member transaction volume = all member toko sales + all unit transactions + all loan interest
+        const totalMemberTxVolume = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
 
-        const myUnitMargin = myUnit && myUnit._sum ? Number(myUnit._sum.amount || 0) * 0.8 : 0; // Assess 80% margin on unit services
-        
+        // My transaction volume
+        const myTokoVolume = Number(myToko._sum.totalAmount || 0);
+        const myUnitVolume = Number(myUnit._sum.amount || 0);
         const myLoanInterestAgg = await prisma.loanPayment.aggregate({
             where: { memberId, paymentDate: { gte: startDate, lte: endDate } },
             _sum: { interestPortion: true }
         });
-        const myLoanMargin = Number(myLoanInterestAgg._sum.interestPortion || 0);
+        const myLoanVolume = Number(myLoanInterestAgg._sum.interestPortion || 0);
+        const myTotalVolume = myTokoVolume + myUnitVolume + myLoanVolume;
 
-        const myTotalMargin = myTokoMargin + myUnitMargin + myLoanMargin;
-        const myUsaha = myTotalMargin * 0.25; // 25% of member's explicit transaction margin
+        // My share of the pool = (my volume / total volume) × pool
+        const myUsaha = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * jasaUsahaPool : 0;
+        const jasaUsahaPercent = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * 100 : 0;
 
         // --- SHU Cuci Mobil: Rp 2.000 fix per transaksi anggota ---
         const CARWASH_BONUS_PER_TX = 2000;
@@ -207,7 +271,6 @@ export async function GET() {
 
         const estimatedSHUTotal = Math.round(myModal + myUsaha + myCarwashBonus);
         const jasaModalPercent = totalSysSavings > 0 ? (mySavCont / totalSysSavings) * 100 : 0;
-        const jasaUsahaPercent = totalIncome > 0 ? (myTotalMargin / totalIncome) * 100 : 0;
 
         return NextResponse.json({
             data: {
@@ -259,15 +322,8 @@ export async function GET() {
                     totalOutstanding,
                 },
                 unitTransactions: {
-                    recent: unitTransactions.map((t) => ({
-                        ...t,
-                        amount: Number(t.amount),
-                    })),
-                    byUnit: unitStats.map((s) => ({
-                        unitType: s.unitType,
-                        totalAmount: Number(s._sum.amount || 0),
-                        count: s._count.id,
-                    })),
+                    recent: mergedRecent,
+                    byUnit: mergedStats,
                     unpaidTotal: Number(unpaidUnitTotal._sum.amount || 0),
                     unpaidCount: unpaidUnitTotal._count.id,
                 },

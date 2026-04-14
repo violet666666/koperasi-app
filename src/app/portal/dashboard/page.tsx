@@ -454,12 +454,12 @@ export default function MemberDashboardPage() {
                                     <h3 className="font-semibold text-sm text-green-800">2. Jasa Anggota (Usaha) — 25%</h3>
                                 </div>
                                 <div className="p-4 space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Kontribusi Transaksi Anda</span><span className="font-mono">{data?.estimatedSHU?.jasaUsahaPercent?.toFixed(2) || 0}%</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Porsi Anda dari Total Transaksi Anggota</span><span className="font-mono">{data?.estimatedSHU?.jasaUsahaPercent?.toFixed(2) || 0}%</span></div>
                                     <div className="border-t pt-2 flex justify-between font-semibold">
                                         <span className="text-green-700">Estimasi Jasa Anggota</span>
                                         <span className="text-green-700 font-mono">{formatCurrency(data?.estimatedSHU?.jasaUsaha || 0)}</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground italic">Dihitung dari: 25% × margin keuntungan transaksi Anda (belanja toko, cuci mobil, angsuran pinjaman)</p>
+                                    <p className="text-xs text-muted-foreground italic">Pool Method (AD-ART Pasal 42): 25% × Laba Bersih Koperasi, didistribusikan proporsional berdasarkan volume transaksi Anda vs seluruh anggota</p>
                                 </div>
                             </div>
 

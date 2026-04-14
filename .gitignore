@@ -110,3 +110,6 @@ crosscheck-jatim.js
 check-dual-cols.js
 scan-dual-all.js
 extract-toko.js
+diagnose-shu.js
+investigate-member.js
+patch-imported-sales.js

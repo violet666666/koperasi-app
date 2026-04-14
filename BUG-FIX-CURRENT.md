@@ -1383,3 +1383,21 @@ ame === bank bri, (2) code match code === B-001, (3) fallback includes(bri) tanp
 **Masalah:** Saat panitia Koperasi menginput dua aktivitas sekaligus dalam satu baris (contoh: pelunasan SP lama di kolom Debet, dan pencairan SP baru di kolom Kredit), sistem hanya membaca kolom Debet saja dan membuang nominal Kredit. Hal ini menyebabkan 3 transaksi besar hilang (Senilai Rp 105 Juta pada Bank JATIM dan puluhan juta pada Kas Tunai) dan membuat Saldo Akhir tidak cocok dengan buku fisik.
 **Solusi:** Memodifikasi parser Excel: apabila kedua kolom (Debet dan Kredit) terdeteksi terisi angka > 10, sistem kini akan otomatis menghasilkan DUA baris transaksi terpisah (1 baris IN dan 1 baris OUT). Khusus untuk baris  Sisa Bulan Lalu yang mengakumulasi debet & kredit usang, sistem menghitung NET (Debet - Kredit) agar tidak terjadi double-balance. Data telah di-reimport dan sekarang 100% cocok dengan laporan.
 **Status:** FIXED
+
+### BUG-112 (14 April 2026) - Import History Toko: StoreSale Tidak Tampil di Dashboard & Status Salah
+**File:** src/app/api/member-portal/summary/route.ts, src/app/portal/dashboard/page.tsx
+**Masalah:** Dashboard anggota hanya query tabel UnitTransaction untuk menampilkan riwayat transaksi terbaru. Padahal transaksi Toko (belanja barang) disimpan di tabel StoreSale yang berbeda. Akibatnya, history belanja toko TIDAK MUNCUL di dashboard anggota.
+**Solusi:** Menambahkan query StoreSale di API summary, kemudian menggabungkan (merge + sort descending) dengan UnitTransaction menjadi satu daftar mergedRecent. StoreSale otomatis ditandai isPaid: true, status: completed karena sifatnya selalu lunas saat checkout.
+**Status:** FIXED
+
+### BUG-113 (14 April 2026) - Ringkasan Per Unit Hanya Menghitung UnitTransaction
+**File:** src/app/api/member-portal/summary/route.ts
+**Masalah:** Card  Ringkasan Per Unit di dashboard hanya menampilkan aggregate dari UnitTransaction, tidak termasuk StoreSale. Anggota yang dominan belanja Toko tidak melihat ringkasan unit Toko-nya.
+**Solusi:** Menambahkan storeSale.groupBy dan menggabungkan stats kedua tabel ke dalam mergedStats menggunakan Map by unitType.
+**Status:** FIXED
+
+### BUG-114 (14 April 2026) - Rumus SHU Jasa Usaha Tidak Sesuai AD-ART (Cashback vs Pool)
+**File:** src/app/api/member-portal/summary/route.ts, src/app/api/mobile/summary/route.ts
+**Masalah:** Kalkulasi SHU Jasa Anggota (Usaha) menggunakan metode Cashback Langsung (25% x margin transaksi individu). Ini melanggar AD-ART Pasal 42 yang mengatur distribusi proporsional dari Pool. Jika semua anggota dijumlahkan, total bisa melebihi 25% Laba Bersih. Selain itu, label persentase menampilkan margin/totalIncome yang tidak bermakna.
+**Solusi:** Mengganti ke Pool Method: Pool = 25% x Laba Bersih Koperasi, lalu didistribusikan proporsional berdasarkan volume transaksi anggota terhadap total transaksi seluruh anggota. Label diperbarui menjadi Porsi Anda dari Total Transaksi Anggota. Paritas Web + Mobile dijaga.
+**Status:** FIXED
