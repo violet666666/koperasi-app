@@ -178,8 +178,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("Ukuran file maksimal 5MB");
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Ukuran file maksimal 2MB. Silakan kompres gambar terlebih dahulu.");
+            return;
+        }
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error("Format file harus JPG, PNG, atau WebP.");
             return;
         }
         setExpenseReceiptFile(file);
@@ -1011,10 +1016,10 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
                         {/* Upload Foto Bukti */}
                         <div className="space-y-2">
-                            <Label>Foto Bukti / Struk (Opsional, maks. 5MB)</Label>
+                            <Label>Foto Bukti / Struk (Opsional, maks. 2MB, JPG/PNG/WebP)</Label>
                             <input
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                accept="image/jpeg,image/png,image/webp"
                                 className="hidden"
                                 ref={expenseFileInputRef}
                                 onChange={handleExpenseFileChange}

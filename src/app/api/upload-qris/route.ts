@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import fs from "fs/promises";
-import path from "path";
+import prisma from "@/lib/prisma";
 
+/**
+ * POST /api/upload-qris
+ * Legacy endpoint — now stores QRIS as base64 in NeonDB (UnitSetting table)
+ * instead of writing to the filesystem.
+ * Kept for backward compatibility with any existing callers.
+ */
 export async function POST(request: Request) {
     try {
         const session = await auth();
@@ -23,28 +28,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "File harus berupa gambar (PNG/JPG)" }, { status: 400 });
         }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // Always save as .png for consistency, or keep original extension. We'll force .png for predictable fetching
-        const fileName = `qris-${unitType}.png`;
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "qris");
-
-        // Ensure directory exists
-        try {
-            await fs.access(uploadDir);
-        } catch (_) {
-            await fs.mkdir(uploadDir, { recursive: true });
+        // Validate size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            return NextResponse.json({ message: "Ukuran file maksimal 2MB" }, { status: 400 });
         }
 
-        const filePath = path.join(uploadDir, fileName);
+        const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();
 
-        // Write the file
-        await fs.writeFile(filePath, buffer);
+        // Convert image to Base64 string and store in DB
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64String = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+        // Upsert to UnitSetting table (same as /api/unit-layanan/qris)
+        await prisma.unitSetting.upsert({
+            where: { unitType: safeUnitType },
+            update: { qrisBase64: base64String },
+            create: { unitType: safeUnitType, qrisBase64: base64String },
+        });
 
         return NextResponse.json({ 
             message: "QRIS berhasil disimpan",
-            url: `/uploads/qris/${fileName}?t=${Date.now()}` // Cache buster
+            url: base64String, // Return base64 data URL directly
         });
     } catch (error) {
         console.error("POST /api/upload-qris error:", error);

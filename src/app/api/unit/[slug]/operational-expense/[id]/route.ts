@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export const dynamic = "force-dynamic";
+
+// Max file size: 2MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 // Helper to check Operator or Admin Unit access
 async function checkAccess(slug: string) {
@@ -131,20 +132,33 @@ export async function PUT(
             let receiptImagePath = keepExistingReceipt ? oldReceiptPath : null;
 
             if (receiptFile && receiptFile.size > 0) {
-                if (receiptFile.size > 5 * 1024 * 1024) {
-                    throw new Error("Ukuran file maksimal 5MB.");
+                if (receiptFile.size > MAX_FILE_SIZE) {
+                    throw new Error("Ukuran file maksimal 2MB. Silakan kompres gambar terlebih dahulu.");
                 }
-                const uploadDir = path.join(process.cwd(), "public", "uploads", "expenses", unitType as string);
-                await mkdir(uploadDir, { recursive: true });
-                
-                const ext = receiptFile.name.split(".").pop() || "jpg";
-                const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
-                const filePath = path.join(uploadDir, filename);
-                
+                // Validasi tipe file
+                const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+                if (!allowedTypes.includes(receiptFile.type)) {
+                    throw new Error("Format file harus JPG, PNG, atau WebP.");
+                }
+
+                // Convert to base64 dan simpan ke database
                 const bytes = await receiptFile.arrayBuffer();
-                await writeFile(filePath, Buffer.from(bytes));
-                
-                receiptImagePath = `/uploads/expenses/${unitType}/${filename}`;
+                const buffer = Buffer.from(bytes);
+                const base64String = `data:${receiptFile.type};base64,${buffer.toString("base64")}`;
+
+                const uploadedFile = await tx.uploadedFile.create({
+                    data: {
+                        category: "expense_receipt",
+                        refId: unitType as string,
+                        fileName: receiptFile.name,
+                        mimeType: receiptFile.type,
+                        base64Data: base64String,
+                        sizeBytes: receiptFile.size,
+                        uploadedById: parseInt(access.session!.user.id),
+                    },
+                });
+
+                receiptImagePath = `/api/uploads/${uploadedFile.id}`;
             }
 
             // Because this is an OUT payment, its net impact was -oldAmount

@@ -51,6 +51,7 @@ model User {
   auditLogs               AuditLog[]            @relation("AuditLogUser")
   unitServicePackages     UnitServicePackage[]
   storeStockMovements     StoreStockMovement[]
+  uploadedFiles           UploadedFile[]        @relation("FileUploadedBy")
 
   @@map("users")
 }
@@ -1002,6 +1003,28 @@ model UnitSetting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("unit_settings")
+}
+
+// =================================================================
+// UPLOADED FILES (Stored as Base64 in DB — Vercel FS is read-only)
+// Menyimpan file upload (receipt struk, foto bukti) di database
+// karena Vercel serverless functions memiliki filesystem read-only.
+// =================================================================
+model UploadedFile {
+  id          Int      @id @default(autoincrement())
+  category    String   // "expense_receipt", "qris", "member_photo", etc.
+  refId       String?  @map("ref_id")  // Reference ID (e.g. transactionNo, unitType)
+  fileName    String   @map("file_name")
+  mimeType    String   @map("mime_type")
+  base64Data  String   @map("base64_data") @db.Text
+  sizeBytes   Int      @map("size_bytes")
+  uploadedById Int     @map("uploaded_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  uploadedBy  User     @relation("FileUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([category, refId])
+  @@map("uploaded_files")
 }
 
 // =================================================================

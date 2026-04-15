@@ -1401,3 +1401,17 @@ ame === bank bri, (2) code match code === B-001, (3) fallback includes(bri) tanp
 **Masalah:** Kalkulasi SHU Jasa Anggota (Usaha) menggunakan metode Cashback Langsung (25% x margin transaksi individu). Ini melanggar AD-ART Pasal 42 yang mengatur distribusi proporsional dari Pool. Jika semua anggota dijumlahkan, total bisa melebihi 25% Laba Bersih. Selain itu, label persentase menampilkan margin/totalIncome yang tidak bermakna.
 **Solusi:** Mengganti ke Pool Method: Pool = 25% x Laba Bersih Koperasi, lalu didistribusikan proporsional berdasarkan volume transaksi anggota terhadap total transaksi seluruh anggota. Label diperbarui menjadi Porsi Anda dari Total Transaksi Anggota. Paritas Web + Mobile dijaga.
 **Status:** FIXED
+
+### BUG-115 (15 April 2026) - EROFS: Upload Bukti Struk Operasional Gagal di Production (Read-Only Filesystem)
+**File:** src/app/api/unit/[slug]/operational-expense/route.ts, src/app/api/unit/[slug]/operational-expense/[id]/route.ts, src/app/api/upload-qris/route.ts
+**Masalah:** Upload foto bukti struk pengeluaran operasional selalu gagal di production Vercel dengan error `EROFS: read-only file system, open '/var/task/public/uploads/expenses/cuci_mobil/...'`. File dengan ukuran berapapun (999 KB maupun 68 KB setelah kompresi) tetap gagal. Ini bukan masalah ukuran file, melainkan karena Vercel serverless functions memiliki filesystem **read-only** — `fs.writeFile()` ke path `/public/uploads/` tidak mungkin dilakukan di production.
+**Akar Masalah:** Ketiga route upload menggunakan Node.js `writeFile` + `mkdir` untuk menyimpan file ke folder `public/uploads/` di filesystem lokal. Ini hanya berjalan di development (localhost), tetapi di Vercel deployment, filesystem bersifat immutable (read-only) kecuali `/tmp` yang bersifat ephemeral.
+**Dampak:** 3 endpoint terdampak: (1) POST pengeluaran operasional, (2) PUT edit pengeluaran operasional, (3) POST upload QRIS unit.
+**Solusi:** Migrasi dari filesystem lokal ke **NeonDB base64 storage**:
+1. Buat model `UploadedFile` di schema Prisma untuk menyimpan file sebagai base64 `@db.Text` di NeonDB.
+2. Semua `fs.writeFile()` diganti → `prisma.uploadedFile.create({ base64Data })`.
+3. Buat API endpoint `/api/uploads/[id]` untuk serve gambar dari DB sebagai binary response dengan Content-Type yang benar.
+4. Upload QRIS lama (`/api/upload-qris`) dimigrasi ke pola yang sama (`UnitSetting.qrisBase64`).
+5. Frontend limit diperbarui dari 5MB → 2MB dengan pesan error yang jelas dan validasi tipe file (JPG/PNG/WebP only).
+**Status:** ✅ FIXED
+

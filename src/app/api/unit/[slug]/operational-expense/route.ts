@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export const dynamic = "force-dynamic";
+
+// Max file size: 2MB (sesuai pesan error yg user-friendly)
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 /**
  * POST /api/unit/[slug]/operational-expense
  * Body: FormData { amount, description, transactionDate?, receipt? (file) }
  *
  * Mencatat pengeluaran operasional unit ke CashBankTransaction.
- * Mendukung upload foto bukti/struk (opsional).
+ * Mendukung upload foto bukti/struk (opsional) — disimpan sebagai base64 di NeonDB.
  * Hanya Admin unit atau Operator yang bisa mengakses.
  */
 export async function POST(
@@ -53,24 +54,35 @@ export async function POST(
             
             const receiptFile = formData.get("receipt") as File | null;
             if (receiptFile && receiptFile.size > 0) {
-                // Validasi ukuran max 5MB
-                if (receiptFile.size > 5 * 1024 * 1024) {
-                    return NextResponse.json({ message: "Ukuran file maksimal 5MB." }, { status: 400 });
+                // Validasi ukuran max 2MB
+                if (receiptFile.size > MAX_FILE_SIZE) {
+                    return NextResponse.json({ message: "Ukuran file maksimal 2MB. Silakan kompres gambar terlebih dahulu." }, { status: 400 });
                 }
-                // Buat folder jika belum ada
-                const uploadDir = path.join(process.cwd(), "public", "uploads", "expenses", unitType);
-                await mkdir(uploadDir, { recursive: true });
-                
-                // Generate unique filename
-                const ext = receiptFile.name.split(".").pop() || "jpg";
-                const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
-                const filePath = path.join(uploadDir, filename);
-                
+                // Validasi tipe file
+                const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+                if (!allowedTypes.includes(receiptFile.type)) {
+                    return NextResponse.json({ message: "Format file harus JPG, PNG, atau WebP." }, { status: 400 });
+                }
+
+                // Convert to base64 dan simpan ke database
                 const bytes = await receiptFile.arrayBuffer();
-                await writeFile(filePath, Buffer.from(bytes));
-                
-                // Path yang bisa diakses via browser
-                receiptImagePath = `/uploads/expenses/${unitType}/${filename}`;
+                const buffer = Buffer.from(bytes);
+                const base64String = `data:${receiptFile.type};base64,${buffer.toString("base64")}`;
+
+                const uploadedFile = await prisma.uploadedFile.create({
+                    data: {
+                        category: "expense_receipt",
+                        refId: unitType,
+                        fileName: receiptFile.name,
+                        mimeType: receiptFile.type,
+                        base64Data: base64String,
+                        sizeBytes: receiptFile.size,
+                        uploadedById: parseInt(session.user.id),
+                    },
+                });
+
+                // Path yang bisa diakses via browser (serve dari DB)
+                receiptImagePath = `/api/uploads/${uploadedFile.id}`;
             }
         } else {
             // Fallback: JSON body (backward compat)
