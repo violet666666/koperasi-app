@@ -24,7 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, MoreHorizontal, Pencil, Trash2, Ban, CheckCircle } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Ban, CheckCircle, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/constants";
@@ -59,6 +59,13 @@ export default function SavingsAccountsPage() {
     // Delete
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [accountToDelete, setAccountToDelete] = React.useState<{ id: number; info: string } | null>(null);
+
+    // Edit Modal
+    const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+    const [editAccount, setEditAccount] = React.useState<SavingsAccount | null>(null);
+    const [editAccountNo, setEditAccountNo] = React.useState("");
+    const [editOpenedDate, setEditOpenedDate] = React.useState("");
+    const [isEditing, setIsEditing] = React.useState(false);
 
     // Create Modal
     const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
@@ -171,10 +178,56 @@ export default function SavingsAccountsPage() {
                 toast.success("Status diubah");
                 loadData();
             } else {
-                toast.error("Gagal mengubah status");
+                const json = await res.json();
+                toast.error(json.message || "Gagal mengubah status");
             }
         } catch (e) {
             toast.error("Server error");
+        }
+    };
+
+    const openEditDialog = (acc: SavingsAccount) => {
+        setEditAccount(acc);
+        setEditAccountNo(acc.accountNo);
+        setEditOpenedDate(acc.openedDate ? acc.openedDate.split("T")[0] : "");
+        setEditDialogOpen(true);
+    };
+
+    const handleEdit = async () => {
+        if (!editAccount) return;
+        if (!editAccountNo.trim()) {
+            toast.error("Nomor rekening tidak boleh kosong");
+            return;
+        }
+        setIsEditing(true);
+        try {
+            const payload: Record<string, any> = {};
+            if (editAccountNo !== editAccount.accountNo) payload.accountNo = editAccountNo;
+            if (editOpenedDate && editOpenedDate !== editAccount.openedDate?.split("T")[0]) payload.openedDate = editOpenedDate;
+
+            if (Object.keys(payload).length === 0) {
+                toast.info("Tidak ada perubahan");
+                setEditDialogOpen(false);
+                return;
+            }
+
+            const res = await fetch(`/api/savings/accounts/${editAccount.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (res.ok) {
+                toast.success("Rekening berhasil diperbarui");
+                setEditDialogOpen(false);
+                loadData();
+            } else {
+                toast.error(json.message || "Gagal memperbarui rekening");
+            }
+        } catch (e) {
+            toast.error("Server error");
+        } finally {
+            setIsEditing(false);
         }
     };
 
@@ -226,6 +279,15 @@ export default function SavingsAccountsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditDialog(acc)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit Rekening
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/simpanan/transaksi?search=${acc.member.name}`)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Rincian Transaksi
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => toggleStatus(acc.id, acc.status)}>
                                 {acc.status === "active" ? <Ban className="mr-2 h-4 w-4 text-destructive" /> : <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" />}
@@ -328,6 +390,45 @@ export default function SavingsAccountsPage() {
                         <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleCreate} disabled={isCreating || !memberResult || !selectedProduct}>
                             Simpan Rekening
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Modal */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Rekening</DialogTitle>
+                        <DialogDescription>
+                            {editAccount && `${editAccount.member.name} — ${editAccount.product.name}`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Nomor Rekening</Label>
+                            <Input
+                                value={editAccountNo}
+                                onChange={(e) => setEditAccountNo(e.target.value)}
+                                placeholder="Contoh: WJB-0818"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Tanggal Buka Rekening</Label>
+                            <Input
+                                type="date"
+                                value={editOpenedDate}
+                                onChange={(e) => setEditOpenedDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
+                            <strong>⚠ Catatan:</strong> Saldo rekening tidak bisa diubah dari sini. Gunakan menu <strong>Edit Anggota → Penyesuaian Saldo</strong> atau <strong>Transaksi Simpanan → Tambah Transaksi</strong> untuk mengubah saldo.
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Batal</Button>
+                        <Button onClick={handleEdit} disabled={isEditing}>
+                            {isEditing ? "Menyimpan..." : "Simpan Perubahan"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

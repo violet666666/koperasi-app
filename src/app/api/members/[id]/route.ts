@@ -344,34 +344,72 @@ export async function PUT(request: Request, { params }: Params) {
             // Lakukan pemotongan/koreksi saldo (Override)
             if (overrideSavings && Object.keys(overrideSavings).length > 0) {
                 for (const [sType, sAmount] of Object.entries(overrideSavings)) {
-                    const acc = member.savingsAccounts.find(a => a.product.type === sType);
-                    if (acc) {
-                        const oldBal = Number(acc.balance);
-                        const newBal = Number(sAmount);
-                        if (oldBal !== newBal) {
-                            const diff = newBal - oldBal;
-                            await tx.savingsAccount.update({
-                                where: { id: acc.id },
-                                data: { balance: newBal }
-                            });
-                            // Catat history sebagai Correction
-                            await tx.savingsTransaction.create({
-                                data: {
-                                    transactionNo: `CORR-${Date.now()}-${acc.id}`,
-                                    accountId: acc.id,
-                                    memberId: member.id,
-                                    productId: acc.productId,
-                                    branchId: member.branchId,
-                                    type: 'correction',
-                                    amount: Math.abs(diff),
-                                    balanceBefore: oldBal,
-                                    balanceAfter: newBal,
-                                    notes: `Koreksi manual saldo Simpanan ${sType.toUpperCase()} dari Rp ${oldBal} menjadi Rp ${newBal}`,
-                                    transactionDate: new Date(),
-                                    createdById: Number(session?.user?.id) || 1,
-                                }
-                            });
+                    const newBal = Number(sAmount);
+                    let acc = member.savingsAccounts.find(a => a.product.type === sType);
+
+                    // FIXED: Jika rekening belum ada, auto-create rekening baru
+                    if (!acc) {
+                        // Cari produk simpanan sesuai tipe
+                        const product = await tx.savingsProduct.findFirst({
+                            where: { type: sType, isActive: true }
+                        });
+                        if (!product) {
+                            throw new Error(`Produk simpanan tipe "${sType}" tidak ditemukan di database. Silakan buat produk simpanan terlebih dahulu di menu Master > Produk Simpanan.`);
                         }
+
+                        // Generate nomor rekening unik
+                        const prefix = sType === 'pokok' ? 'PKK' : sType === 'wajib' ? 'WJB' : 'SKR';
+                        const accountNo = `${prefix}-${String(member.id).padStart(4, '0')}`;
+
+                        // Cek apakah nomor rekening sudah ada (double-safety)
+                        const existingAcc = await tx.savingsAccount.findUnique({ where: { accountNo } });
+                        if (existingAcc) {
+                            // Jika ternyata sudah ada (mungkin race condition), gunakan yang ada
+                            acc = { ...existingAcc, product } as any;
+                        } else {
+                            // Buat rekening baru
+                            const newAcc = await tx.savingsAccount.create({
+                                data: {
+                                    accountNo,
+                                    memberId: member.id,
+                                    productId: product.id,
+                                    branchId: member.branchId,
+                                    balance: 0,
+                                    status: 'active',
+                                    openedDate: new Date(),
+                                },
+                                include: { product: true }
+                            });
+                            acc = newAcc as any;
+                        }
+                    }
+
+                    // Sekarang acc pasti ada — lakukan koreksi saldo
+                    if (!acc) continue; // Safety guard (seharusnya tidak pernah terjadi)
+                    const oldBal = Number(acc.balance);
+                    if (oldBal !== newBal) {
+                        const diff = newBal - oldBal;
+                        await tx.savingsAccount.update({
+                            where: { id: acc.id },
+                            data: { balance: newBal }
+                        });
+                        // Catat history sebagai Correction
+                        await tx.savingsTransaction.create({
+                            data: {
+                                transactionNo: `CORR-${Date.now()}-${acc.id}`,
+                                accountId: acc.id,
+                                memberId: member.id,
+                                productId: acc.productId,
+                                branchId: member.branchId,
+                                type: 'correction',
+                                amount: Math.abs(diff),
+                                balanceBefore: oldBal,
+                                balanceAfter: newBal,
+                                notes: `Koreksi manual saldo Simpanan ${sType.toUpperCase()} dari Rp ${oldBal} menjadi Rp ${newBal}`,
+                                transactionDate: new Date(),
+                                createdById: Number(session?.user?.id) || 1,
+                            }
+                        });
                     }
                 }
             }

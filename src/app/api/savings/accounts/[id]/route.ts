@@ -29,16 +29,49 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
         const { id } = await context.params;
         const body = await request.json();
-        const { status } = body;
+        const { status, accountNo, openedDate } = body;
+
+        const account = await prisma.savingsAccount.findUnique({
+            where: { id: parseInt(id) },
+        });
+
+        if (!account) {
+            return NextResponse.json({ message: "Rekening tidak ditemukan" }, { status: 404 });
+        }
+
+        // Validasi duplikat nomor rekening jika diubah
+        if (accountNo && accountNo !== account.accountNo) {
+            const existing = await prisma.savingsAccount.findUnique({
+                where: { accountNo },
+            });
+            if (existing) {
+                return NextResponse.json(
+                    { message: `Nomor rekening "${accountNo}" sudah digunakan oleh anggota lain.` },
+                    { status: 400 }
+                );
+            }
+        }
+
+        const updateData: Record<string, any> = {};
+        if (status) updateData.status = status;
+        if (accountNo) updateData.accountNo = accountNo;
+        if (openedDate) updateData.openedDate = new Date(openedDate);
+
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ message: "Tidak ada data yang diubah" }, { status: 400 });
+        }
 
         const updated = await prisma.savingsAccount.update({
             where: { id: parseInt(id) },
-            data: { status }
+            data: updateData,
+            include: { member: true, product: true },
         });
 
-        return NextResponse.json({ data: updated, message: "Status rekening disimpan" });
-    } catch (error) {
-        return NextResponse.json({ message: "Gagal memperbarui rekening" }, { status: 500 });
+        return NextResponse.json({ data: updated, message: "Rekening berhasil diperbarui" });
+    } catch (error: any) {
+        console.error("PUT /api/savings/accounts/[id] error:", error);
+        const msg = error?.code === 'P2002' ? "Nomor rekening sudah digunakan." : "Gagal memperbarui rekening";
+        return NextResponse.json({ message: msg }, { status: 500 });
     }
 }
 

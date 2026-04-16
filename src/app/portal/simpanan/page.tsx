@@ -58,8 +58,9 @@ export default function SimpananPortalPage() {
                     [1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-xl" />)
                 ) : (
                     <>
-                        {/* 1. Dummy Card untuk Tabungan Wajib yang sumbernya dari tabel Member */}
-                        {((response?.data?.member?.tabunganWajib) ?? 0) > 0 && (
+                        {/* 1. Kartu legacy Tabungan Wajib — HANYA tampil jika belum punya rekening wajib resmi */}
+                        {((response?.data?.member?.tabunganWajib) ?? 0) > 0 &&
+                         !response?.data?.savings?.accounts?.some((a: any) => a.product?.type === 'wajib') && (
                             <Card className="border shadow-sm hover:shadow-md transition-shadow">
                                 <CardContent className="p-6">
                                     <div className="flex justify-between items-start mb-4">

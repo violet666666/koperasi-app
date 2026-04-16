@@ -217,7 +217,9 @@ export async function GET() {
                 if (acc.product.type === "pokok" || acc.product.type === "wajib") {
                     mSav += Number(acc.balance);
                 }
-                if (acc.product.type === "wajib" && Number(acc.balance) > 0) hasImportedWajib = true;
+                // FIXED: Cek keberadaan rekening saja, bukan balance > 0.
+                // Saldo 0 setelah koreksi tetap berarti rekening sudah ada.
+                if (acc.product.type === "wajib") hasImportedWajib = true;
             }
             if (!hasImportedWajib) mSav += Number(m.tabunganWajib || 0); // Legacy fallback
             

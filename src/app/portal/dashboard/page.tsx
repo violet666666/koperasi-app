@@ -117,13 +117,13 @@ export default function MemberDashboardPage() {
     const simpananPokok = savingsAccounts.filter((a: any) => a.product?.type === 'pokok').reduce((s: number, a: any) => s + a.balance, 0);
     const simpananSukarela = savingsAccounts.filter((a: any) => a.product?.type === 'sukarela' || a.product?.type === 'harian').reduce((s: number, a: any) => s + a.balance, 0);
     
-    // Fallback: Jika sudah punya akun Simpanan Wajib dari Import TAJIB, gunakan akun tersebut.
-    // Jika belum di-import, gunakan saldo gelondongan dari legacy profil
+    // FIXED: Jika rekening wajib SUDAH ADA di database (bahkan jika saldonya 0 karena koreksi),
+    // gunakan saldo dari rekening tersebut. Legacy fallback HANYA untuk anggota yang
+    // benar-benar belum punya buku rekening wajib sama sekali.
     const wajibAccount = savingsAccounts.find((a: any) => a.product?.type === 'wajib');
-    const importedWajib = wajibAccount ? Number(wajibAccount.balance) : 0;
-    const legacyWajib = data?.member?.tabunganWajib ? Number(data.member.tabunganWajib) : 0;
-    
-    const tabunganWajib = importedWajib > 0 ? importedWajib : legacyWajib;
+    const tabunganWajib = wajibAccount
+        ? Number(wajibAccount.balance)
+        : (data?.member?.tabunganWajib ? Number(data.member.tabunganWajib) : 0);
     const totalTabungan = tabunganWajib + simpananPokok + simpananSukarela;
     const totalTabunganSHU = tabunganWajib + simpananPokok;
 
@@ -329,9 +329,10 @@ export default function MemberDashboardPage() {
                                     return new Date(entry.transactionDate || entry.date).getTime();
                                 };
 
-                                // ALL deposit entries that are NOT saldo awal = monthly detail
+                                // FIXED: Tampilkan SEMUA jenis transaksi (deposit, correction, withdrawal)
+                                // yang BUKAN saldo awal, agar riwayat di portal lengkap dan transparan.
                                 const monthlyEntries = wajibHistory
-                                    .filter((h: any) => h.type === 'deposit' && !saldoAwalEntries.includes(h))
+                                    .filter((h: any) => !saldoAwalEntries.includes(h))
                                     .sort((a: any, b: any) => getSortValue(a) - getSortValue(b));
                                 
                                 const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + Number(e.amount), 0);
@@ -362,14 +363,19 @@ export default function MemberDashboardPage() {
                                                     let monthLabel = '';
                                                     if (entry.notes?.startsWith('Setoran Import TAJIB:')) {
                                                         monthLabel = entry.notes.replace('Setoran Import TAJIB: ', '');
+                                                    } else if (entry.type === 'correction') {
+                                                        monthLabel = '⚠ KOREKSI';
+                                                    } else if (entry.type === 'withdrawal') {
+                                                        monthLabel = '↩ PENARIKAN';
                                                     } else {
                                                         const d = new Date(entry.date || entry.transactionDate);
                                                         monthLabel = monthNames[d.getMonth()] || '';
                                                     }
+                                                    const isDebit = entry.type === 'correction' || entry.type === 'withdrawal';
                                                     return (
                                                         <div key={entry.id || index} className="flex justify-between items-center text-sm py-1">
-                                                            <span className="text-muted-foreground font-medium w-32 uppercase">📅 {monthLabel}</span>
-                                                            <span className="font-mono text-teal-700">+ {formatCurrency(Number(entry.amount))}</span>
+                                                            <span className="text-muted-foreground font-medium w-32 uppercase">{isDebit ? '📝' : '📅'} {monthLabel}</span>
+                                                            <span className={`font-mono ${isDebit ? 'text-red-600' : 'text-teal-700'}`}>{isDebit ? '−' : '+'} {formatCurrency(Number(entry.amount))}</span>
                                                         </div>
                                                     );
                                                 })}

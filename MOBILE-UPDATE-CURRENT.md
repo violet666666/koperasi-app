@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **13 April 2026 (Sesi 14 — Fix SHU Modal + Sinkronisasi Import)**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md`
+> Update terakhir: **16 April 2026 (Sesi 15 — Fix Ghost Balance + Auto-Create Rekening + Full CRUD Rekening)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md`
 
 ---
 
@@ -17,6 +17,28 @@
 | **TOTAL** | **16** | **16** | **0** | **0** |
 
 ---
+
+## 🆕 UPDATE SINKRONISASI WEB (16 APRIL 2026)
+
+### 9. Fix Ghost Balance — Saldo Wajib Di-Override ke 0 Muncul Kembali ke Nominal Lama
+- **Web/Backend:** Logika fallback `importedWajib > 0 ? importedWajib : legacyWajib` menyebabkan saldo Rp 0 (setelah koreksi) dianggap "belum import", sehingga menampilkan saldo legacy lama. Diperbaiki menjadi pengecekan keberadaan rekening (`wajibAccount ? balance : legacy`).
+- **Backend SHU Fix:** `api/member-portal/summary/route.ts` — Kondisi `Number(acc.balance) > 0` pada `hasImportedWajib` dihapus. Sekarang cukup cek rekening exist agar pool SHU Jasa Modal tidak double-count saldo legacy.
+- **Tugas Mobile:** ✅ **Otomatis Berlaku** — Endpoint `/api/mobile/summary` menggunakan logika kalkulasi SHU yang sama. Angka estimasi SHU di mobile app kini akurat setelah override saldo ke 0.
+
+### 10. Fix Silent Skip Override — Auto-Create Rekening Saat Override Saldo
+- **Web/Backend:** `PUT /api/members/[id]` sebelumnya diam-diam mengabaikan override saldo jika anggota belum punya rekening. Sekarang sistem otomatis membuat rekening baru (`PKK-xxxx`, `WJB-xxxx`, `SKR-xxxx`) lalu langsung set saldonya. Jika produk simpanan belum ada di database, mengembalikan pesan error yang jelas.
+- **Tugas Mobile:** ✅ **Otomatis Berlaku** — Backend fix berlaku di semua klien. Admin mobile yang menggunakan fitur Edit Anggota akan mendapat error handling yang informatif.
+
+### 11. Riwayat Transaksi Portal — Koreksi & Penarikan Kini Tampil
+- **Web/Backend:** Portal anggota kini menampilkan semua tipe transaksi (deposit, correction, withdrawal) di detail tabungan bulanan. Sebelumnya hanya filter `deposit` saja.
+- **Tugas Mobile (Backlog `M-FEAT-016`):**
+  - Pada layar `DashboardScreen.tsx` atau `SimpananScreen.tsx`, panel rincian mutasi bulanan wajib sebaiknya juga menampilkan entri tipe `correction` dan `withdrawal` (bukan hanya `deposit`).
+  - Gunakan label & warna berbeda: Koreksi (`⚠ KOREKSI`, merah), Penarikan (`↩ PENARIKAN`, merah), Setoran (`📅 BULAN`, hijau).
+  - **Sumber data:** Array `history` dari endpoint summary sudah mengirimkan field `type` untuk setiap transaksi — tinggal filter di sisi UI.
+
+### 12. Fitur Baru: Full CRUD Buku Rekening (Web-Only)
+- **Web:** Halaman `/simpanan/rekening` kini memiliki aksi **Edit Rekening** (ubah No. Rekening & Tanggal Buka), **Rincian Transaksi** (shortcut ke halaman transaksi), selain Blokir dan Hapus yang sudah ada.
+- **Tugas Mobile:** ❌ **Tidak berdampak** — Fitur CRUD Buku Rekening hanya tersedia di Web admin. Mobile app tidak memiliki layar pengelolaan rekening.
 
 ## 🆕 UPDATE SINKRONISASI WEB (13 APRIL 2026)
 
@@ -480,6 +502,7 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 |---|---|---|---|
 | M-FEAT-004 | Edit NRP transaksi yang lupa NRP | 2–3 hari | 🟡 |
 | M-FEAT-015 | ~~Paritas UI Mutasi Wajib Bulanan~~ | **✅ DONE** | 🟢 |
+| M-FEAT-016 | Paritas UI: Tampilkan Koreksi & Penarikan di Riwayat Mutasi Mobile | 1 hari | 🟡 |
 | ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
 | M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
 | ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |
