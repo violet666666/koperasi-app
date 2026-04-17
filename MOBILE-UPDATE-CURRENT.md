@@ -16,6 +16,19 @@
 | Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
 | **TOTAL** | **16** | **16** | **0** | **0** |
 
+## 🆕 UPDATE APLIKASI MOBILE (17 APRIL 2026)
+
+### 13. [M-FEAT-016] Paritas UI: Tampilkan Koreksi & Penarikan di Riwayat Mutasi Mobile
+- ✅ **Selesai**: File `DashboardScreen.tsx` dan `SimpananScreen.tsx` telah diperbarui.
+- Kini, transaksi berjenis `correction` dan `withdrawal` tidak difilter keluar, melainkan ditampilkan menggunakan UI responsif dan indikator warna kondisional (Orange/Kuning Warning untuk Koreksi, dan Merah untuk Penarikan).
+
+### 14. [M-FEAT-013 & M-FEAT-014] Konfirmasi Penyelesaian Input Tenor & Direct Disburse
+- ✅ **Selesai**: Telah dikonfirmasi dan direviu bahwa komponen Formulir Tenor Pinjaman pada `LoanApplicationScreen.tsx` telah menggunakan *Numeric Text Input* (menghapus limitasi Dropdown), tervalidasi skema Zod.
+- ✅ **Selesai**: `DirectDisburseScreen.tsx` untuk fitur operator juga telah selesai menyeluruh, termasuk fungsi _autocomplete member search_ dan _backdated date picker_, terintegrasi dengan backend.
+
+### 15. [M-FEAT-004] Penundaan Edit NRP transaksi Kasir
+- ❌ **Belum Diimplementasikan**: Menunda fitur edit anggota/NRP yang tertinggal di transaksi toko POS lama, dikarenakan sistem Endpoint backend `/api/mobile/toko/*` saat ini belum menyertakan lapisan *controller/authorization* bagi metode rekonsiliasi data lama. Pengerjaan ini dikembalikan ke backlog untuk _SPRINT_ tahap API mendatang.
+
 ---
 
 ## 🆕 UPDATE SINKRONISASI WEB (16 APRIL 2026)
