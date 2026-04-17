@@ -43,18 +43,30 @@ export default function SimpananScreen() {
 
   const renderItem = ({ item }: { item: Transaction }) => {
     const isDeposit = item.type === 'deposit';
+    const isCorrection = item.type === 'correction';
+
+    let icon = isDeposit ? '⬇️' : '⬆️';
+    let typeName = isDeposit ? 'Setoran' : 'Penarikan';
+    let textColor = isDeposit ? C.success : C.destructive;
+
+    if (isCorrection) {
+      icon = '⚠️';
+      typeName = 'Koreksi Data';
+      textColor = '#F59E0B';
+    }
+
     return (
       <View style={styles.txCard}>
         <View style={styles.txLeft}>
-          <Text style={styles.txIcon}>{isDeposit ? '⬇️' : '⬆️'}</Text>
+          <Text style={styles.txIcon}>{icon}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.txType}>{isDeposit ? 'Setoran' : 'Penarikan'}</Text>
+            <Text style={[styles.txType, isCorrection && { color: textColor }]}>{typeName}</Text>
             <Text style={styles.txDate}>{formatDate(item.transactionDate)}</Text>
             {item.productName && <Text style={styles.txDesc}>{item.productName}</Text>}
           </View>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[styles.txAmount, { color: isDeposit ? C.success : C.destructive }]}>
+          <Text style={[styles.txAmount, { color: textColor }]}>
             {isDeposit ? '+' : '-'}{formatRp(item.amount)}
           </Text>
           {item.balanceAfter !== undefined && (

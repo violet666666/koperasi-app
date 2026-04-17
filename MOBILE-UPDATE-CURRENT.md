@@ -502,7 +502,9 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 |---|---|---|---|
 | M-FEAT-004 | Edit NRP transaksi yang lupa NRP | 2–3 hari | 🟡 |
 | M-FEAT-015 | ~~Paritas UI Mutasi Wajib Bulanan~~ | **✅ DONE** | 🟢 |
-| M-FEAT-016 | Paritas UI: Tampilkan Koreksi & Penarikan di Riwayat Mutasi Mobile | 1 hari | 🟡 |
+| ~~M-FEAT-016~~ | ~~Paritas UI: Tampilkan Koreksi & Penarikan di Riwayat Mutasi Mobile~~ | **✅ DONE** | 🟡 |
+| ~~M-FEAT-013~~ | ~~Paritas UI: Input Manual Tenor Pinjaman~~ | **✅ DONE** | 🟢 |
+| ~~M-FEAT-014~~ | ~~Fitur Baru Operator: Direct Disburse~~ | **✅ DONE** | 🟢 |
 | ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
 | M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
 | ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |

@@ -450,7 +450,7 @@ export default function DashboardScreen({ setToken }: any) {
                 t.notes?.includes('Saldo Wajib Awal') || t.notes?.includes('Saldo Awal') || 
                 t.notes?.includes('Import Saldo') || t.notes?.includes('Import/Update Saldo')
               );
-              const monthlyEntries = txs.filter((t: any) => t.type === 'deposit' && !saldoAwalEntries.includes(t));
+              const monthlyEntries = txs.filter((t: any) => !saldoAwalEntries.includes(t));
               const saldoAwal = saldoAwalEntries.reduce((s: number, e: any) => s + (e.amount || 0), 0);
 
               if (txs.length === 0) return null;
@@ -479,10 +479,28 @@ export default function DashboardScreen({ setToken }: any) {
                           const d = new Date(entry.transactionDate);
                           monthLabel = MONTH_NAMES[d.getMonth()] || '';
                         }
+                        let prefix = '+';
+                        let textColor = '#0d9488';
+                        let labelPrefix = '📅';
+
+                        if (entry.type === 'correction') {
+                          prefix = '-';
+                          textColor = '#EF4444';
+                          labelPrefix = '⚠ KOREKSI';
+                        } else if (entry.type === 'withdrawal') {
+                          prefix = '-';
+                          textColor = '#EF4444';
+                          labelPrefix = '↩ PENARIKAN';
+                        }
+
                         return (
                           <View key={entry.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#f1f5f9' }}>
-                            <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>📅 {monthLabel}</Text>
-                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0d9488', fontFamily: 'monospace' }}>+ {formatRp(entry.amount)}</Text>
+                            <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>
+                              {labelPrefix} {monthLabel}
+                            </Text>
+                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor, fontFamily: 'monospace' }}>
+                              {prefix} {formatRp(entry.amount)}
+                            </Text>
                           </View>
                         );
                       })}
