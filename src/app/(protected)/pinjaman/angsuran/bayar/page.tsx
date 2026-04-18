@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react";
 export default function BayarAngsuranPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const loanId = searchParams.get("loanId");
+    const loanId = searchParams.get("loan_id") || searchParams.get("loanId");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [amount, setAmount] = React.useState("");
 
