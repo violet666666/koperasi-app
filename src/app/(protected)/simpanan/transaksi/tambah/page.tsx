@@ -361,7 +361,6 @@ export default function TambahSimpananPage() {
                             <Select
                                 value={formData.productId}
                                 onValueChange={(value) => handleSelectChange("productId", value)}
-                                required
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder={products.length === 0 ? "Memuat..." : "Pilih produk"} />
@@ -505,7 +504,6 @@ export default function TambahSimpananPage() {
                                 <Select
                                     value={formData.cashBankAccountId}
                                     onValueChange={(value) => handleSelectChange("cashBankAccountId", value)}
-                                    required
                                 >
                                     <SelectTrigger>
                                         <SelectValue

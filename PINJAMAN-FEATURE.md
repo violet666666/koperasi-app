@@ -42,3 +42,49 @@ Dokumen ini merangkum semua pembaruan (update) dan perbaikan bug (bug fix) yang 
 
 ### Lain-lain
 - **FIX-DATA-001**: Pelunasan Manual Pinjaman via Database Script (SUGESTI) karena dana masuk di Bank Jatim.
+
+---
+
+## 🔴 BUG BARU DITEMUKAN — 18 April 2026
+
+### BUG-ANGSURAN-001 — ID Pinjaman Tidak Muncul di Halaman Bayar Angsuran
+
+**Tanggal Ditemukan:** 18 April 2026
+**Status:** ✅ FIXED
+**Severity:** Critical (Fitur pembayaran angsuran tidak bisa digunakan sama sekali)
+**URL Terdampak:** `https://www.primkoppol.online/pinjaman/angsuran/bayar?loan_id=2384`
+
+**Gejala:**
+Saat operator memilih pinjaman dari halaman `/pinjaman/angsuran` lalu mengklik tombol "Lanjut ke Proses Pembayaran", halaman bayar (`/pinjaman/angsuran/bayar`) terbuka namun **field "ID Pinjaman" selalu kosong**. Akibatnya pembayaran tidak bisa diproses karena validasi `if (!loanId)` selalu gagal.
+
+**Root Cause — Mismatch Query Parameter Key:**
+Halaman sumber (`angsuran/page.tsx` baris 211) men-generate URL dengan format **underscore**:
+```tsx
+<Link href={`/pinjaman/angsuran/bayar?loan_id=${selectedLoan.id}`}>
+//                                     ^^^^^^^^^
+//                                     Mengirim: loan_id (underscore)
+```
+
+Namun halaman tujuan (`angsuran/bayar/page.tsx` baris 16) membaca parameter dengan format **camelCase**:
+```typescript
+const loanId = searchParams.get("loanId");
+//                                ^^^^^^
+//                                Membaca: loanId (camelCase) → TIDAK COCOK → null
+```
+
+Karena `searchParams.get()` bersifat **case-sensitive** dan **exact match**, key `"loanId"` tidak pernah cocok dengan `"loan_id"` di URL. Hasilnya selalu `null`.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/angsuran/bayar/page.tsx` (baris 16)
+
+**Solusi:**
+```diff
+- const loanId = searchParams.get("loanId");
++ const loanId = searchParams.get("loan_id") || searchParams.get("loanId");
+```
+Kini halaman mendukung kedua format parameter (`loan_id` maupun `loanId`) sehingga backward-compatible dan pasti menangkap ID dari URL yang dikirim halaman angsuran.
+
+---
+
+*Diperbarui: 18 April 2026*
+*Total bug tercatat modul Pinjaman: 16 | Total fitur baru: 3*

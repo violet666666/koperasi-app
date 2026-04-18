@@ -111,3 +111,38 @@ Berdasarkan *technical review* lanjutan, ditemukan 2 anomali logika (*logical bu
 - Prisma error code `P2002` (unique constraint) ditangkap dan diterjemahkan ke pesan Indonesia yang informatif.
 - Backend `PUT /api/members/[id]` mengembalikan pesan error yang jelas jika produk simpanan belum ada di database.
 
+---
+
+## 🔴 BUG BARU DITEMUKAN — 18 April 2026
+
+### BUG-SIMPANAN-001 — Tombol "Simpan Transaksi" Tidak Merespon Saat Penarikan Sukarela
+
+**Tanggal Ditemukan:** 18 April 2026
+**Status:** ✅ FIXED
+**Severity:** High (Menghambat pencatatan operasional penarikan simpanan)
+**URL Terdampak:** `https://www.primkoppol.online/simpanan/transaksi/tambah`
+
+**Gejala:**
+Operator tidak bisa memproses penarikan tabungan Sukarela. Ketika mencoba menekan tombol "Simpan Transaksi", tombol tersebut tampak tidak berfungsi (mati/tidak merespon sama sekali), dan tidak ada pesan *error* atau pemberitahuan yang muncul di layar.
+
+**Akar Masalah (Root Cause) — Silent HTML5 Form Validation Failure:**
+Masalah ini diakibatkan oleh perilaku *native form validation* dari komponen UI kustom (Radix UI `Select`). 
+Pada form Penarikan, *dropdown* "Kas Koperasi" (di dalam kode adalah `cashBankAccountId`) wajib diisi. Atribut `required` disematkan pada komponen `<Select>`. 
+Ketika `required` dipicu tanpa diisi, Radix membuat elemen `select` *native* tersembunyi (*visually hidden*) dengan atribut `required`. Saat *form* di-*submit*, *browser* menyadari ada kolom tersembunyi yang belum terisi, dan mencoba menampilkan *tooltip* peringatan (*"Please fill out this field"*). Namun karena elemennya tersembunyi/tidak kasatmata, *tooltip* tersebut gagal dirender, membuat proses *submit* dibatalkan secara sepihak (*silent failure*) oleh *browser* tanpa sepengetahuan *user*.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/simpanan/transaksi/tambah/page.tsx` (baris 364 & 508)
+
+**Solusi:**
+```diff
+  <Select
+      value={formData.cashBankAccountId}
+      onValueChange={(value) => handleSelectChange("cashBankAccountId", value)}
+-     required
+  >
+```
+Atribut `required` pada komponen `<Select>` kustom ditiadakan karena sering menimpa validasi manual. Sebagai gantinya, sistem sekarang akan sepenuhnya mengandalkan validasi manual JavaScript yang sudah kita sediakan dalam `handleSubmit`. Jika operator lupa mengisi akun kas, kini sistem akan secara eksplisit memunculkan notifikasi silang merah (Toast Error): **"Pilih akun Kas/Bank untuk transaksi penarikan ini"**.
+
+---
+
+*Diperbarui: 18 April 2026*

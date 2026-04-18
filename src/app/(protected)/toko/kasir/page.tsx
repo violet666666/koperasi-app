@@ -629,7 +629,14 @@ export default function KasirPage() {
 
                             {/* Credit Payment */}
                             <Button variant="outline" className="w-full mb-3" disabled={cart.length === 0}
-                                onClick={() => setShowCreditDialog(true)}>
+                                onClick={() => {
+                                    if (selectedCustomerObj) {
+                                        setSelectedMember(selectedCustomerObj);
+                                        setMemberSearch(selectedCustomerObj.name);
+                                        setMemberResults([selectedCustomerObj]);
+                                    }
+                                    setShowCreditDialog(true);
+                                }}>
                                 <User className="mr-2 h-4 w-4" />
                                 Bayar via Potong Gaji
                             </Button>
