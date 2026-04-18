@@ -30,6 +30,7 @@ import {
     Boxes,
     BarChart2,
     TrendingDown,
+    Tag,
     type LucideIcon,
 } from "lucide-react";
 
@@ -318,6 +319,10 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Manajemen Produk", href: "/toko/produk", icon: Package,
+                permission: "manage_toko",
+            },
+            {
+                title: "Promo & Diskon", href: "/toko/marketing", icon: Tag,
                 permission: "manage_toko",
             },
             {
