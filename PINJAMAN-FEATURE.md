@@ -9,6 +9,7 @@ Dokumen ini merangkum semua pembaruan (update) dan perbaikan bug (bug fix) yang 
 | **FEAT-020** | Produk Pinjaman Reguler & Khusus | ✅ IMPLEMENTED | 7 Apr 2026 | Implementasi lengkap 2 jenis produk pinjaman (Reguler & Khusus) dengan kartu pilihan UI, limit per produk, dan simulasi rinci. Menghapus hard-limit AD-ART global. |
 | **FEAT-021** | Seed Data Produk Pinjaman Accurate | ✅ IMPLEMENTED | 8 Apr 2026 | Seed data produk pinjaman dengan aturan baru: PR (Min 0, Maks 20jt, 1-36 bln, 1%/bln, Resiko 2%), PK (Min 30jt, No Limit, 1-60 bln, 1%/bln, Resiko 2%). |
 | **UAT-020** | Seed Produk Pinjaman ke Staging | ✅ SEEDED | 7 Apr 2026 | Uji coba pinjaman dengan data staging yang mencakup role Operator dan Anggota untuk End-to-End tes. |
+| **FEAT-022** | Otomasi Pembayaran Angsuran | ✅ IMPLEMENTED | 19 Apr 2026 | Redesign halaman bayar angsuran dengan sistem membaca jadwal angsuran berikutnya secara otomatis, menampilkan rincian pokok & bunga, serta alokasi prioritas pembayaran secara otomatis. |
 
 ---
 
@@ -86,5 +87,5 @@ Kini halaman mendukung kedua format parameter (`loan_id` maupun `loanId`) sehing
 
 ---
 
-*Diperbarui: 18 April 2026*
-*Total bug tercatat modul Pinjaman: 16 | Total fitur baru: 3*
+*Diperbarui: 19 April 2026*
+*Total bug tercatat modul Pinjaman: 16 | Total fitur baru: 4*
