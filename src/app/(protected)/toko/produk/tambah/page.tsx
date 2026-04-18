@@ -23,6 +23,8 @@ export default function TambahProdukPage() {
         category: "",
         costPrice: "",
         sellPrice: "",
+        discountType: "none",
+        discountValue: "",
         stock: "",
         stockGdg: "",
         stockToko: "",
@@ -31,7 +33,16 @@ export default function TambahProdukPage() {
     });
 
     const handleChange = (field: string, value: string) => {
-        setForm(prev => ({ ...prev, [field]: value }));
+        setForm(prev => {
+            const next = { ...prev, [field]: value };
+            if (field === "costPrice" && value !== "") {
+                const cost = parseFloat(value) || 0;
+                // Formula: ceil((HPP * 1.02 * 1.11) / 100) * 100
+                const calculated = Math.ceil((cost * 1.02 * 1.11) / 100) * 100;
+                next.sellPrice = calculated.toString();
+            }
+            return next;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +64,8 @@ export default function TambahProdukPage() {
                     category: form.category || null,
                     costPrice: parseFloat(form.costPrice) || 0,
                     sellPrice: parseFloat(form.sellPrice),
+                    discountType: form.discountType !== "none" ? form.discountType : null,
+                    discountValue: parseFloat(form.discountValue) || 0,
                     stock: parseInt(form.stock) || ((parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0)),
                     stockGdg: parseInt(form.stockGdg) || 0,
                     stockToko: parseInt(form.stockToko) || 0,
@@ -147,16 +160,53 @@ export default function TambahProdukPage() {
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="costPrice">Harga Beli (Modal)</Label>
+                                <Label htmlFor="costPrice">Harga Beli (Modal / HPP)</Label>
                                 <Input id="costPrice" type="number" min={0} placeholder="0"
                                     value={form.costPrice} onChange={e => handleChange("costPrice", e.target.value)} />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="sellPrice">Harga Jual <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="sellPrice">Harga Jual Rak <span className="text-red-500">*</span></Label>
                                 <Input id="sellPrice" type="number" min={0} placeholder="0"
                                     value={form.sellPrice} onChange={e => handleChange("sellPrice", e.target.value)} />
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Include PPN 11% & Markup 2%. (Auto Dibundel saat HPP diisi)
+                                </p>
                             </div>
                         </div>
+
+                        {/* Diskon Section */}
+                        <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-lg border bg-muted/20">
+                            <div className="space-y-2">
+                                <Label htmlFor="discountType">Diskon Kasir (Marketing)</Label>
+                                <Select value={form.discountType} onValueChange={v => handleChange("discountType", v)}>
+                                    <SelectTrigger><SelectValue placeholder="Tidak Ada Diskon" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Tidak Ada Diskon</SelectItem>
+                                        <SelectItem value="percent">Persentase (%)</SelectItem>
+                                        <SelectItem value="fixed">Nominal (Rp)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {form.discountType !== "none" && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="discountValue">
+                                        Nilai Diskon {form.discountType === "percent" ? "(%)" : "(Rp)"}
+                                    </Label>
+                                    <Input id="discountValue" type="number" min={0} placeholder="0"
+                                        value={form.discountValue} onChange={e => handleChange("discountValue", e.target.value)} />
+                                    {form.sellPrice && form.discountValue && (
+                                        <p className="text-[10px] text-emerald-600 font-medium mt-1">
+                                            Harga setelah diskon: Rp {
+                                                form.discountType === "percent" 
+                                                    ? Math.round(Number(form.sellPrice) * (1 - (Number(form.discountValue) / 100))).toLocaleString("id-ID")
+                                                    : Math.max(0, Number(form.sellPrice) - Number(form.discountValue)).toLocaleString("id-ID")
+                                            }
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
 
                         <div className="grid gap-4 sm:grid-cols-3">
                             <div className="space-y-2">

@@ -23,12 +23,20 @@ import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
 import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 
-interface Product { id: number; sku: string; name: string; price: number; stock: number; stockToko: number; isService?: boolean; }
+interface Product { id: number; sku: string; name: string; price: number; discountType?: string; discountValue?: number; stock: number; stockToko: number; isService?: boolean; }
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
 
 export default function KasirPage() {
+    const getEffectivePrice = React.useCallback((p: Product) => {
+        if (!p.discountType || !p.discountValue || p.discountValue <= 0) return p.price;
+        if (p.discountType === "percent") {
+            return Math.round(p.price * (1 - p.discountValue / 100));
+        }
+        return Math.max(0, p.price - p.discountValue);
+    }, []);
+
     const [searchQuery, setSearchQuery] = React.useState("");
     const [products, setProducts] = React.useState<Product[]>([]);
     const [cart, setCart] = React.useState<CartItem[]>([]);
@@ -165,7 +173,7 @@ export default function KasirPage() {
 
     useBarcodeScanner(addByBarcode);
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * (Number(item.quantity) || 0)), 0);
+    const subtotal = cart.reduce((sum, item) => sum + (getEffectivePrice(item.product) * (Number(item.quantity) || 0)), 0);
     const change = Number(paymentAmount) - subtotal;
 
     const getEffectiveStock = (product: Product) => {
@@ -329,12 +337,15 @@ export default function KasirPage() {
                 saleDate: new Date().toISOString(),
                 customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerQuery || undefined),
                 cashierName: "Kasir Toko",
-                items: cart.map(item => ({
-                    name: item.product.name,
-                    quantity: item.quantity,
-                    price: item.product.price,
-                    subtotal: item.product.price * item.quantity
-                })),
+                items: cart.map(item => {
+                    const price = getEffectivePrice(item.product);
+                    return {
+                        name: item.product.name,
+                        quantity: item.quantity,
+                        price: price,
+                        subtotal: price * item.quantity
+                    };
+                }),
                 totalAmount: subtotal,
                 paymentMethod: method,
                 cashReceived: method === "cash" ? effectivePayment : undefined,
@@ -448,7 +459,16 @@ export default function KasirPage() {
                                                         {product.name}
                                                         {isOutOfStock && <span className="ml-2 text-xs text-destructive font-normal">(Stok Habis)</span>}
                                                     </TableCell>
-                                                    <TableCell className="text-right tabular-nums">{formatCurrency(product.price)}</TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {product.discountType && product.discountValue && product.discountValue > 0 ? (
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-xs text-muted-foreground line-through">{formatCurrency(product.price)}</span>
+                                                                <span className="text-red-600 font-bold">{formatCurrency(getEffectivePrice(product))}</span>
+                                                            </div>
+                                                        ) : (
+                                                            formatCurrency(product.price)
+                                                        )}
+                                                    </TableCell>
                                                     <TableCell className="text-center">
                                                         <Badge variant={effStock > 0 ? "secondary" : "destructive"}>{product.isService ? "∞" : effStock}</Badge>
                                                     </TableCell>
@@ -567,7 +587,16 @@ export default function KasirPage() {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate">{item.product.name}</p>
                                             <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap mt-0.5">
-                                                <span>{formatCurrency(item.product.price)} × {item.quantity}</span>
+                                                {item.product.discountType && item.product.discountValue && item.product.discountValue > 0 ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <Badge variant="destructive" className="h-5 px-1 py-0 text-[10px] rounded-sm">
+                                                            {item.product.discountType === "percent" ? `${item.product.discountValue}%` : `-${formatCurrency(item.product.discountValue)}`}
+                                                        </Badge>
+                                                        <span>{formatCurrency(getEffectivePrice(item.product))} × {item.quantity}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span>{formatCurrency(item.product.price)} × {item.quantity}</span>
+                                                )}
                                                 <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                                                     Sisa Stok: {item.product.isService ? "∞" : (item.product.stockToko > 0 ? item.product.stockToko : item.product.stock)}
                                                 </span>

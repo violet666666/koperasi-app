@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
         // Validate stock and calculate total
         let totalAmount = 0;
-        const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number }[] = [];
+        const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number }[] = [];
 
         for (const item of items) {
             const product = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
@@ -82,11 +82,18 @@ export async function POST(request: Request) {
                 return NextResponse.json({ message: `Stok ${product.name} tidak mencukupi (sisa di toko: ${effectiveStock})` }, { status: 400 });
             }
 
-            const unitPrice = Number(product.sellPrice);
+            const rawPrice = Number(product.sellPrice);
+            let discount = 0;
+            if (product.discountType === "percent" && Number(product.discountValue) > 0) {
+                discount = Math.round(rawPrice * Number(product.discountValue) / 100);
+            } else if (product.discountType === "fixed" && Number(product.discountValue) > 0) {
+                discount = Math.min(Number(product.discountValue), rawPrice);
+            }
+            const unitPrice = rawPrice - discount;
             const subtotal = unitPrice * item.quantity;
             totalAmount += subtotal;
 
-            validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal });
+            validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount });
         }
 
         // Validate payment for cash
@@ -246,6 +253,7 @@ export async function POST(request: Request) {
                         productId: vi.productId,
                         quantity: vi.quantity,
                         unitPrice: vi.unitPrice,
+                        discount: vi.discount,
                         subtotal: vi.subtotal,
                     })),
                 },

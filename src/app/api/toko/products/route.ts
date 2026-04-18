@@ -31,6 +31,8 @@ export async function GET(request: Request) {
                 name: p.name,
                 category: p.category,
                 price: Number(p.sellPrice),
+                discountType: p.discountType,
+                discountValue: Number(p.discountValue),
                 costPrice: Number(p.costPrice),
                 stock: p.stock,
                 stockGdg: p.stockGdg,
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
         const userId = session?.user?.id ? parseInt(session.user.id) : null;
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, stock, stockGdg, stockToko, minStock, unit, isService } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService } = body;
 
         if (!sku || !name || sellPrice === undefined) {
             return NextResponse.json(
@@ -73,6 +75,8 @@ export async function POST(request: Request) {
                 category: category || null,
                 costPrice: costPrice || 0,
                 sellPrice,
+                discountType: discountType || null,
+                discountValue: discountValue || 0,
                 stock: stock || 0,
                 stockGdg: stockGdg || 0,
                 stockToko: stockToko || 0,

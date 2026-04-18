@@ -760,6 +760,8 @@ model StoreProduct {
   unitType  String    @default("toko") @map("unit_type") // toko, resto, coffe_latar
   costPrice Decimal   @default(0) @map("cost_price") @db.Decimal(15, 2)
   sellPrice Decimal   @map("sell_price") @db.Decimal(15, 2)
+  discountType String?   @map("discount_type")
+  discountValue Decimal  @default(0) @map("discount_value") @db.Decimal(15, 2)
   stock     Int       @default(0) // Now acts as Total Stock
   stockGdg  Int       @default(0) @map("stock_gdg")
   stockToko Int       @default(0) @map("stock_toko")
@@ -828,6 +830,7 @@ model StoreSaleItem {
   productId Int     @map("product_id")
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(15, 2)
+  discount  Decimal @default(0) @db.Decimal(15, 2)
   subtotal  Decimal @db.Decimal(15, 2)
 
   sale    StoreSale    @relation(fields: [saleId], references: [id])
