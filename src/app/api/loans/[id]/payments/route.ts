@@ -215,6 +215,80 @@ export async function POST(request: Request, { params }: Params) {
             });
         }
 
+        // ── Post to Cash/Bank (Kas Masuk) ──────────────────────────────
+        if (data.cashBankAccountId) {
+            const cashBank = await prisma.cashBankAccount.findUnique({
+                where: { id: data.cashBankAccountId },
+            });
+
+            if (cashBank) {
+                // Fetch member name for description
+                const member = await prisma.member.findUnique({
+                    where: { id: loan.memberId },
+                    select: { name: true, memberNo: true },
+                });
+                const memberLabel = member ? `${member.name} (${member.memberNo})` : `Member #${loan.memberId}`;
+
+                let runningBalance = Number(cashBank.currentBalance);
+
+                // 1. Angsuran Pokok → Kas Masuk
+                if (totalPrincipal > 0) {
+                    const balBefore = runningBalance;
+                    runningBalance += totalPrincipal;
+                    const txNoPokok = `CBM-${paymentNo}-P`;
+                    await prisma.cashBankTransaction.create({
+                        data: {
+                            transactionNo: txNoPokok,
+                            accountId: data.cashBankAccountId,
+                            branchId: loan.branchId,
+                            type: "in",
+                            category: "angsuran_pokok",
+                            amount: totalPrincipal,
+                            balanceBefore: balBefore,
+                            balanceAfter: runningBalance,
+                            referenceType: "LoanPayment",
+                            referenceId: payment.id,
+                            description: `Angsuran Pokok Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                            transactionDate: data.paymentDate,
+                            memberId: loan.memberId,
+                            createdById: userId,
+                        },
+                    });
+                }
+
+                // 2. Jasa/Bunga Pinjaman → Kas Masuk
+                if (totalInterest > 0) {
+                    const balBefore = runningBalance;
+                    runningBalance += totalInterest;
+                    const txNoBunga = `CBM-${paymentNo}-I`;
+                    await prisma.cashBankTransaction.create({
+                        data: {
+                            transactionNo: txNoBunga,
+                            accountId: data.cashBankAccountId,
+                            branchId: loan.branchId,
+                            type: "in",
+                            category: "jasa_pinjaman",
+                            amount: totalInterest,
+                            balanceBefore: balBefore,
+                            balanceAfter: runningBalance,
+                            referenceType: "LoanPayment",
+                            referenceId: payment.id,
+                            description: `Jasa/Bunga Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                            transactionDate: data.paymentDate,
+                            memberId: loan.memberId,
+                            createdById: userId,
+                        },
+                    });
+                }
+
+                // 3. Update saldo kas/bank koperasi
+                await prisma.cashBankAccount.update({
+                    where: { id: data.cashBankAccountId },
+                    data: { currentBalance: runningBalance },
+                });
+            }
+        }
+
         return NextResponse.json({
             data: payment,
             message: "Pembayaran berhasil dicatat",

@@ -10,6 +10,7 @@ Dokumen ini merangkum semua pembaruan (update) dan perbaikan bug (bug fix) yang 
 | **FEAT-021** | Seed Data Produk Pinjaman Accurate | ✅ IMPLEMENTED | 8 Apr 2026 | Seed data produk pinjaman dengan aturan baru: PR (Min 0, Maks 20jt, 1-36 bln, 1%/bln, Resiko 2%), PK (Min 30jt, No Limit, 1-60 bln, 1%/bln, Resiko 2%). |
 | **UAT-020** | Seed Produk Pinjaman ke Staging | ✅ SEEDED | 7 Apr 2026 | Uji coba pinjaman dengan data staging yang mencakup role Operator dan Anggota untuk End-to-End tes. |
 | **FEAT-022** | Otomasi Pembayaran Angsuran | ✅ IMPLEMENTED | 19 Apr 2026 | Redesign halaman bayar angsuran dengan sistem membaca jadwal angsuran berikutnya secara otomatis, menampilkan rincian pokok & bunga, serta alokasi prioritas pembayaran secara otomatis. |
+| **FEAT-023** | Integrasi Kas/Bank pada Angsuran | ✅ IMPLEMENTED | 19 Apr 2026 | Pembayaran angsuran pinjaman sekarang otomatis tercatat di buku kas/bank koperasi. Operator memilih akun Kas/Bank tujuan, lalu sistem membuat 2 CashBankTransaction: angsuran_pokok (kas masuk) dan jasa_pinjaman (kas masuk). Saldo kas otomatis ter-update. |
 
 ---
 
@@ -158,5 +159,45 @@ Generator hanya menghasilkan **100.000 kemungkinan** per tahun (`00000`–`99999
 
 ---
 
+### BUG-ANGSURAN-003 — Pembayaran Angsuran Tidak Tercatat di Buku Kas
+
+**Tanggal Ditemukan:** 19 April 2026
+**Status:** ✅ FIXED
+**Severity:** High (Data akuntansi tidak lengkap — arus kas tidak tercatat)
+**Dilaporkan:** "Bayar angsuran ini ga tercatat flow transaksi kas?"
+
+**Gejala:**
+Setelah operator berhasil membayar angsuran pinjaman, pembayaran tercatat di tabel `loan_payments` dan jadwal angsuran ter-update, namun **tidak ada catatan masuk di buku kas/bank koperasi** (`cash_bank_transactions`). Akibatnya:
+- Laporan Buku Kas tidak mencerminkan penerimaan angsuran
+- Saldo kas koperasi tidak ter-update
+- Pendapatan jasa/bunga pinjaman tidak terlihat di alur kas
+
+**Root Cause:**
+API `POST /api/loans/[id]/payments` hanya membuat record `LoanPayment` dan memperbarui `LoanSchedule` + `Loan`, tetapi **sama sekali tidak membuat `CashBankTransaction`**.
+
+Bandingkan dengan modul Simpanan (`POST /api/savings/transactions`) yang sudah benar — setelah membuat SavingsTransaction, juga membuat CashBankTransaction dan memperbarui saldo CashBankAccount.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/payments/route.ts` (API — tambah logika kas masuk)
+- `src/app/(protected)/pinjaman/angsuran/bayar/page.tsx` (UI — tambah dropdown Kas/Bank)
+
+**Solusi:**
+
+#### 1. API — Auto-create CashBankTransaction
+Setelah LoanPayment dibuat, jika `cashBankAccountId` dikirim dari frontend:
+- Buat **2 record CashBankTransaction** (type: `"in"`):
+  - `category: "angsuran_pokok"` → nominal pokok yang dibayar
+  - `category: "jasa_pinjaman"` → nominal bunga/jasa yang dibayar
+- Update saldo `CashBankAccount.currentBalance`
+
+#### 2. Frontend — Tambah Dropdown Kas/Bank
+- Fetch daftar akun Kas/Bank koperasi dari `/api/master/cash-bank`
+- Filter hanya akun utama (bukan unit-spesifik atau SHU)
+- Auto-select akun kas pertama
+- Kirim `cashBankAccountId` dalam payload POST
+- Tampilkan info akun terpilih di dialog konfirmasi
+
+---
+
 *Diperbarui: 19 April 2026*
-*Total bug tercatat modul Pinjaman: 17 | Total fitur baru: 4*
+*Total bug tercatat modul Pinjaman: 18 | Total fitur baru: 5*

@@ -12,6 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     AlertDialog,
     AlertDialogContent,
     AlertDialogHeader,
@@ -31,6 +38,7 @@ import {
     AlertCircle,
     Receipt,
     ArrowRight,
+    Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -78,6 +86,17 @@ interface ScheduleDue {
     totalDue: number;
 }
 
+interface CashBankAccount {
+    id: number;
+    code: string;
+    name: string;
+    type: "cash" | "bank";
+    bankName?: string | null;
+    currentBalance: number;
+    unitType?: string | null;
+    purpose?: string | null;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toNum(v: number | string): number {
@@ -121,6 +140,8 @@ export default function BayarAngsuranPage() {
         new Date().toISOString().split("T")[0]
     );
     const [showConfirm, setShowConfirm] = React.useState(false);
+    const [cashBankAccounts, setCashBankAccounts] = React.useState<CashBankAccount[]>([]);
+    const [selectedCashBankId, setSelectedCashBankId] = React.useState<string>("");
 
     // Derived: pending schedules
     const pendingSchedules = React.useMemo(() => {
@@ -176,10 +197,31 @@ export default function BayarAngsuranPage() {
         })();
     }, [loanId]);
 
+    // ─── Fetch Cash/Bank Accounts ────────────────────────────────────────
+
+    React.useEffect(() => {
+        fetch("/api/master/cash-bank?perPage=50")
+            .then((r) => r.json())
+            .then((json) => {
+                let accounts: CashBankAccount[] = json.data || [];
+                // Filter: only main accounts (not unit-specific, not SHU-specific)
+                accounts = accounts.filter(a => !a.unitType && !a.purpose?.startsWith('shu_'));
+                setCashBankAccounts(accounts);
+                // Auto-select first cash account if available
+                const firstCash = accounts.find(a => a.type === "cash");
+                if (firstCash) setSelectedCashBankId(String(firstCash.id));
+            })
+            .catch(() => toast.error("Gagal memuat akun Kas & Bank"));
+    }, []);
+
     // ─── Submit Payment ─────────────────────────────────────────────────────
 
     const handleSubmit = async () => {
         if (!loan || grandTotal <= 0) return;
+        if (!selectedCashBankId) {
+            toast.error("Pilih akun Kas/Bank tujuan terlebih dahulu");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -190,6 +232,7 @@ export default function BayarAngsuranPage() {
                 body: JSON.stringify({
                     amount: grandTotal,
                     paymentMethod: "cash",
+                    cashBankAccountId: Number(selectedCashBankId),
                     paymentDate,
                 }),
             });
@@ -618,19 +661,56 @@ export default function BayarAngsuranPage() {
                         </div>
                     </div>
 
-                    {/* Payment date */}
-                    <div className="max-w-xs">
-                        <Label htmlFor="payment-date" className="text-sm font-medium">
-                            <Calendar className="inline h-3.5 w-3.5 mr-1" />
-                            Tanggal Pembayaran
-                        </Label>
-                        <Input
-                            id="payment-date"
-                            type="date"
-                            value={paymentDate}
-                            onChange={(e) => setPaymentDate(e.target.value)}
-                            className="mt-1.5"
-                        />
+                    {/* Payment date + Kas selector */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="payment-date" className="text-sm font-medium">
+                                <Calendar className="inline h-3.5 w-3.5 mr-1" />
+                                Tanggal Pembayaran
+                            </Label>
+                            <Input
+                                id="payment-date"
+                                type="date"
+                                value={paymentDate}
+                                onChange={(e) => setPaymentDate(e.target.value)}
+                                className="mt-1.5"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="cash-bank-account" className="text-sm font-medium">
+                                <Banknote className="inline h-3.5 w-3.5 mr-1" />
+                                Kas/Bank Tujuan *
+                            </Label>
+                            <Select
+                                value={selectedCashBankId}
+                                onValueChange={setSelectedCashBankId}
+                            >
+                                <SelectTrigger className="mt-1.5">
+                                    <SelectValue
+                                        placeholder={
+                                            cashBankAccounts.length === 0
+                                                ? "Memuat akun..."
+                                                : "Pilih akun kas/bank"
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {cashBankAccounts.map((acc) => (
+                                        <SelectItem key={acc.id} value={String(acc.id)}>
+                                            <span className="flex flex-col">
+                                                <span className="font-medium text-sm">{acc.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    Saldo: {formatCurrency(Number(acc.currentBalance))}
+                                                </span>
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Mutasi kas koperasi akan otomatis tercatat
+                            </p>
+                        </div>
                     </div>
 
                     {/* Submit */}
@@ -639,7 +719,7 @@ export default function BayarAngsuranPage() {
                             size="lg"
                             className="min-w-[240px]"
                             onClick={() => setShowConfirm(true)}
-                            disabled={grandTotal <= 0}
+                            disabled={grandTotal <= 0 || !selectedCashBankId}
                         >
                             <CreditCard className="mr-2 h-4 w-4" />
                             Bayar {formatCurrency(grandTotal)}
@@ -692,6 +772,12 @@ export default function BayarAngsuranPage() {
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Tanggal</span>
                                 <span>{formatDate(paymentDate)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Kas/Bank</span>
+                                <span className="font-medium">
+                                    {cashBankAccounts.find((a) => String(a.id) === selectedCashBankId)?.name ?? "—"}
+                                </span>
                             </div>
                         </div>
 
