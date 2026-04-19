@@ -87,5 +87,76 @@ Kini halaman mendukung kedua format parameter (`loan_id` maupun `loanId`) sehing
 
 ---
 
+## 🔴 BUG BARU DITEMUKAN — 19 April 2026
+
+### BUG-ANGSURAN-002 — "Failed to create payment" saat Bayar Angsuran
+
+**Tanggal Ditemukan:** 19 April 2026
+**Status:** ✅ FIXED
+**Severity:** Critical (Pembayaran angsuran selalu gagal, error 500)
+**URL Terdampak:** `https://www.primkoppol.online/pinjaman/angsuran/bayar?loan_id=2475`
+
+**Gejala:**
+Saat operator mengklik "Konfirmasi Bayar" pada halaman bayar angsuran, muncul error **"Failed to create payment"** (HTTP 500). Tidak ada pembayaran yang tercatat di database.
+
+**Root Cause — 2 Masalah Kritis:**
+
+#### 1. `createdById` Hardcoded = 1 (FK Constraint Violation)
+
+File `src/app/api/loans/[id]/payments/route.ts` baris 135:
+```typescript
+createdById: 1, // TODO: Get from session
+```
+
+Route API pembayaran **tidak mengimpor modul auth** dan **tidak membaca session** sama sekali. Field `createdById` di-hardcode ke `1`. Jika User dengan ID 1 tidak ada di database produksi, Prisma akan melempar **foreign key constraint violation** ke tabel `users`.
+
+**Catatan:** Bug ini identik dengan BUG-066 yang sebelumnya sudah diperbaiki di route lain, namun route `POST /api/loans/[id]/payments` **terlewat** karena di-redesign ulang pada FEAT-022 (19 April 2026).
+
+#### 2. `paymentNo` Rawan Collision (Unique Constraint Violation)
+
+```typescript
+function generatePaymentNo(): string {
+    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+    return `PAY-${year}-${random}`;
+}
+```
+
+Generator hanya menghasilkan **100.000 kemungkinan** per tahun (`00000`–`99999`). Di sistem produksi dengan ribuan pinjaman, probabilitas collision (duplikat) meningkat signifikan sesuai Birthday Paradox. Prisma melempar **unique constraint error** saat `paymentNo` duplikat.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/payments/route.ts`
+
+**Solusi:**
+
+```diff
++ import { auth } from "@/lib/auth";
+
+- function generatePaymentNo(): string {
+-     const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+-     return `PAY-${year}-${random}`;
+- }
++ async function generatePaymentNo(): Promise<string> {
++     // Retry up to 5 times with 6-digit random (1.000.000 possibilities)
++     for (let i = 0; i < maxRetries; i++) {
++         const random = Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
++         const paymentNo = `PAY-${year}-${random}`;
++         const exists = await prisma.loanPayment.findUnique({ where: { paymentNo } });
++         if (!exists) return paymentNo;
++     }
++     // Fallback: timestamp-based
++     return `PAY-${year}-${Date.now().toString().slice(-8)}`;
++ }
+
+  // POST handler:
++ const session = await auth();
++ if (!session?.user) return 401;
++ const userId = Number(session.user.id);
+  ...
+- createdById: 1, // TODO: Get from session
++ createdById: userId,
+```
+
+---
+
 *Diperbarui: 19 April 2026*
-*Total bug tercatat modul Pinjaman: 16 | Total fitur baru: 4*
+*Total bug tercatat modul Pinjaman: 17 | Total fitur baru: 4*

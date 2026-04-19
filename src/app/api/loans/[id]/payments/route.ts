@@ -1,17 +1,30 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createLoanPaymentSchema } from "@/lib/validations";
+import { auth } from "@/lib/auth";
 
 interface Params {
     params: Promise<{ id: string }>;
 }
 
-// Helper to generate payment number
-function generatePaymentNo(): string {
+// Helper to generate payment number (with collision-safe retry)
+async function generatePaymentNo(): Promise<string> {
     const date = new Date();
     const year = date.getFullYear();
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
-    return `PAY-${year}-${random}`;
+    const maxRetries = 5;
+
+    for (let i = 0; i < maxRetries; i++) {
+        const random = Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
+        const paymentNo = `PAY-${year}-${random}`;
+        const exists = await prisma.loanPayment.findUnique({
+            where: { paymentNo },
+            select: { id: true },
+        });
+        if (!exists) return paymentNo;
+    }
+
+    // Fallback: timestamp-based to guarantee uniqueness
+    return `PAY-${year}-${Date.now().toString().slice(-8)}`;
 }
 
 // GET /api/loans/[id]/payments
@@ -43,6 +56,12 @@ export async function GET(request: Request, { params }: Params) {
 // POST /api/loans/[id]/payments
 export async function POST(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const userId = Number((session.user as any).id);
+
         const { id } = await params;
         const body = await request.json();
         const data = createLoanPaymentSchema.parse({
@@ -117,9 +136,10 @@ export async function POST(request: Request, { params }: Params) {
         }
 
         // Create payment with allocations
+        const paymentNo = await generatePaymentNo();
         const payment = await prisma.loanPayment.create({
             data: {
-                paymentNo: generatePaymentNo(),
+                paymentNo,
                 loanId: parseInt(id),
                 memberId: loan.memberId,
                 branchId: loan.branchId,
@@ -132,7 +152,7 @@ export async function POST(request: Request, { params }: Params) {
                 referenceNo: data.referenceNo,
                 notes: data.notes,
                 paymentDate: data.paymentDate,
-                createdById: 1, // TODO: Get from session
+                createdById: userId,
                 allocations: {
                     create: allocations,
                 },
