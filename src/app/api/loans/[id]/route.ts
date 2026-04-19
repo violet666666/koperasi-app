@@ -57,9 +57,9 @@ export async function PUT(request: Request, { params }: Params) {
             ? session.user.role
             : (session.user.role as any)?.name;
 
-        if (!["operator", "admin", "superadmin"].includes(roleName)) {
+        if (roleName !== "operator") {
             return NextResponse.json(
-                { message: "Hanya Operator atau Admin yang diizinkan mengedit data pinjaman." },
+                { message: "Hanya Operator yang diizinkan mengedit data pinjaman." },
                 { status: 403 }
             );
         }

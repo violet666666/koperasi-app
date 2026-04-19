@@ -17,7 +17,7 @@ export async function POST(
             ? session.user.role 
             : (session.user.role as any)?.name;
 
-        if (role !== "operator" && role !== "superadmin") {
+        if (role !== "operator") {
             return NextResponse.json({ message: "Hanya Operator yang diizinkan untuk membatalkan pinjaman." }, { status: 403 });
         }
 

@@ -101,7 +101,7 @@ export default function PinjamanDetailPage() {
     const roleName = typeof session?.user?.role === "string" 
          ? session.user.role 
          : (session?.user?.role as any)?.name ?? "";
-    const isOperator = ["operator", "admin", "superadmin"].includes(roleName);
+    const isOperator = roleName === "operator";
 
     React.useEffect(() => {
         async function fetchLoanData() {
