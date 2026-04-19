@@ -29,6 +29,48 @@
 ### 15. [M-FEAT-004] Penundaan Edit NRP transaksi Kasir
 - ❌ **Belum Diimplementasikan**: Menunda fitur edit anggota/NRP yang tertinggal di transaksi toko POS lama, dikarenakan sistem Endpoint backend `/api/mobile/toko/*` saat ini belum menyertakan lapisan *controller/authorization* bagi metode rekonsiliasi data lama. Pengerjaan ini dikembalikan ke backlog untuk _SPRINT_ tahap API mendatang.
 
+### [M-FEAT-020] Cetak Struk 58mm / 80mm — Thermal Printer Support
+- ✅ **Selesai (19 April 2026)**: File `KasirScreen.tsx` telah diperbarui.
+- **Latar Belakang:** Kasir unit Cuci Mobil membutuhkan cetak struk dengan ukuran kertas **58mm** (thermal printer kecil). Sebelumnya, template HTML struk tidak memiliki pengaturan lebar dan menggunakan ukuran default sistem (biasanya A4/Letter).
+- **Perubahan:**
+  - Ditambahkan konstanta `PAPER_SIZES` dengan 2 opsi: **58mm** (164pt / 384px) dan **80mm** (227pt / 576px).
+  - Default ukuran kertas: **58mm** (sesuai permintaan lapangan).
+  - Template HTML struk (`getHtmlHeader`) kini dinamis — font size, header size, viewport width, dan body max-width otomatis menyesuaikan ukuran kertas yang dipilih.
+  - `Print.printAsync()` kini mengirimkan parameter `width` sesuai ukuran kertas terpilih.
+  - **Toggle UI** berupa chip **58mm / 80mm** ditampilkan di atas tombol bayar, baik di *Kasir Cepat* (Cuci Mobil, Barbershop, Fotocopy) maupun *Kasir Normal* (Toko, Resto & Cafe), sehingga kasir dapat mengubahnya kapan saja.
+
+---
+
+## 🆕 UPDATE SINKRONISASI WEB & HASIL REVIEW KODE MOBILE (19 APRIL 2026)
+
+### 16. Integrasi Akun Kas/Bank pada Transaksi Operator (M-FEAT-017)
+- **Web/Backend:** Seluruh transaksi finansial Operator (Bayar Angsuran, Simpanan, Pencairan Pinjaman, dan POS Kasir) kini dirancang agar otomatis mencetak jurnal ke sistem pembukuan Kas/Bank koperasi (Double-Entry). API mensyaratkan parameter `cashBankAccountId` atau akan gagal (*error 500*).
+- **Penemuan di Kode Mobile (GAP ANALYSIS):**
+  Berdasarkan pengecekan langsung ke *source code* Mobile App, parameter `cashBankAccountId` beserta *UI Dropdown* Kas/Bank **BELUM ADA** pada file-file berikut:
+  1. ❌ `mobile/src/screens/operator/LoanPaymentScreen.tsx` (Baris 81) — *Payload `api.post('/api/mobile/loan-payment')` murni hanya mengirimkan `loanId`, `amount`, dan `notes`.*
+  2. ❌ `mobile/src/screens/operator/SavingsTransactionScreen.tsx` (Baris 75) — *Payload `api.post('/api/mobile/savings-tx')` tidak memuat `cashBankAccountId`.*
+  3. ❌ `mobile/src/screens/operator/DirectDisburseScreen.tsx` (Baris 122) — *Payload API `/api/mobile/loans-operator/direct-disburse` kekurangan atribut Kas.*
+  4. ❌ `mobile/src/screens/kasir/KasirScreen.tsx` (Baris 239) — *Payload `api.post('/api/mobile/toko')` saat checkout tidak membawa identitas penerima Kas.*
+- **Tugas Mobile (M-FEAT-017):** 
+  - Wajib menambahkan komponen `Dropdown/Picker` untuk memilih "Tujuan Kas/Bank" pada ke-4 layar (screen) di atas.
+  - Tambahkan parameter `cashBankAccountId` ke dalam payload `api.post` agar *backend* tidak menolak (HTTP 500) saat *query* ke Prisma.
+
+### 17. Validasi Penarikan Simpanan Wajib & Pokok (M-FEAT-018)
+- **Penemuan di Kode Mobile:** Pada `SavingsTransactionScreen.tsx` (Baris 138), operator mobile masih bebas memilih opsi "Penarikan" (withdrawal) tanpa mempedulikan jenis produk.
+- **Tugas Mobile (M-FEAT-018):** Sesuaikan dengan paritas Web (AD-ART Pasal 26). Opsi "Penarikan" harus diblokir (*disabled*) apabila operator telah memilih produk *Simpanan Pokok* atau *Simpanan Wajib*.
+
+### 18. Evaluasi Paritas Unit Toko & Role Kasir (M-FEAT-019)
+Berdasarkan `UNIT-TOKO.md` dan penelusuran kode Mobile (`KasirScreen.tsx` & `StokScreen.tsx`), terdapat fungsionalitas khusus Kasir di Web yang **belum ada** padanannya di Mobile App:
+- **Penemuan di Kode Mobile:** Aplikasi mobile saat ini hanya menyediakan layar `KasirScreen` (untuk *Checkout*) dan `StokScreen` (untuk cek persediaan). Namun, Kasir Mobile sama sekali tidak memiliki akses ke layar **Riwayat Transaksi Toko**, yang berarti mereka tidak dapat melihat rekap penjualan mereka sendiri, dan lebih parahnya, tidak dapat mengajukan pembatalan (*Request Void*) atas transaksi yang salah (status `voidPending`), padahal fitur ini sudah tersedia dan diperbaiki di Web (*BUG-059*).
+- **Tugas Mobile (M-FEAT-019):** Buatkan layar *Riwayat Transaksi Kasir* (spesifik untuk transaksi yang dilakukan oleh *user* Kasir tersebut di hari itu) beserta fungsionalitas tombol *Request Void*.
+
+### 19. Catatan: Bug & Update Web-Only (Tidak Berdampak Mobile)
+Beberapa perbaikan dan fitur Web terbaru (18-19 April 2026) yang **TIDAK** memerlukan tindakan di sisi mobile karena fiturnya khusus UI Web Admin/Operator:
+- **FEAT-024 (Edit Pinjaman):** Fitur CRUD (Pokok, Tenor, Bunga, Tanggal) untuk mengkoreksi data pinjaman.
+- **BUG-ANGSURAN-001:** Fix URL parameter `loan_id` pada UI Web.
+- **BUG-ANGSURAN-005 & 006:** Fix visibilitas tombol Edit/VOID untuk Role Admin dan Pinjaman Migrasi.
+- **BUG-SIMPANAN-001:** Fix validasi HTML5 *native* yang memblokir form penarikan sukarela.
+
 ---
 
 ## 🆕 UPDATE SINKRONISASI WEB (16 APRIL 2026)
@@ -525,6 +567,9 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-ARCH-002~~ | ~~Install `@gorhom/bottom-sheet` untuk modal member & filter~~ | **✅ DONE** | 🟢 |
 | ~~M-ARCH-003~~ | ~~Install `nativewind` v4 untuk styling konsisten~~ | **✅ DONE (hybrid)** | 🟢 |
 | ~~M-ARCH-004~~ | ~~Install `react-hook-form + zod` untuk validasi form~~ | **✅ DONE** | 🟡 |
+| M-FEAT-017 | Integrasi Dropdown Kas/Bank di Semua Transaksi Operator | 1-2 hari | 🔴 |
+| M-FEAT-018 | Blokir Penarikan Simpanan Wajib/Pokok (AD-ART) | 1/2 hari | 🟡 |
+| M-FEAT-019 | Layar Riwayat Transaksi & Request Void untuk Kasir Toko | 2 hari | 🟡 |
 
 ---
 

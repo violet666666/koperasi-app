@@ -44,6 +44,13 @@ const UNIT_TYPES = [
   { id: 'fotocopy', name: 'Fotocopy' },
 ];
 
+// ── Paper Size Config (58mm & 80mm thermal printer) ────────────────────────
+const PAPER_SIZES = [
+  { id: '58mm', label: '58mm', widthPt: 164, widthPx: 384, fontSize: 11, headerSize: 14, totalSize: 13 },
+  { id: '80mm', label: '80mm', widthPt: 227, widthPx: 576, fontSize: 13, headerSize: 18, totalSize: 16 },
+] as const;
+type PaperSizeId = typeof PAPER_SIZES[number]['id'];
+
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -71,6 +78,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   // ── S1-04: Plat Nomor Kendaraan (cuci mobil) ─────────────────────────
   const [vehiclePlate, setVehiclePlate] = useState('');
+
+  // ── Ukuran Kertas Struk (default 58mm untuk thermal printer) ──────────
+  const [paperSize, setPaperSize] = useState<PaperSizeId>('58mm');
+  const currentPaper = PAPER_SIZES.find(p => p.id === paperSize) || PAPER_SIZES[0];
 
   // Member Modal
   const memberModalRef = useRef<BottomSheetModal>(null);
@@ -374,19 +385,31 @@ export default function KasirScreen({ navigation: navProp }: any) {
     }
   };
 
-  // ── Receipt Printing ───────────────────────────────────────────────
-  const getHtmlHeader = (method: string) => `
+  // ── Receipt Printing (Thermal 58mm / 80mm) ─────────────────────────
+  const getHtmlHeader = (method: string) => {
+    const p = currentPaper;
+    return `
     <html>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+        <meta name="viewport" content="width=${p.widthPx}, initial-scale=1.0" />
         <style>
-          body { font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 10px; text-align: center; }
-          .header { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-          .sub { font-size: 12px; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-          .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 4px; font-size: 13px; }
-          .item-name { max-width: 60%; }
-          .total-section { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; }
-          .footer { margin-top: 20px; font-size: 11px; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: ${p.fontSize}px;
+            width: ${p.widthPx}px;
+            max-width: ${p.widthPx}px;
+            padding: 6px;
+            text-align: center;
+            color: #000;
+          }
+          .header { font-size: ${p.headerSize}px; font-weight: bold; margin-bottom: 3px; line-height: 1.3; }
+          .sub { font-size: ${p.fontSize - 1}px; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; line-height: 1.4; }
+          .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 3px; font-size: ${p.fontSize}px; line-height: 1.3; }
+          .item-name { max-width: 65%; word-wrap: break-word; }
+          .item-price { text-align: right; font-weight: bold; }
+          .total-section { border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; font-weight: bold; font-size: ${p.totalSize}px; }
+          .footer { margin-top: 10px; font-size: ${p.fontSize - 2}px; line-height: 1.4; }
         </style>
       </head>
       <body>
@@ -397,6 +420,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           Kasir: Mobile POS
         </div>
   `;
+  };
   const getHtmlFooter = () => `
         <div class="footer">
           Terima Kasih Atas Kunjungan Anda<br/>
@@ -411,7 +435,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       const html = getHtmlHeader(method) + items.map(c => `
         <div class="item-row">
           <div class="item-name">${c.product.name}<br/>${c.quantity} x ${c.product.price.toLocaleString('id-ID')}</div>
-          <div>${(c.quantity * c.product.price).toLocaleString('id-ID')}</div>
+          <div class="item-price">${(c.quantity * c.product.price).toLocaleString('id-ID')}</div>
         </div>
       `).join('') + `
         <div class="total-section">
@@ -419,7 +443,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           <span>Rp ${amount.toLocaleString('id-ID')}</span>
         </div>
       ` + getHtmlFooter();
-      await Print.printAsync({ html });
+      await Print.printAsync({ html, width: currentPaper.widthPt });
     } catch (err) { console.log('Print error:', err); }
   };
 
@@ -428,7 +452,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       const html = getHtmlHeader(method) + `
         <div class="item-row">
           <div class="item-name">Jasa Layanan<br/>${desc || 'Walk-in'}</div>
-          <div>${amount.toLocaleString('id-ID')}</div>
+          <div class="item-price">${amount.toLocaleString('id-ID')}</div>
         </div>
         ${vehiclePlate ? `<div class="item-row"><div class="item-name">Plat: ${vehiclePlate}</div></div>` : ''}
         <div class="total-section">
@@ -436,7 +460,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           <span>Rp ${amount.toLocaleString('id-ID')}</span>
         </div>
       ` + getHtmlFooter();
-      await Print.printAsync({ html });
+      await Print.printAsync({ html, width: currentPaper.widthPt });
     } catch (err) { console.log('Print error:', err); }
   };
 
@@ -587,6 +611,26 @@ export default function KasirScreen({ navigation: navProp }: any) {
             </View>
 
             <View style={{ marginTop: 20 }}>
+              {/* Paper Size Toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12, gap: 6 }}>
+                <Ionicons name="print-outline" size={16} color={C.mutedForeground} />
+                <Text style={{ fontSize: 12, color: C.mutedForeground, marginRight: 4 }}>Ukuran Struk:</Text>
+                {PAPER_SIZES.map(ps => (
+                  <TouchableOpacity
+                    key={ps.id}
+                    onPress={() => setPaperSize(ps.id)}
+                    style={{
+                      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                      backgroundColor: paperSize === ps.id ? C.primary : '#F1F5F9',
+                      borderWidth: 1, borderColor: paperSize === ps.id ? C.primary : '#E2E8F0',
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: paperSize === ps.id ? '#FFF' : C.mutedForeground }}>
+                      {ps.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <TouchableOpacity style={styles.cashBtn} onPress={() => handleCheckoutInit('cash')} disabled={processing || !quickAmount}>
                 <Ionicons name="cash-outline" size={20} color={C.primary} />
                 <Text style={styles.cashText}>Bayar Tunai</Text>
@@ -676,6 +720,27 @@ export default function KasirScreen({ navigation: navProp }: any) {
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalAmount}>{formatRp(total)}</Text>
+        </View>
+
+        {/* Paper Size Toggle (Toko/Resto) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12, gap: 6 }}>
+          <Ionicons name="print-outline" size={16} color={C.mutedForeground} />
+          <Text style={{ fontSize: 12, color: C.mutedForeground, marginRight: 4 }}>Ukuran Struk:</Text>
+          {PAPER_SIZES.map(ps => (
+            <TouchableOpacity
+              key={ps.id}
+              onPress={() => setPaperSize(ps.id)}
+              style={{
+                paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                backgroundColor: paperSize === ps.id ? C.primary : '#F1F5F9',
+                borderWidth: 1, borderColor: paperSize === ps.id ? C.primary : '#E2E8F0',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: paperSize === ps.id ? '#FFF' : C.mutedForeground }}>
+                {ps.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <TouchableOpacity style={styles.cashBtn} onPress={() => handleCheckoutInit('cash')} disabled={processing}>
