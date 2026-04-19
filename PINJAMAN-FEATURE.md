@@ -249,5 +249,55 @@ const result = await prisma.$transaction(async (tx) => {
 
 ---
 
+### BUG-ANGSURAN-005 — Tombol "Edit Pinjaman" Tidak Muncul untuk Role Admin
+
+**Tanggal Ditemukan:** 19 April 2026
+**Status:** ✅ FIXED
+**Severity:** Medium (Admin tidak bisa mengedit pinjaman padahal memiliki permission `manage_pinjaman`)
+
+**Gejala:**
+Tombol "Edit Pinjaman" dan "Batalkan (VOID)" di halaman detail pinjaman hanya muncul untuk pengguna dengan role `operator`. Pengguna dengan role `admin` tidak melihat tombol tersebut.
+
+**Root Cause:**
+Pengecekan role di frontend dan backend menggunakan kondisi hardcode:
+`const isOperator = ["operator", "superadmin"].includes(roleName);`
+Role `superadmin` ternyata tidak ada di database (yang tertinggi adalah `operator`). Role `admin` yang seharusnya berhak mengedit pinjaman tidak dimasukkan ke dalam daftar yang diizinkan.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/[id]/page.tsx` (Frontend Role Check)
+- `src/app/api/loans/[id]/route.ts` (Backend Role Check)
+- `src/app/api/loans/[id]/void/route.ts` (Backend Void Role Check)
+
+**Solusi:**
+Mengubah pengecekan role menjadi hanya mengizinkan `"operator"`, sementara admin (admin unit) tetap tidak bisa mengedit pinjaman koperasi. Teks `superadmin` yang tidak relevan juga dihapus dari kondisi pengecekan untuk menghindari kebingungan.
+
+---
+
+### BUG-ANGSURAN-006 — Tombol Edit/VOID Tidak Muncul untuk Pinjaman Migrasi
+
+**Tanggal Ditemukan:** 19 April 2026
+**Status:** ✅ FIXED
+**Severity:** High (Pinjaman dari hasil import migrasi yang salah tidak bisa diedit karena dianggap sudah ada pembayaran)
+**URL Terdampak:** `https://www.primkoppol.online/pinjaman/2468`
+
+**Gejala:**
+Pada halaman detail pinjaman (khususnya data hasil import), tombol Edit dan VOID tidak muncul untuk Operator, padahal tab Riwayat Pembayaran kosong.
+
+**Root Cause:**
+Logika `hasPayments` untuk menyembunyikan tombol Edit/VOID menggunakan 2 kondisi:
+```javascript
+const hasPayments = loan.payments.length > 0 || totalPaid > 0;
+```
+Pinjaman hasil migrasi seringkali memiliki nilai `principalPaid > 0` atau `interestPaid > 0` bawaan dari data lama (Excel), tetapi **TIDAK** memiliki record tabel `LoanPayment` di sistem baru. Kondisi `totalPaid > 0` membuat sistem mengunci pinjaman tersebut sehingga tidak bisa diedit. Padahal pinjaman inilah yang paling butuh diedit (koreksi data import).
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/[id]/page.tsx`
+- `src/app/api/loans/[id]/route.ts`
+
+**Solusi:**
+Menghapus pengecekan `totalPaid > 0` (baik di frontend maupun backend). Tombol Edit/VOID sekarang **hanya** dikunci jika ada record pembayaran aktual di database (`loan.payments.length > 0` atau `loan._count.payments > 0`). Ini memungkinkan pinjaman migrasi yang datanya perlu dikoreksi untuk bisa diedit dengan bebas.
+
+---
+
 *Diperbarui: 19 April 2026*
-*Total bug tercatat modul Pinjaman: 19 | Total fitur baru: 6*
+*Total bug tercatat modul Pinjaman: 21 | Total fitur baru: 6*
