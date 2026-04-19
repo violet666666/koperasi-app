@@ -97,11 +97,11 @@ export default function PinjamanDetailPage() {
         notes: "",
     });
 
-    // Operator Check
+    // Role Check — operator & admin boleh edit/void
     const roleName = typeof session?.user?.role === "string" 
          ? session.user.role 
          : (session?.user?.role as any)?.name ?? "";
-    const isOperator = roleName === "operator" || roleName === "superadmin";
+    const isOperator = ["operator", "admin", "superadmin"].includes(roleName);
 
     React.useEffect(() => {
         async function fetchLoanData() {
