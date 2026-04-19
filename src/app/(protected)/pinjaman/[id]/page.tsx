@@ -162,7 +162,7 @@ export default function PinjamanDetailPage() {
     const paidInstallments = schedule.filter((s) => s.status === "paid").length;
     const overdueInstallments = schedule.filter((s) => s.status === "overdue").length;
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
-    const hasPayments = loan.payments && loan.payments.length > 0 || totalPaid > 0;
+    const hasPayments = loan.payments && loan.payments.length > 0;
     const canEdit = isOperator && loan.status === "active" && !hasPayments;
 
     // Edit helpers

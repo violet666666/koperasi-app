@@ -93,7 +93,7 @@ export async function PUT(request: Request, { params }: Params) {
             );
         }
 
-        if (loan._count.payments > 0 || Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) {
+        if (loan._count.payments > 0) {
             return NextResponse.json(
                 { message: "Pinjaman tidak dapat di-edit karena sudah memiliki riwayat pembayaran angsuran. Gunakan fitur VOID jika ingin membatalkan." },
                 { status: 400 }
