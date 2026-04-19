@@ -125,6 +125,9 @@ export const loansApi = {
 
     get: (id: number) => api.get<{ data: Loan }>(`/loans/${id}`),
 
+    update: (id: number, data: Record<string, unknown>) =>
+        api.put<{ data: Loan; message: string; changes: string[] }>(`/loans/${id}`, data),
+
     payments: (loanId: number) =>
         api.get<{ data: unknown[] }>(`/loans/${loanId}/payments`),
 

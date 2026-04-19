@@ -11,6 +11,7 @@ Dokumen ini merangkum semua pembaruan (update) dan perbaikan bug (bug fix) yang 
 | **UAT-020** | Seed Produk Pinjaman ke Staging | ✅ SEEDED | 7 Apr 2026 | Uji coba pinjaman dengan data staging yang mencakup role Operator dan Anggota untuk End-to-End tes. |
 | **FEAT-022** | Otomasi Pembayaran Angsuran | ✅ IMPLEMENTED | 19 Apr 2026 | Redesign halaman bayar angsuran dengan sistem membaca jadwal angsuran berikutnya secara otomatis, menampilkan rincian pokok & bunga, serta alokasi prioritas pembayaran secara otomatis. |
 | **FEAT-023** | Integrasi Kas/Bank pada Angsuran | ✅ IMPLEMENTED | 19 Apr 2026 | Pembayaran angsuran pinjaman sekarang otomatis tercatat di buku kas/bank koperasi. Operator memilih akun Kas/Bank tujuan, lalu sistem membuat 2 CashBankTransaction: angsuran_pokok (kas masuk) dan jasa_pinjaman (kas masuk). Saldo kas otomatis ter-update. |
+| **FEAT-024** | Edit Pinjaman (CRUD) | ✅ IMPLEMENTED | 19 Apr 2026 | Operator dapat mengedit data pinjaman (Pokok, Tenor, Suku Bunga, Tanggal Cair, Jatuh Tempo Pertama, Catatan) — hanya untuk pinjaman aktif tanpa riwayat pembayaran. Jadwal angsuran otomatis di-regenerasi. Dilengkapi live preview kalkulasi, validasi lengkap, dan error handling deskriptif. |
 
 ---
 
@@ -249,4 +250,4 @@ const result = await prisma.$transaction(async (tx) => {
 ---
 
 *Diperbarui: 19 April 2026*
-*Total bug tercatat modul Pinjaman: 19 | Total fitur baru: 5*
+*Total bug tercatat modul Pinjaman: 19 | Total fitur baru: 6*

@@ -30,6 +30,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
     CreditCard,
     Calendar,
@@ -39,10 +40,12 @@ import {
     AlertTriangle,
     User,
     Ban,
-    Loader2
+    Loader2,
+    Pencil,
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS, INSTALLMENT_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
+
 
 // Info item component
 function InfoItem({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
@@ -81,6 +84,18 @@ export default function PinjamanDetailPage() {
     const [isVoidDialogOpen, setIsVoidDialogOpen] = React.useState(false);
     const [voidConfirmationText, setVoidConfirmationText] = React.useState("");
     const [isVoiding, setIsVoiding] = React.useState(false);
+
+    // Edit State
+    const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+    const [isEditing, setIsEditing] = React.useState(false);
+    const [editForm, setEditForm] = React.useState({
+        principalAmount: "",
+        tenorMonths: "",
+        interestRate: "",
+        disbursementDate: "",
+        firstDueDate: "",
+        notes: "",
+    });
 
     // Operator Check
     const roleName = typeof session?.user?.role === "string" 
@@ -147,13 +162,97 @@ export default function PinjamanDetailPage() {
     const paidInstallments = schedule.filter((s) => s.status === "paid").length;
     const overdueInstallments = schedule.filter((s) => s.status === "overdue").length;
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
+    const hasPayments = loan.payments && loan.payments.length > 0 || totalPaid > 0;
+    const canEdit = isOperator && loan.status === "active" && !hasPayments;
+
+    // Edit helpers
+    const openEditDialog = () => {
+        const fmtDate = (d: string | null) => {
+            if (!d) return "";
+            return new Date(d).toISOString().split("T")[0];
+        };
+        setEditForm({
+            principalAmount: String(Number(loan.principalAmount)),
+            tenorMonths: String(loan.tenorMonths),
+            interestRate: String(Number(loan.interestRate)),
+            disbursementDate: fmtDate(loan.disbursementDate),
+            firstDueDate: fmtDate(loan.firstDueDate),
+            notes: loan.notes || "",
+        });
+        setIsEditDialogOpen(true);
+    };
+
+    // Live preview calculations
+    const editPrincipal = Number(editForm.principalAmount) || 0;
+    const editTenor = Number(editForm.tenorMonths) || 1;
+    const editRate = Number(editForm.interestRate) || 0;
+    const editInterestPerMonth = Math.round(editPrincipal * (editRate / 100));
+    const editTotalInterest = editInterestPerMonth * editTenor;
+    const editTotalAmount = editPrincipal + editTotalInterest;
+    const editMonthly = Math.round(editPrincipal / editTenor) + editInterestPerMonth;
+    const editAdminFee = Math.round(editPrincipal * 0.02);
+    const editDisbursed = editPrincipal - editAdminFee;
+    const editLastDueDate = (() => {
+        if (!editForm.firstDueDate) return "-";
+        const d = new Date(editForm.firstDueDate);
+        d.setMonth(d.getMonth() + editTenor - 1);
+        return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    })();
+
+    const executeEdit = async () => {
+        setIsEditing(true);
+        try {
+            const payload: Record<string, unknown> = {};
+            if (editForm.principalAmount !== String(Number(loan.principalAmount))) payload.principalAmount = Number(editForm.principalAmount);
+            if (editForm.tenorMonths !== String(loan.tenorMonths)) payload.tenorMonths = Number(editForm.tenorMonths);
+            if (editForm.interestRate !== String(Number(loan.interestRate))) payload.interestRate = Number(editForm.interestRate);
+            if (editForm.disbursementDate && editForm.disbursementDate !== new Date(loan.disbursementDate).toISOString().split("T")[0]) payload.disbursementDate = editForm.disbursementDate;
+            if (editForm.firstDueDate && editForm.firstDueDate !== new Date(loan.firstDueDate).toISOString().split("T")[0]) payload.firstDueDate = editForm.firstDueDate;
+            if (editForm.notes !== (loan.notes || "")) payload.notes = editForm.notes;
+
+            // Always send at least the core fields to trigger regeneration
+            if (Object.keys(payload).length === 0) {
+                toast.info("Tidak ada perubahan yang terdeteksi.");
+                setIsEditing(false);
+                return;
+            }
+
+            // Send all current values to ensure consistent recalculation
+            payload.principalAmount = Number(editForm.principalAmount);
+            payload.tenorMonths = Number(editForm.tenorMonths);
+            payload.interestRate = Number(editForm.interestRate);
+            payload.disbursementDate = editForm.disbursementDate;
+            payload.firstDueDate = editForm.firstDueDate;
+
+            const res = await loansApi.update(loan.id, payload);
+            toast.success((res.data as any).message || "Pinjaman berhasil di-edit.");
+            setIsEditDialogOpen(false);
+
+            // Refresh data realtime
+            const refreshed = await loansApi.get(Number(params.id));
+            const refreshedLoan = refreshed.data as any;
+            setLoan({
+                ...refreshedLoan,
+                productSnapshot: typeof refreshedLoan.productSnapshot === 'string'
+                    ? JSON.parse((refreshedLoan.productSnapshot as unknown) as string)
+                    : refreshedLoan.productSnapshot
+            });
+            setSchedule(refreshedLoan.schedules || []);
+        } catch (error: any) {
+            console.error("Edit Error:", error);
+            const msg = error.response?.data?.message || error.message || "Gagal mengedit pinjaman.";
+            toast.error(msg);
+        } finally {
+            setIsEditing(false);
+        }
+    };
 
     const executeVoid = async () => {
         if (voidConfirmationText !== "VOID") return;
         setIsVoiding(true);
         try {
              const res = await loansApi.voidPinjaman(loan.id);
-             toast.success(res.data.message || "Pinjaman berhasil dibatalkan.");
+             toast.success((res as any).data?.message || "Pinjaman berhasil dibatalkan.");
              setIsVoidDialogOpen(false);
              // Pinjaman sudah di wipe, kembali ke daftar
              router.replace("/pinjaman"); 
@@ -174,7 +273,13 @@ export default function PinjamanDetailPage() {
                 backHref="/pinjaman"
                 actions={
                     <div className="flex gap-2">
-                        {isOperator && loan.status === "active" && totalPaid === 0 && (
+                        {canEdit && (
+                            <Button variant="outline" onClick={openEditDialog}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit Pinjaman
+                            </Button>
+                        )}
+                        {canEdit && (
                             <Button variant="destructive" onClick={() => setIsVoidDialogOpen(true)}>
                                 <Ban className="mr-2 h-4 w-4" />
                                 Batalkan (VOID)
@@ -191,6 +296,137 @@ export default function PinjamanDetailPage() {
                     </div>
                 }
             />
+
+            {/* ── Edit Pinjaman Dialog ──────────────────────────────────── */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Pencil className="h-5 w-5" />
+                            Edit Pinjaman {loan.loanNo}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan otomatis di-regenerasi setelah perubahan disimpan.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-5 py-2">
+                        {/* Pokok Pinjaman */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Pokok Pinjaman</label>
+                            <Input
+                                type="number"
+                                value={editForm.principalAmount}
+                                onChange={(e) => setEditForm({...editForm, principalAmount: e.target.value})}
+                                placeholder="Contoh: 10000000"
+                                min={0}
+                            />
+                        </div>
+
+                        {/* Tenor + Bunga side by side */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Tenor (bulan)</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.tenorMonths}
+                                    onChange={(e) => setEditForm({...editForm, tenorMonths: e.target.value})}
+                                    min={1}
+                                    max={120}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Suku Bunga (%/bulan)</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.interestRate}
+                                    onChange={(e) => setEditForm({...editForm, interestRate: e.target.value})}
+                                    step="0.1"
+                                    min={0}
+                                    max={100}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Tanggal Cair + Jatuh Tempo */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Tanggal Cair</label>
+                                <Input
+                                    type="date"
+                                    value={editForm.disbursementDate}
+                                    onChange={(e) => setEditForm({...editForm, disbursementDate: e.target.value})}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Jatuh Tempo Pertama</label>
+                                <Input
+                                    type="date"
+                                    value={editForm.firstDueDate}
+                                    onChange={(e) => setEditForm({...editForm, firstDueDate: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Catatan */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Catatan <span className="text-muted-foreground">(opsional)</span></label>
+                            <Textarea
+                                value={editForm.notes}
+                                onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
+                                placeholder="Catatan perubahan..."
+                                rows={2}
+                            />
+                        </div>
+
+                        {/* ── Live Preview ──────────────────────────── */}
+                        <Separator />
+                        <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+                            <p className="text-sm font-semibold text-muted-foreground mb-2">📊 Preview Kalkulasi</p>
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Pokok</span>
+                                    <span className="font-medium tabular-nums">{formatCurrency(editPrincipal)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Total Bunga</span>
+                                    <span className="font-medium tabular-nums">{formatCurrency(editTotalInterest)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Total Pinjaman</span>
+                                    <span className="font-bold tabular-nums">{formatCurrency(editTotalAmount)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Angsuran/Bulan</span>
+                                    <span className="font-bold tabular-nums text-primary">{formatCurrency(editMonthly)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Biaya Admin (2%)</span>
+                                    <span className="tabular-nums">{formatCurrency(editAdminFee)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Dana Cair</span>
+                                    <span className="tabular-nums">{formatCurrency(editDisbursed)}</span>
+                                </div>
+                                <div className="flex justify-between col-span-2 pt-1 border-t">
+                                    <span className="text-muted-foreground">Jatuh Tempo Terakhir</span>
+                                    <span className="font-medium">{editLastDueDate}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isEditing}>
+                            Batal
+                        </Button>
+                        <Button onClick={executeEdit} disabled={isEditing || editPrincipal <= 0 || editTenor <= 0}>
+                            {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Simpan & Regenerasi Jadwal
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Void Confirmation Dialog */}
             <Dialog open={isVoidDialogOpen} onOpenChange={setIsVoidDialogOpen}>
