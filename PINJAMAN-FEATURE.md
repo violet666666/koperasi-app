@@ -199,5 +199,54 @@ Setelah LoanPayment dibuat, jika `cashBankAccountId` dikirim dari frontend:
 
 ---
 
+### BUG-ANGSURAN-004 — Saldo Kas Tidak Ter-update (Non-Atomic Transaction)
+
+**Tanggal Ditemukan:** 19 April 2026
+**Status:** ✅ FIXED
+**Severity:** Critical (Saldo kas koperasi tidak sinkron dengan mutasi)
+**Dilaporkan:** "saldo belum masuk ke kas, harusnya masuk ke saldo juga dan bukan sekedar mutasi transaksi"
+
+**Gejala:**
+Setelah pembayaran angsuran berhasil, record `CashBankTransaction` (mutasi) tercatat di database, tetapi **saldo `CashBankAccount.currentBalance` tidak berubah**. Artinya buku kas menunjukkan ada transaksi masuk, tapi saldo kas koperasi tetap sama.
+
+**Root Cause:**
+Seluruh operasi pembayaran (`LoanPayment.create` → `LoanSchedule.update` → `Loan.update` → `CashBankTransaction.create` → `CashBankAccount.update`) dijalankan sebagai **operasi Prisma terpisah (non-atomic)**, BUKAN di dalam `prisma.$transaction()`.
+
+Jika salah satu operasi gagal di tengah (misalnya `CashBankTransaction.create` berhasil tapi `CashBankAccount.update` gagal karena timeout/race condition), data menjadi **inkonsisten**: mutasi tercatat, saldo tidak ter-update.
+
+Berbeda dengan modul Simpanan (`savings/transactions/route.ts`) yang sudah menggunakan `prisma.$transaction(async (tx) => { ... })` — menjamin semua operasi **all-or-nothing** (rollback otomatis jika salah satu gagal).
+
+**Solusi:**
+Refactor seluruh flow pembayaran ke dalam satu `prisma.$transaction()`:
+
+```typescript
+// SEBELUM (non-atomic — BAHAYA)
+const payment = await prisma.loanPayment.create({...});
+await prisma.loanSchedule.update({...});        // operasi terpisah
+await prisma.loan.update({...});                // operasi terpisah
+await prisma.cashBankTransaction.create({...}); // operasi terpisah
+await prisma.cashBankAccount.update({...});     // BISA GAGAL → saldo tidak update
+
+// SESUDAH (atomic — AMAN)
+const result = await prisma.$transaction(async (tx) => {
+    const payment = await tx.loanPayment.create({...});
+    await tx.loanSchedule.update({...});          // dalam tx
+    await tx.loan.update({...});                  // dalam tx
+    await tx.cashBankTransaction.create({...});   // dalam tx
+    await tx.cashBankAccount.update({...});       // DIJAMIN execute atau rollback
+    return payment;
+});
+```
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/payments/route.ts`
+
+**Dampak:**
+- ✅ Saldo kas/bank koperasi ter-update secara atomik bersama mutasi
+- ✅ Jika salah satu operasi gagal, semua di-rollback (tidak ada data parsial)
+- ✅ Konsisten dengan pola modul Simpanan
+
+---
+
 *Diperbarui: 19 April 2026*
-*Total bug tercatat modul Pinjaman: 18 | Total fitur baru: 5*
+*Total bug tercatat modul Pinjaman: 19 | Total fitur baru: 5*

@@ -135,162 +135,170 @@ export async function POST(request: Request, { params }: Params) {
             remainingAmount -= payAmount;
         }
 
-        // Create payment with allocations
+        // ══════════════════════════════════════════════════════════════
+        // ATOMIC TRANSACTION — semua operasi di bawah ini dijamin
+        // all-or-nothing (rollback jika salah satu gagal)
+        // ══════════════════════════════════════════════════════════════
         const paymentNo = await generatePaymentNo();
-        const payment = await prisma.loanPayment.create({
-            data: {
-                paymentNo,
-                loanId: parseInt(id),
-                memberId: loan.memberId,
-                branchId: loan.branchId,
-                amount: data.amount,
-                principalPortion: totalPrincipal,
-                interestPortion: totalInterest,
-                lateFeePortion: totalLateFee,
-                paymentMethod: data.paymentMethod,
-                cashBankAccountId: data.cashBankAccountId,
-                referenceNo: data.referenceNo,
-                notes: data.notes,
-                paymentDate: data.paymentDate,
-                createdById: userId,
-                allocations: {
-                    create: allocations,
-                },
-            },
-            include: {
-                allocations: true,
-            },
-        });
 
-        // Update schedules
-        for (const alloc of allocations) {
-            const schedule = loan.schedules.find((s) => s.id === alloc.scheduleId)!;
-            const newPrincipalPaid = Number(schedule.principalPaid) + alloc.principalAmount;
-            const newInterestPaid = Number(schedule.interestPaid) + alloc.interestAmount;
-            const newLateFeePaid = Number(schedule.lateFeePaid) + alloc.lateFeeAmount;
-
-            const totalPaid = newPrincipalPaid + newInterestPaid + newLateFeePaid;
-            const totalDue = Number(schedule.principalAmount) + Number(schedule.interestAmount) + Number(schedule.lateFee);
-
-            await prisma.loanSchedule.update({
-                where: { id: alloc.scheduleId },
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Create payment with allocations
+            const payment = await tx.loanPayment.create({
                 data: {
-                    principalPaid: newPrincipalPaid,
-                    interestPaid: newInterestPaid,
-                    lateFeePaid: newLateFeePaid,
-                    status: totalPaid >= totalDue ? "paid" : "partial",
-                    paidDate: totalPaid >= totalDue ? data.paymentDate : null,
+                    paymentNo,
+                    loanId: parseInt(id),
+                    memberId: loan.memberId,
+                    branchId: loan.branchId,
+                    amount: data.amount,
+                    principalPortion: totalPrincipal,
+                    interestPortion: totalInterest,
+                    lateFeePortion: totalLateFee,
+                    paymentMethod: data.paymentMethod,
+                    cashBankAccountId: data.cashBankAccountId,
+                    referenceNo: data.referenceNo,
+                    notes: data.notes,
+                    paymentDate: data.paymentDate,
+                    createdById: userId,
+                    allocations: {
+                        create: allocations,
+                    },
+                },
+                include: {
+                    allocations: true,
                 },
             });
-        }
 
-        // Update loan totals
-        await prisma.loan.update({
-            where: { id: parseInt(id) },
-            data: {
-                principalPaid: { increment: totalPrincipal },
-                interestPaid: { increment: totalInterest },
-                lateFeePaid: { increment: totalLateFee },
-                principalOutstanding: { decrement: totalPrincipal },
-                interestOutstanding: { decrement: totalInterest },
-            },
-        });
+            // 2. Update schedules
+            for (const alloc of allocations) {
+                const schedule = loan.schedules.find((s) => s.id === alloc.scheduleId)!;
+                const newPrincipalPaid = Number(schedule.principalPaid) + alloc.principalAmount;
+                const newInterestPaid = Number(schedule.interestPaid) + alloc.interestAmount;
+                const newLateFeePaid = Number(schedule.lateFeePaid) + alloc.lateFeeAmount;
 
-        // Check if loan is fully paid
-        const updatedLoan = await prisma.loan.findUnique({
-            where: { id: parseInt(id) },
-        });
+                const totalPaid = newPrincipalPaid + newInterestPaid + newLateFeePaid;
+                const totalDue = Number(schedule.principalAmount) + Number(schedule.interestAmount) + Number(schedule.lateFee);
 
-        if (
-            updatedLoan &&
-            Number(updatedLoan.principalOutstanding) <= 0 &&
-            Number(updatedLoan.interestOutstanding) <= 0
-        ) {
-            await prisma.loan.update({
-                where: { id: parseInt(id) },
-                data: {
-                    status: "paid_off",
-                    paidOffDate: data.paymentDate,
-                },
-            });
-        }
-
-        // ── Post to Cash/Bank (Kas Masuk) ──────────────────────────────
-        if (data.cashBankAccountId) {
-            const cashBank = await prisma.cashBankAccount.findUnique({
-                where: { id: data.cashBankAccountId },
-            });
-
-            if (cashBank) {
-                // Fetch member name for description
-                const member = await prisma.member.findUnique({
-                    where: { id: loan.memberId },
-                    select: { name: true, memberNo: true },
-                });
-                const memberLabel = member ? `${member.name} (${member.memberNo})` : `Member #${loan.memberId}`;
-
-                let runningBalance = Number(cashBank.currentBalance);
-
-                // 1. Angsuran Pokok → Kas Masuk
-                if (totalPrincipal > 0) {
-                    const balBefore = runningBalance;
-                    runningBalance += totalPrincipal;
-                    const txNoPokok = `CBM-${paymentNo}-P`;
-                    await prisma.cashBankTransaction.create({
-                        data: {
-                            transactionNo: txNoPokok,
-                            accountId: data.cashBankAccountId,
-                            branchId: loan.branchId,
-                            type: "in",
-                            category: "angsuran_pokok",
-                            amount: totalPrincipal,
-                            balanceBefore: balBefore,
-                            balanceAfter: runningBalance,
-                            referenceType: "LoanPayment",
-                            referenceId: payment.id,
-                            description: `Angsuran Pokok Pinjaman ${loan.loanNo} — ${memberLabel}`,
-                            transactionDate: data.paymentDate,
-                            memberId: loan.memberId,
-                            createdById: userId,
-                        },
-                    });
-                }
-
-                // 2. Jasa/Bunga Pinjaman → Kas Masuk
-                if (totalInterest > 0) {
-                    const balBefore = runningBalance;
-                    runningBalance += totalInterest;
-                    const txNoBunga = `CBM-${paymentNo}-I`;
-                    await prisma.cashBankTransaction.create({
-                        data: {
-                            transactionNo: txNoBunga,
-                            accountId: data.cashBankAccountId,
-                            branchId: loan.branchId,
-                            type: "in",
-                            category: "jasa_pinjaman",
-                            amount: totalInterest,
-                            balanceBefore: balBefore,
-                            balanceAfter: runningBalance,
-                            referenceType: "LoanPayment",
-                            referenceId: payment.id,
-                            description: `Jasa/Bunga Pinjaman ${loan.loanNo} — ${memberLabel}`,
-                            transactionDate: data.paymentDate,
-                            memberId: loan.memberId,
-                            createdById: userId,
-                        },
-                    });
-                }
-
-                // 3. Update saldo kas/bank koperasi
-                await prisma.cashBankAccount.update({
-                    where: { id: data.cashBankAccountId },
-                    data: { currentBalance: runningBalance },
+                await tx.loanSchedule.update({
+                    where: { id: alloc.scheduleId },
+                    data: {
+                        principalPaid: newPrincipalPaid,
+                        interestPaid: newInterestPaid,
+                        lateFeePaid: newLateFeePaid,
+                        status: totalPaid >= totalDue ? "paid" : "partial",
+                        paidDate: totalPaid >= totalDue ? data.paymentDate : null,
+                    },
                 });
             }
-        }
+
+            // 3. Update loan totals
+            await tx.loan.update({
+                where: { id: parseInt(id) },
+                data: {
+                    principalPaid: { increment: totalPrincipal },
+                    interestPaid: { increment: totalInterest },
+                    lateFeePaid: { increment: totalLateFee },
+                    principalOutstanding: { decrement: totalPrincipal },
+                    interestOutstanding: { decrement: totalInterest },
+                },
+            });
+
+            // 4. Check if loan is fully paid
+            const updatedLoan = await tx.loan.findUnique({
+                where: { id: parseInt(id) },
+            });
+
+            if (
+                updatedLoan &&
+                Number(updatedLoan.principalOutstanding) <= 0 &&
+                Number(updatedLoan.interestOutstanding) <= 0
+            ) {
+                await tx.loan.update({
+                    where: { id: parseInt(id) },
+                    data: {
+                        status: "paid_off",
+                        paidOffDate: data.paymentDate,
+                    },
+                });
+            }
+
+            // 5. Post to Cash/Bank (Kas Masuk) — WAJIB untuk integritas akuntansi
+            if (data.cashBankAccountId) {
+                const cashBank = await tx.cashBankAccount.findUnique({
+                    where: { id: data.cashBankAccountId },
+                });
+
+                if (cashBank) {
+                    // Fetch member name for description
+                    const member = await tx.member.findUnique({
+                        where: { id: loan.memberId },
+                        select: { name: true, memberNo: true },
+                    });
+                    const memberLabel = member ? `${member.name} (${member.memberNo})` : `Member #${loan.memberId}`;
+
+                    let runningBalance = Number(cashBank.currentBalance);
+
+                    // 5a. Angsuran Pokok → Kas Masuk
+                    if (totalPrincipal > 0) {
+                        const balBefore = runningBalance;
+                        runningBalance += totalPrincipal;
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `CBM-${paymentNo}-P`,
+                                accountId: data.cashBankAccountId,
+                                branchId: loan.branchId,
+                                type: "in",
+                                category: "angsuran_pokok",
+                                amount: totalPrincipal,
+                                balanceBefore: balBefore,
+                                balanceAfter: runningBalance,
+                                referenceType: "LoanPayment",
+                                referenceId: payment.id,
+                                description: `Angsuran Pokok Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                                transactionDate: data.paymentDate,
+                                memberId: loan.memberId,
+                                createdById: userId,
+                            },
+                        });
+                    }
+
+                    // 5b. Jasa/Bunga Pinjaman → Kas Masuk
+                    if (totalInterest > 0) {
+                        const balBefore = runningBalance;
+                        runningBalance += totalInterest;
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `CBM-${paymentNo}-I`,
+                                accountId: data.cashBankAccountId,
+                                branchId: loan.branchId,
+                                type: "in",
+                                category: "jasa_pinjaman",
+                                amount: totalInterest,
+                                balanceBefore: balBefore,
+                                balanceAfter: runningBalance,
+                                referenceType: "LoanPayment",
+                                referenceId: payment.id,
+                                description: `Jasa/Bunga Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                                transactionDate: data.paymentDate,
+                                memberId: loan.memberId,
+                                createdById: userId,
+                            },
+                        });
+                    }
+
+                    // 5c. Update saldo kas/bank koperasi
+                    await tx.cashBankAccount.update({
+                        where: { id: data.cashBankAccountId },
+                        data: { currentBalance: runningBalance },
+                    });
+                }
+            }
+
+            return payment;
+        });
+        // ══════════════════════════════════════════════════════════════
 
         return NextResponse.json({
-            data: payment,
+            data: result,
             message: "Pembayaran berhasil dicatat",
         }, { status: 201 });
     } catch (error) {
