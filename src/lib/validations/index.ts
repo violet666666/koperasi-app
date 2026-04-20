@@ -155,6 +155,9 @@ export const createLoanPaymentSchema = z.object({
     referenceNo: z.string().max(50).optional(),
     notes: z.string().optional(),
     paymentDate: z.string().transform((s) => new Date(s)),
+    paymentType: z.enum(["installment", "early_settlement"]).default("installment"),
+    earlySettlementFee: z.number().nonnegative().default(0),
+    discountInterest: z.boolean().default(false),
 });
 
 // Cash Bank Transaction validation schemas
@@ -167,6 +170,7 @@ export const createCashBankTransactionSchema = z.object({
         "simpanan_sukarela",
         "angsuran_pokok",
         "jasa_pinjaman",
+        "penalti_pelunasan",
         "pendapatan_unit",
         "pencairan_pinjaman",
         "biaya_operasional",

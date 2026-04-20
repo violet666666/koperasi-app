@@ -36,11 +36,14 @@ import {
     TrendingDown,
     CheckCircle2,
     AlertCircle,
+    AlertTriangle,
     Receipt,
     ArrowRight,
     Banknote,
+    Shield,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,13 +138,17 @@ export default function BayarAngsuranPage() {
     const [loan, setLoan] = React.useState<LoanDetail | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [payMode, setPayMode] = React.useState<string>("1"); // "1", "2", "3", etc.
+    const [payMode, setPayMode] = React.useState<string>("1"); // "1", "2", "3", "settlement"
     const [paymentDate, setPaymentDate] = React.useState(
         new Date().toISOString().split("T")[0]
     );
     const [showConfirm, setShowConfirm] = React.useState(false);
     const [cashBankAccounts, setCashBankAccounts] = React.useState<CashBankAccount[]>([]);
     const [selectedCashBankId, setSelectedCashBankId] = React.useState<string>("");
+    const [discountInterest, setDiscountInterest] = React.useState(false);
+
+    // Mode check
+    const isSettlementMode = payMode === "settlement";
 
     // Derived: pending schedules
     const pendingSchedules = React.useMemo(() => {
@@ -157,13 +164,50 @@ export default function BayarAngsuranPage() {
     const maxPayCount = pendingSchedules.length;
 
     // Selected schedules to pay
-    const payCount = Math.min(parseInt(payMode) || 1, maxPayCount);
-    const selectedSchedules = pendingSchedules.slice(0, payCount);
+    const payCount = isSettlementMode ? maxPayCount : Math.min(parseInt(payMode) || 1, maxPayCount);
+    const selectedSchedules = isSettlementMode ? pendingSchedules : pendingSchedules.slice(0, payCount);
 
-    // Totals
-    const totalPrincipal = selectedSchedules.reduce((s, x) => s + x.principalDue, 0);
-    const totalInterest = selectedSchedules.reduce((s, x) => s + x.interestDue, 0);
-    const grandTotal = totalPrincipal + totalInterest;
+    // ═══ Early Settlement Calculations ═══
+    const earlySettlement = React.useMemo(() => {
+        if (!loan || !isSettlementMode) return null;
+        const principalAmount = Number(loan.principalAmount);
+        const interestRate = Number(loan.interestRate || 1);
+        const monthlyInterest = Math.round(principalAmount * (interestRate / 100));
+        const penaltyMultiplier = loan.tenorMonths <= 24 ? 1 : 2;
+        const penaltyFee = monthlyInterest * penaltyMultiplier;
+
+        const remainingPrincipal = Number(loan.principalOutstanding);
+        const remainingInterestFull = Number(loan.interestOutstanding);
+
+        // Overdue/partial schedules = must pay interest
+        const overdueInterest = pendingSchedules
+            .filter((s) => s.status === "overdue" || s.status === "partial")
+            .reduce((sum, s) => sum + s.interestDue, 0);
+
+        const remainingInterest = discountInterest ? overdueInterest : remainingInterestFull;
+
+        return {
+            remainingPrincipal,
+            remainingInterestFull,
+            remainingInterest,
+            penaltyFee,
+            penaltyMultiplier,
+            monthlyInterest,
+            total: remainingPrincipal + remainingInterest + penaltyFee,
+        };
+    }, [loan, isSettlementMode, discountInterest, pendingSchedules]);
+
+    // Totals — different for settlement vs installment
+    const totalPrincipal = isSettlementMode
+        ? (earlySettlement?.remainingPrincipal || 0)
+        : selectedSchedules.reduce((s, x) => s + x.principalDue, 0);
+    const totalInterest = isSettlementMode
+        ? (earlySettlement?.remainingInterest || 0)
+        : selectedSchedules.reduce((s, x) => s + x.interestDue, 0);
+    const earlySettlementFee = earlySettlement?.penaltyFee || 0;
+    const grandTotal = isSettlementMode
+        ? (earlySettlement?.total || 0)
+        : (totalPrincipal + totalInterest);
 
     // Progress
     const paidSchedulesCount = loan
@@ -234,6 +278,9 @@ export default function BayarAngsuranPage() {
                     paymentMethod: "cash",
                     cashBankAccountId: Number(selectedCashBankId),
                     paymentDate,
+                    paymentType: isSettlementMode ? "early_settlement" : "installment",
+                    earlySettlementFee: isSettlementMode ? earlySettlementFee : 0,
+                    discountInterest: isSettlementMode ? discountInterest : false,
                 }),
             });
 
@@ -245,12 +292,15 @@ export default function BayarAngsuranPage() {
             const payData = await payRes.json();
             const payment = payData.data;
 
-            toast.success("Pembayaran angsuran berhasil dicatat!");
+            toast.success(isSettlementMode
+                ? "Pelunasan dipercepat berhasil! Pinjaman telah lunas."
+                : "Pembayaran angsuran berhasil dicatat!");
 
             // 2. Auto-create receipt
             try {
-                const scheduleLabel =
-                    payCount === 1
+                const scheduleLabel = isSettlementMode
+                    ? "PELUNASAN DIPERCEPAT"
+                    : payCount === 1
                         ? `Ke-${selectedSchedules[0].installmentNo}`
                         : `Ke-${selectedSchedules[0].installmentNo} s/d ${selectedSchedules[payCount - 1].installmentNo}`;
 
@@ -259,10 +309,12 @@ export default function BayarAngsuranPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         memberId: loan.memberId,
-                        type: "angsuran",
+                        type: isSettlementMode ? "pelunasan" : "angsuran",
                         referenceNo: payment.paymentNo,
                         amount: grandTotal,
-                        description: `Pembayaran Angsuran ${scheduleLabel} Pinjaman ${loan.loanNo}`,
+                        description: isSettlementMode
+                            ? `Pelunasan Dipercepat Pinjaman ${loan.loanNo} (Pokok: ${formatCurrency(totalPrincipal)}, Bunga: ${formatCurrency(totalInterest)}, Penalti: ${formatCurrency(earlySettlementFee)})`
+                            : `Pembayaran Angsuran ${scheduleLabel} Pinjaman ${loan.loanNo}`,
                         receivedFrom: loan.member?.name || "-",
                         paymentMethod: "cash",
                         receiptDate: paymentDate,
@@ -513,8 +565,8 @@ export default function BayarAngsuranPage() {
                         </Label>
                         <RadioGroup
                             value={payMode}
-                            onValueChange={setPayMode}
-                            className="grid gap-3 sm:grid-cols-3"
+                            onValueChange={(v) => { setPayMode(v); if (v !== "settlement") setDiscountInterest(false); }}
+                            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
                         >
                             {/* Option: 1 angsuran */}
                             <Label
@@ -581,8 +633,100 @@ export default function BayarAngsuranPage() {
                                     </div>
                                 </Label>
                             )}
+
+                            {/* Option: Pelunasan Dipercepat */}
+                            {maxPayCount > 0 && (
+                                <Label
+                                    htmlFor="pay-settlement"
+                                    className={`flex items-center gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                                        payMode === "settlement"
+                                            ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-400/50"
+                                            : "border-muted hover:border-amber-400/50"
+                                    }`}
+                                >
+                                    <RadioGroupItem value="settlement" id="pay-settlement" />
+                                    <div>
+                                        <p className="font-medium text-sm flex items-center gap-1">
+                                            <Shield className="h-3.5 w-3.5 text-amber-600" />
+                                            Pelunasan
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Lunasi semua sisa
+                                        </p>
+                                    </div>
+                                </Label>
+                            )}
                         </RadioGroup>
                     </div>
+
+                    {/* ═══ Settlement Breakdown Panel ═══ */}
+                    {isSettlementMode && earlySettlement && (
+                        <div className="rounded-lg border-2 border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 p-5 space-y-4">
+                            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="h-5 w-5" />
+                                <h3 className="font-semibold">Pelunasan Dipercepat</h3>
+                            </div>
+
+                            <div className="text-xs text-amber-700/80 dark:text-amber-400/70 bg-amber-100/50 dark:bg-amber-900/20 rounded-md p-3">
+                                <p className="font-medium mb-1">Aturan Biaya Pelunasan:</p>
+                                <p>• Tenor ≤ 24 bulan → Penalti 1× bunga bulanan</p>
+                                <p>• Tenor &gt; 24 bulan → Penalti 2× bunga bulanan</p>
+                                <p className="mt-1 font-medium">
+                                    Pinjaman ini: Tenor {loan?.tenorMonths} bulan → Penalti{" "}
+                                    {earlySettlement.penaltyMultiplier}× bunga ({formatCurrency(earlySettlement.monthlyInterest)}/bln)
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Sisa Pokok</span>
+                                    <span className="font-semibold tabular-nums">{formatCurrency(earlySettlement.remainingPrincipal)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                        {discountInterest ? "Sisa Bunga (jatuh tempo saja)" : "Sisa Bunga (penuh)"}
+                                    </span>
+                                    <span className="font-semibold tabular-nums">{formatCurrency(earlySettlement.remainingInterest)}</span>
+                                </div>
+                                {discountInterest && earlySettlement.remainingInterestFull > earlySettlement.remainingInterest && (
+                                    <div className="flex justify-between text-xs text-emerald-600">
+                                        <span>Diskon bunga belum jatuh tempo</span>
+                                        <span className="tabular-nums">-{formatCurrency(earlySettlement.remainingInterestFull - earlySettlement.remainingInterest)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                        Biaya Penalti ({earlySettlement.penaltyMultiplier}× bunga)
+                                    </span>
+                                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+                                        {formatCurrency(earlySettlement.penaltyFee)}
+                                    </span>
+                                </div>
+                                <Separator />
+                                <div className="flex justify-between text-base font-bold">
+                                    <span className="text-primary">TOTAL PELUNASAN</span>
+                                    <span className="tabular-nums text-primary">{formatCurrency(earlySettlement.total)}</span>
+                                </div>
+                            </div>
+
+                            {/* Discount toggle */}
+                            <div className="flex items-center justify-between rounded-md border p-3 bg-background">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="discount-interest" className="text-sm font-medium cursor-pointer">
+                                        Diskon sisa bunga
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Hanya bayar bunga yang sudah jatuh tempo (tidak bayar bunga masa depan)
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="discount-interest"
+                                    checked={discountInterest}
+                                    onCheckedChange={setDiscountInterest}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Breakdown table */}
                     <div>
@@ -717,12 +861,16 @@ export default function BayarAngsuranPage() {
                     <div className="pt-2 flex justify-end">
                         <Button
                             size="lg"
-                            className="min-w-[240px]"
+                            className={`min-w-[240px] ${isSettlementMode ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
                             onClick={() => setShowConfirm(true)}
                             disabled={grandTotal <= 0 || !selectedCashBankId}
                         >
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Bayar {formatCurrency(grandTotal)}
+                            {isSettlementMode ? (
+                                <Shield className="mr-2 h-4 w-4" />
+                            ) : (
+                                <CreditCard className="mr-2 h-4 w-4" />
+                            )}
+                            {isSettlementMode ? 'Proses Pelunasan' : 'Bayar'} {formatCurrency(grandTotal)}
                             <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </div>
@@ -739,7 +887,7 @@ export default function BayarAngsuranPage() {
                             </div>
                             <div className="flex-1">
                                 <AlertDialogTitle>
-                                    Konfirmasi Pembayaran Angsuran
+                                    {isSettlementMode ? 'Konfirmasi Pelunasan Dipercepat' : 'Konfirmasi Pembayaran Angsuran'}
                                 </AlertDialogTitle>
                                 <AlertDialogDescription className="mt-2">
                                     Pastikan data di bawah sudah benar sebelum memproses
@@ -762,11 +910,13 @@ export default function BayarAngsuranPage() {
                                 <span className="font-mono">{loan.loanNo}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Angsuran</span>
+                                <span className="text-muted-foreground">{isSettlementMode ? 'Jenis' : 'Angsuran'}</span>
                                 <span>
-                                    {payCount === 1
-                                        ? `Ke-${selectedSchedules[0]?.installmentNo}`
-                                        : `Ke-${selectedSchedules[0]?.installmentNo} s/d ${selectedSchedules[payCount - 1]?.installmentNo}`}
+                                    {isSettlementMode
+                                        ? <Badge className="bg-amber-600">PELUNASAN DIPERCEPAT</Badge>
+                                        : payCount === 1
+                                            ? `Ke-${selectedSchedules[0]?.installmentNo}`
+                                            : `Ke-${selectedSchedules[0]?.installmentNo} s/d ${selectedSchedules[payCount - 1]?.installmentNo}`}
                                 </span>
                             </div>
                             <div className="flex justify-between">
@@ -794,6 +944,14 @@ export default function BayarAngsuranPage() {
                                     {formatCurrency(totalInterest)}
                                 </span>
                             </div>
+                            {isSettlementMode && earlySettlementFee > 0 && (
+                                <div className="flex justify-between text-amber-700 dark:text-amber-400">
+                                    <span className="font-medium">Biaya Penalti</span>
+                                    <span className="tabular-nums font-medium">
+                                        {formatCurrency(earlySettlementFee)}
+                                    </span>
+                                </div>
+                            )}
                             <Separator />
                             <div className="flex justify-between font-bold text-base">
                                 <span>Total Bayar</span>

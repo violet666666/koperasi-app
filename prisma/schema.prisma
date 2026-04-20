@@ -504,6 +504,8 @@ model LoanPayment {
   principalPortion  Decimal  @map("principal_portion") @db.Decimal(15, 2)
   interestPortion   Decimal  @map("interest_portion") @db.Decimal(15, 2)
   lateFeePortion    Decimal  @default(0) @map("late_fee_portion") @db.Decimal(15, 2)
+  earlySettlementFee Decimal @default(0) @map("early_settlement_fee") @db.Decimal(15, 2)
+  paymentType       String   @default("installment") @map("payment_type") // installment, early_settlement
   paymentMethod     String?  @map("payment_method")
   cashBankAccountId Int?     @map("cash_bank_account_id")
   referenceNo       String?  @map("reference_no")

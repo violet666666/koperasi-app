@@ -684,18 +684,26 @@ export default function PinjamanDetailPage() {
                                     <TableBody>
                                         {loan.payments && loan.payments.length > 0 ? (
                                             loan.payments.map((payment: any) => (
-                                                 <TableRow key={payment.id}>
+                                                 <TableRow key={payment.id} className={payment.paymentType === "early_settlement" ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}>
                                                      <TableCell className="font-medium text-xs font-mono">{payment.paymentNo || '-'}</TableCell>
                                                      <TableCell>
                                                          {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}
                                                      </TableCell>
-                                                     <TableCell className="text-right tabular-nums">{formatCurrency(Number(payment.principalAmount || 0))}</TableCell>
-                                                     <TableCell className="text-right tabular-nums">{formatCurrency(Number(payment.interestAmount || 0))}</TableCell>
-                                                     <TableCell className="text-right font-medium tabular-nums">{formatCurrency(Number(payment.totalAmount || 0))}</TableCell>
+                                                     <TableCell className="text-right tabular-nums">{formatCurrency(Number(payment.principalPortion || payment.principalAmount || 0))}</TableCell>
+                                                     <TableCell className="text-right tabular-nums">{formatCurrency(Number(payment.interestPortion || payment.interestAmount || 0))}</TableCell>
+                                                     <TableCell className="text-right font-medium tabular-nums">{formatCurrency(Number(payment.amount || payment.totalAmount || 0))}</TableCell>
                                                      <TableCell>
-                                                         <Badge variant="outline" className="text-xs uppercase">
-                                                             {payment.paymentMethod || 'TUNAI'}
-                                                         </Badge>
+                                                         <div className="flex items-center gap-1.5">
+                                                             <Badge variant="outline" className="text-xs uppercase">
+                                                                 {payment.paymentMethod || 'TUNAI'}
+                                                             </Badge>
+                                                             {payment.paymentType === "early_settlement" && (
+                                                                 <Badge className="bg-amber-600 text-xs">PELUNASAN</Badge>
+                                                             )}
+                                                         </div>
+                                                         {Number(payment.earlySettlementFee) > 0 && (
+                                                             <p className="text-xs text-amber-600 mt-0.5">Penalti: {formatCurrency(Number(payment.earlySettlementFee))}</p>
+                                                         )}
                                                      </TableCell>
                                                  </TableRow>
                                             ))

@@ -93,8 +93,35 @@ export async function POST(request: Request, { params }: Params) {
             );
         }
 
+        const isEarlySettlement = data.paymentType === "early_settlement";
+
+        // ══════════════════════════════════════════════════════════════
+        // EARLY SETTLEMENT: Calculate penalty fee
+        // ══════════════════════════════════════════════════════════════
+        let earlySettlementFee = 0;
+        if (isEarlySettlement) {
+            // Penalti berdasarkan tenor:
+            // Tenor ≤ 24 bulan → 1× bunga bulanan
+            // Tenor > 24 bulan → 2× bunga bulanan
+            // Bunga bulanan = pokok awal × interestRate%
+            const monthlyInterest = Math.round(
+                Number(loan.principalAmount) * (Number(loan.interestRate) / 100)
+            );
+            const penaltyMultiplier = loan.tenorMonths <= 24 ? 1 : 2;
+            earlySettlementFee = monthlyInterest * penaltyMultiplier;
+        }
+
+        // ══════════════════════════════════════════════════════════════
         // Allocate payment to schedules (FIFO)
-        let remainingAmount = data.amount;
+        // For early settlement: allocate ALL remaining schedules
+        // ══════════════════════════════════════════════════════════════
+        // For early settlement, the "amount" from frontend already includes penalty.
+        // We need to subtract penalty to get the actual amount for schedule allocation.
+        const allocationAmount = isEarlySettlement
+            ? data.amount - earlySettlementFee
+            : data.amount;
+
+        let remainingAmount = allocationAmount;
         let totalPrincipal = 0;
         let totalInterest = 0;
         let totalLateFee = 0;
@@ -111,7 +138,16 @@ export async function POST(request: Request, { params }: Params) {
             const principalDue = Number(schedule.principalAmount) - Number(schedule.principalPaid);
             const interestDue = Number(schedule.interestAmount) - Number(schedule.interestPaid);
             const lateFeeDue = Number(schedule.lateFee) - Number(schedule.lateFeePaid);
-            const totalDue = principalDue + interestDue + lateFeeDue;
+
+            // For early settlement with discount: only count interest for due/overdue schedules
+            // "discountInterest" means skip interest on future (pending) schedules
+            let effectiveInterestDue = interestDue;
+            if (isEarlySettlement && data.discountInterest && schedule.status === "pending") {
+                // Skip interest for non-overdue pending schedules (future installments)
+                effectiveInterestDue = 0;
+            }
+
+            const totalDue = principalDue + effectiveInterestDue + lateFeeDue;
 
             if (totalDue <= 0) continue;
 
@@ -119,7 +155,7 @@ export async function POST(request: Request, { params }: Params) {
 
             // Allocate: late fee first, then interest, then principal
             let lateFeePay = Math.min(payAmount, lateFeeDue);
-            let interestPay = Math.min(payAmount - lateFeePay, interestDue);
+            let interestPay = Math.min(payAmount - lateFeePay, effectiveInterestDue);
             let principalPay = payAmount - lateFeePay - interestPay;
 
             allocations.push({
@@ -153,10 +189,14 @@ export async function POST(request: Request, { params }: Params) {
                     principalPortion: totalPrincipal,
                     interestPortion: totalInterest,
                     lateFeePortion: totalLateFee,
+                    earlySettlementFee: earlySettlementFee,
+                    paymentType: data.paymentType,
                     paymentMethod: data.paymentMethod,
                     cashBankAccountId: data.cashBankAccountId,
                     referenceNo: data.referenceNo,
-                    notes: data.notes,
+                    notes: isEarlySettlement
+                        ? `[PELUNASAN DIPERCEPAT] ${data.notes || ""}`.trim()
+                        : data.notes,
                     paymentDate: data.paymentDate,
                     createdById: userId,
                     allocations: {
@@ -176,7 +216,12 @@ export async function POST(request: Request, { params }: Params) {
                 const newLateFeePaid = Number(schedule.lateFeePaid) + alloc.lateFeeAmount;
 
                 const totalPaid = newPrincipalPaid + newInterestPaid + newLateFeePaid;
-                const totalDue = Number(schedule.principalAmount) + Number(schedule.interestAmount) + Number(schedule.lateFee);
+                const totalScheduleDue = Number(schedule.principalAmount) + Number(schedule.interestAmount) + Number(schedule.lateFee);
+
+                // For early settlement with discount, mark schedule as paid even if interest not fully paid
+                const isFullyPaid = isEarlySettlement
+                    ? (newPrincipalPaid >= Number(schedule.principalAmount))
+                    : (totalPaid >= totalScheduleDue);
 
                 await tx.loanSchedule.update({
                     where: { id: alloc.scheduleId },
@@ -184,41 +229,79 @@ export async function POST(request: Request, { params }: Params) {
                         principalPaid: newPrincipalPaid,
                         interestPaid: newInterestPaid,
                         lateFeePaid: newLateFeePaid,
-                        status: totalPaid >= totalDue ? "paid" : "partial",
-                        paidDate: totalPaid >= totalDue ? data.paymentDate : null,
+                        status: isFullyPaid ? "paid" : "partial",
+                        paidDate: isFullyPaid ? data.paymentDate : null,
                     },
                 });
             }
 
+            // For early settlement: also mark any remaining un-allocated schedules as paid
+            // (e.g. schedules with 0 remaining due that were skipped)
+            if (isEarlySettlement) {
+                const allocatedScheduleIds = allocations.map(a => a.scheduleId);
+                const unallocatedSchedules = loan.schedules.filter(
+                    s => !allocatedScheduleIds.includes(s.id)
+                );
+                for (const schedule of unallocatedSchedules) {
+                    await tx.loanSchedule.update({
+                        where: { id: schedule.id },
+                        data: {
+                            status: "paid",
+                            paidDate: data.paymentDate,
+                        },
+                    });
+                }
+            }
+
             // 3. Update loan totals
+            const updateData: Record<string, any> = {
+                principalPaid: { increment: totalPrincipal },
+                interestPaid: { increment: totalInterest },
+                lateFeePaid: { increment: totalLateFee },
+                principalOutstanding: { decrement: totalPrincipal },
+                interestOutstanding: { decrement: totalInterest },
+            };
+
+            // For early settlement: force loan to paid_off status
+            if (isEarlySettlement) {
+                // Calculate remaining outstanding after this payment
+                const newPrincipalOutstanding = Number(loan.principalOutstanding) - totalPrincipal;
+                const newInterestOutstanding = Number(loan.interestOutstanding) - totalInterest;
+
+                // Set outstanding to 0 and status to paid_off
+                updateData.principalOutstanding = Math.max(0, newPrincipalOutstanding);
+                updateData.interestOutstanding = Math.max(0, newInterestOutstanding);
+                updateData.principalPaid = Number(loan.principalPaid) + totalPrincipal;
+                updateData.interestPaid = Number(loan.interestPaid) + totalInterest;
+                updateData.lateFeePaid = Number(loan.lateFeePaid) + totalLateFee;
+                updateData.status = "paid_off";
+                updateData.paidOffDate = data.paymentDate;
+            }
+
             await tx.loan.update({
                 where: { id: parseInt(id) },
-                data: {
-                    principalPaid: { increment: totalPrincipal },
-                    interestPaid: { increment: totalInterest },
-                    lateFeePaid: { increment: totalLateFee },
-                    principalOutstanding: { decrement: totalPrincipal },
-                    interestOutstanding: { decrement: totalInterest },
-                },
+                data: updateData,
             });
 
-            // 4. Check if loan is fully paid
-            const updatedLoan = await tx.loan.findUnique({
-                where: { id: parseInt(id) },
-            });
-
-            if (
-                updatedLoan &&
-                Number(updatedLoan.principalOutstanding) <= 0 &&
-                Number(updatedLoan.interestOutstanding) <= 0
-            ) {
-                await tx.loan.update({
+            // 4. Check if loan is fully paid (for regular installment mode)
+            if (!isEarlySettlement) {
+                const updatedLoan = await tx.loan.findUnique({
                     where: { id: parseInt(id) },
-                    data: {
-                        status: "paid_off",
-                        paidOffDate: data.paymentDate,
-                    },
                 });
+
+                if (
+                    updatedLoan &&
+                    Number(updatedLoan.principalOutstanding) <= 0 &&
+                    Number(updatedLoan.interestOutstanding) <= 0
+                ) {
+                    await tx.loan.update({
+                        where: { id: parseInt(id) },
+                        data: {
+                            status: "paid_off",
+                            paidOffDate: data.paymentDate,
+                        },
+                    });
+                }
             }
 
             // 5. Post to Cash/Bank (Kas Masuk) — WAJIB untuk integritas akuntansi
@@ -234,6 +317,7 @@ export async function POST(request: Request, { params }: Params) {
                         select: { name: true, memberNo: true },
                     });
                     const memberLabel = member ? `${member.name} (${member.memberNo})` : `Member #${loan.memberId}`;
+                    const settlementLabel = isEarlySettlement ? " [PELUNASAN]" : "";
 
                     let runningBalance = Number(cashBank.currentBalance);
 
@@ -253,7 +337,7 @@ export async function POST(request: Request, { params }: Params) {
                                 balanceAfter: runningBalance,
                                 referenceType: "LoanPayment",
                                 referenceId: payment.id,
-                                description: `Angsuran Pokok Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                                description: `Angsuran Pokok Pinjaman ${loan.loanNo}${settlementLabel} — ${memberLabel}`,
                                 transactionDate: data.paymentDate,
                                 memberId: loan.memberId,
                                 createdById: userId,
@@ -277,7 +361,7 @@ export async function POST(request: Request, { params }: Params) {
                                 balanceAfter: runningBalance,
                                 referenceType: "LoanPayment",
                                 referenceId: payment.id,
-                                description: `Jasa/Bunga Pinjaman ${loan.loanNo} — ${memberLabel}`,
+                                description: `Jasa/Bunga Pinjaman ${loan.loanNo}${settlementLabel} — ${memberLabel}`,
                                 transactionDate: data.paymentDate,
                                 memberId: loan.memberId,
                                 createdById: userId,
@@ -285,7 +369,31 @@ export async function POST(request: Request, { params }: Params) {
                         });
                     }
 
-                    // 5c. Update saldo kas/bank koperasi
+                    // 5c. Penalti Pelunasan Dipercepat → Kas Masuk (ONLY for early settlement)
+                    if (isEarlySettlement && earlySettlementFee > 0) {
+                        const balBefore = runningBalance;
+                        runningBalance += earlySettlementFee;
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `CBM-${paymentNo}-ES`,
+                                accountId: data.cashBankAccountId,
+                                branchId: loan.branchId,
+                                type: "in",
+                                category: "penalti_pelunasan",
+                                amount: earlySettlementFee,
+                                balanceBefore: balBefore,
+                                balanceAfter: runningBalance,
+                                referenceType: "LoanPayment",
+                                referenceId: payment.id,
+                                description: `Biaya Penalti Pelunasan Dipercepat Pinjaman ${loan.loanNo} (Tenor ${loan.tenorMonths} bln → ${loan.tenorMonths <= 24 ? "1" : "2"}× bunga) — ${memberLabel}`,
+                                transactionDate: data.paymentDate,
+                                memberId: loan.memberId,
+                                createdById: userId,
+                            },
+                        });
+                    }
+
+                    // 5d. Update saldo kas/bank koperasi
                     await tx.cashBankAccount.update({
                         where: { id: data.cashBankAccountId },
                         data: { currentBalance: runningBalance },
@@ -299,7 +407,9 @@ export async function POST(request: Request, { params }: Params) {
 
         return NextResponse.json({
             data: result,
-            message: "Pembayaran berhasil dicatat",
+            message: isEarlySettlement
+                ? "Pelunasan dipercepat berhasil diproses! Pinjaman telah lunas."
+                : "Pembayaran berhasil dicatat",
         }, { status: 201 });
     } catch (error) {
         console.error("POST /api/loans/[id]/payments error:", error);
