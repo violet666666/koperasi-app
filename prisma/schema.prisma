@@ -52,6 +52,7 @@ model User {
   unitServicePackages     UnitServicePackage[]
   storeStockMovements     StoreStockMovement[]
   uploadedFiles           UploadedFile[]        @relation("FileUploadedBy")
+  cashierShifts           CashierShift[]        @relation("CashierShiftUser")
 
   @@map("users")
 }
@@ -812,6 +813,7 @@ model StoreSale {
   metadata      Json?     // Used for specialized POS inputs (e.g., table_no, ps_number, vehicle_plate) 
   journalId     Int?      @map("journal_id")
   periodId      Int?      @map("period_id")
+  shiftId       Int?      @map("shift_id")
   createdById   Int       @map("created_by_id")
   createdAt     DateTime  @default(now()) @map("created_at")
 
@@ -819,6 +821,7 @@ model StoreSale {
   journal   Journal?      @relation("StoreSaleJournal", fields: [journalId], references: [id])
   period    FiscalPeriod? @relation(fields: [periodId], references: [id])
   createdBy User          @relation("StoreSaleCreatedBy", fields: [createdById], references: [id])
+  shift     CashierShift? @relation(fields: [shiftId], references: [id])
   items     StoreSaleItem[]
 
   @@map("store_sales")
@@ -1041,4 +1044,34 @@ model SystemSetting {
   updatedById Int?     @map("updated_by_id")
 
   @@map("system_settings")
+}
+
+// =================================================================
+// SHIFT KASIR — Pencatatan shift buka/tutup kasir
+// =================================================================
+
+model CashierShift {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @map("user_id")
+  unitType          String    @map("unit_type")          // toko, cuci_mobil, barbershop, dll
+  shiftName         String    @map("shift_name")         // "Pagi", "Siang", "Malam"
+  startedAt         DateTime  @map("started_at")
+  endedAt           DateTime? @map("ended_at")
+  openingCash       Decimal   @default(0) @map("opening_cash") @db.Decimal(15, 2)
+  closingCash       Decimal?  @map("closing_cash") @db.Decimal(15, 2)
+  expectedCash      Decimal?  @map("expected_cash") @db.Decimal(15, 2)  // Auto-calculated
+  totalSalesCash    Decimal   @default(0) @map("total_sales_cash") @db.Decimal(15, 2)
+  totalSalesQris    Decimal   @default(0) @map("total_sales_qris") @db.Decimal(15, 2)
+  totalSalesCredit  Decimal   @default(0) @map("total_sales_credit") @db.Decimal(15, 2)
+  totalTransactions Int       @default(0) @map("total_transactions")
+  cashDifference    Decimal?  @map("cash_difference") @db.Decimal(15, 2) // closingCash - expectedCash
+  notes             String?
+  closedByUserId    Int?      @map("closed_by_user_id") // Bisa ditutup oleh admin/operator
+  status            String    @default("open")          // "open" | "closed"
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user       User        @relation("CashierShiftUser", fields: [userId], references: [id])
+  storeSales StoreSale[]
+
+  @@map("cashier_shifts")
 }

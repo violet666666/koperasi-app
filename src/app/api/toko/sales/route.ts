@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType, metadata } = body;
+        const { items, customerName, paymentMethod, cashReceived, createdById, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId } = body;
         const unitType = reqUnitType || "toko";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -66,6 +66,15 @@ export async function POST(request: Request) {
         }
 
         const userId = Number(session.user.id);
+
+        // Auto-detect shift — jika tidak dikirim, cari shift open milik user ini
+        let shiftId: number | null = reqShiftId ? Number(reqShiftId) : null;
+        if (!shiftId) {
+            const openShift = await prisma.cashierShift.findFirst({
+                where: { userId, status: "open" },
+            });
+            shiftId = openShift?.id || null;
+        }
 
         // Validate stock and calculate total
         let totalAmount = 0;
@@ -247,6 +256,7 @@ export async function POST(request: Request) {
                 metadata: metadata ? metadata : null,
                 journalId,
                 periodId: currentPeriod?.id || null,
+                shiftId,
                 createdById: userId,
                 items: {
                     create: validatedItems.map((vi) => ({

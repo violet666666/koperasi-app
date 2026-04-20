@@ -47,6 +47,61 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 | **BUG-UI-011** | 7 Apr 26 | **Kolom Metode Pembayaran Kosong (Rip).** Solusi: Render properti metode (Tunai/QRIS) milik StoreSale. | ✅ FIXED |
 | **BUG-UI-012** | 7 Apr 26 | **Aksi "Edit Plat Nomor" Tersesat di Toko.** Solusi: Disembunyikan karena toko tak punya atribut kendaraan. | ✅ FIXED |
 | **BUG-073** | 8 Apr 26 | **Pie Chart Dashboard Hanya Tampil Toko.** Solusi: Dashboard dirombak mengeksekusi tabel jasa layanan juga. | ✅ FIXED |
+---
+
+## 4. Fitur Shift Kasir (20 April 2026)
+
+### Latar Belakang
+Unit Toko beroperasi dengan 3 shift (Pagi 08-15, Siang 15-21, Malam 21-08) dan membutuhkan pencatatan serah terima kas antar kasir. Sebelumnya tidak ada mekanisme shift — kasir langsung masuk ke POS dan semua transaksi tidak terikat ke shift tertentu.
+
+### Arsitektur
+
+**Model Prisma Baru: `CashierShift`**
+```
+cashier_shifts
+├── id, userId, unitType, shiftName
+├── startedAt, endedAt, status ("open" | "closed")
+├── openingCash (modal awal)
+├── closingCash (uang fisik akhir, diisi kasir)
+├── expectedCash (auto-hitung: openingCash + totalCash)
+├── totalSalesCash, totalSalesQris, totalSalesCredit
+├── totalTransactions
+├── cashDifference (closingCash - expectedCash)
+├── closedByUserId (jika ditutup oleh admin/operator)
+└── notes
+```
+
+**Relasi:** `StoreSale.shiftId` → `CashierShift.id` (opsional, auto-detect dari shift open)
+
+### API Endpoints
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `GET` | `/api/toko/shifts` | List shift (kasir: sendiri, admin: unit, operator: semua) |
+| `POST` | `/api/toko/shifts` | Buka shift baru (shiftName + openingCash + unitType) |
+| `PUT` | `/api/toko/shifts/[id]/close` | Tutup shift (closingCash, notes, auto-hitung selisih) |
+
+### Flow Kasir
+1. Kasir login → Masuk ke halaman `/toko/shift`
+2. Pilih shift (Pagi/Siang/Malam, auto-detect dari jam) + input modal awal
+3. Klik "Mulai Shift" → Shift status = `open`
+4. Kasir bekerja di POS → setiap `StoreSale` otomatis terikat ke `shiftId`
+5. Akhir shift → Klik "Tutup Shift" → Dialog rekap:
+   - Sistem hitung total tunai, QRIS, kredit dari transaksi di shift ini
+   - Kasir input uang fisik di laci kas
+   - Sistem hitung selisih (surplus/defisit)
+   - Submit → Shift status = `closed`
+
+### Hak Akses
+- **Kasir:** Buka/tutup shift sendiri, lihat riwayat shift sendiri
+- **Admin Toko:** Lihat semua shift di unitnya, bisa tutup shift kasir yang lupa
+- **Operator:** Lihat semua shift di semua unit, bisa tutup shift siapa saja
+
+### Navigasi
+Menu "Shift Kasir" ditambahkan di:
+- `kasirTokoNavigation` (sidebar Kasir Toko)
+- `adminTokoNavigation` (sidebar Admin Toko)
+- `mainNavigation` > Toko PRIMKOPPOL (sidebar Operator)
 
 ---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*

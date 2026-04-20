@@ -32,6 +32,7 @@ import {
     TrendingDown,
     Tag,
     type LucideIcon,
+    Timer,
 } from "lucide-react";
 
 export interface NavItem {
@@ -186,6 +187,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 children: [
                     { title: "Produk", href: "/toko/produk" },
                     { title: "Kasir / POS", href: "/toko/kasir" },
+                    { title: "Shift Kasir", href: "/toko/shift" },
                     { title: "Persediaan", href: "/toko/persediaan" },
                 ],
             },
@@ -264,6 +266,10 @@ export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_toko",
             },
             {
+                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
+                permission: "manage_toko",
+            },
+            {
                 title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=toko", icon: ClipboardList,
                 permission: "manage_toko",
             },
@@ -327,6 +333,10 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
+                permission: "manage_toko",
+            },
+            {
+                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
                 permission: "manage_toko",
             },
             {
