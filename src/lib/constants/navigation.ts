@@ -246,7 +246,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
 ];
 
 // ============================================================
-// KASIR TOKO NAVIGATION — kasir unit "toko", akses penuh ke Toko POS
+// KASIR TOKO NAVIGATION — kasir unit "toko", hanya POS + Shift + Riwayat
 // ============================================================
 export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -255,14 +255,6 @@ export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Kasir POS", href: "/toko/kasir", icon: Store,
-                permission: "manage_toko",
-            },
-            {
-                title: "Produk", href: "/toko/produk", icon: ShoppingBag,
-                permission: "manage_toko",
-            },
-            {
-                title: "Persediaan Stok", href: "/toko/persediaan", icon: Package,
                 permission: "manage_toko",
             },
             {

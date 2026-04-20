@@ -61,6 +61,7 @@ export default function ProfilAnggotaPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isEditing, setIsEditing] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [editName, setEditName] = React.useState("");
     
     const { data: session } = useSession();
     const isOperator = session?.user?.role?.toLowerCase() === "operator";
@@ -104,6 +105,7 @@ export default function ProfilAnggotaPage() {
                     sisaPinjaman: userData.stats?.sisaPinjaman || 0,
                     estimasiSHU: userData.stats?.estimasiSHU || 0,
                 });
+                setEditName(userData.member?.name || userData.name);
             } catch (error) {
                 console.error("Failed to fetch:", error);
             } finally {
@@ -115,9 +117,16 @@ export default function ProfilAnggotaPage() {
 
     // Handle save
     const handleSave = async () => {
+        if (!profile || !session?.user?.id) return;
         setIsSaving(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const res = await fetch(`/api/users/${session.user.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: editName }),
+            });
+            if (!res.ok) throw new Error("Gagal menyimpan");
+            setProfile({ ...profile, name: editName });
             toast.success("Profil berhasil diperbarui");
             setIsEditing(false);
         } catch (error) {
@@ -219,7 +228,20 @@ export default function ProfilAnggotaPage() {
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1">
-                                        <h2 className="text-2xl font-bold">{profile.name}</h2>
+                                        {isEditing ? (
+                                            <div className="space-y-2">
+                                                <Label>Nama Tampilan</Label>
+                                                <Input
+                                                    value={editName}
+                                                    onChange={(e) => setEditName(e.target.value)}
+                                                    placeholder="Nama yang ditampilkan"
+                                                    className="text-lg font-bold"
+                                                />
+                                                <p className="text-xs text-muted-foreground">Nama ini akan tampil di catatan shift dan struk transaksi</p>
+                                            </div>
+                                        ) : (
+                                            <h2 className="text-2xl font-bold">{profile.name}</h2>
+                                        )}
                                         <p className="text-muted-foreground">{profile.rank} - {profile.unit}</p>
                                         <div className="mt-2 flex flex-wrap gap-4 text-sm">
                                             <span className="flex items-center gap-1">
