@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
-    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check, QrCode, AlertCircle, CheckCircle2
+    Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check, QrCode, AlertCircle, CheckCircle2,
+    Timer, PlayCircle, Clock,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -35,6 +37,28 @@ export default function KasirPage() {
             return Math.round(p.price * (1 - p.discountValue / 100));
         }
         return Math.max(0, p.price - p.discountValue);
+    }, []);
+
+    // ── Shift Enforcement ──────────────────────────────────────────
+    const [shiftLoading, setShiftLoading] = React.useState(true);
+    const [activeShift, setActiveShift] = React.useState<{ id: number; shiftName: string; startedAt: string; userName: string } | null>(null);
+
+    React.useEffect(() => {
+        async function checkShift() {
+            try {
+                const res = await fetch("/api/toko/shifts?status=open&limit=1");
+                const json = await res.json();
+                const shifts = json.data || [];
+                if (shifts.length > 0) {
+                    setActiveShift(shifts[0]);
+                }
+            } catch (e) {
+                console.error("Gagal cek shift:", e);
+            } finally {
+                setShiftLoading(false);
+            }
+        }
+        checkShift();
     }, []);
 
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -370,6 +394,45 @@ export default function KasirPage() {
         } finally { setIsProcessing(false); }
     };
 
+    // ── Shift Lock Screen ──────────────────────────────────────────
+    if (shiftLoading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!activeShift) {
+        return (
+            <div className="space-y-6">
+                <PageHeader title="Kasir POS" description="Point of Sale — Toko PRIMKOPPOL" />
+                <div className="flex items-center justify-center min-h-[50vh]">
+                    <Card className="max-w-md w-full text-center">
+                        <CardContent className="pt-8 pb-8 space-y-4">
+                            <div className="mx-auto h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center">
+                                <Clock className="h-8 w-8 text-amber-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold">Shift Belum Dibuka</h2>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Anda harus membuka shift terlebih dahulu sebelum dapat melakukan transaksi.
+                                    Silakan buka shift di halaman Shift Kasir.
+                                </p>
+                            </div>
+                            <Link href="/toko/shift">
+                                <Button size="lg" className="gap-2 mt-2">
+                                    <PlayCircle className="h-5 w-5" />
+                                    Buka Shift Sekarang
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -377,6 +440,13 @@ export default function KasirPage() {
                 description="Point of Sale — Penjualan Toko PRIMKOPPOL"
                 actions={
                     <div className="flex items-center gap-2">
+                        {/* Shift Info Badge */}
+                        <Link href="/toko/shift">
+                            <Badge variant="outline" className="gap-1.5 text-xs cursor-pointer hover:bg-muted px-3 py-1.5 border-green-300 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
+                                <Timer className="h-3.5 w-3.5" />
+                                Shift {activeShift.shiftName} • {activeShift.userName}
+                            </Badge>
+                        </Link>
                         <Button 
                             variant="outline" 
                             size="sm" 
