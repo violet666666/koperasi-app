@@ -45,11 +45,11 @@ export async function PUT(request: Request) {
                 actionLabel = "Stok dinolkan";
                 break;
             case "zero_price":
-                updateData = { price: 0, costPrice: 0 };
+                updateData = { sellPrice: 0, costPrice: 0 };
                 actionLabel = "Harga dinolkan";
                 break;
             case "zero_all":
-                updateData = { stock: 0, stockGdg: 0, stockToko: 0, price: 0, costPrice: 0 };
+                updateData = { stock: 0, stockGdg: 0, stockToko: 0, sellPrice: 0, costPrice: 0 };
                 actionLabel = "Stok & harga dinolkan";
                 break;
             case "set_stock":
@@ -63,7 +63,7 @@ export async function PUT(request: Request) {
                 if (value === undefined || value === null) {
                     return NextResponse.json({ message: "Nilai harga harus diisi" }, { status: 400 });
                 }
-                updateData = { price: Number(value) };
+                updateData = { sellPrice: Number(value) };
                 actionLabel = `Harga diset ke ${value}`;
                 break;
             case "deactivate":
@@ -78,7 +78,7 @@ export async function PUT(request: Request) {
                 return NextResponse.json({ message: `Aksi '${action}' tidak dikenal` }, { status: 400 });
         }
 
-        const result = await prisma.shopProduct.updateMany({
+        const result = await prisma.storeProduct.updateMany({
             where: { id: { in: ids.map(Number) } },
             data: updateData,
         });

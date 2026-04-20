@@ -12,7 +12,7 @@ export async function GET(
         const id = parseInt(rawId);
         if (isNaN(id)) return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
 
-        const product = await prisma.shopProduct.findUnique({ where: { id } });
+        const product = await prisma.storeProduct.findUnique({ where: { id } });
         if (!product) return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
 
         return NextResponse.json({ data: product });
@@ -49,7 +49,7 @@ export async function PUT(
         // Fields that can be updated
         if (body.name !== undefined) updateData.name = body.name;
         if (body.sku !== undefined) updateData.sku = body.sku;
-        if (body.price !== undefined) updateData.price = Number(body.price);
+        if (body.price !== undefined) updateData.sellPrice = Number(body.price);
         if (body.costPrice !== undefined) updateData.costPrice = Number(body.costPrice);
         if (body.stock !== undefined) updateData.stock = Number(body.stock);
         if (body.stockGdg !== undefined) updateData.stockGdg = Number(body.stockGdg);
@@ -63,7 +63,7 @@ export async function PUT(
             return NextResponse.json({ message: "Tidak ada data yang diubah" }, { status: 400 });
         }
 
-        const product = await prisma.shopProduct.update({
+        const product = await prisma.storeProduct.update({
             where: { id },
             data: updateData,
         });
@@ -95,7 +95,7 @@ export async function DELETE(
         const id = parseInt(rawId);
         if (isNaN(id)) return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
 
-        await prisma.shopProduct.update({
+        await prisma.storeProduct.update({
             where: { id },
             data: { isActive: false },
         });
