@@ -435,7 +435,15 @@ export default function TokoProdukPage() {
                                             <TableCell className="text-right">
                                                 {isEditing ? (
                                                     <Input type="number" className="h-8 text-xs w-[100px] text-right" value={editData.costPrice ?? ""}
-                                                        onChange={(e) => setEditData(prev => ({ ...prev, costPrice: Number(e.target.value) }))} />
+                                                        onChange={(e) => {
+                                                            const hpp = Number(e.target.value);
+                                                            setEditData(prev => ({
+                                                                ...prev,
+                                                                costPrice: hpp,
+                                                                // Auto-calculate harga jual: HPP + markup 2% + PPN 11%, rounded up to nearest 100
+                                                                price: hpp > 0 ? Math.ceil((hpp * 1.02 * 1.11) / 100) * 100 : prev.price,
+                                                            }));
+                                                        }} />
                                                 ) : (
                                                     <span className="tabular-nums text-xs text-muted-foreground">{formatCurrency(p.costPrice || 0)}</span>
                                                 )}
