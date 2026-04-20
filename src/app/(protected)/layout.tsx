@@ -19,7 +19,7 @@ const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
 
 // Kasir: HANYA kasir pos + riwayat transaksi unit mereka
 const KASIR_ALLOWED_ROUTES: Record<string, string[]> = {
-    toko:        ["/unit", "/transaksi-unit", "/toko/kasir", "/toko/shift"],
+    toko:        ["/unit", "/transaksi-unit", "/toko/kasir", "/toko/shift", "/toko/produk"],
     cuci_mobil:  ["/unit", "/transaksi-unit"],
     resto_cafe:  ["/unit", "/transaksi-unit"],
     fitness:     ["/unit", "/transaksi-unit"],

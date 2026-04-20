@@ -262,6 +262,10 @@ export const kasirTokoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_toko",
             },
             {
+                title: "Daftar Produk", href: "/toko/produk", icon: Package,
+                permission: "manage_toko",
+            },
+            {
                 title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=toko", icon: ClipboardList,
                 permission: "manage_toko",
             },
