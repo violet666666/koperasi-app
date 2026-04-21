@@ -29,7 +29,9 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { type, quantity, notes } = body;
+        const { type, quantity, notes, location } = body;
+        // location: "gudang" (default) | "toko"
+        const stockLocation = location === "toko" ? "toko" : "gudang";
 
         if (!type || !["in", "out"].includes(type)) {
             return NextResponse.json({ message: "Jenis pergerakan stok tidak valid (in/out)" }, { status: 400 });
@@ -54,23 +56,35 @@ export async function POST(
             }, { status: 400 });
         }
 
-        // Hitung perubahan stok
-        // Stok MASUK → masuk ke stockGdg (gudang/supplier)
-        // Stok KELUAR → kurangi dari stockToko dulu, lalu stockGdg jika kurang
+        // Hitung perubahan stok berdasarkan lokasi
         let newStockGdg = product.stockGdg;
         let newStockToko = product.stockToko;
 
         if (type === "in") {
-            newStockGdg = product.stockGdg + qty;
-        } else {
-            // Kurangi dari stockToko dulu
-            if (product.stockToko >= qty) {
-                newStockToko = product.stockToko - qty;
+            // Stok masuk → pilih lokasi tujuan
+            if (stockLocation === "toko") {
+                newStockToko = product.stockToko + qty;
             } else {
-                const sisaFromToko = product.stockToko;
-                const kurangDariGdg = qty - sisaFromToko;
-                newStockToko = 0;
-                newStockGdg = Math.max(0, product.stockGdg - kurangDariGdg);
+                newStockGdg = product.stockGdg + qty;
+            }
+        } else {
+            // Stok keluar → kurangi dari lokasi yang dipilih dulu
+            if (stockLocation === "toko") {
+                if (product.stockToko >= qty) {
+                    newStockToko = product.stockToko - qty;
+                } else {
+                    const sisa = qty - product.stockToko;
+                    newStockToko = 0;
+                    newStockGdg = Math.max(0, product.stockGdg - sisa);
+                }
+            } else {
+                if (product.stockGdg >= qty) {
+                    newStockGdg = product.stockGdg - qty;
+                } else {
+                    const sisa = qty - product.stockGdg;
+                    newStockGdg = 0;
+                    newStockToko = Math.max(0, product.stockToko - sisa);
+                }
             }
         }
 
@@ -92,7 +106,7 @@ export async function POST(
                 productId: updatedProduct.id,
                 type: type,
                 quantity: qty,
-                reference: type === "in" ? "Penambahan Manual" : "Pengurangan Manual",
+                reference: type === "in" ? `Penambahan Manual (${stockLocation === "toko" ? "Toko" : "Gudang"})` : `Pengurangan Manual (${stockLocation === "toko" ? "Toko" : "Gudang"})`,
                 notes: notes || null,
                 operatorId: userId
             }

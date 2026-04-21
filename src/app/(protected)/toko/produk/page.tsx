@@ -94,7 +94,7 @@ export default function TokoProdukPage() {
     // Fetch
     const fetchProducts = React.useCallback(async () => {
         try {
-            const res = await fetch('/api/toko/products');
+            const res = await fetch('/api/toko/products?unitType=toko');
             if (!res.ok) throw new Error('Failed');
             const result = await res.json();
             setProducts(mapProducts(result.data || []));

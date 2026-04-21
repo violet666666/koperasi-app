@@ -108,6 +108,7 @@ export default function PersediaanPage() {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [openProductSelect, setOpenProductSelect] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
+    const [stockLocation, setStockLocation] = React.useState<"gudang" | "toko">("gudang");
     const [voidDialogOpen, setVoidDialogOpen] = React.useState(false);
     const [voidTargetId, setVoidTargetId] = React.useState<number | null>(null);
     const [isVoiding, setIsVoiding] = React.useState(false);
@@ -227,6 +228,7 @@ export default function PersediaanPage() {
                     type: movementType,
                     quantity: qty,
                     notes: formData.notes,
+                    location: stockLocation,
                 }),
             });
             const json = await res.json();
@@ -240,7 +242,7 @@ export default function PersediaanPage() {
 
             // Refresh daftar agar data terbaru tampil
             const [productsRes, movementsRes] = await Promise.all([
-                 fetch("/api/toko/products"),
+                 fetch("/api/toko/products?unitType=toko"),
                  fetch("/api/toko/movements")
             ]);
             if (productsRes.ok) setProducts((await productsRes.json()).data || []);
@@ -248,6 +250,7 @@ export default function PersediaanPage() {
 
             setDialogOpen(false);
             setFormData({ productId: "", quantity: "", notes: "" });
+            setStockLocation("gudang");
         } catch {
             toast.error("Gagal memperbarui stok");
         } finally {
@@ -322,6 +325,35 @@ export default function PersediaanPage() {
                                         </Popover>
                                     </div>
                                     <div><Label>Jumlah</Label><Input type="number" min={1} value={formData.quantity} onChange={e => setFormData(prev => ({ ...prev, quantity: e.target.value }))} /></div>
+                                    <div>
+                                        <Label>Lokasi Stok</Label>
+                                        <div className="flex gap-2 mt-1.5">
+                                            <Button
+                                                type="button"
+                                                variant={stockLocation === "gudang" ? "default" : "outline"}
+                                                size="sm"
+                                                className={stockLocation === "gudang" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                                                onClick={() => setStockLocation("gudang")}
+                                            >
+                                                <Warehouse className="mr-1.5 h-3.5 w-3.5" />Gudang
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={stockLocation === "toko" ? "default" : "outline"}
+                                                size="sm"
+                                                className={stockLocation === "toko" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                                                onClick={() => setStockLocation("toko")}
+                                            >
+                                                <Package className="mr-1.5 h-3.5 w-3.5" />Toko
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {movementType === "in"
+                                                ? `Stok masuk akan ditambahkan ke ${stockLocation === "gudang" ? "Stok Gudang" : "Stok Toko"}`
+                                                : `Stok keluar akan dikurangi dari ${stockLocation === "gudang" ? "Stok Gudang" : "Stok Toko"} terlebih dahulu`
+                                            }
+                                        </p>
+                                    </div>
                                     <div><Label>Keterangan</Label><Input value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} placeholder={movementType === "in" ? "Pengadaan supplier" : "Penjualan/rusak"} /></div>
                                 </div>
                                 <DialogFooter>
