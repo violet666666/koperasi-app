@@ -20,6 +20,14 @@ interface Loan {
   monthlyInstallment: number;
 }
 
+interface CashBankAccount {
+  id: number;
+  code: string;
+  name: string;
+  type: 'cash' | 'bank';
+  currentBalance: number;
+}
+
 export default function LoanPaymentScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
@@ -31,6 +39,9 @@ export default function LoanPaymentScreen() {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   useEffect(() => {
     if (!memberId) {
@@ -41,12 +52,23 @@ export default function LoanPaymentScreen() {
 
     const fetchLoans = async () => {
       try {
-        const res = await api.get(`/api/mobile/loan-payment?memberId=${memberId}`);
-        const data = res.data.data || [];
+        const [loansRes, accountsRes] = await Promise.all([
+          api.get(`/api/mobile/loan-payment?memberId=${memberId}`),
+          api.get('/api/mobile/kas-bank'),
+        ]);
+        const data = loansRes.data.data || [];
         setLoans(data);
         if (data.length > 0) {
           setSelectedLoan(data[0]);
           setAmount(data[0].monthlyInstallment.toString());
+        }
+        // Parse cash/bank accounts
+        const accounts = accountsRes.data?.data || [];
+        setCashBankAccounts(accounts);
+        if (accounts.length > 0) {
+          // Default: pilih kas pertama
+          const kasAccount = accounts.find((a: CashBankAccount) => a.type === 'cash') || accounts[0];
+          setSelectedAccountId(kasAccount.id);
         }
       } catch (err: any) {
         Alert.alert('Gagal', err.response?.data?.message || 'Gagal memuat pinjaman');
@@ -58,8 +80,11 @@ export default function LoanPaymentScreen() {
     fetchLoans();
   }, [memberId, navigation]);
 
+  const selectedAccount = cashBankAccounts.find(a => a.id === selectedAccountId);
+
   const handleSubmit = () => {
     if (!selectedLoan) return Alert.alert('Error', 'Pilih pinjaman terlebih dahulu');
+    if (!selectedAccountId) return Alert.alert('Error', 'Pilih akun Kas/Bank tujuan');
     const numAmt = parseInt(amount.replace(/\D/g, ''), 10);
     if (isNaN(numAmt) || numAmt <= 0) return Alert.alert('Error', 'Jumlah harus lebih dari 0');
 
@@ -82,6 +107,7 @@ export default function LoanPaymentScreen() {
                 loanId: selectedLoan.id,
                 amount: numAmt,
                 notes,
+                cashBankAccountId: selectedAccountId,
               });
               Alert.alert('Sukses', res.data?.message || 'Angsuran berhasil dicatat', [
                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -164,6 +190,43 @@ export default function LoanPaymentScreen() {
           }}
         />
 
+        <Text style={styles.label}>Tujuan Kas / Bank *</Text>
+        <TouchableOpacity
+          style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+          onPress={() => setShowAccountPicker(!showAccountPicker)}
+        >
+          <Text style={{ color: selectedAccount ? C.foreground : C.mutedForeground, fontSize: 16 }}>
+            {selectedAccount ? `${selectedAccount.type === 'cash' ? '💵' : '🏦'} ${selectedAccount.name}` : 'Pilih Kas/Bank...'}
+          </Text>
+          <Ionicons name={showAccountPicker ? 'chevron-up' : 'chevron-down'} size={18} color={C.mutedForeground} />
+        </TouchableOpacity>
+        {showAccountPicker && (
+          <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+            {cashBankAccounts.map((acc) => (
+              <TouchableOpacity
+                key={acc.id}
+                style={[
+                  { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                  selectedAccountId === acc.id && { backgroundColor: C.accent + '15' }
+                ]}
+                onPress={() => { setSelectedAccountId(acc.id); setShowAccountPicker(false); }}
+              >
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>
+                    {acc.type === 'cash' ? '💵' : '🏦'} {acc.name}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>
+                    Saldo: {formatRp(acc.currentBalance)}
+                  </Text>
+                </View>
+                {selectedAccountId === acc.id && (
+                  <Ionicons name="checkmark-circle" size={20} color={C.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.label}>Keterangan (Opsional)</Text>
         <TextInput
           style={styles.input}
@@ -173,9 +236,9 @@ export default function LoanPaymentScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.submitBtn, (!selectedLoan || submitting || !amount) && { opacity: 0.5 }]}
+          style={[styles.submitBtn, (!selectedLoan || submitting || !amount || !selectedAccountId) && { opacity: 0.5 }]}
           onPress={handleSubmit}
-          disabled={!selectedLoan || submitting || !amount}
+          disabled={!selectedLoan || submitting || !amount || !selectedAccountId}
         >
           {submitting ? (
             <ActivityIndicator color="#FFF" />
