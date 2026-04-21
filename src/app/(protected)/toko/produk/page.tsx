@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
     Plus, Package, TrendingUp, AlertTriangle, Upload,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
-    CheckSquare, DollarSign, PackageMinus,
+    CheckSquare, DollarSign, PackageMinus, Calculator, Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -64,6 +64,13 @@ export default function TokoProdukPage() {
     // Filters
     const [filterCategory, setFilterCategory] = React.useState<string>("all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
+
+    // Recalculate & Duplicate detection
+    const [isRecalculating, setIsRecalculating] = React.useState(false);
+    const [isDuplicateChecking, setIsDuplicateChecking] = React.useState(false);
+    const [showResultDialog, setShowResultDialog] = React.useState(false);
+    const [resultDialogTitle, setResultDialogTitle] = React.useState("");
+    const [resultDialogContent, setResultDialogContent] = React.useState<React.ReactNode>(null);
 
     const mapProducts = (data: any[]): Product[] => {
         return data.map((p: any) => ({ ...p }));
@@ -228,6 +235,114 @@ export default function TokoProdukPage() {
         }
     };
 
+    // ── Hitung Ulang Semua Harga ──
+    const handleRecalculatePrices = async () => {
+        if (!confirm("Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ceil((HPP × 1.02 × 1.11) / 100) × 100\n\nProduk tanpa HPP tidak akan terpengaruh.")) return;
+        setIsRecalculating(true);
+        try {
+            const res = await fetch("/api/toko/products/recalculate-prices", { method: "POST" });
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message || "Gagal"); return; }
+
+            const data = json.data;
+            toast.success(json.message);
+
+            if (data.changes && data.changes.length > 0) {
+                setResultDialogTitle(`✅ ${data.updated} Harga Diperbarui`);
+                setResultDialogContent(
+                    <div className="max-h-[400px] overflow-y-auto">
+                        <p className="text-sm text-muted-foreground mb-3">Formula: {data.formula}</p>
+                        <p className="text-sm mb-3">{data.alreadyCorrect} produk sudah sesuai, {data.noHPP} produk tanpa HPP (dilewati).</p>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="text-xs">Produk</TableHead>
+                                    <TableHead className="text-xs text-right">HPP</TableHead>
+                                    <TableHead className="text-xs text-right">Lama</TableHead>
+                                    <TableHead className="text-xs text-right">Baru</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.changes.map((c: any) => (
+                                    <TableRow key={c.id}>
+                                        <TableCell className="text-xs font-medium">{c.name}</TableCell>
+                                        <TableCell className="text-xs text-right">{formatCurrency(c.costPrice)}</TableCell>
+                                        <TableCell className="text-xs text-right text-red-500 line-through">{formatCurrency(c.oldSellPrice)}</TableCell>
+                                        <TableCell className="text-xs text-right text-emerald-600 font-bold">{formatCurrency(c.newSellPrice)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                );
+                setShowResultDialog(true);
+            }
+
+            await fetchProducts();
+        } catch {
+            toast.error("Gagal menghitung ulang harga");
+        } finally {
+            setIsRecalculating(false);
+        }
+    };
+
+    // ── Cek Duplikasi Produk ──
+    const handleCheckDuplicates = async () => {
+        setIsDuplicateChecking(true);
+        try {
+            const res = await fetch("/api/toko/products/duplicates");
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message || "Gagal"); return; }
+
+            const data = json.data;
+            if (data.duplicateGroups === 0) {
+                toast.success("Tidak ada produk duplikat ditemukan! ✨");
+                return;
+            }
+
+            setResultDialogTitle(`⚠️ ${data.duplicateGroups} Grup Duplikat Ditemukan`);
+            setResultDialogContent(
+                <div className="max-h-[400px] overflow-y-auto space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Total {data.totalDuplicateProducts} produk dalam {data.duplicateGroups} grup duplikat dari {data.totalProducts} produk.
+                    </p>
+                    {data.groups.map((g: any, idx: number) => (
+                        <div key={idx} className="rounded-lg border p-3">
+                            <p className="text-sm font-semibold text-amber-600 mb-2">🔁 "{g.normalizedName}" ({g.count} produk)</p>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-xs">SKU</TableHead>
+                                        <TableHead className="text-xs">Nama</TableHead>
+                                        <TableHead className="text-xs">Rak</TableHead>
+                                        <TableHead className="text-xs text-right">Harga</TableHead>
+                                        <TableHead className="text-xs text-center">Stok</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {g.products.map((p: any) => (
+                                        <TableRow key={p.id}>
+                                            <TableCell className="text-xs font-mono">{p.sku}</TableCell>
+                                            <TableCell className="text-xs">{p.name}</TableCell>
+                                            <TableCell className="text-xs">{p.category || "-"}</TableCell>
+                                            <TableCell className="text-xs text-right">{formatCurrency(p.sellPrice)}</TableCell>
+                                            <TableCell className="text-xs text-center">{p.totalStock}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    ))}
+                </div>
+            );
+            setShowResultDialog(true);
+        } catch {
+            toast.error("Gagal mendeteksi duplikasi");
+        } finally {
+            setIsDuplicateChecking(false);
+        }
+    };
+
     // ── Render ──
     return (
         <div className="space-y-6">
@@ -236,7 +351,15 @@ export default function TokoProdukPage() {
                 description={isKasir ? "Lihat daftar produk dan stok toko" : "Kelola produk toko PRIMKOPPOL"}
                 actions={
                     !isKasir ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Button variant="outline" size="sm" onClick={handleCheckDuplicates} disabled={isDuplicateChecking}>
+                                {isDuplicateChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+                                Cek Duplikat
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleRecalculatePrices} disabled={isRecalculating}>
+                                {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                                Hitung Ulang Harga
+                            </Button>
                             <Button variant="outline" asChild>
                                 <Link href="/toko/produk/import"><Upload className="mr-2 h-4 w-4" />Import</Link>
                             </Button>
@@ -536,6 +659,19 @@ export default function TokoProdukPage() {
                             {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                             {isBulkProcessing ? "Memproses..." : `Ya, ${getBulkActionLabel()}`}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Result Dialog (Recalculate / Duplicates) */}
+            <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>{resultDialogTitle}</DialogTitle>
+                    </DialogHeader>
+                    {resultDialogContent}
+                    <DialogFooter>
+                        <Button onClick={() => setShowResultDialog(false)}>Tutup</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

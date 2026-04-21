@@ -101,6 +101,12 @@ export async function POST(request: Request) {
             let sellPrice = hargaJualIdx !== -1 ? cleanNumber(row[hargaJualIdx]) : 0;
             const costPrice = hargaPokokIdx !== -1 ? cleanNumber(row[hargaPokokIdx]) : 0;
             
+            // AUTO-CALCULATE: Jika ada HPP, selalu hitung harga jual dari formula
+            // Formula: ceil((HPP × 1.02 × 1.11) / 100) × 100
+            if (costPrice > 0) {
+                sellPrice = Math.ceil((costPrice * 1.02 * 1.11) / 100) * 100;
+            }
+
             // if we somehow couldn't find a sell price column, we can't accept it if it's new
             const existing = existingProducts.find(p => p.sku === sku);
             const isNew = !existing;
@@ -108,7 +114,7 @@ export async function POST(request: Request) {
             if (sellPrice <= 0 && isNew) {
                 results.push({
                     row: i + 2, sku, name, stockGdg, stockToko, stock, sellPrice,
-                    status: 'error', reason: 'Produk Baru: Harga Jual (@ Harga Sat) tidak valid atau 0'
+                    status: 'error', reason: 'Produk Baru: Harga Jual dan HPP tidak valid atau 0'
                 });
                 failCount++;
                 continue;
