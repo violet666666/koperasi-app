@@ -43,6 +43,26 @@
 
 ## 🆕 UPDATE SINKRONISASI WEB & HASIL REVIEW KODE MOBILE (20 - 21 APRIL 2026)
 
+### 22. [M-FEAT-017] ✅ Integrasi Dropdown Kas/Bank di Semua Transaksi Operator — **SELESAI**
+- **Selesai (21 April 2026)**: 3 file operator di-update:
+  1. ✅ `LoanPaymentScreen.tsx` — Dropdown Kas/Bank + payload `cashBankAccountId`
+  2. ✅ `SavingsTransactionScreen.tsx` — Dropdown Kas/Bank + payload `cashBankAccountId`
+  3. ✅ `DirectDisburseScreen.tsx` — Dropdown Kas/Bank + payload `cashBankAccountId`
+- **Perubahan:**
+  - Fetch daftar akun kas/bank dari `/api/mobile/kas-bank` saat layar dimuat
+  - Default otomatis pilih akun "Kas" pertama
+  - Tombol submit **dinonaktifkan** jika belum pilih akun
+  - Picker menampilkan ikon 💵/🏦, nama akun, dan saldo saat ini
+- **Catatan:** KasirScreen (POS Toko) sudah memiliki routing kas/bank otomatis via backend (`POST /api/toko/sales` → auto-detect `CashBankAccount` berdasar `unitType`), sehingga **tidak perlu** dropdown manual di sisi kasir.
+
+### 23. [M-FEAT-018] ✅ Blokir Penarikan Simpanan Wajib/Pokok (AD-ART Pasal 26) — **SELESAI**
+- **Selesai (21 April 2026)**: File `SavingsTransactionScreen.tsx` di-update.
+- **Perubahan:**
+  - Tombol "Penarikan" tampil redup (opacity 40%) jika rekening yang dipilih bertipe `wajib` atau `pokok`
+  - Menampilkan banner peringatan merah dengan ikon ⚠️ dan teks "Penarikan Simpanan Wajib/Pokok tidak diperbolehkan (AD-ART Pasal 26)"
+  - Tombol submit dinonaktifkan jika penarikan terblokir
+  - Operator masih bisa melakukan **setoran** ke rekening wajib/pokok tanpa masalah
+
 ### 20. Integrasi Fitur Pelunasan Dipercepat (Early Settlement) (M-FEAT-021)
 - **Web/Backend:** Fitur Pelunasan Dipercepat (Membayar sisa pokok + penalti) sudah diimplementasikan penuh di Web. Operator dapat melunasi total pinjaman anggota sekaligus di halaman bayar angsuran, yang otomatis mencatat mutasi pokok, bunga, dan penalti pelunasan.
 - **Tugas Mobile (M-FEAT-021):** Layar `LoanPaymentScreen.tsx` untuk Operator perlu ditambahkan opsi/toggle "Pelunasan Total Dipercepat". Payload API `POST /api/loans/[id]/payments` harus disesuaikan agar menyertakan parameter `{ isEarlySettlement: true, discountInterest: boolean }`.
@@ -579,8 +599,8 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-ARCH-002~~ | ~~Install `@gorhom/bottom-sheet` untuk modal member & filter~~ | **✅ DONE** | 🟢 |
 | ~~M-ARCH-003~~ | ~~Install `nativewind` v4 untuk styling konsisten~~ | **✅ DONE (hybrid)** | 🟢 |
 | ~~M-ARCH-004~~ | ~~Install `react-hook-form + zod` untuk validasi form~~ | **✅ DONE** | 🟡 |
-| M-FEAT-017 | Integrasi Dropdown Kas/Bank di Semua Transaksi Operator | 1-2 hari | 🔴 |
-| M-FEAT-018 | Blokir Penarikan Simpanan Wajib/Pokok (AD-ART) | 1/2 hari | 🟡 |
+| ~~M-FEAT-017~~ | ~~Integrasi Dropdown Kas/Bank di Semua Transaksi Operator~~ | **✅ DONE** | 🔴 |
+| ~~M-FEAT-018~~ | ~~Blokir Penarikan Simpanan Wajib/Pokok (AD-ART)~~ | **✅ DONE** | 🟡 |
 | M-FEAT-019 | Layar Riwayat Transaksi & Request Void untuk Kasir Toko | 2 hari | 🟡 |
 | M-FEAT-021 | Fitur Pelunasan Dipercepat (Early Settlement) di LoanPaymentScreen | 1-2 hari | 🟡 |
 | M-FEAT-022 | Fitur Buka/Tutup Shift Kasir Toko & POS Lock | 2-3 hari | 🔴 |

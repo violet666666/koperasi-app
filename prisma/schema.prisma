@@ -50,7 +50,8 @@ model User {
   announcements           Announcement[]        @relation("AnnouncementAuthor")
   auditLogs               AuditLog[]            @relation("AuditLogUser")
   unitServicePackages     UnitServicePackage[]
-  storeStockMovements     StoreStockMovement[]
+  storeStockMovements     StoreStockMovement[]  @relation("stockMovementOperator")
+  stockMovementsVoided    StoreStockMovement[]  @relation("stockMovementVoidedBy")
   uploadedFiles           UploadedFile[]        @relation("FileUploadedBy")
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
 
@@ -783,17 +784,21 @@ model StoreProduct {
 }
 
 model StoreStockMovement {
-  id          Int      @id @default(autoincrement())
-  productId   Int      @map("product_id")
-  type        String   // "in" | "out"
+  id          Int       @id @default(autoincrement())
+  productId   Int       @map("product_id")
+  type        String    // "in" | "out"
   quantity    Int
-  reference   String?  // Contoh: Penjualan TK-..., Pengadaan, Retur
+  reference   String?   // Contoh: Penjualan TK-..., Pengadaan, Retur
   notes       String?
-  operatorId  Int?     @map("operator_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  status      String    @default("active") // "active" | "voided"
+  operatorId  Int?      @map("operator_id")
+  voidedAt    DateTime? @map("voided_at")
+  voidedById  Int?      @map("voided_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   product     StoreProduct @relation(fields: [productId], references: [id])
-  operator    User?        @relation(fields: [operatorId], references: [id])
+  operator    User?        @relation("stockMovementOperator", fields: [operatorId], references: [id])
+  voidedBy    User?        @relation("stockMovementVoidedBy", fields: [voidedById], references: [id])
 
   @@index([productId])
   @@index([type])

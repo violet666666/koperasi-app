@@ -31,6 +31,13 @@ interface Member {
   nrp?: string;
   memberNo?: string;
 }
+interface CashBankAccount {
+  id: number;
+  code: string;
+  name: string;
+  type: 'cash' | 'bank';
+  currentBalance: number;
+}
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
@@ -67,6 +74,9 @@ export default function DirectDisburseScreen({ navigation }: any) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
+  const [selectedCashBankId, setSelectedCashBankId] = useState<number | null>(null);
+  const [showCashBankPicker, setShowCashBankPicker] = useState(false);
 
   const { control, handleSubmit, watch, reset, formState: { errors } } = useForm({
     resolver: zodResolver(buildSchema(selectedProduct, selectedMember)),
@@ -90,6 +100,15 @@ export default function DirectDisburseScreen({ navigation }: any) {
       }
     };
     loadProducts();
+    // Load Kas/Bank accounts
+    api.get('/api/mobile/kas-bank').then((res) => {
+      const accounts = res.data?.data || [];
+      setCashBankAccounts(accounts);
+      if (accounts.length > 0) {
+        const kas = accounts.find((a: CashBankAccount) => a.type === 'cash') || accounts[0];
+        setSelectedCashBankId(kas.id);
+      }
+    }).catch(() => {});
   }, []);
 
   // Search Member Trigger
@@ -110,9 +129,15 @@ export default function DirectDisburseScreen({ navigation }: any) {
     }
   }, [searchMember]);
 
+  const selectedCashBank = cashBankAccounts.find(a => a.id === selectedCashBankId);
+
   const onSubmit = async (data: any) => {
     if (!selectedProduct || !selectedMember) {
       Toast.show({ type: 'error', text1: 'Lengkapi Data', text2: 'Pilih anggota dan produk!' });
+      return;
+    }
+    if (!selectedCashBankId) {
+      Toast.show({ type: 'error', text1: 'Pilih Kas/Bank', text2: 'Pilih akun kas/bank untuk pencairan' });
       return;
     }
     
@@ -127,6 +152,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
         purpose: 'Pencairan Langsung dari Mobile',
         deductionSource: 'gaji',
         backdatedDate: backdatedDate.toISOString(),
+        cashBankAccountId: selectedCashBankId,
       });
       
       Toast.show({ type: 'success', text1: 'Sukses Cair!', text2: res.data.message });
@@ -235,10 +261,44 @@ export default function DirectDisburseScreen({ navigation }: any) {
             </View>
           )}
 
+          {/* Kas/Bank Picker */}
+          <Text style={styles.label}>5. Tujuan Kas / Bank *</Text>
           <TouchableOpacity
-            style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+            style={[styles.selectorBtn, { justifyContent: 'space-between' }]}
+            onPress={() => setShowCashBankPicker(!showCashBankPicker)}
+          >
+            <Text style={{ color: selectedCashBank ? C.foreground : C.mutedForeground, flex: 1 }}>
+              {selectedCashBank ? `${selectedCashBank.type === 'cash' ? '💵' : '🏦'} ${selectedCashBank.name}` : 'Pilih Kas/Bank...'}
+            </Text>
+            <Ionicons name={showCashBankPicker ? 'chevron-up' : 'chevron-down'} size={18} color={C.mutedForeground} />
+          </TouchableOpacity>
+          {showCashBankPicker && (
+            <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 12, marginTop: 8, overflow: 'hidden' }}>
+              {cashBankAccounts.map((acc) => (
+                <TouchableOpacity
+                  key={acc.id}
+                  style={[
+                    { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                    selectedCashBankId === acc.id && { backgroundColor: '#DBEAFE' }
+                  ]}
+                  onPress={() => { setSelectedCashBankId(acc.id); setShowCashBankPicker(false); }}
+                >
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>
+                      {acc.type === 'cash' ? '💵' : '🏦'} {acc.name}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>Saldo: {formatRp(acc.currentBalance)}</Text>
+                  </View>
+                  {selectedCashBankId === acc.id && <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.submitBtn, (submitting || !selectedCashBankId) && { opacity: 0.7 }]}
             onPress={handleSubmit(onSubmit)}
-            disabled={submitting}
+            disabled={submitting || !selectedCashBankId}
           >
              {submitting ? <ActivityIndicator color="#FFF" /> : <Ionicons name="flash" size={20} color="#FFF" />}
              <Text style={styles.submitText}>{submitting ? 'Memproses...' : 'Cairkan Pinjaman Sekarang'}</Text>

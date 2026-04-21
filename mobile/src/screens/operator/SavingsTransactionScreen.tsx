@@ -15,6 +15,15 @@ interface Account {
   accountNo: string;
   balance: number;
   productName: string;
+  productType?: string; // pokok, wajib, sukarela
+}
+
+interface CashBankAccount {
+  id: number;
+  code: string;
+  name: string;
+  type: 'cash' | 'bank';
+  currentBalance: number;
 }
 
 export default function SavingsTransactionScreen() {
@@ -29,6 +38,9 @@ export default function SavingsTransactionScreen() {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
+  const [selectedCashBankId, setSelectedCashBankId] = useState<number | null>(null);
+  const [showCashBankPicker, setShowCashBankPicker] = useState(false);
 
   useEffect(() => {
     if (!memberId) {
@@ -37,12 +49,22 @@ export default function SavingsTransactionScreen() {
       return;
     }
 
-    const fetchAccounts = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get(`/api/mobile/savings-tx?memberId=${memberId}`);
-        const data = res.data.data || [];
+        const [accRes, cashRes] = await Promise.all([
+          api.get(`/api/mobile/savings-tx?memberId=${memberId}`),
+          api.get('/api/mobile/kas-bank'),
+        ]);
+        const data = accRes.data.data || [];
         setAccounts(data);
         if (data.length > 0) setSelectedAccount(data[0]);
+
+        const cashAccounts = cashRes.data?.data || [];
+        setCashBankAccounts(cashAccounts);
+        if (cashAccounts.length > 0) {
+          const kas = cashAccounts.find((a: CashBankAccount) => a.type === 'cash') || cashAccounts[0];
+          setSelectedCashBankId(kas.id);
+        }
       } catch (err: any) {
         Alert.alert('Gagal', err.response?.data?.message || 'Gagal memuat rekening');
       } finally {
@@ -50,11 +72,19 @@ export default function SavingsTransactionScreen() {
       }
     };
 
-    fetchAccounts();
+    fetchData();
   }, [memberId, navigation]);
+
+  // M-FEAT-018: Blokir penarikan Simpanan Wajib & Pokok (AD-ART Pasal 26)
+  const isProtectedAccount = selectedAccount?.productType === 'wajib' || selectedAccount?.productType === 'pokok';
+  const withdrawalBlocked = type === 'withdrawal' && isProtectedAccount;
+
+  const selectedCashBank = cashBankAccounts.find(a => a.id === selectedCashBankId);
 
   const handleSubmit = () => {
     if (!selectedAccount) return Alert.alert('Error', 'Pilih rekening terlebih dahulu');
+    if (!selectedCashBankId) return Alert.alert('Error', 'Pilih akun Kas/Bank tujuan');
+    if (withdrawalBlocked) return Alert.alert('Ditolak', 'Penarikan Simpanan Wajib/Pokok tidak diperbolehkan (AD-ART Pasal 26)');
     const numAmt = parseInt(amount.replace(/\D/g, ''), 10);
     if (isNaN(numAmt) || numAmt <= 0) return Alert.alert('Error', 'Jumlah harus lebih dari 0');
 
@@ -77,6 +107,7 @@ export default function SavingsTransactionScreen() {
                 amount: numAmt,
                 type,
                 description: notes,
+                cashBankAccountId: selectedCashBankId,
               });
               Alert.alert('Sukses', 'Transaksi berhasil disimpan', [
                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -144,13 +175,25 @@ export default function SavingsTransactionScreen() {
             <Text style={[styles.typeText, type === 'deposit' && { color: '#FFF' }]}>Setoran</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.typeBtn, type === 'withdrawal' && { backgroundColor: C.destructive }]}
-            onPress={() => setType('withdrawal')}
+            style={[styles.typeBtn, type === 'withdrawal' && { backgroundColor: C.destructive }, withdrawalBlocked && { opacity: 0.4 }]}
+            onPress={() => {
+              if (isProtectedAccount) {
+                Alert.alert('Tidak Diizinkan', 'Penarikan Simpanan Wajib/Pokok tidak diperbolehkan sesuai AD-ART Pasal 26.');
+                return;
+              }
+              setType('withdrawal');
+            }}
           >
             <Ionicons name="arrow-up-circle" size={20} color={type === 'withdrawal' ? '#FFF' : C.mutedForeground} />
             <Text style={[styles.typeText, type === 'withdrawal' && { color: '#FFF' }]}>Penarikan</Text>
           </TouchableOpacity>
         </View>
+        {isProtectedAccount && type === 'withdrawal' && (
+          <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="warning" size={18} color={C.destructive} />
+            <Text style={{ color: C.destructive, fontSize: 12, flex: 1 }}>Penarikan Simpanan Wajib/Pokok tidak diperbolehkan (AD-ART Pasal 26)</Text>
+          </View>
+        )}
 
         <Text style={styles.label}>Jumlah (Rp)</Text>
         <TextInput
@@ -164,6 +207,43 @@ export default function SavingsTransactionScreen() {
           }}
         />
 
+        <Text style={styles.label}>Tujuan Kas / Bank *</Text>
+        <TouchableOpacity
+          style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+          onPress={() => setShowCashBankPicker(!showCashBankPicker)}
+        >
+          <Text style={{ color: selectedCashBank ? C.foreground : C.mutedForeground, fontSize: 16 }}>
+            {selectedCashBank ? `${selectedCashBank.type === 'cash' ? '💵' : '🏦'} ${selectedCashBank.name}` : 'Pilih Kas/Bank...'}
+          </Text>
+          <Ionicons name={showCashBankPicker ? 'chevron-up' : 'chevron-down'} size={18} color={C.mutedForeground} />
+        </TouchableOpacity>
+        {showCashBankPicker && (
+          <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+            {cashBankAccounts.map((acc) => (
+              <TouchableOpacity
+                key={acc.id}
+                style={[
+                  { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                  selectedCashBankId === acc.id && { backgroundColor: C.accent + '15' }
+                ]}
+                onPress={() => { setSelectedCashBankId(acc.id); setShowCashBankPicker(false); }}
+              >
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>
+                    {acc.type === 'cash' ? '💵' : '🏦'} {acc.name}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>
+                    Saldo: {formatRp(acc.currentBalance)}
+                  </Text>
+                </View>
+                {selectedCashBankId === acc.id && (
+                  <Ionicons name="checkmark-circle" size={20} color={C.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.label}>Keterangan (Opsional)</Text>
         <TextInput
           style={styles.input}
@@ -173,9 +253,9 @@ export default function SavingsTransactionScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.submitBtn, (!selectedAccount || submitting || !amount) && { opacity: 0.5 }]}
+          style={[styles.submitBtn, (!selectedAccount || submitting || !amount || !selectedCashBankId || withdrawalBlocked) && { opacity: 0.5 }]}
           onPress={handleSubmit}
-          disabled={!selectedAccount || submitting || !amount}
+          disabled={!selectedAccount || submitting || !amount || !selectedCashBankId || withdrawalBlocked}
         >
           {submitting ? (
             <ActivityIndicator color="#FFF" />
