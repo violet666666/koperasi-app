@@ -67,9 +67,20 @@
 - **Web/Backend:** Fitur Pelunasan Dipercepat (Membayar sisa pokok + penalti) sudah diimplementasikan penuh di Web. Operator dapat melunasi total pinjaman anggota sekaligus di halaman bayar angsuran, yang otomatis mencatat mutasi pokok, bunga, dan penalti pelunasan.
 - **Tugas Mobile (M-FEAT-021):** Layar `LoanPaymentScreen.tsx` untuk Operator perlu ditambahkan opsi/toggle "Pelunasan Total Dipercepat". Payload API `POST /api/loans/[id]/payments` harus disesuaikan agar menyertakan parameter `{ isEarlySettlement: true, discountInterest: boolean }`.
 
-### 21. Integrasi Sistem Shift Kasir Unit Toko (M-FEAT-022)
-- **Web/Backend:** Unit Toko sekarang mewajibkan kasir membuka "Shift" (Pagi/Siang/Malam) sebelum bisa melakukan checkout transaksi di POS. Jika shift belum dibuka, halaman POS akan di-lock. Saat shift ditutup, kasir wajib memasukkan uang fisik untuk dihitung selisihnya (cash difference).
-- **Tugas Mobile (M-FEAT-022):** Layar `KasirScreen.tsx` (khusus `unitType="toko"`) harus mengecek status shift via `/api/toko/shifts`. Jika belum ada shift terbuka, blokir UI Kasir dan arahkan ke layar baru `ShiftScreen.tsx` untuk melakukan "Buka Shift" dan "Tutup Shift".
+### 24. [M-FEAT-022] ✅ Integrasi Sistem Shift Kasir Unit Toko — **SELESAI**
+- **Selesai (21 April 2026)**: File baru `ShiftScreen.tsx` dibuat + navigasi diupdate.
+- **File yang diubah:**
+  1. ✅ `mobile/src/screens/kasir/ShiftScreen.tsx` — **[BARU]** Layar manajemen shift
+  2. ✅ `mobile/src/navigation/MainTabs.tsx` — Tab "Kasir" diganti jadi tab "Shift" (gateway)
+  3. ✅ `mobile/App.tsx` — Daftarkan `ShiftKasir` di stack navigator
+- **Flow Kasir Baru:**
+  - Kasir buka app → Tab **"Shift"** (bukan langsung POS)
+  - Jika belum ada shift aktif → Tombol "Buka Shift Baru" (pilih Pagi/Siang/Malam + kas awal)
+  - Jika shift aktif → Tombol "Masuk POS" (navigasi ke KasirScreen) dan "Tutup Shift"
+  - Tutup Shift: Input uang fisik + catatan opsional → sistem hitung selisih otomatis
+  - Riwayat 10 shift terakhir ditampilkan di bawah
+- **Catatan:** POS Kasir (`KasirScreen.tsx`) masih bisa diakses langsung via stack jika dipanggil oleh Operator/Admin dari dashboard.
+
 
 ---
 
@@ -603,7 +614,7 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-FEAT-018~~ | ~~Blokir Penarikan Simpanan Wajib/Pokok (AD-ART)~~ | **✅ DONE** | 🟡 |
 | M-FEAT-019 | Layar Riwayat Transaksi & Request Void untuk Kasir Toko | 2 hari | 🟡 |
 | M-FEAT-021 | Fitur Pelunasan Dipercepat (Early Settlement) di LoanPaymentScreen | 1-2 hari | 🟡 |
-| M-FEAT-022 | Fitur Buka/Tutup Shift Kasir Toko & POS Lock | 2-3 hari | 🔴 |
+| ~~M-FEAT-022~~ | ~~Fitur Buka/Tutup Shift Kasir Toko & POS Lock~~ | **✅ DONE** | 🔴 |
 
 ---
 

@@ -20,6 +20,7 @@ import MemberListScreen from '../screens/operator/MemberListScreen';
 // Screens — Kasir
 import KasirScreen from '../screens/kasir/KasirScreen';
 import StokScreen from '../screens/kasir/StokScreen';
+import ShiftScreen from '../screens/kasir/ShiftScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -63,6 +64,7 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
             Approval: focused ? 'checkmark-circle' : 'checkmark-circle-outline',
             Anggota: focused ? 'people' : 'people-outline',
             Kasir: focused ? 'cart' : 'cart-outline',
+            Shift: focused ? 'time' : 'time-outline',
             Stok: focused ? 'cube' : 'cube-outline',
             Profil: focused ? 'person' : 'person-outline',
           };
@@ -78,7 +80,7 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
       {/* Tabs 2-3: Role-specific */}
       {isKasir ? (
         <>
-          <Tab.Screen name="Kasir" component={KasirScreen} />
+          <Tab.Screen name="Shift" component={ShiftScreen} />
           <Tab.Screen name="Stok" component={StokScreen} />
         </>
       ) : isOperator ? (

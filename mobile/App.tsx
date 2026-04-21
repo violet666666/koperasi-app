@@ -36,6 +36,7 @@ import ApprovalScreen from "./src/screens/operator/ApprovalScreen";
 import MemberListScreen from "./src/screens/operator/MemberListScreen";
 import KasirScreen from "./src/screens/kasir/KasirScreen";
 import StokScreen from "./src/screens/kasir/StokScreen";
+import ShiftScreen from "./src/screens/kasir/ShiftScreen";
 
 // New operator screens
 import DaftarPinjamanScreen from "./src/screens/operator/DaftarPinjamanScreen";
@@ -258,6 +259,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="PengeluaranOperasional" component={PengeluaranOperasionalScreen} />
             <Stack.Screen name="DirectDisburse" component={DirectDisburseScreen} />
             <Stack.Screen name="KwitansiViewer" component={KwitansiViewerScreen} />
+            <Stack.Screen name="ShiftKasir" component={ShiftScreen} />
           </>
         )}
       </Stack.Navigator>
