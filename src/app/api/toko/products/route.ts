@@ -34,7 +34,7 @@ export async function GET(request: Request) {
                 discountType: p.discountType,
                 discountValue: Number(p.discountValue),
                 costPrice: Number(p.costPrice),
-                stock: p.stock,
+                stock: p.stockGdg + p.stockToko, // Selalu hitung total dari Gdg + Toko
                 stockGdg: p.stockGdg,
                 stockToko: p.stockToko,
                 minStock: p.minStock,

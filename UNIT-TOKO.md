@@ -115,3 +115,29 @@ Menu "Shift Kasir" ditambahkan di:
 
 ---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
+
+---
+
+## 5. Panduan Fitur Manajemen Produk & Stok (Admin/Operator)
+
+### Fitur "Nol-kan Produk" (Bulk Action)
+Fitur ini digunakan saat proses opname atau revisi stok besar-besaran untuk mereset stok ke 0 sebelum menginput data yang benar.
+
+**Flow Penggunaan:**
+1. Di halaman **Daftar Produk** (`/toko/produk`), klik **Checkbox** di sebelah kiri (bisa per produk atau "Select All" di header tabel).
+2. Setelah ada produk yang dipilih, **Toolbar Aksi Massal** akan muncul di bagian atas tabel.
+3. Klik tombol merah **"Nol-kan Stok"** (atau "Nol-kan Semua" jika ingin mereset harga juga).
+4. Konfirmasi dialog (Perhatian: Aksi ini tidak dapat dibatalkan).
+5. Sistem akan memproses dan menyetel `stockToko` dan `stockGdg` menjadi 0.
+
+### Fitur "Inline Edit" (Update Stok Satuan)
+Digunakan untuk menginput jumlah stok terbaru per produk secara cepat tanpa harus masuk ke halaman Edit penuh.
+
+**Flow Penggunaan:**
+1. Di halaman **Daftar Produk** (`/toko/produk`), klik ikon **Pensil (Edit)** di kolom paling kanan pada baris produk yang ingin diubah.
+2. Kolom input akan terbuka untuk: Stok Gudang, Stok Toko, Harga Pokok (HPP), dan Harga Jual.
+3. **Auto-Calculate:** Jika Anda mengubah Harga Pokok (HPP), Harga Jual akan dihitung otomatis dengan rumus: `(HPP + 2% markup + 11% PPN) dibulatkan ke 100 terdekat keatas`.
+4. Klik ikon **Centang Hijau** untuk menyimpan perubahan.
+5. Stok total akan otomatis diperbarui berdasarkan penjumlahan Stok Gudang + Stok Toko.
+
+*Catatan: Fitur Bulk Action dan Inline Edit ini hanya tersedia untuk Role Admin Toko dan Operator. Role Kasir Toko hanya bisa melihat (View Only).*

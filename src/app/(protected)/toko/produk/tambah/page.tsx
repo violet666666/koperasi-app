@@ -66,7 +66,7 @@ export default function TambahProdukPage() {
                     sellPrice: parseFloat(form.sellPrice),
                     discountType: form.discountType !== "none" ? form.discountType : null,
                     discountValue: parseFloat(form.discountValue) || 0,
-                    stock: parseInt(form.stock) || ((parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0)),
+                    stock: (parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0), // Selalu hitung dari Gdg + Toko
                     stockGdg: parseInt(form.stockGdg) || 0,
                     stockToko: parseInt(form.stockToko) || 0,
                     minStock: parseInt(form.minStock) || 5,

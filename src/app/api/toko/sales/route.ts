@@ -276,18 +276,29 @@ export async function POST(request: Request) {
             const prod = await prisma.storeProduct.findUnique({ where: { id: vi.productId } });
             if (prod && !prod.isService) {
                 // Kurangi stockToko terlebih dahulu (stok di toko fisik).
-                // Jika stockToko > 0, kurangi stockToko; jika stockToko 0, fallback ke stock gudang.
-                if (prod.stockToko > 0) {
-                    await prisma.storeProduct.update({
-                        where: { id: vi.productId },
-                        data: { stockToko: { decrement: vi.quantity } },
-                    });
+                // Jika stockToko > 0, kurangi stockToko; jika stockToko 0, fallback ke stockGdg.
+                // SELALU sinkronkan field `stock` (total) = stockGdg + stockToko.
+                let newStockToko = prod.stockToko;
+                let newStockGdg = prod.stockGdg;
+
+                if (prod.stockToko >= vi.quantity) {
+                    newStockToko = prod.stockToko - vi.quantity;
                 } else {
-                    await prisma.storeProduct.update({
-                        where: { id: vi.productId },
-                        data: { stock: { decrement: vi.quantity } },
-                    });
+                    // Ambil sisa dari gudang
+                    const sisaFromToko = prod.stockToko;
+                    const kurangDariGdg = vi.quantity - sisaFromToko;
+                    newStockToko = 0;
+                    newStockGdg = Math.max(0, prod.stockGdg - kurangDariGdg);
                 }
+
+                await prisma.storeProduct.update({
+                    where: { id: vi.productId },
+                    data: {
+                        stockToko: newStockToko,
+                        stockGdg: newStockGdg,
+                        stock: newStockToko + newStockGdg, // SELALU SINKRON
+                    },
+                });
 
                 // Insert log mutasi untuk inventori
                 await prisma.storeStockMovement.create({

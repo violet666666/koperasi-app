@@ -92,7 +92,9 @@ export async function POST(request: Request) {
             const category = rakIdx !== -1 && row[rakIdx] ? String(row[rakIdx]).trim() : '';
             const stockGdg = stockGdgIdx !== -1 ? cleanNumber(row[stockGdgIdx]) : 0;
             const stockToko = stockTokoIdx !== -1 ? cleanNumber(row[stockTokoIdx]) : 0;
-            const stock = totalStockIdx !== -1 ? cleanNumber(row[totalStockIdx]) : (stockGdg + stockToko);
+            // SELALU hitung stock total dari penjumlahan Gdg + Toko — jangan percaya kolom "Total" Excel
+            // karena sering tidak sinkron (misal: Gdg=0, Toko=0, Total=2)
+            const stock = stockGdg + stockToko;
             const unit = satuanIdx !== -1 && row[satuanIdx] ? String(row[satuanIdx]).trim() || 'pcs' : 'pcs';
             
             // For prices, default to 0
