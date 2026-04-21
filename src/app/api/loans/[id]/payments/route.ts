@@ -139,11 +139,10 @@ export async function POST(request: Request, { params }: Params) {
             const interestDue = Number(schedule.interestAmount) - Number(schedule.interestPaid);
             const lateFeeDue = Number(schedule.lateFee) - Number(schedule.lateFeePaid);
 
-            // For early settlement with discount: only count interest for due/overdue schedules
-            // "discountInterest" means skip interest on future (pending) schedules
+            // For early settlement: skip ALL interest (kebijakan: hanya pokok + penalti)
             let effectiveInterestDue = interestDue;
-            if (isEarlySettlement && data.discountInterest && schedule.status === "pending") {
-                // Skip interest for non-overdue pending schedules (future installments)
+            if (isEarlySettlement) {
+                // Pelunasan dipercepat: tidak dikenakan bunga/jasa
                 effectiveInterestDue = 0;
             }
 
@@ -263,14 +262,11 @@ export async function POST(request: Request, { params }: Params) {
             };
 
             // For early settlement: force loan to paid_off status
+            // Kebijakan: pelunasan dipercepat tanpa bunga/jasa
             if (isEarlySettlement) {
-                // Calculate remaining outstanding after this payment
-                const newPrincipalOutstanding = Number(loan.principalOutstanding) - totalPrincipal;
-                const newInterestOutstanding = Number(loan.interestOutstanding) - totalInterest;
-
                 // Set outstanding to 0 and status to paid_off
-                updateData.principalOutstanding = Math.max(0, newPrincipalOutstanding);
-                updateData.interestOutstanding = Math.max(0, newInterestOutstanding);
+                updateData.principalOutstanding = 0;
+                updateData.interestOutstanding = 0;  // Bunga dibebaskan saat pelunasan dipercepat
                 updateData.principalPaid = Number(loan.principalPaid) + totalPrincipal;
                 updateData.interestPaid = Number(loan.interestPaid) + totalInterest;
                 updateData.lateFeePaid = Number(loan.lateFeePaid) + totalLateFee;

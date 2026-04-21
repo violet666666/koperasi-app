@@ -168,6 +168,7 @@ export default function BayarAngsuranPage() {
     const selectedSchedules = isSettlementMode ? pendingSchedules : pendingSchedules.slice(0, payCount);
 
     // ═══ Early Settlement Calculations ═══
+    // Kebijakan: Pelunasan Dipercepat = Sisa Pokok + Penalti SAJA (tanpa bunga/jasa)
     const earlySettlement = React.useMemo(() => {
         if (!loan || !isSettlementMode) return null;
         const principalAmount = Number(loan.principalAmount);
@@ -177,32 +178,22 @@ export default function BayarAngsuranPage() {
         const penaltyFee = monthlyInterest * penaltyMultiplier;
 
         const remainingPrincipal = Number(loan.principalOutstanding);
-        const remainingInterestFull = Number(loan.interestOutstanding);
-
-        // Overdue/partial schedules = must pay interest
-        const overdueInterest = pendingSchedules
-            .filter((s) => s.status === "overdue" || s.status === "partial")
-            .reduce((sum, s) => sum + s.interestDue, 0);
-
-        const remainingInterest = discountInterest ? overdueInterest : remainingInterestFull;
 
         return {
             remainingPrincipal,
-            remainingInterestFull,
-            remainingInterest,
             penaltyFee,
             penaltyMultiplier,
             monthlyInterest,
-            total: remainingPrincipal + remainingInterest + penaltyFee,
+            total: remainingPrincipal + penaltyFee,
         };
-    }, [loan, isSettlementMode, discountInterest, pendingSchedules]);
+    }, [loan, isSettlementMode]);
 
     // Totals — different for settlement vs installment
     const totalPrincipal = isSettlementMode
         ? (earlySettlement?.remainingPrincipal || 0)
         : selectedSchedules.reduce((s, x) => s + x.principalDue, 0);
     const totalInterest = isSettlementMode
-        ? (earlySettlement?.remainingInterest || 0)
+        ? 0  // Pelunasan dipercepat: TANPA bunga/jasa
         : selectedSchedules.reduce((s, x) => s + x.interestDue, 0);
     const earlySettlementFee = earlySettlement?.penaltyFee || 0;
     const grandTotal = isSettlementMode
@@ -682,18 +673,10 @@ export default function BayarAngsuranPage() {
                                     <span className="text-muted-foreground">Sisa Pokok</span>
                                     <span className="font-semibold tabular-nums">{formatCurrency(earlySettlement.remainingPrincipal)}</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                        {discountInterest ? "Sisa Bunga (jatuh tempo saja)" : "Sisa Bunga (penuh)"}
-                                    </span>
-                                    <span className="font-semibold tabular-nums">{formatCurrency(earlySettlement.remainingInterest)}</span>
+                                <div className="flex justify-between text-xs text-emerald-600">
+                                    <span>Bunga / Jasa</span>
+                                    <span className="tabular-nums">Rp 0 (tidak dikenakan)</span>
                                 </div>
-                                {discountInterest && earlySettlement.remainingInterestFull > earlySettlement.remainingInterest && (
-                                    <div className="flex justify-between text-xs text-emerald-600">
-                                        <span>Diskon bunga belum jatuh tempo</span>
-                                        <span className="tabular-nums">-{formatCurrency(earlySettlement.remainingInterestFull - earlySettlement.remainingInterest)}</span>
-                                    </div>
-                                )}
                                 <div className="flex justify-between text-sm">
                                     <span className="text-amber-700 dark:text-amber-400 font-medium">
                                         Biaya Penalti ({earlySettlement.penaltyMultiplier}× bunga)
@@ -707,23 +690,6 @@ export default function BayarAngsuranPage() {
                                     <span className="text-primary">TOTAL PELUNASAN</span>
                                     <span className="tabular-nums text-primary">{formatCurrency(earlySettlement.total)}</span>
                                 </div>
-                            </div>
-
-                            {/* Discount toggle */}
-                            <div className="flex items-center justify-between rounded-md border p-3 bg-background">
-                                <div className="space-y-0.5">
-                                    <Label htmlFor="discount-interest" className="text-sm font-medium cursor-pointer">
-                                        Diskon sisa bunga
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Hanya bayar bunga yang sudah jatuh tempo (tidak bayar bunga masa depan)
-                                    </p>
-                                </div>
-                                <Switch
-                                    id="discount-interest"
-                                    checked={discountInterest}
-                                    onCheckedChange={setDiscountInterest}
-                                />
                             </div>
                         </div>
                     )}
