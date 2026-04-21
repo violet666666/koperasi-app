@@ -111,6 +111,7 @@ export default function PersediaanPage() {
     const [voidDialogOpen, setVoidDialogOpen] = React.useState(false);
     const [voidTargetId, setVoidTargetId] = React.useState<number | null>(null);
     const [isVoiding, setIsVoiding] = React.useState(false);
+    const [voidReason, setVoidReason] = React.useState("");
 
     // Role check — kasir tidak bisa void
     const roleName = typeof session?.user?.role === "string" 
@@ -172,7 +173,11 @@ export default function PersediaanPage() {
         if (!voidTargetId) return;
         setIsVoiding(true);
         try {
-            const res = await fetch(`/api/toko/movements/${voidTargetId}/void`, { method: "POST" });
+            const res = await fetch(`/api/toko/movements/${voidTargetId}/void`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reason: voidReason.trim() }),
+            });
             const json = await res.json();
             if (!res.ok) {
                 toast.error(json.message || "Gagal membatalkan");
@@ -192,6 +197,7 @@ export default function PersediaanPage() {
             setIsVoiding(false);
             setVoidDialogOpen(false);
             setVoidTargetId(null);
+            setVoidReason("");
         }
     };
 
@@ -392,6 +398,17 @@ export default function PersediaanPage() {
                             })()}
                         </DialogDescription>
                     </DialogHeader>
+                    <div className="py-2">
+                        <Label htmlFor="void-reason" className="text-sm text-muted-foreground mb-2 block">Alasan Pembatalan (Opsional)</Label>
+                        <textarea
+                            id="void-reason"
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                            rows={2}
+                            placeholder="Contoh: Salah input jumlah, produk berbeda, dll..."
+                            value={voidReason}
+                            onChange={(e) => setVoidReason(e.target.value)}
+                        />
+                    </div>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setVoidDialogOpen(false)} disabled={isVoiding}>
                             Tidak, Kembali

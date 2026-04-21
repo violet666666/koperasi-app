@@ -58,6 +58,15 @@ export async function POST(
 
         const userId = Number(session.user.id);
 
+        // Parse optional reason
+        let reason = "";
+        try {
+            const body = await request.json();
+            reason = body.reason || "";
+        } catch {
+            // Body kosong = tanpa alasan (opsional)
+        }
+
         // Reverse stok
         let newStockGdg = movement.product.stockGdg;
         let newStockToko = movement.product.stockToko;
@@ -80,7 +89,7 @@ export async function POST(
                     status: "voided",
                     voidedAt: new Date(),
                     voidedById: userId,
-                    notes: (movement.notes || "") + ` [DIBATALKAN oleh ${session.user.name || "user"} pada ${new Date().toLocaleString("id-ID")}]`,
+                    notes: (movement.notes || "") + ` [DIBATALKAN oleh ${session.user.name || "user"} pada ${new Date().toLocaleString("id-ID")}${reason ? ` — Alasan: ${reason}` : ""}]`,
                 },
             }),
             prisma.storeProduct.update({
