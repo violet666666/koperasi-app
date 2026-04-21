@@ -85,10 +85,10 @@ export default function TokoProdukPage() {
     // Stats
     const stats = React.useMemo(() => {
         const total = products.length;
-        const lowStock = products.filter(p => getStatus(p) === "low_stock").length;
+        const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
         const outOfStock = products.filter(p => getStatus(p) === "out_of_stock").length;
         const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
-        return { total, lowStock, outOfStock, totalValue };
+        return { total, totalStock, outOfStock, totalValue };
     }, [products]);
 
     // Fetch
@@ -380,8 +380,8 @@ export default function TokoProdukPage() {
                     <div><p className="text-sm text-muted-foreground">Total Produk</p><p className="text-2xl font-bold">{stats.total}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4">
-                    <div className="rounded-lg bg-amber-100 p-3 dark:bg-amber-900/30"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
-                    <div><p className="text-sm text-muted-foreground">Stok Menipis</p><p className="text-2xl font-bold text-amber-600">{stats.lowStock}</p></div>
+                    <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30"><Package className="h-5 w-5 text-blue-600" /></div>
+                    <div><p className="text-sm text-muted-foreground">Total Stok</p><p className="text-2xl font-bold text-blue-600">{stats.totalStock.toLocaleString('id-ID')}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30"><Package className="h-5 w-5 text-red-600" /></div>
