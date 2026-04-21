@@ -446,70 +446,37 @@ export default function PengajuanPinjamanPage() {
                             />
                         </div>
 
-                        {/* Deduction Source Selector */}
+                        {/* Sumber Pemotongan — Anggota hanya bisa Pot Gaji */}
                         <div className="space-y-3">
-                            <Label>Sumber Pemotongan Angsuran *</Label>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div
-                                    className={`relative flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                                        deductionSource === "gaji"
-                                            ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                                            : "hover:bg-muted/50"
-                                    }`}
-                                    onClick={() => setDeductionSource("gaji")}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="deductionSource"
-                                        value="gaji"
-                                        checked={deductionSource === "gaji"}
-                                        onChange={() => setDeductionSource("gaji")}
-                                        className="mt-1"
-                                    />
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <DollarSign className="h-4 w-4 text-emerald-600" />
-                                            <span className="text-sm font-semibold">Gaji</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Angsuran dipotong dari gaji bersih bulanan
-                                            {salary > 0 && (
-                                                <span className="font-medium"> ({formatCurrency(salary)})</span>
-                                            )}
-                                        </p>
+                            <Label>Sumber Pemotongan Angsuran</Label>
+                            <div
+                                className="relative flex items-start gap-3 rounded-lg border p-4 border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                            >
+                                <input
+                                    type="radio"
+                                    name="deductionSource"
+                                    value="gaji"
+                                    checked={true}
+                                    readOnly
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <DollarSign className="h-4 w-4 text-emerald-600" />
+                                        <span className="text-sm font-semibold">Potongan Gaji</span>
+                                        <Badge className="text-[10px] bg-emerald-600">Default</Badge>
                                     </div>
-                                </div>
-                                <div
-                                    className={`relative flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                                        deductionSource === "tunkin"
-                                            ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200"
-                                            : tunkin > 0 ? "hover:bg-muted/50" : "opacity-50 cursor-not-allowed"
-                                    }`}
-                                    onClick={() => tunkin > 0 && setDeductionSource("tunkin")}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="deductionSource"
-                                        value="tunkin"
-                                        checked={deductionSource === "tunkin"}
-                                        onChange={() => setDeductionSource("tunkin")}
-                                        disabled={tunkin <= 0}
-                                        className="mt-1"
-                                    />
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <Award className="h-4 w-4 text-violet-600" />
-                                            <span className="text-sm font-semibold">Tunjangan Kinerja</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {tunkin > 0
-                                                ? <>Angsuran dipotong dari tunkin<span className="font-medium"> ({formatCurrency(tunkin)})</span></>
-                                                : "Data tunkin belum tersedia"
-                                            }
-                                        </p>
-                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Angsuran dipotong langsung dari gaji bersih bulanan Anda
+                                        {salary > 0 && (
+                                            <span className="font-medium"> ({formatCurrency(salary)})</span>
+                                        )}
+                                    </p>
                                 </div>
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                Metode pembayaran lainnya (Pot Tunkin / Bayar Sendiri) hanya tersedia melalui operator koperasi.
+                            </p>
                         </div>
 
                         {/* Estimated Monthly Installment */}
@@ -549,7 +516,7 @@ export default function PengajuanPinjamanPage() {
                                 </div>
                                 <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
                                     <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                                    <p>Sistem ini menggunakan metode <strong>kredit otomatis</strong>. Total angsuran per bulan di atas akan langsung <strong>memotong {deductionSource === "tunkin" ? "Tunjangan Kinerja" : "Gaji Netto"} Anda</strong> setiap bulannya.</p>
+                                    <p>Sistem ini menggunakan metode <strong>kredit otomatis</strong>. Total angsuran per bulan di atas akan langsung <strong>memotong Gaji Netto Anda</strong> setiap bulannya.</p>
                                 </div>
                             </div>
                         )}

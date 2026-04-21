@@ -405,7 +405,7 @@ model LoanApplication {
   collateralDescription String?   @map("collateral_description")
   notes                 String?
   status                String    @default("draft") // draft, submitted, approved, rejected, disbursed, cancelled
-  deductionSource       String    @default("gaji") @map("deduction_source") // gaji, tunkin
+  deductionSource       String    @default("gaji") @map("deduction_source") // gaji, tunkin, bs(bayar sendiri)
   submittedAt           DateTime? @map("submitted_at")
   approvedAt            DateTime? @map("approved_at")
   approvedById          Int?      @map("approved_by_id")

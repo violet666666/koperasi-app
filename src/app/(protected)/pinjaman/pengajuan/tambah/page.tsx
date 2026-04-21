@@ -545,18 +545,33 @@ function TambahPengajuanContent() {
 
                                 <div>
                                     <Label htmlFor="deductionSource">Sumber Pemotongan Angsuran *</Label>
-                                    <Select
-                                        value={formData.deductionSource}
-                                        onValueChange={(value) => handleSelectChange("deductionSource", value)}
-                                    >
-                                        <SelectTrigger className="mt-1.5">
-                                            <SelectValue placeholder="Pilih sumber potongan" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="gaji">Potongan Gaji</SelectItem>
-                                            <SelectItem value="tunkin">Potongan Tunjangan Kinerja (Tunkin)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    {isOperator ? (
+                                        <Select
+                                            value={formData.deductionSource}
+                                            onValueChange={(value) => handleSelectChange("deductionSource", value)}
+                                        >
+                                            <SelectTrigger className="mt-1.5">
+                                                <SelectValue placeholder="Pilih sumber potongan" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="gaji">Potongan Gaji</SelectItem>
+                                                <SelectItem value="tunkin">Potongan Tunjangan Kinerja (Tunkin)</SelectItem>
+                                                <SelectItem value="bs">BS (Bayar Sendiri)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <div className="mt-1.5 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2.5 text-sm">
+                                            <Banknote className="h-4 w-4 text-emerald-600" />
+                                            <span className="font-medium">Potongan Gaji</span>
+                                            <Badge variant="secondary" className="ml-auto text-[10px]">Default</Badge>
+                                        </div>
+                                    )}
+                                    {formData.deductionSource === "bs" && (
+                                        <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                                            <AlertCircle className="h-3 w-3" />
+                                            Anggota membayar angsuran sendiri (tidak dipotong dari gaji/tunkin). Validasi pendapatan tidak berlaku.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {isOperator && (

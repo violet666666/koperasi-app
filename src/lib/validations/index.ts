@@ -142,7 +142,7 @@ export const createLoanApplicationSchema = z.object({
     purpose: z.string().optional(),
     collateralDescription: z.string().optional(),
     notes: z.string().optional(),
-    deductionSource: z.enum(["gaji", "tunkin"]).default("gaji"),
+    deductionSource: z.enum(["gaji", "tunkin", "bs"]).default("gaji"),
     backdatedDate: z.string().optional(), // For Operators inputting historical loans
 });
 

@@ -151,40 +151,43 @@ export async function POST(request: Request) {
         });
 
         if (memberFull) {
-            // Determine which income source to check based on deductionSource
-            const incomeSource = data.deductionSource === "tunkin" ? Number(memberFull.tunlesKinerja || 0) : Number(memberFull.salary || 0);
-            const sourceLabel = data.deductionSource === "tunkin" ? "Tunjangan Kinerja" : "Gaji";
+            // BS (Bayar Sendiri): skip income validation — anggota bayar langsung
+            if (data.deductionSource !== "bs") {
+                // Determine which income source to check based on deductionSource
+                const incomeSource = data.deductionSource === "tunkin" ? Number(memberFull.tunlesKinerja || 0) : Number(memberFull.salary || 0);
+                const sourceLabel = data.deductionSource === "tunkin" ? "Tunjangan Kinerja" : "Gaji";
 
-            if (incomeSource > 0) {
-                const existingInstallments = memberFull.loans.reduce(
-                    (sum, loan) => sum + Number(loan.monthlyInstallment),
-                    0
-                );
-
-                // Calculate new loan monthly installment based on product rate (Flat)
-                const ratePerMonth = Number(product.interestRate) / 100; // e.g. 1% → 0.01
-                const interestPerMonth = data.amount * ratePerMonth;
-                const totalInterest = interestPerMonth * data.tenorMonths;
-                const totalLoan = data.amount + totalInterest;
-                const newInstallment = totalLoan / data.tenorMonths;
-
-                const incomeRemainder = incomeSource - existingInstallments - newInstallment;
-                const MIN_INCOME_REMAINDER = 2000000; // Rp 2.000.000
-
-                if (incomeRemainder < MIN_INCOME_REMAINDER) {
-                    return NextResponse.json(
-                        {
-                            message: `Sesuai AD-ART Pasal 26, sisa ${sourceLabel} setelah pemotongan angsuran minimal Rp 2.000.000. Sisa ${sourceLabel} Anda: Rp ${Math.round(incomeRemainder).toLocaleString("id-ID")}`,
-                            details: {
-                                incomeSource,
-                                existingInstallments: Math.round(existingInstallments),
-                                newInstallment: Math.round(newInstallment),
-                                incomeRemainder: Math.round(incomeRemainder),
-                                minimumRequired: MIN_INCOME_REMAINDER,
-                            },
-                        },
-                        { status: 400 }
+                if (incomeSource > 0) {
+                    const existingInstallments = memberFull.loans.reduce(
+                        (sum, loan) => sum + Number(loan.monthlyInstallment),
+                        0
                     );
+
+                    // Calculate new loan monthly installment based on product rate (Flat)
+                    const ratePerMonth = Number(product.interestRate) / 100; // e.g. 1% → 0.01
+                    const interestPerMonth = data.amount * ratePerMonth;
+                    const totalInterest = interestPerMonth * data.tenorMonths;
+                    const totalLoan = data.amount + totalInterest;
+                    const newInstallment = totalLoan / data.tenorMonths;
+
+                    const incomeRemainder = incomeSource - existingInstallments - newInstallment;
+                    const MIN_INCOME_REMAINDER = 2000000; // Rp 2.000.000
+
+                    if (incomeRemainder < MIN_INCOME_REMAINDER) {
+                        return NextResponse.json(
+                            {
+                                message: `Sesuai AD-ART Pasal 26, sisa ${sourceLabel} setelah pemotongan angsuran minimal Rp 2.000.000. Sisa ${sourceLabel} Anda: Rp ${Math.round(incomeRemainder).toLocaleString("id-ID")}`,
+                                details: {
+                                    incomeSource,
+                                    existingInstallments: Math.round(existingInstallments),
+                                    newInstallment: Math.round(newInstallment),
+                                    incomeRemainder: Math.round(incomeRemainder),
+                                    minimumRequired: MIN_INCOME_REMAINDER,
+                                },
+                            },
+                            { status: 400 }
+                        );
+                    }
                 }
             }
         }

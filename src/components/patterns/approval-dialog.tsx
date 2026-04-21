@@ -307,7 +307,11 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                                         Sumber Potongan
                                     </span>
                                     <Badge variant="outline" className="capitalize text-right">
-                                        {approval.metadata.deductionSource}
+                                        {approval.metadata.deductionSource === "bs"
+                                            ? "Bayar Sendiri (BS)"
+                                            : approval.metadata.deductionSource === "tunkin"
+                                                ? "Pot Tunkin"
+                                                : "Pot Gaji"}
                                     </Badge>
                                 </div>
                             )}
