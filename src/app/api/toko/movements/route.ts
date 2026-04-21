@@ -38,6 +38,8 @@ export async function GET(request: Request) {
                 quantity: m.quantity,
                 notes: (m.reference ? m.reference + (m.notes ? " - " + m.notes : "") : m.notes) || "-",
                 operator: m.operator?.name || "System",
+                status: m.status || "active",
+                reference: m.reference || null,
             }));
         } catch (tableErr) {
             // Tabel belum ada di database (belum migrasi) — lanjut fallback

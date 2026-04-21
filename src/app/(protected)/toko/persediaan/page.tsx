@@ -20,8 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
     Warehouse, Plus, Minus, ArrowDownCircle, ArrowUpCircle, Loader2,
-    Check, ChevronsUpDown
+    Check, ChevronsUpDown, Ban, RotateCcw
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 interface StockMovement {
     id: number;
@@ -32,37 +33,73 @@ interface StockMovement {
     quantity: number;
     notes: string;
     operator: string;
+    status: string;
+    reference: string | null;
 }
 
-const columns: ColumnDef<StockMovement>[] = [
+function StockColumns({ onVoid, canVoid }: { onVoid: (id: number) => void; canVoid: boolean }): ColumnDef<StockMovement>[] {
+    return [
     {
         accessorKey: "date", header: "Tanggal",
         cell: ({ row }) => new Date(row.getValue("date")).toLocaleDateString("id-ID"),
     },
     {
         accessorKey: "productSku", header: "SKU",
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue("productSku")}</span>,
+        cell: ({ row }) => {
+            const isVoided = row.original.status === "voided";
+            return <span className={`font-mono text-sm ${isVoided ? "line-through text-muted-foreground" : ""}`}>{row.getValue("productSku")}</span>;
+        },
     },
-    { accessorKey: "productName", header: "Produk" },
+    { 
+        accessorKey: "productName", header: "Produk",
+        cell: ({ row }) => {
+            const isVoided = row.original.status === "voided";
+            return <span className={isVoided ? "line-through text-muted-foreground" : ""}>{row.getValue("productName")}</span>;
+        },
+    },
     {
         accessorKey: "type", header: "Jenis",
-        cell: ({ row }) => row.getValue("type") === "in"
-            ? <Badge className="bg-emerald-100 text-emerald-700"><ArrowDownCircle className="mr-1 h-3 w-3" />Masuk</Badge>
-            : <Badge variant="destructive"><ArrowUpCircle className="mr-1 h-3 w-3" />Keluar</Badge>,
+        cell: ({ row }) => {
+            const isVoided = row.original.status === "voided";
+            if (isVoided) return <Badge variant="outline" className="text-muted-foreground"><Ban className="mr-1 h-3 w-3" />Dibatalkan</Badge>;
+            return row.getValue("type") === "in"
+                ? <Badge className="bg-emerald-100 text-emerald-700"><ArrowDownCircle className="mr-1 h-3 w-3" />Masuk</Badge>
+                : <Badge variant="destructive"><ArrowUpCircle className="mr-1 h-3 w-3" />Keluar</Badge>;
+        },
     },
     {
         accessorKey: "quantity", header: "Jumlah",
         cell: ({ row }) => {
             const type = row.original.type;
             const qty = row.getValue("quantity") as number;
-            return <span className={`font-bold ${type === "in" ? "text-emerald-600" : "text-red-600"}`}>{type === "in" ? "+" : "-"}{qty}</span>;
+            const isVoided = row.original.status === "voided";
+            return <span className={`font-bold ${isVoided ? "line-through text-muted-foreground" : type === "in" ? "text-emerald-600" : "text-red-600"}`}>{type === "in" ? "+" : "-"}{qty}</span>;
         },
     },
     { accessorKey: "notes", header: "Keterangan" },
     { accessorKey: "operator", header: "Operator" },
+    {
+        id: "actions", header: "",
+        cell: ({ row }) => {
+            const m = row.original;
+            const isVoided = m.status === "voided";
+            const isFromSale = m.reference && m.reference.startsWith("Penjualan ");
+            if (isVoided) return <Badge variant="outline" className="bg-red-50 text-red-500 border-red-200 text-xs">VOID</Badge>;
+            if (isFromSale || !canVoid) return null;
+            return (
+                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                    onClick={() => onVoid(m.id)}
+                >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />Batalkan
+                </Button>
+            );
+        },
+    },
 ];
+}
 
 export default function PersediaanPage() {
+    const { data: session } = useSession();
     const [movements, setMovements] = React.useState<StockMovement[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [products, setProducts] = React.useState<any[]>([]);
@@ -71,13 +108,24 @@ export default function PersediaanPage() {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [openProductSelect, setOpenProductSelect] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
+    const [voidDialogOpen, setVoidDialogOpen] = React.useState(false);
+    const [voidTargetId, setVoidTargetId] = React.useState<number | null>(null);
+    const [isVoiding, setIsVoiding] = React.useState(false);
+
+    // Role check — kasir tidak bisa void
+    const roleName = typeof session?.user?.role === "string" 
+         ? session.user.role 
+         : (session?.user?.role as any)?.name ?? "";
+    const canVoid = roleName === "operator" || roleName === "admin";
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
-        const todayMovements = movements.filter(m => new Date(m.date).toDateString() === today);
+        const activeMovements = movements.filter(m => m.status !== "voided");
+        const todayMovements = activeMovements.filter(m => new Date(m.date).toDateString() === today);
         const todayIn = todayMovements.filter(m => m.type === "in").reduce((sum, m) => sum + m.quantity, 0);
         const todayOut = todayMovements.filter(m => m.type === "out").reduce((sum, m) => sum + m.quantity, 0);
-        return { todayIn, todayOut, totalMovements: movements.length };
+        const voidedCount = movements.filter(m => m.status === "voided").length;
+        return { todayIn, todayOut, totalMovements: activeMovements.length, voidedCount };
     }, [movements]);
 
     React.useEffect(() => {
@@ -113,6 +161,41 @@ export default function PersediaanPage() {
     const filteredMovements = React.useMemo(() => {
         return movements.filter(m => filterType === "all" || m.type === filterType);
     }, [movements, filterType]);
+
+    // Void handler
+    const handleVoidClick = (id: number) => {
+        setVoidTargetId(id);
+        setVoidDialogOpen(true);
+    };
+
+    const handleVoidConfirm = async () => {
+        if (!voidTargetId) return;
+        setIsVoiding(true);
+        try {
+            const res = await fetch(`/api/toko/movements/${voidTargetId}/void`, { method: "POST" });
+            const json = await res.json();
+            if (!res.ok) {
+                toast.error(json.message || "Gagal membatalkan");
+                return;
+            }
+            toast.success(json.message || "Mutasi berhasil dibatalkan");
+            // Refresh data
+            const [movementsRes, productsRes] = await Promise.all([
+                fetch("/api/toko/movements"),
+                fetch("/api/toko/products"),
+            ]);
+            if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+            if (productsRes.ok) setProducts((await productsRes.json()).data || []);
+        } catch {
+            toast.error("Gagal membatalkan mutasi");
+        } finally {
+            setIsVoiding(false);
+            setVoidDialogOpen(false);
+            setVoidTargetId(null);
+        }
+    };
+
+    const columns = React.useMemo(() => StockColumns({ onVoid: handleVoidClick, canVoid }), [canVoid]);
 
     const handleSubmit = async () => {
         if (!formData.productId || !formData.quantity) {
@@ -167,6 +250,7 @@ export default function PersediaanPage() {
     };
 
     return (
+        <>
         <div className="space-y-6">
             <PageHeader title="Manajemen Persediaan" description="Kelola stok masuk dan keluar"
                 actions={
@@ -286,5 +370,38 @@ export default function PersediaanPage() {
                 </>
             )}
         </div>
+
+            {/* Void Confirmation Dialog */}
+            <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Batalkan Mutasi Stok?</DialogTitle>
+                        <DialogDescription>
+                            {(() => {
+                                const target = movements.find(m => m.id === voidTargetId);
+                                if (!target) return "Mutasi tidak ditemukan.";
+                                return (
+                                    <span>
+                                        Anda akan membatalkan entry berikut:<br /><br />
+                                        <strong>Produk:</strong> {target.productName}<br />
+                                        <strong>Jenis:</strong> {target.type === "in" ? "Stok Masuk" : "Stok Keluar"}<br />
+                                        <strong>Jumlah:</strong> {target.quantity}<br /><br />
+                                        Stok produk akan otomatis dikembalikan ke nilai sebelumnya. Entry ini tidak dihapus, hanya ditandai sebagai VOID.
+                                    </span>
+                                );
+                            })()}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setVoidDialogOpen(false)} disabled={isVoiding}>
+                            Tidak, Kembali
+                        </Button>
+                        <Button variant="destructive" onClick={handleVoidConfirm} disabled={isVoiding}>
+                            {isVoiding ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses...</> : "Ya, Batalkan"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
