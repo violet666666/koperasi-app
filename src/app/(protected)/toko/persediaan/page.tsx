@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
     Warehouse, Plus, Minus, ArrowDownCircle, ArrowUpCircle, Loader2,
-    Check, ChevronsUpDown, Ban, RotateCcw
+    Check, ChevronsUpDown, Ban, RotateCcw, Package
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
