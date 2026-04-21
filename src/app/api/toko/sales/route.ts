@@ -370,6 +370,7 @@ export async function POST(request: Request) {
                             amount: totalAmount,
                             balanceBefore: currentBal,
                             balanceAfter: newBal,
+                            unitType: unitType,
                             description: `Penjualan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now,
                             createdById: userId,

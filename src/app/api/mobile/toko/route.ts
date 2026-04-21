@@ -146,6 +146,7 @@ export async function POST(request: Request) {
                             accountId: targetAccount.id, branchId: targetAccount.branchId,
                             type: "in", category: "pendapatan_toko", amount: totalAmount,
                             balanceBefore: Number(targetAccount.currentBalance), balanceAfter: newBal,
+                            unitType: unitType,
                             description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now, createdById: userId,
                         },

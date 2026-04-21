@@ -242,6 +242,7 @@ export async function POST(request: Request) {
                             balanceAfter: cashBalanceAfter,
                             referenceType: "SavingsTransaction",
                             referenceId: savingsTx.id,
+                            unitType: "simpan_pinjam",
                             description: `${data.type === "deposit" ? "Setoran" : data.type === "withdrawal" ? "Penarikan" : "Koreksi"} Simpanan — ${savingsTx.member?.name ?? "Anggota"} (${savingsTx.transactionNo})`,
                             transactionDate: txDate,
                             createdById: userId,

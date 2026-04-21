@@ -140,6 +140,7 @@ export async function POST(
                 amount: nominalAmount,
                 balanceBefore: currentBalance,
                 balanceAfter: newBalance,
+                unitType: unitType,
                 description: descWithMeta,
                 transactionDate: txDate,
                 createdById: currentUserId,

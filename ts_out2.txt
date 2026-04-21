@@ -1,2 +1,0 @@
-﻿src/app/api/mobile/assets/route.ts(3,53): error TS2307: Cannot find module '../../middleware' or its corresponding type declarations.
-src/app/api/mobile/members/import/route.ts(3,53): error TS2307: Cannot find module '../middleware' or its corresponding type declarations.

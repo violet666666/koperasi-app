@@ -189,6 +189,7 @@ export async function POST(request: Request) {
                             amount: totalAmount,
                             balanceBefore: currentBal,
                             balanceAfter: newBal,
+                            unitType: unitType,
                             description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
                             transactionDate: now,
                             createdById: userId,
