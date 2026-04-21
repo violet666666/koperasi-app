@@ -47,19 +47,43 @@ export async function POST(
         }
 
         // Validasi stok tidak minus untuk stok keluar
-        if (type === "out" && product.stock < qty) {
+        const effectiveStock = product.stockGdg + product.stockToko;
+        if (type === "out" && effectiveStock < qty) {
             return NextResponse.json({
-                message: `Stok tidak mencukupi. Sisa stok: ${product.stock}`,
+                message: `Stok tidak mencukupi. Sisa stok: ${effectiveStock}`,
             }, { status: 400 });
         }
 
-        const stockChange = type === "in" ? qty : -qty;
-        const newStock = product.stock + stockChange;
+        // Hitung perubahan stok
+        // Stok MASUK → masuk ke stockGdg (gudang/supplier)
+        // Stok KELUAR → kurangi dari stockToko dulu, lalu stockGdg jika kurang
+        let newStockGdg = product.stockGdg;
+        let newStockToko = product.stockToko;
 
-        // Update stok produk
+        if (type === "in") {
+            newStockGdg = product.stockGdg + qty;
+        } else {
+            // Kurangi dari stockToko dulu
+            if (product.stockToko >= qty) {
+                newStockToko = product.stockToko - qty;
+            } else {
+                const sisaFromToko = product.stockToko;
+                const kurangDariGdg = qty - sisaFromToko;
+                newStockToko = 0;
+                newStockGdg = Math.max(0, product.stockGdg - kurangDariGdg);
+            }
+        }
+
+        const newStock = newStockGdg + newStockToko;
+
+        // Update stok produk — SELALU sinkron ketiga field
         const updatedProduct = await prisma.storeProduct.update({
             where: { id: productId },
-            data: { stock: newStock },
+            data: {
+                stock: newStock,
+                stockGdg: newStockGdg,
+                stockToko: newStockToko,
+            },
         });
 
         // Insert log mutasi
@@ -79,15 +103,17 @@ export async function POST(
                 productId: updatedProduct.id,
                 sku: updatedProduct.sku,
                 name: updatedProduct.name,
-                previousStock: product.stock,
-                currentStock: updatedProduct.stock,
-                change: stockChange,
+                previousStock: product.stockGdg + product.stockToko,
+                currentStock: newStock,
+                stockGdg: newStockGdg,
+                stockToko: newStockToko,
+                change: type === "in" ? qty : -qty,
                 type,
                 notes: notes || null,
                 updatedBy: userId,
                 updatedAt: new Date().toISOString(),
             },
-            message: `Stok ${type === "in" ? "masuk" : "keluar"} berhasil dicatat. Stok sekarang: ${newStock}`,
+            message: `Stok ${type === "in" ? "masuk" : "keluar"} berhasil dicatat. Stok sekarang: ${newStock} (Gudang: ${newStockGdg}, Toko: ${newStockToko})`,
         }, { status: 200 });
     } catch (error) {
         console.error("POST /api/toko/products/[id]/stock error:", error);
