@@ -84,6 +84,11 @@ export async function POST(request: Request) {
                 
                 if (headerRowIndex === -1) continue;
                 dataRows = rows.slice(headerRowIndex + 1);
+                
+                // Skip the numbering row if it exists right under the headers (e.g. 1, 2, 3, 4...)
+                if (dataRows.length > 0 && dataRows[0][1] === 1 && dataRows[0][2] === 2) {
+                    dataRows = dataRows.slice(1);
+                }
 
                 // Hardcoded index based on KOPPOL Consolidated structure
                 tglIdx = 2; // TANGGAL
@@ -419,7 +424,7 @@ export async function POST(request: Request) {
                                  type: res.type,
                                  category: res.category,
                                  amount: res.amount,
-                                 description: res.isSaldoAwal ? `[IMPORT EXCEL PENGINISIAL] Saldo Awal` : `[IMPORT EXCEL - ${res.sheet}] ${res.description}`,
+                                 description: res.isSaldoAwal ? `Saldo Awal` : res.description,
                                  balanceBefore: currentBalance,
                                  balanceAfter: balanceAfter,
                                  transactionDate: new Date(res.transactionDate),

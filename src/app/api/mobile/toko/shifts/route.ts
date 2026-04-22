@@ -40,7 +40,7 @@ export async function GET(request: Request) {
             where.userId = Number(user.id);
         } else if (isAdmin) {
             // Admin hanya lihat shift di unit-nya
-            if (user.unitType) where.unitType = user.unitType;
+            if ((user as any).unitType) where.unitType = (user as any).unitType;
             if (userId) where.userId = parseInt(userId);
         } else if (isOperator) {
             // Operator bisa lihat semua
