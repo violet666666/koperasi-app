@@ -55,8 +55,8 @@ export default function ShiftScreen() {
   const fetchShifts = useCallback(async () => {
     try {
       const [openRes, recentRes] = await Promise.all([
-        api.get('/api/toko/shifts?status=open&limit=1'),
-        api.get('/api/toko/shifts?limit=10'),
+        api.get('/api/mobile/toko/shifts?status=open&limit=1'),
+        api.get('/api/mobile/toko/shifts?limit=10'),
       ]);
       const openData = openRes.data?.data || [];
       setOpenShift(openData.length > 0 ? openData[0] : null);
@@ -75,7 +75,7 @@ export default function ShiftScreen() {
     const numCash = parseInt(openingCash.replace(/\D/g, ''), 10) || 0;
     setSubmitting(true);
     try {
-      const res = await api.post('/api/toko/shifts', {
+      const res = await api.post('/api/mobile/toko/shifts', {
         shiftName: selectedShiftName,
         openingCash: numCash,
         unitType: 'toko',
@@ -101,7 +101,7 @@ export default function ShiftScreen() {
     }
     setSubmitting(true);
     try {
-      const res = await api.put(`/api/toko/shifts/${openShift.id}`, {
+      const res = await api.put(`/api/mobile/toko/shifts/${openShift.id}`, {
         closingCash: numCash,
         notes: closingNotes || undefined,
       });

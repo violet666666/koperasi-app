@@ -80,7 +80,7 @@ export default function LoginScreen({ setToken }: any) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logo: {
-    width: 300,
-    height: 300,
-    marginBottom: 12,
+    width: 200,
+    height: 200,
+    marginBottom: 6,
   },
   title: {
     fontSize: 22,

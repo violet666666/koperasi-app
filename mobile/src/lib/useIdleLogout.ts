@@ -3,7 +3,6 @@ import { AppState, AppStateStatus, Alert } from 'react-native';
 import { StorageManager } from './storage';
 
 // ── Konfigurasi ──────────────────────────────────────────────────────────
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 menit
 const WARNING_BEFORE_MS = 30 * 1000;      // Peringatan 30 detik sebelum logout
 
 // ── Hook ──────────────────────────────────────────────────────────────────
@@ -25,6 +24,21 @@ export function useIdleLogout({ onLogout }: { onLogout: () => void }) {
   const isWarningShownRef = useRef(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
+  const getTimeoutForRole = useCallback(() => {
+    const userDataStr = StorageManager.getFastString('userData');
+    if (!userDataStr) return 0;
+    try {
+      const user = JSON.parse(userDataStr);
+      if (user.role === 'kasir') return -1; // Nonaktif untuk kasir
+      if (['operator', 'admin', 'superadmin', 'admin_unit'].includes(user.role)) {
+        return 30 * 60 * 1000; // 30 menit
+      }
+      return 15 * 60 * 1000; // 15 menit (Anggota)
+    } catch {
+      return 15 * 60 * 1000;
+    }
+  }, []);
+
   const clearTimers = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
@@ -42,6 +56,9 @@ export function useIdleLogout({ onLogout }: { onLogout: () => void }) {
 
   const resetTimer = useCallback(() => {
     clearTimers();
+
+    const timeout = getTimeoutForRole();
+    if (timeout <= 0) return; // Nonaktifkan timer jika timeout <= 0 (e.g. Kasir)
 
     // Timer peringatan (muncul 30 detik sebelum logout)
     warningTimerRef.current = setTimeout(() => {
@@ -61,13 +78,13 @@ export function useIdleLogout({ onLogout }: { onLogout: () => void }) {
         ],
         { cancelable: false }
       );
-    }, IDLE_TIMEOUT_MS - WARNING_BEFORE_MS);
+    }, timeout - WARNING_BEFORE_MS);
 
     // Timer logout utama
     idleTimerRef.current = setTimeout(() => {
       performLogout();
-    }, IDLE_TIMEOUT_MS);
-  }, [clearTimers, performLogout]);
+    }, timeout);
+  }, [clearTimers, performLogout, getTimeoutForRole]);
 
   useEffect(() => {
     // Mulai timer saat hook mount
