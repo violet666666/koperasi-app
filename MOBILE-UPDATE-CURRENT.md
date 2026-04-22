@@ -117,6 +117,35 @@
   - Operator/Admin: void langsung diproses + stok dikembalikan
   - Pull-to-refresh untuk update data real-time
 
+### 27. [M-FEAT-011] ✅ Form Edit Anggota Lanjutan (Plafon, Tunkin, dll) — **SELESAI**
+- **Selesai (22 April 2026)**: File `MemberDetailScreen.tsx` di-update + backend `PATCH /api/mobile/members/[id]` ditambahkan.
+- **File yang diubah:**
+  1. ✅ `mobile/src/screens/operator/MemberDetailScreen.tsx` — Tombol Edit + Modal edit form
+  2. ✅ `src/app/api/mobile/members/[id]/route.ts` — Endpoint PATCH baru + `plafonPiutang` di GET
+- **Fitur:**
+  - Tombol ✏️ Edit di header + body scroll
+  - Bottom sheet modal dengan 3 section: Kontak, Pekerjaan, Keuangan
+  - Field yang bisa diedit: phone, email, address, category, occupation, salary, tunlesKinerja, plafonPiutang
+  - Hanya Operator/Admin yang bisa edit (403 untuk kasir/anggota)
+  - Audit log lengkap mencatat setiap perubahan field
+  - Auto-refresh setelah save sukses
+
+### 28. [M-FEAT-004] ✅ Edit NRP Transaksi Lama (Assign Member ke StoreSale) — **SELESAI**
+- **Selesai (22 April 2026)**: File baru `EditNrpScreen.tsx` + backend `api/mobile/edit-nrp/route.ts`.
+- **File yang diubah:**
+  1. ✅ `mobile/src/screens/kasir/EditNrpScreen.tsx` — **[BARU]** Layar assign NRP
+  2. ✅ `mobile/src/screens/kasir/RiwayatKasirScreen.tsx` — Tombol "Edit NRP" di header
+  3. ✅ `mobile/App.tsx` — Register `EditNrp` di stack navigator
+  4. ✅ `src/app/api/mobile/edit-nrp/route.ts` — **[BARU]** GET (list tanpa NRP) + POST (assign)
+- **Fitur:**
+  - List transaksi StoreSale yang belum punya member (memberId = null)
+  - Badge "PERLU NRP" amber per transaksi + info preview item
+  - Tap transaksi → modal pencarian anggota (debounced 400ms)
+  - Konfirmasi assign → update `storeSale.memberId`
+  - Jika payment method = salary_cut → auto-update linked UnitTransaction juga
+  - Kasir hanya bisa edit transaksi sendiri, Operator/Admin bisa semua
+  - Empty state hijau jika semua transaksi sudah ada NRP
+
 ---
 
 ## 🆕 UPDATE SINKRONISASI WEB & HASIL REVIEW KODE MOBILE (19 APRIL 2026)
