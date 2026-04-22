@@ -14,6 +14,7 @@ import {
   StatusBar,
   Image,
 } from "react-native";
+import Constants from "expo-constants";
 import { setNavigateToLogin } from "./src/lib/api";
 import { useIdleLogout } from "./src/lib/useIdleLogout";
 import { registerForPushNotificationsAsync } from "./src/lib/notifications";
@@ -137,7 +138,9 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
   useEffect(() => {
     setNavigateToLogin(() => {
       setUserToken(null);
-      navRef.current?.reset({ index: 0, routes: [{ name: "Login" }] });
+      // PENTING: Karena LoginScreen dirender kondisional (!userToken),
+      // navigasi akan terjadi otomatis oleh React Navigation.
+      // Memanggil navRef.current?.reset() di sini akan menyebabkan error "not handled by any navigator".
     });
   }, [setUserToken]);
 
@@ -160,19 +163,21 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
     let Notifications: any = null;
     let subscription: any = null;
     try {
-      Notifications = require('expo-notifications');
-      subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
-        const data = response.notification.request.content.data;
-        if (!data?.screen) return;
-        // Navigasi ke layar yang relevan berdasarkan data notifikasi
-        setTimeout(() => {
-          if (data.screen === 'TransaksiScreen') {
-            navRef.current?.navigate('Main');
-          } else if (data.screen === 'ApprovalScreen') {
-            navRef.current?.navigate('Approval');
-          }
-        }, 500);
-      });
+      if (Constants.appOwnership !== 'expo') {
+        Notifications = require('expo-notifications');
+        subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+          const data = response.notification.request.content.data;
+          if (!data?.screen) return;
+          // Navigasi ke layar yang relevan berdasarkan data notifikasi
+          setTimeout(() => {
+            if (data.screen === 'TransaksiScreen') {
+              navRef.current?.navigate('Main');
+            } else if (data.screen === 'ApprovalScreen') {
+              navRef.current?.navigate('Approval');
+            }
+          }, 500);
+        });
+      }
     } catch (e) {}
 
     return () => {

@@ -103,7 +103,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
     loadProducts();
     // Load Kas/Bank accounts
     api.get('/api/mobile/kas-bank').then((res) => {
-      const accounts = res.data?.data || [];
+      const accounts = res.data?.data?.accounts || [];
       setCashBankAccounts(accounts);
       if (accounts.length > 0) {
         const kas = accounts.find((a: CashBankAccount) => a.type === 'cash') || accounts[0];

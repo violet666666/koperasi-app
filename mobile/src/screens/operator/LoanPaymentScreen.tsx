@@ -65,7 +65,7 @@ export default function LoanPaymentScreen() {
           setSelectedLoan(data[0]);
           setAmount(data[0].monthlyInstallment.toString());
         }
-        const accounts = accountsRes.data?.data || [];
+        const accounts = accountsRes.data?.data?.accounts || [];
         setCashBankAccounts(accounts);
         if (accounts.length > 0) {
           const kasAccount = accounts.find((a: CashBankAccount) => a.type === 'cash') || accounts[0];

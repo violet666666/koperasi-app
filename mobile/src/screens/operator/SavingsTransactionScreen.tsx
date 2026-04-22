@@ -59,7 +59,7 @@ export default function SavingsTransactionScreen() {
         setAccounts(data);
         if (data.length > 0) setSelectedAccount(data[0]);
 
-        const cashAccounts = cashRes.data?.data || [];
+        const cashAccounts = cashRes.data?.data?.accounts || [];
         setCashBankAccounts(cashAccounts);
         if (cashAccounts.length > 0) {
           const kas = cashAccounts.find((a: CashBankAccount) => a.type === 'cash') || cashAccounts[0];

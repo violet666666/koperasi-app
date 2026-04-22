@@ -238,8 +238,8 @@ export default function DashboardScreen({ setToken }: any) {
             <View style={{ marginTop: 24 }}>
                 <CollapsibleSection title="Pusat Kasir & Toko" icon="storefront" defaultExpanded={false}>
                     <View style={styles.menuGrid}>
-                        <MenuItem icon="cart-outline" label="Kasir POS" color="#F59E0B" onPress={() => navigation.navigate("KasirHome")} />
-                        <MenuItem icon="cube-outline" label="Stok Barang" color="#0284c7" onPress={() => navigation.navigate("StokAdmin")} />
+                        <MenuItem icon="cart-outline" label="Kasir POS" color="#F59E0B" onPress={() => navigation.navigate("KasirFull")} />
+                        <MenuItem icon="cube-outline" label="Stok Barang" color="#0284c7" onPress={() => navigation.navigate("StokFull")} />
                     </View>
                 </CollapsibleSection>
 
