@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { sendBatchPushNotifications } from "@/lib/expo-push";
 
 /**
  * GET /api/mobile/toko/history — Riwayat transaksi kasir toko
@@ -183,6 +184,24 @@ export async function POST(request: Request) {
                 },
             },
         });
+
+        // Kirim notifikasi ke semua operator/admin
+        try {
+            const admins = await prisma.user.findMany({
+                where: { role: { in: ["operator", "admin", "admin_unit"] }, fcmToken: { not: null } },
+                select: { fcmToken: true }
+            });
+
+            if (admins.length > 0) {
+                const messages = admins.map(admin => ({
+                    to: admin.fcmToken as string,
+                    title: "⚠️ Permintaan Void Masuk",
+                    body: `Kasir ${sale.createdBy?.name} meminta pembatalan untuk transaksi toko ${sale.saleNo}.`,
+                    data: { screen: "Approval" }
+                }));
+                await sendBatchPushNotifications(messages);
+            }
+        } catch (e) { console.error("Batch Push failed:", e); }
 
         return NextResponse.json({
             message: `Permintaan void untuk ${saleNo} telah dikirim ke Admin. Menunggu persetujuan.`,

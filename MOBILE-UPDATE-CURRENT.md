@@ -668,7 +668,7 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-FEAT-013~~ | ~~Paritas UI: Input Manual Tenor Pinjaman~~ | **✅ DONE** | 🟢 |
 | ~~M-FEAT-014~~ | ~~Fitur Baru Operator: Direct Disburse~~ | **✅ DONE** | 🟢 |
 | ~~M-FEAT-009~~ | ~~Push notification approval void masuk/selesai~~ | **✅ DONE** | 🟡 |
-| M-FEAT-011 | Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile | 1–2 hari | 🟡 |
+| ~~M-FEAT-011~~ | ~~Form edit anggota lanjutan (plafon, tunkin) untuk Admin Mobile~~ | **✅ DONE** | 🟡 |
 | ~~M-OPT-005~~ | ~~Install `react-native-mmkv` untuk cache non-sensitif~~ | **✅ DONE** | 🟢 |
 | ~~M-ARCH-001~~ | ~~Install `react-native-toast-message` ganti semua `Alert.alert`~~ | **✅ DONE** | 🟡 |
 | ~~M-ARCH-002~~ | ~~Install `@gorhom/bottom-sheet` untuk modal member & filter~~ | **✅ DONE** | 🟢 |
@@ -680,6 +680,7 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-FEAT-021~~ | ~~Fitur Pelunasan Dipercepat (Early Settlement) di LoanPaymentScreen~~ | **✅ DONE** | 🟡 |
 | ~~M-FEAT-023~~ | ~~Dropdown Sumber Pemotongan Angsuran (Gaji/Tunkin/BS) di DirectDisburseScreen~~ | **✅ DONE** | 🔴 |
 | ~~M-FEAT-022~~ | ~~Fitur Buka/Tutup Shift Kasir Toko & POS Lock~~ | **✅ DONE** | 🔴 |
+| ~~M-FEAT-004~~ | ~~Edit NRP Transaksi Lama (Assign Member ke StoreSale)~~ | **✅ DONE** | 🟡 |
 
 ---
 

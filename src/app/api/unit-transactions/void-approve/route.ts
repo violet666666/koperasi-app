@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
+import { sendPushNotification } from "@/lib/expo-push";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,19 @@ export async function POST(request: Request) {
                     }),
                 ]);
 
+                // Kirim notifikasi ke kasir pemohon
+                try {
+                    const requester = await prisma.user.findUnique({ where: { id: approvalReq.requestedById }, select: { fcmToken: true } });
+                    if (requester?.fcmToken) {
+                        await sendPushNotification({
+                            to: requester.fcmToken,
+                            title: "✅ Void Disetujui",
+                            body: `Permintaan void untuk transaksi toko ${storeSale.saleNo} telah disetujui.`,
+                            data: { screen: "RiwayatKasir" }
+                        });
+                    }
+                } catch (e) { console.error("Push failed:", e); }
+
                 return NextResponse.json({
                     message: `Void Toko disetujui. Transaksi [${storeSale.saleNo}] dibatalkan dan stok telah dikembalikan.`,
                     data: { saleNo: storeSale.saleNo, action: "approved" },
@@ -149,6 +163,19 @@ export async function POST(request: Request) {
                         },
                     }),
                 ]);
+
+                // Kirim notifikasi ke kasir pemohon
+                try {
+                    const requester = await prisma.user.findUnique({ where: { id: approvalReq.requestedById }, select: { fcmToken: true } });
+                    if (requester?.fcmToken) {
+                        await sendPushNotification({
+                            to: requester.fcmToken,
+                            title: "❌ Void Ditolak",
+                            body: `Permintaan void untuk transaksi toko ${storeSale.saleNo} ditolak. Alasan: ${notes || "Ditolak admin"}`,
+                            data: { screen: "RiwayatKasir" }
+                        });
+                    }
+                } catch (e) { console.error("Push failed:", e); }
 
                 return NextResponse.json({
                     message: `Permintaan void ditolak. Transaksi Toko [${storeSale.saleNo}] tetap aktif.`,
@@ -232,6 +259,19 @@ export async function POST(request: Request) {
                 }),
             ]);
 
+            // Kirim notifikasi ke pemohon void (jika kasir)
+            try {
+                const requester = await prisma.user.findUnique({ where: { id: approvalReq.requestedById }, select: { fcmToken: true } });
+                if (requester?.fcmToken) {
+                    await sendPushNotification({
+                        to: requester.fcmToken,
+                        title: "✅ Void Disetujui",
+                        body: `Permintaan void transaksi jasa ${originalTx.transactionNo} telah disetujui.`,
+                        data: { screen: "RiwayatKasir" }
+                    });
+                }
+            } catch (e) { console.error("Push failed:", e); }
+
             return NextResponse.json({
                 message: `Void disetujui. Contra-Entry [${contraNo}] berhasil dibuat. Limit anggota telah dipulihkan.`,
                 data: {
@@ -265,6 +305,19 @@ export async function POST(request: Request) {
                     },
                 }),
             ]);
+
+            // Kirim notifikasi ke pemohon void
+            try {
+                const requester = await prisma.user.findUnique({ where: { id: approvalReq.requestedById }, select: { fcmToken: true } });
+                if (requester?.fcmToken) {
+                    await sendPushNotification({
+                        to: requester.fcmToken,
+                        title: "❌ Void Ditolak",
+                        body: `Permintaan void transaksi jasa ${originalTx.transactionNo} ditolak. Alasan: ${notes || "Ditolak admin"}`,
+                        data: { screen: "RiwayatKasir" }
+                    });
+                }
+            } catch (e) { console.error("Push failed:", e); }
 
             return NextResponse.json({
                 message: `Permintaan void ditolak. Transaksi [${originalTx.transactionNo}] kembali aktif.`,
