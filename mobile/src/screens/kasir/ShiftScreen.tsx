@@ -188,6 +188,13 @@ export default function ShiftScreen() {
                 <Text style={styles.btnText}>Tutup Shift</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: C.accent, marginTop: 8 }]}
+              onPress={() => navigation.navigate('RiwayatKasir')}
+            >
+              <Ionicons name="receipt" size={18} color={C.primary} />
+              <Text style={[styles.btnText, { color: C.primary }]}>📋 Riwayat Transaksi & Void</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: C.warning }]}>

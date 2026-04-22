@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, StatusBar
+  Alert, ActivityIndicator, StatusBar, Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -17,7 +17,9 @@ interface Loan {
   principalAmount: number;
   principalOutstanding: number;
   interestOutstanding: number;
+  interestRate: number;
   monthlyInstallment: number;
+  tenor: number;
 }
 
 interface CashBankAccount {
@@ -42,6 +44,7 @@ export default function LoanPaymentScreen() {
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [isEarlySettlement, setIsEarlySettlement] = useState(false);
 
   useEffect(() => {
     if (!memberId) {
@@ -62,11 +65,9 @@ export default function LoanPaymentScreen() {
           setSelectedLoan(data[0]);
           setAmount(data[0].monthlyInstallment.toString());
         }
-        // Parse cash/bank accounts
         const accounts = accountsRes.data?.data || [];
         setCashBankAccounts(accounts);
         if (accounts.length > 0) {
-          // Default: pilih kas pertama
           const kasAccount = accounts.find((a: CashBankAccount) => a.type === 'cash') || accounts[0];
           setSelectedAccountId(kasAccount.id);
         }
@@ -80,6 +81,29 @@ export default function LoanPaymentScreen() {
     fetchLoans();
   }, [memberId, navigation]);
 
+  // ═══ Early Settlement Calculation ═══
+  const settlement = useMemo(() => {
+    if (!selectedLoan || !isEarlySettlement) return null;
+    const principalAmount = selectedLoan.principalAmount;
+    const interestRate = selectedLoan.interestRate || 1;
+    const monthlyInterest = Math.round(principalAmount * (interestRate / 100));
+    const penaltyMultiplier = selectedLoan.tenor <= 24 ? 1 : 2;
+    const penaltyFee = monthlyInterest * penaltyMultiplier;
+    const remainingPrincipal = selectedLoan.principalOutstanding;
+    const total = remainingPrincipal + penaltyFee;
+
+    return { remainingPrincipal, penaltyFee, penaltyMultiplier, monthlyInterest, total };
+  }, [selectedLoan, isEarlySettlement]);
+
+  // When toggling settlement mode, auto-fill amount
+  useEffect(() => {
+    if (isEarlySettlement && settlement) {
+      setAmount(settlement.total.toString());
+    } else if (selectedLoan) {
+      setAmount(selectedLoan.monthlyInstallment.toString());
+    }
+  }, [isEarlySettlement, settlement, selectedLoan]);
+
   const selectedAccount = cashBankAccounts.find(a => a.id === selectedAccountId);
 
   const handleSubmit = () => {
@@ -88,32 +112,44 @@ export default function LoanPaymentScreen() {
     const numAmt = parseInt(amount.replace(/\D/g, ''), 10);
     if (isNaN(numAmt) || numAmt <= 0) return Alert.alert('Error', 'Jumlah harus lebih dari 0');
 
-    const totalOut = selectedLoan.principalOutstanding + selectedLoan.interestOutstanding;
-    if (numAmt > totalOut) {
-      return Alert.alert('Error', `Jumlah melebihi sisa pinjaman (${formatRp(totalOut)})`);
+    if (!isEarlySettlement) {
+      const totalOut = selectedLoan.principalOutstanding + selectedLoan.interestOutstanding;
+      if (numAmt > totalOut) {
+        return Alert.alert('Error', `Jumlah melebihi sisa pinjaman (${formatRp(totalOut)})`);
+      }
     }
 
+    const confirmTitle = isEarlySettlement ? '⚡ Pelunasan Dipercepat' : 'Konfirmasi';
+    const confirmMsg = isEarlySettlement
+      ? `Lunasi pinjaman ${selectedLoan.loanNo} sebesar ${formatRp(numAmt)}?\n\n• Sisa Pokok: ${formatRp(settlement!.remainingPrincipal)}\n• Bunga/Jasa: Rp 0 (tidak dikenakan)\n• Penalti (${settlement!.penaltyMultiplier}× bunga): ${formatRp(settlement!.penaltyFee)}\n\nPinjaman akan berstatus LUNAS.`
+      : `Bayar angsuran sebesar ${formatRp(numAmt)}?`;
+
     Alert.alert(
-      'Konfirmasi',
-      `Bayar angsuran sebesar ${formatRp(numAmt)}?`,
+      confirmTitle,
+      confirmMsg,
       [
         { text: 'Batal', style: 'cancel' },
         {
-          text: 'Bayar',
+          text: isEarlySettlement ? '⚡ Lunasi' : 'Bayar',
+          style: isEarlySettlement ? 'destructive' : 'default',
           onPress: async () => {
             setSubmitting(true);
             try {
-              const res = await api.post('/api/mobile/loan-payment', {
+              const payload: any = {
                 loanId: selectedLoan.id,
                 amount: numAmt,
-                notes,
+                notes: notes || (isEarlySettlement ? 'Pelunasan Dipercepat via mobile' : undefined),
                 cashBankAccountId: selectedAccountId,
-              });
-              Alert.alert('Sukses', res.data?.message || 'Angsuran berhasil dicatat', [
+              };
+              if (isEarlySettlement) {
+                payload.isEarlySettlement = true;
+              }
+              const res = await api.post('/api/mobile/loan-payment', payload);
+              Alert.alert('Sukses ✅', res.data?.message || 'Berhasil diproses', [
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
             } catch (err: any) {
-              Alert.alert('Gagal', err.response?.data?.message || 'Gagal memproses angsuran');
+              Alert.alert('Gagal', err.response?.data?.message || 'Gagal memproses');
             } finally {
               setSubmitting(false);
             }
@@ -159,6 +195,7 @@ export default function LoanPaymentScreen() {
                   style={[styles.loanCard, isActive && styles.loanCardActive]}
                   onPress={() => {
                     setSelectedLoan(loan);
+                    setIsEarlySettlement(false);
                     setAmount(loan.monthlyInstallment.toString());
                   }}
                 >
@@ -170,7 +207,7 @@ export default function LoanPaymentScreen() {
                     Sisa: {formatRp(totalOut)}
                   </Text>
                   <Text style={[styles.loanDetail, isActive && { color: C.accentBg }]}>
-                    Cicilan/bln: {formatRp(loan.monthlyInstallment)}
+                    Cicilan/bln: {formatRp(loan.monthlyInstallment)} · Tenor: {loan.tenor} bln
                   </Text>
                 </TouchableOpacity>
               );
@@ -178,17 +215,83 @@ export default function LoanPaymentScreen() {
           </View>
         )}
 
-        <Text style={styles.label}>Jumlah Bayar (Rp)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="0"
-          keyboardType="numeric"
-          value={amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-          onChangeText={(val) => {
-            const num = parseInt(val.replace(/\D/g, ''), 10);
-            setAmount(isNaN(num) ? '' : num.toString());
-          }}
-        />
+        {/* ═══ Toggle Pelunasan Dipercepat ═══ */}
+        {selectedLoan && (
+          <View style={styles.settlementToggle}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>⚡ Pelunasan Dipercepat</Text>
+              <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>Lunasi seluruh sisa pokok + penalti sekaligus</Text>
+            </View>
+            <Switch
+              value={isEarlySettlement}
+              onValueChange={setIsEarlySettlement}
+              trackColor={{ false: C.border, true: '#F59E0B' }}
+              thumbColor={isEarlySettlement ? '#FFF' : '#FFF'}
+            />
+          </View>
+        )}
+
+        {/* ═══ Settlement Breakdown ═══ */}
+        {isEarlySettlement && settlement && (
+          <View style={styles.settlementCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <Ionicons name="warning" size={16} color="#D97706" />
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#D97706' }}>Rincian Pelunasan</Text>
+            </View>
+
+            {/* Aturan penalti */}
+            <View style={styles.ruleBox}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#92400E' }}>Aturan Biaya Pelunasan:</Text>
+              <Text style={{ fontSize: 11, color: '#92400E' }}>• Tenor ≤ 24 bulan → Penalti 1× bunga bulanan</Text>
+              <Text style={{ fontSize: 11, color: '#92400E' }}>• Tenor {'>'} 24 bulan → Penalti 2× bunga bulanan</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#92400E', marginTop: 4 }}>
+                Pinjaman ini: Tenor {selectedLoan!.tenor} bln → Penalti {settlement.penaltyMultiplier}× bunga ({formatRp(settlement.monthlyInterest)}/bln)
+              </Text>
+            </View>
+
+            {/* Breakdown */}
+            <View style={{ gap: 6 }}>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Sisa Pokok</Text>
+                <Text style={styles.breakdownValue}>{formatRp(settlement.remainingPrincipal)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.breakdownLabel, { color: '#059669' }]}>Bunga / Jasa</Text>
+                <Text style={[styles.breakdownValue, { color: '#059669' }]}>Rp 0 (tidak dikenakan)</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.breakdownLabel, { color: '#D97706', fontWeight: '600' }]}>
+                  Penalti ({settlement.penaltyMultiplier}× bunga)
+                </Text>
+                <Text style={[styles.breakdownValue, { color: '#D97706', fontWeight: '700' }]}>
+                  {formatRp(settlement.penaltyFee)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.breakdownRow}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: C.primary }}>TOTAL PELUNASAN</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: C.primary }}>{formatRp(settlement.total)}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ═══ Jumlah Bayar ═══ */}
+        {!isEarlySettlement && (
+          <>
+            <Text style={styles.label}>Jumlah Bayar (Rp)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              keyboardType="numeric"
+              value={amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+              onChangeText={(val) => {
+                const num = parseInt(val.replace(/\D/g, ''), 10);
+                setAmount(isNaN(num) ? '' : num.toString());
+              }}
+            />
+          </>
+        )}
 
         <Text style={styles.label}>Tujuan Kas / Bank *</Text>
         <TouchableOpacity
@@ -236,7 +339,10 @@ export default function LoanPaymentScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.submitBtn, (!selectedLoan || submitting || !amount || !selectedAccountId) && { opacity: 0.5 }]}
+          style={[
+            isEarlySettlement ? styles.settlementBtn : styles.submitBtn,
+            (!selectedLoan || submitting || !amount || !selectedAccountId) && { opacity: 0.5 }
+          ]}
           onPress={handleSubmit}
           disabled={!selectedLoan || submitting || !amount || !selectedAccountId}
         >
@@ -244,8 +350,10 @@ export default function LoanPaymentScreen() {
             <ActivityIndicator color="#FFF" />
           ) : (
             <>
-              <Ionicons name="card" size={20} color="#FFF" />
-              <Text style={styles.submitText}>Proses Pembayaran</Text>
+              <Ionicons name={isEarlySettlement ? "flash" : "card"} size={20} color={isEarlySettlement ? "#FFF" : C.primary} />
+              <Text style={[styles.submitText, isEarlySettlement && { color: '#FFF' }]}>
+                {isEarlySettlement ? `⚡ Lunasi ${formatRp(settlement?.total || 0)}` : 'Proses Pembayaran'}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -275,9 +383,33 @@ const styles = StyleSheet.create({
   loanName: { fontSize: 15, fontWeight: '600', color: C.foreground },
   loanNo: { fontSize: 12, color: C.mutedForeground },
   loanDetail: { fontSize: 13, color: C.mutedForeground, marginTop: 4 },
+  // Settlement toggle
+  settlementToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', borderRadius: 12,
+    padding: 14, marginTop: 8, marginBottom: 4,
+  },
+  // Settlement card
+  settlementCard: {
+    backgroundColor: '#FFFBEB', borderWidth: 2, borderColor: '#F59E0B80', borderRadius: 12,
+    padding: 16, marginTop: 8, marginBottom: 4,
+  },
+  ruleBox: {
+    backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginBottom: 12,
+  },
+  breakdownRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  breakdownLabel: { fontSize: 13, color: C.mutedForeground },
+  breakdownValue: { fontSize: 13, fontWeight: '600', color: C.foreground },
+  divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 6 },
   submitBtn: {
     backgroundColor: C.accent, paddingVertical: 16, borderRadius: 12, marginTop: 24,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8
   },
-  submitText: { color: C.primary, fontSize: 16, fontWeight: 'bold' }
+  settlementBtn: {
+    backgroundColor: '#D97706', paddingVertical: 16, borderRadius: 12, marginTop: 24,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8
+  },
+  submitText: { color: C.primary, fontSize: 16, fontWeight: 'bold' },
 });

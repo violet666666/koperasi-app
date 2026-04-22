@@ -63,9 +63,29 @@
   - Tombol submit dinonaktifkan jika penarikan terblokir
   - Operator masih bisa melakukan **setoran** ke rekening wajib/pokok tanpa masalah
 
-### 20. Integrasi Fitur Pelunasan Dipercepat (Early Settlement) (M-FEAT-021)
-- **Web/Backend:** Fitur Pelunasan Dipercepat (Membayar sisa pokok + penalti) sudah diimplementasikan penuh di Web. Operator dapat melunasi total pinjaman anggota sekaligus di halaman bayar angsuran, yang otomatis mencatat mutasi pokok, bunga, dan penalti pelunasan.
-- **Tugas Mobile (M-FEAT-021):** Layar `LoanPaymentScreen.tsx` untuk Operator perlu ditambahkan opsi/toggle "Pelunasan Total Dipercepat". Payload API `POST /api/loans/[id]/payments` harus disesuaikan agar menyertakan parameter `{ isEarlySettlement: true, discountInterest: boolean }`.
+### 20. [M-FEAT-021] ✅ Pelunasan Dipercepat (Early Settlement) di Mobile — **SELESAI**
+- **Selesai (22 April 2026)**: File `LoanPaymentScreen.tsx` + `api/mobile/loan-payment/route.ts` di-update.
+- **Perubahan Mobile:**
+  - Toggle Switch "⚡ Pelunasan Dipercepat" ditambahkan di bawah list pinjaman
+  - Breakdown rincian ditampilkan: Sisa Pokok + Penalti (tanpa bunga/jasa)
+  - Aturan penalti: Tenor ≤ 24 bulan → 1× bunga bulanan, > 24 bulan → 2× bunga bulanan
+  - Jumlah otomatis dihitung dan tombol berubah warna (amber) saat mode pelunasan aktif
+  - Dialog konfirmasi menampilkan rincian lengkap sebelum proses
+- **Perubahan Backend:**
+  - API `POST /api/mobile/loan-payment` mendukung parameter `isEarlySettlement: true`
+  - Validasi jumlah pelunasan harus sesuai (Pokok + Penalti)
+  - Otomatis update status pinjaman → `paid_off`, reset sisa pokok & bunga ke 0
+  - Update semua jadwal angsuran pending → `paid`
+  - Catat kas/bank masuk (pokok & penalti terpisah) + audit log lengkap
+
+### 25. [M-FEAT-023] ✅ Dropdown Sumber Pemotongan Angsuran (Gaji/Tunkin/BS) — **SELESAI**
+- **Selesai (22 April 2026)**: File `DirectDisburseScreen.tsx` di-update.
+- **Perubahan:**
+  - Chip picker 3 opsi: 💵 Pot Gaji, 🏅 Pot Tunkin, 🧾 Bayar Sendiri (BS)
+  - Default: Pot Gaji (sesuai anggota biasa)
+  - Saat BS dipilih: tampil peringatan "validasi pendapatan tidak berlaku"
+  - Payload `deductionSource` dikirim dinamis ke API (bukan hardcode 'gaji' lagi)
+  - **Catatan:** `LoanApplicationScreen.tsx` (anggota) TIDAK perlu picker — auto default 'gaji' via backend Zod schema
 
 ### 24. [M-FEAT-022] ✅ Integrasi Sistem Shift Kasir Unit Toko — **SELESAI**
 - **Selesai (21 April 2026)**: File baru `ShiftScreen.tsx` dibuat + navigasi diupdate.
@@ -81,6 +101,21 @@
   - Riwayat 10 shift terakhir ditampilkan di bawah
 - **Catatan:** POS Kasir (`KasirScreen.tsx`) masih bisa diakses langsung via stack jika dipanggil oleh Operator/Admin dari dashboard.
 
+### 26. [M-FEAT-019] ✅ Riwayat Transaksi & Request Void untuk Kasir Toko — **SELESAI**
+- **Selesai (22 April 2026)**: File baru `RiwayatKasirScreen.tsx` dibuat + backend API baru `api/mobile/toko/history/route.ts`.
+- **File yang diubah:**
+  1. ✅ `mobile/src/screens/kasir/RiwayatKasirScreen.tsx` — **[BARU]** Layar riwayat transaksi + void
+  2. ✅ `mobile/src/screens/kasir/ShiftScreen.tsx` — Tombol "📋 Riwayat Transaksi & Void" ditambahkan
+  3. ✅ `mobile/App.tsx` — Daftarkan `RiwayatKasir` di stack navigator
+  4. ✅ `src/app/api/mobile/toko/history/route.ts` — **[BARU]** Backend GET (riwayat) + POST (void request)
+- **Fitur:**
+  - Kasir melihat semua transaksi miliknya sendiri (operator/admin lihat semua)
+  - Card transaksi dengan badge status: SELESAI (hijau), MENUNGGU VOID (kuning), DIBATALKAN (merah)
+  - Tap card → expand menampilkan detail barang + harga
+  - Tombol "Ajukan Pembatalan (Void)" → Bottom modal dengan input alasan
+  - Kasir: permintaan void dikirim ke Admin (ApprovalRequest pending)
+  - Operator/Admin: void langsung diproses + stok dikembalikan
+  - Pull-to-refresh untuk update data real-time
 
 ---
 
@@ -612,8 +647,9 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-ARCH-004~~ | ~~Install `react-hook-form + zod` untuk validasi form~~ | **✅ DONE** | 🟡 |
 | ~~M-FEAT-017~~ | ~~Integrasi Dropdown Kas/Bank di Semua Transaksi Operator~~ | **✅ DONE** | 🔴 |
 | ~~M-FEAT-018~~ | ~~Blokir Penarikan Simpanan Wajib/Pokok (AD-ART)~~ | **✅ DONE** | 🟡 |
-| M-FEAT-019 | Layar Riwayat Transaksi & Request Void untuk Kasir Toko | 2 hari | 🟡 |
-| M-FEAT-021 | Fitur Pelunasan Dipercepat (Early Settlement) di LoanPaymentScreen | 1-2 hari | 🟡 |
+| ~~M-FEAT-019~~ | ~~Layar Riwayat Transaksi & Request Void untuk Kasir Toko~~ | **✅ DONE** | 🟡 |
+| ~~M-FEAT-021~~ | ~~Fitur Pelunasan Dipercepat (Early Settlement) di LoanPaymentScreen~~ | **✅ DONE** | 🟡 |
+| ~~M-FEAT-023~~ | ~~Dropdown Sumber Pemotongan Angsuran (Gaji/Tunkin/BS) di DirectDisburseScreen~~ | **✅ DONE** | 🔴 |
 | ~~M-FEAT-022~~ | ~~Fitur Buka/Tutup Shift Kasir Toko & POS Lock~~ | **✅ DONE** | 🔴 |
 
 ---

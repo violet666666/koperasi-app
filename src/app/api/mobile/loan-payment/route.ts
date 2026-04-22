@@ -24,6 +24,7 @@ export async function GET(request: Request) {
                 principalAmount: true,
                 principalOutstanding: true,
                 interestOutstanding: true,
+                interestRate: true,
                 monthlyInstallment: true,
                 tenorMonths: true,
                 status: true,
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
                 principalAmount: Number(l.principalAmount),
                 principalOutstanding: Number(l.principalOutstanding),
                 interestOutstanding: Number(l.interestOutstanding),
+                interestRate: Number(l.interestRate),
                 monthlyInstallment: Number(l.monthlyInstallment),
                 tenor: l.tenorMonths,
                 status: l.status,
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/mobile/loan-payment — Record a loan installment payment
+// POST /api/mobile/loan-payment — Record a loan installment or early settlement payment
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { loanId, amount, notes } = body;
+        const { loanId, amount, notes, cashBankAccountId, isEarlySettlement } = body;
 
         if (!loanId || !amount) {
             return NextResponse.json({ message: "loanId dan amount wajib diisi" }, { status: 400 });
@@ -84,6 +86,126 @@ export async function POST(request: Request) {
 
         const principalOut = Number(loan.principalOutstanding);
         const interestOut = Number(loan.interestOutstanding);
+
+        if (isEarlySettlement) {
+            // ═══ PELUNASAN DIPERCEPAT ═══
+            // Kebijakan: Total = Sisa Pokok + Penalti (TANPA bunga/jasa)
+            const principalAmount = Number(loan.principalAmount);
+            const interestRate = Number(loan.interestRate || 1);
+            const monthlyInterest = Math.round(principalAmount * (interestRate / 100));
+            const penaltyMultiplier = loan.tenorMonths <= 24 ? 1 : 2;
+            const penaltyFee = monthlyInterest * penaltyMultiplier;
+            const expectedTotal = principalOut + penaltyFee;
+
+            // Validate amount matches expected
+            if (Math.abs(numAmount - expectedTotal) > 100) {
+                return NextResponse.json({
+                    message: `Jumlah pelunasan tidak sesuai. Harus ${expectedTotal.toLocaleString("id-ID")} (Pokok: ${principalOut.toLocaleString("id-ID")} + Penalti: ${penaltyFee.toLocaleString("id-ID")})`,
+                }, { status: 400 });
+            }
+
+            const paymentNo = `PAY-M-SET-${Date.now()}`;
+            const today = new Date();
+
+            // Forward to web API for consistent processing
+            // OR process directly with same logic
+            const transactions: any[] = [
+                // 1. Create payment record
+                prisma.loanPayment.create({
+                    data: {
+                        paymentNo,
+                        loanId: Number(loanId),
+                        memberId: loan.memberId,
+                        branchId: 1,
+                        amount: numAmount,
+                        principalPortion: principalOut,
+                        interestPortion: 0, // Pelunasan tanpa bunga
+                        lateFee: penaltyFee,
+                        paymentDate: today,
+                        paymentType: "early_settlement",
+                        notes: notes || `Pelunasan Dipercepat via mobile (Penalti ${penaltyMultiplier}× bunga)`,
+                        createdById: Number(user.id),
+                    },
+                }),
+                // 2. Update loan to paid_off
+                prisma.loan.update({
+                    where: { id: Number(loanId) },
+                    data: {
+                        principalOutstanding: 0,
+                        interestOutstanding: 0,
+                        principalPaid: { increment: principalOut },
+                        lateFeePaid: { increment: penaltyFee },
+                        status: "paid_off",
+                        paidOffDate: today,
+                    },
+                }),
+                // 3. Update all pending schedules to paid
+                prisma.loanSchedule.updateMany({
+                    where: { loanId: Number(loanId), status: { in: ["pending", "partial", "overdue"] } },
+                    data: { status: "paid" },
+                }),
+            ];
+
+            // 4. Create kas/bank entries if account selected
+            if (cashBankAccountId) {
+                transactions.push(
+                    // Kas masuk - pokok
+                    prisma.cashBankTransaction.create({
+                        data: {
+                            cashBankAccountId: Number(cashBankAccountId),
+                            transactionDate: today,
+                            type: "masuk",
+                            category: "angsuran_pokok",
+                            amount: principalOut,
+                            description: `Pelunasan pokok pinjaman ${loan.loanNo} (${loan.member.name})`,
+                            referenceNo: paymentNo,
+                            createdById: Number(user.id),
+                        },
+                    }),
+                    // Kas masuk - penalti
+                    prisma.cashBankTransaction.create({
+                        data: {
+                            cashBankAccountId: Number(cashBankAccountId),
+                            transactionDate: today,
+                            type: "masuk",
+                            category: "penalti_pelunasan",
+                            amount: penaltyFee,
+                            description: `Penalti pelunasan ${penaltyMultiplier}× bunga - ${loan.loanNo} (${loan.member.name})`,
+                            referenceNo: paymentNo,
+                            createdById: Number(user.id),
+                        },
+                    }),
+                    // Update saldo kas/bank
+                    prisma.cashBankAccount.update({
+                        where: { id: Number(cashBankAccountId) },
+                        data: { currentBalance: { increment: numAmount } },
+                    }),
+                );
+            }
+
+            await prisma.$transaction(transactions);
+
+            await logAudit({
+                userId: Number(user.id),
+                userName: user.name,
+                action: "CREATE",
+                module: "Pinjaman",
+                description: `PELUNASAN DIPERCEPAT ${loan.loanNo} (${loan.member.name}) - Total: Rp ${numAmount.toLocaleString("id-ID")} (Pokok: ${principalOut.toLocaleString("id-ID")} + Penalti: ${penaltyFee.toLocaleString("id-ID")}) via mobile`,
+                ipAddress: "mobile-app",
+            });
+
+            return NextResponse.json({
+                message: `Pinjaman ${loan.loanNo} LUNAS! 🎉 (Pelunasan Dipercepat)`,
+                data: {
+                    newPrincipalOutstanding: 0,
+                    newInterestOutstanding: 0,
+                    penaltyFee,
+                    status: "paid_off",
+                },
+            });
+        }
+
+        // ═══ ANGSURAN REGULER ═══
         const interestPortion = Math.min(numAmount, interestOut);
         const principalPortion = Math.min(numAmount - interestPortion, principalOut);
         const newPrincipalOut = principalOut - principalPortion;
@@ -92,13 +214,13 @@ export async function POST(request: Request) {
 
         const paymentNo = `PAY-M-${Date.now()}`;
 
-        await prisma.$transaction([
+        const transactions: any[] = [
             prisma.loanPayment.create({
                 data: {
                     paymentNo,
                     loanId: Number(loanId),
                     memberId: loan.memberId,
-                    branchId: 1, // Fallback for DB constraints
+                    branchId: 1,
                     amount: numAmount,
                     principalPortion,
                     interestPortion,
@@ -117,7 +239,51 @@ export async function POST(request: Request) {
                     status: newStatus,
                 },
             }),
-        ]);
+        ];
+
+        // Kas/bank entries for regular installment
+        if (cashBankAccountId) {
+            if (principalPortion > 0) {
+                transactions.push(
+                    prisma.cashBankTransaction.create({
+                        data: {
+                            cashBankAccountId: Number(cashBankAccountId),
+                            transactionDate: new Date(),
+                            type: "masuk",
+                            category: "angsuran_pokok",
+                            amount: principalPortion,
+                            description: `Angsuran pokok ${loan.loanNo} (${loan.member.name})`,
+                            referenceNo: paymentNo,
+                            createdById: Number(user.id),
+                        },
+                    }),
+                );
+            }
+            if (interestPortion > 0) {
+                transactions.push(
+                    prisma.cashBankTransaction.create({
+                        data: {
+                            cashBankAccountId: Number(cashBankAccountId),
+                            transactionDate: new Date(),
+                            type: "masuk",
+                            category: "jasa_pinjaman",
+                            amount: interestPortion,
+                            description: `Jasa/bunga pinjaman ${loan.loanNo} (${loan.member.name})`,
+                            referenceNo: paymentNo,
+                            createdById: Number(user.id),
+                        },
+                    }),
+                );
+            }
+            transactions.push(
+                prisma.cashBankAccount.update({
+                    where: { id: Number(cashBankAccountId) },
+                    data: { currentBalance: { increment: numAmount } },
+                }),
+            );
+        }
+
+        await prisma.$transaction(transactions);
 
         await logAudit({
             userId: Number(user.id),

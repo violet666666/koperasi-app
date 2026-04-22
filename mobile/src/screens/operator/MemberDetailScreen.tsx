@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity,
+  ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
@@ -11,19 +14,77 @@ export default function MemberDetailScreen({ route, navigation }: any) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Edit Modal State
+  const [editModal, setEditModal] = useState(false);
+  const [editData, setEditData] = useState<any>({});
+  const [saving, setSaving] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const res = await api.get(`/api/mobile/members/${memberId}`);
+      setData(res.data.data);
+    } catch (err) {
+      console.log('Failed to load member detail:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get(`/api/mobile/members/${memberId}`);
-        setData(res.data.data);
-      } catch (err) {
-        console.log('Failed to load member detail:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (memberId) load();
+    if (memberId) loadData();
   }, [memberId]);
+
+  const openEditModal = () => {
+    if (!data) return;
+    setEditData({
+      phone: data.phone || '',
+      email: data.email || '',
+      address: data.address || '',
+      category: data.category || '',
+      occupation: data.occupation || '',
+      salary: data.salary?.toString() || '0',
+      tunlesKinerja: data.tunlesKinerja?.toString() || '0',
+      plafonPiutang: data.plafonPiutang?.toString() || '0',
+    });
+    setEditModal(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload: any = {};
+      // Only send changed fields
+      if (editData.phone !== (data.phone || '')) payload.phone = editData.phone;
+      if (editData.email !== (data.email || '')) payload.email = editData.email;
+      if (editData.address !== (data.address || '')) payload.address = editData.address;
+      if (editData.category !== (data.category || '')) payload.category = editData.category;
+      if (editData.occupation !== (data.occupation || '')) payload.occupation = editData.occupation;
+      
+      const numSalary = parseInt(editData.salary.replace(/\D/g, ''), 10) || 0;
+      const numTunkin = parseInt(editData.tunlesKinerja.replace(/\D/g, ''), 10) || 0;
+      const numPlafon = parseInt(editData.plafonPiutang.replace(/\D/g, ''), 10) || 0;
+      
+      if (numSalary !== data.salary) payload.salary = numSalary;
+      if (numTunkin !== data.tunlesKinerja) payload.tunlesKinerja = numTunkin;
+      if (numPlafon !== data.plafonPiutang) payload.plafonPiutang = numPlafon;
+
+      if (Object.keys(payload).length === 0) {
+        Alert.alert('Info', 'Tidak ada perubahan data');
+        setSaving(false);
+        return;
+      }
+
+      const res = await api.patch(`/api/mobile/members/${memberId}`, payload);
+      Alert.alert('Berhasil ✅', res.data.message);
+      setEditModal(false);
+      setLoading(true);
+      loadData();
+    } catch (err: any) {
+      Alert.alert('Gagal', err.response?.data?.message || 'Gagal menyimpan perubahan');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -33,6 +94,11 @@ export default function MemberDetailScreen({ route, navigation }: any) {
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>Detail Anggota</Text>
+        {data && (
+          <TouchableOpacity onPress={openEditModal} style={{ padding: 4 }}>
+            <Ionicons name="create-outline" size={22} color={C.accent} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -72,6 +138,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
           <View style={styles.infoCard}>
             <InfoRow icon="cash-outline" label="Gaji Pokok" value={formatRp(data.salary)} />
             <InfoRow icon="medal-outline" label="Tunkin" value={formatRp(data.tunlesKinerja)} />
+            <InfoRow icon="shield-outline" label="Plafon Piutang" value={formatRp(data.plafonPiutang)} />
             <InfoRow icon="wallet-outline" label="Total Simpanan" value={formatRp(data.totalSavings)} />
             <InfoRow icon="card-outline" label="Pinjaman Aktif" value={formatRp(data.totalLoansOutstanding)} last />
           </View>
@@ -92,6 +159,12 @@ export default function MemberDetailScreen({ route, navigation }: any) {
             </>
           )}
 
+          {/* Edit Button */}
+          <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
+            <Ionicons name="create" size={18} color={C.primary} />
+            <Text style={{ color: C.primary, fontWeight: 'bold', fontSize: 14 }}>✏️ Edit Data Anggota</Text>
+          </TouchableOpacity>
+
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
@@ -99,14 +172,14 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       {/* Action Buttons (Sticky Footer) */}
       {!loading && data && (
         <View style={styles.actionFooter}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: C.accent }]}
             onPress={() => navigation.navigate('SavingsTransaction', { memberId: data.id, memberName: data.name })}
           >
             <Ionicons name="card-outline" size={20} color="#FFF" />
             <Text style={styles.actionBtnText}>Simpanan</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: C.success }]}
             onPress={() => navigation.navigate('LoanPayment', { memberId: data.id, memberName: data.name })}
           >
@@ -115,6 +188,108 @@ export default function MemberDetailScreen({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ═══ Edit Modal ═══ */}
+      <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={styles.modalTitle}>✏️ Edit Data Anggota</Text>
+                  <TouchableOpacity onPress={() => setEditModal(false)}>
+                    <Ionicons name="close" size={24} color={C.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 14, fontWeight: '700', color: C.foreground, marginBottom: 4 }}>{data?.name}</Text>
+                <Text style={{ fontSize: 12, color: C.mutedForeground, marginBottom: 16 }}>NRP: {data?.nrp || '-'} · No. {data?.memberNo}</Text>
+
+                {/* ── Informasi Kontak ── */}
+                <Text style={styles.editSectionTitle}>📱 Informasi Kontak</Text>
+                <EditField label="Telepon" value={editData.phone} onChange={(v: string) => setEditData({ ...editData, phone: v })} keyboardType="phone-pad" icon="call-outline" />
+                <EditField label="Email" value={editData.email} onChange={(v: string) => setEditData({ ...editData, email: v })} keyboardType="email-address" icon="mail-outline" />
+                <EditField label="Alamat" value={editData.address} onChange={(v: string) => setEditData({ ...editData, address: v })} multiline icon="location-outline" />
+
+                {/* ── Informasi Pekerjaan ── */}
+                <Text style={styles.editSectionTitle}>💼 Pekerjaan & Kategori</Text>
+                <EditField label="Kategori" value={editData.category} onChange={(v: string) => setEditData({ ...editData, category: v })} icon="ribbon-outline" placeholder="Polri, PNS, Karyawan..." />
+                <EditField label="Pekerjaan" value={editData.occupation} onChange={(v: string) => setEditData({ ...editData, occupation: v })} icon="briefcase-outline" />
+
+                {/* ── Informasi Keuangan ── */}
+                <Text style={styles.editSectionTitle}>💰 Data Keuangan</Text>
+                <EditField
+                  label="Gaji Pokok (Rp)"
+                  value={editData.salary?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  onChange={(v: string) => setEditData({ ...editData, salary: v.replace(/\D/g, '') })}
+                  keyboardType="numeric" icon="cash-outline"
+                />
+                <EditField
+                  label="Tunkin / Tunjangan Kinerja (Rp)"
+                  value={editData.tunlesKinerja?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  onChange={(v: string) => setEditData({ ...editData, tunlesKinerja: v.replace(/\D/g, '') })}
+                  keyboardType="numeric" icon="medal-outline"
+                />
+                <EditField
+                  label="Plafon Piutang Unit Usaha (Rp)"
+                  value={editData.plafonPiutang?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  onChange={(v: string) => setEditData({ ...editData, plafonPiutang: v.replace(/\D/g, '') })}
+                  keyboardType="numeric" icon="shield-outline"
+                />
+                <View style={{ backgroundColor: '#FEF3C7', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 11, color: '#92400E' }}>
+                    ℹ️ Plafon Piutang menentukan batas maksimal piutang anggota di unit usaha (toko, dll) untuk metode Potong Gaji.
+                  </Text>
+                </View>
+
+                {/* ── Buttons ── */}
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 20 }}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: C.muted, flex: 1 }]}
+                    onPress={() => setEditModal(false)}
+                  >
+                    <Text style={{ color: C.foreground, fontWeight: '600' }}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: C.accent, flex: 2, opacity: saving ? 0.6 : 1 }]}
+                    onPress={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator color={C.primary} size="small" />
+                    ) : (
+                      <Text style={{ color: C.primary, fontWeight: '700' }}>💾 Simpan Perubahan</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+function EditField({ label, value, onChange, keyboardType, icon, placeholder, multiline }: any) {
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <Ionicons name={icon} size={14} color={C.mutedForeground} />
+        <Text style={{ fontSize: 12, fontWeight: '600', color: C.mutedForeground }}>{label}</Text>
+      </View>
+      <TextInput
+        style={[
+          editStyles.input,
+          multiline && { minHeight: 60, textAlignVertical: 'top' },
+        ]}
+        value={value}
+        onChangeText={onChange}
+        keyboardType={keyboardType || 'default'}
+        placeholder={placeholder || ''}
+        placeholderTextColor={C.mutedForeground}
+        multiline={multiline}
+      />
     </View>
   );
 }
@@ -128,6 +303,13 @@ function InfoRow({ icon, label, value, last }: { icon: any; label: string; value
     </View>
   );
 }
+
+const editStyles = StyleSheet.create({
+  input: {
+    backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: C.foreground,
+  },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
@@ -169,6 +351,10 @@ const styles = StyleSheet.create({
   accountName: { fontSize: 14, fontWeight: '600', color: C.primary },
   accountNo: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
   accountBalance: { fontSize: 16, fontWeight: 'bold', color: C.success },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: C.accent, paddingVertical: 14, borderRadius: 12, marginTop: 20,
+  },
   actionFooter: {
     padding: 16, backgroundColor: C.card, flexDirection: 'row', gap: 12,
     borderTopWidth: 1, borderTopColor: C.border, elevation: 8,
@@ -179,4 +365,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14, borderRadius: 12, gap: 8,
   },
   actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+  // Modal
+  modalOverlay: {
+    flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, maxHeight: '90%',
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: C.foreground },
+  editSectionTitle: {
+    fontSize: 13, fontWeight: '700', color: C.primary, marginBottom: 8, marginTop: 8,
+  },
+  modalBtn: {
+    paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+  },
 });

@@ -77,6 +77,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
   const [selectedCashBankId, setSelectedCashBankId] = useState<number | null>(null);
   const [showCashBankPicker, setShowCashBankPicker] = useState(false);
+  const [deductionSource, setDeductionSource] = useState<'gaji' | 'tunkin' | 'bs'>('gaji');
 
   const { control, handleSubmit, watch, reset, formState: { errors } } = useForm({
     resolver: zodResolver(buildSchema(selectedProduct, selectedMember)),
@@ -150,7 +151,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
         amount: parseFloat(data.amount),
         tenorMonths: parseInt(data.tenor),
         purpose: 'Pencairan Langsung dari Mobile',
-        deductionSource: 'gaji',
+        deductionSource,
         backdatedDate: backdatedDate.toISOString(),
         cashBankAccountId: selectedCashBankId,
       });
@@ -248,6 +249,37 @@ export default function DirectDisburseScreen({ navigation }: any) {
             />
           )}
 
+          {/* ═══ Sumber Pemotongan Angsuran ═══ */}
+          <Text style={styles.label}>4. Sumber Pemotongan Angsuran</Text>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { key: 'gaji' as const, label: '💵 Pot Gaji', desc: 'Dipotong dari gaji' },
+              { key: 'tunkin' as const, label: '🏅 Pot Tunkin', desc: 'Dipotong dari Tunjangan Kinerja' },
+              { key: 'bs' as const, label: '🧾 Bayar Sendiri', desc: 'Anggota bayar langsung' },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[
+                  styles.chip, { paddingHorizontal: 14, paddingVertical: 10 },
+                  deductionSource === opt.key && styles.chipActive,
+                ]}
+                onPress={() => setDeductionSource(opt.key)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  deductionSource === opt.key && styles.chipTextActive,
+                ]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {deductionSource === 'bs' && (
+            <Text style={{ fontSize: 11, color: '#D97706', marginTop: 4 }}>
+              ⚠️ Anggota membayar angsuran sendiri. Validasi pendapatan tidak berlaku.
+            </Text>
+          )}
+
           {/* Quick Summary */}
           {amountVal && tenorVal && !errors.amount && !errors.tenor && selectedProduct && (
             <View style={styles.summaryBox}>
@@ -262,7 +294,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
           )}
 
           {/* Kas/Bank Picker */}
-          <Text style={styles.label}>5. Tujuan Kas / Bank *</Text>
+          <Text style={styles.label}>6. Tujuan Kas / Bank *</Text>
           <TouchableOpacity
             style={[styles.selectorBtn, { justifyContent: 'space-between' }]}
             onPress={() => setShowCashBankPicker(!showCashBankPicker)}

@@ -37,6 +37,8 @@ import MemberListScreen from "./src/screens/operator/MemberListScreen";
 import KasirScreen from "./src/screens/kasir/KasirScreen";
 import StokScreen from "./src/screens/kasir/StokScreen";
 import ShiftScreen from "./src/screens/kasir/ShiftScreen";
+import RiwayatKasirScreen from "./src/screens/kasir/RiwayatKasirScreen";
+import EditNrpScreen from "./src/screens/kasir/EditNrpScreen";
 
 // New operator screens
 import DaftarPinjamanScreen from "./src/screens/operator/DaftarPinjamanScreen";
@@ -260,6 +262,8 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="DirectDisburse" component={DirectDisburseScreen} />
             <Stack.Screen name="KwitansiViewer" component={KwitansiViewerScreen} />
             <Stack.Screen name="ShiftKasir" component={ShiftScreen} />
+            <Stack.Screen name="RiwayatKasir" component={RiwayatKasirScreen} />
+            <Stack.Screen name="EditNrp" component={EditNrpScreen} />
           </>
         )}
       </Stack.Navigator>
