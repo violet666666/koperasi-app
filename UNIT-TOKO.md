@@ -141,3 +141,31 @@ Digunakan untuk menginput jumlah stok terbaru per produk secara cepat tanpa haru
 5. Stok total akan otomatis diperbarui berdasarkan penjumlahan Stok Gudang + Stok Toko.
 
 *Catatan: Fitur Bulk Action dan Inline Edit ini hanya tersedia untuk Role Admin Toko dan Operator. Role Kasir Toko hanya bisa melihat (View Only).*
+
+---
+
+## 6. Pengecualian Harga: Kategori Rokok (25 April 2026)
+
+### Latar Belakang
+Produk rokok memiliki **Harga Eceran Tertinggi (HET)** yang sudah ditetapkan oleh pabrikan/distributor, sehingga **TIDAK boleh** mengikuti rumus auto-calculate `ceil((HPP × 1.02 × 1.11) / 100) × 100`.
+
+### Perubahan yang Diterapkan
+
+| Lokasi | Perilaku Sebelum | Perilaku Sesudah |
+|---|---|---|
+| **Form Tambah Produk** (`/toko/produk/tambah`) | Mengisi HPP → Harga Jual otomatis dihitung | Jika kategori = "rokok", HPP diisi tapi Harga Jual **TIDAK** auto-calculate |
+| **Inline Edit** (Daftar Produk) | Edit HPP → Harga Jual otomatis diupdate | Jika kategori produk = "rokok", HPP berubah tapi Harga Jual **tetap manual** |
+| **Bulk Recalculate** (API) | Semua produk ber-HPP dihitung ulang | Produk rokok **dilewati/di-skip** dari perhitungan ulang |
+
+### Cara Penggunaan
+1. Saat menambah produk rokok baru, pilih kategori **🚬 Rokok** di dropdown.
+2. Isi HPP (Harga Modal) sebagai referensi saja.
+3. Isi **Harga Jual secara manual** sesuai HET dari distributor.
+4. Saat melakukan "Hitung Ulang Semua Harga", produk rokok akan otomatis dilewati dan tidak terpengaruh.
+
+### Catatan Teknis
+- Deteksi kategori bersifat **case-insensitive** ("rokok", "Rokok", "ROKOK" semua dianggap sama).
+- Jika di masa depan ada kategori lain yang memerlukan harga manual, cukup tambahkan ke array `MANUAL_PRICE_CATEGORIES` di frontend dan filter `NOT` di API recalculate.
+
+---
+*Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*

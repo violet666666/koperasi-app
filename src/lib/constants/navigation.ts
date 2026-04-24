@@ -436,7 +436,7 @@ export const kasirRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
+                title: "Shift Kasir", href: "/resto/shift", icon: Timer,
                 permission: "manage_unit_transactions",
             },
             {
@@ -467,19 +467,19 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Menu", href: "/toko/produk", icon: Package,
+                title: "Manajemen Menu", href: "/resto/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Promo & Diskon", href: "/toko/marketing", icon: Tag,
+                title: "Promo & Diskon", href: "/resto/marketing", icon: Tag,
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
+                title: "Persediaan & Stok", href: "/resto/persediaan", icon: Boxes,
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
+                title: "Shift Kasir", href: "/resto/shift", icon: Timer,
                 permission: "manage_unit_transactions",
             },
             {
@@ -553,7 +553,7 @@ export const adminBarbershopNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                title: "Manajemen Layanan", href: "/barbershop/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {
@@ -627,7 +627,7 @@ export const adminPSNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Produk & Jasa", href: "/toko/produk", icon: Package,
+                title: "Manajemen Produk & Jasa", href: "/play-station/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {
@@ -701,7 +701,7 @@ export const adminFitnessNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                title: "Manajemen Layanan", href: "/fitness/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {
@@ -775,7 +775,7 @@ export const adminFotocopyNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                title: "Manajemen Layanan", href: "/fotocopy/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {
@@ -849,7 +849,7 @@ export const adminLaundryNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                title: "Manajemen Layanan", href: "/laundry/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
             {

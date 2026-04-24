@@ -117,7 +117,7 @@ export default function MarketingPage() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [productUnitType]);
 
     React.useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
