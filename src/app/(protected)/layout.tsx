@@ -21,7 +21,7 @@ const COMMON_ROUTES = ["/dashboard", "/profil", "/settings", "/pengumuman"];
 const KASIR_ALLOWED_ROUTES: Record<string, string[]> = {
     toko:        ["/unit", "/transaksi-unit", "/toko/kasir", "/toko/shift", "/toko/produk"],
     cuci_mobil:  ["/unit", "/transaksi-unit"],
-    resto_cafe:  ["/unit", "/transaksi-unit"],
+    resto_cafe:  ["/unit", "/transaksi-unit", "/resto", "/toko/shift"],
     fitness:     ["/unit", "/transaksi-unit"],
     playstation: ["/unit", "/transaksi-unit"],
     barbershop:  ["/unit", "/transaksi-unit"],
@@ -44,7 +44,7 @@ const ADMIN_ALLOWED_ROUTES: Record<string, string[]> = {
         "/kwitansi", "/approval",
     ],
     cuci_mobil:  ["/unit", "/transaksi-unit", "/approval"],
-    resto_cafe:  ["/unit", "/transaksi-unit", "/toko", "/approval"],
+    resto_cafe:  ["/unit", "/transaksi-unit", "/toko", "/resto", "/approval"],
     fitness:     ["/unit", "/transaksi-unit", "/approval"],
     playstation: ["/unit", "/transaksi-unit", "/approval"],
     barbershop:  ["/unit", "/transaksi-unit", "/approval"],

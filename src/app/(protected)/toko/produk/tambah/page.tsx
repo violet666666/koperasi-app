@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Save, Package } from "lucide-react";
+import { Loader2, Save, Package, ImagePlus, X } from "lucide-react";
 
 export default function TambahProdukPage() {
     const router = useRouter();
@@ -30,7 +30,29 @@ export default function TambahProdukPage() {
         stockToko: "",
         minStock: "5",
         unit: "pcs",
+        imageUrl: "",
     });
+    const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 1 * 1024 * 1024) { toast.error("Ukuran gambar maksimal 1MB"); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = reader.result as string;
+            setForm(prev => ({ ...prev, imageUrl: base64 }));
+            setImagePreview(base64);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeImage = () => {
+        setForm(prev => ({ ...prev, imageUrl: "" }));
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
 
     const handleChange = (field: string, value: string) => {
         setForm(prev => {
@@ -71,6 +93,7 @@ export default function TambahProdukPage() {
                     stockToko: parseInt(form.stockToko) || 0,
                     minStock: parseInt(form.minStock) || 5,
                     unit: form.unit || "pcs",
+                    imageUrl: form.imageUrl || null,
                 }),
             });
 
@@ -232,6 +255,34 @@ export default function TambahProdukPage() {
                                 <Input id="minStock" type="number" min={0} placeholder="5"
                                     value={form.minStock} onChange={e => handleChange("minStock", e.target.value)} />
                             </div>
+                        </div>
+
+                        {/* Gambar Menu */}
+                        <div className="space-y-3 p-4 rounded-lg border bg-muted/20">
+                            <Label className="text-sm font-semibold">Gambar Menu (Opsional)</Label>
+                            <p className="text-xs text-muted-foreground -mt-1">Upload foto produk/menu untuk ditampilkan di POS Kasir. Maks 1MB.</p>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/jpg,image/webp"
+                                className="hidden"
+                                onChange={handleImageSelect}
+                            />
+                            {imagePreview ? (
+                                <div className="relative w-40 h-28 rounded-lg overflow-hidden border-2 border-sky-200 shadow-sm">
+                                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <button type="button" onClick={removeImage}
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors shadow">
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button type="button" onClick={() => fileInputRef.current?.click()}
+                                    className="w-40 h-28 rounded-lg border-2 border-dashed border-slate-300 hover:border-sky-400 transition-colors flex flex-col items-center justify-center text-slate-400 hover:text-sky-600">
+                                    <ImagePlus className="h-8 w-8 mb-1" />
+                                    <span className="text-xs font-medium">Upload Foto</span>
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex gap-4 pt-4">

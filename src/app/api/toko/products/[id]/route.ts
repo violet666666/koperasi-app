@@ -58,6 +58,7 @@ export async function PUT(
         if (body.category !== undefined) updateData.category = body.category;
         if (body.unit !== undefined) updateData.unit = body.unit;
         if (body.isActive !== undefined) updateData.isActive = body.isActive;
+        if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl || null;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ message: "Tidak ada data yang diubah" }, { status: 400 });

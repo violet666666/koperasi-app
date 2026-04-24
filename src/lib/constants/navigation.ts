@@ -33,6 +33,7 @@ import {
     Tag,
     type LucideIcon,
     Timer,
+    UtensilsCrossed,
 } from "lucide-react";
 
 export interface NavItem {
@@ -417,6 +418,97 @@ export const adminUnitNavigation: (NavItem | NavGroup)[] = [
     },
 ];
 
+// ============================================================
+// KASIR RESTO NAVIGATION — kasir unit "resto_cafe", POS denah meja
+// ============================================================
+export const kasirRestoNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "RESTO & CAFE",
+        items: [
+            {
+                title: "Kasir POS", href: "/resto/kasir", icon: UtensilsCrossed,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=resto", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN RESTO NAVIGATION — untuk Admin unit Resto & Cafe (Latar)
+// POS denah meja (/resto/kasir), Manajemen Menu, Shift, dll
+// ============================================================
+export const adminRestoNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "RESTO & MENU",
+        items: [
+            {
+                title: "Kasir POS", href: "/resto/kasir", icon: UtensilsCrossed,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Menu", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Promo & Diskon", href: "/toko/marketing", icon: Tag,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Shift Kasir", href: "/toko/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=resto", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Penjualan", href: "/unit/resto-cafe/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
 // Bottom navigation for mobile
 export const bottomNavigation: NavItem[] = [
     { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
@@ -532,16 +624,24 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     if (user.roleName === "kasir" && user.unitType === "toko") {
         finalNav = filterNavigationByUser(kasirTokoNavigation, user);
     }
+    // Kasir Resto/Cafe — POS denah meja & grid menu (bukan kasir cepat jasa)
+    else if (user.roleName === "kasir" && user.unitType && ["resto_cafe", "resto", "coffe_latar"].includes(user.unitType)) {
+        finalNav = filterNavigationByUser(kasirRestoNavigation, user);
+    }
     // Kasir unit jasa lain (barbershop, fitness, dll) → Kasir Cepat (tanpa stok)
     else if (user.roleName === "kasir" && user.unitType) {
         finalNav = filterNavigationByUser(kasirNavigation, user);
     }
-    // Admin Toko / Coffe Latar / Resto → Sidebar Admin Retail (ada Produk & Inbox)
-    else if (user.roleName === "admin" && user.unitType && ["toko", "coffe_latar", "resto"].includes(user.unitType)) {
+    // Admin Resto/Cafe — POS denah meja, Manajemen Menu, Shift
+    else if (user.roleName === "admin" && user.unitType && ["resto_cafe", "resto", "coffe_latar"].includes(user.unitType)) {
+        finalNav = filterNavigationByUser(adminRestoNavigation, user);
+    }
+    // Admin Toko — Sidebar Admin Retail (ada Produk & Inbox)
+    else if (user.roleName === "admin" && user.unitType === "toko") {
         finalNav = filterNavigationByUser(adminTokoNavigation, user);
     }
     // Admin unit Jasa Cepat → Sidebar Admin Jasa (ada Kelola Layanan & Inbox, tanpa stok fisik)
-    else if (user.roleName === "admin" && user.unitType && !["toko", "coffe_latar", "resto", "simpan_pinjam", "investasi_modal_jp"].includes(user.unitType)) {
+    else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminUnitNavigation, user);
     }
     // Default: operator koperasi pusat atau admin pusat (tanpa unitType)

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,11 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock } from "lucide-react";
+import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
-interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; }
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; }
 interface CartItem { product: Product; quantity: number; notes?: string; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -87,6 +88,7 @@ export default function RestoKasirPage() {
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
+    const [activeCategory, setActiveCategory] = React.useState<string>("Semua");
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
     
@@ -104,6 +106,9 @@ export default function RestoKasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
+    // Shift state
+    const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
+
     React.useEffect(() => {
         async function fetchProducts() {
             setIsLoading(true);
@@ -116,7 +121,31 @@ export default function RestoKasirPage() {
         fetchProducts();
     }, []);
 
-    const filteredMenu = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Check shift status
+    React.useEffect(() => {
+        async function checkShift() {
+            try {
+                const res = await fetch("/api/toko/shifts?status=open");
+                const json = await res.json();
+                const shifts = json.data || [];
+                setShiftOpen(shifts.length > 0);
+            } catch { setShiftOpen(false); }
+        }
+        checkShift();
+    }, []);
+
+    // Derive unique categories from products
+    const categories = React.useMemo(() => {
+        const cats = new Set<string>();
+        products.forEach(p => { if (p.category) cats.add(p.category); });
+        return ["Semua", ...Array.from(cats).sort()];
+    }, [products]);
+
+    const filteredMenu = products.filter(p => {
+        const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchCategory = activeCategory === "Semua" || p.category === activeCategory;
+        return matchSearch && matchCategory;
+    });
     const cart = activeTable?.cart || [];
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const change = Number(paymentAmount) - subtotal;
@@ -222,6 +251,20 @@ export default function RestoKasirPage() {
                 />
                 
                 <div className="space-y-6 max-w-6xl mx-auto">
+                    {/* Shift Warning Banner */}
+                    {shiftOpen === false && (
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                            <AlertCircle className="h-5 w-5 shrink-0" />
+                            <div className="flex-1">
+                                <p className="font-semibold text-sm">Shift Kasir Belum Dibuka</p>
+                                <p className="text-xs mt-0.5">Buka shift terlebih dahulu agar transaksi tercatat di rekap shift kasir.</p>
+                            </div>
+                            <Link href="/toko/shift">
+                                <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100">Buka Shift</Button>
+                            </Link>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-bold flex items-center text-slate-700"><Utensils className="mr-2 h-5 w-5" /> Denah Meja (Dine In)</h2>
                     </div>
@@ -294,25 +337,67 @@ export default function RestoKasirPage() {
             <div className="flex-1 min-h-0 flex gap-4">
                 {/* Menu Area (Left) */}
                 <Card className="flex-1 flex flex-col overflow-hidden shadow-sm border-slate-200">
-                    <CardHeader className="bg-slate-50 border-b py-3 px-4 shrink-0">
+                    <CardHeader className="bg-slate-50 border-b py-3 px-4 shrink-0 space-y-3">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <Input placeholder="Cari Nasi Goreng, Es Teh..." className="pl-9 bg-white" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                         </div>
+                        {/* Category Filter Tabs */}
+                        {categories.length > 1 && (
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setActiveCategory(cat)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                                            activeCategory === cat
+                                                ? "bg-sky-600 text-white shadow-sm"
+                                                : "bg-white text-slate-600 border border-slate-200 hover:border-sky-300 hover:text-sky-700"
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent className="flex-1 overflow-y-auto p-4 content-start">
                         {isLoading ? (
                             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>
+                        ) : filteredMenu.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                <Utensils className="h-10 w-10 mb-3 opacity-30" />
+                                <p className="text-sm font-medium">Tidak ada menu ditemukan</p>
+                                <p className="text-xs mt-1">Coba ubah filter atau kata kunci pencarian</p>
+                            </div>
                         ) : (
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {filteredMenu.map(p => (
                                     <button key={p.id} onClick={() => updateCart(activeTable.id, { product: p, quantity: 1 }, "add")}
-                                        className="bg-white border rounded-xl p-3 flex flex-col h-28 hover:border-sky-300 hover:shadow-md transition-all active:scale-95 text-left"
+                                        className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.97] text-left group"
                                     >
-                                        <p className="font-semibold text-sm text-slate-800 line-clamp-2 leading-tight flex-1">{p.name}</p>
-                                        <p className="text-xs font-mono font-bold text-sky-600 self-start bg-sky-50 px-2 py-0.5 rounded-full mt-2">
-                                            {formatCurrency(p.price)}
-                                        </p>
+                                        {/* Image Area */}
+                                        <div className="h-20 w-full bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
+                                            {p.imageUrl ? (
+                                                <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Utensils className="h-8 w-8 text-slate-200" />
+                                                </div>
+                                            )}
+                                            {p.category && (
+                                                <span className="absolute top-1.5 left-1.5 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                                                    {p.category}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* Info */}
+                                        <div className="p-2.5 flex flex-col flex-1">
+                                            <p className="font-semibold text-xs text-slate-800 line-clamp-2 leading-tight flex-1">{p.name}</p>
+                                            <p className="text-xs font-mono font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full mt-1.5 self-start">
+                                                {formatCurrency(p.price)}
+                                            </p>
+                                        </div>
                                     </button>
                                 ))}
                             </div>

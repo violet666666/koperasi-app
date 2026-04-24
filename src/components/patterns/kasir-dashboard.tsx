@@ -62,8 +62,10 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
-    const posLink = unitType === "toko" || unitType === "coffe_latar" || unitType === "resto"
+    const posLink = unitType === "toko"
         ? "/toko/kasir"
+        : unitType === "resto_cafe" || unitType === "coffe_latar" || unitType === "resto"
+        ? "/resto/kasir"
         : `/unit/${unitType ? unitType.replace(/_/g, '-') : 'layanan'}/kasir`;
     const isAdmin = roleName === "admin";
 

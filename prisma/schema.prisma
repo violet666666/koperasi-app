@@ -762,6 +762,7 @@ model StoreProduct {
   name      String
   category  String?
   unitType  String    @default("toko") @map("unit_type") // toko, resto, coffe_latar
+  imageUrl  String?   @map("image_url") @db.Text // Base64 or external URL for product/menu image
   costPrice Decimal   @default(0) @map("cost_price") @db.Decimal(15, 2)
   sellPrice Decimal   @map("sell_price") @db.Decimal(15, 2)
   discountType String?   @map("discount_type")

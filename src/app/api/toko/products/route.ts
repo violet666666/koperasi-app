@@ -30,6 +30,7 @@ export async function GET(request: Request) {
                 sku: p.sku,
                 name: p.name,
                 category: p.category,
+                imageUrl: p.imageUrl,
                 price: Number(p.sellPrice),
                 discountType: p.discountType,
                 discountValue: Number(p.discountValue),
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
         const userId = session?.user?.id ? parseInt(session.user.id) : null;
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl } = body;
 
         if (!sku || !name || sellPrice === undefined) {
             return NextResponse.json(
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
                 sku,
                 name,
                 category: category || null,
+                imageUrl: imageUrl || null,
                 costPrice: costPrice || 0,
                 sellPrice,
                 discountType: discountType || null,
