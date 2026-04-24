@@ -59,10 +59,17 @@ export default function TambahProdukPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    // Kategori yang dikecualikan dari auto-calculate (harga manual)
+    const MANUAL_PRICE_CATEGORIES = ["rokok"];
+    const isManualPriceCategory = MANUAL_PRICE_CATEGORIES.includes(form.category.toLowerCase());
+
     const handleChange = (field: string, value: string) => {
         setForm(prev => {
             const next = { ...prev, [field]: value };
-            if (field === "costPrice" && value !== "") {
+            // Skip auto-calculate untuk kategori rokok (harga manual/HET)
+            const categoryToCheck = field === "category" ? value : prev.category;
+            const skipAutoCalc = MANUAL_PRICE_CATEGORIES.includes(categoryToCheck.toLowerCase());
+            if (field === "costPrice" && value !== "" && !skipAutoCalc) {
                 const cost = parseFloat(value) || 0;
                 // Formula: ceil((HPP * 1.02 * 1.11) / 100) * 100
                 const calculated = Math.ceil((cost * 1.02 * 1.11) / 100) * 100;
@@ -165,6 +172,7 @@ export default function TambahProdukPage() {
                                         <SelectItem value="makanan">Makanan</SelectItem>
                                         <SelectItem value="minuman">Minuman</SelectItem>
                                         <SelectItem value="sembako">Sembako</SelectItem>
+                                        <SelectItem value="rokok">🚬 Rokok</SelectItem>
                                         <SelectItem value="atk">ATK</SelectItem>
                                         <SelectItem value="elektronik">Elektronik</SelectItem>
                                         <SelectItem value="lainnya">Lainnya</SelectItem>
@@ -198,7 +206,9 @@ export default function TambahProdukPage() {
                                 <Input id="sellPrice" type="number" min={0} placeholder="0"
                                     value={form.sellPrice} onChange={e => handleChange("sellPrice", e.target.value)} />
                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                    Include PPN 11% & Markup 2%. (Auto Dibundel saat HPP diisi)
+                                    {isManualPriceCategory
+                                        ? "⚠️ Kategori Rokok: Harga jual diisi MANUAL (tidak auto-calculate)"
+                                        : "Include PPN 11% & Markup 2%. (Auto Dibundel saat HPP diisi)"}
                                 </p>
                             </div>
                         </div>

@@ -256,7 +256,7 @@ export default function TokoProdukPage() {
 
     // ── Hitung Ulang Semua Harga ──
     const handleRecalculatePrices = async () => {
-        if (!confirm("Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ceil((HPP × 1.02 × 1.11) / 100) × 100\n\nProduk tanpa HPP tidak akan terpengaruh.")) return;
+        if (!confirm("Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ceil((HPP × 1.02 × 1.11) / 100) × 100\n\nProduk tanpa HPP & kategori ROKOK tidak akan terpengaruh (harga manual).")) return;
         setIsRecalculating(true);
         try {
             const res = await fetch("/api/toko/products/recalculate-prices", { method: "POST" });
@@ -579,11 +579,12 @@ export default function TokoProdukPage() {
                                                     <Input type="number" className="h-8 text-xs w-[100px] text-right" value={editData.costPrice ?? ""}
                                                         onChange={(e) => {
                                                             const hpp = Number(e.target.value);
+                                                            const isRokokCategory = (editData.category || p.category || "").toLowerCase() === "rokok";
                                                             setEditData(prev => ({
                                                                 ...prev,
                                                                 costPrice: hpp,
-                                                                // Auto-calculate harga jual: HPP + markup 2% + PPN 11%, rounded up to nearest 100
-                                                                price: hpp > 0 ? Math.ceil((hpp * 1.02 * 1.11) / 100) * 100 : prev.price,
+                                                                // Skip auto-calculate untuk kategori rokok (harga jual manual/HET)
+                                                                price: (hpp > 0 && !isRokokCategory) ? Math.ceil((hpp * 1.02 * 1.11) / 100) * 100 : prev.price,
                                                             }));
                                                         }} />
                                                 ) : (

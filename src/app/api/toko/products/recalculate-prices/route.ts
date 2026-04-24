@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
  * 
  * Hanya produk dengan costPrice > 0 yang dihitung ulang.
  * Produk dengan costPrice = 0 akan dilewati (harga tetap).
+ * Produk kategori "rokok" akan dilewati (harga manual/HET).
  * 
  * Query params:
  *   ?preview=true  → Hanya tampilkan preview perubahan, TIDAK simpan ke DB
@@ -35,11 +36,16 @@ export async function POST(request: Request) {
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
+                // Exclude kategori rokok (harga manual/HET dari pabrikan)
+                NOT: {
+                    category: { in: ["rokok", "Rokok", "ROKOK"] },
+                },
             },
             select: {
                 id: true,
                 sku: true,
                 name: true,
+                category: true,
                 costPrice: true,
                 sellPrice: true,
             },
@@ -107,10 +113,19 @@ export async function POST(request: Request) {
             where: { deletedAt: null, costPrice: { lte: 0 } },
         });
 
+        // Count produk rokok yang dilewati
+        const rokokSkipped = await prisma.storeProduct.count({
+            where: {
+                deletedAt: null,
+                costPrice: { gt: 0 },
+                category: { in: ["rokok", "Rokok", "ROKOK"] },
+            },
+        });
+
         return NextResponse.json({
             message: isPreview
-                ? `Preview: ${updatedCount} produk akan diupdate harga jualnya. ${skippedCount} sudah sesuai.`
-                : `${updatedCount} produk berhasil diupdate harga jualnya. ${skippedCount} sudah sesuai formula.`,
+                ? `Preview: ${updatedCount} produk akan diupdate harga jualnya. ${skippedCount} sudah sesuai.${rokokSkipped > 0 ? ` ${rokokSkipped} produk rokok dilewati (harga manual).` : ''}`
+                : `${updatedCount} produk berhasil diupdate harga jualnya. ${skippedCount} sudah sesuai formula.${rokokSkipped > 0 ? ` ${rokokSkipped} produk rokok dilewati.` : ''}`,
             data: {
                 mode: isPreview ? "preview" : "committed",
                 formula: "ceil((HPP × 1.02 × 1.11) / 100) × 100",
@@ -118,6 +133,7 @@ export async function POST(request: Request) {
                 updated: updatedCount,
                 alreadyCorrect: skippedCount,
                 noHPP: noCostPrice,
+                rokokSkipped,
                 changes: changes.filter(c => c.changed).slice(0, 100), // Max 100 untuk response
             },
         });
