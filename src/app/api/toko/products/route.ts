@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         const userId = session?.user?.id ? parseInt(session.user.id) : null;
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType } = body;
 
         if (!sku || !name || sellPrice === undefined) {
             return NextResponse.json(
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
                 stockToko: stockToko || 0,
                 minStock: minStock || 5,
                 unit: unit || "pcs",
+                unitType: unitType || "toko",
                 isService: isService || false,
             },
         });

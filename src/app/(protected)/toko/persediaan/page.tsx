@@ -120,6 +120,10 @@ export default function PersediaanPage() {
          : (session?.user?.role as any)?.name ?? "";
     const canVoid = roleName === "operator" || roleName === "admin";
 
+    const unitType = session?.user?.unitType as string || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
+    const productUnitType = isResto ? "resto" : "toko";
+
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
         const activeMovements = movements.filter(m => m.status !== "voided");
@@ -137,7 +141,7 @@ export default function PersediaanPage() {
                 // Fetch stock movements directly from DB
                 const [movementsRes, productsRes] = await Promise.all([
                     fetch("/api/toko/movements"),
-                    fetch("/api/toko/products"),
+                    fetch(`/api/toko/products?unitType=${productUnitType}`),
                 ]);
 
                 const productsJson = await productsRes.json();
@@ -242,7 +246,7 @@ export default function PersediaanPage() {
 
             // Refresh daftar agar data terbaru tampil
             const [productsRes, movementsRes] = await Promise.all([
-                 fetch("/api/toko/products?unitType=toko"),
+                 fetch(`/api/toko/products?unitType=${productUnitType}`),
                  fetch("/api/toko/movements")
             ]);
             if (productsRes.ok) setProducts((await productsRes.json()).data || []);
@@ -261,7 +265,7 @@ export default function PersediaanPage() {
     return (
         <>
         <div className="space-y-6">
-            <PageHeader title="Manajemen Persediaan" description="Kelola stok masuk dan keluar"
+            <PageHeader title={isResto ? "Manajemen Persediaan Menu" : "Manajemen Persediaan"} description={isResto ? "Kelola stok bahan / menu keluar masuk" : "Kelola stok masuk dan keluar"}
                 actions={
                     <div className="flex gap-2">
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

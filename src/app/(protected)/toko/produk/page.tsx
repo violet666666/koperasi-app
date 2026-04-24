@@ -43,6 +43,8 @@ interface Product {
 export default function TokoProdukPage() {
     const { data: session } = useSession();
     const userRole = session?.user?.role as string || "";
+    const unitType = session?.user?.unitType as string || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
     const isKasir = userRole === "kasir";
 
     const [products, setProducts] = React.useState<Product[]>([]);
@@ -94,7 +96,8 @@ export default function TokoProdukPage() {
     // Fetch
     const fetchProducts = React.useCallback(async () => {
         try {
-            const res = await fetch('/api/toko/products?unitType=toko');
+            const productUnitType = isResto ? "resto" : "toko";
+            const res = await fetch(`/api/toko/products?unitType=${productUnitType}`);
             if (!res.ok) throw new Error('Failed');
             const result = await res.json();
             setProducts(mapProducts(result.data || []));
@@ -347,8 +350,8 @@ export default function TokoProdukPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title={isKasir ? "Daftar Produk" : "Produk Toko"}
-                description={isKasir ? "Lihat daftar produk dan stok toko" : "Kelola produk toko PRIMKOPPOL"}
+                title={isKasir ? "Daftar Produk" : isResto ? "Manajemen Menu" : "Produk Toko"}
+                description={isKasir ? "Lihat daftar produk dan stok toko" : isResto ? "Kelola menu makanan & minuman Resto" : "Kelola produk toko PRIMKOPPOL"}
                 actions={
                     !isKasir ? (
                         <div className="flex items-center gap-2 flex-wrap">

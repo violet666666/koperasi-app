@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 interface Product {
     id: number;
@@ -77,6 +78,11 @@ function getDiscountLabel(p: Product): string {
 }
 
 export default function MarketingPage() {
+    const { data: session } = useSession();
+    const unitType = session?.user?.unitType as string || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
+    const productUnitType = isResto ? "resto" : "toko";
+
     const [products, setProducts] = React.useState<Product[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -102,7 +108,7 @@ export default function MarketingPage() {
     const fetchProducts = React.useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetch("/api/toko/products");
+            const res = await fetch(`/api/toko/products?unitType=${productUnitType}`);
             if (!res.ok) throw new Error();
             const json = await res.json();
             setProducts(json.data || []);
@@ -256,9 +262,9 @@ export default function MarketingPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Promo & Diskon"
-                description="Kelola diskon dan promosi produk toko PRIMKOPPOL"
-                backHref="/toko"
+                title={isResto ? "Promo Menu Resto" : "Promo & Diskon"}
+                description={isResto ? "Kelola diskon dan promosi menu resto" : "Kelola diskon dan promosi produk toko PRIMKOPPOL"}
+                backHref={isResto ? "/resto/kasir" : "/toko"}
             />
 
             {/* Stats Cards */}

@@ -67,6 +67,7 @@ interface ShiftData {
 export default function ShiftKasirPage() {
     const { data: session } = useSession();
     const unitType = session?.user?.unitType || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType as string);
 
     const [loading, setLoading] = React.useState(true);
     const [activeShift, setActiveShift] = React.useState<ShiftData | null>(null);
@@ -186,7 +187,7 @@ export default function ShiftKasirPage() {
             <PageHeader
                 title="Shift Kasir"
                 description="Buka dan tutup shift untuk pencatatan kas harian"
-                backHref="/toko/kasir"
+                backHref={isResto ? "/resto/kasir" : "/toko/kasir"}
             />
 
             {/* ── ACTIVE SHIFT ───────────────────────────────────── */}

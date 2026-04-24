@@ -13,9 +13,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Save, Package, ImagePlus, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 export default function TambahProdukPage() {
     const router = useRouter();
+    const { data: session } = useSession();
+    const unitType = session?.user?.unitType as string || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [form, setForm] = React.useState({
         sku: "",
@@ -94,6 +98,7 @@ export default function TambahProdukPage() {
                     minStock: parseInt(form.minStock) || 5,
                     unit: form.unit || "pcs",
                     imageUrl: form.imageUrl || null,
+                    unitType: isResto ? "resto" : "toko",
                 }),
             });
 
@@ -116,8 +121,8 @@ export default function TambahProdukPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Tambah Produk"
-                description="Tambah produk baru ke toko PRIMKOPPOL"
+                title={isResto ? "Tambah Menu" : "Tambah Produk"}
+                description={isResto ? "Tambah menu baru ke daftar menu Resto" : "Tambah produk baru ke toko PRIMKOPPOL"}
                 backHref="/toko/produk"
             />
 

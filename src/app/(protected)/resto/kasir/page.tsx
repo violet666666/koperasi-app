@@ -325,9 +325,58 @@ export default function RestoKasirPage() {
                         <p className="text-xs text-muted-foreground">Order/Bill Aktif</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 w-1/3">
-                    <Input placeholder="Nama Pemesan (Opsional)..." value={activeTable.customerName} onChange={e => setCustomer(activeTable.id, e.target.value)} />
-                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50" onClick={() => {
+                <div className="flex items-center gap-3 w-1/3 relative">
+                    <div className="relative flex-1">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input 
+                            placeholder="Cari nama / NRP anggota..."
+                            className="pl-9"
+                            value={activeTable.customerName}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setCustomer(activeTable.id, val);
+                                // Debounced member search
+                                if (val.length >= 2) {
+                                    const timer = setTimeout(async () => {
+                                        try {
+                                            const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(val)}`);
+                                            const json = await res.json();
+                                            setMemberResults(json.data || []);
+                                        } catch {}
+                                    }, 400);
+                                    return () => clearTimeout(timer);
+                                } else {
+                                    setMemberResults([]);
+                                }
+                            }}
+                            onFocus={() => {
+                                if (activeTable.customerName.length >= 2) {
+                                    // Re-trigger search on focus
+                                    fetch(`/api/members/lookup?q=${encodeURIComponent(activeTable.customerName)}`)
+                                        .then(r => r.json()).then(j => setMemberResults(j.data || [])).catch(() => {});
+                                }
+                            }}
+                        />
+                        {/* Member Search Dropdown */}
+                        {memberResults.length > 0 && activeTable.customerName.length >= 2 && (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                                {memberResults.map(m => (
+                                    <button key={m.id} type="button"
+                                        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 border-b last:border-0 transition-colors"
+                                        onClick={() => {
+                                            setCustomer(activeTable.id, m.name);
+                                            setSelectedMember(m);
+                                            setMemberResults([]);
+                                        }}
+                                    >
+                                        <p className="font-semibold text-sm text-slate-800">{m.name}</p>
+                                        <p className="text-[11px] text-slate-500">NRP: {m.nrp || "-"} • No: {m.memberNo}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0" onClick={() => {
                         toast.info("Mencetak Kitchen Order Ticket (KOT)");
                         // Pseudo logic to print KOT (kitchen ticket) without prices
                     }}><Printer className="h-4 w-4 mr-2" /> KOT Dapur</Button>
