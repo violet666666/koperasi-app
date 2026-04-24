@@ -62,10 +62,20 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     }, [unitType]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
-    const posLink = unitType === "toko"
-        ? "/toko/kasir"
-        : unitType === "resto_cafe" || unitType === "coffe_latar" || unitType === "resto"
-        ? "/resto/kasir"
+    // Map each unit to its dedicated POS route
+    const DEDICATED_POS_ROUTES: Record<string, string> = {
+        toko: "/toko/kasir",
+        resto_cafe: "/resto/kasir",
+        coffe_latar: "/resto/kasir",
+        resto: "/resto/kasir",
+        barbershop: "/barbershop/kasir",
+        playstation: "/play-station/kasir",
+        fitness: "/fitness/kasir",
+        fotocopy: "/fotocopy/kasir",
+        laundry: "/laundry/kasir",
+    };
+    const posLink = unitType && DEDICATED_POS_ROUTES[unitType]
+        ? DEDICATED_POS_ROUTES[unitType]
         : `/unit/${unitType ? unitType.replace(/_/g, '-') : 'layanan'}/kasir`;
     const isAdmin = roleName === "admin";
 

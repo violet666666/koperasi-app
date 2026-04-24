@@ -1,0 +1,333 @@
+"use client";
+
+import * as React from "react";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import { Shirt, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Plus, Minus, Package, Scale } from "lucide-react";
+import { formatCurrency } from "@/lib/constants";
+import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; }
+interface CartItem { product: Product; quantity: number; }
+interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
+interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
+
+export default function LaundryKasirPage() {
+    const [products, setProducts] = React.useState<Product[]>([]);
+    const [cart, setCart] = React.useState<CartItem[]>([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [isProcessing, setIsProcessing] = React.useState(false);
+    const [customerName, setCustomerName] = React.useState("");
+    const [paymentAmount, setPaymentAmount] = React.useState("");
+    const [lastReceipt, setLastReceipt] = React.useState<ReceiptData | null>(null);
+    const [showReceipt, setShowReceipt] = React.useState(false);
+    const [showCreditDialog, setShowCreditDialog] = React.useState(false);
+    const [memberSearch, setMemberSearch] = React.useState("");
+    const [memberResults, setMemberResults] = React.useState<MemberResult[]>([]);
+    const [selectedMember, setSelectedMember] = React.useState<MemberResult | null>(null);
+    const [isSearchingMember, setIsSearchingMember] = React.useState(false);
+    const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
+    const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
+    // Weight/quantity input per product (supports decimal for kg)
+    const [qtyInputs, setQtyInputs] = React.useState<Record<number, string>>({});
+
+    React.useEffect(() => {
+        async function fetchProducts() {
+            setIsLoading(true);
+            try {
+                const res = await fetch("/api/toko/products?unitType=laundry");
+                const json = await res.json();
+                setProducts(json.data || []);
+            } catch { toast.error("Gagal memuat layanan Laundry"); }
+            finally { setIsLoading(false); }
+        }
+        fetchProducts();
+    }, []);
+
+    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+    const addToCartWithQty = (product: Product) => {
+        const rawQty = parseFloat(qtyInputs[product.id] || "1") || 1;
+        const qty = Math.max(0.1, rawQty);
+        // For laundry we round to 1 decimal if kg-based
+        const roundedQty = Math.round(qty * 10) / 10;
+        setCart(prev => {
+            const existing = prev.find(item => item.product.id === product.id);
+            if (existing) return prev.map(item => item.product.id === product.id ? { ...item, quantity: Math.round((item.quantity + roundedQty) * 10) / 10 } : item);
+            return [...prev, { product, quantity: roundedQty }];
+        });
+        setQtyInputs(prev => ({ ...prev, [product.id]: "" }));
+    };
+
+    const updateQuantity = (productId: number, delta: number) => {
+        setCart(prev => prev.map(item => {
+            if (item.product.id !== productId) return item;
+            const newQty = Math.round((item.quantity + delta) * 10) / 10;
+            if (newQty <= 0) return item;
+            return { ...item, quantity: newQty };
+        }));
+    };
+
+    const removeFromCart = (productId: number) => setCart(prev => prev.filter(item => item.product.id !== productId));
+
+    const searchMembers = async () => {
+        if (!memberSearch.trim()) return;
+        setIsSearchingMember(true);
+        try {
+            const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(memberSearch)}`);
+            const json = await res.json();
+            setMemberResults(json.data || []);
+        } catch { toast.error("Gagal mencari anggota"); }
+        finally { setIsSearchingMember(false); }
+    };
+
+    React.useEffect(() => {
+        const validateLimit = async () => {
+            if (!selectedMember?.nrp || subtotal <= 0) return;
+            setIsValidatingLimit(true);
+            try {
+                const res = await fetch("/api/unit-transactions/validate", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: "laundry" }),
+                });
+                setLimitInfo(await res.json());
+            } catch { toast.error("Gagal cek limit plafon anggota."); }
+            finally { setIsValidatingLimit(false); }
+        };
+        if (selectedMember) validateLimit();
+        else setLimitInfo(null);
+    }, [selectedMember, subtotal]);
+
+    const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
+        if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
+        if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
+        if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
+
+        setIsProcessing(true);
+        try {
+            const body: any = {
+                items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
+                customerName: customerName || (method === "salary_cut" ? selectedMember?.name : "Umum"),
+                paymentMethod: method, unitType: "laundry",
+            };
+            if (method === "cash") body.cashReceived = Number(paymentAmount);
+            if (method === "qris") body.cashReceived = subtotal;
+            if (method === "salary_cut") body.memberId = selectedMember?.id;
+
+            const res = await fetch("/api/toko/sales", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+
+            toast.success(`Transaksi Laundry ${json.data.saleNo} Berhasil!`);
+            setLastReceipt({
+                notaNo: json.data.saleNo, tanggal: new Date().toLocaleString("id-ID"),
+                nrpNip: selectedMember?.nrp || "-",
+                namaAnggota: selectedMember?.name || customerName || "Umum",
+                kesatuan: "-", keterangan: "Laundry",
+                total: subtotal,
+                metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Kas/Potong Gaji"),
+                kasir: "Kasir Laundry"
+            });
+            setShowReceipt(true);
+            setCart([]); setPaymentAmount(""); setCustomerName("");
+            setSelectedMember(null); setShowCreditDialog(false);
+        } catch (error: any) {
+            toast.error(error.message || "Gagal memproses transaksi");
+        } finally { setIsProcessing(false); }
+    };
+
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                title="POS Laundry"
+                description="Manajemen Kasir Laundry"
+                actions={
+                    <Button variant="outline" size="sm" className="bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200"
+                        onClick={() => document.documentElement.requestFullscreen().catch(()=>{})}>
+                        <Maximize className="mr-2 h-4 w-4" /> Mode Terminal
+                    </Button>
+                }
+            />
+
+            <div className="grid gap-6 lg:grid-cols-12 max-w-6xl mx-auto">
+                {/* Checkout Panel */}
+                <div className="lg:col-span-4">
+                    <Card className="sticky top-6 shadow-md border-slate-200">
+                        <CardHeader className="bg-teal-400/10 border-b pb-4">
+                            <CardTitle className="text-lg flex items-center justify-between text-teal-900">
+                                Info Checkout
+                                {cart.length > 0 && <Badge className="bg-teal-600">{cart.length} item</Badge>}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-4">
+                            <div className="space-y-3 bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Nama Pelanggan (Opsional)</Label>
+                                    <Input placeholder="Tamu umum..." value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            <div className="max-h-[250px] overflow-y-auto space-y-2 pr-2">
+                                {cart.length === 0 ? (
+                                    <p className="text-sm text-center text-slate-400 py-4">Pilih layanan di samping</p>
+                                ) : cart.map(item => (
+                                    <div key={item.product.id} className="flex justify-between items-center py-2 border-b border-dashed last:border-0 border-slate-200">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                            <p className="text-sm font-semibold text-slate-700 leading-tight">{item.product.name}</p>
+                                            <p className="text-xs text-slate-500">{formatCurrency(item.product.price)} x {item.quantity} kg = {formatCurrency(item.product.price * item.quantity)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => updateQuantity(item.product.id, -0.5)}><Minus className="h-3 w-3" /></Button>
+                                            <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
+                                            <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => updateQuantity(item.product.id, 0.5)}><Plus className="h-3 w-3" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:bg-red-50" onClick={() => removeFromCart(item.product.id)}>✕</Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="bg-teal-50 p-4 rounded-xl space-y-2 border border-teal-100">
+                                <div className="flex justify-between text-2xl font-black text-teal-950">
+                                    <span>Total</span><span className="tracking-tight">{formatCurrency(subtotal)}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 pt-2">
+                                <Input type="number" placeholder="Input Pembayaran Kas..." value={paymentAmount}
+                                    onChange={e => setPaymentAmount(e.target.value)} className="text-lg font-mono text-center border-slate-300 h-12" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 mt-4">
+                                <Button size="lg" className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing}>
+                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Tunai
+                                </Button>
+                                <Button size="lg" className="bg-sky-600 hover:bg-sky-700 shadow-sm" onClick={() => processPayment("qris")} disabled={cart.length === 0 || isProcessing}>
+                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />} QRIS
+                                </Button>
+                            </div>
+                            <Button variant="outline" size="lg" className="w-full border-slate-300 text-slate-700 hover:bg-slate-100 mt-2"
+                                disabled={cart.length === 0} onClick={() => setShowCreditDialog(true)}>
+                                <User className="mr-2 h-4 w-4 text-slate-400" /> Bayar Anggota (Gaji)
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Services Grid */}
+                <div className="lg:col-span-8">
+                    <Card className="h-full border-slate-200 shadow-sm min-h-[500px]">
+                        <CardHeader className="pb-3 border-b">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Shirt className="h-5 w-5 text-teal-600" /> Menu Layanan Laundry
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4">
+                            {isLoading ? (
+                                <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                            ) : products.length === 0 ? (
+                                <div className="text-center py-16 text-slate-400">
+                                    <Shirt className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                                    <p className="font-medium">Belum ada layanan</p>
+                                    <p className="text-sm mt-1">Admin dapat menambahkan layanan melalui menu Manajemen Layanan</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {products.map(p => (
+                                        <div key={p.id} className="relative flex flex-col items-center justify-between h-auto p-3 rounded-2xl border border-slate-200 bg-white hover:border-teal-400 hover:shadow-md transition-all group">
+                                            <div className={`p-3 rounded-full mb-1 ${p.isService ? 'bg-teal-100 text-teal-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                {p.isService ? <Shirt className="h-5 w-5" /> : <Package className="h-5 w-5" />}
+                                            </div>
+                                            <p className="font-semibold text-slate-800 text-sm text-center leading-tight line-clamp-2 mb-1">{p.name}</p>
+                                            <span className="text-xs font-mono font-bold text-slate-500">{formatCurrency(p.price)}/kg</span>
+                                            <div className="flex items-center gap-1 mt-2 w-full">
+                                                <div className="relative flex-1">
+                                                    <Input type="number" placeholder="Berat" min={0.1} step={0.1}
+                                                        className="h-7 text-center text-xs pr-7"
+                                                        value={qtyInputs[p.id] || ""}
+                                                        onChange={e => setQtyInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                                        onKeyDown={e => e.key === "Enter" && addToCartWithQty(p)}
+                                                    />
+                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">kg</span>
+                                                </div>
+                                                <Button size="sm" className="h-7 bg-teal-600 hover:bg-teal-700" onClick={() => addToCartWithQty(p)}>
+                                                    <Plus className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Credit Dialog */}
+            <Dialog open={showCreditDialog} onOpenChange={setShowCreditDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Kredit Laundry - Potong Gaji</DialogTitle>
+                        <DialogDescription>Pengajuan pembayaran ke gaji dinas.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="flex gap-2">
+                            <Input placeholder="Cari NRP anggota..." value={memberSearch} onChange={e => setMemberSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && searchMembers()} />
+                            <Button onClick={searchMembers} disabled={isSearchingMember}>{isSearchingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button>
+                        </div>
+                        {memberResults.length > 0 && (
+                            <div className="max-h-[150px] overflow-y-auto border rounded-md">
+                                {memberResults.map(m => (
+                                    <div key={m.id} className={`p-3 cursor-pointer hover:bg-slate-50 border-b last:border-0 ${selectedMember?.id === m.id ? "bg-teal-50 border-l-4 border-l-teal-500" : ""}`} onClick={() => setSelectedMember(m)}>
+                                        <p className="font-semibold text-slate-800">{m.name}</p>
+                                        <p className="text-xs text-slate-500">NRP: {m.nrp || "-"}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {isValidatingLimit ? (
+                            <div className="p-3 bg-slate-50 rounded text-sm text-slate-500 flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" /> Cek Limit...</div>
+                        ) : limitInfo ? (
+                            <div className={`p-3 rounded-md border ${limitInfo.allowed ? "bg-teal-50 border-teal-200" : "bg-red-50 border-red-200"}`}>
+                                <div className="flex items-center gap-2 font-bold mb-1">
+                                    {limitInfo.allowed ? <ShieldCheck className="text-teal-600 h-5 w-5" /> : <ShieldAlert className="text-red-600 h-5 w-5" />}
+                                    <span className={limitInfo.allowed ? "text-teal-700" : "text-red-700"}>{limitInfo.allowed ? "Sisa Limit Aman" : "Limit Tidak Cukup!"}</span>
+                                </div>
+                                <p className="text-sm">Sisa limit aktif: {formatCurrency(limitInfo.sisaLimit)}</p>
+                            </div>
+                        ) : null}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCreditDialog(false)}>Batal</Button>
+                        <Button disabled={!selectedMember || isProcessing || (limitInfo !== null && !limitInfo.allowed)} onClick={() => processPayment("salary_cut")}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                            Proses Potong Gaji
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Receipt */}
+            <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
+                <DialogContent className="sm:max-w-[360px] bg-slate-100 p-6">
+                    <DialogHeader className="mb-4">
+                        <DialogTitle className="text-center font-bold">Terima Kasih</DialogTitle>
+                        <DialogDescription className="text-center">Silakan siapkan printer thermal Anda.</DialogDescription>
+                    </DialogHeader>
+                    {lastReceipt && <div className="flex flex-col items-center"><ReceiptPrimkopol data={lastReceipt} paperSize="58mm" /></div>}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}

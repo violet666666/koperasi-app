@@ -34,6 +34,11 @@ import {
     type LucideIcon,
     Timer,
     UtensilsCrossed,
+    Scissors,
+    Gamepad2,
+    Dumbbell,
+    Shirt,
+    Copy,
 } from "lucide-react";
 
 export interface NavItem {
@@ -509,6 +514,376 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
     },
 ];
 
+// ============================================================
+// KASIR BARBERSHOP NAVIGATION — dedicated POS pangkas rambut
+// ============================================================
+export const kasirBarbershopNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "BARBERSHOP",
+        items: [
+            {
+                title: "Kasir POS", href: "/barbershop/kasir", icon: Scissors,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=barbershop", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN BARBERSHOP NAVIGATION — manage layanan + POS
+// ============================================================
+export const adminBarbershopNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "BARBERSHOP",
+        items: [
+            {
+                title: "Kasir POS", href: "/barbershop/kasir", icon: Scissors,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=barbershop", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/barbershop/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR PLAYSTATION NAVIGATION — timer-based rental POS
+// ============================================================
+export const kasirPSNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "PLAY STATION",
+        items: [
+            {
+                title: "Kasir POS", href: "/play-station/kasir", icon: Gamepad2,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=playstation", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN PLAYSTATION NAVIGATION — manage console + products + POS
+// ============================================================
+export const adminPSNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "PLAY STATION",
+        items: [
+            {
+                title: "Kasir POS", href: "/play-station/kasir", icon: Gamepad2,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Produk & Jasa", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=playstation", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/playstation/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR FITNESS NAVIGATION — dedicated gym/fitness POS
+// ============================================================
+export const kasirFitnessNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "FITNESS",
+        items: [
+            {
+                title: "Kasir POS", href: "/fitness/kasir", icon: Dumbbell,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=fitness", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN FITNESS NAVIGATION
+// ============================================================
+export const adminFitnessNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "FITNESS",
+        items: [
+            {
+                title: "Kasir POS", href: "/fitness/kasir", icon: Dumbbell,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=fitness", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/fitness/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR FOTOCOPY NAVIGATION — dedicated print/copy POS
+// ============================================================
+export const kasirFotocopyNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "FOTOCOPY & PRINT",
+        items: [
+            {
+                title: "Kasir POS", href: "/fotocopy/kasir", icon: Copy,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=fotocopy", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN FOTOCOPY NAVIGATION
+// ============================================================
+export const adminFotocopyNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "FOTOCOPY & PRINT",
+        items: [
+            {
+                title: "Kasir POS", href: "/fotocopy/kasir", icon: Copy,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=fotocopy", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/fotocopy/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// KASIR LAUNDRY NAVIGATION — dedicated laundry POS
+// ============================================================
+export const kasirLaundryNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "LAUNDRY",
+        items: [
+            {
+                title: "Kasir POS", href: "/laundry/kasir", icon: Shirt,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=laundry", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN LAUNDRY NAVIGATION
+// ============================================================
+export const adminLaundryNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "LAUNDRY",
+        items: [
+            {
+                title: "Kasir POS", href: "/laundry/kasir", icon: Shirt,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Layanan", href: "/toko/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=laundry", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Transaksi", href: "/unit/laundry/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
 // Bottom navigation for mobile
 export const bottomNavigation: NavItem[] = [
     { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
@@ -609,9 +984,8 @@ export function filterNavigationByPermissions(
  *
  * Logic:
  *  - Operator (manage_all)  → mainNavigation (full)
- *  - Kasir unitType="toko"  → kasirTokoNavigation (Toko POS — dengan stok & barcode)
- *  - Kasir unitType=lainnya → kasirNavigation (Kasir Cepat — jasa tanpa stok)
- *  - Admin unit             → mainNavigation filtered by role+permissions
+ *  - Kasir/Admin with dedicated unit → unit-specific navigation
+ *  - Default fallback → generic nav
  */
 export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] {
     if (user.permissions.includes("manage_all")) {
@@ -620,27 +994,55 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
 
     let finalNav: (NavItem | NavGroup)[] = [];
 
-    // Kasir Toko — POS dengan Produk, Stok & Barcode
+    // === KASIR ROUTING ===
     if (user.roleName === "kasir" && user.unitType === "toko") {
         finalNav = filterNavigationByUser(kasirTokoNavigation, user);
     }
-    // Kasir Resto/Cafe — POS denah meja & grid menu (bukan kasir cepat jasa)
     else if (user.roleName === "kasir" && user.unitType && ["resto_cafe", "resto", "coffe_latar"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(kasirRestoNavigation, user);
     }
-    // Kasir unit jasa lain (barbershop, fitness, dll) → Kasir Cepat (tanpa stok)
+    else if (user.roleName === "kasir" && user.unitType === "barbershop") {
+        finalNav = filterNavigationByUser(kasirBarbershopNavigation, user);
+    }
+    else if (user.roleName === "kasir" && user.unitType === "playstation") {
+        finalNav = filterNavigationByUser(kasirPSNavigation, user);
+    }
+    else if (user.roleName === "kasir" && user.unitType === "fitness") {
+        finalNav = filterNavigationByUser(kasirFitnessNavigation, user);
+    }
+    else if (user.roleName === "kasir" && user.unitType === "fotocopy") {
+        finalNav = filterNavigationByUser(kasirFotocopyNavigation, user);
+    }
+    else if (user.roleName === "kasir" && user.unitType === "laundry") {
+        finalNav = filterNavigationByUser(kasirLaundryNavigation, user);
+    }
+    // Kasir unit jasa lain (fallback ke generic)
     else if (user.roleName === "kasir" && user.unitType) {
         finalNav = filterNavigationByUser(kasirNavigation, user);
     }
-    // Admin Resto/Cafe — POS denah meja, Manajemen Menu, Shift
+    // === ADMIN ROUTING ===
     else if (user.roleName === "admin" && user.unitType && ["resto_cafe", "resto", "coffe_latar"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminRestoNavigation, user);
     }
-    // Admin Toko — Sidebar Admin Retail (ada Produk & Inbox)
     else if (user.roleName === "admin" && user.unitType === "toko") {
         finalNav = filterNavigationByUser(adminTokoNavigation, user);
     }
-    // Admin unit Jasa Cepat → Sidebar Admin Jasa (ada Kelola Layanan & Inbox, tanpa stok fisik)
+    else if (user.roleName === "admin" && user.unitType === "barbershop") {
+        finalNav = filterNavigationByUser(adminBarbershopNavigation, user);
+    }
+    else if (user.roleName === "admin" && user.unitType === "playstation") {
+        finalNav = filterNavigationByUser(adminPSNavigation, user);
+    }
+    else if (user.roleName === "admin" && user.unitType === "fitness") {
+        finalNav = filterNavigationByUser(adminFitnessNavigation, user);
+    }
+    else if (user.roleName === "admin" && user.unitType === "fotocopy") {
+        finalNav = filterNavigationByUser(adminFotocopyNavigation, user);
+    }
+    else if (user.roleName === "admin" && user.unitType === "laundry") {
+        finalNav = filterNavigationByUser(adminLaundryNavigation, user);
+    }
+    // Admin unit Jasa Cepat (fallback ke generic)
     else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminUnitNavigation, user);
     }

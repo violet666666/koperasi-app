@@ -22,11 +22,11 @@ const KASIR_ALLOWED_ROUTES: Record<string, string[]> = {
     toko:        ["/unit", "/transaksi-unit", "/toko/kasir", "/toko/shift", "/toko/produk"],
     cuci_mobil:  ["/unit", "/transaksi-unit"],
     resto_cafe:  ["/unit", "/transaksi-unit", "/resto", "/toko/shift"],
-    fitness:     ["/unit", "/transaksi-unit"],
-    playstation: ["/unit", "/transaksi-unit"],
-    barbershop:  ["/unit", "/transaksi-unit"],
-    fotocopy:    ["/unit", "/transaksi-unit"],
-    laundry:     ["/unit", "/transaksi-unit"],
+    fitness:     ["/unit", "/transaksi-unit", "/fitness"],
+    playstation: ["/unit", "/transaksi-unit", "/play-station"],
+    barbershop:  ["/unit", "/transaksi-unit", "/barbershop"],
+    fotocopy:    ["/unit", "/transaksi-unit", "/fotocopy"],
+    laundry:     ["/unit", "/transaksi-unit", "/laundry"],
     simpan_pinjam: ["/unit", "/transaksi-unit"],
 };
 
@@ -45,11 +45,11 @@ const ADMIN_ALLOWED_ROUTES: Record<string, string[]> = {
     ],
     cuci_mobil:  ["/unit", "/transaksi-unit", "/approval"],
     resto_cafe:  ["/unit", "/transaksi-unit", "/toko", "/resto", "/approval"],
-    fitness:     ["/unit", "/transaksi-unit", "/approval"],
-    playstation: ["/unit", "/transaksi-unit", "/approval"],
-    barbershop:  ["/unit", "/transaksi-unit", "/approval"],
-    fotocopy:    ["/unit", "/transaksi-unit", "/approval"],
-    laundry:     ["/unit", "/transaksi-unit", "/approval"],
+    fitness:     ["/unit", "/transaksi-unit", "/toko/produk", "/fitness", "/approval"],
+    playstation: ["/unit", "/transaksi-unit", "/toko/produk", "/play-station", "/approval"],
+    barbershop:  ["/unit", "/transaksi-unit", "/toko/produk", "/barbershop", "/approval"],
+    fotocopy:    ["/unit", "/transaksi-unit", "/toko/produk", "/fotocopy", "/approval"],
+    laundry:     ["/unit", "/transaksi-unit", "/toko/produk", "/laundry", "/approval"],
     aset:        ["/aset", "/unit", "/transaksi-unit", "/approval"],
 };
 

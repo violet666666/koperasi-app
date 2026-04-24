@@ -113,6 +113,7 @@ interface LaporanSummary {
     qris: number;
     potongGaji: number;
     totalPengeluaran: number;
+    totalPemasukan: number;
     potonganSHUMember: number;
     jumlahCuciAnggota: number;
     shuPerCuci: number;
@@ -137,6 +138,7 @@ interface LaporanData {
     summary: LaporanSummary;
     transactions: LaporanTransaction[];
     operationalExpenses: OperationalExpense[];
+    operationalIncomes: OperationalExpense[]; // Same shape as expense
 }
 
 // ── Page Component ──────────────────────────────────────────────────────────
@@ -174,6 +176,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // Submit Laporan ke Operator
     const [isSubmittingLaporan, setIsSubmittingLaporan] = React.useState(false);
+
+    // Income Dialog (Catat Pemasukan)
+    const [showIncomeDialog, setShowIncomeDialog] = React.useState(false);
+    const [incomeAmount, setIncomeAmount] = React.useState("");
+    const [incomeDesc, setIncomeDesc] = React.useState("");
+    const [incomeDate, setIncomeDate] = React.useState(new Date().toISOString().split("T")[0]);
+    const [isSavingIncome, setIsSavingIncome] = React.useState(false);
+    const [incomeReceiptFile, setIncomeReceiptFile] = React.useState<File | null>(null);
+    const [incomeReceiptPreview, setIncomeReceiptPreview] = React.useState<string | null>(null);
+    const incomeFileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -231,6 +243,74 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             fetchLaporan();
         } catch (err: any) {
             toast.error(err.message || "Gagal menghapus pengeluaran");
+        }
+    };
+
+    // Income handlers
+    const handleIncomeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { toast.error("Ukuran file maksimal 2MB."); return; }
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(file.type)) { toast.error("Format file harus JPG, PNG, atau WebP."); return; }
+        setIncomeReceiptFile(file);
+        const reader = new FileReader();
+        reader.onload = (ev) => setIncomeReceiptPreview(ev.target?.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const clearIncomeFile = () => {
+        setIncomeReceiptFile(null);
+        setIncomeReceiptPreview(null);
+        if (incomeFileInputRef.current) incomeFileInputRef.current.value = "";
+    };
+
+    const handleOpenAddIncome = () => {
+        setIncomeAmount("");
+        setIncomeDesc("");
+        setIncomeDate(new Date().toISOString().split("T")[0]);
+        clearIncomeFile();
+        setShowIncomeDialog(true);
+    };
+
+    const handleSaveIncome = async () => {
+        if (!incomeAmount || Number(incomeAmount) <= 0) { toast.error("Nominal harus lebih dari 0"); return; }
+        if (!incomeDesc.trim()) { toast.error("Keterangan wajib diisi"); return; }
+        setIsSavingIncome(true);
+        try {
+            const formData = new FormData();
+            formData.append("amount", String(Number(incomeAmount)));
+            formData.append("description", incomeDesc.trim());
+            formData.append("transactionDate", incomeDate);
+            if (incomeReceiptFile) formData.append("receipt", incomeReceiptFile);
+
+            const res = await fetch(`/api/unit/${unitSlug}/operational-income`, {
+                method: "POST",
+                body: formData,
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(`Pemasukan Rp${Number(incomeAmount).toLocaleString("id-ID")} berhasil dicatat`);
+            setShowIncomeDialog(false);
+            clearIncomeFile();
+            fetchLaporan();
+        } catch (err: any) {
+            toast.error(err.message || "Gagal menyimpan pemasukan");
+        } finally {
+            setIsSavingIncome(false);
+        }
+    };
+
+    const handleDeleteIncome = async (id: number) => {
+        if (!confirm("Apakah Anda yakin ingin menghapus pemasukan ini?\nSaldo kas akan otomatis terkalkulasi ulang.")) return;
+        try {
+            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${id}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success("Pemasukan berhasil dihapus");
+            fetchLaporan();
+        } catch (err: any) {
+            toast.error(err.message || "Gagal menghapus pemasukan");
         }
     };
 
@@ -400,6 +480,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     const transactions = data?.transactions || [];
     const expenses = data?.operationalExpenses || [];
+    const incomes = data?.operationalIncomes || [];
     const summary = data?.summary;
 
     // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
@@ -422,6 +503,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     actions={
                         <div className="flex gap-2 flex-wrap">
                             {isAdmin && (
+                                <>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                    onClick={() => handleOpenAddIncome()}
+                                >
+                                    <TrendingUp className="mr-2 h-4 w-4" />
+                                    Catat Pemasukan
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -431,6 +522,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TrendingDown className="mr-2 h-4 w-4" />
                                     Catat Pengeluaran
                                 </Button>
+                                </>
                             )}
                             {(isAdmin || isOperator) && data && (
                                 <Button
@@ -929,6 +1021,72 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </div>
             )}
 
+            {/* ── Operational Incomes Table ───────────────────────────────────── */}
+            {incomes.length > 0 && (
+                <div className="print:break-before-page print:pt-10">
+                    <Card className="print:border-0 print:shadow-none">
+                        <CardHeader className="print:hidden">
+                            <CardTitle className="text-base text-emerald-700">Rincian Pemasukan Operasional</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-emerald-50/50">
+                                    <TableHead>Tanggal</TableHead>
+                                    <TableHead>No. Transaksi</TableHead>
+                                    <TableHead>Keterangan</TableHead>
+                                    <TableHead className="text-center print:hidden">Bukti</TableHead>
+                                    <TableHead className="text-right">Nominal</TableHead>
+                                    {isAdmin && <TableHead className="text-center w-[80px] print:hidden">Aksi</TableHead>}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {incomes.map((inc) => (
+                                    <TableRow key={inc.id}>
+                                        <TableCell className="text-xs tabular-nums">
+                                            {new Date(inc.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="font-mono text-xs text-muted-foreground">{inc.transactionNo}</span>
+                                        </TableCell>
+                                        <TableCell className="text-sm">{inc.description}</TableCell>
+                                        <TableCell className="text-center print:hidden">
+                                            {inc.receiptImagePath ? (
+                                                <a href={inc.receiptImagePath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs underline">
+                                                    <FileImage className="h-3.5 w-3.5" /> Lihat
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted-foreground text-xs">-</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold tabular-nums text-emerald-600">
+                                            {formatCurrency(inc.amount)}
+                                        </TableCell>
+                                        {isAdmin && (
+                                            <TableCell className="text-center print:hidden">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteIncome(inc.id)}>
+                                                    🗑️
+                                                </Button>
+                                            </TableCell>
+                                        )}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                            <TableFooter className="print:hidden">
+                                <TableRow className="bg-emerald-50 font-bold">
+                                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-right">TOTAL PEMASUKAN OPERASIONAL</TableCell>
+                                    <TableCell className="text-right tabular-nums text-emerald-700 font-bold">
+                                        {formatCurrency(incomes.reduce((s, e) => s + e.amount, 0))}
+                                    </TableCell>
+                                    {isAdmin && <TableCell className="print:hidden" />}
+                                </TableRow>
+                            </TableFooter>
+                        </Table>
+                    </CardContent>
+                </Card>
+                </div>
+            )}
+
             {/* ── Lampiran Bukti Print (only visible when printing) ─────────── */}
             {expenses.some(e => e.receiptImagePath) && (
                 <div className="hidden print:block">
@@ -1069,6 +1227,113 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         >
                             {isSavingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                             {editExpenseId ? "Simpan Perubahan" : "Simpan Pengeluaran"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Dialog Catat Pemasukan ────────────────────────────────────── */}
+            <Dialog open={showIncomeDialog} onOpenChange={(open) => { setShowIncomeDialog(open); if (!open) clearIncomeFile(); }}>
+                <DialogContent className="sm:max-w-[460px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-emerald-500" />
+                            Catat Pemasukan Operasional
+                        </DialogTitle>
+                        <DialogDescription>
+                            Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll.
+                            Akan langsung mengkredit kas unit ini.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="inc-amount">Nominal Pemasukan (Rp) *</Label>
+                            <Input
+                                id="inc-amount"
+                                type="number"
+                                placeholder="0"
+                                className="text-right text-lg font-bold"
+                                value={incomeAmount}
+                                onChange={(e) => setIncomeAmount(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="inc-desc">Keterangan Pemasukan *</Label>
+                            <Textarea
+                                id="inc-desc"
+                                placeholder="Misal: Pemasukan sewa tempat, transaksi lama belum tercatat, dll."
+                                className="resize-none"
+                                rows={3}
+                                value={incomeDesc}
+                                onChange={(e) => setIncomeDesc(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="inc-date">Tanggal Pemasukan</Label>
+                            <Input
+                                id="inc-date"
+                                type="date"
+                                value={incomeDate}
+                                onChange={(e) => setIncomeDate(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Upload Foto Bukti */}
+                        <div className="space-y-2">
+                            <Label>Foto Bukti (Opsional, maks. 2MB, JPG/PNG/WebP)</Label>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                ref={incomeFileInputRef}
+                                onChange={handleIncomeFileChange}
+                            />
+                            {incomeReceiptPreview ? (
+                                <div className="relative rounded-lg border border-dashed border-emerald-200 overflow-hidden">
+                                    <img
+                                        src={incomeReceiptPreview}
+                                        alt="Preview bukti"
+                                        className="w-full h-36 object-cover"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={clearIncomeFile}
+                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
+                                        {incomeReceiptFile?.name}
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => incomeFileInputRef.current?.click()}
+                                    className="w-full h-24 border-2 border-dashed border-emerald-200 rounded-lg flex flex-col items-center justify-center gap-1 text-emerald-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/50 transition-colors"
+                                >
+                                    <ImagePlus className="h-6 w-6" />
+                                    <span className="text-xs">Klik untuk unggah foto bukti pemasukan</span>
+                                </button>
+                            )}
+                        </div>
+
+                        <Separator />
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                            💰 Pemasukan ini akan langsung mengkredit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowIncomeDialog(false); clearIncomeFile(); }}>Batal</Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={handleSaveIncome}
+                            disabled={isSavingIncome || !incomeAmount || !incomeDesc}
+                        >
+                            {isSavingIncome ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                            Simpan Pemasukan
                         </Button>
                     </DialogFooter>
                 </DialogContent>

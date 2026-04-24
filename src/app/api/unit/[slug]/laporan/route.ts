@@ -160,7 +160,18 @@ export async function GET(
                 type: "out",
                 category: "operational",
                 description: { contains: `[${unitType.toUpperCase()}]` },
-                transactionDate: { gte: dateFromDbDate, lte: dateToDbDate }, // CashBank uses @db.Date typically! Let's check... wait! It is @db.Date too!
+                transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
+            },
+            orderBy: { transactionDate: "desc" },
+        });
+
+        // ── Fetch Operational Income (CashBankTransaction type="in") ──────────
+        const operationalIncomes = await prisma.cashBankTransaction.findMany({
+            where: {
+                type: "in",
+                category: "operational",
+                description: { contains: `[${unitType.toUpperCase()}]` },
+                transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
             },
             orderBy: { transactionDate: "desc" },
         });
@@ -193,6 +204,7 @@ export async function GET(
         const unitTxAgg = aggregateUnitTx(unitTransactions);
         const storeSaleAgg = aggregateStoreSales(storeSales);
         const totalExpenses = operationalExpenses.reduce((s, e) => s + Number(e.amount), 0);
+        const totalOpIncome = operationalIncomes.reduce((s, e) => s + Number(e.amount), 0);
 
         // ── Hitung Potongan SHU Langsung (khusus Cuci Mobil) ──────────────────
         // Setiap transaksi cuci mobil yang dilakukan oleh ANGGOTA (memberId != null)
@@ -247,7 +259,7 @@ export async function GET(
         const allTransactions = [...(isToko ? storeSaleRows : []), ...unitTxRows]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        const totalPendapatan = (isToko ? storeSaleAgg.total : 0) + unitTxAgg.total;
+        const totalPendapatan = (isToko ? storeSaleAgg.total : 0) + unitTxAgg.total + totalOpIncome;
 
         return NextResponse.json({
             data: {
@@ -263,6 +275,7 @@ export async function GET(
                     qris: (isToko ? storeSaleAgg.qris : 0) + unitTxAgg.qris,
                     potongGaji: (isToko ? storeSaleAgg.potongGaji : 0) + unitTxAgg.potongGaji,
                     totalPengeluaran: totalExpenses,
+                    totalPemasukan: totalOpIncome, // Pemasukan manual di luar POS
                     // Potongan SHU Langsung (khusus cuci_mobil)
                     potonganSHUMember: isCuciMobil ? potonganSHUMember : 0,
                     jumlahCuciAnggota: isCuciMobil ? jumlahCuciAnggota : 0,
@@ -275,6 +288,21 @@ export async function GET(
                     const rawDesc = e.description || "";
                     const parts = rawDesc.split("||RECEIPT:");
                     const description = parts[0].replace(`[${unitType.toUpperCase()}] Pengeluaran Operasional: `, "");
+                    const receiptImagePath = parts[1] || null;
+
+                    return {
+                        id: e.id,
+                        date: (e as any).createdAt || e.transactionDate,
+                        transactionNo: e.transactionNo,
+                        description: description,
+                        amount: Number(e.amount),
+                        receiptImagePath: receiptImagePath,
+                    };
+                }),
+                operationalIncomes: operationalIncomes.map((e) => {
+                    const rawDesc = e.description || "";
+                    const parts = rawDesc.split("||RECEIPT:");
+                    const description = parts[0].replace(`[${unitType.toUpperCase()}] Pemasukan Operasional: `, "");
                     const receiptImagePath = parts[1] || null;
 
                     return {
