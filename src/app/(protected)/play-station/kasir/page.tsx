@@ -137,7 +137,7 @@ export default function PSKasirPage() {
         async function fetchProducts() {
             setIsLoading(true);
             try {
-                const res = await fetch("/api/toko/products?unitType=play_station");
+                const res = await fetch("/api/toko/products?unitType=playstation");
                 const json = await res.json();
                 const all = json.data || [];
                 // Separate rental service product from F&B (if it's flagged isService)
@@ -191,7 +191,7 @@ export default function PSKasirPage() {
             try {
                 const res = await fetch("/api/unit-transactions/validate", {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: "play_station" }),
+                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: "playstation" }),
                 });
                 setLimitInfo(await res.json());
             } catch { toast.error("Gagal mengecek sisa limit plafon anggota."); } finally { setIsValidatingLimit(false); }
@@ -213,7 +213,7 @@ export default function PSKasirPage() {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                 customerName: activeTv.customerName || (method === "salary_cut" ? selectedMember?.name : "Player Umum"),
                 paymentMethod: method,
-                unitType: "play_station",
+                unitType: "playstation",
                 metadata: { psNumber: activeTv.label, guestName: activeTv.customerName }
             };
             
