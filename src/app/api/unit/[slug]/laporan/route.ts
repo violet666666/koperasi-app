@@ -84,7 +84,8 @@ export async function GET(
                 break;
         }
 
-        const isToko = ["toko", "coffe_latar", "resto"].includes(unitType);
+        // Units that use store_sales (via /api/toko/sales) instead of just unit_transactions
+        const usesStoreSales = !["cuci_mobil", "simpan_pinjam", "investasi_modal_jp"].includes(unitType);
         const isCuciMobil = unitType === "cuci_mobil";
         const SHU_PER_CUCI_ANGGOTA = 2000; // Rp 2.000 per transaksi anggota
 
@@ -121,8 +122,8 @@ export async function GET(
             status: { notIn: ["voided"] },
         };
 
-        // Untuk toko, exclude auto-generated piutang records
-        if (isToko) {
+        // Untuk toko/resto, exclude auto-generated piutang records
+        if (usesStoreSales) {
             unitTxWhere.NOT = { transactionNo: { startsWith: "TK-UTG-" } };
         }
 
@@ -134,9 +135,9 @@ export async function GET(
             orderBy: { transactionDate: "desc" },
         });
 
-        // ── Fetch StoreSale (Toko only) ───────────────────────────────────────
+        // ── Fetch StoreSale (all units using store_sales) ──────────────────────
         let storeSales: any[] = [];
-        if (isToko) {
+        if (usesStoreSales) {
             const rawStoreSales = await prisma.storeSale.findMany({
                 where: {
                     unitType,
@@ -256,10 +257,10 @@ export async function GET(
         }));
 
         // Merge & sort
-        const allTransactions = [...(isToko ? storeSaleRows : []), ...unitTxRows]
+        const allTransactions = [...(usesStoreSales ? storeSaleRows : []), ...unitTxRows]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        const totalPendapatan = (isToko ? storeSaleAgg.total : 0) + unitTxAgg.total + totalOpIncome;
+        const totalPendapatan = (usesStoreSales ? storeSaleAgg.total : 0) + unitTxAgg.total + totalOpIncome;
 
         return NextResponse.json({
             data: {
@@ -270,10 +271,10 @@ export async function GET(
                 dateTo: dateTo.toISOString(),
                 summary: {
                     totalPendapatan,
-                    totalTransaksi: (isToko ? storeSaleAgg.count : 0) + unitTxAgg.count,
-                    tunai: (isToko ? storeSaleAgg.tunai : 0) + unitTxAgg.tunai,
-                    qris: (isToko ? storeSaleAgg.qris : 0) + unitTxAgg.qris,
-                    potongGaji: (isToko ? storeSaleAgg.potongGaji : 0) + unitTxAgg.potongGaji,
+                    totalTransaksi: (usesStoreSales ? storeSaleAgg.count : 0) + unitTxAgg.count,
+                    tunai: (usesStoreSales ? storeSaleAgg.tunai : 0) + unitTxAgg.tunai,
+                    qris: (usesStoreSales ? storeSaleAgg.qris : 0) + unitTxAgg.qris,
+                    potongGaji: (usesStoreSales ? storeSaleAgg.potongGaji : 0) + unitTxAgg.potongGaji,
                     totalPengeluaran: totalExpenses,
                     totalPemasukan: totalOpIncome, // Pemasukan manual di luar POS
                     // Potongan SHU Langsung (khusus cuci_mobil)

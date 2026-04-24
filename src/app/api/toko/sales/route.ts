@@ -8,8 +8,12 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get("limit") || "100");
+        const unitType = searchParams.get("unitType") || null;
 
         const sales = await prisma.storeSale.findMany({
+            where: {
+                ...(unitType && { unitType }),
+            },
             include: {
                 items: {
                     include: { product: { select: { id: true, sku: true, name: true } } },
