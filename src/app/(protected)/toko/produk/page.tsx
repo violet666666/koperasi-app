@@ -45,7 +45,24 @@ export default function TokoProdukPage() {
     const userRole = session?.user?.role as string || "";
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
+    const isToko = unitType === "toko";
+    // Dynamic unit type for API calls — use actual unitType instead of hardcoding
+    const productUnitType = isResto ? "resto" : unitType;
     const isKasir = userRole === "kasir";
+
+    // Dynamic labels
+    const UNIT_PRODUCT_LABELS: Record<string, { title: string; desc: string; itemName: string }> = {
+        toko: { title: "Produk Toko", desc: "Kelola produk toko PRIMKOPPOL", itemName: "Produk" },
+        resto: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Resto", itemName: "Menu" },
+        resto_cafe: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Resto", itemName: "Menu" },
+        coffe_latar: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Cafe", itemName: "Menu" },
+        barbershop: { title: "Manajemen Layanan", desc: "Kelola layanan pangkas rambut", itemName: "Layanan" },
+        playstation: { title: "Manajemen Produk & Jasa", desc: "Kelola produk snack & jasa rental PS", itemName: "Produk" },
+        fitness: { title: "Manajemen Layanan", desc: "Kelola paket gym & fitness", itemName: "Layanan" },
+        fotocopy: { title: "Manajemen Layanan", desc: "Kelola layanan fotocopy & print", itemName: "Layanan" },
+        laundry: { title: "Manajemen Layanan", desc: "Kelola layanan laundry", itemName: "Layanan" },
+    };
+    const unitLabels = UNIT_PRODUCT_LABELS[unitType] || UNIT_PRODUCT_LABELS["toko"];
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -96,7 +113,6 @@ export default function TokoProdukPage() {
     // Fetch
     const fetchProducts = React.useCallback(async () => {
         try {
-            const productUnitType = isResto ? "resto" : "toko";
             const res = await fetch(`/api/toko/products?unitType=${productUnitType}`);
             if (!res.ok) throw new Error('Failed');
             const result = await res.json();
@@ -104,7 +120,7 @@ export default function TokoProdukPage() {
         } catch (error) {
             console.error("Failed to fetch products:", error);
         }
-    }, []);
+    }, [productUnitType]);
 
     React.useEffect(() => {
         setIsLoading(true);
@@ -350,8 +366,8 @@ export default function TokoProdukPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title={isKasir ? "Daftar Produk" : isResto ? "Manajemen Menu" : "Produk Toko"}
-                description={isKasir ? "Lihat daftar produk dan stok toko" : isResto ? "Kelola menu makanan & minuman Resto" : "Kelola produk toko PRIMKOPPOL"}
+                title={isKasir ? `Daftar ${unitLabels.itemName}` : unitLabels.title}
+                description={isKasir ? `Lihat daftar ${unitLabels.itemName.toLowerCase()} dan stok` : unitLabels.desc}
                 actions={
                     !isKasir ? (
                         <div className="flex items-center gap-2 flex-wrap">

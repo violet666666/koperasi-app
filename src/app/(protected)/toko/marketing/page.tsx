@@ -81,7 +81,7 @@ export default function MarketingPage() {
     const { data: session } = useSession();
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
-    const productUnitType = isResto ? "resto" : "toko";
+    const productUnitType = isResto ? "resto" : unitType;
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);

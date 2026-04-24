@@ -122,7 +122,7 @@ export default function PersediaanPage() {
 
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
-    const productUnitType = isResto ? "resto" : "toko";
+    const productUnitType = isResto ? "resto" : unitType;
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -265,7 +265,7 @@ export default function PersediaanPage() {
     return (
         <>
         <div className="space-y-6">
-            <PageHeader title={isResto ? "Manajemen Persediaan Menu" : "Manajemen Persediaan"} description={isResto ? "Kelola stok bahan / menu keluar masuk" : "Kelola stok masuk dan keluar"}
+            <PageHeader title={isResto ? "Manajemen Persediaan Menu" : "Manajemen Persediaan"} description={isResto ? "Kelola stok bahan / menu keluar masuk" : `Kelola stok masuk dan keluar — ${unitType.replace(/_/g, " ")}`}
                 actions={
                     <div className="flex gap-2">
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
