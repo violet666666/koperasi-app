@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Copy, FileText, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Plus, Minus, Package } from "lucide-react";
+import { Copy, FileText, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Plus, Minus, Package, X, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -24,7 +24,6 @@ export default function FotocopyKasirPage() {
     const [cart, setCart] = React.useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
-    const [customerName, setCustomerName] = React.useState("");
     const [paymentAmount, setPaymentAmount] = React.useState("");
     const [lastReceipt, setLastReceipt] = React.useState<ReceiptData | null>(null);
     const [showReceipt, setShowReceipt] = React.useState(false);
@@ -35,8 +34,46 @@ export default function FotocopyKasirPage() {
     const [isSearchingMember, setIsSearchingMember] = React.useState(false);
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
-    // Quantity input mode per product
     const [qtyInputs, setQtyInputs] = React.useState<Record<number, string>>({});
+
+    // Customer autocomplete (NRP/Nama)
+    const [customerQuery, setCustomerQuery] = React.useState("");
+    const [customerSuggestions, setCustomerSuggestions] = React.useState<MemberResult[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
+    const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
+    const customerRef = React.useRef<HTMLDivElement>(null);
+
+    // QRIS
+    const [showQrisDialog, setShowQrisDialog] = React.useState(false);
+    const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (customerRef.current && !customerRef.current.contains(e.target as Node)) setShowCustomerDropdown(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    React.useEffect(() => {
+        if (selectedCustomerObj) return;
+        if (!customerQuery || customerQuery.length < 2) { setCustomerSuggestions([]); setShowCustomerDropdown(false); return; }
+        const timer = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerQuery)}`);
+                const json = await res.json();
+                const results: MemberResult[] = json.data || [];
+                setCustomerSuggestions(results); setShowCustomerDropdown(results.length > 0);
+            } catch { setCustomerSuggestions([]); }
+            finally { setIsSearchingCustomer(false); }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [customerQuery, selectedCustomerObj]);
+
+    const selectCustomer = (m: MemberResult) => { setSelectedCustomerObj(m); setCustomerQuery(m.name); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
+    const clearCustomer = () => { setSelectedCustomerObj(null); setCustomerQuery(""); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -48,7 +85,15 @@ export default function FotocopyKasirPage() {
             } catch { toast.error("Gagal memuat layanan Fotocopy"); }
             finally { setIsLoading(false); }
         }
+        async function fetchQris() {
+            try {
+                const res = await fetch("/api/unit-layanan/stats?unitType=fotocopy");
+                const json = await res.json();
+                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
+            } catch {}
+        }
         fetchProducts();
+        fetchQris();
     }, []);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -111,8 +156,9 @@ export default function FotocopyKasirPage() {
         try {
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
-                customerName: customerName || (method === "salary_cut" ? selectedMember?.name : "Umum"),
+                customerName: customerQuery || (method === "salary_cut" ? selectedMember?.name : "Umum"),
                 paymentMethod: method, unitType: "fotocopy",
+                memberId: selectedCustomerObj?.id || (method === "salary_cut" ? selectedMember?.id : undefined),
             };
             if (method === "cash") body.cashReceived = Number(paymentAmount);
             if (method === "qris") body.cashReceived = subtotal;
@@ -128,16 +174,16 @@ export default function FotocopyKasirPage() {
             toast.success(`Transaksi Fotocopy ${json.data.saleNo} Berhasil!`);
             setLastReceipt({
                 notaNo: json.data.saleNo, tanggal: new Date().toLocaleString("id-ID"),
-                nrpNip: selectedMember?.nrp || "-",
-                namaAnggota: selectedMember?.name || customerName || "Umum",
+                nrpNip: selectedMember?.nrp || selectedCustomerObj?.nrp || "-",
+                namaAnggota: selectedMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
                 kesatuan: "-", keterangan: "Fotocopy & Print",
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Kas/Potong Gaji"),
                 kasir: "Kasir Fotocopy"
             });
             setShowReceipt(true);
-            setCart([]); setPaymentAmount(""); setCustomerName("");
-            setSelectedMember(null); setShowCreditDialog(false);
+            setCart([]); setPaymentAmount(""); clearCustomer();
+            setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
         } finally { setIsProcessing(false); }
@@ -168,9 +214,27 @@ export default function FotocopyKasirPage() {
                         </CardHeader>
                         <CardContent className="p-4 space-y-4">
                             <div className="space-y-3 bg-white p-3 rounded-md border border-slate-100 shadow-sm">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Nama Pelanggan (Opsional)</Label>
-                                    <Input placeholder="Tamu umum..." value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-8 text-sm" />
+                                <div className="space-y-1" ref={customerRef}>
+                                    <Label className="text-xs">Pelanggan / NRP Anggota</Label>
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-2 h-4 w-4 text-slate-400" />
+                                        <Input placeholder="Ketik NRP/Nama anggota..." value={customerQuery}
+                                            onChange={e => { setCustomerQuery(e.target.value); if (selectedCustomerObj) setSelectedCustomerObj(null); }}
+                                            className={`h-8 text-sm pl-9 pr-8 ${selectedCustomerObj ? 'border-blue-400 bg-blue-50/50' : ''}`} />
+                                        {selectedCustomerObj && <button onClick={clearCustomer} className="absolute right-2 top-2"><X className="h-4 w-4 text-slate-400" /></button>}
+                                        {isSearchingCustomer && <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-slate-400" />}
+                                    </div>
+                                    {showCustomerDropdown && customerSuggestions.length > 0 && (
+                                        <div className="absolute z-50 mt-1 w-[calc(100%-1.5rem)] max-h-[150px] overflow-y-auto bg-white border rounded-md shadow-lg">
+                                            {customerSuggestions.map(m => (
+                                                <div key={m.id} className="p-2 cursor-pointer hover:bg-blue-50 border-b last:border-0 text-sm" onClick={() => selectCustomer(m)}>
+                                                    <span className="font-semibold">{m.name}</span>
+                                                    <span className="text-xs text-slate-500 ml-2">NRP: {m.nrp || "-"}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {selectedCustomerObj && <p className="text-xs text-blue-600 mt-0.5">✓ {selectedCustomerObj.name} (NRP: {selectedCustomerObj.nrp})</p>}
                                 </div>
                             </div>
 
@@ -210,7 +274,7 @@ export default function FotocopyKasirPage() {
                                 <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing}>
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Tunai
                                 </Button>
-                                <Button size="lg" className="bg-sky-600 hover:bg-sky-700 shadow-sm" onClick={() => processPayment("qris")} disabled={cart.length === 0 || isProcessing}>
+                                <Button size="lg" className="bg-sky-600 hover:bg-sky-700 shadow-sm" onClick={() => { if (cart.length === 0) { toast.error("Pilih layanan"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />} QRIS
                                 </Button>
                             </div>
@@ -307,6 +371,45 @@ export default function FotocopyKasirPage() {
                         <Button disabled={!selectedMember || isProcessing || (limitInfo !== null && !limitInfo.allowed)} onClick={() => processPayment("salary_cut")}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
                             Proses Potong Gaji
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* QRIS Payment Dialog */}
+            <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Pembayaran QRIS — Fotocopy</DialogTitle>
+                        <DialogDescription>Minta pelanggan untuk memindai barcode QRIS di bawah ini.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="bg-slate-50 p-4 border rounded-xl shadow-sm">
+                            {qrisUrl ? (
+                                <img src={qrisUrl} alt="QRIS Fotocopy" className="w-56 h-56 object-contain" />
+                            ) : (
+                                <div className="w-56 h-56 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed bg-white">
+                                    <QrCode className="h-10 w-10 mb-2 opacity-20" />
+                                    <p className="text-sm">Kode QRIS Belum Diatur!</p>
+                                    <p className="text-xs text-center mt-1 px-4">Hubungi Admin unit untuk mengatur QRIS.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center space-y-1">
+                            <p className="text-sm text-muted-foreground">Total Tagihan:</p>
+                            <p className="text-3xl font-bold text-primary">{formatCurrency(subtotal)}</p>
+                        </div>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-800 text-center flex justify-center items-center gap-1.5 font-medium">
+                            <AlertCircle className="h-4 w-4" /> Pastikan saldo sudah masuk rekening sebelum menekan tombol.
+                        </p>
+                    </div>
+                    <DialogFooter className="mt-2">
+                        <Button variant="outline" onClick={() => setShowQrisDialog(false)} disabled={isProcessing}>Batal</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setShowQrisDialog(false); processPayment("qris"); }} disabled={!qrisUrl || isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            Pelanggan Sudah Bayar
                         </Button>
                     </DialogFooter>
                 </DialogContent>

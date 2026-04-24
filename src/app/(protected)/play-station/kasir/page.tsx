@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Gamepad2, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Play, Square, TimerReset, AlertTriangle } from "lucide-react";
+import { Gamepad2, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Play, Square, TimerReset, AlertTriangle, X, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -133,6 +133,54 @@ export default function PSKasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
+    // Customer autocomplete (NRP/Nama)
+    const [customerSuggestions, setCustomerSuggestions] = React.useState<MemberResult[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
+    const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
+    const customerRef = React.useRef<HTMLDivElement>(null);
+
+    // QRIS
+    const [showQrisDialog, setShowQrisDialog] = React.useState(false);
+    const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
+
+    // Close customer dropdown on outside click
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (customerRef.current && !customerRef.current.contains(e.target as Node)) setShowCustomerDropdown(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    // Debounce NRP/Name autocomplete for customer field
+    React.useEffect(() => {
+        if (selectedCustomerObj) return;
+        const q = activeTv?.customerName || "";
+        if (!q || q.length < 2) { setCustomerSuggestions([]); setShowCustomerDropdown(false); return; }
+        const timer = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(q)}`);
+                const json = await res.json();
+                const results: MemberResult[] = json.data || [];
+                setCustomerSuggestions(results); setShowCustomerDropdown(results.length > 0);
+            } catch { setCustomerSuggestions([]); }
+            finally { setIsSearchingCustomer(false); }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [activeTv?.customerName, selectedCustomerObj]);
+
+    const selectCustomer = (m: MemberResult) => {
+        if (activeTv) setCustomer(activeTv.id, m.name);
+        setSelectedCustomerObj(m);
+        setCustomerSuggestions([]); setShowCustomerDropdown(false);
+    };
+    const clearCustomerSelection = () => {
+        setSelectedCustomerObj(null);
+        setCustomerSuggestions([]); setShowCustomerDropdown(false);
+    };
+
     React.useEffect(() => {
         async function fetchProducts() {
             setIsLoading(true);
@@ -148,7 +196,15 @@ export default function PSKasirPage() {
                 setProducts(fb);
             } catch { toast.error("Gagal memuat katalog produk/jasa"); } finally { setIsLoading(false); }
         }
+        async function fetchQris() {
+            try {
+                const res = await fetch("/api/unit-layanan/stats?unitType=playstation");
+                const json = await res.json();
+                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
+            } catch {}
+        }
         fetchProducts();
+        fetchQris();
     }, []);
 
     const filteredMenu = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -214,6 +270,7 @@ export default function PSKasirPage() {
                 customerName: activeTv.customerName || (method === "salary_cut" ? selectedMember?.name : "Player Umum"),
                 paymentMethod: method,
                 unitType: "playstation",
+                memberId: selectedCustomerObj?.id || (method === "salary_cut" ? selectedMember?.id : undefined),
                 metadata: { psNumber: activeTv.label, guestName: activeTv.customerName }
             };
             
@@ -232,8 +289,8 @@ export default function PSKasirPage() {
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.saleNo,
                 tanggal: new Date().toLocaleString("id-ID"),
-                nrpNip: selectedMember?.nrp || "-",
-                namaAnggota: selectedMember?.name || activeTv.customerName || "Player Umum",
+                nrpNip: selectedMember?.nrp || selectedCustomerObj?.nrp || "-",
+                namaAnggota: selectedMember?.name || selectedCustomerObj?.name || activeTv.customerName || "Player Umum",
                 kesatuan: "-",
                 keterangan: `Rental Console [${activeTv.label}] & F&B`,
                 total: subtotal,
@@ -246,7 +303,7 @@ export default function PSKasirPage() {
             // Clear table state
             clearTv(activeTv.id);
             setActiveTv(null);
-            setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false);
+            setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false); clearCustomerSelection();
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
         } finally { setIsProcessing(false); }
@@ -336,8 +393,26 @@ export default function PSKasirPage() {
                         <p className="text-xs text-muted-foreground font-mono">{calculateDurationString(activeTv.startTime)} Timer</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 w-1/4">
-                    <Input placeholder="Nama Player (Tamu)..." value={activeTv.customerName} onChange={e => setCustomer(activeTv.id, e.target.value)} />
+                <div className="flex items-center gap-3 w-1/4" ref={customerRef}>
+                    <div className="relative w-full">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                        <Input placeholder="NRP / Nama Player..." className={`pl-9 pr-8 ${selectedCustomerObj ? 'border-purple-400 bg-purple-50/50' : ''}`}
+                            value={activeTv.customerName}
+                            onChange={e => { setCustomer(activeTv.id, e.target.value); if (selectedCustomerObj) setSelectedCustomerObj(null); }} />
+                        {selectedCustomerObj && <button onClick={() => { setCustomer(activeTv.id, ""); clearCustomerSelection(); }} className="absolute right-2 top-2.5"><X className="h-4 w-4 text-slate-400" /></button>}
+                        {isSearchingCustomer && <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
+                        {showCustomerDropdown && customerSuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full max-h-[150px] overflow-y-auto bg-white border rounded-md shadow-lg">
+                                {customerSuggestions.map(m => (
+                                    <div key={m.id} className="p-2 cursor-pointer hover:bg-purple-50 border-b last:border-0 text-sm" onClick={() => selectCustomer(m)}>
+                                        <span className="font-semibold">{m.name}</span>
+                                        <span className="text-xs text-slate-500 ml-2">NRP: {m.nrp || "-"}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {selectedCustomerObj && <p className="text-xs text-purple-600 mt-0.5">✓ {selectedCustomerObj.name} (NRP: {selectedCustomerObj.nrp})</p>}
+                    </div>
                 </div>
             </div>
 
@@ -437,7 +512,7 @@ export default function PSKasirPage() {
                             <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm col-span-2" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
                                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Setor Tunai
                             </Button>
-                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => processPayment("qris")} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
+                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } if (activeTv.startTime) { toast.error("Stop timer dulu!"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
                             <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => setShowCreditDialog(true)} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
@@ -491,6 +566,45 @@ export default function PSKasirPage() {
                         <Button disabled={!selectedMember || isProcessing || (limitInfo !== null && !limitInfo.allowed)} onClick={() => processPayment("salary_cut")} variant={limitInfo?.allowed === false ? "destructive" : "default"}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 flex-shrink-0 animate-spin" /> : limitInfo?.allowed === false ? <ShieldAlert className="mr-2 h-4 w-4" /> : <CreditCard className="mr-2 h-4 w-4" />}
                             {limitInfo?.allowed === false ? "Ditolak Sistem" : "Proses Potong Gaji"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* QRIS Payment Dialog */}
+            <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Pembayaran QRIS — Play Station</DialogTitle>
+                        <DialogDescription>Minta pelanggan untuk memindai barcode QRIS di bawah ini.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="bg-slate-50 p-4 border rounded-xl shadow-sm">
+                            {qrisUrl ? (
+                                <img src={qrisUrl} alt="QRIS Play Station" className="w-56 h-56 object-contain" />
+                            ) : (
+                                <div className="w-56 h-56 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed bg-white">
+                                    <QrCode className="h-10 w-10 mb-2 opacity-20" />
+                                    <p className="text-sm">Kode QRIS Belum Diatur!</p>
+                                    <p className="text-xs text-center mt-1 px-4">Hubungi Admin unit untuk mengatur QRIS.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center space-y-1">
+                            <p className="text-sm text-muted-foreground">Total Tagihan:</p>
+                            <p className="text-3xl font-bold text-primary">{formatCurrency(subtotal)}</p>
+                        </div>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-800 text-center flex justify-center items-center gap-1.5 font-medium">
+                            <AlertCircle className="h-4 w-4" /> Pastikan saldo sudah masuk rekening sebelum menekan tombol.
+                        </p>
+                    </div>
+                    <DialogFooter className="mt-2">
+                        <Button variant="outline" onClick={() => setShowQrisDialog(false)} disabled={isProcessing}>Batal</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setShowQrisDialog(false); processPayment("qris"); }} disabled={!qrisUrl || isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            Pelanggan Sudah Bayar
                         </Button>
                     </DialogFooter>
                 </DialogContent>

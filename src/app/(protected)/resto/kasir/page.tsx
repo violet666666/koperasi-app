@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle } from "lucide-react";
+import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -106,6 +106,10 @@ export default function RestoKasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
+    // QRIS
+    const [showQrisDialog, setShowQrisDialog] = React.useState(false);
+    const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
+
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
 
@@ -118,7 +122,15 @@ export default function RestoKasirPage() {
                 setProducts(json.data || []);
             } catch { toast.error("Gagal memuat menu resto"); } finally { setIsLoading(false); }
         }
+        async function fetchQris() {
+            try {
+                const res = await fetch("/api/unit-layanan/stats?unitType=resto");
+                const json = await res.json();
+                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
+            } catch {}
+        }
         fetchProducts();
+        fetchQris();
     }, []);
 
     // Check shift status
@@ -189,6 +201,7 @@ export default function RestoKasirPage() {
                 customerName: activeTable.customerName || (method === "salary_cut" ? selectedMember?.name : "Tamu"),
                 paymentMethod: method,
                 unitType: "resto",
+                memberId: selectedMember?.id || undefined,
                 metadata: { tableNo: activeTable.label, orderType: activeTable.type, guestName: activeTable.customerName }
             };
             
@@ -221,7 +234,7 @@ export default function RestoKasirPage() {
             // Clear table state
             clearTable(activeTable.id);
             setActiveTable(null);
-            setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false);
+            setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
         } finally { setIsProcessing(false); }
@@ -509,7 +522,7 @@ export default function RestoKasirPage() {
                             <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm col-span-2" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing}>
                                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Bayar Tunai & Cetak Struk
                             </Button>
-                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => processPayment("qris")} disabled={cart.length === 0 || isProcessing}>
+                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
                             <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => setShowCreditDialog(true)} disabled={cart.length === 0 || isProcessing}>
@@ -569,7 +582,45 @@ export default function RestoKasirPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Receipt Modal */}
+            {/* QRIS Payment Dialog */}
+            <Dialog open={showQrisDialog} onOpenChange={setShowQrisDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Pembayaran QRIS — Resto &amp; Cafe</DialogTitle>
+                        <DialogDescription>Minta pelanggan untuk memindai barcode QRIS di bawah ini.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="bg-slate-50 p-4 border rounded-xl shadow-sm">
+                            {qrisUrl ? (
+                                <img src={qrisUrl} alt="QRIS Resto" className="w-56 h-56 object-contain" />
+                            ) : (
+                                <div className="w-56 h-56 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed bg-white">
+                                    <QrCode className="h-10 w-10 mb-2 opacity-20" />
+                                    <p className="text-sm">Kode QRIS Belum Diatur!</p>
+                                    <p className="text-xs text-center mt-1 px-4">Hubungi Admin unit untuk mengatur QRIS.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center space-y-1">
+                            <p className="text-sm text-muted-foreground">Total Tagihan:</p>
+                            <p className="text-3xl font-bold text-primary">{formatCurrency(subtotal)}</p>
+                        </div>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                        <p className="text-xs text-amber-800 text-center flex justify-center items-center gap-1.5 font-medium">
+                            <AlertCircle className="h-4 w-4" /> Pastikan saldo sudah masuk rekening sebelum menekan tombol.
+                        </p>
+                    </div>
+                    <DialogFooter className="mt-2">
+                        <Button variant="outline" onClick={() => setShowQrisDialog(false)} disabled={isProcessing}>Batal</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setShowQrisDialog(false); processPayment("qris"); }} disabled={!qrisUrl || isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            Pelanggan Sudah Bayar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
                 <DialogContent className="sm:max-w-[400px] bg-slate-100 p-6">
                     <DialogHeader className="mb-4">
