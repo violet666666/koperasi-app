@@ -36,14 +36,12 @@ export async function GET(request: Request) {
                 _sum: { amount: true },
                 orderBy: { transactionDate: "asc" },
             }),
-            // Penjualan toko per unit (last 30 days)
-            prisma.storeSale.groupBy({
-                by: ["unitType"],
+            // Penjualan toko per unit (last 30 days) — FIX: exclude voided
+            prisma.storeSale.findMany({
                 where: {
                     createdAt: { gte: startDate },
                 },
-                _sum: { totalAmount: true },
-                _count: { _all: true },
+                select: { unitType: true, totalAmount: true, metadata: true },
             }),
             // Penjualan unit jasa per unit (last 30 days)
             prisma.unitTransaction.groupBy({
@@ -111,11 +109,17 @@ export async function GET(request: Request) {
 
         const storeSalesMap: Record<string, { total: number; count: number }> = {};
         
+        // FIX: Filter out voided sales, then aggregate by unitType manually
         for (const u of storeSales) {
-            storeSalesMap[u.unitType] = {
-                total: Number(u._sum.totalAmount || 0),
-                count: u._count._all,
-            };
+            // Skip voided sales
+            if (u.metadata) {
+                const meta = typeof u.metadata === "object" ? u.metadata : JSON.parse(u.metadata as string);
+                if ((meta as any).isVoided) continue;
+            }
+            const key = u.unitType;
+            if (!storeSalesMap[key]) storeSalesMap[key] = { total: 0, count: 0 };
+            storeSalesMap[key].total += Number(u.totalAmount || 0);
+            storeSalesMap[key].count += 1;
         }
 
         for (const u of unitTxSales) {
