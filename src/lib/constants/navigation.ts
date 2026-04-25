@@ -39,6 +39,7 @@ import {
     Dumbbell,
     Shirt,
     Copy,
+    Calculator,
 } from "lucide-react";
 
 export interface NavItem {
