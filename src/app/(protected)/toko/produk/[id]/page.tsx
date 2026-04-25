@@ -16,7 +16,7 @@ export default function DetailProdukPage() {
     React.useEffect(() => {
         async function load() {
             try {
-                const res = await fetch(`/api/shop/products/${productId}`);
+                const res = await fetch(`/api/toko/products/${productId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setProduct(data.data);
