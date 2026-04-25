@@ -200,7 +200,7 @@ export default function PersediaanPage() {
             // Refresh data
             const [movementsRes, productsRes] = await Promise.all([
                 fetch("/api/toko/movements"),
-                fetch("/api/toko/products"),
+                fetch(`/api/toko/products?unitType=${productUnitType}`),
             ]);
             if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
             if (productsRes.ok) setProducts((await productsRes.json()).data || []);

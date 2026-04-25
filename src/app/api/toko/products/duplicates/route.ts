@@ -17,9 +17,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        // Ambil semua produk aktif
+        // Ambil semua produk aktif — filter by unit
+        const unitType = (session.user as any).unitType || "toko";
         const allProducts = await prisma.storeProduct.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, unitType: unitType },
             select: {
                 id: true,
                 sku: true,

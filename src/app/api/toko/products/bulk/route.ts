@@ -26,6 +26,7 @@ export async function PUT(request: Request) {
         }
 
         const userId = Number(session.user.id);
+        const unitType = (session.user as any).unitType || "toko";
         const body = await request.json();
         const { ids, action, value, category } = body;
 
@@ -38,6 +39,17 @@ export async function PUT(request: Request) {
         }
 
         const numericIds = ids.map(Number);
+
+        // Validate all products belong to the user's unit
+        const unitProducts = await prisma.storeProduct.findMany({
+            where: { id: { in: numericIds }, unitType: unitType },
+            select: { id: true },
+        });
+        const validIds = unitProducts.map(p => p.id);
+        if (validIds.length === 0) {
+            return NextResponse.json({ message: "Tidak ada produk valid di unit Anda" }, { status: 400 });
+        }
+
         let updateData: Record<string, unknown> = {};
         let actionLabel = "";
         let isStockAction = false;
@@ -67,7 +79,7 @@ export async function PUT(request: Request) {
                 // Preserve stockGdg/stockToko distribution when setting stock
                 // Read current products first to maintain ratio
                 const productsForSet = await prisma.storeProduct.findMany({
-                    where: { id: { in: numericIds } },
+                    where: { id: { in: validIds } },
                     select: { id: true, stockGdg: true, stockToko: true, stock: true },
                 });
                 const newStockVal = Number(value);
@@ -124,14 +136,14 @@ export async function PUT(request: Request) {
         }
 
         const result = await prisma.storeProduct.updateMany({
-            where: { id: { in: numericIds } },
+            where: { id: { in: validIds } },
             data: updateData,
         });
 
         // Create stock movement records for stock-changing bulk actions
         if (isStockAction) {
             const affectedProducts = await prisma.storeProduct.findMany({
-                where: { id: { in: numericIds } },
+                where: { id: { in: validIds } },
                 select: { id: true },
             });
             await prisma.storeStockMovement.createMany({

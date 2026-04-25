@@ -16,9 +16,10 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ message: "Kasir tidak diizinkan menghapus semua produk" }, { status: 403 });
         }
 
-        // Count existing products first
+        // Count existing products first — filter by unit
+        const unitType = (session.user as any).unitType || "toko";
         const count = await prisma.storeProduct.count({
-            where: { deletedAt: null },
+            where: { deletedAt: null, unitType: unitType },
         });
 
         if (count === 0) {
@@ -28,18 +29,27 @@ export async function DELETE(request: Request) {
             });
         }
 
-        // Check if any products have active sale items
-        const productsWithSales = await prisma.storeSaleItem.count();
-        
+        // Check if any products in this unit have active sale items
+        const unitProductIds = await prisma.storeProduct.findMany({
+            where: { deletedAt: null, unitType: unitType },
+            select: { id: true },
+        });
+        const productIdList = unitProductIds.map(p => p.id);
+        const productsWithSales = await prisma.storeSaleItem.count({
+            where: { productId: { in: productIdList } },
+        });
+
         if (productsWithSales > 0) {
             // Soft delete (set deletedAt) — products with sales history cannot be hard-deleted
             await prisma.storeProduct.updateMany({
-                where: { deletedAt: null },
+                where: { id: { in: productIdList } },
                 data: { deletedAt: new Date(), isActive: false },
             });
         } else {
             // Hard delete if no sale items reference them
-            await prisma.storeProduct.deleteMany({});
+            await prisma.storeProduct.deleteMany({
+                where: { id: { in: productIdList } },
+            });
         }
 
         // Audit log

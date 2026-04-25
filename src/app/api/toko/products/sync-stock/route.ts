@@ -22,9 +22,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Hanya operator yang dapat menjalankan sinkronisasi stok" }, { status: 403 });
         }
 
-        // Ambil semua produk aktif
+        // Ambil semua produk aktif — filter by unit
+        const unitType = (session.user as any).unitType || "toko";
         const allProducts = await prisma.storeProduct.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, unitType: unitType },
             select: { id: true, stock: true, stockGdg: true, stockToko: true, name: true, sku: true },
         });
 

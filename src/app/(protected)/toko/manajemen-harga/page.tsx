@@ -54,9 +54,9 @@ export default function ManajemenHargaPage() {
             .finally(() => setIsLoading(false));
     }, [effectiveUnitType]);
 
-    // Fetch all product categories
+    // Fetch all product categories (filtered by unit type)
     React.useEffect(() => {
-        fetch(`/api/toko/products?limit=9999`)
+        fetch(`/api/toko/products?limit=9999&unitType=${effectiveUnitType}`)
             .then(r => r.json())
             .then(data => {
                 const cats = new Set<string>();
@@ -64,7 +64,7 @@ export default function ManajemenHargaPage() {
                 setAllCategories(Array.from(cats).sort());
             })
             .catch(() => {});
-    }, []);
+    }, [effectiveUnitType]);
 
     // Computed formula preview
     const markupNum = parseFloat(markupPercent) || 0;

@@ -149,14 +149,14 @@ export default function KasirPage() {
         async function fetchProducts() {
             setIsLoading(true);
             try {
-                const res = await fetch("/api/toko/products");
+                const res = await fetch("/api/toko/products?unitType=toko");
                 const json = await res.json();
                 setProducts(json.data || []);
             } catch {
                 toast.error("Gagal memuat produk");
             } finally { setIsLoading(false); }
         }
-        
+
         async function fetchUnitStats() {
             try {
                 const res = await fetch("/api/unit-layanan/stats?unitType=toko");
@@ -386,7 +386,7 @@ export default function KasirPage() {
             setSelectedMember(null);
             setShowCreditDialog(false);
 
-            const productsRes = await fetch("/api/toko/products");
+            const productsRes = await fetch("/api/toko/products?unitType=toko");
             const productsJson = await productsRes.json();
             setProducts(productsJson.data || []);
         } catch {

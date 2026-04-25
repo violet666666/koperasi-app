@@ -33,8 +33,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Kasir tidak diizinkan import produk" }, { status: 403 });
         }
 
-        // Load pricing settings from DB
-        const pricingMultipliers = await getPricingMultipliers("toko");
+        // Load pricing settings from DB — use unitType from session
+        const sessionUnitType = (session.user as any).unitType || "toko";
+        const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(sessionUnitType);
+        const importUnitType = isResto ? "resto" : sessionUnitType;
+        const pricingMultipliers = await getPricingMultipliers(importUnitType);
 
         const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
@@ -93,8 +96,9 @@ export async function POST(request: Request) {
             );
         }
 
-        // Include ALL products (even soft-deleted) to correctly identify updates vs new
+        // Include ALL products (even soft-deleted) to correctly identify updates vs new — filter by unit
         const existingProducts = await prisma.storeProduct.findMany({
+            where: { unitType: importUnitType },
             select: { id: true, sku: true, name: true, stock: true, stockGdg: true, stockToko: true, sellPrice: true, deletedAt: true }
         });
 
@@ -208,6 +212,7 @@ export async function POST(request: Request) {
                             stock: item.stock, stockGdg: item.stockGdg,
                             stockToko: item.stockToko, unit: item.unit,
                             minStock: item.minStock,
+                            unitType: importUnitType,
                         },
                     })
                 ));

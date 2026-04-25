@@ -62,11 +62,12 @@ export async function POST(request: Request) {
         if (ppnPercent > 0) formulaParts[0] = `HPP × ${markupMultiplier} × ${ppnMultiplier}`;
         const formulaStr = `ceil((${formulaParts[0]}) / 100) × 100`;
 
-        // Ambil semua produk aktif dengan costPrice > 0, exclude kategori yang diatur di settings
+        // Ambil semua produk aktif dengan costPrice > 0, exclude kategori yang diatur di settings, filter by unit
         const products = await prisma.storeProduct.findMany({
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
+                unitType: unitType,
                 ...(excludedCategories.length > 0 ? {
                     NOT: {
                         category: { in: excludedCategories },
@@ -140,16 +141,17 @@ export async function POST(request: Request) {
             }
         }
 
-        // Ambil juga produk tanpa HPP (costPrice = 0)
+        // Ambil juga produk tanpa HPP (costPrice = 0) — per unit
         const noCostPrice = await prisma.storeProduct.count({
-            where: { deletedAt: null, costPrice: { lte: 0 } },
+            where: { deletedAt: null, costPrice: { lte: 0 }, unitType: unitType },
         });
 
-        // Count produk dari kategori excluded yang dilewati
+        // Count produk dari kategori excluded yang dilewati — per unit
         const excludedSkipped = excludedCategories.length > 0 ? await prisma.storeProduct.count({
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
+                unitType: unitType,
                 category: { in: excludedCategories },
             },
         }) : 0;

@@ -303,4 +303,14 @@ Void → Kembalikan stockToko + stock
 - **[Receipt] Struk POS Retail**: Komponen `ReceiptPrimkopol` diperbaiki — nama unit ditampilkan, detail item per baris, teks "Koperasi" dihilangkan (diganti "Polres Lumajang"), `@page { size: auto }` untuk thermal printer, padding dikurangi
 - **[UI] Bulk Set Kategori**: Tombol "Set Kategori" ditambahkan ke bulk action bar. Admin bisa pilih kategori dari chip yang sudah ada atau ketik kategori baru. Endpoint `PUT /api/toko/products/bulk` mendukung action `set_category`
 - **[Harga] Manajemen Harga per Kategori**: Sistem pengecualian harga manual sebelumnya hardcoded `["rokok"]`, kini **configurable** melalui halaman Manajemen Harga. Admin bisa toggle kategori mana saja yang harganya manual (tidak terpengaruh formula markup). Meliputi: (A) chip toggle UI di `/toko/manajemen-harga`, (B) badge "Manual" di tabel produk, (C) warning di bulk set harga, (D) import Excel aware terhadap excluded categories. Settings disimpan di `app_settings` sebagai JSON array per unit type
+- **[CRITICAL] Data Isolation Bug Fix**: Ditemukan dan diperbaiki bug dimana produk dari unit lain (cuci mobil, resto, dll) muncul di POS/manajemen unit yang tidak sesuai. **Root cause:** banyak endpoint dan frontend fetch tidak memfilter berdasarkan `unitType`. **Perbaikan pada 8 file:**
+  - `manajemen-harga/page.tsx` — fetch kategori sekarang filter `unitType`
+  - `toko/kasir/page.tsx` — 2x fetch produk sekarang filter `unitType=toko`
+  - `toko/persediaan/page.tsx` — refresh setelah void sekarang filter `unitType`
+  - `recalculate-prices/route.ts` — produk yang dihitung ulang sekarang filter per unit
+  - `import/route.ts` — import menggunakan `unitType` dari session (bukan hardcoded "toko"), produk baru disimpan dengan `unitType` yang benar
+  - `bulk/route.ts` — validasi bahwa produk yang di-bulk-action hanya dari unit user
+  - `duplicates/route.ts` — deteksi duplikat sekarang per unit
+  - `sync-stock/route.ts` — sinkronisasi stok sekarang per unit
+  - `reset/route.ts` — hapus semua produk sekarang hanya menghapus produk dari unit user
 
