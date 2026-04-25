@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
     Plus, Package, TrendingUp, AlertTriangle, Upload,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
-    CheckSquare, DollarSign, PackageMinus, Calculator, Copy,
+    CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -77,6 +77,7 @@ export default function TokoProdukPage() {
     const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set());
     const [bulkAction, setBulkAction] = React.useState<string>("");
     const [bulkValue, setBulkValue] = React.useState("");
+    const [bulkCategory, setBulkCategory] = React.useState("");
     const [showBulkDialog, setShowBulkDialog] = React.useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
 
@@ -267,6 +268,7 @@ export default function TokoProdukPage() {
     const openBulkAction = (action: string) => {
         setBulkAction(action);
         setBulkValue("");
+        setBulkCategory("");
         setShowBulkDialog(true);
     };
 
@@ -277,6 +279,7 @@ export default function TokoProdukPage() {
             case "zero_all": return "Nol-kan Stok & Harga";
             case "set_stock": return "Set Stok";
             case "set_price": return "Set Harga";
+            case "set_category": return "Set Kategori";
             case "deactivate": return "Nonaktifkan";
             default: return "";
         }
@@ -297,6 +300,15 @@ export default function TokoProdukPage() {
                     return;
                 }
                 body.value = Number(bulkValue);
+            }
+            if (bulkAction === "set_category") {
+                const cat = bulkCategory.trim();
+                if (!cat) {
+                    toast.error("Masukkan atau pilih kategori");
+                    setIsBulkProcessing(false);
+                    return;
+                }
+                body.category = cat;
             }
 
             const res = await fetch("/api/toko/products/bulk", {
@@ -515,6 +527,9 @@ export default function TokoProdukPage() {
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openBulkAction("set_price")}>
                             <DollarSign className="mr-1.5 h-3.5 w-3.5" />Set Harga
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openBulkAction("set_category")}>
+                            <Tag className="mr-1.5 h-3.5 w-3.5" />Set Kategori
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                             <X className="mr-1.5 h-3.5 w-3.5" />Batal
@@ -740,6 +755,45 @@ export default function TokoProdukPage() {
                         </div>
                     )}
 
+                    {bulkAction === "set_category" && (
+                        <div className="space-y-3 py-2">
+                            <Label>Kategori Baru</Label>
+                            {categories.length > 0 && (
+                                <div className="space-y-1.5">
+                                    <p className="text-xs text-muted-foreground">Pilih kategori yang sudah ada:</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {categories.map(c => (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                onClick={() => setBulkCategory(c)}
+                                                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                                                    bulkCategory === c
+                                                        ? "bg-primary text-primary-foreground border-primary"
+                                                        : "bg-background hover:bg-accent border-input"
+                                                }`}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-muted-foreground">Atau ketik kategori baru:</p>
+                                <Input
+                                    value={bulkCategory}
+                                    onChange={(e) => setBulkCategory(e.target.value)}
+                                    placeholder="Contoh: Minuman, Snack, Alat Tulis..."
+                                    autoFocus
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Akan diterapkan ke <strong>{selectedIds.size} produk</strong> yang dipilih.
+                            </p>
+                        </div>
+                    )}
+
                     {(bulkAction === "zero_stock" || bulkAction === "zero_all") && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 text-sm">
                             <p className="font-medium text-amber-800 dark:text-amber-300">Produk yang akan dinolkan stoknya:</p>
@@ -762,7 +816,7 @@ export default function TokoProdukPage() {
                         <Button
                             variant={bulkAction.startsWith("zero") || bulkAction === "deactivate" ? "destructive" : "default"}
                             onClick={executeBulk}
-                            disabled={isBulkProcessing || ((bulkAction === "set_stock" || bulkAction === "set_price") && !bulkValue)}
+                            disabled={isBulkProcessing || ((bulkAction === "set_stock" || bulkAction === "set_price") && !bulkValue) || (bulkAction === "set_category" && !bulkCategory.trim())}
                         >
                             {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                             {isBulkProcessing ? "Memproses..." : `Ya, ${getBulkActionLabel()}`}

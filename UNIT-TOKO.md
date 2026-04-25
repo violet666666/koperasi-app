@@ -293,4 +293,5 @@ Void → Kembalikan stockToko + stock
 - **[Stats] Timezone Fix**: Stats API menggunakan UTC+7 (WIB) untuk boundary "hari ini"
 - **[UI] Rename "Rak" → "Kategori"**: Seluruh label "Rak" diubah ke "Kategori" (table header, filter, form, detail produk). Import Excel tetap backward-compatible — menerima kolom "Rak" maupun "Kategori"
 - **[Receipt] Struk POS Retail**: Komponen `ReceiptPrimkopol` diperbaiki — nama unit ditampilkan, detail item per baris, teks "Koperasi" dihilangkan (diganti "Polres Lumajang"), `@page { size: auto }` untuk thermal printer, padding dikurangi
+- **[UI] Bulk Set Kategori**: Tombol "Set Kategori" ditambahkan ke bulk action bar. Admin bisa pilih kategori dari chip yang sudah ada atau ketik kategori baru. Endpoint `PUT /api/toko/products/bulk` mendukung action `set_category`
 

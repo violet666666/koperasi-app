@@ -9,8 +9,8 @@ import { auth } from "@/lib/auth";
  * Body:
  * {
  *   ids: number[],
- *   action: "zero_stock" | "zero_price" | "zero_all" | "set_stock" | "set_price" | "deactivate" | "activate",
- *   value?: number  // untuk set_stock dan set_price
+ *   action: "zero_stock" | "zero_price" | "zero_all" | "set_stock" | "set_price" | "set_category" | "deactivate" | "activate",
+ *   value?: number | string  // untuk set_stock, set_price, set_category
  * }
  */
 export async function PUT(request: Request) {
@@ -27,7 +27,7 @@ export async function PUT(request: Request) {
 
         const userId = Number(session.user.id);
         const body = await request.json();
-        const { ids, action, value } = body;
+        const { ids, action, value, category } = body;
 
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return NextResponse.json({ message: "Pilih minimal 1 produk" }, { status: 400 });
@@ -102,6 +102,14 @@ export async function PUT(request: Request) {
                 }
                 updateData = { sellPrice: Number(value) };
                 actionLabel = `Harga diset ke ${value}`;
+                break;
+            case "set_category":
+                const categoryValue = category || value;
+                if (!categoryValue || typeof categoryValue !== "string" || !categoryValue.trim()) {
+                    return NextResponse.json({ message: "Kategori harus diisi" }, { status: 400 });
+                }
+                updateData = { category: categoryValue.trim() };
+                actionLabel = `Kategori diset ke "${categoryValue.trim()}"`;
                 break;
             case "deactivate":
                 updateData = { isActive: false };
