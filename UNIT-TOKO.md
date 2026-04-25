@@ -163,9 +163,55 @@ Produk rokok memiliki **Harga Eceran Tertinggi (HET)** yang sudah ditetapkan ole
 3. Isi **Harga Jual secara manual** sesuai HET dari distributor.
 4. Saat melakukan "Hitung Ulang Semua Harga", produk rokok akan otomatis dilewati dan tidak terpengaruh.
 
+
 ### Catatan Teknis
 - Deteksi kategori bersifat **case-insensitive** ("rokok", "Rokok", "ROKOK" semua dianggap sama).
 - Jika di masa depan ada kategori lain yang memerlukan harga manual, cukup tambahkan ke array `MANUAL_PRICE_CATEGORIES` di frontend dan filter `NOT` di API recalculate.
 
 ---
+
+## 7. Perbaikan Flow Void & Shift (25 April 2026)
+
+### Latar Belakang
+Ditemukan beberapa bug kritis pada flow pembatalan (void) transaksi toko dan perhitungan shift:
+1. Stok tetap berkurang setelah transaksi dibatalkan
+2. Pembatalan transaksi tetap terbaca sebagai pemasukan di Kas/Bank dan Jurnal
+3. Shift close menghitung transaksi yang sudah void
+4. Dashboard stats menghitung transaksi yang sudah void
+5. Receipt 58mm terpotong karena CSS menggunakan width 80mm
+
+### Bug Fixes
+
+| Bug | Masalah | Root Cause | Solusi | File |
+|---|---|---|---|---|
+| **BUG-V01** | Stok tetap berkurang setelah void | Void hanya increment `stock` (total), tidak `stockToko` (etalase) | Kembalikan ke `stockToko` + `stock`, tambah log mutasi `StoreStockMovement` | `void-approve/route.ts`, `void-request/route.ts` |
+| **BUG-V02** | Void tetap terhitung sebagai pemasukan | Tidak ada reverse journal, reverse CashBankTransaction, dan void UnitTransaction piutang | Tambah reverse jurnal pembalik, reverse kas/bank transaksi (type: "out"), dan void tagihan piutang terkait | `void-approve/route.ts`, `void-request/route.ts` |
+| **BUG-V03** | Shift close menghitung transaksi void | Query `groupBy` tidak bisa filter JSON `metadata.isVoided` | Ganti `groupBy` dengan `findMany` + manual filter `isVoided !== true` | `shifts/[id]/close/route.ts` |
+| **BUG-V04** | Dashboard stats menghitung void | Aggregate query tidak filter voided | Ganti aggregate dengan `findMany` + manual filter | `toko/stats/route.ts` |
+| **BUG-V05** | Struk 58mm terpotong | CSS hardcoded `width: 80mm` dan `body: 280px` | Tambah parameter `paperSize` adaptif (`58mm`: 200px/10px, `80mm`: 280px/11px) | `export-utils.ts` |
+
+### Perubahan Arsitektur Void
+
+**Sebelum (Broken):**
+```
+Void → Kembalikan stock (total saja) → Tandai metadata.isVoided
+```
+
+**Sesudah (Fixed):**
+```
+Void → Kembalikan stockToko + stock
+     → Log mutasi StoreStockMovement (type: "in")
+     → Reverse Journal (swap debit/kredit, sourceType: "store_sale_void")
+     → Reverse CashBankTransaction (type: "out", category: "void_penjualan_toko")
+     → Void UnitTransaction piutang (jika salary_cut)
+     → Tandai metadata.isVoided
+```
+
+### Catatan Teknis
+- Semua reverse bersifat **non-fatal** (try-catch) — jika gagal, void tetap jalan tapi di-log ke console
+- Receipt default ke **58mm** (sesuai printer thermal yang dipakai kasir toko)
+- Filter void di shift close & stats menggunakan manual filter karena Prisma tidak support filter JSON field di aggregate/groupBy
+
+---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
+

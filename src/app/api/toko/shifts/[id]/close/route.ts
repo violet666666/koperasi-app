@@ -49,11 +49,17 @@ export async function PUT(
         }
 
         // Hitung total penjualan dari StoreSale yang terikat ke shift ini
-        const salesAggregate = await prisma.storeSale.groupBy({
-            by: ["paymentMethod"],
+        // FIX Bug #3: Exclude voided sales dari perhitungan shift
+        const allShiftSales = await prisma.storeSale.findMany({
             where: { shiftId: shift.id },
-            _sum: { totalAmount: true },
-            _count: { id: true },
+            select: { paymentMethod: true, totalAmount: true, metadata: true },
+        });
+
+        // Filter out voided transactions
+        const activeSales = allShiftSales.filter((s: any) => {
+            if (!s.metadata) return true;
+            const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
+            return !meta.isVoided;
         });
 
         let totalCash = 0;
@@ -61,14 +67,12 @@ export async function PUT(
         let totalCredit = 0;
         let totalTransactions = 0;
 
-        for (const group of salesAggregate) {
-            const amount = Number(group._sum.totalAmount || 0);
-            const count = group._count.id;
-            totalTransactions += count;
-
-            if (group.paymentMethod === "cash") totalCash = amount;
-            else if (group.paymentMethod === "qris") totalQris = amount;
-            else if (group.paymentMethod === "salary_cut") totalCredit = amount;
+        for (const s of activeSales) {
+            totalTransactions++;
+            const amount = Number(s.totalAmount || 0);
+            if (s.paymentMethod === "cash") totalCash += amount;
+            else if (s.paymentMethod === "qris") totalQris += amount;
+            else if (s.paymentMethod === "salary_cut") totalCredit += amount;
         }
 
         // Kas yang seharusnya = modal awal + penjualan tunai

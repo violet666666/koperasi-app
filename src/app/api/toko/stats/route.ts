@@ -4,37 +4,46 @@ import prisma from "@/lib/prisma";
 // GET /api/toko/stats - Dashboard stats from real data
 export async function GET() {
     try {
-        const [totalProducts, totalStock, todaySalesResult, allTimeSalesResult] = await Promise.all([
+        const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+
+        const [totalProducts, totalStock, todaySales, allSales] = await Promise.all([
             prisma.storeProduct.count({ where: { isActive: true, deletedAt: null } }),
             prisma.storeProduct.aggregate({
                 where: { isActive: true, deletedAt: null },
                 _sum: { stock: true },
             }),
-            // Today's sales
-            prisma.storeSale.aggregate({
-                where: {
-                    createdAt: {
-                        gte: new Date(new Date().setHours(0, 0, 0, 0)),
-                    },
-                },
-                _sum: { totalAmount: true },
-                _count: true,
+            // FIX Bug #4: Fetch semua, lalu filter voided secara manual
+            prisma.storeSale.findMany({
+                where: { createdAt: { gte: todayStart } },
+                select: { totalAmount: true, metadata: true },
             }),
-            // All-time sales
-            prisma.storeSale.aggregate({
-                _sum: { totalAmount: true },
-                _count: true,
+            prisma.storeSale.findMany({
+                select: { totalAmount: true, metadata: true },
             }),
         ]);
+
+        // Helper: filter out voided sales
+        const filterActive = (sales: any[]) =>
+            sales.filter((s) => {
+                if (!s.metadata) return true;
+                const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
+                return !meta.isVoided;
+            });
+
+        const activeTodaySales = filterActive(todaySales);
+        const activeAllSales = filterActive(allSales);
+
+        const todaySalesTotal = activeTodaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+        const allTimeSalesTotal = activeAllSales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
 
         return NextResponse.json({
             data: {
                 totalProducts,
                 totalStock: totalStock._sum.stock || 0,
-                todaySales: Number(todaySalesResult._sum.totalAmount || 0),
-                todaySalesCount: todaySalesResult._count || 0,
-                totalSales: Number(allTimeSalesResult._sum.totalAmount || 0),
-                totalSalesCount: allTimeSalesResult._count || 0,
+                todaySales: todaySalesTotal,
+                todaySalesCount: activeTodaySales.length,
+                totalSales: allTimeSalesTotal,
+                totalSalesCount: activeAllSales.length,
             },
         });
     } catch (error) {
@@ -45,3 +54,4 @@ export async function GET() {
         );
     }
 }
+

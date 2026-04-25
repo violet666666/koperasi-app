@@ -310,19 +310,26 @@ export interface KasirReceiptData {
 
 /**
  * Generates a thermal-style receipt in a new print window.
- * Designed for 80mm or 58mm receipt printers.
+ * Supports both 58mm and 80mm receipt printers.
  */
-export function generateKasirReceiptPDF(data: KasirReceiptData) {
+export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm" | "80mm" = "58mm") {
     const methodLabel =
         data.paymentMethod === "cash" ? "Tunai" :
         data.paymentMethod === "qris" ? "QRIS" :
         "Kredit / Potong Gaji";
 
+    // Adaptif sizing berdasarkan paperSize
+    const bodyWidth = paperSize === "58mm" ? "200px" : "280px";
+    const fontSize = paperSize === "58mm" ? "10px" : "11px";
+    const headerFontSize = paperSize === "58mm" ? "12px" : "14px";
+    const windowWidth = paperSize === "58mm" ? "240" : "320";
+    const pageWidth = paperSize;
+
     const itemRows = data.items
         .map(
             (item) =>
                 `<tr>
-                    <td style="padding:2px 0;">${item.name}</td>
+                    <td style="padding:2px 0;font-size:${fontSize};">${item.name}</td>
                     <td style="text-align:center;padding:2px 4px;">${item.quantity}</td>
                     <td style="text-align:right;padding:2px 0;">${formatRp(item.price)}</td>
                     <td style="text-align:right;padding:2px 0;">${formatRp(item.subtotal)}</td>
@@ -345,21 +352,21 @@ export function generateKasirReceiptPDF(data: KasirReceiptData) {
 <html><head><meta charset="utf-8"><title>Struk ${data.saleNo}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; width: 280px; margin: auto; padding: 8px; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: auto; padding: 8px; }
   .header { text-align: center; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
-  .header h2 { font-size: 14px; font-weight: bold; }
-  .header p { font-size: 10px; color: #444; }
+  .header h2 { font-size: ${headerFontSize}; font-weight: bold; }
+  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #444; }
   table { width: 100%; border-collapse: collapse; }
-  th { border-bottom: 1px solid #000; padding: 2px; font-size: 10px; }
+  th { border-bottom: 1px solid #000; padding: 2px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; }
   .total-row td { border-top: 1px dashed #000; padding-top: 4px; font-weight: bold; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-size: 10px; color: #666; }
-  @media print { @page { margin: 0; width: 80mm; } }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; }
+  @media print { @page { margin: 0; width: ${pageWidth}; } }
 </style>
 </head><body>
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
   <p>Koperasi Polres Lumajang</p>
-  <p style="margin-top:4px;font-size:11px;font-weight:bold;">STRUK PENJUALAN TOKO</p>
+  <p style="margin-top:4px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
 </div>
 <table><tbody>
   <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${data.saleNo}</td></tr>
@@ -383,7 +390,7 @@ ${changeRow}
 <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-    const win = window.open("", "_blank", "width=320,height=600");
+    const win = window.open("", "_blank", `width=${windowWidth},height=600`);
     if (win) {
         win.document.write(html);
         win.document.close();

@@ -96,15 +96,124 @@ export async function POST(request: Request) {
                     : {};
 
                 // Kembalikan stok semua item produk fisik
+                // FIX: Kembalikan ke stockToko (konsisten dengan deduction di sales/route.ts)
                 for (const item of storeSale.items) {
                     const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
                     if (prod && !prod.isService) {
                         await prisma.storeProduct.update({
                             where: { id: item.productId },
-                            data: { stock: { increment: item.quantity } },
+                            data: {
+                                stockToko: { increment: item.quantity },
+                                stock: { increment: item.quantity },
+                            },
+                        });
+
+                        // Insert log mutasi pengembalian stok
+                        await prisma.storeStockMovement.create({
+                            data: {
+                                productId: item.productId,
+                                type: "in",
+                                quantity: item.quantity,
+                                reference: `VOID ${storeSale.saleNo}`,
+                                notes: `Pengembalian stok (void disetujui)`,
+                                operatorId: currentUserId,
+                            },
                         });
                     }
                 }
+
+                // ── FIX Bug #2: Reverse side-effects keuangan ───────────────
+                // 1. Reverse Journal (jika ada)
+                try {
+                    if (storeSale.journalId) {
+                        const originalJournal = await prisma.journal.findUnique({
+                            where: { id: storeSale.journalId },
+                            include: { lines: true },
+                        });
+                        if (originalJournal) {
+                            const reverseJournalNo = `RV-${Date.now().toString(36).toUpperCase()}`;
+                            const reverseJournal = await prisma.journal.create({
+                                data: {
+                                    journalNo: reverseJournalNo,
+                                    branchId: originalJournal.branchId,
+                                    transactionDate: now,
+                                    description: `[VOID] Pembalik ${originalJournal.journalNo} - ${storeSale.saleNo}`,
+                                    sourceType: "store_sale_void",
+                                    periodId: originalJournal.periodId,
+                                    isPosted: true,
+                                    createdById: currentUserId,
+                                },
+                            });
+                            await prisma.journalLine.createMany({
+                                data: originalJournal.lines.map((line: any) => ({
+                                    journalId: reverseJournal.id,
+                                    accountId: line.accountId,
+                                    debit: Number(line.credit),
+                                    credit: Number(line.debit),
+                                    description: `[VOID] ${line.description}`,
+                                })),
+                            });
+                        }
+                    }
+                } catch (journalErr) {
+                    console.error("[Void] Gagal buat jurnal pembalik (non-fatal):", journalErr);
+                }
+
+                // 2. Reverse CashBankTransaction (tunai/QRIS)
+                try {
+                    if (storeSale.paymentMethod === "cash" || storeSale.paymentMethod === "qris") {
+                        const originalCashTx = await prisma.cashBankTransaction.findFirst({
+                            where: { description: { contains: storeSale.saleNo } },
+                        });
+                        if (originalCashTx) {
+                            const account = await prisma.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
+                            if (account) {
+                                const currentBal = Number(account.currentBalance);
+                                const voidAmount = Number(storeSale.totalAmount);
+                                const newBal = currentBal - voidAmount;
+
+                                await prisma.cashBankTransaction.create({
+                                    data: {
+                                        transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
+                                        accountId: account.id,
+                                        branchId: originalCashTx.branchId,
+                                        type: "out",
+                                        category: "void_penjualan_toko",
+                                        amount: voidAmount,
+                                        balanceBefore: currentBal,
+                                        balanceAfter: newBal,
+                                        unitType: storeSale.unitType || "toko",
+                                        description: `[VOID] Pembatalan ${storeSale.saleNo}`,
+                                        transactionDate: now,
+                                        createdById: currentUserId,
+                                    },
+                                });
+                                await prisma.cashBankAccount.update({
+                                    where: { id: account.id },
+                                    data: { currentBalance: newBal },
+                                });
+                            }
+                        }
+                    }
+                } catch (cashErr) {
+                    console.error("[Void] Gagal reverse kas/bank (non-fatal):", cashErr);
+                }
+
+                // 3. Void linked UnitTransaction for salary_cut (piutang)
+                try {
+                    if (storeSale.paymentMethod === "salary_cut") {
+                        await prisma.unitTransaction.updateMany({
+                            where: {
+                                description: { contains: storeSale.saleNo },
+                                status: { in: ["completed", "pending_void"] },
+                            },
+                            data: { status: "voided", isPaid: false },
+                        });
+                    }
+                } catch (piutangErr) {
+                    console.error("[Void] Gagal void piutang terkait (non-fatal):", piutangErr);
+                }
+                // ── END FIX Bug #2 ──────────────────────────────────────────
 
                 // Update metadata StoreSale: tandai voided, hapus voidPending
                 metadata.isVoided = true;
