@@ -258,7 +258,7 @@ export default function TokoProdukImportPage() {
                             Upload File Excel / CSV
                         </CardTitle>
                         <CardDescription>
-                            Pastikan header dokumen Anda terdapat: <strong className="text-foreground">KODE, Nama Barang, Rak, Stock Gdg, Stock Toko, Total Stock, Sat, @ Harga Sat, HrgPokok</strong>.
+                            Pastikan header dokumen Anda terdapat: <strong className="text-foreground">KODE, Nama Barang, Kategori, Stock Gdg, Stock Toko, Total Stock, Sat, @ Harga Sat, HrgPokok</strong>.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -397,7 +397,7 @@ export default function TokoProdukImportPage() {
                                                 <TableHead className="w-12">Baris</TableHead>
                                                 <TableHead>KODE / Status</TableHead>
                                                 <TableHead>Nama Barang</TableHead>
-                                                <TableHead>Rak</TableHead>
+                                                <TableHead>Kategori</TableHead>
                                                 <TableHead className="text-right">Stock Gdg</TableHead>
                                                 <TableHead className="text-right">Stock Toko</TableHead>
                                                 <TableHead className="text-right">Total Stock</TableHead>

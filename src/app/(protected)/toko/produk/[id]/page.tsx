@@ -55,7 +55,7 @@ export default function DetailProdukPage() {
                             <div><p className="text-sm text-muted-foreground">Stock Gudang</p><p className="font-medium">{product.stockGdg || 0}</p></div>
                             <div><p className="text-sm text-muted-foreground">Stock Toko</p><p className="font-medium">{product.stockToko || 0}</p></div>
                             <div><p className="text-sm text-muted-foreground">Total Stock</p><p className="font-medium">{product.stock || 0}</p></div>
-                            <div><p className="text-sm text-muted-foreground">Rak/Kategori</p><p className="font-medium">{product.category || "-"}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Kategori</p><p className="font-medium">{product.category || "-"}</p></div>
                             <div><p className="text-sm text-muted-foreground">Status</p><Badge variant={product.isActive === false ? "secondary" : "default"}>{product.isActive === false ? "Nonaktif" : "Aktif"}</Badge></div>
                         </div>
                     ) : (

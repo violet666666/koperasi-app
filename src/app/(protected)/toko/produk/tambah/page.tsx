@@ -221,7 +221,7 @@ export default function TambahProdukPage() {
                                     value={form.costPrice} onChange={e => handleChange("costPrice", e.target.value)} />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="sellPrice">Harga Jual Rak <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="sellPrice">Harga Jual <span className="text-red-500">*</span></Label>
                                 <Input id="sellPrice" type="number" min={0} placeholder="0"
                                     value={form.sellPrice} onChange={e => handleChange("sellPrice", e.target.value)} />
                                 <p className="text-[10px] text-muted-foreground mt-1">

@@ -400,7 +400,7 @@ export default function TokoProdukPage() {
                                     <TableRow>
                                         <TableHead className="text-xs">SKU</TableHead>
                                         <TableHead className="text-xs">Nama</TableHead>
-                                        <TableHead className="text-xs">Rak</TableHead>
+                                        <TableHead className="text-xs">Kategori</TableHead>
                                         <TableHead className="text-xs text-right">Harga</TableHead>
                                         <TableHead className="text-xs text-center">Stok</TableHead>
                                     </TableRow>
@@ -539,7 +539,7 @@ export default function TokoProdukPage() {
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
                 >
-                    <option value="all">Semua Rak</option>
+                    <option value="all">Semua Kategori</option>
                     {categories.map(c => (<option key={c} value={c}>{c}</option>))}
                 </select>
                 <select
@@ -573,7 +573,7 @@ export default function TokoProdukPage() {
                                     )}
                                     <TableHead>KODE</TableHead>
                                     <TableHead>Nama Barang</TableHead>
-                                    <TableHead>Rak</TableHead>
+                                    <TableHead>Kategori</TableHead>
                                     <TableHead className="text-center">Stok Gdg</TableHead>
                                     <TableHead className="text-center">Stok Toko</TableHead>
                                     <TableHead className="text-center">Total</TableHead>

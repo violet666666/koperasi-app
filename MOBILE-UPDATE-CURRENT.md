@@ -73,13 +73,27 @@
   - Print CSS `@page { margin: 0; size: auto; }` ditambahkan
   - Padding dikurangi dari `p-4` ke `p-2`
   - Window auto-close setelah cetak selesai
-- **Dampak Mobile:** Perbaikan ini hanya di Web. Mobile menggunakan `generateRawText()` + Bluetooth thermal printer yang sudah compact. Jika kasir cetak dari browser di tablet, struk akan lebih ringkas.
+  - Nama unit ditampilkan di header struk (CUCI MOBIL, BARBERSHOP, dll)
+  - Detail item per baris (nama, qty x harga, subtotal) — sesuai standar POS retail
+  - Teks "Koperasi" dihilangkan, diganti "Polres Lumajang"
+- **Dampak Mobile:** `generateRawText()` juga diupdate — nama unit dan detail item kini tampil di struk Bluetooth thermal.
+
+### 37. [M-SYNC-032] Rename "Rak" → "Kategori" di Manajemen Produk
+- ✅ **Selesai (Web)**: Seluruh label "Rak" diubah ke "Kategori" di UI:
+  - Table header produk (`/toko/produk`)
+  - Filter dropdown ("Semua Kategori")
+  - Form tambah produk ("Harga Jual")
+  - Detail produk
+  - Halaman import (instruksi + preview table)
+- **Import API Backward-Compatible:** Endpoint `/api/toko/products/import` tetap membaca kolom "Rak" (file lama) DAN "Kategori" (file baru) dari Excel/CSV. Variable internal di-rename dari `rakIdx` ke `catIdx`.
+- **Dampak Mobile:** Tidak ada perubahan API response. Label "Rak" di mobile (jika ada) juga perlu diupdate di `StokScreen.tsx` dan `KasirScreen.tsx` saat iterasi mobile berikutnya.
 
 ### Tugas Mobile yang Belum Diperlukan dari Update Ini
 Semua perbaikan di atas bersifat **backend-only** atau **Web-only**, sehingga **tidak memerlukan update kode mobile**. Yang perlu diperhatikan:
 - Mobile app perlu di-rebuild hanya jika ada perubahan API response format (tidak ada pada update ini)
 - Validasi plafon mobile sudah menggunakan endpoint yang sama, jadi otomatis mendapat peningkatan
 - RBAC akan otomatis menolak akses tidak sah dari mobile app
+- **Catatan khusus:** Jika mobile `StokScreen.tsx` atau `KasirScreen.tsx` menampilkan label "Rak", perlu diubah ke "Kategori" di iterasi mobile berikutnya
 
 ---
 

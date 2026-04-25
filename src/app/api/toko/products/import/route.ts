@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         let headerRowIndex = 0;
         for (let i = 0; i < Math.min(20, rows.length); i++) {
             const rowStr = rows[i].join(" ").toLowerCase();
-            if (rowStr.includes("kode") || rowStr.includes("sku") || rowStr.includes("nama") || rowStr.includes("barang") || rowStr.includes("rak")) {
+            if (rowStr.includes("kode") || rowStr.includes("sku") || rowStr.includes("nama") || rowStr.includes("barang") || rowStr.includes("rak") || rowStr.includes("kategori")) {
                 headerRowIndex = i;
                 break;
             }
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         // Map column indices safely
         const kodeIdx = headers.findIndex(h => h === "kode" || h === "sku");
         const namaIdx = headers.findIndex(h => h.includes("nama"));
-        const rakIdx = headers.findIndex(h => h === "rak" || h === "kategori" || h === "category");
+        const catIdx = headers.findIndex(h => h === "rak" || h === "kategori" || h === "category");
         const stockGdgIdx = headers.findIndex(h => h.includes("gdg") || h.includes("gudang"));
         const stockTokoIdx = headers.findIndex(h => h.includes("toko") && !h.includes("total") && !h.includes("harga"));
         const totalStockIdx = headers.findIndex(h => h.includes("total") || h === "stock");
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
             
             if (!sku || !name || name.toUpperCase() === 'NAMA BARANG') continue;
 
-            const category = rakIdx !== -1 && row[rakIdx] ? String(row[rakIdx]).trim() : '';
+            const category = catIdx !== -1 && row[catIdx] ? String(row[catIdx]).trim() : '';
             const stockGdg = stockGdgIdx !== -1 ? cleanNumber(row[stockGdgIdx]) : 0;
             const stockToko = stockTokoIdx !== -1 ? cleanNumber(row[stockTokoIdx]) : 0;
             // SELALU hitung stock total dari penjumlahan Gdg + Toko — jangan percaya kolom "Total" Excel

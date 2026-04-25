@@ -291,4 +291,6 @@ Void → Kembalikan stockToko + stock
 - **[Mobile] Full Parity**: Mobile POS sudah setara dengan web (3-field stock, shift, journals, discounts, movements, credit limit validation)
 - **[Mobile] RBAC**: 6 mobile endpoint ditambahkan role check (reports, members, savings-tx)
 - **[Stats] Timezone Fix**: Stats API menggunakan UTC+7 (WIB) untuk boundary "hari ini"
+- **[UI] Rename "Rak" → "Kategori"**: Seluruh label "Rak" diubah ke "Kategori" (table header, filter, form, detail produk). Import Excel tetap backward-compatible — menerima kolom "Rak" maupun "Kategori"
+- **[Receipt] Struk POS Retail**: Komponen `ReceiptPrimkopol` diperbaiki — nama unit ditampilkan, detail item per baris, teks "Koperasi" dihilangkan (diganti "Polres Lumajang"), `@page { size: auto }` untuk thermal printer, padding dikurangi
 
