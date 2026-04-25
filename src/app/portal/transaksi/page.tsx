@@ -21,6 +21,10 @@ function getUnitName(unitType: string) {
         fotocopy: "FotoCopy & ATK",
         cuci_mobil: "Cuci Mobil",
         fitness: "Fitness Center",
+        laundry: "Laundry",
+        barbershop: "Barbershop",
+        playstation: "PlayStation",
+        resto: "Resto & Cafe",
     };
     return types[unitType] || unitType;
 }
@@ -67,10 +71,14 @@ export default function TransaksiPortalPage() {
                                     <SelectContent>
                                         <SelectItem value="all">Semua Unit Layanan</SelectItem>
                                         <SelectItem value="toko">Toko Retail</SelectItem>
+                                        <SelectItem value="resto">Resto & Cafe</SelectItem>
                                         <SelectItem value="simpan_pinjam">Simpan Pinjam</SelectItem>
                                         <SelectItem value="fotocopy">FotoCopy & ATK</SelectItem>
                                         <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
                                         <SelectItem value="fitness">Fitness Center</SelectItem>
+                                        <SelectItem value="laundry">Laundry</SelectItem>
+                                        <SelectItem value="barbershop">Barbershop</SelectItem>
+                                        <SelectItem value="playstation">PlayStation</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

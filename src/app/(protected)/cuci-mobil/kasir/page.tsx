@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize, AlertTriangle, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus } from "lucide-react";
+import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize, AlertTriangle, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateRawText, ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -41,9 +41,44 @@ export default function CuciMobilKasirPage() {
     const [selectedMember, setSelectedMember] = React.useState<MemberResult | null>(null);
     const [isSearchingMember, setIsSearchingMember] = React.useState(false);
     
+    // Customer autocomplete
+    const [customerQuery, setCustomerQuery] = React.useState("");
+    const [customerSuggestions, setCustomerSuggestions] = React.useState<MemberResult[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
+    const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
+    const customerRef = React.useRef<HTMLDivElement>(null);
+
     // Gatekeeper
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
+
+    const selectCustomer = (m: MemberResult) => { setSelectedCustomerObj(m); setCustomerQuery(m.name); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
+    const clearCustomer = () => { setSelectedCustomerObj(null); setCustomerQuery(""); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
+
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (customerRef.current && !customerRef.current.contains(e.target as Node)) setShowCustomerDropdown(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    React.useEffect(() => {
+        if (selectedCustomerObj) return;
+        if (!customerQuery || customerQuery.length < 2) { setCustomerSuggestions([]); setShowCustomerDropdown(false); return; }
+        const timer = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(customerQuery)}`);
+                const json = await res.json();
+                const results: MemberResult[] = json.data || [];
+                setCustomerSuggestions(results); setShowCustomerDropdown(results.length > 0);
+            } catch { setCustomerSuggestions([]); }
+            finally { setIsSearchingCustomer(false); }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [customerQuery, selectedCustomerObj]);
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -140,8 +175,9 @@ export default function CuciMobilKasirPage() {
                 vehiclePlate,
             };
             
-            // BUG FIX: Selalu kirim memberId jika anggota terpilih, apapun metode bayarnya
+            // Selalu kirim memberId jika anggota terpilih, apapun metode bayarnya
             if (selectedMember?.id) body.memberId = selectedMember.id;
+            else if (selectedCustomerObj?.id) body.memberId = selectedCustomerObj.id;
 
             const res = await fetch("/api/unit-layanan/sales", {
                 method: "POST",
@@ -156,8 +192,8 @@ export default function CuciMobilKasirPage() {
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.transactionNo,
                 tanggal: new Date().toLocaleString("id-ID"),
-                nrpNip: selectedMember?.nrp || "-",
-                namaAnggota: selectedMember?.name || "Umum",
+                nrpNip: selectedMember?.nrp || selectedCustomerObj?.nrp || "-",
+                namaAnggota: selectedMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
                 kesatuan: "-",
                 keterangan: `Cuci Mobil [Nopol: ${vehiclePlate}] - Pencuci: ${washerName || "Tim"}`,
                 total: subtotal,
@@ -168,7 +204,7 @@ export default function CuciMobilKasirPage() {
             setShowReceipt(true);
 
             // Reset
-            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName("");
+            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName(""); clearCustomer();
             setSelectedMember(null); setShowCreditDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
@@ -255,6 +291,30 @@ export default function CuciMobilKasirPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 space-y-4">
+                            {/* Customer Autocomplete */}
+                            <div className="space-y-1" ref={customerRef}>
+                                <Label className="text-xs text-slate-500">Pelanggan / NRP Anggota (opsional)</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-2 h-4 w-4 text-slate-400" />
+                                    <Input placeholder="Ketik NRP/Nama anggota..." value={customerQuery}
+                                        onChange={e => { setCustomerQuery(e.target.value); if (selectedCustomerObj) setSelectedCustomerObj(null); }}
+                                        className={`h-8 text-sm pl-9 pr-8 ${selectedCustomerObj ? 'border-blue-400 bg-blue-50/50' : ''}`} />
+                                    {selectedCustomerObj && <button onClick={clearCustomer} className="absolute right-2 top-2"><X className="h-4 w-4 text-slate-400" /></button>}
+                                    {isSearchingCustomer && <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-slate-400" />}
+                                </div>
+                                {showCustomerDropdown && customerSuggestions.length > 0 && (
+                                    <div className="absolute z-50 mt-1 w-[calc(100%-2rem)] max-h-[150px] overflow-y-auto bg-white border rounded-md shadow-lg">
+                                        {customerSuggestions.map(m => (
+                                            <div key={m.id} className="p-2 cursor-pointer hover:bg-blue-50 border-b last:border-0 text-sm" onClick={() => selectCustomer(m)}>
+                                                <span className="font-semibold">{m.name}</span>
+                                                <span className="text-xs text-slate-500 ml-2">NRP: {m.nrp || "-"}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {selectedCustomerObj && <p className="text-xs text-blue-600 mt-0.5">✓ {selectedCustomerObj.name} (NRP: {selectedCustomerObj.nrp})</p>}
+                            </div>
+
                             <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                                 {cart.length === 0 ? (
                                     <p className="text-sm text-center text-slate-400 py-8">Belum ada layanan dipilih</p>
