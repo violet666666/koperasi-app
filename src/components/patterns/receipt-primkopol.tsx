@@ -16,6 +16,7 @@ export interface ReceiptData {
     kasir: string;
     unitType?: string;
     isVoid?: boolean;
+    items?: Array<{ name: string; qty: number; price: number; subtotal: number }>;
 }
 
 interface ReceiptPrimkopolProps {
@@ -90,6 +91,8 @@ export function ReceiptPrimkopol({
                         margin: 4px 0;
                         letter-spacing: 2px;
                     }
+                    .item-name { font-size: 11px; }
+                    .item-detail { font-size: 10px; }
                     @media print {
                         body { width: ${paperSize}; padding: 1mm; }
                         .divider { margin: 2px 0; }
@@ -122,8 +125,13 @@ export function ReceiptPrimkopol({
                     PRIMKOPPOL RESOR LUMAJANG
                 </div>
                 <div className="center text-[10px] mt-0.5">
-                    Koperasi Kepolisian Resort Lumajang
+                    Polres Lumajang
                 </div>
+                {data.unitType && (
+                    <div className="center bold text-[11px] mt-1">
+                        {({ toko: "TOKO RETAIL", resto: "RESTO & CAFE", cuci_mobil: "CUCI MOBIL", fotocopy: "FOTOCOPY & ATK", laundry: "LAUNDRY", barbershop: "BARBERSHOP", fitness: "FITNESS CENTER", playstation: "PLAYSTATION", simpan_pinjam: "SIMPAN PINJAM" } as Record<string, string>)[data.unitType] || data.unitType.toUpperCase()}
+                    </div>
+                )}
 
                 {data.isVoid && (
                     <div className="void-mark mt-2">** VOID / BATAL **</div>
@@ -143,27 +151,42 @@ export function ReceiptPrimkopol({
 
                 <div className="divider" />
 
-                {/* Info Anggota */}
+                {/* Info Pelanggan */}
                 <div className="row">
-                    <span className="label">NRP/NIP</span>
-                    <span>: {data.nrpNip || "-"}</span>
+                    <span className="label">Pelanggan</span>
+                    <span>: {data.namaAnggota || "Umum"}</span>
                 </div>
-                <div className="row">
-                    <span className="label">Nama Anggota</span>
-                    <span className="text-right max-w-[160px] break-words">
-                        : {data.namaAnggota || "Umum"}
-                    </span>
-                </div>
-                <div className="row">
-                    <span className="label">Kesatuan</span>
-                    <span>: {data.kesatuan || "-"}</span>
-                </div>
-                <div className="row">
-                    <span className="label">Keterangan</span>
-                    <span className="text-right max-w-[160px] break-words">
-                        : {data.keterangan}
-                    </span>
-                </div>
+                {data.nrpNip && data.nrpNip !== "-" && (
+                    <div className="row">
+                        <span className="label">NRP/NIP</span>
+                        <span>: {data.nrpNip}</span>
+                    </div>
+                )}
+
+                <div className="divider" />
+
+                {/* Item Detail */}
+                {data.items && data.items.length > 0 ? (
+                    <>
+                        <div className="bold text-[10px]" style={{ marginBottom: '1px' }}>Rincian:</div>
+                        {data.items.map((item, i) => (
+                            <div key={i} style={{ marginBottom: '2px' }}>
+                                <div style={{ fontSize: '11px' }}>{item.name}</div>
+                                <div className="row" style={{ fontSize: '10px' }}>
+                                    <span>&nbsp; {item.qty} x {formatRupiah(item.price)}</span>
+                                    <span>{formatRupiah(item.subtotal)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </>
+                ) : (
+                    <div className="row">
+                        <span className="label">Keterangan</span>
+                        <span className="text-right max-w-[160px] break-words">
+                            : {data.keterangan}
+                        </span>
+                    </div>
+                )}
 
                 <div className="divider" />
 
@@ -227,17 +250,28 @@ export function generateRawText(data: ReceiptData, paperSize: "58mm" | "80mm" = 
         return `${label}: ${value.substring(0, remaining).padStart(remaining, " ")}`;
     };
 
+    const unitNames: Record<string, string> = { toko: "TOKO RETAIL", resto: "RESTO & CAFE", cuci_mobil: "CUCI MOBIL", fotocopy: "FOTOCOPY & ATK", laundry: "LAUNDRY", barbershop: "BARBERSHOP", fitness: "FITNESS CENTER", playstation: "PLAYSTATION", simpan_pinjam: "SIMPAN PINJAM" };
+    const unitName = data.unitType ? unitNames[data.unitType] : undefined;
+
+    const itemLines = data.items && data.items.length > 0
+        ? data.items.flatMap(item => [
+            `  ${item.name}`,
+            `  ${item.qty} x ${formatRupiah(item.price)}${formatRupiah(item.subtotal).padStart(charsPerLine - 6 - `${item.qty} x ${formatRupiah(item.price)}`.length)}`,
+        ])
+        : [line("Ket", data.keterangan || "-")];
+
     return [
         center("PRIMKOPPOL RESOR LUMAJANG"),
-        center("Koperasi Kepolisian Lumajang"),
+        center("Polres Lumajang"),
+        ...(unitName ? [center(unitName)] : []),
         sep,
         line("No. Nota", data.notaNo),
         line("Tanggal ", data.tanggal),
         sep,
-        line("NRP/NIP ", data.nrpNip || "-"),
-        line("Anggota ", data.namaAnggota || "Umum"),
-        line("Kesatuan", data.kesatuan || "-"),
-        line("Ket     ", data.keterangan || "-"),
+        line("Pelanggan", data.namaAnggota || "Umum"),
+        ...(data.nrpNip && data.nrpNip !== "-" ? [line("NRP/NIP ", data.nrpNip)] : []),
+        sep,
+        ...itemLines,
         sep,
         `TOTAL     : ${formatRupiah(data.total).padStart(charsPerLine - 12, " ")}`,
         line("Metode  ", data.metode),

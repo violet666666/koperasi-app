@@ -298,7 +298,9 @@ export default function PSKasirPage() {
                 keterangan: `Rental Console [${activeTv.label}] & F&B`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Play Station"
+                kasir: "Kasir Play Station",
+                unitType: "playstation",
+                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);

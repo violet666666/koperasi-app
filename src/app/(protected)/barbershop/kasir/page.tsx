@@ -217,7 +217,9 @@ export default function BarbershopKasirPage() {
                 keterangan: `Barbershop - Stylist: ${barberName}`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Kas/Potong Gaji"),
-                kasir: "Kasir Barbershop"
+                kasir: "Kasir Barbershop",
+                unitType: "barbershop",
+                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);

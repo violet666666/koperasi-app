@@ -198,7 +198,9 @@ export default function CuciMobilKasirPage() {
                 keterangan: `Cuci Mobil [Nopol: ${vehiclePlate}] - Pencuci: ${washerName || "Tim"}`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Kredit/Potong Gaji"),
-                kasir: "Kasir Cuci Mobil"
+                kasir: "Kasir Cuci Mobil",
+                unitType: "cuci_mobil",
+                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);

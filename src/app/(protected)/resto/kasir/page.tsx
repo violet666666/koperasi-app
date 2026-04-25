@@ -233,7 +233,9 @@ export default function RestoKasirPage() {
                 keterangan: `Restoran / Latar Cafe - ${activeTable.type === "dine_in" ? "Dine In" : "Takeaway"} [${activeTable.label}]`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Resto"
+                kasir: "Kasir Resto",
+                unitType: "resto",
+                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);

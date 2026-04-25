@@ -190,7 +190,9 @@ export default function FotocopyKasirPage() {
                 kesatuan: "-", keterangan: "Fotocopy & Print",
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Kas/Potong Gaji"),
-                kasir: "Kasir Fotocopy"
+                kasir: "Kasir Fotocopy",
+                unitType: "fotocopy",
+                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             });
             setShowReceipt(true);
             setCart([]); setPaymentAmount(""); clearCustomer();

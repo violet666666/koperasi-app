@@ -265,7 +265,7 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
   @media print { @page { margin: 0; width: 80mm; } }
 </style>
 </head><body>
-<div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Bukti Transaksi Koperasi</span></div>
+<div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Polres Lumajang</span></div>
 <div class="row"><span class="label">No</span><span>${data.receiptNo}</span></div>
 <div class="row"><span class="label">Tgl</span><span>${receiptDate}</span></div>
 <div class="row"><span class="label">Dari</span><span>${data.receivedFrom}</span></div>
@@ -365,7 +365,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 </head><body>
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
-  <p>Koperasi Polres Lumajang</p>
+  <p>Polres Lumajang</p>
   <p style="margin-top:4px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
 </div>
 <table><tbody>
