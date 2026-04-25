@@ -215,3 +215,68 @@ Void → Kembalikan stockToko + stock
 ---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
 
+---
+
+## 8. Fitur Baru Unit Toko (25 April 2026)
+
+### 8.1 Hapus Produk (Soft Delete)
+- Tombol **🗑️ Hapus** ditambahkan di kolom aksi tabel produk (`/toko/produk`)
+- Hanya tampil untuk **Admin/Operator** (kasir = read only)
+- Menggunakan **soft delete** (set `isActive: false`, `deletedAt: timestamp`)
+- Confirm dialog sebelum hapus untuk mencegah aksi tidak sengaja
+- Backend sudah ada sebelumnya (`DELETE /api/toko/products/[id]`), hanya frontend yang belum terhubung
+
+**File Terkait:**
+- `src/app/(protected)/toko/produk/page.tsx` — Tombol hapus + handler `handleDeleteProduct`
+- `src/app/api/toko/products/[id]/route.ts` — DELETE endpoint (sudah ada)
+
+### 8.2 Riwayat Transaksi dengan Detail Klik
+- Halaman baru **Riwayat Transaksi** di `/toko/riwayat`
+- Menampilkan semua transaksi toko dalam tabel: No. Transaksi, Tanggal, Pelanggan, Item, Pembayaran, Total, Kasir
+- **Klik baris** → Dialog detail menampilkan:
+  - Info header: No. Transaksi, Tanggal, Kasir, Pelanggan, Metode Bayar
+  - Tabel item: Nama Produk (SKU), Qty, Harga Satuan, Subtotal
+  - Summary: Total Item, Total Harga, Tunai, Kembalian
+- Filter: Pencarian (no. transaksi/nama/produk), filter metode bayar
+- Stats cards: Total Transaksi, Hari Ini, Pendapatan Hari Ini, Item Terjual Hari Ini
+- Voided transactions ditampilkan dengan badge VOID dan opacity rendah
+- Menu link ditambahkan di dashboard toko (`/toko`)
+
+**File Terkait:**
+- `src/app/(protected)/toko/riwayat/page.tsx` — [NEW] Halaman riwayat + detail dialog
+- `src/app/(protected)/toko/page.tsx` — Menu card "Riwayat Transaksi" ditambahkan
+
+### 8.3 Card Jumlah Stok Terjual (Dashboard)
+- Card baru **"Terjual Hari Ini: XX pcs"** di dashboard toko (`/toko`)
+- Menampilkan jumlah **unit/pcs** (bukan nominal Rp) yang terjual hari ini
+- Data diambil dari aggregate `StoreSaleItem.quantity` yang di-filter non-voided
+- Grid dashboard diubah dari 4 kolom menjadi 5 kolom
+
+**File Terkait:**
+- `src/app/api/toko/stats/route.ts` — Tambah `todayItemsSold` dan `allTimeItemsSold`
+- `src/app/(protected)/toko/page.tsx` — Card baru + state + fetch
+
+### 8.4 Transfer Stok Gudang ↔ Toko (Atomik)
+- Tombol **"Transfer Stok"** di halaman Persediaan (`/toko/persediaan`)
+- Dialog transfer dengan:
+  - Pilih produk (combobox dengan info stok gudang/toko)
+  - Arah transfer: **Gudang → Toko** atau **Toko → Gudang**
+  - Jumlah transfer + keterangan opsional
+- Operasi **atomik**: decrement sumber + increment tujuan dalam 1 operasi
+- Log **2 mutasi** yang saling terkait (out dari sumber, in ke tujuan)
+- Validasi stok sumber mencukupi sebelum transfer
+
+**API:** `POST /api/toko/products/[id]/stock` dengan `type: "transfer"`
+
+**File Terkait:**
+- `src/app/api/toko/products/[id]/stock/route.ts` — Tambah handler `type: "transfer"`
+- `src/app/(protected)/toko/persediaan/page.tsx` — Dialog transfer + handler
+
+### Hak Akses (Semua Fitur)
+| Fitur | Admin/Operator | Kasir |
+|---|---|---|
+| Hapus Produk | ✅ Full Access | ❌ Tidak Tampil |
+| Riwayat Transaksi | ✅ Full Access | ✅ Read Only |
+| Card Stok Terjual | ✅ Tampil | ✅ Tampil |
+| Transfer Stok | ✅ Full Access | ❌ Tidak Tampil |
+

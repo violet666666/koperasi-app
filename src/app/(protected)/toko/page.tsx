@@ -12,6 +12,8 @@ import {
     ShoppingCart,
     ArrowRight,
     Warehouse,
+    BarChart3,
+    Receipt,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -20,6 +22,7 @@ interface TokoStats {
     totalSales: number;
     totalStock: number;
     todaySales: number;
+    todayItemsSold: number;
 }
 
 export default function TokoPage() {
@@ -28,6 +31,7 @@ export default function TokoPage() {
         totalSales: 0,
         totalStock: 0,
         todaySales: 0,
+        todayItemsSold: 0,
     });
 
     // Fetch real stats from API
@@ -42,6 +46,7 @@ export default function TokoPage() {
                     totalSales: d.totalSales || 0,
                     totalStock: d.totalStock || 0,
                     todaySales: d.todaySales || 0,
+                    todayItemsSold: d.todayItemsSold || 0,
                 });
             } catch (error) {
                 console.error("Failed to fetch toko stats:", error);
@@ -72,6 +77,13 @@ export default function TokoPage() {
             href: "/toko/persediaan",
             color: "bg-amber-100 text-amber-600 dark:bg-amber-900/30",
         },
+        {
+            title: "Riwayat Transaksi",
+            description: "Lihat detail setiap transaksi",
+            icon: Receipt,
+            href: "/toko/riwayat",
+            color: "bg-purple-100 text-purple-600 dark:bg-purple-900/30",
+        },
     ];
 
     return (
@@ -82,7 +94,7 @@ export default function TokoPage() {
             />
 
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30">
@@ -120,6 +132,19 @@ export default function TokoPage() {
                 </Card>
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
+                        <div className="rounded-lg bg-orange-100 p-3 dark:bg-orange-900/30">
+                            <BarChart3 className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Terjual Hari Ini</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                                {stats.todayItemsSold} <span className="text-sm font-normal">pcs</span>
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-900/30">
                             <ShoppingBag className="h-5 w-5 text-purple-600" />
                         </div>
@@ -134,7 +159,7 @@ export default function TokoPage() {
             </div>
 
             {/* Menu Cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {menuItems.map((item) => (
                     <Link key={item.href} href={item.href}>
                         <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">

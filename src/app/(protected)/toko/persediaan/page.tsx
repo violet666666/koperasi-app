@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
     Warehouse, Plus, Minus, ArrowDownCircle, ArrowUpCircle, Loader2,
-    Check, ChevronsUpDown, Ban, RotateCcw, Package
+    Check, ChevronsUpDown, Ban, RotateCcw, Package, ArrowRightLeft
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -104,11 +104,19 @@ export default function PersediaanPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [products, setProducts] = React.useState<any[]>([]);
     const [dialogOpen, setDialogOpen] = React.useState(false);
-    const [movementType, setMovementType] = React.useState<"in" | "out">("in");
+    const [movementType, setMovementType] = React.useState<"in" | "out" | "transfer">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [openProductSelect, setOpenProductSelect] = React.useState(false);
     const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
     const [stockLocation, setStockLocation] = React.useState<"gudang" | "toko">("gudang");
+    // Transfer dialog
+    const [transferDialogOpen, setTransferDialogOpen] = React.useState(false);
+    const [transferDirection, setTransferDirection] = React.useState<"gudang" | "toko">("gudang"); // from location
+    const [transferProductId, setTransferProductId] = React.useState("");
+    const [transferQty, setTransferQty] = React.useState("");
+    const [transferNotes, setTransferNotes] = React.useState("");
+    const [openTransferProductSelect, setOpenTransferProductSelect] = React.useState(false);
+    const [isTransferring, setIsTransferring] = React.useState(false);
     const [voidDialogOpen, setVoidDialogOpen] = React.useState(false);
     const [voidTargetId, setVoidTargetId] = React.useState<number | null>(null);
     const [isVoiding, setIsVoiding] = React.useState(false);
@@ -267,7 +275,10 @@ export default function PersediaanPage() {
         <div className="space-y-6">
             <PageHeader title={isResto ? "Manajemen Persediaan Menu" : "Manajemen Persediaan"} description={isResto ? "Kelola stok bahan / menu keluar masuk" : `Kelola stok masuk dan keluar — ${unitType.replace(/_/g, " ")}`}
                 actions={
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                        <Button variant="secondary" onClick={() => setTransferDialogOpen(true)}>
+                            <ArrowRightLeft className="mr-2 h-4 w-4" />Transfer Stok
+                        </Button>
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button onClick={() => setMovementType("in")}><Plus className="mr-2 h-4 w-4" />Stok Masuk</Button>
@@ -412,6 +423,154 @@ export default function PersediaanPage() {
                 </>
             )}
         </div>
+
+            {/* Transfer Stock Dialog */}
+            <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                            Transfer Stok
+                        </DialogTitle>
+                        <DialogDescription>Pindahkan stok antara Gudang dan Toko secara atomik</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div>
+                            <Label className="mb-1 block">Produk</Label>
+                            <Popover open={openTransferProductSelect} onOpenChange={setOpenTransferProductSelect}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" role="combobox" className="w-full justify-between">
+                                        {transferProductId
+                                            ? (() => {
+                                                const p = products.find((p) => String(p.id) === transferProductId);
+                                                return p ? `${p.sku} - ${p.name} (Gdg: ${p.stockGdg || 0}, Toko: ${p.stockToko || 0})` : "Pilih produk...";
+                                            })()
+                                            : "Pilih atau scan produk..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Ketik nama produk atau scan barcode..." autoFocus />
+                                        <CommandList>
+                                            <CommandEmpty>Produk tidak ditemukan.</CommandEmpty>
+                                            <CommandGroup>
+                                                {products.map((p) => (
+                                                    <CommandItem
+                                                        key={p.id}
+                                                        value={`${p.sku} ${p.name}`}
+                                                        onSelect={() => {
+                                                            setTransferProductId(String(p.id));
+                                                            setOpenTransferProductSelect(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", transferProductId === String(p.id) ? "opacity-100" : "opacity-0")} />
+                                                        <span className="font-mono mr-2">{p.sku}</span>
+                                                        <span className="flex-1">{p.name}</span>
+                                                        <span className="text-xs text-muted-foreground ml-2">Gdg:{p.stockGdg || 0} | Toko:{p.stockToko || 0}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div>
+                            <Label>Arah Transfer</Label>
+                            <div className="flex gap-2 mt-1.5">
+                                <Button
+                                    type="button"
+                                    variant={transferDirection === "gudang" ? "default" : "outline"}
+                                    size="sm"
+                                    className={transferDirection === "gudang" ? "bg-blue-600 hover:bg-blue-700 flex-1" : "flex-1"}
+                                    onClick={() => setTransferDirection("gudang")}
+                                >
+                                    <Warehouse className="mr-1.5 h-3.5 w-3.5" />Gudang → Toko
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={transferDirection === "toko" ? "default" : "outline"}
+                                    size="sm"
+                                    className={transferDirection === "toko" ? "bg-emerald-600 hover:bg-emerald-700 flex-1" : "flex-1"}
+                                    onClick={() => setTransferDirection("toko")}
+                                >
+                                    <Package className="mr-1.5 h-3.5 w-3.5" />Toko → Gudang
+                                </Button>
+                            </div>
+                            {transferProductId && (() => {
+                                const p = products.find((pr) => String(pr.id) === transferProductId);
+                                if (!p) return null;
+                                const fromStock = transferDirection === "gudang" ? (p.stockGdg || 0) : (p.stockToko || 0);
+                                return (
+                                    <p className="text-xs text-muted-foreground mt-1.5">
+                                        Sumber: <strong>{transferDirection === "gudang" ? "Gudang" : "Toko"}</strong> ({fromStock} tersedia)
+                                        → Tujuan: <strong>{transferDirection === "gudang" ? "Toko" : "Gudang"}</strong>
+                                    </p>
+                                );
+                            })()}
+                        </div>
+                        <div>
+                            <Label>Jumlah Transfer</Label>
+                            <Input type="number" min={1} value={transferQty} onChange={e => setTransferQty(e.target.value)} placeholder="Masukkan jumlah unit" />
+                        </div>
+                        <div>
+                            <Label>Keterangan (Opsional)</Label>
+                            <Input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="Contoh: Isi ulang rak toko" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>Batal</Button>
+                        <Button
+                            onClick={async () => {
+                                if (!transferProductId || !transferQty) {
+                                    toast.error("Lengkapi produk dan jumlah transfer");
+                                    return;
+                                }
+                                const qty = parseInt(transferQty);
+                                if (isNaN(qty) || qty <= 0) {
+                                    toast.error("Jumlah harus lebih dari 0");
+                                    return;
+                                }
+                                setIsTransferring(true);
+                                try {
+                                    const res = await fetch(`/api/toko/products/${transferProductId}/stock`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            type: "transfer",
+                                            quantity: qty,
+                                            location: transferDirection,
+                                            notes: transferNotes || `Transfer ${transferDirection === "gudang" ? "Gudang → Toko" : "Toko → Gudang"}`,
+                                        }),
+                                    });
+                                    const json = await res.json();
+                                    if (!res.ok) { toast.error(json.message || "Gagal transfer stok"); return; }
+                                    toast.success(json.message);
+                                    setTransferDialogOpen(false);
+                                    setTransferProductId("");
+                                    setTransferQty("");
+                                    setTransferNotes("");
+                                    // Refresh
+                                    const [productsRes, movementsRes] = await Promise.all([
+                                        fetch(`/api/toko/products?unitType=${productUnitType}`),
+                                        fetch("/api/toko/movements"),
+                                    ]);
+                                    if (productsRes.ok) setProducts((await productsRes.json()).data || []);
+                                    if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+                                } catch {
+                                    toast.error("Gagal transfer stok");
+                                } finally {
+                                    setIsTransferring(false);
+                                }
+                            }}
+                            disabled={isTransferring || !transferProductId || !transferQty}
+                        >
+                            {isTransferring ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses...</> : <><ArrowRightLeft className="mr-2 h-4 w-4" />Transfer</>}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Void Confirmation Dialog */}
             <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>

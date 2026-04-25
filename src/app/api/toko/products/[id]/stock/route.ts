@@ -33,8 +33,8 @@ export async function POST(
         // location: "gudang" (default) | "toko"
         const stockLocation = location === "toko" ? "toko" : "gudang";
 
-        if (!type || !["in", "out"].includes(type)) {
-            return NextResponse.json({ message: "Jenis pergerakan stok tidak valid (in/out)" }, { status: 400 });
+        if (!type || !["in", "out", "transfer"].includes(type)) {
+            return NextResponse.json({ message: "Jenis pergerakan stok tidak valid (in/out/transfer)" }, { status: 400 });
         }
 
         const qty = parseInt(quantity);
@@ -59,6 +59,54 @@ export async function POST(
         // Hitung perubahan stok berdasarkan lokasi
         let newStockGdg = product.stockGdg;
         let newStockToko = product.stockToko;
+
+        if (type === "transfer") {
+            // Transfer: gudang→toko (default) atau toko→gudang
+            const from = location === "toko" ? "toko" : "gudang";
+            const to = from === "gudang" ? "toko" : "gudang";
+
+            if (from === "gudang") {
+                if (product.stockGdg < qty) {
+                    return NextResponse.json({ message: `Stok Gudang tidak cukup. Sisa: ${product.stockGdg}` }, { status: 400 });
+                }
+                newStockGdg = product.stockGdg - qty;
+                newStockToko = product.stockToko + qty;
+            } else {
+                if (product.stockToko < qty) {
+                    return NextResponse.json({ message: `Stok Toko tidak cukup. Sisa: ${product.stockToko}` }, { status: 400 });
+                }
+                newStockToko = product.stockToko - qty;
+                newStockGdg = product.stockGdg + qty;
+            }
+
+            const newStock = newStockGdg + newStockToko;
+
+            // Update stok produk atomik
+            const updatedProduct = await prisma.storeProduct.update({
+                where: { id: productId },
+                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+            });
+
+            // Log 2 mutasi yang saling terkait
+            const refText = `Transfer ${from === "gudang" ? "Gudang → Toko" : "Toko → Gudang"}`;
+            await prisma.storeStockMovement.createMany({
+                data: [
+                    { productId, type: "out", quantity: qty, reference: `${refText} (keluar dari ${from === "gudang" ? "Gudang" : "Toko"})`, notes: notes || null, operatorId: userId },
+                    { productId, type: "in", quantity: qty, reference: `${refText} (masuk ke ${to === "toko" ? "Toko" : "Gudang"})`, notes: notes || null, operatorId: userId },
+                ],
+            });
+
+            return NextResponse.json({
+                data: {
+                    productId, sku: updatedProduct.sku, name: updatedProduct.name,
+                    previousStock: product.stockGdg + product.stockToko, currentStock: newStock,
+                    stockGdg: newStockGdg, stockToko: newStockToko,
+                    change: 0, type: "transfer", from, to,
+                    notes: notes || null, updatedBy: userId, updatedAt: new Date().toISOString(),
+                },
+                message: `Transfer ${qty} unit dari ${from === "gudang" ? "Gudang" : "Toko"} ke ${to === "toko" ? "Toko" : "Gudang"} berhasil. Stok: Gudang ${newStockGdg}, Toko ${newStockToko}`,
+            });
+        }
 
         if (type === "in") {
             // Stok masuk → pilih lokasi tujuan

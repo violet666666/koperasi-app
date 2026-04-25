@@ -382,6 +382,20 @@ export default function TokoProdukPage() {
         }
     };
 
+    // ── Hapus Produk (Soft Delete) ──
+    const handleDeleteProduct = async (product: Product) => {
+        if (!confirm(`Yakin ingin menghapus produk "${product.name}" (${product.sku})?\n\nProduk akan dinonaktifkan dan tidak tampil lagi di daftar.`)) return;
+        try {
+            const res = await fetch(`/api/toko/products/${product.id}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message || "Gagal menghapus produk"); return; }
+            toast.success(`Produk "${product.name}" berhasil dihapus`);
+            await fetchProducts();
+        } catch {
+            toast.error("Gagal menghapus produk");
+        }
+    };
+
     // ── Render ──
     return (
         <div className="space-y-6">
@@ -625,9 +639,14 @@ export default function TokoProdukPage() {
                                                             </Button>
                                                         </div>
                                                     ) : (
-                                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)}>
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                        </Button>
+                                                        <div className="flex items-center gap-0.5">
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)} title="Edit Produk">
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteProduct(p)} title="Hapus Produk">
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
                                                     )}
                                                 </TableCell>
                                             )}
