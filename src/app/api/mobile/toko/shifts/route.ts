@@ -95,11 +95,16 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/mobile/toko/shifts — Buka shift baru
+// POST /api/mobile/toko/shifts — Buka shift baru — kasir/admin/operator only
 export async function POST(request: Request) {
     try {
         const user = getMobileUser(request);
         if (!user) return unauthorizedResponse();
+
+        const role = (user as any).role;
+        if (role === "anggota") {
+            return NextResponse.json({ message: "Anggota tidak diizinkan membuka shift" }, { status: 403 });
+        }
 
         const body = await request.json();
         const { shiftName, openingCash, unitType } = body;

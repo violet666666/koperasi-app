@@ -13,6 +13,16 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir" || role === "anggota") {
+            return NextResponse.json({ message: "Tidak diizinkan import histori penjualan" }, { status: 403 });
+        }
+
         const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview";

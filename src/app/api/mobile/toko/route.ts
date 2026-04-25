@@ -14,11 +14,7 @@ export async function GET(request: Request) {
 
     try {
         const where: any = { isActive: true, deletedAt: null };
-        
-        // Optional filter if you only want products strictly mapped to this unitType
-        if (unitType) {
-            where.unitType = unitType;
-        }
+        if (unitType) where.unitType = unitType;
 
         if (search) {
             where.OR = [
@@ -29,7 +25,7 @@ export async function GET(request: Request) {
 
         const products = await prisma.storeProduct.findMany({
             where,
-            select: { id: true, sku: true, name: true, sellPrice: true, stock: true, unit: true, category: true, unitType: true },
+            select: { id: true, sku: true, name: true, sellPrice: true, stock: true, stockToko: true, stockGdg: true, unit: true, category: true, unitType: true, discountType: true, discountValue: true, isService: true },
             orderBy: { name: "asc" },
             take: 50,
         });
@@ -37,7 +33,10 @@ export async function GET(request: Request) {
         return NextResponse.json({
             data: products.map((p) => ({
                 id: p.id, sku: p.sku, name: p.name,
-                price: Number(p.sellPrice), stock: p.stock, unit: p.unit, category: p.category, unitType: p.unitType
+                price: Number(p.sellPrice), stock: p.stockToko + p.stockGdg,
+                unit: p.unit, category: p.category, unitType: p.unitType,
+                discountType: p.discountType, discountValue: Number(p.discountValue),
+                isService: p.isService,
             })),
         });
     } catch (error) {
@@ -46,7 +45,8 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/mobile/toko — Process checkout via StoreSale dengan Sinkronisasi Jurnal
+// POST /api/mobile/toko — Process checkout via StoreSale
+// Parity with web POS: uses $transaction, proper stock fields, shift, journal, movements
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
@@ -64,99 +64,225 @@ export async function POST(request: Request) {
         if (!paymentMethod || !["cash", "credit", "salary_cut", "qris"].includes(paymentMethod)) {
             return NextResponse.json({ message: "Metode pembayaran harus cash, qris, atau salary_cut" }, { status: 400 });
         }
-        
-        const method = paymentMethod === "credit" ? "salary_cut" : paymentMethod; // Legacy map
+
+        // Validate quantities
+        for (const item of items) {
+            const qty = parseInt(item.quantity);
+            if (!qty || qty <= 0 || isNaN(qty)) {
+                return NextResponse.json({ message: "Jumlah item harus lebih dari 0" }, { status: 400 });
+            }
+        }
+
+        const method = paymentMethod === "credit" ? "salary_cut" : paymentMethod;
 
         if (method === "salary_cut" && !memberId) {
             return NextResponse.json({ message: "Member ID diperlukan untuk potong gaji" }, { status: 400 });
         }
 
-        let totalAmount = 0;
-        const productUpdates: { id: number; newStock: number }[] = [];
-        const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; productName: string }[] = [];
-
-        for (const item of items) {
-            const product = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
-            if (!product || !product.isActive) {
-                return NextResponse.json({ message: `Produk ID ${item.productId} tidak ditemukan` }, { status: 404 });
-            }
-            if (product.stock < item.quantity) {
-                return NextResponse.json({ message: `Stok ${product.name} tidak cukup` }, { status: 400 });
-            }
-            const unitPrice = Number(product.sellPrice);
-            const subtotal = unitPrice * item.quantity;
-            totalAmount += subtotal;
-            
-            productUpdates.push({ id: product.id, newStock: product.stock - item.quantity });
-            validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, productName: product.name });
-        }
-
-        const now = new Date();
-        const saleNo = `POS-M-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
         const userId = Number(user.id);
 
-        let payment = method === "cash" || method === "qris" ? totalAmount : 0;
-        let changeAmount = 0; // Simplified for mobile
+        // Pre-transaction: lookup accounts (read-only)
+        const [currentPeriod, kasAccount, piutangTokoAccount, tokoIncomeAccount, headOffice] = await Promise.all([
+            prisma.fiscalPeriod.findFirst({ where: { status: "open" }, orderBy: { startDate: "desc" } }),
+            prisma.account.findFirst({ where: { code: "1101" } }),
+            prisma.account.findFirst({ where: { code: "1301" } }),
+            prisma.account.findFirst({ where: { code: "4201" } }),
+            prisma.branch.findFirst({ where: { isHeadOffice: true } }),
+        ]);
 
-        // Start creating operations...
-        const txOps: any[] = [];
+        // Run everything inside interactive transaction (same pattern as web POS)
+        const result = await prisma.$transaction(async (tx) => {
+            // Auto-detect shift
+            let shiftId: number | null = null;
+            const openShift = await tx.cashierShift.findFirst({
+                where: { userId, status: "open", unitType },
+            });
+            shiftId = openShift?.id || null;
 
-        for (const pu of productUpdates) {
-            txOps.push(prisma.storeProduct.update({ where: { id: pu.id }, data: { stock: pu.newStock } }));
-        }
+            // Validate stock and calculate total
+            let totalAmount = 0;
+            const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number }[] = [];
 
-        txOps.push(
-            prisma.storeSale.create({
+            for (const item of items) {
+                const product = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                if (!product || !product.isActive || product.deletedAt) {
+                    throw new Error(`Produk ID ${item.productId} tidak ditemukan atau tidak aktif`);
+                }
+                if (!product.isService) {
+                    const effectiveStock = product.stockToko + product.stockGdg;
+                    if (effectiveStock < item.quantity) {
+                        throw new Error(`Stok ${product.name} tidak cukup (sisa: ${effectiveStock})`);
+                    }
+                }
+
+                // Apply discount (same logic as web POS)
+                const rawPrice = Number(product.sellPrice);
+                let discount = 0;
+                if (product.discountType === "percent" && Number(product.discountValue) > 0) {
+                    discount = Math.round(rawPrice * Number(product.discountValue) / 100);
+                } else if (product.discountType === "fixed" && Number(product.discountValue) > 0) {
+                    discount = Math.min(Number(product.discountValue), rawPrice);
+                }
+                const unitPrice = rawPrice - discount;
+                const subtotal = unitPrice * item.quantity;
+                totalAmount += subtotal;
+
+                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount });
+            }
+
+            // Validate credit limit for salary_cut
+            if (method === "salary_cut" && memberId) {
+                const member = await tx.member.findUnique({ where: { id: memberId } });
+                if (!member) throw new Error("Anggota tidak ditemukan");
+
+                const tagihanUnitTx = await tx.unitTransaction.aggregate({
+                    where: {
+                        memberId: member.id, paymentMethod: "salary_cut",
+                        isPaid: false, status: { in: ["completed", "pending_void"] },
+                    },
+                    _sum: { amount: true },
+                });
+                const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
+                let plafonPiutang = Number(member.plafonPiutang || 0);
+
+                if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+                    const activeLoans = await tx.loan.findMany({
+                        where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                        select: { monthlyInstallment: true },
+                    });
+                    const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
+                    const sisaBersih = Number(member.salary || 0) + Number(member.tunlesKinerja || 0) - totalAngsuran;
+                    plafonPiutang = Math.max(0, sisaBersih - 2000000);
+                }
+
+                if (totalAmount > plafonPiutang - totalTagihan) {
+                    throw new Error(`Limit piutang tidak cukup. Sisa: Rp ${(plafonPiutang - totalTagihan).toLocaleString("id-ID")}`);
+                }
+            }
+
+            const now = new Date();
+            const saleNo = `POS-M-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
+
+            let payment = method === "cash" || method === "qris" ? totalAmount : 0;
+            let changeAmount = 0;
+
+            // Create journal (same as web POS)
+            let journalId: number | null = null;
+            try {
+                if (tokoIncomeAccount && headOffice && currentPeriod) {
+                    const debitAccountId = method === "salary_cut"
+                        ? (piutangTokoAccount?.id || kasAccount?.id)
+                        : kasAccount?.id;
+                    if (debitAccountId) {
+                        const journal = await tx.journal.create({
+                            data: {
+                                journalNo: `JRN-M-${Date.now().toString(36).toUpperCase()}`,
+                                branchId: headOffice.id, transactionDate: now,
+                                description: `Penjualan Mobile ${unitType} ${method === "salary_cut" ? "(Potong Gaji)" : method === "qris" ? "(QRIS)" : "(Tunai)"} - ${saleNo}`,
+                                sourceType: "store_sale", periodId: currentPeriod.id,
+                                isPosted: true, createdById: userId,
+                            },
+                        });
+                        await tx.journalLine.createMany({
+                            data: [
+                                { journalId: journal.id, accountId: debitAccountId, debit: totalAmount, credit: 0, description: method === "salary_cut" ? `Piutang ${unitType} (mobile)` : `Kas masuk penjualan mobile ${unitType}` },
+                                { journalId: journal.id, accountId: tokoIncomeAccount.id, debit: 0, credit: totalAmount, description: "Pendapatan toko (mobile)" },
+                            ],
+                        });
+                        journalId = journal.id;
+                    }
+                }
+            } catch (journalErr) {
+                console.error("[Mobile POS] Journal creation failed (non-fatal):", journalErr);
+            }
+
+            // Create sale record
+            const sale = await tx.storeSale.create({
                 data: {
                     saleNo,
                     memberId: method === "salary_cut" ? Number(memberId) : null,
-                    unitType,
-                    customerName: customerName || null,
-                    totalAmount,
-                    paymentMethod: method,
-                    cashReceived: payment,
-                    changeAmount,
-                    createdById: userId,
+                    unitType, customerName: customerName || null,
+                    totalAmount, paymentMethod: method,
+                    cashReceived: payment, changeAmount,
+                    metadata: null, journalId,
+                    periodId: currentPeriod?.id || null,
+                    shiftId, createdById: userId,
                     items: {
                         create: validatedItems.map((vi) => ({
-                            productId: vi.productId,
-                            quantity: vi.quantity,
-                            unitPrice: vi.unitPrice,
-                            subtotal: vi.subtotal,
+                            productId: vi.productId, quantity: vi.quantity,
+                            unitPrice: vi.unitPrice, discount: vi.discount, subtotal: vi.subtotal,
                         })),
                     },
                 },
-            })
-        );
+            });
 
-        await prisma.$transaction(txOps);
-        
-        // Asynchronous non-blocking hooks for journaling & cash bank
-        try {
+            // Deduct stock — proper 3-field update (stockToko/stockGdg/stock), same as web POS
+            for (const vi of validatedItems) {
+                const prod = await tx.storeProduct.findUnique({ where: { id: vi.productId } });
+                if (prod && !prod.isService) {
+                    let newStockToko = prod.stockToko;
+                    let newStockGdg = prod.stockGdg;
+
+                    if (prod.stockToko >= vi.quantity) {
+                        newStockToko = prod.stockToko - vi.quantity;
+                    } else {
+                        const sisaFromToko = prod.stockToko;
+                        const kurangDariGdg = vi.quantity - sisaFromToko;
+                        newStockToko = 0;
+                        newStockGdg = Math.max(0, prod.stockGdg - kurangDariGdg);
+                    }
+
+                    await tx.storeProduct.update({
+                        where: { id: vi.productId },
+                        data: { stockToko: newStockToko, stockGdg: newStockGdg, stock: newStockToko + newStockGdg },
+                    });
+
+                    // Stock movement log
+                    await tx.storeStockMovement.create({
+                        data: {
+                            productId: vi.productId, type: "out", quantity: vi.quantity,
+                            reference: `Penjualan Mobile ${saleNo}`,
+                            notes: `Terjual Mobile (${method})`, operatorId: userId,
+                        },
+                    });
+                }
+            }
+
+            // Cash/bank sync (inside transaction — atomic)
             if (method === "cash" || method === "qris") {
-                const targetAccount = await prisma.cashBankAccount.findFirst({
-                    where: { type: method === "cash" ? "cash" : "bank", unitType, isActive: true },
+                const accountType = method === "cash" ? "cash" : "bank";
+                let targetAccount = await tx.cashBankAccount.findFirst({
+                    where: { type: accountType, unitType, isActive: true },
                     orderBy: { id: "asc" },
                 });
+                if (!targetAccount) {
+                    targetAccount = await tx.cashBankAccount.findFirst({
+                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
+                        orderBy: { id: "asc" },
+                    });
+                }
                 if (targetAccount) {
-                    const newBal = Number(targetAccount.currentBalance) + totalAmount;
-                    await prisma.cashBankTransaction.create({
+                    const currentBal = Number(targetAccount.currentBalance);
+                    const newBal = currentBal + totalAmount;
+                    await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: `MB-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id, branchId: targetAccount.branchId,
                             type: "in", category: "pendapatan_toko", amount: totalAmount,
-                            balanceBefore: Number(targetAccount.currentBalance), balanceAfter: newBal,
-                            unitType: unitType,
+                            balanceBefore: currentBal, balanceAfter: newBal, unitType,
                             description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now, createdById: userId,
                         },
                     });
-                    await prisma.cashBankAccount.update({
+                    await tx.cashBankAccount.update({
                         where: { id: targetAccount.id }, data: { currentBalance: newBal },
                     });
                 }
-            } else if (method === "salary_cut" && memberId) {
-                await prisma.unitTransaction.create({
+            }
+
+            // Piutang for salary_cut
+            if (method === "salary_cut" && memberId) {
+                await tx.unitTransaction.create({
                     data: {
                         transactionNo: `MB-UTG-${Date.now().toString(36).toUpperCase()}`,
                         memberId: Number(memberId), unitType,
@@ -167,23 +293,26 @@ export async function POST(request: Request) {
                     },
                 });
             }
-        } catch (postFixErr) {
-            console.error("Gagal menjalankan hook asinkron POS Mobile:", postFixErr);
-        }
+
+            return { saleId: sale.id, saleNo, totalAmount };
+        }, { maxWait: 10000, timeout: 30000 });
 
         await logAudit({
-            userId: userId, userName: user.name,
+            userId, userName: user.name,
             action: "CREATE", module: "Toko",
-            description: `Checkout ${method} Rp ${totalAmount.toLocaleString("id-ID")} (${items.length} item) Unit ${unitType}`,
+            description: `Checkout Mobile ${method} Rp ${result.totalAmount.toLocaleString("id-ID")} (${items.length} item) Unit ${unitType}`,
             ipAddress: "mobile-app",
         });
 
         return NextResponse.json({
-            message: "Checkout berhasil! 🛒",
-            data: { total: totalAmount, paymentMethod: method, itemCount: items.length, saleNo },
+            message: "Checkout berhasil!",
+            data: { total: result.totalAmount, paymentMethod: method, itemCount: items.length, saleNo: result.saleNo },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST /api/mobile/toko error:", error);
-        return NextResponse.json({ message: "Gagal memproses checkout" }, { status: 500 });
+        const errMsg = error?.message || "Gagal memproses checkout";
+        const status = errMsg.includes("tidak ditemukan") || errMsg.includes("tidak cukup") || errMsg.includes("limit") || errMsg.includes("lebih dari 0") || errMsg.includes("tidak aktif")
+            ? 400 : 500;
+        return NextResponse.json({ message: errMsg }, { status });
     }
 }

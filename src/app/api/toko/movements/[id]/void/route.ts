@@ -51,8 +51,8 @@ export async function POST(
 
         // Cegah void entry otomatis dari penjualan
         if (movement.reference && movement.reference.startsWith("Penjualan ")) {
-            return NextResponse.json({ 
-                message: "Mutasi dari penjualan tidak bisa dibatalkan dari sini. Gunakan fitur void transaksi di halaman kasir." 
+            return NextResponse.json({
+                message: "Mutasi dari penjualan tidak bisa dibatalkan dari sini. Gunakan fitur void transaksi di halaman kasir."
             }, { status: 400 });
         }
 
@@ -67,23 +67,44 @@ export async function POST(
             // Body kosong = tanpa alasan (opsional)
         }
 
-        // Reverse stok
-        let newStockGdg = movement.product.stockGdg;
-        let newStockToko = movement.product.stockToko;
+        // Determine the original location from reference text
+        // References like "Penambahan Manual (Gudang)" or "Pengurangan Manual (Toko)"
+        const refLower = (movement.reference || "").toLowerCase();
+        const fromToko = refLower.includes("toko");
+        const fromGudang = refLower.includes("gudang");
 
-        if (movement.type === "in") {
-            // Entry asli menambah stok → reverse = kurangi dari gudang
-            newStockGdg = Math.max(0, movement.product.stockGdg - movement.quantity);
-        } else {
-            // Entry asli mengurangi stok → reverse = tambah ke toko
-            newStockToko = movement.product.stockToko + movement.quantity;
-        }
+        // Use interactive transaction to prevent race conditions
+        await prisma.$transaction(async (tx) => {
+            // Re-read product inside transaction for fresh values
+            const currentProduct = await tx.storeProduct.findUnique({
+                where: { id: movement.productId },
+            });
+            if (!currentProduct) throw new Error("Produk tidak ditemukan");
 
-        const newStock = newStockGdg + newStockToko;
+            let newStockGdg = currentProduct.stockGdg;
+            let newStockToko = currentProduct.stockToko;
 
-        // Transaction: void entry + reverse stok
-        await prisma.$transaction([
-            prisma.storeStockMovement.update({
+            if (movement.type === "in") {
+                // Original was stock-in → reverse = remove from where it was added
+                if (fromToko) {
+                    newStockToko = Math.max(0, currentProduct.stockToko - movement.quantity);
+                } else {
+                    // Default: stock-in went to gudang
+                    newStockGdg = Math.max(0, currentProduct.stockGdg - movement.quantity);
+                }
+            } else {
+                // Original was stock-out → reverse = add back to where it was taken from
+                if (fromGudang) {
+                    newStockGdg = currentProduct.stockGdg + movement.quantity;
+                } else {
+                    // Default: stock-out came from toko
+                    newStockToko = currentProduct.stockToko + movement.quantity;
+                }
+            }
+
+            const newStock = newStockGdg + newStockToko;
+
+            await tx.storeStockMovement.update({
                 where: { id: movementId },
                 data: {
                     status: "voided",
@@ -91,16 +112,13 @@ export async function POST(
                     voidedById: userId,
                     notes: (movement.notes || "") + ` [DIBATALKAN oleh ${session.user.name || "user"} pada ${new Date().toLocaleString("id-ID")}${reason ? ` — Alasan: ${reason}` : ""}]`,
                 },
-            }),
-            prisma.storeProduct.update({
+            });
+
+            await tx.storeProduct.update({
                 where: { id: movement.productId },
-                data: {
-                    stock: newStock,
-                    stockGdg: newStockGdg,
-                    stockToko: newStockToko,
-                },
-            }),
-        ]);
+                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+            });
+        });
 
         return NextResponse.json({
             message: `Mutasi stok "${movement.type === "in" ? "Masuk" : "Keluar"}" sebanyak ${movement.quantity} untuk ${movement.product.name} berhasil dibatalkan. Stok dikembalikan.`,

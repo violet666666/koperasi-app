@@ -5,6 +5,11 @@ import { auth } from "@/lib/auth";
 // GET /api/toko/products - List store products
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
         const unitType = searchParams.get("unitType") || null;
@@ -53,11 +58,20 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/toko/products - Create a new product
+// POST /api/toko/products - Create a new product (admin/operator only)
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        const userId = session?.user?.id ? parseInt(session.user.id) : null;
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan menambah produk" }, { status: 403 });
+        }
+
+        const userId = parseInt(session.user.id);
 
         const body = await request.json();
         const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType } = body;

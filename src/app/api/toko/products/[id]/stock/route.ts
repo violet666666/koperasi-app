@@ -20,7 +20,16 @@ export async function POST(
 ) {
     try {
         const session = await auth();
-        const userId = session?.user?.id ? parseInt(session.user.id) : 1;
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan mengubah stok" }, { status: 403 });
+        }
+
+        const userId = parseInt(session.user.id);
 
         const { id: idStr } = await context.params;
         const productId = parseInt(idStr);

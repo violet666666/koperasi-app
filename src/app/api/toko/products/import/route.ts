@@ -15,9 +15,19 @@ async function getPricingMultipliers(unitType: string) {
     return { markupMultiplier: 1 + markup / 100, ppnMultiplier: 1 + ppn / 100 };
 }
 
-// POST /api/toko/products/import
+// POST /api/toko/products/import — admin/operator only
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan import produk" }, { status: 403 });
+        }
+
         // Load pricing settings from DB
         const pricingMultipliers = await getPricingMultipliers("toko");
 

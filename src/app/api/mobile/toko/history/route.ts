@@ -118,13 +118,18 @@ export async function POST(request: Request) {
         const currentUserId = Number(user.id);
         const isOperator = user.role === "operator" || user.role === "admin";
 
-        // Operator: auto-void langsung
+        // Operator: auto-void langsung — restore stock to stockToko (same as web void flow)
         if (isOperator) {
-            // Kembalikan stok
             for (const item of sale.items) {
                 const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
                 if (prod && !(prod as any).isService) {
-                    await prisma.storeProduct.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+                    // Restore to stockToko first (matches the web void-approve pattern)
+                    const newStockToko = prod.stockToko + item.quantity;
+                    const newStock = newStockToko + prod.stockGdg;
+                    await prisma.storeProduct.update({
+                        where: { id: item.productId },
+                        data: { stockToko: newStockToko, stock: newStock },
+                    });
                 }
             }
 

@@ -13,6 +13,11 @@ export async function PATCH(
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan mengubah diskon" }, { status: 403 });
+        }
+
         const { id } = await params;
         const productId = parseInt(id);
         if (isNaN(productId)) {

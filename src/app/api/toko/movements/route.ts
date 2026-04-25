@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -7,6 +8,10 @@ export const revalidate = 0;
 // GET /api/toko/movements - Rekapan riwayat masuk keluar stok produk
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get("limit") || "200");
         const productId = searchParams.get("productId");

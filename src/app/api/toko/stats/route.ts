@@ -1,32 +1,53 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
-// GET /api/toko/stats - Dashboard stats from real data
-export async function GET() {
+// GET /api/toko/stats - Dashboard stats from real data (filtered by unitType)
+export async function GET(request: Request) {
     try {
-        const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const unitType = searchParams.get("unitType") || null;
+
+        // Use UTC+7 (WIB) for "today" boundary to match Indonesian business hours
+        const now = new Date();
+        const wibOffset = 7 * 60; // WIB is UTC+7
+        const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+        const wibNow = new Date(utcMs + wibOffset * 60000);
+        const todayStart = new Date(
+            wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(),
+            0, 0, 0, 0
+        );
+        // Convert back to UTC for the database query
+        const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
+
+        const unitFilter = unitType ? { unitType } : {};
+        const productFilter = unitType ? { unitType, isActive: true, deletedAt: null } : { isActive: true, deletedAt: null };
 
         const [totalProducts, totalStock, todaySales, allSales, todayItems, allItems] = await Promise.all([
-            prisma.storeProduct.count({ where: { isActive: true, deletedAt: null } }),
+            prisma.storeProduct.count({ where: productFilter }),
             prisma.storeProduct.aggregate({
-                where: { isActive: true, deletedAt: null },
+                where: productFilter,
                 _sum: { stock: true },
             }),
-            // FIX Bug #4: Fetch semua, lalu filter voided secara manual
             prisma.storeSale.findMany({
-                where: { createdAt: { gte: todayStart } },
+                where: { ...unitFilter, createdAt: { gte: todayStartUTC } },
                 select: { totalAmount: true, metadata: true },
             }),
             prisma.storeSale.findMany({
+                where: unitFilter,
                 select: { totalAmount: true, metadata: true },
             }),
-            // Jumlah item terjual hari ini
             prisma.storeSale.findMany({
-                where: { createdAt: { gte: todayStart } },
+                where: { ...unitFilter, createdAt: { gte: todayStartUTC } },
                 select: { metadata: true, items: { select: { quantity: true } } },
             }),
-            // Jumlah item terjual semua
             prisma.storeSale.findMany({
+                where: unitFilter,
                 select: { metadata: true, items: { select: { quantity: true } } },
             }),
         ]);

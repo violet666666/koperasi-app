@@ -3,9 +3,19 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
-// DELETE /api/toko/products/reset — Hapus semua produk toko (soft-delete)
+// DELETE /api/toko/products/reset — Hapus semua produk toko (soft-delete) — admin/operator only
 export async function DELETE(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan menghapus semua produk" }, { status: 403 });
+        }
+
         // Count existing products first
         const count = await prisma.storeProduct.count({
             where: { deletedAt: null },

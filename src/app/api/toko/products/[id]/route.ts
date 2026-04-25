@@ -51,9 +51,8 @@ export async function PUT(
         if (body.sku !== undefined) updateData.sku = body.sku;
         if (body.price !== undefined) updateData.sellPrice = Number(body.price);
         if (body.costPrice !== undefined) updateData.costPrice = Number(body.costPrice);
-        if (body.stock !== undefined) updateData.stock = Number(body.stock);
-        if (body.stockGdg !== undefined) updateData.stockGdg = Number(body.stockGdg);
-        if (body.stockToko !== undefined) updateData.stockToko = Number(body.stockToko);
+        // Stock fields should NOT be set directly via PUT — use /stock endpoint instead
+        // This prevents silent stock changes without movement records
         if (body.minStock !== undefined) updateData.minStock = Number(body.minStock);
         if (body.category !== undefined) updateData.category = body.category;
         if (body.unit !== undefined) updateData.unit = body.unit;

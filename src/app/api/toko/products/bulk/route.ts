@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 /**
  * PUT /api/toko/products/bulk
  * Bulk update products — admin/operator only
- * 
+ *
  * Body:
  * {
  *   ids: number[],
@@ -25,6 +25,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ message: "Kasir tidak diizinkan melakukan aksi massal" }, { status: 403 });
         }
 
+        const userId = Number(session.user.id);
         const body = await request.json();
         const { ids, action, value } = body;
 
@@ -36,13 +37,16 @@ export async function PUT(request: Request) {
             return NextResponse.json({ message: "Aksi tidak valid" }, { status: 400 });
         }
 
+        const numericIds = ids.map(Number);
         let updateData: Record<string, unknown> = {};
         let actionLabel = "";
+        let isStockAction = false;
 
         switch (action) {
             case "zero_stock":
                 updateData = { stock: 0, stockGdg: 0, stockToko: 0 };
                 actionLabel = "Stok dinolkan";
+                isStockAction = true;
                 break;
             case "zero_price":
                 updateData = { sellPrice: 0, costPrice: 0 };
@@ -51,17 +55,50 @@ export async function PUT(request: Request) {
             case "zero_all":
                 updateData = { stock: 0, stockGdg: 0, stockToko: 0, sellPrice: 0, costPrice: 0 };
                 actionLabel = "Stok & harga dinolkan";
+                isStockAction = true;
                 break;
             case "set_stock":
                 if (value === undefined || value === null) {
                     return NextResponse.json({ message: "Nilai stok harus diisi" }, { status: 400 });
                 }
-                updateData = { stock: Number(value), stockToko: Number(value), stockGdg: 0 };
-                actionLabel = `Stok diset ke ${value}`;
-                break;
+                if (Number(value) < 0) {
+                    return NextResponse.json({ message: "Stok tidak boleh negatif" }, { status: 400 });
+                }
+                // Preserve stockGdg/stockToko distribution when setting stock
+                // Read current products first to maintain ratio
+                const productsForSet = await prisma.storeProduct.findMany({
+                    where: { id: { in: numericIds } },
+                    select: { id: true, stockGdg: true, stockToko: true, stock: true },
+                });
+                const newStockVal = Number(value);
+                for (const p of productsForSet) {
+                    const totalCurrent = p.stock || 1;
+                    const gdgRatio = Number(p.stockGdg) / totalCurrent;
+                    const newGdg = Math.round(newStockVal * gdgRatio);
+                    const newToko = newStockVal - newGdg;
+                    await prisma.storeProduct.update({
+                        where: { id: p.id },
+                        data: { stock: newStockVal, stockGdg: newGdg, stockToko: newToko },
+                    });
+                    // Create movement record
+                    await prisma.storeStockMovement.create({
+                        data: {
+                            productId: p.id, type: "in", quantity: newStockVal,
+                            reference: `Set Stok Massal ke ${newStockVal}`,
+                            notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
+                        },
+                    });
+                }
+                return NextResponse.json({
+                    message: `Stok diset ke ${value} untuk ${productsForSet.length} produk`,
+                    data: { count: productsForSet.length },
+                });
             case "set_price":
                 if (value === undefined || value === null) {
                     return NextResponse.json({ message: "Nilai harga harus diisi" }, { status: 400 });
+                }
+                if (Number(value) < 0) {
+                    return NextResponse.json({ message: "Harga tidak boleh negatif" }, { status: 400 });
                 }
                 updateData = { sellPrice: Number(value) };
                 actionLabel = `Harga diset ke ${value}`;
@@ -79,9 +116,27 @@ export async function PUT(request: Request) {
         }
 
         const result = await prisma.storeProduct.updateMany({
-            where: { id: { in: ids.map(Number) } },
+            where: { id: { in: numericIds } },
             data: updateData,
         });
+
+        // Create stock movement records for stock-changing bulk actions
+        if (isStockAction) {
+            const affectedProducts = await prisma.storeProduct.findMany({
+                where: { id: { in: numericIds } },
+                select: { id: true },
+            });
+            await prisma.storeStockMovement.createMany({
+                data: affectedProducts.map((p) => ({
+                    productId: p.id,
+                    type: "in",
+                    quantity: 0,
+                    reference: `Aksi Massal: ${actionLabel}`,
+                    notes: `Otomatis dari bulk action`,
+                    operatorId: userId,
+                })),
+            });
+        }
 
         return NextResponse.json({
             message: `${actionLabel} untuk ${result.count} produk`,
