@@ -77,6 +77,20 @@ export async function POST(request: Request) {
         const currentUserId = parseInt(session.user.id);
         const now = new Date();
 
+        // ── Atomic guard: Claim this request exclusively ──────────────
+        // Prevents race condition where double-click sends 2 requests
+        // and both pass the `status === "pending"` check above.
+        const claimResult = await prisma.approvalRequest.updateMany({
+            where: { id: approvalReq.id, status: "pending" },
+            data: { status: action === "approved" ? "approved" : "rejected" },
+        });
+        if (claimResult.count === 0) {
+            return NextResponse.json(
+                { message: "Request ini sudah diproses oleh pengguna lain." },
+                { status: 409 }
+            );
+        }
+
         // ================================================================
         // JALUR 1: Void untuk TRANSAKSI TOKO (StoreSale)
         // ================================================================
@@ -96,15 +110,18 @@ export async function POST(request: Request) {
                     : {};
 
                 // Kembalikan stok semua item produk fisik
-                // FIX: Kembalikan ke stockToko (konsisten dengan deduction di sales/route.ts)
+                // FIX: Gunakan absolute value (bukan increment) agar stock selalu = stockToko + stockGdg
                 for (const item of storeSale.items) {
                     const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
                     if (prod && !prod.isService) {
+                        const newStockToko = prod.stockToko + item.quantity;
+                        const newStock = newStockToko + prod.stockGdg;
+
                         await prisma.storeProduct.update({
                             where: { id: item.productId },
                             data: {
-                                stockToko: { increment: item.quantity },
-                                stock: { increment: item.quantity },
+                                stockToko: newStockToko,
+                                stock: newStock,
                             },
                         });
 
@@ -226,9 +243,10 @@ export async function POST(request: Request) {
                         where: { id: storeSale.id },
                         data: { metadata },
                     }),
+                    // Status already set by atomic guard, just update metadata
                     prisma.approvalRequest.update({
                         where: { id: approvalReq.id },
-                        data: { status: "approved", approvedById: currentUserId, approvedAt: now },
+                        data: { approvedById: currentUserId, approvedAt: now },
                     }),
                 ]);
 
@@ -262,10 +280,10 @@ export async function POST(request: Request) {
                         where: { id: storeSale.id },
                         data: { metadata },
                     }),
+                    // Status already set by atomic guard
                     prisma.approvalRequest.update({
                         where: { id: approvalReq.id },
                         data: {
-                            status: "rejected",
                             rejectedById: currentUserId,
                             rejectedAt: now,
                             rejectionReason: notes || "Ditolak oleh Admin Unit.",
@@ -356,11 +374,10 @@ export async function POST(request: Request) {
                     },
                 }),
 
-                // 3. Update ApprovalRequest: approved
+                // 3. Update ApprovalRequest metadata (status already set by atomic guard)
                 prisma.approvalRequest.update({
                     where: { id: approvalReq.id },
                     data: {
-                        status: "approved",
                         approvedById: currentUserId,
                         approvedAt: now,
                         rejectionReason: notes || null,
@@ -403,11 +420,10 @@ export async function POST(request: Request) {
                     },
                 }),
 
-                // 2. Update ApprovalRequest: rejected
+                // 2. Update ApprovalRequest metadata (status already set by atomic guard)
                 prisma.approvalRequest.update({
                     where: { id: approvalReq.id },
                     data: {
-                        status: "rejected",
                         rejectedById: currentUserId,
                         rejectedAt: now,
                         rejectionReason: notes || "Ditolak oleh Admin Unit.",

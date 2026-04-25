@@ -69,15 +69,18 @@ export async function POST(request: Request) {
 
             // JALUR A: Operator/Superadmin → Void langsung (bypass approval)
             if (isOperator) {
-                // Kembalikan Stok — FIX: ke stockToko (konsisten dengan deduction)
+                // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
                 for (const item of storeSale.items) {
                     const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
                     if (prod && !prod.isService) {
+                        const newStockToko = prod.stockToko + item.quantity;
+                        const newStock = newStockToko + prod.stockGdg;
+
                         await prisma.storeProduct.update({
                             where: { id: item.productId },
                             data: {
-                                stockToko: { increment: item.quantity },
-                                stock: { increment: item.quantity },
+                                stockToko: newStockToko,
+                                stock: newStock,
                             },
                         });
 

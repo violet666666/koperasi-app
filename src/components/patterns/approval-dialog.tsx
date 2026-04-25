@@ -386,8 +386,14 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
                                 <Button
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                     onClick={() => processApproval("approve")}
+                                    disabled={processing}
                                 >
-                                    <Check className="mr-2 h-4 w-4" /> Setujui
+                                    {processing ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Check className="mr-2 h-4 w-4" />
+                                    )}
+                                    {processing ? "Memproses..." : "Setujui"}
                                 </Button>
                             </div>
                         )}
