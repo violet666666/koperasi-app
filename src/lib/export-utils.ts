@@ -390,10 +390,11 @@ ${changeRow}
 <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-    const win = window.open("", "_blank", `width=${windowWidth},height=600`);
+    const win = window.open("", "_blank", `width=${windowWidth},height=500`);
     if (win) {
         win.document.write(html);
         win.document.close();
+        setTimeout(() => win.close(), 2000);
     }
 }
 

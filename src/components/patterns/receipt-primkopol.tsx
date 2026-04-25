@@ -55,7 +55,7 @@ export function ReceiptPrimkopol({
     const handlePrint = () => {
         const printContents = printRef.current?.innerHTML;
         if (!printContents) return;
-        const w = window.open("", "_blank", "width=400,height=600");
+        const w = window.open("", "_blank", "width=400,height=500");
         if (!w) return;
         w.document.write(`
             <!DOCTYPE html>
@@ -64,6 +64,10 @@ export function ReceiptPrimkopol({
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
+                    @page {
+                        size: ${paperSize === "58mm" ? "58mm" : "80mm"} auto;
+                        margin: 0;
+                    }
                     body {
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
@@ -73,8 +77,8 @@ export function ReceiptPrimkopol({
                     }
                     .center { text-align: center; }
                     .bold { font-weight: bold; }
-                    .divider { border-top: 1px dashed #000; margin: 4px 0; }
-                    .row { display: flex; justify-content: space-between; margin: 2px 0; }
+                    .divider { border-top: 1px dashed #000; margin: 3px 0; }
+                    .row { display: flex; justify-content: space-between; margin: 1px 0; }
                     .label { min-width: ${paperSize === "58mm" ? "70px" : "100px"}; }
                     .value-right { text-align: right; word-break: break-all; }
                     .void-mark {
@@ -82,12 +86,14 @@ export function ReceiptPrimkopol({
                         font-size: 14px;
                         font-weight: bold;
                         border: 2px solid #000;
-                        padding: 4px;
-                        margin: 8px 0;
+                        padding: 3px;
+                        margin: 4px 0;
                         letter-spacing: 2px;
                     }
                     @media print {
-                        body { width: ${paperSize}; }
+                        body { width: ${paperSize}; padding: 1mm; }
+                        .divider { margin: 2px 0; }
+                        .row { margin: 0; }
                     }
                 </style>
             </head>
@@ -98,15 +104,16 @@ export function ReceiptPrimkopol({
         w.focus();
         setTimeout(() => {
             w.print();
+            setTimeout(() => w.close(), 500);
         }, 300);
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Preview Area */}
             <div
                 ref={printRef}
-                className={`font-mono text-xs bg-white text-black p-4 rounded border border-dashed mx-auto ${
+                className={`font-mono text-xs bg-white text-black p-2 rounded border border-dashed mx-auto ${
                     paperSize === "58mm" ? "max-w-[220px]" : "max-w-[320px]"
                 }`}
             >
@@ -114,7 +121,7 @@ export function ReceiptPrimkopol({
                 <div className="center bold text-sm leading-snug">
                     PRIMKOPPOL RESOR LUMAJANG
                 </div>
-                <div className="center text-[10px] mt-1">
+                <div className="center text-[10px] mt-0.5">
                     Koperasi Kepolisian Resort Lumajang
                 </div>
 
@@ -177,7 +184,7 @@ export function ReceiptPrimkopol({
                     <span className="label">Kasir</span>
                     <span>: {data.kasir}</span>
                 </div>
-                <div className="center mt-2 text-[10px]">
+                <div className="center mt-1 text-[10px]">
                     Terima kasih atas transaksi Anda
                 </div>
                 <div className="center text-[10px]">primkoppol.online</div>

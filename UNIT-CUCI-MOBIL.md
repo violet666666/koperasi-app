@@ -101,3 +101,4 @@ Fitur untuk mencatat pemasukan di luar transaksi POS kasir:
 - **[POS] Validasi Quantity**: MAX_QTY = 999, validasi NaN/0/negatif sebelum checkout
 - **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir
 - **[API] Void Flow**: Void UnitTransaction sekarang juga membalikkan jurnal & cash/bank (bukan hanya contra-entry)
+- **[POS] Member Autocomplete**: Ditambahkan autocomplete NRP/Nama anggota di panel checkout untuk transaksi Tunai/QRIS (sebelumnya hanya tersedia di dialog Potong Gaji). Data pelanggan tersimpan ke histori anggota untuk semua metode pembayaran.

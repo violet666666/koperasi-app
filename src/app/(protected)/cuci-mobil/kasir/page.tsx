@@ -430,7 +430,7 @@ export default function CuciMobilKasirPage() {
                         <DialogDescription>Siapkan printer thermal untuk mencetak struk.</DialogDescription>
                     </DialogHeader>
                     {lastReceipt && (
-                        <div className="flex flex-col items-center p-4 bg-slate-100 rounded-lg">
+                        <div className="flex flex-col items-center p-2 bg-slate-100 rounded-lg">
                             <ReceiptPrimkopol data={lastReceipt} paperSize="58mm" />
                         </div>
                     )}

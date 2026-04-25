@@ -2,7 +2,7 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **16 April 2026 (Sesi 15 — Fix Ghost Balance + Auto-Create Rekening + Full CRUD Rekening)**
+> Update terakhir: **26 April 2026 (Sesi 18 — Perbaikan Kritis Semua Unit + Receipt Print Fix)**
 > Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md`
 
 ---
@@ -16,7 +16,72 @@
 | Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
 | **TOTAL** | **16** | **16** | **0** | **0** |
 
-## 🆕 UPDATE APLIKASI MOBILE (17 APRIL 2026)
+## 🆕 UPDATE WEB & BACKEND (26 APRIL 2026)
+
+### 29. [M-SYNC-026] Transaction Safety — `prisma.$transaction` pada Semua Unit API
+- ✅ **Selesai (Web Backend)**: Semua operasi multi-tabel (create transaction, cash/bank sync, journal) dibungkus dalam `prisma.$transaction` (interactive).
+- **File yang diubah:**
+  1. ✅ `src/app/api/unit-layanan/sales/route.ts` — Web POS unit (cuci_mobil, fotocopy, dll)
+  2. ✅ `src/app/api/mobile/unit-layanan/route.ts` — Mobile POS unit
+  3. ✅ `src/app/api/toko/sales/route.ts` — Toko/Resto POS (via `StoreSale`)
+  4. ✅ `src/app/api/mobile/toko/route.ts` — Mobile Toko POS
+- **Dampak Mobile:** Otomatis berlaku — semua transaksi dari mobile kini atomic. Tidak ada lagi partial write jika salah satu operasi gagal.
+- **Catatan:** Transaksi kritis (plafon check, journal, cash/bank) yang sebelumnya berisiko race condition kini aman.
+
+### 30. [M-SYNC-027] Validasi Input & Plafon Piutang Real-Time
+- ✅ **Selesai (Web Backend)**:
+  - Validasi `amount > 0` pada semua endpoint
+  - Validasi `unitType` dan `paymentMethod` terhadap enum yang diizinkan
+  - Validasi plafon piutang: cek sisa limit anggota sebelum transaksi salary_cut
+  - Validasi plafon otomatis: jika `plafonPiutang` tidak diset, hitung otomatis dari gaji (40% default)
+- **Dampak Mobile:** Otomatis berlaku — kasir mobile akan mendapat error yang jelas jika plafon tidak mencukupi.
+
+### 31. [M-SYNC-028] RBAC pada Endpoint Mobile
+- ✅ **Selesai (Web Backend)**: Ditambahkan role check pada 4 endpoint mobile:
+  1. ✅ `GET /api/mobile/reports/unit` — Hanya operator/admin
+  2. ✅ `GET/PATCH /api/mobile/members/[id]` — Hanya operator/admin/kasir
+  3. ✅ `GET /api/mobile/members/[id]/piutang` — Hanya operator/admin/kasir
+  4. ✅ `GET /api/mobile/savings-tx` — Hanya kasir/operator/admin
+- **Dampak Mobile:** Anggota biasa tidak bisa mengakses data finansial orang lain. Kasir tetap bisa akses sesuai tugasnya.
+
+### 32. [M-SYNC-029] Void Flow Fix — Journal & Cash/Bank Reversal
+- ✅ **Selesai (Web Backend)**: Void `UnitTransaction` (JALUR 2) sekarang juga:
+  - Membuat jurnal pembalik (swap debit/credit)
+  - Membuat transaksi cash/bank keluar (reversal)
+  - Update balance cash/bank
+  - Semua dalam satu `prisma.$transaction` interactive
+- **File yang diubah:** `src/app/api/unit-transactions/void-approve/route.ts`
+- **Dampak Mobile:** Approval void dari mobile untuk unit layanan (cuci mobil, fotocopy, dll) akan membalikkan semua entri keuangan dengan benar.
+
+### 33. [M-SYNC-030] parseFloat untuk Quantity Desimal
+- ✅ **Selesai (Web Backend)**:
+  - `api/mobile/toko/route.ts` — `parseInt` → `parseFloat` untuk quantity
+  - `api/toko/sales/route.ts` — `parseInt` → `parseFloat` untuk quantity
+- **Dampak Mobile:** Kasir mobile kini bisa menginput quantity desimal (contoh: 1.5 kg laundry, 2.5 jam PlayStation) tanpa truncation.
+
+### 34. [M-FEAT-024] Member Autocomplete Cuci Mobil POS (Web)
+- ✅ **Selesai**: Ditambahkan autocomplete NRP/Nama di panel checkout Cuci Mobil (sebelumnya hanya ada di dialog Potong Gaji).
+- **Dampak Mobile:** `KasirScreen.tsx` sudah memiliki autocomplete member untuk semua unit — paritas sudah tercapai. Ini hanya fix di Web POS yang tertinggal.
+
+### 35. [M-SYNC-031] Fix Filter Unit di Portal Member
+- ✅ **Selesai**: Portal member (`/portal/transaksi`) sekarang menampilkan semua 9 unit (sebelumnya hanya 5). Ditambahkan: Laundry, Barbershop, PlayStation, Resto.
+- **Dampak Mobile:** Tidak langsung — ini fitur Web portal. Namun data transaksi dari mobile POS tetap tercatat dengan benar di histori anggota.
+
+### 36. [M-FEAT-025] Fix Cetak Struk — Hilangkan Space Kosong Berlebih
+- ✅ **Selesai**: Komponen `ReceiptPrimkopol` diperbaiki:
+  - Print window height kini dinamis sesuai konten (bukan fixed 600px)
+  - Print CSS `@page { margin: 0; size: auto; }` ditambahkan
+  - Padding dikurangi dari `p-4` ke `p-2`
+  - Window auto-close setelah cetak selesai
+- **Dampak Mobile:** Perbaikan ini hanya di Web. Mobile menggunakan `generateRawText()` + Bluetooth thermal printer yang sudah compact. Jika kasir cetak dari browser di tablet, struk akan lebih ringkas.
+
+### Tugas Mobile yang Belum Diperlukan dari Update Ini
+Semua perbaikan di atas bersifat **backend-only** atau **Web-only**, sehingga **tidak memerlukan update kode mobile**. Yang perlu diperhatikan:
+- Mobile app perlu di-rebuild hanya jika ada perubahan API response format (tidak ada pada update ini)
+- Validasi plafon mobile sudah menggunakan endpoint yang sama, jadi otomatis mendapat peningkatan
+- RBAC akan otomatis menolak akses tidak sah dari mobile app
+
+---
 
 ### 13. [M-FEAT-016] Paritas UI: Tampilkan Koreksi & Penarikan di Riwayat Mutasi Mobile
 - ✅ **Selesai**: File `DashboardScreen.tsx` dan `SimpananScreen.tsx` telah diperbarui.
