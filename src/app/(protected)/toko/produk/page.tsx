@@ -91,6 +91,23 @@ export default function TokoProdukPage() {
     const [resultDialogTitle, setResultDialogTitle] = React.useState("");
     const [resultDialogContent, setResultDialogContent] = React.useState<React.ReactNode>(null);
 
+    // Pricing settings from DB
+    const [markupPercent, setMarkupPercent] = React.useState(2);
+    const [ppnPercent, setPpnPercent] = React.useState(0);
+    React.useEffect(() => {
+        fetch(`/api/settings?unitType=${productUnitType}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.map) {
+                    const mk = parseFloat(data.map[`${productUnitType}_markup_percent`]);
+                    const pp = parseFloat(data.map[`${productUnitType}_ppn_percent`]);
+                    if (!isNaN(mk)) setMarkupPercent(mk);
+                    if (!isNaN(pp)) setPpnPercent(pp);
+                }
+            })
+            .catch(() => {});
+    }, [productUnitType]);
+
     const mapProducts = (data: any[]): Product[] => {
         return data.map((p: any) => ({ ...p }));
     };
@@ -256,7 +273,10 @@ export default function TokoProdukPage() {
 
     // ── Hitung Ulang Semua Harga ──
     const handleRecalculatePrices = async () => {
-        if (!confirm("Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ceil((HPP × 1.02 × 1.11) / 100) × 100\n\nProduk tanpa HPP & kategori ROKOK tidak akan terpengaruh (harga manual).")) return;
+        const formulaDesc = ppnPercent > 0
+            ? `ceil((HPP × ${(1 + markupPercent/100).toFixed(2)} × ${(1 + ppnPercent/100).toFixed(2)}) / 100) × 100`
+            : `ceil((HPP × ${(1 + markupPercent/100).toFixed(2)}) / 100) × 100`;
+        if (!confirm(`Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ${formulaDesc}\nMarkup: ${markupPercent}%${ppnPercent > 0 ? `, PPN: ${ppnPercent}%` : ' (tanpa PPN)'}\n\nProduk tanpa HPP & kategori ROKOK tidak akan terpengaruh (harga manual).`)) return;
         setIsRecalculating(true);
         try {
             const res = await fetch("/api/toko/products/recalculate-prices", { method: "POST" });
@@ -580,11 +600,13 @@ export default function TokoProdukPage() {
                                                         onChange={(e) => {
                                                             const hpp = Number(e.target.value);
                                                             const isRokokCategory = (editData.category || p.category || "").toLowerCase() === "rokok";
+                                                            const markupMul = 1 + markupPercent / 100;
+                                                            const ppnMul = 1 + ppnPercent / 100;
                                                             setEditData(prev => ({
                                                                 ...prev,
                                                                 costPrice: hpp,
                                                                 // Skip auto-calculate untuk kategori rokok (harga jual manual/HET)
-                                                                price: (hpp > 0 && !isRokokCategory) ? Math.ceil((hpp * 1.02 * 1.11) / 100) * 100 : prev.price,
+                                                                price: (hpp > 0 && !isRokokCategory) ? Math.ceil((hpp * markupMul * ppnMul) / 100) * 100 : prev.price,
                                                             }));
                                                         }} />
                                                 ) : (

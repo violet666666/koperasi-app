@@ -1083,3 +1083,17 @@ model CashierShift {
 
   @@map("cashier_shifts")
 }
+
+// =================================================================
+// APP SETTINGS (Key-Value Configuration)
+// =================================================================
+
+model AppSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  label     String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}

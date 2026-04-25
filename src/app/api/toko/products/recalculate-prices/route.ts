@@ -5,8 +5,11 @@ import { auth } from "@/lib/auth";
 /**
  * POST /api/toko/products/recalculate-prices
  * 
- * Hitung ulang harga jual SEMUA produk berdasarkan formula:
- *   sellPrice = ceil((costPrice * 1.02 * 1.11) / 100) * 100
+ * Hitung ulang harga jual SEMUA produk berdasarkan formula dinamis:
+ *   sellPrice = ceil((costPrice * (1 + markup/100) * (1 + ppn/100)) / 100) * 100
+ * 
+ * Markup dan PPN dibaca dari tabel app_settings (configurable).
+ * Default: markup=2%, ppn=0%.
  * 
  * Hanya produk dengan costPrice > 0 yang dihitung ulang.
  * Produk dengan costPrice = 0 akan dilewati (harga tetap).
@@ -15,6 +18,7 @@ import { auth } from "@/lib/auth";
  * Query params:
  *   ?preview=true  → Hanya tampilkan preview perubahan, TIDAK simpan ke DB
  *   ?preview=false  → Simpan perubahan ke DB (default)
+ *   ?unitType=toko  → Unit type untuk membaca settings (default: toko)
  */
 export async function POST(request: Request) {
     try {
@@ -30,6 +34,25 @@ export async function POST(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const isPreview = searchParams.get("preview") === "true";
+        const unitType = searchParams.get("unitType") || (session.user as any).unitType || "toko";
+
+        // Read markup & PPN settings from DB
+        const settingsKeys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`];
+        const settings = await prisma.appSetting.findMany({
+            where: { key: { in: settingsKeys } },
+        });
+        const settingsMap: Record<string, string> = {};
+        for (const s of settings) settingsMap[s.key] = s.value;
+
+        const markupPercent = parseFloat(settingsMap[`${unitType}_markup_percent`] || "2");
+        const ppnPercent = parseFloat(settingsMap[`${unitType}_ppn_percent`] || "0");
+        const markupMultiplier = 1 + markupPercent / 100;
+        const ppnMultiplier = 1 + ppnPercent / 100;
+
+        // Build formula description
+        const formulaParts = [`HPP × ${markupMultiplier}`];
+        if (ppnPercent > 0) formulaParts[0] = `HPP × ${markupMultiplier} × ${ppnMultiplier}`;
+        const formulaStr = `ceil((${formulaParts[0]}) / 100) × 100`;
 
         // Ambil semua produk aktif dengan costPrice > 0
         const products = await prisma.storeProduct.findMany({
@@ -68,8 +91,8 @@ export async function POST(request: Request) {
         for (const p of products) {
             const hpp = Number(p.costPrice);
             const currentSellPrice = Number(p.sellPrice);
-            // Formula: ceil((HPP * 1.02 * 1.11) / 100) * 100
-            const newSellPrice = Math.ceil((hpp * 1.02 * 1.11) / 100) * 100;
+            // Dynamic formula from settings
+            const newSellPrice = Math.ceil((hpp * markupMultiplier * ppnMultiplier) / 100) * 100;
 
             const changed = currentSellPrice !== newSellPrice;
 
@@ -128,7 +151,9 @@ export async function POST(request: Request) {
                 : `${updatedCount} produk berhasil diupdate harga jualnya. ${skippedCount} sudah sesuai formula.${rokokSkipped > 0 ? ` ${rokokSkipped} produk rokok dilewati.` : ''}`,
             data: {
                 mode: isPreview ? "preview" : "committed",
-                formula: "ceil((HPP × 1.02 × 1.11) / 100) × 100",
+                formula: formulaStr,
+                markupPercent,
+                ppnPercent,
                 totalWithHPP: products.length,
                 updated: updatedCount,
                 alreadyCorrect: skippedCount,

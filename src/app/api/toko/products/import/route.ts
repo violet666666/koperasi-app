@@ -4,9 +4,23 @@ import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
+// Helper: get pricing multipliers from DB settings
+async function getPricingMultipliers(unitType: string) {
+    const keys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`];
+    const settings = await prisma.appSetting.findMany({ where: { key: { in: keys } } });
+    const map: Record<string, string> = {};
+    for (const s of settings) map[s.key] = s.value;
+    const markup = parseFloat(map[`${unitType}_markup_percent`] || "2");
+    const ppn = parseFloat(map[`${unitType}_ppn_percent`] || "0");
+    return { markupMultiplier: 1 + markup / 100, ppnMultiplier: 1 + ppn / 100 };
+}
+
 // POST /api/toko/products/import
 export async function POST(request: Request) {
     try {
+        // Load pricing settings from DB
+        const pricingMultipliers = await getPricingMultipliers("toko");
+
         const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit
@@ -101,10 +115,9 @@ export async function POST(request: Request) {
             let sellPrice = hargaJualIdx !== -1 ? cleanNumber(row[hargaJualIdx]) : 0;
             const costPrice = hargaPokokIdx !== -1 ? cleanNumber(row[hargaPokokIdx]) : 0;
             
-            // AUTO-CALCULATE: Jika ada HPP, selalu hitung harga jual dari formula
-            // Formula: ceil((HPP × 1.02 × 1.11) / 100) × 100
+            // AUTO-CALCULATE: Jika ada HPP, hitung harga jual dari formula dinamis (dari settings DB)
             if (costPrice > 0) {
-                sellPrice = Math.ceil((costPrice * 1.02 * 1.11) / 100) * 100;
+                sellPrice = Math.ceil((costPrice * pricingMultipliers.markupMultiplier * pricingMultipliers.ppnMultiplier) / 100) * 100;
             }
 
             // if we somehow couldn't find a sell price column, we can't accept it if it's new

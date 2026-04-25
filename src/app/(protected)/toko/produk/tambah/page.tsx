@@ -40,6 +40,23 @@ export default function TambahProdukPage() {
     const [imagePreview, setImagePreview] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Fetch pricing settings from DB
+    const [markupPercent, setMarkupPercent] = React.useState(2);
+    const [ppnPercent, setPpnPercent] = React.useState(0);
+    React.useEffect(() => {
+        fetch(`/api/settings?unitType=${productUnitType}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.map) {
+                    const mk = parseFloat(data.map[`${productUnitType}_markup_percent`]);
+                    const pp = parseFloat(data.map[`${productUnitType}_ppn_percent`]);
+                    if (!isNaN(mk)) setMarkupPercent(mk);
+                    if (!isNaN(pp)) setPpnPercent(pp);
+                }
+            })
+            .catch(() => {});
+    }, [productUnitType]);
+
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -71,8 +88,10 @@ export default function TambahProdukPage() {
             const skipAutoCalc = MANUAL_PRICE_CATEGORIES.includes(categoryToCheck.toLowerCase());
             if (field === "costPrice" && value !== "" && !skipAutoCalc) {
                 const cost = parseFloat(value) || 0;
-                // Formula: ceil((HPP * 1.02 * 1.11) / 100) * 100
-                const calculated = Math.ceil((cost * 1.02 * 1.11) / 100) * 100;
+                // Dynamic formula from settings
+                const markupMul = 1 + markupPercent / 100;
+                const ppnMul = 1 + ppnPercent / 100;
+                const calculated = Math.ceil((cost * markupMul * ppnMul) / 100) * 100;
                 next.sellPrice = calculated.toString();
             }
             return next;
@@ -208,7 +227,7 @@ export default function TambahProdukPage() {
                                 <p className="text-[10px] text-muted-foreground mt-1">
                                     {isManualPriceCategory
                                         ? "⚠️ Kategori Rokok: Harga jual diisi MANUAL (tidak auto-calculate)"
-                                        : "Include PPN 11% & Markup 2%. (Auto Dibundel saat HPP diisi)"}
+                                        : `Markup ${markupPercent}%${ppnPercent > 0 ? ` + PPN ${ppnPercent}%` : ''}. (Auto dihitung saat HPP diisi)`}
                                 </p>
                             </div>
                         </div>

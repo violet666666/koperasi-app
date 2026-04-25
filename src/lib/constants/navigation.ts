@@ -192,6 +192,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_toko",
                 children: [
                     { title: "Produk", href: "/toko/produk" },
+                    { title: "Manajemen Harga", href: "/toko/manajemen-harga" },
                     { title: "Kasir / POS", href: "/toko/kasir" },
                     { title: "Shift Kasir", href: "/toko/shift" },
                     { title: "Persediaan", href: "/toko/persediaan" },
@@ -327,6 +328,10 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Manajemen Produk", href: "/toko/produk", icon: Package,
+                permission: "manage_toko",
+            },
+            {
+                title: "Manajemen Harga", href: "/toko/manajemen-harga", icon: Calculator,
                 permission: "manage_toko",
             },
             {
