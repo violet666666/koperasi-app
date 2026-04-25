@@ -8,6 +8,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
+    // Hanya operator, admin, kasir yang bisa melihat data member lain
+    const role = (user as any).role;
+    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin") {
+      return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
+
     const { id } = await params;
     const memberId = parseInt(id, 10);
     if (isNaN(memberId)) {

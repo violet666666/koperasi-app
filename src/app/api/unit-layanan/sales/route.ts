@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
-// Unit type abbreviations for transaction numbers
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
     barbershop: "BB",
@@ -20,17 +19,18 @@ const UNIT_ABBR_TX: Record<string, string> = {
     aset: "AS",
 };
 
-// Generate: (ABBR)(DDMMYYYY)(4charRand) — e.g., CM060420261A2B
-async function generateTxNo(unitType: string): Promise<string> {
+const VALID_UNIT_TYPES = Object.keys(UNIT_ABBR_TX);
+const VALID_PAYMENT_METHODS = ["cash", "qris", "salary_cut", "credit"];
+
+async function generateTxNo(unitType: string, tx: any): Promise<string> {
     const abbr = UNIT_ABBR_TX[unitType] || unitType.substring(0, 2).toUpperCase();
     const now = new Date();
     const d = String(now.getDate()).padStart(2, "0");
     const m = String(now.getMonth() + 1).padStart(2, "0");
     const y = now.getFullYear();
     const datePart = `${d}${m}${y}`;
-    // Count today's transactions for this unit type for sequential numbering
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const count = await prisma.unitTransaction.count({
+    const count = await tx.unitTransaction.count({
         where: { unitType, transactionDate: { gte: startOfDay } }
     });
     const seq = String(count + 1).padStart(4, "0");
@@ -45,36 +45,58 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
+        const role = (session.user as any).role as string;
+        if (role === "anggota") {
+            return NextResponse.json({ message: "Anggota tidak diizinkan membuat transaksi kasir" }, { status: 403 });
+        }
+
         const body = await request.json();
         const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate } = body;
 
+        // Validasi input wajib
         if (!unitType || !amount || !paymentMethod) {
-            return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
+            return NextResponse.json({ message: "Data tidak lengkap: unitType, amount, paymentMethod wajib diisi" }, { status: 400 });
         }
 
-        const userId = Number(session.user.id);
+        // Validasi tipe dan nilai amount
         const totalAmount = Number(amount);
-        const method = paymentMethod; // cash, qris, salary_cut
+        if (isNaN(totalAmount) || totalAmount <= 0) {
+            return NextResponse.json({ message: "Amount harus berupa angka positif" }, { status: 400 });
+        }
+
+        // Validasi unitType dari daftar yang valid
+        if (!VALID_UNIT_TYPES.includes(unitType)) {
+            return NextResponse.json({ message: `unitType '${unitType}' tidak valid` }, { status: 400 });
+        }
+
+        // Normalisasi payment method
+        let method = paymentMethod;
+        if (method === "credit") method = "salary_cut";
+        if (!VALID_PAYMENT_METHODS.includes(method)) {
+            return NextResponse.json({ message: `paymentMethod '${paymentMethod}' tidak valid` }, { status: 400 });
+        }
 
         if (method === "salary_cut" && !memberId) {
             return NextResponse.json({ message: "Member ID diperlukan untuk potong gaji" }, { status: 400 });
         }
 
-        // ── Validasi anggota & plafon piutang untuk Potong Gaji ──────────────
+        const userId = Number(session.user.id);
+
+        // ── Validasi plafon piutang untuk salary_cut ──────────────────
+        let memberForValidation: any = null;
         if (method === "salary_cut" && memberId) {
-            const member = await prisma.member.findUnique({
+            memberForValidation = await prisma.member.findUnique({
                 where: { id: Number(memberId) },
                 select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true, tunlesKinerja: true },
             });
 
-            if (!member) {
+            if (!memberForValidation) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
 
-            // Hitung total tagihan aktif: UnitTransaction (semua unit, karena Toko juga tersinkronisasi)
             const tagihanUnitTx = await prisma.unitTransaction.aggregate({
                 where: {
-                    memberId: member.id,
+                    memberId: memberForValidation.id,
                     paymentMethod: "salary_cut",
                     isPaid: false,
                     status: { in: ["completed", "pending_void"] },
@@ -83,20 +105,17 @@ export async function POST(request: Request) {
             });
 
             const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
-            let plafonPiutang = Number(member.plafonPiutang || 0);
+            let plafonPiutang = Number(memberForValidation.plafonPiutang || 0);
 
-            // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung limit kelayakan dari Sisa Gaji
-            if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+            if (plafonPiutang === 0 && Number(memberForValidation.salary || 0) > 0) {
                 const activeLoans = await prisma.loan.findMany({
-                    where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                    where: { memberId: memberForValidation.id, status: { in: ["active", "overdue"] } },
                     select: { monthlyInstallment: true }
                 });
                 const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-                
-                const salary = Number(member.salary || 0);
-                const tunkin = Number(member.tunlesKinerja || 0);
+                const salary = Number(memberForValidation.salary || 0);
+                const tunkin = Number(memberForValidation.tunlesKinerja || 0);
                 const sisaBersih = salary + tunkin - totalAngsuran;
-                
                 const batasAman = 2000000;
                 plafonPiutang = Math.max(0, sisaBersih - batasAman);
             }
@@ -112,36 +131,35 @@ export async function POST(request: Request) {
                 }, { status: 400 });
             }
         }
-        // ── END Validasi Plafon ───────────────────────────────────────────────
 
         const now = new Date();
-        const trxNo = await generateTxNo(unitType);
 
-        // 1. Create UnitTransaction specifically as the single source of truth for Kasir Cepat
-        const ut = await prisma.unitTransaction.create({
-            data: {
-                transactionNo: trxNo,
-                memberId: memberId ? Number(memberId) : null,
-                unitType: unitType,
-                description: description || `Pembayaran ${unitType} - ${customerName || "Walk-in"}`,
-                amount: totalAmount,
-                transactionDate: now,
-                paymentMethod: method,
-                isPaid: method !== "salary_cut",
-                paidDate: method !== "salary_cut" ? now : null,
-                notes: vehiclePlate ? `[PLAT:${vehiclePlate.trim().toUpperCase()}]` : null, // Plat nomor kendaraan
-                createdById: userId,
-            }
-        });
+        // ── INTERACTIVE TRANSACTION: Atomic multi-table operations ─────
+        const ut = await prisma.$transaction(async (tx) => {
+            const trxNo = await generateTxNo(unitType, tx);
 
-        // 2. Synchronize to Cash / Bank if Cash/Qris
-        if (method === "cash" || method === "qris") {
-            try {
+            // 1. Create UnitTransaction
+            const unitTx = await tx.unitTransaction.create({
+                data: {
+                    transactionNo: trxNo,
+                    memberId: memberId ? Number(memberId) : null,
+                    unitType: unitType,
+                    description: description || `Pembayaran ${unitType} - ${customerName || "Walk-in"}`,
+                    amount: totalAmount,
+                    transactionDate: now,
+                    paymentMethod: method,
+                    isPaid: method !== "salary_cut",
+                    paidDate: method !== "salary_cut" ? now : null,
+                    notes: vehiclePlate ? `[PLAT:${vehiclePlate.trim().toUpperCase()}]` : null,
+                    createdById: userId,
+                }
+            });
+
+            // 2. Cash/Bank sync
+            if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
 
-                // Cari akun multi-unit (unitTypes JSON array mendukung >= 2 unit sharing 1 rekening)
-                // Fallback bertingkat: multi-unit → single-unit → null (pusat/default)
-                let targetAccount = await prisma.cashBankAccount.findFirst({
+                let targetAccount = await tx.cashBankAccount.findFirst({
                     where: {
                         type: accountType,
                         isActive: true,
@@ -151,77 +169,64 @@ export async function POST(request: Request) {
                 });
 
                 if (!targetAccount) {
-                    // Fallback 1: single-unit exact match
-                    targetAccount = await prisma.cashBankAccount.findFirst({
-                        where: { 
-                            type: accountType,
-                            unitType: unitType,
-                            isActive: true 
-                        },
+                    targetAccount = await tx.cashBankAccount.findFirst({
+                        where: { type: accountType, unitType: unitType, isActive: true },
                         orderBy: { id: "asc" },
                     });
                 }
 
                 if (!targetAccount) {
-                    // Fallback 2: akun default pusat (unitType null)
-                    targetAccount = await prisma.cashBankAccount.findFirst({
-                        where: { 
-                            type: accountType,
-                            unitType: null,
-                            purpose: "operasional",
-                            isActive: true 
-                        },
+                    targetAccount = await tx.cashBankAccount.findFirst({
+                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
                         orderBy: { id: "asc" },
                     });
                 }
 
                 if (targetAccount) {
-                    const currentBal = Number(targetAccount.currentBalance);
-                    const newBal = currentBal + totalAmount;
+                    // Re-read di dalam transaction untuk mendapat nilai terbaru
+                    const freshAccount = await tx.cashBankAccount.findUnique({ where: { id: targetAccount.id } });
+                    if (freshAccount) {
+                        const currentBal = Number(freshAccount.currentBalance);
+                        const newBal = currentBal + totalAmount;
 
-                    await prisma.cashBankTransaction.create({
-                        data: {
-                            transactionNo: `UL-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
-                            accountId: targetAccount.id,
-                            branchId: targetAccount.branchId,
-                            type: "in",
-                            category: "pendapatan_unit",
-                            amount: totalAmount,
-                            balanceBefore: currentBal,
-                            balanceAfter: newBal,
-                            unitType: unitType,
-                            description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
-                            transactionDate: now,
-                            createdById: userId,
-                        },
-                    });
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `UL-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                                accountId: freshAccount.id,
+                                branchId: freshAccount.branchId,
+                                type: "in",
+                                category: "pendapatan_unit",
+                                amount: totalAmount,
+                                balanceBefore: currentBal,
+                                balanceAfter: newBal,
+                                unitType: unitType,
+                                description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
+                                transactionDate: now,
+                                createdById: userId,
+                            },
+                        });
 
-                    await prisma.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: newBal },
-                    });
-                } else {
-                    console.error(`[Quick-POS] Rekening ${method} untuk unit ${unitType} tidak ditemukan. Uang tidak tercatat di kas/bank.`);
+                        await tx.cashBankAccount.update({
+                            where: { id: freshAccount.id },
+                            data: { currentBalance: newBal },
+                        });
+                    }
                 }
-            } catch (cashErr) {
-                console.error("[Quick-POS] Gagal sinkronisasi kas:", cashErr);
             }
-        }
 
-        // 3. Simple Journaling
-        try {
-            const currentPeriod = await prisma.fiscalPeriod.findFirst({ where: { status: "open" }, orderBy: { startDate: "desc" } });
-            const headOffice = await prisma.branch.findFirst({ where: { isHeadOffice: true } });
-            const kasAccount = await prisma.account.findFirst({ where: { code: "1101" } });
-            const piutangAccount = await prisma.account.findFirst({ where: { code: "1301" } }); // You can adjust COA mapper later
-            const incomeAccount = await prisma.account.findFirst({ where: { code: "4201" } });
-            
+            // 3. Journal entry
+            const currentPeriod = await tx.fiscalPeriod.findFirst({ where: { status: "open" }, orderBy: { startDate: "desc" } });
+            const headOffice = await tx.branch.findFirst({ where: { isHeadOffice: true } });
+            const kasAccount = await tx.account.findFirst({ where: { code: "1101" } });
+            const piutangAccount = await tx.account.findFirst({ where: { code: "1301" } });
+            const incomeAccount = await tx.account.findFirst({ where: { code: "4201" } });
+
             if (headOffice && currentPeriod && incomeAccount) {
                 const debitAccountId = method === "salary_cut" ? piutangAccount?.id : kasAccount?.id;
-                
+
                 if (debitAccountId) {
-                    const journalCount = await prisma.journal.count();
-                    const journal = await prisma.journal.create({
+                    const journalCount = await tx.journal.count();
+                    const journal = await tx.journal.create({
                         data: {
                             journalNo: `JRN-${now.getFullYear()}${String(journalCount + 1).padStart(5, "0")}`,
                             branchId: headOffice.id,
@@ -234,7 +239,7 @@ export async function POST(request: Request) {
                         },
                     });
 
-                    await prisma.journalLine.createMany({
+                    await tx.journalLine.createMany({
                         data: [
                             {
                                 journalId: journal.id,
@@ -254,32 +259,32 @@ export async function POST(request: Request) {
                     });
                 }
             }
-        } catch (journalErr) {
-            console.error("[Quick-POS] Journal Error:", journalErr);
-        }
 
-        // Audit Log
+            return { unitTx, trxNo };
+        }, { maxWait: 10000, timeout: 30000 });
+
+        // Audit Log (di luar transaction karena non-kritis)
         try {
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
             await logAudit({
                 ...userInfo, ...reqInfo,
                 action: "CREATE", module: "Unit_Layanan",
-                description: `Kasir Cepat ${method}: ${trxNo} - Rp ${totalAmount.toLocaleString()}`,
-                targetId: String(ut.id), targetType: "UnitTransaction",
-                newData: { transactionNo: trxNo, amount: totalAmount, paymentMethod: method },
+                description: `Kasir Cepat ${method}: ${ut.trxNo} - Rp ${totalAmount.toLocaleString()}`,
+                targetId: String(ut.unitTx.id), targetType: "UnitTransaction",
+                newData: { transactionNo: ut.trxNo, amount: totalAmount, paymentMethod: method },
             });
         } catch (e) {}
 
         return NextResponse.json({
             data: {
-                transactionNo: ut.transactionNo,
-                totalAmount: Number(ut.amount),
+                transactionNo: ut.unitTx.transactionNo,
+                totalAmount: Number(ut.unitTx.amount),
                 paymentMethod: method,
             },
         }, { status: 201 });
     } catch (error) {
         console.error("POST /api/unit-layanan/sales error:", error);
-        return NextResponse.json({ message: "Failed to process quick sale" }, { status: 500 });
+        return NextResponse.json({ message: "Gagal memproses transaksi kasir cepat" }, { status: 500 });
     }
 }

@@ -62,10 +62,15 @@ export default function CuciMobilKasirPage() {
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const change = Number(paymentAmount) - subtotal;
 
+    const MAX_QTY = 999;
+
     const addToCart = (product: Product) => {
         setCart(prev => {
             const existing = prev.find(item => item.product.id === product.id);
-            if (existing) return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+            if (existing) {
+                const newQty = Math.min(existing.quantity + 1, MAX_QTY);
+                return prev.map(item => item.product.id === product.id ? { ...item, quantity: newQty } : item);
+            }
             return [...prev, { product, quantity: 1 }];
         });
     };
@@ -75,6 +80,7 @@ export default function CuciMobilKasirPage() {
             if (item.product.id !== productId) return item;
             const newQty = item.quantity + delta;
             if (newQty <= 0) return item;
+            if (newQty > MAX_QTY) return item;
             return { ...item, quantity: newQty };
         }));
     };
@@ -114,6 +120,10 @@ export default function CuciMobilKasirPage() {
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
+        const invalidItem = cart.find(item => !item.quantity || isNaN(item.quantity) || item.quantity <= 0);
+        if (invalidItem) { toast.error(`Jumlah "${invalidItem.product.name}" tidak valid (harus > 0)`); return; }
+        const overMaxItem = cart.find(item => item.quantity > MAX_QTY);
+        if (overMaxItem) { toast.error(`Jumlah "${overMaxItem.product.name}" melebihi batas maksimal (${MAX_QTY})`); return; }
         if (!vehiclePlate) { toast.error("Plat Nomor kendaraan wajib diisi!"); return; }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }

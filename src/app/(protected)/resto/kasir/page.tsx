@@ -17,7 +17,7 @@ import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, Shie
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
-interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; }
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; }
 interface CartItem { product: Product; quantity: number; notes?: string; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -191,6 +191,13 @@ export default function RestoKasirPage() {
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+        // Validate stock availability before sending to API
+        for (const item of cart) {
+            if (item.product.stock !== undefined && item.product.stock !== null && item.quantity > item.product.stock) {
+                toast.error(`Stok "${item.product.name}" tidak cukup (sisa: ${item.product.stock}, diminta: ${item.quantity})`);
+                return;
+            }
+        }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kas kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 
@@ -389,9 +396,10 @@ export default function RestoKasirPage() {
                             </div>
                         )}
                     </div>
-                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0" onClick={() => {
-                        toast.info("Mencetak Kitchen Order Ticket (KOT)");
-                        // Pseudo logic to print KOT (kitchen ticket) without prices
+                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0" disabled={cart.length === 0} onClick={() => {
+                        if (cart.length === 0) { toast.error("Pesanan kosong, tidak ada yang dicetak ke dapur."); return; }
+                        const kotItems = cart.map(i => `${i.quantity}x ${i.product.name}${i.notes ? ` (${i.notes})` : ""}`).join(", ");
+                        toast.success(`KOT Dapur dicatat — ${cart.length} item: ${kotItems}`);
                     }}><Printer className="h-4 w-4 mr-2" /> KOT Dapur</Button>
                 </div>
             </div>
@@ -490,7 +498,7 @@ export default function RestoKasirPage() {
                                             <p className="font-mono font-bold text-sm">{formatCurrency(item.product.price * item.quantity)}</p>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <Input placeholder="Note (Pedes, Es dipisah)..." className="h-7 text-[11px] w-32 bg-white" 
+                                            <Input placeholder="Note (Pedes, Es dipisah)..." className="h-7 text-[11px] w-32 bg-white" maxLength={60}
                                                 value={item.notes} onChange={e => updateCart(activeTable.id, { ...item, notes: e.target.value }, "update")} />
                                             <div className="flex items-center gap-2 bg-white border rounded-md shadow-sm">
                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => updateCart(activeTable.id, { ...item, quantity: item.quantity - 1 }, "update")}><Minus className="h-3 w-3" /></Button>
@@ -525,7 +533,7 @@ export default function RestoKasirPage() {
                             <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
-                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => setShowCreditDialog(true)} disabled={cart.length === 0 || isProcessing}>
+                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowCreditDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
                         </div>

@@ -101,6 +101,8 @@ export default function LaundryKasirPage() {
     const addToCartWithQty = (product: Product) => {
         const rawQty = parseFloat(qtyInputs[product.id] || "1") || 1;
         const qty = Math.max(0.1, rawQty);
+        // Validasi maksimal 100 kg per item
+        if (qty > 100) { toast.error("Maksimal 100 kg per layanan"); return; }
         // For laundry we round to 1 decimal if kg-based
         const roundedQty = Math.round(qty * 10) / 10;
         setCart(prev => {
@@ -152,6 +154,13 @@ export default function LaundryKasirPage() {
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
+        // Validasi berat tidak boleh 0 atau NaN
+        for (const item of cart) {
+            if (!item.quantity || item.quantity <= 0 || isNaN(item.quantity)) {
+                toast.error(`Berat untuk ${item.product.name} tidak valid`);
+                return;
+            }
+        }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 

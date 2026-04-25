@@ -65,9 +65,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Metode pembayaran harus cash, qris, atau salary_cut" }, { status: 400 });
         }
 
-        // Validate quantities
+        // Validate quantities (parseFloat untuk mendukung nilai desimal seperti Laundry kg)
         for (const item of items) {
-            const qty = parseInt(item.quantity);
+            const qty = parseFloat(item.quantity);
             if (!qty || qty <= 0 || isNaN(qty)) {
                 return NextResponse.json({ message: "Jumlah item harus lebih dari 0" }, { status: 400 });
             }

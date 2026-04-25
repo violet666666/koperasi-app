@@ -98,11 +98,17 @@ export default function FotocopyKasirPage() {
 
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
+    const MAX_QTY = 999;
+
     const addToCartWithQty = (product: Product) => {
-        const qty = Math.max(1, parseInt(qtyInputs[product.id] || "1") || 1);
+        const parsed = parseFloat(qtyInputs[product.id] || "1");
+        const qty = Math.min(MAX_QTY, Math.max(1, isNaN(parsed) ? 1 : parsed));
         setCart(prev => {
             const existing = prev.find(item => item.product.id === product.id);
-            if (existing) return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item);
+            if (existing) {
+                const newQty = Math.min(existing.quantity + qty, MAX_QTY);
+                return prev.map(item => item.product.id === product.id ? { ...item, quantity: newQty } : item);
+            }
             return [...prev, { product, quantity: qty }];
         });
         setQtyInputs(prev => ({ ...prev, [product.id]: "" }));
@@ -113,6 +119,7 @@ export default function FotocopyKasirPage() {
             if (item.product.id !== productId) return item;
             const newQty = item.quantity + delta;
             if (newQty <= 0) return item;
+            if (newQty > MAX_QTY) return item;
             return { ...item, quantity: newQty };
         }));
     };
@@ -149,6 +156,10 @@ export default function FotocopyKasirPage() {
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
+        const invalidItem = cart.find(item => !item.quantity || isNaN(item.quantity) || item.quantity <= 0);
+        if (invalidItem) { toast.error(`Jumlah "${invalidItem.product.name}" tidak valid (harus > 0)`); return; }
+        const overMaxItem = cart.find(item => item.quantity > MAX_QTY);
+        if (overMaxItem) { toast.error(`Jumlah "${overMaxItem.product.name}" melebihi batas maksimal (${MAX_QTY})`); return; }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 

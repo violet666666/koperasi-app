@@ -91,6 +91,12 @@ export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
+    // Hanya operator, admin, kasir yang bisa melihat saldo akun simpanan
+    const role = (user as any).role;
+    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
+
     const url = new URL(request.url);
     const memberId = url.searchParams.get("memberId");
 

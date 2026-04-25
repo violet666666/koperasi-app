@@ -339,15 +339,15 @@ export async function POST(request: Request) {
             const hashInput = `${originalTx.member?.nrp || "UMUM"}-${-Number(originalTx.amount)}-${contraNo}-${now.toISOString()}`;
             const securityHash = crypto.createHash("sha256").update(hashInput).digest("hex");
 
-            await prisma.$transaction([
+            await prisma.$transaction(async (tx) => {
                 // 1. Buat Contra-Entry (nilai negatif sebagai jejak pembalik)
-                prisma.unitTransaction.create({
+                await tx.unitTransaction.create({
                     data: {
                         transactionNo: contraNo,
                         memberId: originalTx.memberId,
                         unitType: originalTx.unitType,
                         description: `[VOID] Pembatalan ${originalTx.transactionNo} — ${originalTx.description}`,
-                        amount: -Number(originalTx.amount), // NILAI NEGATIF
+                        amount: -Number(originalTx.amount),
                         loanAmount: -Number(originalTx.loanAmount),
                         transactionDate: now,
                         paymentMethod: originalTx.paymentMethod,
@@ -362,28 +362,96 @@ export async function POST(request: Request) {
                         securityHash,
                         createdById: currentUserId,
                     },
-                }),
+                });
 
                 // 2. Update transaksi asli: status = voided
-                prisma.unitTransaction.update({
+                await tx.unitTransaction.update({
                     where: { id: originalTx.id },
                     data: {
                         status: "voided",
                         voidedById: currentUserId,
                         voidedAt: now,
                     },
-                }),
+                });
 
-                // 3. Update ApprovalRequest metadata (status already set by atomic guard)
-                prisma.approvalRequest.update({
+                // 3. Update ApprovalRequest metadata
+                await tx.approvalRequest.update({
                     where: { id: approvalReq.id },
                     data: {
                         approvedById: currentUserId,
                         approvedAt: now,
                         rejectionReason: notes || null,
                     },
-                }),
-            ]);
+                });
+
+                // 4. Reverse Journal jika ada
+                const originalJournal = await tx.journal.findFirst({
+                    where: {
+                        description: { contains: originalTx.transactionNo },
+                        sourceType: "unit_transaction",
+                    },
+                    include: { lines: true },
+                });
+                if (originalJournal) {
+                    const reverseJournal = await tx.journal.create({
+                        data: {
+                            journalNo: `RV-${Date.now().toString(36).toUpperCase()}`,
+                            branchId: originalJournal.branchId,
+                            transactionDate: now,
+                            description: `[VOID] Pembalik ${originalJournal.journalNo} - ${originalTx.transactionNo}`,
+                            sourceType: "unit_transaction_void",
+                            periodId: originalJournal.periodId,
+                            isPosted: true,
+                            createdById: currentUserId,
+                        },
+                    });
+                    await tx.journalLine.createMany({
+                        data: originalJournal.lines.map((line: any) => ({
+                            journalId: reverseJournal.id,
+                            accountId: line.accountId,
+                            debit: Number(line.credit),
+                            credit: Number(line.debit),
+                            description: `[VOID] ${line.description}`,
+                        })),
+                    });
+                }
+
+                // 5. Reverse CashBankTransaction (untuk tunai/QRIS)
+                if (originalTx.paymentMethod === "cash" || originalTx.paymentMethod === "qris") {
+                    const originalCashTx = await tx.cashBankTransaction.findFirst({
+                        where: { description: { contains: originalTx.transactionNo } },
+                    });
+                    if (originalCashTx) {
+                        const account = await tx.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
+                        if (account) {
+                            const currentBal = Number(account.currentBalance);
+                            const voidAmount = Number(originalTx.amount);
+                            const newBal = currentBal - voidAmount;
+
+                            await tx.cashBankTransaction.create({
+                                data: {
+                                    transactionNo: `VOID-${Date.now().toString(36).toUpperCase()}`,
+                                    accountId: account.id,
+                                    branchId: originalCashTx.branchId,
+                                    type: "out",
+                                    category: "void_unit_transaction",
+                                    amount: voidAmount,
+                                    balanceBefore: currentBal,
+                                    balanceAfter: newBal,
+                                    unitType: originalTx.unitType,
+                                    description: `[VOID] Pembatalan ${originalTx.transactionNo}`,
+                                    transactionDate: now,
+                                    createdById: currentUserId,
+                                },
+                            });
+                            await tx.cashBankAccount.update({
+                                where: { id: account.id },
+                                data: { currentBalance: newBal },
+                            });
+                        }
+                    }
+                }
+            });
 
             // Kirim notifikasi ke pemohon void (jika kasir)
             try {
@@ -408,9 +476,8 @@ export async function POST(request: Request) {
             });
         } else {
             // ── REJECTED: Kembalikan status transaksi ke 'completed' ──────
-            await prisma.$transaction([
-                // 1. Kembalikan status transaksi asli
-                prisma.unitTransaction.update({
+            await prisma.$transaction(async (tx) => {
+                await tx.unitTransaction.update({
                     where: { id: originalTx.id },
                     data: {
                         status: "completed",
@@ -418,18 +485,17 @@ export async function POST(request: Request) {
                         voidRequestedById: null,
                         voidRequestedAt: null,
                     },
-                }),
+                });
 
-                // 2. Update ApprovalRequest metadata (status already set by atomic guard)
-                prisma.approvalRequest.update({
+                await tx.approvalRequest.update({
                     where: { id: approvalReq.id },
                     data: {
                         rejectedById: currentUserId,
                         rejectedAt: now,
                         rejectionReason: notes || "Ditolak oleh Admin Unit.",
                     },
-                }),
-            ]);
+                });
+            });
 
             // Kirim notifikasi ke pemohon void
             try {

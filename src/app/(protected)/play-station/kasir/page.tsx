@@ -217,14 +217,17 @@ export default function PSKasirPage() {
         const diffMs = Date.now() - tv.startTime;
         let diffMins = Math.ceil(diffMs / 60000);
         if (diffMins < MINIMUM_DURATION_MINS) diffMins = MINIMUM_DURATION_MINS; // Minimum billable 15 mins
-        
+        // Validasi durasi maksimal 12 jam
+        if (diffMins > 720) diffMins = 720;
+
         stopTimer(tv.id); // Stop real timer
 
         if (rentalProduct) {
-            // Find if rental is already in cart, if yes update it
-            const hoursRounded = +(diffMins / 60).toFixed(2);
+            // Gunakan pembulatan ke atas ke 15 menit terdekat untuk akurasi billing
+            const roundedMins = Math.ceil(diffMins / 15) * 15;
+            const hoursRounded = Math.round((roundedMins / 60) * 100) / 100;
             updateCart(tv.id, { product: rentalProduct, quantity: hoursRounded }, "add");
-            toast.success(`Timer TV Dihentikan. Jasa rental sebesar ${hoursRounded} Jam masuk ke tagihan.`);
+            toast.success(`Timer TV Dihentikan. Jasa rental sebesar ${hoursRounded} Jam (${roundedMins} menit) masuk ke tagihan.`);
         } else {
             toast.warning("Produk 'Sewa/Rental PS' tidak ditemukan di database. Tambahkan manual.");
         }
@@ -370,9 +373,6 @@ export default function PSKasirPage() {
         );
     }
 
-    if (!activeTv) return null;
-
-    // Defensive check to appease TypeScript
     if (!activeTv) return null;
 
     // --- Order View (Inside a Table) ---

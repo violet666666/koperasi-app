@@ -17,6 +17,12 @@ export async function GET(
   const user = getMobileUser(request);
   if (!user) return unauthorizedResponse();
 
+  // Hanya kasir, operator, admin yang bisa cek plafon piutang
+  const role = (user as any).role;
+  if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin") {
+    return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
     const memberId = parseInt(id);

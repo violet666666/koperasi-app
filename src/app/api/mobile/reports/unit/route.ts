@@ -8,6 +8,12 @@ export async function GET(request: Request) {
   const user = getMobileUser(request);
   if (!user) return unauthorizedResponse();
 
+  // Hanya operator, admin yang bisa melihat laporan keuangan unit
+  const role = (user as any).role;
+  if (role !== "operator" && role !== "admin" && role !== "super_admin") {
+    return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const unitType = searchParams.get("unitType");
