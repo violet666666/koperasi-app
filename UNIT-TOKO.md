@@ -144,29 +144,37 @@ Digunakan untuk menginput jumlah stok terbaru per produk secara cepat tanpa haru
 
 ---
 
-## 6. Pengecualian Harga: Kategori Rokok (25 April 2026)
+## 6. Pengecualian Harga: Kategori Manual (Configurable) — Diperbarui 26 April 2026
 
 ### Latar Belakang
-Produk rokok memiliki **Harga Eceran Tertinggi (HET)** yang sudah ditetapkan oleh pabrikan/distributor, sehingga **TIDAK boleh** mengikuti rumus auto-calculate `ceil((HPP × 1.02 × 1.11) / 100) × 100`.
-
-### Perubahan yang Diterapkan
-
-| Lokasi | Perilaku Sebelum | Perilaku Sesudah |
-|---|---|---|
-| **Form Tambah Produk** (`/toko/produk/tambah`) | Mengisi HPP → Harga Jual otomatis dihitung | Jika kategori = "rokok", HPP diisi tapi Harga Jual **TIDAK** auto-calculate |
-| **Inline Edit** (Daftar Produk) | Edit HPP → Harga Jual otomatis diupdate | Jika kategori produk = "rokok", HPP berubah tapi Harga Jual **tetap manual** |
-| **Bulk Recalculate** (API) | Semua produk ber-HPP dihitung ulang | Produk rokok **dilewati/di-skip** dari perhitungan ulang |
+Beberapa kategori produk (misalnya Rokok) memiliki **Harga Eceran Tertinggi (HET)** yang ditetapkan pabrikan/distributor, sehingga **TIDAK boleh** mengikuti rumus auto-calculate. Fitur ini sebelumnya menggunakan hardcoded array `["rokok"]`, kini diubah menjadi **configurable melalui Manajemen Harga** (`/toko/manajemen-harga`).
 
 ### Cara Penggunaan
-1. Saat menambah produk rokok baru, pilih kategori **🚬 Rokok** di dropdown.
-2. Isi HPP (Harga Modal) sebagai referensi saja.
-3. Isi **Harga Jual secara manual** sesuai HET dari distributor.
-4. Saat melakukan "Hitung Ulang Semua Harga", produk rokok akan otomatis dilewati dan tidak terpengaruh.
+1. Buka **Manajemen Harga** di menu sidebar Toko → "Manajemen Harga"
+2. Pada card **"Kategori dengan Harga Manual"**, klik chip kategori untuk toggle:
+   - ☑ = Harga otomatis (formula markup)
+   - ☐ = Harga manual (admin input sendiri)
+3. Klik **"Simpan Pengaturan Kategori"**
+4. Saat menambah produk dengan kategori manual, HPP diisi tapi Harga Jual **TIDAK** auto-calculate
+5. Saat "Hitung Ulang Semua Harga", produk kategori manual akan **dilewati**
 
+### Komponen Sistem
+
+| Komponen | Perubahan |
+|---|---|
+| **Settings API** (`/api/settings`) | Default settings `toko_excluded_categories` dan `resto_excluded_categories` (JSON array) |
+| **Manajemen Harga** (`/toko/manajemen-harga`) | Card baru "Kategori dengan Harga Manual" — chip toggle UI |
+| **Form Tambah Produk** (`/toko/produk/tambah`) | Membaca `excludedCategories` dari settings, skip auto-calculate |
+| **Daftar Produk** (`/toko/produk`) | Badge "Manual" (amber) pada produk kategori excluded, fetch excluded dari settings |
+| **Inline Edit** (Daftar Produk) | Skip auto-calculate jika kategori produk = manual |
+| **Import Excel** (`/api/toko/products/import`) | `getPricingMultipliers()` membaca excluded categories, skip auto-calc |
+| **Recalculate API** (`/recalculate-prices`) | Query `NOT { category: { in: excludedCategories } }` untuk skip produk manual |
+| **Bulk Set Harga** (Dialog) | Warning jika produk kategori manual terpilih |
 
 ### Catatan Teknis
-- Deteksi kategori bersifat **case-insensitive** ("rokok", "Rokok", "ROKOK" semua dianggap sama).
-- Jika di masa depan ada kategori lain yang memerlukan harga manual, cukup tambahkan ke array `MANUAL_PRICE_CATEGORIES` di frontend dan filter `NOT` di API recalculate.
+- Deteksi kategori bersifat **case-insensitive** (disimpan lowercase di settings)
+- Data disimpan di `app_settings` tabel sebagai JSON array
+- Berlaku per unit type: `toko_excluded_categories` dan `resto_excluded_categories` terpisah
 
 ---
 
