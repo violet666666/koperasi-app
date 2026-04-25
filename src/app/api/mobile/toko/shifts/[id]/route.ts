@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { getMobileUser, unauthorizedResponse } from "../../../middleware";
 
 // PUT /api/mobile/toko/shifts/[id] — Menutup shift
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
