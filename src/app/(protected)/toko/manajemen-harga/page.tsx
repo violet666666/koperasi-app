@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Calculator, Percent, Info, RefreshCw } from "lucide-react";
+import { Loader2, Save, Calculator, Percent, Info, RefreshCw, Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
 interface PricingSetting {
@@ -30,6 +30,8 @@ export default function ManajemenHargaPage() {
     const [markupPercent, setMarkupPercent] = React.useState("2");
     const [ppnPercent, setPpnPercent] = React.useState("0");
     const [previewResult, setPreviewResult] = React.useState<any>(null);
+    const [excludedCategories, setExcludedCategories] = React.useState<string[]>([]);
+    const [allCategories, setAllCategories] = React.useState<string[]>([]);
 
     // Fetch current settings
     React.useEffect(() => {
@@ -42,11 +44,27 @@ export default function ManajemenHargaPage() {
                     const pp = data.map[`${effectiveUnitType}_ppn_percent`];
                     if (mk !== undefined) setMarkupPercent(mk);
                     if (pp !== undefined) setPpnPercent(pp);
+                    try {
+                        const exc = data.map[`${effectiveUnitType}_excluded_categories`];
+                        if (exc) setExcludedCategories(JSON.parse(exc));
+                    } catch {}
                 }
             })
             .catch(() => toast.error("Gagal memuat pengaturan"))
             .finally(() => setIsLoading(false));
     }, [effectiveUnitType]);
+
+    // Fetch all product categories
+    React.useEffect(() => {
+        fetch(`/api/toko/products?limit=9999`)
+            .then(r => r.json())
+            .then(data => {
+                const cats = new Set<string>();
+                (data.data || []).forEach((p: any) => { if (p.category) cats.add(p.category); });
+                setAllCategories(Array.from(cats).sort());
+            })
+            .catch(() => {});
+    }, []);
 
     // Computed formula preview
     const markupNum = parseFloat(markupPercent) || 0;
@@ -83,6 +101,7 @@ export default function ManajemenHargaPage() {
                     settings: [
                         { key: `${effectiveUnitType}_markup_percent`, value: markupPercent },
                         { key: `${effectiveUnitType}_ppn_percent`, value: ppnPercent },
+                        { key: `${effectiveUnitType}_excluded_categories`, value: JSON.stringify(excludedCategories) },
                     ],
                 }),
             });
@@ -118,7 +137,7 @@ export default function ManajemenHargaPage() {
 
     // Apply recalculate
     const handleApply = async () => {
-        if (!confirm("Yakin ingin menerapkan harga baru ke SEMUA produk?\n\nProduk tanpa HPP & kategori ROKOK tidak akan terpengaruh.")) return;
+        if (!confirm("Yakin ingin menerapkan harga baru ke SEMUA produk?\n\nProduk tanpa HPP dan kategori manual tidak akan terpengaruh.")) return;
 
         setIsRecalculating(true);
         try {
@@ -137,6 +156,14 @@ export default function ManajemenHargaPage() {
     };
 
     const unitLabel = isResto ? "Resto" : unitType === "toko" ? "Toko" : unitType.replace(/_/g, " ");
+
+    const toggleCategory = (cat: string) => {
+        setExcludedCategories(prev =>
+            prev.includes(cat)
+                ? prev.filter(c => c !== cat)
+                : [...prev, cat]
+        );
+    };
 
     return (
         <div className="space-y-6">
@@ -261,7 +288,7 @@ export default function ManajemenHargaPage() {
                                 <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
                                 <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
                                     <p>• Harga dibulatkan ke atas kelipatan Rp 100</p>
-                                    <p>• Produk kategori <strong>ROKOK</strong> menggunakan harga manual (HET)</p>
+                                    <p>• Kategori manual: <strong>{excludedCategories.length > 0 ? excludedCategories.join(", ") : "tidak ada"}</strong> — harga diisi manual</p>
                                     <p>• Produk tanpa HPP (Rp 0) tidak terpengaruh</p>
                                 </div>
                             </div>
@@ -269,6 +296,61 @@ export default function ManajemenHargaPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Excluded Categories Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Tag className="h-5 w-5" />
+                        Kategori dengan Harga Manual
+                    </CardTitle>
+                    <CardDescription>
+                        Pilih kategori yang harganya diisi MANUAL oleh admin — tidak terpengaruh formula markup otomatis.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : allCategories.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Belum ada kategori produk. Kategori akan muncul otomatis setelah produk ditambahkan.</p>
+                    ) : (
+                        <>
+                            <div className="flex flex-wrap gap-2">
+                                {allCategories.map(cat => {
+                                    const isExcluded = excludedCategories.includes(cat);
+                                    return (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => toggleCategory(cat)}
+                                            className={`px-3 py-1.5 text-sm rounded-lg border-2 font-medium transition-all ${
+                                                isExcluded
+                                                    ? "bg-amber-50 text-amber-800 border-amber-400 hover:bg-amber-100"
+                                                    : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                                            }`}
+                                        >
+                                            {isExcluded ? "☐ " : "☑ "}{cat}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex items-start gap-2 text-xs">
+                                <span className="text-emerald-700 font-medium">☑ = Harga otomatis (formula)</span>
+                                <span className="text-slate-300">|</span>
+                                <span className="text-amber-700 font-medium">☐ = Harga manual (admin input sendiri)</span>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Simpan Pengaturan Kategori
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Recalculate Section */}
             <Card>

@@ -6,8 +6,10 @@ import { auth } from "@/lib/auth";
 const DEFAULT_SETTINGS: Record<string, { value: string; label: string }> = {
     toko_markup_percent: { value: "2", label: "Markup Harga Jual Toko (%)" },
     toko_ppn_percent: { value: "0", label: "PPN Toko (%)" },
+    toko_excluded_categories: { value: "[]", label: "Kategori dengan Harga Manual (Toko)" },
     resto_markup_percent: { value: "2", label: "Markup Harga Jual Resto (%)" },
     resto_ppn_percent: { value: "0", label: "PPN Resto (%)" },
+    resto_excluded_categories: { value: "[]", label: "Kategori dengan Harga Manual (Resto)" },
 };
 
 /**
@@ -75,8 +77,14 @@ export async function PUT(request: Request) {
             return NextResponse.json({ message: "Format tidak valid" }, { status: 400 });
         }
 
-        // Validate numeric values
+        // Validate numeric values (skip non-numeric settings like excluded_categories)
         for (const s of settings) {
+            if (s.key.endsWith("_excluded_categories")) {
+                try { JSON.parse(s.value); } catch {
+                    return NextResponse.json({ message: `Nilai "${s.key}" harus berupa JSON array valid` }, { status: 400 });
+                }
+                continue;
+            }
             const num = parseFloat(s.value);
             if (isNaN(num) || num < 0 || num > 100) {
                 return NextResponse.json({ message: `Nilai "${s.key}" harus antara 0-100` }, { status: 400 });

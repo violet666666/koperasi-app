@@ -43,6 +43,7 @@ export default function TambahProdukPage() {
     // Fetch pricing settings from DB
     const [markupPercent, setMarkupPercent] = React.useState(2);
     const [ppnPercent, setPpnPercent] = React.useState(0);
+    const [excludedCategories, setExcludedCategories] = React.useState<string[]>([]);
     React.useEffect(() => {
         fetch(`/api/settings?unitType=${productUnitType}`)
             .then(r => r.json())
@@ -52,6 +53,10 @@ export default function TambahProdukPage() {
                     const pp = parseFloat(data.map[`${productUnitType}_ppn_percent`]);
                     if (!isNaN(mk)) setMarkupPercent(mk);
                     if (!isNaN(pp)) setPpnPercent(pp);
+                    try {
+                        const exc = data.map[`${productUnitType}_excluded_categories`];
+                        if (exc) setExcludedCategories(JSON.parse(exc));
+                    } catch {}
                 }
             })
             .catch(() => {});
@@ -76,16 +81,15 @@ export default function TambahProdukPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
-    // Kategori yang dikecualikan dari auto-calculate (harga manual)
-    const MANUAL_PRICE_CATEGORIES = ["rokok"];
-    const isManualPriceCategory = MANUAL_PRICE_CATEGORIES.includes(form.category.toLowerCase());
+    // Kategori yang dikecualikan dari auto-calculate (harga manual) — dari settings
+    const isManualPriceCategory = excludedCategories.some(c => c.toLowerCase() === form.category.toLowerCase());
 
     const handleChange = (field: string, value: string) => {
         setForm(prev => {
             const next = { ...prev, [field]: value };
-            // Skip auto-calculate untuk kategori rokok (harga manual/HET)
+            // Skip auto-calculate untuk kategori manual (dari settings)
             const categoryToCheck = field === "category" ? value : prev.category;
-            const skipAutoCalc = MANUAL_PRICE_CATEGORIES.includes(categoryToCheck.toLowerCase());
+            const skipAutoCalc = excludedCategories.some(c => c.toLowerCase() === categoryToCheck.toLowerCase());
             if (field === "costPrice" && value !== "" && !skipAutoCalc) {
                 const cost = parseFloat(value) || 0;
                 // Dynamic formula from settings
@@ -226,7 +230,7 @@ export default function TambahProdukPage() {
                                     value={form.sellPrice} onChange={e => handleChange("sellPrice", e.target.value)} />
                                 <p className="text-[10px] text-muted-foreground mt-1">
                                     {isManualPriceCategory
-                                        ? "⚠️ Kategori Rokok: Harga jual diisi MANUAL (tidak auto-calculate)"
+                                        ? `⚠️ Kategori manual (${form.category}): Harga jual diisi MANUAL (tidak auto-calculate)`
                                         : `Markup ${markupPercent}%${ppnPercent > 0 ? ` + PPN ${ppnPercent}%` : ''}. (Auto dihitung saat HPP diisi)`}
                                 </p>
                             </div>

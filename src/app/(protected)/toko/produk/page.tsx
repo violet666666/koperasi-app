@@ -95,6 +95,7 @@ export default function TokoProdukPage() {
     // Pricing settings from DB
     const [markupPercent, setMarkupPercent] = React.useState(2);
     const [ppnPercent, setPpnPercent] = React.useState(0);
+    const [excludedCategories, setExcludedCategories] = React.useState<string[]>([]);
     React.useEffect(() => {
         fetch(`/api/settings?unitType=${productUnitType}`)
             .then(r => r.json())
@@ -104,10 +105,17 @@ export default function TokoProdukPage() {
                     const pp = parseFloat(data.map[`${productUnitType}_ppn_percent`]);
                     if (!isNaN(mk)) setMarkupPercent(mk);
                     if (!isNaN(pp)) setPpnPercent(pp);
+                    try {
+                        const exc = data.map[`${productUnitType}_excluded_categories`];
+                        if (exc) setExcludedCategories(JSON.parse(exc).map((c: string) => c.toLowerCase()));
+                    } catch {}
                 }
             })
             .catch(() => {});
     }, [productUnitType]);
+
+    const isManualPriceCategory = (cat: string | null | undefined) =>
+        !!cat && excludedCategories.includes(cat.toLowerCase());
 
     const mapProducts = (data: any[]): Product[] => {
         return data.map((p: any) => ({ ...p }));
@@ -335,7 +343,7 @@ export default function TokoProdukPage() {
         const formulaDesc = ppnPercent > 0
             ? `ceil((HPP × ${(1 + markupPercent/100).toFixed(2)} × ${(1 + ppnPercent/100).toFixed(2)}) / 100) × 100`
             : `ceil((HPP × ${(1 + markupPercent/100).toFixed(2)}) / 100) × 100`;
-        if (!confirm(`Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ${formulaDesc}\nMarkup: ${markupPercent}%${ppnPercent > 0 ? `, PPN: ${ppnPercent}%` : ' (tanpa PPN)'}\n\nProduk tanpa HPP & kategori ROKOK tidak akan terpengaruh (harga manual).`)) return;
+        if (!confirm(`Hitung ulang SEMUA harga jual berdasarkan formula HPP?\n\nFormula: ${formulaDesc}\nMarkup: ${markupPercent}%${ppnPercent > 0 ? `, PPN: ${ppnPercent}%` : ' (tanpa PPN)'}\n\nProduk tanpa HPP & kategori manual tidak akan terpengaruh.`)) return;
         setIsRecalculating(true);
         try {
             const res = await fetch("/api/toko/products/recalculate-prices", { method: "POST" });
@@ -667,7 +675,12 @@ export default function TokoProdukPage() {
                                                     <Input type="number" className="h-8 text-xs w-[100px] text-right" value={editData.price ?? ""}
                                                         onChange={(e) => setEditData(prev => ({ ...prev, price: Number(e.target.value) }))} />
                                                 ) : (
-                                                    <span className="font-medium tabular-nums text-xs">{formatCurrency(p.price)}</span>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span className="font-medium tabular-nums text-xs">{formatCurrency(p.price)}</span>
+                                                        {isManualPriceCategory(p.category) && (
+                                                            <Badge variant="outline" className="h-4 text-[9px] border-amber-300 text-amber-700 bg-amber-50 px-1">Manual</Badge>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -675,14 +688,13 @@ export default function TokoProdukPage() {
                                                     <Input type="number" className="h-8 text-xs w-[100px] text-right" value={editData.costPrice ?? ""}
                                                         onChange={(e) => {
                                                             const hpp = Number(e.target.value);
-                                                            const isRokokCategory = (editData.category || p.category || "").toLowerCase() === "rokok";
+                                                            const isManualCat = isManualPriceCategory(editData.category || p.category);
                                                             const markupMul = 1 + markupPercent / 100;
                                                             const ppnMul = 1 + ppnPercent / 100;
                                                             setEditData(prev => ({
                                                                 ...prev,
                                                                 costPrice: hpp,
-                                                                // Skip auto-calculate untuk kategori rokok (harga jual manual/HET)
-                                                                price: (hpp > 0 && !isRokokCategory) ? Math.ceil((hpp * markupMul * ppnMul) / 100) * 100 : prev.price,
+                                                                price: (hpp > 0 && !isManualCat) ? Math.ceil((hpp * markupMul * ppnMul) / 100) * 100 : prev.price,
                                                             }));
                                                         }} />
                                                 ) : (
@@ -744,6 +756,20 @@ export default function TokoProdukPage() {
                     {(bulkAction === "set_stock" || bulkAction === "set_price") && (
                         <div className="space-y-2 py-2">
                             <Label>{bulkAction === "set_stock" ? "Nilai Stok Baru" : "Harga Baru (Rp)"}</Label>
+                            {bulkAction === "set_price" && (() => {
+                                const manualProducts = filteredProducts.filter(p => selectedIds.has(p.id) && isManualPriceCategory(p.category));
+                                return manualProducts.length > 0 ? (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-2.5 text-xs">
+                                        <p className="font-medium text-amber-800 dark:text-amber-300">⚠️ {manualProducts.length} produk kategori manual akan terpengaruh:</p>
+                                        <div className="mt-1 max-h-[80px] overflow-y-auto space-y-0.5">
+                                            {manualProducts.slice(0, 10).map(p => (
+                                                <div key={p.id} className="text-amber-700 dark:text-amber-400">{p.name} ({p.category})</div>
+                                            ))}
+                                            {manualProducts.length > 10 && <div className="text-amber-600">...dan {manualProducts.length - 10} lainnya</div>}
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
                             <Input
                                 type="number"
                                 min={0}

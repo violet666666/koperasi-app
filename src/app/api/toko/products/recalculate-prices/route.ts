@@ -4,17 +4,18 @@ import { auth } from "@/lib/auth";
 
 /**
  * POST /api/toko/products/recalculate-prices
- * 
+ *
  * Hitung ulang harga jual SEMUA produk berdasarkan formula dinamis:
  *   sellPrice = ceil((costPrice * (1 + markup/100) * (1 + ppn/100)) / 100) * 100
- * 
+ *
  * Markup dan PPN dibaca dari tabel app_settings (configurable).
- * Default: markup=2%, ppn=0%.
- * 
+ * Kategori yang di-exclude dibaca dari setting {unitType}_excluded_categories (JSON array).
+ * Default: markup=2%, ppn=0%, excluded=[].
+ *
  * Hanya produk dengan costPrice > 0 yang dihitung ulang.
  * Produk dengan costPrice = 0 akan dilewati (harga tetap).
- * Produk kategori "rokok" akan dilewati (harga manual/HET).
- * 
+ * Produk dengan kategori di excluded list akan dilewati (harga manual).
+ *
  * Query params:
  *   ?preview=true  → Hanya tampilkan preview perubahan, TIDAK simpan ke DB
  *   ?preview=false  → Simpan perubahan ke DB (default)
@@ -36,8 +37,8 @@ export async function POST(request: Request) {
         const isPreview = searchParams.get("preview") === "true";
         const unitType = searchParams.get("unitType") || (session.user as any).unitType || "toko";
 
-        // Read markup & PPN settings from DB
-        const settingsKeys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`];
+        // Read markup, PPN, and excluded categories settings from DB
+        const settingsKeys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`, `${unitType}_excluded_categories`];
         const settings = await prisma.appSetting.findMany({
             where: { key: { in: settingsKeys } },
         });
@@ -49,20 +50,28 @@ export async function POST(request: Request) {
         const markupMultiplier = 1 + markupPercent / 100;
         const ppnMultiplier = 1 + ppnPercent / 100;
 
+        // Parse excluded categories (JSON array of strings, case-insensitive matching)
+        let excludedCategories: string[] = [];
+        try {
+            const raw = settingsMap[`${unitType}_excluded_categories`];
+            if (raw) excludedCategories = JSON.parse(raw).map((c: string) => c.toLowerCase());
+        } catch { excludedCategories = []; }
+
         // Build formula description
         const formulaParts = [`HPP × ${markupMultiplier}`];
         if (ppnPercent > 0) formulaParts[0] = `HPP × ${markupMultiplier} × ${ppnMultiplier}`;
         const formulaStr = `ceil((${formulaParts[0]}) / 100) × 100`;
 
-        // Ambil semua produk aktif dengan costPrice > 0
+        // Ambil semua produk aktif dengan costPrice > 0, exclude kategori yang diatur di settings
         const products = await prisma.storeProduct.findMany({
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
-                // Exclude kategori rokok (harga manual/HET dari pabrikan)
-                NOT: {
-                    category: { in: ["rokok", "Rokok", "ROKOK"] },
-                },
+                ...(excludedCategories.length > 0 ? {
+                    NOT: {
+                        category: { in: excludedCategories },
+                    },
+                } : {}),
             },
             select: {
                 id: true,
@@ -136,19 +145,21 @@ export async function POST(request: Request) {
             where: { deletedAt: null, costPrice: { lte: 0 } },
         });
 
-        // Count produk rokok yang dilewati
-        const rokokSkipped = await prisma.storeProduct.count({
+        // Count produk dari kategori excluded yang dilewati
+        const excludedSkipped = excludedCategories.length > 0 ? await prisma.storeProduct.count({
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
-                category: { in: ["rokok", "Rokok", "ROKOK"] },
+                category: { in: excludedCategories },
             },
-        });
+        }) : 0;
+
+        const excludedLabel = excludedCategories.length > 0 ? excludedCategories.join(", ") : "-";
 
         return NextResponse.json({
             message: isPreview
-                ? `Preview: ${updatedCount} produk akan diupdate harga jualnya. ${skippedCount} sudah sesuai.${rokokSkipped > 0 ? ` ${rokokSkipped} produk rokok dilewati (harga manual).` : ''}`
-                : `${updatedCount} produk berhasil diupdate harga jualnya. ${skippedCount} sudah sesuai formula.${rokokSkipped > 0 ? ` ${rokokSkipped} produk rokok dilewati.` : ''}`,
+                ? `Preview: ${updatedCount} produk akan diupdate harga jualnya. ${skippedCount} sudah sesuai.${excludedSkipped > 0 ? ` ${excludedSkipped} produk kategori manual (${excludedLabel}) dilewati.` : ''}`
+                : `${updatedCount} produk berhasil diupdate harga jualnya. ${skippedCount} sudah sesuai formula.${excludedSkipped > 0 ? ` ${excludedSkipped} produk kategori manual (${excludedLabel}) dilewati.` : ''}`,
             data: {
                 mode: isPreview ? "preview" : "committed",
                 formula: formulaStr,
@@ -158,8 +169,9 @@ export async function POST(request: Request) {
                 updated: updatedCount,
                 alreadyCorrect: skippedCount,
                 noHPP: noCostPrice,
-                rokokSkipped,
-                changes: changes.filter(c => c.changed).slice(0, 100), // Max 100 untuk response
+                excludedSkipped,
+                excludedCategories,
+                changes: changes.filter(c => c.changed).slice(0, 100),
             },
         });
     } catch (error) {

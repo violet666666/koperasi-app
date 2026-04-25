@@ -6,13 +6,18 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 
 // Helper: get pricing multipliers from DB settings
 async function getPricingMultipliers(unitType: string) {
-    const keys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`];
+    const keys = [`${unitType}_markup_percent`, `${unitType}_ppn_percent`, `${unitType}_excluded_categories`];
     const settings = await prisma.appSetting.findMany({ where: { key: { in: keys } } });
     const map: Record<string, string> = {};
     for (const s of settings) map[s.key] = s.value;
     const markup = parseFloat(map[`${unitType}_markup_percent`] || "2");
     const ppn = parseFloat(map[`${unitType}_ppn_percent`] || "0");
-    return { markupMultiplier: 1 + markup / 100, ppnMultiplier: 1 + ppn / 100 };
+    let excludedCategories: string[] = [];
+    try {
+        const raw = map[`${unitType}_excluded_categories`];
+        if (raw) excludedCategories = JSON.parse(raw).map((c: string) => c.toLowerCase());
+    } catch {}
+    return { markupMultiplier: 1 + markup / 100, ppnMultiplier: 1 + ppn / 100, excludedCategories };
 }
 
 // POST /api/toko/products/import — admin/operator only
@@ -125,8 +130,10 @@ export async function POST(request: Request) {
             let sellPrice = hargaJualIdx !== -1 ? cleanNumber(row[hargaJualIdx]) : 0;
             const costPrice = hargaPokokIdx !== -1 ? cleanNumber(row[hargaPokokIdx]) : 0;
             
-            // AUTO-CALCULATE: Jika ada HPP, hitung harga jual dari formula dinamis (dari settings DB)
-            if (costPrice > 0) {
+            // AUTO-CALCULATE: Jika ada HPP dan kategori BUKAN excluded, hitung harga jual dari formula
+            // Kategori excluded menggunakan harga manual (dari Excel apa adanya)
+            const isExcludedCategory = category && pricingMultipliers.excludedCategories.includes(category.toLowerCase());
+            if (costPrice > 0 && !isExcludedCategory) {
                 sellPrice = Math.ceil((costPrice * pricingMultipliers.markupMultiplier * pricingMultipliers.ppnMultiplier) / 100) * 100;
             }
 
