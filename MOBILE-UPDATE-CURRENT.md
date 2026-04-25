@@ -88,6 +88,19 @@
 - **Import API Backward-Compatible:** Endpoint `/api/toko/products/import` tetap membaca kolom "Rak" (file lama) DAN "Kategori" (file baru) dari Excel/CSV. Variable internal di-rename dari `rakIdx` ke `catIdx`.
 - **Dampak Mobile:** Tidak ada perubahan API response. Label "Rak" di mobile (jika ada) juga perlu diupdate di `StokScreen.tsx` dan `KasirScreen.tsx` saat iterasi mobile berikutnya.
 
+### 38. [M-FEAT-026] Manajemen Harga per Kategori — Configurable Excluded Categories
+- ✅ **Selesai (Web + Backend)**: Sistem pengecualian harga manual sebelumnya hardcoded `["rokok"]`, kini **configurable** melalui halaman Manajemen Harga (`/toko/manajemen-harga`).
+- **Komponen yang diubah:**
+  1. ✅ **Settings API** (`/api/settings`) — Default `toko_excluded_categories` dan `resto_excluded_categories` (JSON array)
+  2. ✅ **Manajemen Harga** — Card baru "Kategori dengan Harga Manual" — chip toggle UI (☑ = formula, ☐ = manual)
+  3. ✅ **Form Tambah Produk** (`/toko/produk/tambah`) — Membaca excluded categories dari settings, skip auto-calculate jika kategori manual
+  4. ✅ **Daftar Produk** (`/toko/produk`) — Badge "Manual" (amber) pada produk kategori excluded, fetch dari settings
+  5. ✅ **Inline Edit** — Skip auto-calculate jika kategori produk = manual
+  6. ✅ **Import Excel** (`/api/toko/products/import`) — `getPricingMultipliers()` membaca excluded categories, skip auto-calc
+  7. ✅ **Recalculate API** (`/recalculate-prices`) — Query `NOT { category: { in: excludedCategories } }` untuk skip produk manual
+  8. ✅ **Bulk Set Harga** — Warning dialog jika produk kategori manual terpilih saat bulk set harga
+- **Dampak Mobile:** Import Excel API dan Recalculate API otomatis menggunakan excluded categories baru. Mobile app tidak perlu perubahan kode — pricing logic ada di backend.
+
 ### Tugas Mobile yang Belum Diperlukan dari Update Ini
 Semua perbaikan di atas bersifat **backend-only** atau **Web-only**, sehingga **tidak memerlukan update kode mobile**. Yang perlu diperhatikan:
 - Mobile app perlu di-rebuild hanya jika ada perubahan API response format (tidak ada pada update ini)
