@@ -144,11 +144,10 @@ export async function GET() {
             _count: { id: true },
         });
 
-        const storeStats = await prisma.storeSale.groupBy({
-            by: ["unitType"],
+        // FIX: Use findMany to filter voided sales
+        const storeStatsRaw = await prisma.storeSale.findMany({
             where: { memberId },
-            _sum: { totalAmount: true },
-            _count: { id: true },
+            select: { unitType: true, totalAmount: true, metadata: true },
         });
 
         // Merge stats by unitType
@@ -160,11 +159,16 @@ export async function GET() {
             exist.count += s._count.id;
             statsMap.set(key, exist);
         }
-        for (const s of storeStats) {
+        for (const s of storeStatsRaw) {
+            // Skip voided
+            if (s.metadata) {
+                const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
+                if ((meta as any).isVoided) continue;
+            }
             const key = s.unitType;
             const exist = statsMap.get(key) || { totalAmount: 0, count: 0 };
-            exist.totalAmount += Number(s._sum.totalAmount || 0);
-            exist.count += s._count.id;
+            exist.totalAmount += Number(s.totalAmount || 0);
+            exist.count += 1;
             statsMap.set(key, exist);
         }
         const mergedStats = Array.from(statsMap.entries()).map(([unitType, v]) => ({ unitType, ...v }));
@@ -180,21 +184,32 @@ export async function GET() {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoMember, sysTokoNonMember, sysUnit, sysLoanInt, myToko, myUnit, myLoan] = await Promise.all([
-            // System-wide aggregates
-            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null } }, _sum: { totalAmount: true } }),
-            prisma.storeSale.aggregate({ where: { createdAt: { gte: startDate, lte: endDate }, memberId: null }, _sum: { totalAmount: true } }),
+        const [sysTokoRaw, sysUnit, sysLoanInt, myTokoRaw, myUnit, myLoan] = await Promise.all([
+            // FIX: Use findMany to filter voided sales for SHU calculation
+            prisma.storeSale.findMany({ where: { createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, memberId: true, metadata: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             // My contributions
-            prisma.storeSale.aggregate({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+            prisma.storeSale.findMany({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, metadata: true } }),
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
         ]);
 
+        // Helper: filter out voided StoreSale
+        const filterActiveSales = (sales: any[]) => sales.filter((s: any) => {
+            if (!s.metadata) return true;
+            const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
+            return !meta.isVoided;
+        });
+
+        const activeSysTokoAll = filterActiveSales(sysTokoRaw);
+        const sysTokoMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId !== null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+        const sysTokoNonMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId === null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+        const myTokoTotal = filterActiveSales(myTokoRaw).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+
         // Income calculation
-        const memberIncome = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
-        const nonMemberIncome = Number(sysTokoNonMember._sum.totalAmount || 0);
+        const memberIncome = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const nonMemberIncome = sysTokoNonMemberTotal;
         const totalIncome = memberIncome + nonMemberIncome;
         const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
         const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
@@ -243,10 +258,10 @@ export async function GET() {
 
         // 2. Calculate Jasa Usaha (Pool Method: proportional by transaction volume)
         // System-wide member transaction volume = all member toko sales + all unit transactions + all loan interest
-        const totalMemberTxVolume = Number(sysTokoMember._sum.totalAmount || 0) + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
+        const totalMemberTxVolume = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
 
         // My transaction volume
-        const myTokoVolume = Number(myToko._sum.totalAmount || 0);
+        const myTokoVolume = myTokoTotal;
         const myUnitVolume = Number(myUnit._sum.amount || 0);
         const myLoanInterestAgg = await prisma.loanPayment.aggregate({
             where: { memberId, paymentDate: { gte: startDate, lte: endDate } },
