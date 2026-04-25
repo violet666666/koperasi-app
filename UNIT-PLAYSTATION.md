@@ -99,3 +99,11 @@ Admin PS:
 | 2026-04-25 | ✅ Tambah navigasi dedicated (kasirPSNavigation, adminPSNavigation) |
 | 2026-04-25 | ✅ Tambah route guard di layout.tsx (`/play-station`) |
 | 2026-04-25 | ✅ Admin dapat CRUD produk/jasa via `/toko/produk` |
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
+- **[POS] Billing System**: Pembulatan billing ke 15 menit terdekat, durasi maksimal 12 jam
+- **[POS] Bug Fix**: Hapus double declaration `if (!activeTv) return null`
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir

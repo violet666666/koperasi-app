@@ -180,16 +180,63 @@ export default function TokoProdukPage() {
         if (!editingId) return;
         setIsSaving(true);
         try {
+            // Cek apakah field stok berubah
+            const original = products.find(p => p.id === editingId);
+            const newGdg = Number(editData.stockGdg ?? 0);
+            const newToko = Number(editData.stockToko ?? 0);
+            const stockChanged = original && (original.stockGdg !== newGdg || original.stockToko !== newToko);
+
+            // 1. Update field non-stok via PUT
+            const { stockGdg, stockToko, stock, ...nonStockFields } = editData as any;
             const res = await fetch(`/api/toko/products/${editingId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...editData,
-                    stock: Number(editData.stockGdg || 0) + Number(editData.stockToko || 0),
-                }),
+                body: JSON.stringify(nonStockFields),
             });
             const json = await res.json();
             if (!res.ok) { toast.error(json.message || "Gagal menyimpan"); return; }
+
+            // 2. Jika stok berubah, update via /stock endpoint
+            if (stockChanged && original) {
+                const diffGdg = newGdg - original.stockGdg;
+                const diffToko = newToko - original.stockToko;
+
+                // Update stok gudang jika berubah
+                if (diffGdg !== 0) {
+                    const stockRes = await fetch(`/api/toko/products/${editingId}/stock`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: diffGdg > 0 ? "in" : "out",
+                            quantity: Math.abs(diffGdg),
+                            location: "gudang",
+                            notes: "Edit produk (inline)",
+                        }),
+                    });
+                    if (!stockRes.ok) {
+                        const stockJson = await stockRes.json();
+                        toast.error(stockJson.message || "Gagal update stok gudang");
+                    }
+                }
+                // Update stok toko jika berubah
+                if (diffToko !== 0) {
+                    const stockRes = await fetch(`/api/toko/products/${editingId}/stock`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: diffToko > 0 ? "in" : "out",
+                            quantity: Math.abs(diffToko),
+                            location: "toko",
+                            notes: "Edit produk (inline)",
+                        }),
+                    });
+                    if (!stockRes.ok) {
+                        const stockJson = await stockRes.json();
+                        toast.error(stockJson.message || "Gagal update stok toko");
+                    }
+                }
+            }
+
             toast.success("Produk berhasil diperbarui");
             cancelEdit();
             await fetchProducts();

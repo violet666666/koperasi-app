@@ -280,3 +280,15 @@ Void → Kembalikan stockToko + stock
 | Card Stok Terjual | ✅ Tampil | ✅ Tampil |
 | Transfer Stok | ✅ Full Access | ❌ Tidak Tampil |
 
+---
+
+## Changelog — 26 April 2026
+
+- **[API] Transaction Safety**: Semua operasi multi-table (create sale, stock deduction, journal, cash/bank sync, piutang) dibungkus dalam `prisma.$transaction` interactive — bebas race condition
+- **[API] Validasi Input**: `parseFloat` untuk quantity (mendukung desimal), amount harus > 0, validasi stok cukup sebelum checkout
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir. Kasir diblok dari mengubah/hapus produk dan mutasi stok
+- **[API] Void Flow**: Void UnitTransaction sekarang membalikkan jurnal & cash/bank secara atomik (interactive transaction)
+- **[Mobile] Full Parity**: Mobile POS sudah setara dengan web (3-field stock, shift, journals, discounts, movements, credit limit validation)
+- **[Mobile] RBAC**: 6 mobile endpoint ditambahkan role check (reports, members, savings-tx)
+- **[Stats] Timezone Fix**: Stats API menggunakan UTC+7 (WIB) untuk boundary "hari ini"
+

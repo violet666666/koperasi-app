@@ -73,3 +73,11 @@ Admin mengelola via `/toko/produk`:
 | 2026-04-25 | ✅ Fitur input berat desimal (kg) |
 | 2026-04-25 | ✅ Navigasi kasir/admin dedicated |
 | 2026-04-25 | ✅ Route guard di layout.tsx |
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table (create transaction, cash/bank sync, journal entry) dibungkus dalam `prisma.$transaction` untuk menjamin konsistensi data
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi dari daftar yang valid
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota sebelum transaksi potong gaji (setara dengan web)
+- **[POS] Validasi Berat**: Maksimal 100 kg per layanan, validasi NaN/0/negatif sebelum checkout
+- **[POS] Input Desimal**: Berat didukung hingga 1 desimal (0.1 kg precision), tombol +/- 0.5 kg
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir

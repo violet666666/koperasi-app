@@ -93,3 +93,11 @@ Fitur untuk mencatat pemasukan di luar transaksi POS kasir:
 | 2026-04-25 | ✅ Tambah fitur "Catat Pemasukan" di halaman Laporan |
 | 2026-04-25 | ✅ Update laporan API untuk include operationalIncomes |
 | - | Rilis awal — POS generic + SHU insentif |
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
+- **[POS] Validasi Quantity**: MAX_QTY = 999, validasi NaN/0/negatif sebelum checkout
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir
+- **[API] Void Flow**: Void UnitTransaction sekarang juga membalikkan jurnal & cash/bank (bukan hanya contra-entry)

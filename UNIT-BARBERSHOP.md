@@ -90,3 +90,10 @@ Admin Barbershop:
 | 2026-04-25 | ✅ Tambah navigasi dedicated (kasirBarbershopNavigation, adminBarbershopNavigation) |
 | 2026-04-25 | ✅ Tambah route guard di layout.tsx (`/barbershop`) |
 | 2026-04-25 | ✅ Admin dapat CRUD layanan via `/toko/produk` |
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
+- **[POS] Validasi Quantity**: MAX_QTY = 999, validasi NaN/0/negatif sebelum checkout
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir

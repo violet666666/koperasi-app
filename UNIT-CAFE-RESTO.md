@@ -189,3 +189,14 @@ Dibuat `adminRestoNavigation` baru yang mengarahkan admin `resto_cafe` ke:
 ---
 
 *Dokumen ini adalah referensi utama untuk Unit Café & Resto (Latar). Untuk Unit Toko, lihat `UNIT-TOKO.md`.*
+
+---
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
+- **[POS] KOT Dapur**: Tombol Kitchen Order Ticket sudah fungsional (mencatat pesanan ke dapur)
+- **[POS] Validasi Stok**: Cek stok menu sebelum checkout, batalkan jika stok tidak cukup
+- **[POS] Validasi Notes**: Maxlength 60 karakter per item notes
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir

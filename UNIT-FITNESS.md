@@ -70,3 +70,10 @@ Admin mengelola via `/toko/produk`:
 | 2026-04-25 | ✅ Buat dedicated POS Fitness `/fitness/kasir` |
 | 2026-04-25 | ✅ Navigasi kasir/admin dedicated |
 | 2026-04-25 | ✅ Route guard di layout.tsx |
+
+### Changelog — 26 April 2026
+- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
+- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
+- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
+- **[POS] Validasi Quantity**: MAX_QTY = 999, validasi NaN/0/negatif sebelum checkout
+- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir
