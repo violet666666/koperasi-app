@@ -890,7 +890,7 @@ export const adminLaundryNavigation: (NavItem | NavGroup)[] = [
     },
 ];
 
-// Bottom navigation for mobile
+/** @deprecated No longer used — bottom nav now derives items dynamically from getNavigationForUser */
 export const bottomNavigation: NavItem[] = [
     { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
     { title: "Anggota", href: "/anggota", icon: Users, permission: "manage_anggota" },

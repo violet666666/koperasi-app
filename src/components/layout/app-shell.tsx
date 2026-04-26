@@ -66,7 +66,7 @@ export function AppShell({
             </div>
 
             {/* Bottom Navigation (Mobile) */}
-            <BottomNav />
+            <BottomNav sidebarOpen={mobileMenuOpen} />
         </div>
     );
 }

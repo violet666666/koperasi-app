@@ -4,8 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { bottomNavigation, filterNavigationByPermissions } from "@/lib/constants/navigation";
+import {
+    getNavigationForUser,
+    isNavGroup,
+    type NavItem,
+} from "@/lib/constants/navigation";
 import { useAuth } from "@/lib/hooks";
+import { useSession } from "next-auth/react";
 import { MoreHorizontal } from "lucide-react";
 import {
     Sheet,
@@ -14,16 +19,40 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { mainNavigation, isNavGroup } from "@/lib/constants/navigation";
 
-export function BottomNav() {
+interface BottomNavProps {
+    sidebarOpen?: boolean;
+}
+
+export function BottomNav({ sidebarOpen = false }: BottomNavProps) {
     const pathname = usePathname();
     const [isMoreOpen, setIsMoreOpen] = React.useState(false);
     const [pendingCount, setPendingCount] = React.useState(0);
     const { user } = useAuth();
-    const userPermissions = user?.permissions || [];
-    const filteredMainNav = filterNavigationByPermissions(mainNavigation, userPermissions);
+    const { data: session } = useSession();
+
+    // Derive role-specific navigation (same pattern as sidebar.tsx)
+    const userContext = {
+        permissions: user?.permissions || [],
+        roleName: typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "anggota",
+        unitType: session?.user?.unitType ?? null,
+    };
+    const roleNav = getNavigationForUser(userContext);
+
+    // Flatten groups to top-level items (not children) for bottom bar
+    const topLevelItems: NavItem[] = [];
+    for (const item of roleNav) {
+        if (isNavGroup(item)) {
+            for (const subItem of item.items) {
+                topLevelItems.push(subItem);
+            }
+        } else {
+            topLevelItems.push(item);
+        }
+    }
+
+    const bottomBarItems = topLevelItems.slice(0, 4);
+    const shouldHideNav = sidebarOpen || isMoreOpen;
 
     // Fetch pending approval count for badge
     React.useEffect(() => {
@@ -37,21 +66,22 @@ export function BottomNav() {
             } catch { /* silent fail */ }
         };
         fetchPending();
-        const interval = setInterval(fetchPending, 60000); // Poll setiap 1 menit
+        const interval = setInterval(fetchPending, 60000);
         return () => clearInterval(interval);
     }, []);
 
     return (
         <>
-            <div className="h-20 lg:hidden print:hidden" aria-hidden="true" /> {/* Spacer for scroll safely (h-16 + 16px safe calc) */}
-            <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}>
+            <div className="h-20 lg:hidden print:hidden" aria-hidden="true" />
+            <nav
+                className={cn(
+                    "fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden transition-transform duration-300",
+                    shouldHideNav && "translate-y-full pointer-events-none"
+                )}
+                style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+            >
                 <div className="flex h-16 items-center justify-around px-2">
-                    {bottomNavigation
-                        .filter(item => {
-                            if (!item.permission) return true; // Dashboard selalu tampil
-                            return userPermissions.includes(item.permission);
-                        })
-                        .map((item) => {
+                    {bottomBarItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname.startsWith(item.href);
                         const isApproval = item.href === "/approval";
@@ -80,7 +110,7 @@ export function BottomNav() {
                                         </span>
                                     )}
                                 </span>
-                                <span>{item.title}</span>
+                                <span className="line-clamp-1">{item.title}</span>
                             </Link>
                         );
                     })}
@@ -99,7 +129,7 @@ export function BottomNav() {
                             </SheetHeader>
                             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin">
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                    {filteredMainNav.map((item, index) => {
+                                    {roleNav.map((item, index) => {
                                         if (isNavGroup(item)) {
                                             return item.items.map((subItem, subIndex) => {
                                                 const Icon = subItem.icon;
