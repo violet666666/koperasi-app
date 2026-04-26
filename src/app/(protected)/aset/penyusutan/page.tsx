@@ -174,7 +174,7 @@ export default function PenyusutanAsetPage() {
                 </CardContent>
             </Card>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><Calculator className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Total Aset</p><p className="text-2xl font-bold">{stats.totalAssets}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-amber-100 p-3 dark:bg-amber-900/30"><Calendar className="h-5 w-5 text-amber-600" /></div><div><p className="text-sm text-muted-foreground">Penyusutan Bulan Ini</p><p className="text-lg font-bold tabular-nums">{formatCurrency(stats.totalMonthly)}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30"><TrendingDown className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Akum. Penyusutan</p><p className="text-lg font-bold tabular-nums text-red-600">{formatCurrency(stats.totalAccumulated)}</p></div></CardContent></Card>

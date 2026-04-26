@@ -317,7 +317,7 @@ export default function LaporanSHUPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Total Pendapatan</p>
                                     <p className="text-xl font-semibold text-emerald-600">{formatCurrency(data.totalIncome || 0)}</p>

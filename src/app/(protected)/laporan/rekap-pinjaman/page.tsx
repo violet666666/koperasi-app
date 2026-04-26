@@ -167,7 +167,7 @@ export default function RekapPinjamanPage() {
             />
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Total Pinjaman</CardTitle>

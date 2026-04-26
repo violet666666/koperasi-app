@@ -271,7 +271,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                 <InfoCardWrapper
                     tooltip="Jumlah seluruh anggota aktif terdaftar di PRIMKOPPOL Resor Lumajang."
                     detailTitle="Total Anggota"
@@ -347,7 +347,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Today's Activity */}
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <InfoCardWrapper
                     tooltip="Total setoran simpanan yang masuk hari ini."
                     detailTitle="Simpanan Hari Ini"
@@ -414,7 +414,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Charts Section */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
                 {/* Live Bank Accounts Widget */}
                 <div className="lg:col-span-2">
                     <DashboardBankAccounts accounts={stats.cashBankAccounts} isLoading={isLoading} />
@@ -429,7 +429,7 @@ export default function DashboardPage() {
 
 
             {/* Main Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
                 {/* Quick Actions */}
                 <Card>
                     <CardHeader>

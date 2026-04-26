@@ -331,9 +331,9 @@ export default function CuciMobilKasirPage() {
                                         <div className="flex items-center justify-between mt-1">
                                             <p className="text-sm font-mono text-slate-600">{formatCurrency(item.product.price)}</p>
                                             <div className="flex items-center bg-slate-100 rounded-md">
-                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, -1)}><Minus className="h-3 w-3" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product.id, -1)}><Minus className="h-4 w-4" /></Button>
                                                 <span className="w-6 text-center text-xs font-bold">{item.quantity}</span>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-3 w-3" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-4 w-4" /></Button>
                                             </div>
                                         </div>
                                     </div>

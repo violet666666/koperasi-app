@@ -135,7 +135,7 @@ export default function BukuBesarPage() {
                 }
             />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><FileText className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Total Jurnal</p><p className="text-2xl font-bold">{stats.totalEntries}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><ArrowUpRight className="h-5 w-5 text-emerald-600" /></div><div><p className="text-sm text-muted-foreground">Total Debit</p><p className="text-lg font-bold tabular-nums text-emerald-600">{formatCurrency(stats.totalDebit)}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30"><ArrowDownRight className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Total Kredit</p><p className="text-lg font-bold tabular-nums text-red-600">{formatCurrency(stats.totalCredit)}</p></div></CardContent></Card>

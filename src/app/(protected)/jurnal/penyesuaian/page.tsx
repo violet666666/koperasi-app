@@ -66,7 +66,7 @@ export default function JurnalPenyesuaianPage() {
                 actions={<Button asChild><Link href="/jurnal/umum"><Plus className="mr-2 h-4 w-4" />Buat Penyesuaian</Link></Button>}
             />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><FileText className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Total Jurnal</p><p className="text-2xl font-bold">{stats.total}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><CheckCircle className="h-5 w-5 text-emerald-600" /></div><div><p className="text-sm text-muted-foreground">Posted</p><p className="text-2xl font-bold">{stats.posted}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-amber-100 p-3 dark:bg-amber-900/30"><AlertCircle className="h-5 w-5 text-amber-600" /></div><div><p className="text-sm text-muted-foreground">Draft</p><p className="text-2xl font-bold">{stats.draft}</p></div></CardContent></Card>

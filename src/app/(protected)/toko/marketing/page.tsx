@@ -268,7 +268,7 @@ export default function MarketingPage() {
             />
 
             {/* Stats Cards */}
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-primary/10 p-3">

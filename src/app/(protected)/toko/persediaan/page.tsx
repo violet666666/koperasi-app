@@ -308,7 +308,7 @@ export default function PersediaanPage() {
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[400px] p-0" align="start">
+                                            <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0" align="start">
                                                 <Command>
                                                     <CommandInput placeholder="Ketik nama produk atau scan barcode..." autoFocus />
                                                     <CommandList>
@@ -383,7 +383,7 @@ export default function PersediaanPage() {
                 }
             />
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><ArrowDownCircle className="h-5 w-5 text-emerald-600" /></div><div><p className="text-sm text-muted-foreground">Stok Masuk Hari Ini</p><p className="text-2xl font-bold text-emerald-600">+{stats.todayIn}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-red-100 p-3 dark:bg-red-900/30"><ArrowUpCircle className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Stok Keluar Hari Ini</p><p className="text-2xl font-bold text-red-600">-{stats.todayOut}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><Warehouse className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Total Pergerakan</p><p className="text-2xl font-bold">{stats.totalMovements}</p></div></CardContent></Card>

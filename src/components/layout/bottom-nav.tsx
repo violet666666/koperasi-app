@@ -62,7 +62,7 @@ export function BottomNav() {
                                 key={item.href}
                                 href={item.href}
                                 className={cn(
-                                    "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors relative",
+                                    "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors relative min-h-[44px]",
                                     isActive
                                         ? "text-primary font-medium"
                                         : "text-muted-foreground hover:text-foreground"
@@ -88,7 +88,7 @@ export function BottomNav() {
                     {/* More button */}
                     <Sheet open={isMoreOpen} onOpenChange={setIsMoreOpen}>
                         <SheetTrigger asChild>
-                            <button className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            <button className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors min-h-[44px]">
                                 <MoreHorizontal className="h-5 w-5" />
                                 <span>Lainnya</span>
                             </button>
@@ -98,7 +98,7 @@ export function BottomNav() {
                                 <SheetTitle>Menu</SheetTitle>
                             </SheetHeader>
                             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin">
-                                <div className="grid grid-cols-4 gap-4">
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
                                     {filteredMainNav.map((item, index) => {
                                         if (isNavGroup(item)) {
                                             return item.items.map((subItem, subIndex) => {

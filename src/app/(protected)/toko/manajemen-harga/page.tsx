@@ -384,7 +384,7 @@ export default function ManajemenHargaPage() {
                                 {previewResult.ppnPercent > 0 && <span>PPN: <strong>{previewResult.ppnPercent}%</strong></span>}
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
                                 <div className="rounded-lg bg-muted/50 p-3">
                                     <p className="text-xs text-muted-foreground">Dengan HPP</p>
                                     <p className="text-lg font-bold">{previewResult.totalWithHPP}</p>

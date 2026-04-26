@@ -298,7 +298,7 @@ export default function AuditLogPage() {
                 }
             />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-primary/10 p-3"><Activity className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">Total Records</p><p className="text-2xl font-bold">{pagination.total.toLocaleString()}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30"><Clock className="h-5 w-5 text-blue-600" /></div><div><p className="text-xs text-muted-foreground">Hari Ini</p><p className="text-2xl font-bold">{stats.totalToday}</p></div></CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><CheckCircle className="h-5 w-5 text-emerald-600" /></div><div><p className="text-xs text-muted-foreground">Sukses</p><p className="text-2xl font-bold text-emerald-600">{stats.successCount}</p></div></CardContent></Card>
@@ -309,7 +309,7 @@ export default function AuditLogPage() {
             <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Filter className="h-4 w-4" /> Filter & Pencarian</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                         <div className="space-y-1">
                             <Label className="text-xs">Cari</Label>
                             <div className="relative">
@@ -345,7 +345,7 @@ export default function AuditLogPage() {
                             </Select>
                         </div>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 mt-4">
                         <div className="space-y-1">
                             <Label className="text-xs">Dari Tanggal</Label>
                             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />

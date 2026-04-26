@@ -150,7 +150,7 @@ export default function RekapSimpananPage() {
             />
 
             {/* Stats Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30">

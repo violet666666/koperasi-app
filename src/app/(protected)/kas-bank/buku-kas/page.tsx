@@ -256,7 +256,7 @@ export default function BukuKasPage() {
             </Card>
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-4 print:hidden">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 print:hidden">
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
                         <div className="rounded-lg bg-blue-100 p-2.5 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">

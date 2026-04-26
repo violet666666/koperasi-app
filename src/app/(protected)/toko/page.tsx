@@ -94,7 +94,7 @@ export default function TokoPage() {
             />
 
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
                         <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30">
@@ -159,7 +159,7 @@ export default function TokoPage() {
             </div>
 
             {/* Menu Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {menuItems.map((item) => (
                     <Link key={item.href} href={item.href}>
                         <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">

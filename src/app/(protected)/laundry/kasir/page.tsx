@@ -264,10 +264,10 @@ export default function LaundryKasirPage() {
                                             <p className="text-xs text-slate-500">{formatCurrency(item.product.price)} x {item.quantity} kg = {formatCurrency(item.product.price * item.quantity)}</p>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => updateQuantity(item.product.id, -0.5)}><Minus className="h-3 w-3" /></Button>
+                                            <Button size="icon" variant="outline" className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-full" onClick={() => updateQuantity(item.product.id, -0.5)}><Minus className="h-4 w-4" /></Button>
                                             <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
-                                            <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => updateQuantity(item.product.id, 0.5)}><Plus className="h-3 w-3" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:bg-red-50" onClick={() => removeFromCart(item.product.id)}>✕</Button>
+                                            <Button size="icon" variant="outline" className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-full" onClick={() => updateQuantity(item.product.id, 0.5)}><Plus className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-full text-red-500 hover:bg-red-50" onClick={() => removeFromCart(item.product.id)}>✕</Button>
                                         </div>
                                     </div>
                                 ))}

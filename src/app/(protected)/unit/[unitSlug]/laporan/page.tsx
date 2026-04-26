@@ -657,7 +657,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             </Card>
 
             {/* ── Summary Cards (hidden on print) ──────────────────────────── */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
                         <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-600 dark:bg-emerald-900/30">
@@ -719,7 +719,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm">Rincian Metode Pembayaran</CardTitle>
                     </CardHeader>
-                    <CardContent className="grid sm:grid-cols-3 gap-4">
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border">
                             <Banknote className="h-8 w-8 text-emerald-500 shrink-0" />
                             <div>
@@ -755,7 +755,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 🤝 Rekap Bagi Hasil Karyawan (50% / 50%)
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <CardContent className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="p-3 rounded-lg bg-white border border-amber-200">
                                 <p className="text-xs text-muted-foreground">Pendapatan Kotor</p>
                                 <p className="font-bold text-lg text-amber-700">{formatCurrency(summary.totalPendapatan)}</p>

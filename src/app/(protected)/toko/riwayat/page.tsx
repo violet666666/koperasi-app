@@ -174,7 +174,7 @@ export default function RiwayatTransaksiPage() {
             />
 
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-primary/10 p-3"><Receipt className="h-5 w-5 text-primary" /></div>
                     <div><p className="text-sm text-muted-foreground">Total Transaksi</p><p className="text-2xl font-bold">{stats.totalTransactions}</p></div>

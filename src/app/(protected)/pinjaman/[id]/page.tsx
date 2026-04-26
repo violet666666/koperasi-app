@@ -130,7 +130,7 @@ export default function PinjamanDetailPage() {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-8 w-48" />
-                <div className="grid gap-4 sm:grid-cols-4">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                     {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
                 </div>
                 <Skeleton className="h-96" />
@@ -481,7 +481,7 @@ export default function PinjamanDetailPage() {
                             </div>
                         </div>
                         <Separator orientation="vertical" className="hidden md:block h-20" />
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                             <div>
                                 <p className="text-2xl font-bold text-emerald-600">{paidInstallments}</p>
                                 <p className="text-xs text-muted-foreground">Lunas</p>

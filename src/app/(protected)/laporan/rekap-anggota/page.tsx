@@ -188,7 +188,7 @@ export default function RekapAnggotaPage() {
             />
 
             {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={Users} label="Total Anggota" value={stats.total} color="primary" />
                 <StatCard icon={UserCheck} label="Aktif" value={stats.active} color="emerald" />
                 <StatCard icon={UserX} label="Non-Aktif" value={stats.inactive} color="amber" />

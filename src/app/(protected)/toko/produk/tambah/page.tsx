@@ -270,7 +270,7 @@ export default function TambahProdukPage() {
                         </div>
 
 
-                        <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                             <div className="space-y-2">
                                 <Label htmlFor="stockGdg">Stock Gdg</Label>
                                 <Input id="stockGdg" type="number" min={0} placeholder="0"

@@ -418,7 +418,7 @@ export default function ShiftKasirPage() {
 
             {/* ── TUTUP SHIFT DIALOG ──────────────────────────── */}
             <Dialog open={closeDialog} onOpenChange={(open) => !open && handleCloseDialogDismiss()}>
-                <DialogContent className="sm:max-w-[520px]">
+                <DialogContent className="max-w-full sm:max-w-[520px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <StopCircle className="h-5 w-5 text-destructive" />
@@ -605,7 +605,7 @@ export default function ShiftKasirPage() {
                             </div>
 
                             {/* Payment breakdown */}
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="rounded-lg border p-3 flex items-center gap-3">
                                     <Banknote className="h-5 w-5 text-emerald-500" />
                                     <div>

@@ -297,7 +297,7 @@ export default function AnggotaDetailPage() {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-8 w-48" />
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                     {[1, 2, 3, 4].map((i) => (
                         <Skeleton key={i} className="h-24" />
                     ))}
@@ -338,7 +338,7 @@ export default function AnggotaDetailPage() {
             />
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <SummaryCard
                     title="Total Simpanan"
                     value={formatCurrency(summary.savings.total)}
@@ -543,7 +543,7 @@ export default function AnggotaDetailPage() {
                     {summary.loans.active_count > 0 && (
                         <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-0">
                             <CardContent className="p-6">
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
                                         <p className="text-blue-200 text-xs uppercase tracking-wider font-medium">Pinjaman Aktif</p>
                                         <p className="text-2xl font-bold">{summary.loans.active_count}</p>

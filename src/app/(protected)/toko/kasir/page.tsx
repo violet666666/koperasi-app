@@ -469,7 +469,7 @@ export default function KasirPage() {
                 }
             />
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {/* Product Search */}
                 <div className="lg:col-span-2 space-y-4">
                     <Card>
@@ -619,7 +619,7 @@ export default function KasirPage() {
                                                     className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors"
                                                     onMouseDown={(e) => { e.preventDefault(); selectCustomer(m); }}
                                                 >
-                                                    <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                                                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                                                         {m.name.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -673,7 +673,7 @@ export default function KasirPage() {
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, -1)}><Minus className="h-3 w-3" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product.id, -1)}><Minus className="h-4 w-4" /></Button>
                                             <Input
                                                 type="text"
                                                 inputMode="numeric"
@@ -683,8 +683,8 @@ export default function KasirPage() {
                                                 onBlur={() => handleQuantityBlur(item.product.id)}
                                                 onClick={(e) => e.currentTarget.select()}
                                             />
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-3 w-3" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => removeFromCart(item.product.id)}><Trash2 className="h-3 w-3" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px] text-red-600" onClick={() => removeFromCart(item.product.id)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     </div>
                                 ))}
