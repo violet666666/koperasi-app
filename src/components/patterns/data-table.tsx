@@ -129,6 +129,7 @@ export function DataTable<TData, TValue>({
                     rowSelection,
                     globalFilter: globalFilterValue !== undefined ? globalFilterValue : globalFilter,
                     pagination,
+                    expanded,
                 },
                 onPaginationChange: onPaginationChange,
             }
@@ -139,6 +140,7 @@ export function DataTable<TData, TValue>({
                     columnVisibility,
                     rowSelection,
                     globalFilter: globalFilterValue !== undefined ? globalFilterValue : globalFilter,
+                    expanded,
                 },
             }),
         manualFiltering,
