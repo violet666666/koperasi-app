@@ -284,8 +284,8 @@ export interface User {
 }
 
 export const usersApi = {
-    list: (params?: { page?: number; branchId?: number }) =>
-        api.get<PaginatedResponse<User>>("/users", { params }),
+    list: (params?: { page?: number; perPage?: number; branchId?: number }) =>
+        api.get<PaginatedResponse<User>>("/users", { params: { perPage: 999, ...params } }),
 
     get: (id: number) => api.get<{ data: User }>(`/users/${id}`),
 

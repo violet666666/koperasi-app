@@ -82,7 +82,7 @@ export async function PUT(
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-        if (!session.user.permissions?.includes("user_management")) {
+        if (!session.user.permissions?.includes("user_management") && !session.user.permissions?.includes("manage_all")) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

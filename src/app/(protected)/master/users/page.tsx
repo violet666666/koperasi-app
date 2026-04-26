@@ -324,8 +324,9 @@ export default function MasterUsersPage() {
             }
             setDialogOpen(false);
             setEditingUser(undefined);
-        } catch (error) {
-            toast.error("Gagal menyimpan pengguna");
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || error?.message || "Gagal menyimpan pengguna";
+            toast.error(msg);
         }
     };
 
