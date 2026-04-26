@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Calculator, Save, Loader2, Users, Building2 } from "lucide-react";
+import { Calculator, Save, Loader2, Users, Building2, Car } from "lucide-react";
 
 interface SHUParameter {
     key: string;
@@ -19,12 +19,14 @@ interface SHUParameter {
 interface SHUConfig {
     memberAllocations: SHUParameter[];
     nonMemberAllocations: SHUParameter[];
+    carwashBonusPerTx?: number;
 }
 
 export default function ParameterSHUPage() {
     const [config, setConfig] = React.useState<SHUConfig>({
         memberAllocations: [],
         nonMemberAllocations: [],
+        carwashBonusPerTx: 2000,
     });
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
@@ -38,10 +40,14 @@ export default function ParameterSHUPage() {
                 const json = await res.json();
                 
                 if (json.data) {
-                    setConfig(json.data);
+                    setConfig({
+                        ...json.data,
+                        carwashBonusPerTx: json.data.carwashBonusPerTx ?? 2000,
+                    });
                 } else {
                     // Fallback to defaults to match calculator
                     setConfig({
+                        carwashBonusPerTx: 2000,
                         memberAllocations: [
                             { key: "jasa_usaha", label: "Jasa Anggota", percentage: 25, description: "Berdasar kontribusi belanja & jasa (Jasa Anggota)" },
                             { key: "jasa_modal", label: "Jasa Simpanan", percentage: 20, description: "Berdasar simpanan pokok & wajib (Jasa Simpanan)" },
@@ -221,6 +227,38 @@ export default function ParameterSHUPage() {
                     </div>
                 </div>
             )}
+
+            {/* Carwash Bonus Setting */}
+            <Card className="border-cyan-200">
+                <CardHeader className="bg-cyan-50/50 border-b pb-4">
+                    <div className="flex items-center gap-3">
+                        <Car className="h-5 w-5 text-cyan-600" />
+                        <div>
+                            <CardTitle className="text-lg">Bonus SHU Cuci Mobil</CardTitle>
+                            <CardDescription>Jumlah bonus SHU yang diberikan per transaksi cuci mobil anggota</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                        <p className="text-sm text-muted-foreground">Bonus per transaksi:</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-500">Rp</span>
+                            <Input
+                                type="number"
+                                min={0}
+                                step={500}
+                                value={config.carwashBonusPerTx ?? 2000}
+                                onChange={(e) => setConfig(prev => ({ ...prev, carwashBonusPerTx: Number(e.target.value) || 0 }))}
+                                className="w-32 text-right font-medium"
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Akan diperhitungkan dalam laporan SHU per anggota
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Info */}
             <Card className="bg-blue-50/50 border-blue-100 mt-6">

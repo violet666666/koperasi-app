@@ -6,6 +6,12 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
+        const yearParam = searchParams.get("year");
+
+        // Build date range if year is specified
+        const yearFilter = yearParam
+            ? { transactionDate: { gte: new Date(`${yearParam}-01-01`), lte: new Date(`${yearParam}-12-31`) } }
+            : {};
 
         // 1. Get all savings products
         const products = await prisma.savingsProduct.findMany({
@@ -28,6 +34,7 @@ export async function GET(request: Request) {
             by: ["productId", "type"],
             where: {
                 ...(branchId && { branchId: parseInt(branchId) }),
+                ...yearFilter,
             },
             _sum: { amount: true },
         });

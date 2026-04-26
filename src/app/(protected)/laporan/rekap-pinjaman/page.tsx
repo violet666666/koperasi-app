@@ -117,7 +117,8 @@ const columns: ColumnDef<LoanRecap>[] = [
 
 export default function RekapPinjamanPage() {
     const [isLoading, setIsLoading] = React.useState(true);
-    const [period, setPeriod] = React.useState("2026");
+    const currentYear = new Date().getFullYear();
+    const [period, setPeriod] = React.useState(String(currentYear));
     const [data, setData] = React.useState<LoanRecap[]>([]);
 
     // Fetch data from API
@@ -125,7 +126,7 @@ export default function RekapPinjamanPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                const response = await reportsApi.loansRecap();
+                const response = await reportsApi.loansRecap({ year: parseInt(period) });
                 // ApiClient returns JSON directly: { data: { products: [...] } }
                 const reportData = (response as any)?.data;
                 setData(reportData?.products || []);
@@ -224,9 +225,9 @@ export default function RekapPinjamanPage() {
                         <SelectValue placeholder="Pilih tahun" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="2026">Tahun 2026</SelectItem>
-                        <SelectItem value="2025">Tahun 2025</SelectItem>
-                        <SelectItem value="2024">Tahun 2024</SelectItem>
+                        {Array.from({ length: 4 }, (_, i) => currentYear - 2 + i).map(y => (
+                            <SelectItem key={y} value={String(y)}>Tahun {y}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>

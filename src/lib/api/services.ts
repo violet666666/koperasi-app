@@ -248,11 +248,14 @@ export const reportsApi = {
     membersRecap: (params?: { branchId?: number }) =>
         api.get<{ data: unknown }>("/reports/members-recap", { params }),
 
-    savingsRecap: (params?: { branchId?: number }) =>
+    savingsRecap: (params?: { branchId?: number; year?: number }) =>
         api.get<{ data: unknown }>("/reports/savings-recap", { params }),
 
-    loansRecap: (params?: { branchId?: number }) =>
+    loansRecap: (params?: { branchId?: number; year?: number }) =>
         api.get<{ data: unknown }>("/reports/loans-recap", { params }),
+
+    arusKas: (params?: { month?: number; year?: number }) =>
+        api.get<{ data: unknown }>("/reports/arus-kas", { params }),
 };
 
 // ============================================================

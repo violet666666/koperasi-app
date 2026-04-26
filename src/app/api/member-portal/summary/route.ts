@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getCarwashBonusPerTx } from "@/lib/services/shu-settings";
 
 // GET /api/member-portal/summary - Get member's complete summary
 export async function GET() {
@@ -275,7 +276,7 @@ export async function GET() {
         const jasaUsahaPercent = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * 100 : 0;
 
         // --- SHU Cuci Mobil: Rp 2.000 fix per transaksi anggota ---
-        const CARWASH_BONUS_PER_TX = 2000;
+        const CARWASH_BONUS_PER_TX = await getCarwashBonusPerTx();
         const myCarwashTxCount = await prisma.unitTransaction.count({
             where: {
                 memberId,

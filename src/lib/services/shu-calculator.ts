@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { getCarwashBonusPerTx } from "./shu-settings";
 
 function toNum(d: Decimal | number | null | undefined): number {
     if (d === null || d === undefined) return 0;
@@ -8,6 +9,7 @@ function toNum(d: Decimal | number | null | undefined): number {
 
 // Default Fallback Settings jika di Database belum di-set
 const DEFAULT_SHU_CONFIG = {
+    carwashBonusPerTx: 2000,
     memberAllocations: [
         { key: "jasa_usaha", label: "Jasa Anggota", percentage: 25, description: "Berdasar kontribusi belanja & jasa (Jasa Anggota)" },
         { key: "jasa_modal", label: "Jasa Simpanan", percentage: 20, description: "Berdasar simpanan pokok & wajib (Jasa Simpanan)" },
@@ -56,7 +58,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     // 1. Dapatkan Income/Expense dari Jurnal
     const journalLines = await prisma.journalLine.findMany({
         where: {
-            journal: { transactionDate: { gte: startDate, lte: endDate } },
+            journal: { transactionDate: { gte: startDate, lte: endDate }, isPosted: true },
         },
         include: { account: { select: { code: true, name: true, type: true } } },
     });
@@ -245,7 +247,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     let totalSystemSavings = 0;
     let totalSystemTransactions = 0;
-    const CARWASH_BONUS_PER_TX = 2000;
+    const CARWASH_BONUS_PER_TX = await getCarwashBonusPerTx();
 
     const memberStats = members.map(m => {
         // Modal: Simpanan Pokok + Wajib — pisahkan untuk transparansi UI

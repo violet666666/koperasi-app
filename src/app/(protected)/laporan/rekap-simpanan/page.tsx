@@ -98,7 +98,8 @@ const columns: ColumnDef<SavingsRecap>[] = [
 
 export default function RekapSimpananPage() {
     const [isLoading, setIsLoading] = React.useState(true);
-    const [period, setPeriod] = React.useState("2026");
+    const currentYear = new Date().getFullYear();
+    const [period, setPeriod] = React.useState(String(currentYear));
     const [data, setData] = React.useState<SavingsRecap[]>([]);
 
     // Fetch data from API
@@ -106,7 +107,7 @@ export default function RekapSimpananPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                const response = await reportsApi.savingsRecap();
+                const response = await reportsApi.savingsRecap({ year: parseInt(period) });
                 // Extract deeply nested data matching the backend response structure
                 const axiosData = response.data as any;
                 const reportData = axiosData.data;
@@ -193,9 +194,9 @@ export default function RekapSimpananPage() {
                         <SelectValue placeholder="Pilih tahun" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="2026">Tahun 2026</SelectItem>
-                        <SelectItem value="2025">Tahun 2025</SelectItem>
-                        <SelectItem value="2024">Tahun 2024</SelectItem>
+                        {Array.from({ length: 4 }, (_, i) => currentYear - 2 + i).map(y => (
+                            <SelectItem key={y} value={String(y)}>Tahun {y}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>

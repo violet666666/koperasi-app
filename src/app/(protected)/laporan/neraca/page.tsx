@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { reportsApi } from "@/lib/api";
-import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,8 +21,9 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 
 interface BalanceSheetItem {
     code: string;
@@ -51,8 +51,9 @@ interface BalanceSheet {
 }
 
 export default function NeracaPage() {
+    const currentYear = new Date().getFullYear();
     const [selectedMonth, setSelectedMonth] = React.useState<string>("01");
-    const [selectedYear, setSelectedYear] = React.useState<string>("2026");
+    const [selectedYear, setSelectedYear] = React.useState<string>(String(currentYear));
     const [data, setData] = React.useState<BalanceSheet | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
 
@@ -94,16 +95,46 @@ export default function NeracaPage() {
 
     const monthName = new Date(2000, Number(selectedMonth) - 1).toLocaleDateString("id-ID", { month: "long" });
 
+    const buildExportRows = () => {
+        if (!data) return [];
+        const rows: Record<string, unknown>[] = [];
+        const push = (ket: string, jumlah: number) => rows.push({ keterangan: ket, jumlah });
+        push("=== AKTIVA LANCAR ===", 0);
+        data.assets.current.forEach(i => push(`${i.code} - ${i.name}`, i.amount));
+        push("=== AKTIVA TETAP ===", 0);
+        data.assets.fixed.forEach(i => push(`${i.code} - ${i.name}`, i.amount));
+        push("Total Aktiva", data.assets.totalAssets);
+        push("=== KEWAJIBAN ===", 0);
+        data.liabilities.shortTerm.forEach(i => push(`${i.code} - ${i.name}`, i.amount));
+        data.liabilities.longTerm.forEach(i => push(`${i.code} - ${i.name}`, i.amount));
+        push("Total Kewajiban", data.liabilities.totalLiabilities);
+        push("=== EKUITAS ===", 0);
+        data.equity.items.forEach(i => push(`${i.code} - ${i.name}`, i.amount));
+        push("Total Ekuitas", data.equity.totalEquity);
+        return rows;
+    };
+
+    const neracaExportCols: ExportColumn[] = [
+        { header: "Keterangan", key: "keterangan", width: 40 },
+        { header: "Jumlah (Rp)", key: "jumlah", width: 22, format: (v) => v === 0 ? "" : formatCurrency(Number(v)) },
+    ];
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Laporan Neraca"
                 description="Posisi keuangan per periode"
                 actions={
-                    <Button variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Excel
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => exportToExcel(buildExportRows(), neracaExportCols, `Neraca_${monthName}_${selectedYear}`, "Neraca")}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => exportToPDF(buildExportRows(), neracaExportCols, `Laporan Neraca ${monthName} ${selectedYear}`, `Neraca_${monthName}_${selectedYear}`)}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            PDF
+                        </Button>
+                    </div>
                 }
             />
 
@@ -129,9 +160,9 @@ export default function NeracaPage() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                                <SelectItem value="2026">2026</SelectItem>
+                                {Array.from({ length: 4 }, (_, i) => currentYear - 2 + i).map(y => (
+                                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

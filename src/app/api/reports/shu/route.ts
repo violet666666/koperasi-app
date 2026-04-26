@@ -23,7 +23,7 @@ export async function GET(request: Request) {
             totalExpense: data.totalExpense,
             memberNetIncome: data.memberSurplus,
             nonMemberNetIncome: data.nonMemberSurplus,
-            memberSharePercent: 50, // (20% jasa simpanan + 30% jasa usaha = 50% dividend)
+            memberSharePercent: Math.round(data.memberRatio * 100),
             allocationsMember: data.allocationsMember,
             allocationsNonMember: data.allocationsNonMember,
             incomeDetails: data.incomeDetails,

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download, ArrowUpCircle, ArrowDownCircle, Wallet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+import { reportsApi } from "@/lib/api";
 
 interface CashFlowItem { description: string; amount: number; }
 interface CashFlowData {
@@ -27,8 +28,9 @@ interface CashFlowData {
 
 export default function ArusKasPage() {
     const now = new Date();
+    const currentYear = now.getFullYear();
     const [selectedMonth, setSelectedMonth] = React.useState<string>(String(now.getMonth() + 1).padStart(2, "0"));
-    const [selectedYear, setSelectedYear] = React.useState<string>(String(now.getFullYear()));
+    const [selectedYear, setSelectedYear] = React.useState<string>(String(currentYear));
     const [data, setData] = React.useState<CashFlowData | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
 
@@ -36,83 +38,15 @@ export default function ArusKasPage() {
         async function fetchData() {
             setIsLoading(true);
             try {
-                // Fetch journal lines grouped by account type for the period
-                const month = parseInt(selectedMonth);
-                const year = parseInt(selectedYear);
-                const res = await fetch(`/api/journals?period=all`);
-                if (!res.ok) throw new Error("Failed");
-                const json = await res.json();
-                const journals = json.data || [];
-
-                // Filter to selected month/year
-                const filtered = journals.filter((j: any) => {
-                    const d = new Date(j.transactionDate);
-                    return d.getMonth() + 1 === month && d.getFullYear() === year;
+                const response = await reportsApi.arusKas({
+                    month: parseInt(selectedMonth),
+                    year: parseInt(selectedYear),
                 });
-
-                // Aggregate by sourceType into categories
-                const opIn: Record<string, number> = {};
-                const opOut: Record<string, number> = {};
-                const invIn: Record<string, number> = {};
-                const invOut: Record<string, number> = {};
-                const finIn: Record<string, number> = {};
-                const finOut: Record<string, number> = {};
-
-                const opInLabels: Record<string, string> = {
-                    loan_payment: "Penerimaan Angsuran Pinjaman",
-                    savings: "Penerimaan Simpanan Anggota",
-                    store_sale: "Pendapatan Toko",
-                    manual: "Transaksi Manual",
-                    cash_bank: "Transaksi Kas/Bank",
-                };
-
-                for (const j of filtered) {
-                    const src = j.sourceType || "manual";
-                    const net = j.totalDebit - j.totalCredit; // positive = debit > credit
-
-                    if (["savings", "loan_payment", "store_sale", "cash_bank", "manual"].includes(src)) {
-                        // Operating
-                        if (j.totalDebit > 0) {
-                            const label = opInLabels[src] || src;
-                            opIn[label] = (opIn[label] || 0) + j.totalDebit;
-                        }
-                        if (j.totalCredit > 0 && src !== "loan_payment") {
-                            const label = src === "loan" ? "Pencairan Pinjaman" : `Pengeluaran ${opInLabels[src] || src}`;
-                            opOut[label] = (opOut[label] || 0) + j.totalCredit;
-                        }
-                    } else if (src === "loan") {
-                        // Financing - loan disbursements
-                        finOut["Pencairan Pinjaman Anggota"] = (finOut["Pencairan Pinjaman Anggota"] || 0) + j.totalDebit;
-                    }
-                }
-
-                const toItems = (obj: Record<string, number>, negative = false): CashFlowItem[] =>
-                    Object.entries(obj).map(([description, amount]) => ({ description, amount: negative ? -amount : amount }));
-
-                const opInflowItems = toItems(opIn);
-                const opOutflowItems = toItems(opOut, true);
-                const netOp = opInflowItems.reduce((s, i) => s + i.amount, 0) + opOutflowItems.reduce((s, i) => s + i.amount, 0);
-
-                const invInflowItems = toItems(invIn);
-                const invOutflowItems = toItems(invOut, true);
-                const netInv = invInflowItems.reduce((s, i) => s + i.amount, 0) + invOutflowItems.reduce((s, i) => s + i.amount, 0);
-
-                const finInflowItems = toItems(finIn);
-                const finOutflowItems = toItems(finOut, true);
-                const netFin = finInflowItems.reduce((s, i) => s + i.amount, 0) + finOutflowItems.reduce((s, i) => s + i.amount, 0);
-
-                const netChange = netOp + netInv + netFin;
-
-                setData({
-                    openingBalance: 0, // Would need balance sheet data
-                    closingBalance: netChange,
-                    operating: { inflows: opInflowItems, outflows: opOutflowItems, net: netOp },
-                    investing: { inflows: invInflowItems, outflows: invOutflowItems, net: netInv },
-                    financing: { inflows: finInflowItems, outflows: finOutflowItems, net: netFin },
-                    netChange,
-                });
+                const apiData = (response.data as any)?.data || response.data as any;
+                setData(apiData);
             } catch (error) {
                 console.error("Failed to fetch:", error);
+                setData(null);
             } finally {
                 setIsLoading(false);
             }
@@ -121,7 +55,6 @@ export default function ArusKasPage() {
     }, [selectedMonth, selectedYear]);
 
     const monthName = new Date(2000, Number(selectedMonth) - 1).toLocaleDateString("id-ID", { month: "long" });
-    const currentYear = new Date().getFullYear();
 
     // Build flat rows for export
     const buildExportRows = () => {
@@ -132,12 +65,18 @@ export default function ArusKasPage() {
         data.operating.inflows.forEach(i => push(i.description, i.amount));
         data.operating.outflows.forEach(i => push(i.description, i.amount));
         push("Arus Kas Bersih Operasi", data.operating.net);
+        if (data.investing.inflows.length || data.investing.outflows.length) {
+            push("=== ARUS KAS AKTIVITAS INVESTASI ===", 0);
+            data.investing.inflows.concat(data.investing.outflows).forEach(i => push(i.description, i.amount));
+            push("Arus Kas Bersih Investasi", data.investing.net);
+        }
         if (data.financing.inflows.length || data.financing.outflows.length) {
             push("=== ARUS KAS AKTIVITAS PENDANAAN ===", 0);
             data.financing.inflows.concat(data.financing.outflows).forEach(i => push(i.description, i.amount));
             push("Arus Kas Bersih Pendanaan", data.financing.net);
         }
         push("Kenaikan/(Penurunan) Kas Bersih", data.netChange);
+        push("Saldo Kas Awal Periode", data.openingBalance);
         push("Saldo Kas Akhir Periode", data.closingBalance);
         return rows;
     };
@@ -177,7 +116,7 @@ export default function ArusKasPage() {
                     <Select value={selectedYear} onValueChange={setSelectedYear}>
                         <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            {[currentYear - 2, currentYear - 1, currentYear].map(y => (
+                            {Array.from({ length: 4 }, (_, i) => currentYear - 2 + i).map(y => (
                                 <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                             ))}
                         </SelectContent>
@@ -242,6 +181,7 @@ export default function ArusKasPage() {
                                 )}
 
                                 <TableRow className="bg-muted font-bold"><TableCell>Kenaikan/(Penurunan) Kas Bersih</TableCell><TableCell className={`text-right tabular-nums ${data.netChange >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatCurrency(data.netChange)}</TableCell></TableRow>
+                                <TableRow className="bg-primary/10 font-bold"><TableCell>Saldo Kas Awal Periode</TableCell><TableCell className="text-right tabular-nums">{formatCurrency(data.openingBalance)}</TableCell></TableRow>
                                 <TableRow className="bg-primary/10 font-bold text-lg"><TableCell>Saldo Kas Akhir Periode</TableCell><TableCell className="text-right tabular-nums text-primary">{formatCurrency(data.closingBalance)}</TableCell></TableRow>
 
                                 {data.operating.inflows.length === 0 && data.operating.outflows.length === 0 && (
