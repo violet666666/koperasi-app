@@ -75,8 +75,34 @@ export async function GET(request: Request) {
             take: limit,
         });
 
-        return NextResponse.json({
-            data: shifts.map((s: any) => ({
+        // For open shifts, compute live stats from StoreSale
+        const shiftResults = await Promise.all(shifts.map(async (s: any) => {
+            let liveCash = Number(s.totalSalesCash);
+            let liveQris = Number(s.totalSalesQris);
+            let liveCredit = Number(s.totalSalesCredit);
+            let liveTxCount = s.totalTransactions;
+
+            if (s.status === "open") {
+                const activeSales = await prisma.storeSale.findMany({
+                    where: { shiftId: s.id },
+                    select: { paymentMethod: true, totalAmount: true, metadata: true },
+                });
+                const valid = activeSales.filter((sale: any) => {
+                    if (!sale.metadata) return true;
+                    const meta = typeof sale.metadata === "object" ? sale.metadata : JSON.parse(sale.metadata as string);
+                    return !meta.isVoided;
+                });
+                liveCash = 0; liveQris = 0; liveCredit = 0; liveTxCount = 0;
+                for (const sale of valid) {
+                    liveTxCount++;
+                    const amt = Number(sale.totalAmount || 0);
+                    if (sale.paymentMethod === "cash") liveCash += amt;
+                    else if (sale.paymentMethod === "qris") liveQris += amt;
+                    else if (sale.paymentMethod === "salary_cut") liveCredit += amt;
+                }
+            }
+
+            return {
                 id: s.id,
                 userId: s.userId,
                 userName: s.user.name,
@@ -87,17 +113,21 @@ export async function GET(request: Request) {
                 openingCash: Number(s.openingCash),
                 closingCash: s.closingCash ? Number(s.closingCash) : null,
                 expectedCash: s.expectedCash ? Number(s.expectedCash) : null,
-                totalSalesCash: Number(s.totalSalesCash),
-                totalSalesQris: Number(s.totalSalesQris),
-                totalSalesCredit: Number(s.totalSalesCredit),
-                totalTransactions: s.totalTransactions,
+                totalSalesCash: liveCash,
+                totalSalesQris: liveQris,
+                totalSalesCredit: liveCredit,
+                totalTransactions: liveTxCount,
                 cashDifference: s.cashDifference ? Number(s.cashDifference) : null,
                 notes: s.notes,
                 closedByUserId: s.closedByUserId,
                 status: s.status,
                 salesCount: s._count.storeSales,
                 createdAt: s.createdAt.toISOString(),
-            })),
+            };
+        }));
+
+        return NextResponse.json({
+            data: shiftResults,
             meta: { shiftSchedule: SHIFT_SCHEDULE },
         });
     } catch (error) {

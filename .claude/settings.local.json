@@ -12,6 +12,7 @@
     "context7@claude-plugins-official": true,
     "claude-code-setup@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
-    "expo@claude-plugins-official": true
+    "expo@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true
   }
 }

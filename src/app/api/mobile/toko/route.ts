@@ -152,7 +152,7 @@ export async function POST(request: Request) {
                     });
                     const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
                     const sisaBersih = Number(member.salary || 0) + Number(member.tunlesKinerja || 0) - totalAngsuran;
-                    plafonPiutang = Math.max(0, sisaBersih - 2000000);
+                    plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
                 }
 
                 if (totalAmount > plafonPiutang - totalTagihan) {
@@ -160,8 +160,15 @@ export async function POST(request: Request) {
                 }
             }
 
+            // Generate sequential sale number: POS-M-DDMMYYYY-0001
             const now = new Date();
-            const saleNo = `POS-M-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
+            const datePart = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}${now.getFullYear()}`;
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayCount = await tx.storeSale.count({
+                where: { createdAt: { gte: startOfDay } },
+            });
+            const seq = String(todayCount + 1).padStart(4, "0");
+            const saleNo = `POS-M-${datePart}-${seq}`;
 
             let payment = method === "cash" || method === "qris" ? totalAmount : 0;
             let changeAmount = 0;

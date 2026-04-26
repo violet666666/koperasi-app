@@ -25,13 +25,14 @@ export async function GET(request: Request) {
                 },
                 createdBy: { select: { id: true, name: true } },
                 member: { select: { id: true, name: true, memberNo: true } },
+                shift: { select: { id: true, shiftName: true, status: true } },
             },
             orderBy: { createdAt: "desc" },
             take: limit,
         });
 
         return NextResponse.json({
-            data: sales.map((s: { id: number; saleNo: string; customerName: string | null; member: { id: number; name: string; memberNo: string } | null; totalAmount: unknown; paymentMethod: string; cashReceived: unknown; changeAmount: unknown; createdAt: Date; createdBy: { id: number; name: string }; items: Array<{ id: number; productId: number; product: { id: number; sku: string; name: string }; quantity: number; unitPrice: unknown; subtotal: unknown }> }) => ({
+            data: sales.map((s: any) => ({
                 id: s.id,
                 saleNo: s.saleNo,
                 customerName: s.customerName,
@@ -42,7 +43,10 @@ export async function GET(request: Request) {
                 changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
                 createdAt: s.createdAt.toISOString(),
                 createdBy: s.createdBy,
-                items: s.items.map((i) => ({
+                metadata: s.metadata,
+                shiftId: s.shiftId,
+                shift: s.shift ? { id: s.shift.id, shiftName: s.shift.shiftName, status: s.shift.status } : null,
+                items: s.items.map((i: any) => ({
                     id: i.id,
                     productId: i.productId,
                     product: i.product,
@@ -190,7 +194,7 @@ export async function POST(request: Request) {
                     const salary = Number(member.salary || 0);
                     const tunkin = Number(member.tunlesKinerja || 0);
                     const sisaBersih = salary + tunkin - totalAngsuran;
-                    plafonPiutang = Math.max(0, sisaBersih - 2000000);
+                    plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
                 }
 
                 const sisaLimit = plafonPiutang - totalTagihan;
@@ -205,9 +209,15 @@ export async function POST(request: Request) {
                 changeAmount = 0;
             }
 
-            // Generate sale number
+            // Generate sequential sale number: TK-DDMMYYYY-0001
             const now = new Date();
-            const saleNo = `TK-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${Date.now().toString(36).toUpperCase()}`;
+            const datePart = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}${now.getFullYear()}`;
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayCount = await tx.storeSale.count({
+                where: { createdAt: { gte: startOfDay } },
+            });
+            const seq = String(todayCount + 1).padStart(4, "0");
+            const saleNo = `TK-${datePart}-${seq}`;
 
             // Create journal (inside transaction for atomicity)
             let journalId: number | null = null;

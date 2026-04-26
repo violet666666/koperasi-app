@@ -317,3 +317,13 @@ Void → Kembalikan stockToko + stock
 - **[UI] Checkbox Filtering Laporan Unit**: Filter metode pembayaran (Tunai, QRIS, Potong Gaji) ditambahkan di halaman Laporan Unit (`/unit/[slug]/laporan`) menggunakan Checkbox multi-select. Summary (pendapatan, laba, jumlah transaksi) otomatis terkalkulasi ulang sesuai filter aktif. Export Excel juga menggunakan data terfilter. File: `unit/[unitSlug]/laporan/page.tsx`
 - **[Laporan] Void Exclusion Confirm**: Konfirmasi bahwa API laporan (`/api/unit/[slug]/laporan`) sudah memfilter transaksi voided secara server-side — UnitTransaction via `status: { notIn: ["voided"] }`, StoreSale via `!meta.isVoided`. Voided hanya muncul di Riwayat Transaksi, tidak masuk Laporan.
 
+---
+
+## Changelog — 26 April 2026 (Batch 2: Shift & Piutang)
+
+- **[CRITICAL] Limit Piutang 50% Gaji**: Formula plafon piutang untuk pembayaran potong gaji diubah dari `(sisaBersih - Rp 2.000.000)` menjadi **50% × sisaBersih** (`Math.floor(sisaBersih * 0.5)`). Berlaku di 3 endpoint: (1) `toko/sales/route.ts`, (2) `mobile/toko/route.ts`, (3) `unit-transactions/validate/route.ts`
+- **[Shift] Detail View**: Riwayat shift di `/toko/shift` sekarang bisa diklik untuk melihat detail lengkap: info shift, breakdown metode pembayaran, tabel transaksi, produk terlaris, dan rekonsiliasi kas. Endpoint baru: `GET /api/toko/shifts/[id]/sales`
+- **[Shift] Live Stats**: Stats shift aktif (tunai, QRIS, kredit, jumlah trx) sekarang dihitung real-time dari StoreSale terikat shift, bukan statis 0. File: `api/toko/shifts/route.ts`
+- **[Riwayat] Filter Per Shift**: Riwayat transaksi toko (`/toko/riwayat`) mendapat checkbox filter per shift. Setiap baris transaksi menampilkan badge shift (Pagi/Siang/Malam). API sales sekarang mengembalikan `shiftId` dan `shift` info
+- **[Transaksi] Nomor Sequential**: Format `saleNo` diubah dari `TK-YYYYMMDD-BASE36` ke `TK-DDMMYYYY-SEQ` (contoh: `TK-26042026-0001`). Berlaku untuk web POS dan mobile POS (`POS-M-DDMMYYYY-SEQ`). Format lama tetap valid untuk transaksi yang sudah ada
+

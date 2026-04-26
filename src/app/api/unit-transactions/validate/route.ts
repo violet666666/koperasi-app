@@ -87,9 +87,8 @@ export async function POST(request: Request) {
             const tunkin = Number(member.tunlesKinerja || 0);
             const sisaBersih = salary + tunkin - totalAngsuran;
             
-            // Batas minimal aman gaji tersisa menurut AD-ART adalah Rp 2.000.000
-            const batasAman = 2000000;
-            plafonPiutang = Math.max(0, sisaBersih - batasAman);
+            // Limit piutang = 50% dari sisa bersih gaji (setelah potongan angsuran)
+            plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
         }
 
         // Sumber: UnitTransaction (semua unit, karena Toko juga buat UnitTransaction untuk piutangnya)

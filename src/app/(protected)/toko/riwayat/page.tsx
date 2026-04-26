@@ -45,6 +45,8 @@ interface Sale {
     createdBy: { id: number; name: string };
     items: SaleItem[];
     metadata?: any;
+    shiftId?: number | null;
+    shift?: { id: number; shiftName: string; status: string } | null;
 }
 
 const paymentMethodLabel = (m: string) => {
@@ -84,6 +86,8 @@ export default function RiwayatTransaksiPage() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
     const [showVoided, setShowVoided] = React.useState(true);
+    const [shiftFilter, setShiftFilter] = React.useState<string>("all");
+    const [availableShifts, setAvailableShifts] = React.useState<{ id: number; shiftName: string; startedAt: string; status: string }[]>([]);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {
@@ -100,10 +104,22 @@ export default function RiwayatTransaksiPage() {
         async function fetchSales() {
             setIsLoading(true);
             try {
-                const res = await fetch(`/api/toko/sales?unitType=${unitType}&limit=500`);
-                if (!res.ok) throw new Error();
-                const json = await res.json();
-                setSales(json.data || []);
+                const [salesRes, shiftsRes] = await Promise.all([
+                    fetch(`/api/toko/sales?unitType=${unitType}&limit=500`),
+                    fetch(`/api/toko/shifts?unitType=${unitType}&limit=50`),
+                ]);
+                if (!salesRes.ok) throw new Error();
+                const salesJson = await salesRes.json();
+                setSales(salesJson.data || []);
+                if (shiftsRes.ok) {
+                    const shiftsJson = await shiftsRes.json();
+                    setAvailableShifts((shiftsJson.data || []).map((s: any) => ({
+                        id: s.id,
+                        shiftName: s.shiftName,
+                        startedAt: s.startedAt,
+                        status: s.status,
+                    })));
+                }
             } catch {
                 toast.error("Gagal memuat riwayat transaksi");
             } finally {
@@ -123,9 +139,12 @@ export default function RiwayatTransaksiPage() {
                 (s.member?.name && s.member.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 s.items.some(i => i.product.name.toLowerCase().includes(searchQuery.toLowerCase()));
             const matchMethod = methodFilters.has(s.paymentMethod);
-            return matchSearch && matchMethod;
+            const matchShift = shiftFilter === "all"
+                || (shiftFilter === "none" && !s.shiftId)
+                || (shiftFilter !== "none" && s.shiftId === Number(shiftFilter));
+            return matchSearch && matchMethod && matchShift;
         });
-    }, [sales, searchQuery, methodFilters, showVoided]);
+    }, [sales, searchQuery, methodFilters, showVoided, shiftFilter]);
 
     const stats = React.useMemo(() => {
         const activeSales = sales.filter(s => !(s.metadata && typeof s.metadata === "object" && s.metadata.isVoided));
@@ -206,6 +225,26 @@ export default function RiwayatTransaksiPage() {
                         <Checkbox checked={showVoided} onCheckedChange={(c) => setShowVoided(c === true)} />
                         <span className="text-muted-foreground">Tampilkan Void</span>
                     </label>
+                    {availableShifts.length > 0 && (
+                        <>
+                            <Separator orientation="vertical" className="h-5 mx-1" />
+                            <span className="text-sm text-muted-foreground font-medium">Shift:</span>
+                            {availableShifts.map(sh => {
+                                const date = new Date(sh.startedAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+                                return (
+                                    <label key={sh.id} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                                        <Checkbox
+                                            checked={shiftFilter === String(sh.id)}
+                                            onCheckedChange={(c) => setShiftFilter(c ? String(sh.id) : "all")}
+                                        />
+                                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span>{sh.shiftName} ({date})</span>
+                                        {sh.status === "open" && <Badge className="text-[9px] bg-green-100 text-green-700">LIVE</Badge>}
+                                    </label>
+                                );
+                            })}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -225,13 +264,14 @@ export default function RiwayatTransaksiPage() {
                                     <TableHead className="text-center">Pembayaran</TableHead>
                                     <TableHead className="text-right">Total</TableHead>
                                     <TableHead>Kasir</TableHead>
-                                    <TableHead className="text-center w-[60px]"></TableHead>
+                                    <TableHead className="text-center">Shift</TableHead>
+                                    <TableHead className="text-center w-[40px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filtered.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                                        <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                                             {searchQuery ? "Transaksi tidak ditemukan" : "Belum ada transaksi"}
                                         </TableCell>
                                     </TableRow>
@@ -276,6 +316,19 @@ export default function RiwayatTransaksiPage() {
                                                 <span className="font-bold tabular-nums text-sm">{formatCurrency(sale.totalAmount)}</span>
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{sale.createdBy.name}</TableCell>
+                                            <TableCell className="text-center">
+                                                {sale.shift ? (
+                                                    <Badge variant="outline" className={`text-[10px] ${
+                                                        sale.shift.status === "open"
+                                                            ? "border-green-300 text-green-700 bg-green-50"
+                                                            : "border-slate-300 text-slate-600"
+                                                    }`}>
+                                                        {sale.shift.shiftName}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-center">
                                                 <Eye className="h-4 w-4 text-muted-foreground" />
                                             </TableCell>

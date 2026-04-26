@@ -22,11 +22,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import {
     Clock, DollarSign, PlayCircle, StopCircle, Loader2,
     ArrowRight, Banknote, CreditCard, QrCode, AlertTriangle,
     CheckCircle, User, Calendar, TrendingUp, TrendingDown,
+    Package, Eye,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -84,6 +88,27 @@ export default function ShiftKasirPage() {
     const [closeNotes, setCloseNotes] = React.useState("");
     const [closing, setClosing] = React.useState(false);
     const [closeResult, setCloseResult] = React.useState<any>(null);
+
+    // Shift detail dialog
+    const [detailOpen, setDetailOpen] = React.useState(false);
+    const [detailData, setDetailData] = React.useState<any>(null);
+    const [detailLoading, setDetailLoading] = React.useState(false);
+
+    const fetchShiftDetail = async (shiftId: number) => {
+        setDetailLoading(true);
+        setDetailOpen(true);
+        try {
+            const res = await fetch(`/api/toko/shifts/${shiftId}/sales`);
+            if (!res.ok) throw new Error();
+            const json = await res.json();
+            setDetailData(json.data);
+        } catch {
+            toast.error("Gagal memuat detail shift");
+            setDetailOpen(false);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
 
     // Auto-detect shift name berdasarkan jam
     React.useEffect(() => {
@@ -328,7 +353,8 @@ export default function ShiftKasirPage() {
                         {history.map((s) => (
                             <div
                                 key={s.id}
-                                className="rounded-lg border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                                className="rounded-lg border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => fetchShiftDetail(s.id)}
                             >
                                 <div className="flex-1 space-y-1">
                                     <div className="flex items-center gap-2">
@@ -375,13 +401,14 @@ export default function ShiftKasirPage() {
                                                 }`}
                                             >
                                                 {s.cashDifference === 0
-                                                    ? "✅ Seimbang"
+                                                    ? "Seimbang"
                                                     : s.cashDifference > 0
                                                     ? `+${formatRp(s.cashDifference)}`
                                                     : formatRp(s.cashDifference)}
                                             </p>
                                         </div>
                                     )}
+                                    <Eye className="h-4 w-4 text-muted-foreground" />
                                 </div>
                             </div>
                         ))}
@@ -533,6 +560,181 @@ export default function ShiftKasirPage() {
                             </DialogFooter>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── SHIFT DETAIL DIALOG ─────────────────────────── */}
+            <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5" />
+                            {detailData ? `Detail Shift ${detailData.shift.shiftName}` : "Detail Shift"}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {detailLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : detailData ? (
+                        <div className="space-y-4">
+                            {/* Shift Info */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="rounded-lg bg-muted/50 p-3">
+                                    <p className="text-xs text-muted-foreground">Kasir</p>
+                                    <p className="font-medium">{detailData.shift.userName}</p>
+                                </div>
+                                <div className="rounded-lg bg-muted/50 p-3">
+                                    <p className="text-xs text-muted-foreground">Waktu</p>
+                                    <p className="font-medium text-sm">
+                                        {formatDateTime(detailData.shift.startedAt)}
+                                        {detailData.shift.endedAt && (
+                                            <> <ArrowRight className="inline h-3 w-3" /> {formatDateTime(detailData.shift.endedAt)}</>
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="rounded-lg bg-blue-50 p-3">
+                                    <p className="text-xs text-muted-foreground">Modal Awal</p>
+                                    <p className="font-bold text-blue-600">{formatRp(detailData.shift.openingCash)}</p>
+                                </div>
+                                <div className="rounded-lg bg-green-50 p-3">
+                                    <p className="text-xs text-muted-foreground">Total Pendapatan</p>
+                                    <p className="font-bold text-green-600">{formatRp(detailData.summary.totalRevenue)}</p>
+                                </div>
+                            </div>
+
+                            {/* Payment breakdown */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-lg border p-3 flex items-center gap-3">
+                                    <Banknote className="h-5 w-5 text-emerald-500" />
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Tunai</p>
+                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalCash)}</p>
+                                    </div>
+                                </div>
+                                <div className="rounded-lg border p-3 flex items-center gap-3">
+                                    <QrCode className="h-5 w-5 text-blue-500" />
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">QRIS</p>
+                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalQris)}</p>
+                                    </div>
+                                </div>
+                                <div className="rounded-lg border p-3 flex items-center gap-3">
+                                    <CreditCard className="h-5 w-5 text-orange-500" />
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Potong Gaji</p>
+                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalCredit)}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cash reconciliation (if closed) */}
+                            {detailData.shift.status === "closed" && detailData.shift.cashDifference != null && (
+                                <div className={`rounded-lg p-3 border-2 ${
+                                    detailData.shift.cashDifference === 0
+                                        ? "border-green-200 bg-green-50"
+                                        : "border-red-200 bg-red-50"
+                                }`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-medium text-sm">Selisih Kas</span>
+                                        <span className={`font-bold text-lg ${
+                                            detailData.shift.cashDifference === 0 ? "text-green-600" : "text-red-600"
+                                        }`}>
+                                            {detailData.shift.cashDifference === 0
+                                                ? "Seimbang"
+                                                : formatRp(detailData.shift.cashDifference)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                        <span>Modal + Tunai: {formatRp(detailData.shift.expectedCash || 0)}</span>
+                                        <span>Fisik: {detailData.shift.closingCash != null ? formatRp(detailData.shift.closingCash) : "-"}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Transaction Table */}
+                            <div>
+                                <h4 className="text-sm font-semibold mb-2">
+                                    Transaksi ({detailData.sales.length} — {detailData.summary.voidedSales} void)
+                                </h4>
+                                <div className="rounded-lg border overflow-hidden">
+                                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="text-xs">No. Transaksi</TableHead>
+                                                    <TableHead className="text-xs">Waktu</TableHead>
+                                                    <TableHead className="text-xs">Pelanggan</TableHead>
+                                                    <TableHead className="text-xs text-center">Item</TableHead>
+                                                    <TableHead className="text-xs">Metode</TableHead>
+                                                    <TableHead className="text-xs text-right">Total</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {detailData.sales.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={6} className="text-center text-muted-foreground py-6 text-sm">
+                                                            Tidak ada transaksi
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : detailData.sales.map((sale: any) => (
+                                                    <TableRow key={sale.id} className={sale.isVoided ? "opacity-50" : ""}>
+                                                        <TableCell>
+                                                            <span className={`font-mono text-xs ${sale.isVoided ? "line-through" : ""}`}>
+                                                                {sale.saleNo}
+                                                            </span>
+                                                            {sale.isVoided && (
+                                                                <Badge variant="destructive" className="ml-1 text-[9px]">VOID</Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs">
+                                                            {new Date(sale.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs">
+                                                            {sale.member?.name || sale.customerName || "Umum"}
+                                                        </TableCell>
+                                                        <TableCell className="text-center text-xs">
+                                                            {sale.items.reduce((s: number, i: any) => s + i.quantity, 0)} pcs
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className={`text-[10px] ${
+                                                                sale.paymentMethod === "cash" ? "border-emerald-300 text-emerald-700" :
+                                                                sale.paymentMethod === "qris" ? "border-blue-300 text-blue-700" :
+                                                                "border-orange-300 text-orange-700"
+                                                            }`}>
+                                                                {sale.paymentMethod === "cash" ? "Tunai" : sale.paymentMethod === "qris" ? "QRIS" : "Potong Gaji"}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-medium text-xs">
+                                                            {formatRp(sale.totalAmount)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Top Products */}
+                            {detailData.topProducts.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-1">
+                                        <Package className="h-4 w-4" /> Produk Terlaris
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {detailData.topProducts.map((p: any) => (
+                                            <div key={p.name} className="rounded-lg border px-3 py-2 text-sm">
+                                                <p className="font-medium">{p.name}</p>
+                                                <p className="text-xs text-muted-foreground">{p.qty} pcs — {formatRp(p.revenue)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
                 </DialogContent>
             </Dialog>
         </div>
