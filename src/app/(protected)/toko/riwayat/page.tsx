@@ -13,9 +13,8 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     Search, ShoppingBag, Eye, Banknote, CreditCard, QrCode,
@@ -83,7 +82,17 @@ export default function RiwayatTransaksiPage() {
     const [sales, setSales] = React.useState<Sale[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState("");
-    const [filterMethod, setFilterMethod] = React.useState("all");
+    const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
+    const [showVoided, setShowVoided] = React.useState(true);
+
+    const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
+        setMethodFilters(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(method);
+            else next.delete(method);
+            return next;
+        });
+    };
     const [selectedSale, setSelectedSale] = React.useState<Sale | null>(null);
     const [detailOpen, setDetailOpen] = React.useState(false);
 
@@ -106,17 +115,17 @@ export default function RiwayatTransaksiPage() {
 
     const filtered = React.useMemo(() => {
         return sales.filter(s => {
-            // Filter voided
-            const isVoided = s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;
+            const voided = s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;
+            if (!showVoided && voided) return false;
             const matchSearch = !searchQuery ||
                 s.saleNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (s.customerName && s.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (s.member?.name && s.member.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 s.items.some(i => i.product.name.toLowerCase().includes(searchQuery.toLowerCase()));
-            const matchMethod = filterMethod === "all" || s.paymentMethod === filterMethod;
+            const matchMethod = methodFilters.has(s.paymentMethod);
             return matchSearch && matchMethod;
         });
-    }, [sales, searchQuery, filterMethod]);
+    }, [sales, searchQuery, methodFilters, showVoided]);
 
     const stats = React.useMemo(() => {
         const activeSales = sales.filter(s => !(s.metadata && typeof s.metadata === "object" && s.metadata.isVoided));
@@ -166,25 +175,38 @@ export default function RiwayatTransaksiPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder="Cari no. transaksi, nama pelanggan, atau produk..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                    />
+            <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari no. transaksi, nama pelanggan, atau produk..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
                 </div>
-                <Select value={filterMethod} onValueChange={setFilterMethod}>
-                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Semua Metode</SelectItem>
-                        <SelectItem value="cash">Tunai</SelectItem>
-                        <SelectItem value="qris">QRIS</SelectItem>
-                        <SelectItem value="salary_cut">Potong Gaji</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
+                    <span className="text-sm text-muted-foreground font-medium">Metode:</span>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={methodFilters.has("cash")} onCheckedChange={(c) => toggleMethod("cash", c)} />
+                        <Banknote className="h-3.5 w-3.5 text-emerald-600" /> Tunai
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={methodFilters.has("qris")} onCheckedChange={(c) => toggleMethod("qris", c)} />
+                        <QrCode className="h-3.5 w-3.5 text-blue-600" /> QRIS
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={methodFilters.has("salary_cut")} onCheckedChange={(c) => toggleMethod("salary_cut", c)} />
+                        <CreditCard className="h-3.5 w-3.5 text-amber-600" /> Potong Gaji
+                    </label>
+                    <Separator orientation="vertical" className="h-5 mx-1" />
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={showVoided} onCheckedChange={(c) => setShowVoided(c === true)} />
+                        <span className="text-muted-foreground">Tampilkan Void</span>
+                    </label>
+                </div>
             </div>
 
             {/* Transaction Table */}

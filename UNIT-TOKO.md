@@ -313,4 +313,7 @@ Void → Kembalikan stockToko + stock
   - `duplicates/route.ts` — deteksi duplikat sekarang per unit
   - `sync-stock/route.ts` — sinkronisasi stok sekarang per unit
   - `reset/route.ts` — hapus semua produk sekarang hanya menghapus produk dari unit user
+- **[UI] Checkbox Filtering Riwayat Toko**: Filter metode pembayaran di `/toko/riwayat` diubah dari Select dropdown (single) ke Checkbox (multi-select). Tambah checkbox "Tampilkan Void" untuk toggle visibilitas transaksi voided. File: `toko/riwayat/page.tsx`
+- **[UI] Checkbox Filtering Laporan Unit**: Filter metode pembayaran (Tunai, QRIS, Potong Gaji) ditambahkan di halaman Laporan Unit (`/unit/[slug]/laporan`) menggunakan Checkbox multi-select. Summary (pendapatan, laba, jumlah transaksi) otomatis terkalkulasi ulang sesuai filter aktif. Export Excel juga menggunakan data terfilter. File: `unit/[unitSlug]/laporan/page.tsx`
+- **[Laporan] Void Exclusion Confirm**: Konfirmasi bahwa API laporan (`/api/unit/[slug]/laporan`) sudah memfilter transaksi voided secara server-side — UnitTransaction via `status: { notIn: ["voided"] }`, StoreSale via `!meta.isVoided`. Voided hanya muncul di Riwayat Transaksi, tidak masuk Laporan.
 

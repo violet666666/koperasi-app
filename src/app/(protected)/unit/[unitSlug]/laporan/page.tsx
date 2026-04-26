@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Dialog,
     DialogContent,
@@ -59,6 +60,7 @@ import {
     FileImage,
     Send,
     Award,
+    CreditCard,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -176,6 +178,18 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // Submit Laporan ke Operator
     const [isSubmittingLaporan, setIsSubmittingLaporan] = React.useState(false);
+
+    // Checkbox method filters
+    const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
+
+    const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
+        setMethodFilters(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(method);
+            else next.delete(method);
+            return next;
+        });
+    };
 
     // Income Dialog (Catat Pemasukan)
     const [showIncomeDialog, setShowIncomeDialog] = React.useState(false);
@@ -361,7 +375,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 [],
                 headerRow,
             ];
-            data.transactions.forEach((tx, i) => {
+            transactions.forEach((tx, i) => {
                 const row = [
                     i + 1,
                     new Date(tx.date).toLocaleDateString("id-ID"),
@@ -478,10 +492,33 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         );
     }
 
-    const transactions = data?.transactions || [];
+    const rawTransactions = data?.transactions || [];
     const expenses = data?.operationalExpenses || [];
     const incomes = data?.operationalIncomes || [];
-    const summary = data?.summary;
+    const rawSummary = data?.summary;
+
+    // Apply checkbox method filters client-side
+    const transactions = React.useMemo(() => {
+        return rawTransactions.filter(tx => methodFilters.has(tx.paymentMethod));
+    }, [rawTransactions, methodFilters]);
+
+    const summary = React.useMemo(() => {
+        if (!rawSummary) return null;
+        if (methodFilters.size === 3) return rawSummary;
+        const tunai = transactions.filter(tx => tx.paymentMethod === "cash").reduce((s, tx) => s + tx.amount, 0);
+        const qris = transactions.filter(tx => tx.paymentMethod === "qris").reduce((s, tx) => s + tx.amount, 0);
+        const potongGaji = transactions.filter(tx => tx.paymentMethod === "salary_cut").reduce((s, tx) => s + tx.amount, 0);
+        const totalPendapatan = transactions.reduce((s, tx) => s + tx.amount, 0) + rawSummary.totalPemasukan;
+        return {
+            ...rawSummary,
+            totalPendapatan,
+            totalTransaksi: transactions.length,
+            tunai,
+            qris,
+            potongGaji,
+            laba: totalPendapatan - rawSummary.totalPengeluaran - rawSummary.potonganSHUMember,
+        };
+    }, [rawSummary, transactions, methodFilters]);
 
     // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
     const isCuciMobil = unitType === "cuci_mobil";
@@ -569,7 +606,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
             {/* ── Period Filter (hidden on print) ──────────────────────────── */}
             <Card className="print:hidden">
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-3 items-end">
                         <div>
                             <Label className="text-xs mb-1 block">Filter Periode</Label>
@@ -600,6 +637,21 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 </Button>
                             </>
                         )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 items-center border-t pt-3">
+                        <span className="text-sm text-muted-foreground font-medium">Metode Bayar:</span>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                            <Checkbox checked={methodFilters.has("cash")} onCheckedChange={(c) => toggleMethod("cash", c)} />
+                            <Banknote className="h-3.5 w-3.5 text-emerald-600" /> Tunai
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                            <Checkbox checked={methodFilters.has("qris")} onCheckedChange={(c) => toggleMethod("qris", c)} />
+                            <QrCode className="h-3.5 w-3.5 text-blue-600" /> QRIS
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                            <Checkbox checked={methodFilters.has("salary_cut")} onCheckedChange={(c) => toggleMethod("salary_cut", c)} />
+                            <CreditCard className="h-3.5 w-3.5 text-indigo-600" /> Potong Gaji
+                        </label>
                     </div>
                 </CardContent>
             </Card>
