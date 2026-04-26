@@ -179,6 +179,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     // Submit Laporan ke Operator
     const [isSubmittingLaporan, setIsSubmittingLaporan] = React.useState(false);
 
+    // Delete confirmation dialog with reason
+    const [deleteTarget, setDeleteTarget] = React.useState<{ id: number; type: "expense" | "income" } | null>(null);
+    const [deleteReason, setDeleteReason] = React.useState("");
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
     // Checkbox method filters
     const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
 
@@ -247,16 +252,33 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setShowExpenseDialog(true);
     };
 
-    const handleDeleteExpense = async (id: number) => {
-        if (!confirm("Apakah Anda yakin ingin menghapus pengeluaran ini?\nSaldo kas akan otomatis terkalkulasi ulang.")) return;
+    const handleDeleteExpense = (id: number) => {
+        setDeleteTarget({ id, type: "expense" });
+        setDeleteReason("");
+    };
+
+    const handleDeleteIncome = (id: number) => {
+        setDeleteTarget({ id, type: "income" });
+        setDeleteReason("");
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget || !deleteReason.trim()) {
+            toast.error("Alasan penghapusan wajib diisi");
+            return;
+        }
+        setIsDeleting(true);
         try {
-            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${deleteTarget.id}?reason=${encodeURIComponent(deleteReason.trim())}`, { method: "DELETE" });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
-            toast.success("Pengeluaran berhasil dihapus");
+            toast.success(deleteTarget.type === "income" ? "Pemasukan berhasil dihapus" : "Pengeluaran berhasil dihapus");
+            setDeleteTarget(null);
             fetchLaporan();
         } catch (err: any) {
-            toast.error(err.message || "Gagal menghapus pengeluaran");
+            toast.error(err.message || "Gagal menghapus");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -312,19 +334,6 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             toast.error(err.message || "Gagal menyimpan pemasukan");
         } finally {
             setIsSavingIncome(false);
-        }
-    };
-
-    const handleDeleteIncome = async (id: number) => {
-        if (!confirm("Apakah Anda yakin ingin menghapus pemasukan ini?\nSaldo kas akan otomatis terkalkulasi ulang.")) return;
-        try {
-            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${id}`, { method: "DELETE" });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.message);
-            toast.success("Pemasukan berhasil dihapus");
-            fetchLaporan();
-        } catch (err: any) {
-            toast.error(err.message || "Gagal menghapus pemasukan");
         }
     };
 
@@ -1386,6 +1395,50 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         >
                             {isSavingIncome ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                             Simpan Pemasukan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Dialog Konfirmasi Hapus ────────────────────────────────── */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <AlertCircle className="h-5 w-5" />
+                            Konfirmasi Hapus
+                        </DialogTitle>
+                        <DialogDescription>
+                            {deleteTarget?.type === "income"
+                                ? "Pemasukan ini akan dihapus permanen beserta bukti fotonya. Saldo kas akan otomatis terkalkulasi ulang."
+                                : "Pengeluaran ini akan dihapus permanen beserta bukti fotonya. Saldo kas akan otomatis terkalkulasi ulang."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+                            Tindakan ini tidak dapat dibatalkan. Data yang dihapus akan dicatat di log audit.
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="delete-reason">Alasan Penghapusan *</Label>
+                            <Textarea
+                                id="delete-reason"
+                                placeholder="Wajib isi alasan penghapusan..."
+                                className="resize-none"
+                                rows={2}
+                                value={deleteReason}
+                                onChange={(e) => setDeleteReason(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
+                        <Button
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={confirmDelete}
+                            disabled={isDeleting || !deleteReason.trim()}
+                        >
+                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Ya, Hapus
                         </Button>
                     </DialogFooter>
                 </DialogContent>

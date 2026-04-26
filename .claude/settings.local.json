@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npx prisma *)",
+      "Bash(psql *)",
+      "Bash(node *)"
     ]
   },
   "enabledPlugins": {

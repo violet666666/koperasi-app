@@ -130,27 +130,28 @@ export async function POST(
             ? `[${unitType.toUpperCase()}] Pengeluaran Operasional: ${description}||RECEIPT:${receiptImagePath}`
             : `[${unitType.toUpperCase()}] Pengeluaran Operasional: ${description}`;
 
-        const cashTx = await prisma.cashBankTransaction.create({
-            data: {
-                transactionNo,
-                accountId: cashAccount.id,
-                branchId,
-                type: "out",
-                category: "operational",
-                amount: nominalAmount,
-                balanceBefore: currentBalance,
-                balanceAfter: newBalance,
-                unitType: unitType,
-                description: descWithMeta,
-                transactionDate: txDate,
-                createdById: currentUserId,
-            },
-        });
-
-        await prisma.cashBankAccount.update({
-            where: { id: cashAccount.id },
-            data: { currentBalance: newBalance },
-        });
+        const [cashTx] = await prisma.$transaction([
+            prisma.cashBankTransaction.create({
+                data: {
+                    transactionNo,
+                    accountId: cashAccount.id,
+                    branchId,
+                    type: "out",
+                    category: "operational",
+                    amount: nominalAmount,
+                    balanceBefore: currentBalance,
+                    balanceAfter: newBalance,
+                    unitType: unitType,
+                    description: descWithMeta,
+                    transactionDate: txDate,
+                    createdById: currentUserId,
+                },
+            }),
+            prisma.cashBankAccount.update({
+                where: { id: cashAccount.id },
+                data: { currentBalance: newBalance },
+            }),
+        ]);
 
         return NextResponse.json({
             message: "Pengeluaran operasional berhasil dicatat.",

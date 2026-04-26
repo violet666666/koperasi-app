@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logAuditFromRequest } from "@/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -39,25 +40,57 @@ export async function DELETE(
 
         const transactionId = parseInt(id);
 
+        // Parse reason from URL params
+        const { searchParams } = new URL(request.url);
+        const reason = searchParams.get("reason") || "Tanpa alasan";
+
+        let deletedRecord: any = null;
+
         await prisma.$transaction(async (tx) => {
             const t = await tx.cashBankTransaction.findUnique({
                 where: { id: transactionId },
             });
             if (!t) throw new Error("Transaksi tidak ditemukan");
 
+            // Save snapshot for audit log before deleting
+            deletedRecord = {
+                id: t.id,
+                transactionNo: t.transactionNo,
+                type: t.type,
+                category: t.category,
+                amount: Number(t.amount),
+                description: t.description,
+                transactionDate: t.transactionDate,
+                unitType: t.unitType,
+                balanceBefore: Number(t.balanceBefore),
+                balanceAfter: Number(t.balanceAfter),
+            };
+
             const accountId = t.accountId;
-            // Pengeluaran operasional (type: out). Menghapus ini berarti KITA MENGEMBALIKAN saldo (+amount).
-            const amountImpact = Number(t.amount);
+            // Deleting "out" (expense) = add back amount (+). Deleting "in" (income) = subtract amount (-).
+            const amountImpact = t.type === "out" ? Number(t.amount) : -Number(t.amount);
+
+            // Extract and delete associated receipt file
+            const rawDesc = t.description ?? "";
+            const receiptSplit = rawDesc.split("||RECEIPT:");
+            if (receiptSplit.length > 1) {
+                const receiptPath = receiptSplit[1];
+                const fileIdMatch = receiptPath.match(/\/api\/uploads\/(\d+)/);
+                if (fileIdMatch) {
+                    const fileId = parseInt(fileIdMatch[1]);
+                    await tx.uploadedFile.deleteMany({ where: { id: fileId } }).catch(() => {});
+                }
+            }
 
             // Update all SUBSEQUENT transactions' running balances
             await tx.$executeRaw`
                 UPDATE "cash_bank_transactions"
-                SET 
+                SET
                     "balance_before" = "balance_before" + ${amountImpact},
                     "balance_after" = "balance_after" + ${amountImpact}
                 WHERE "account_id" = ${accountId}
                   AND (
-                      "transaction_date" > ${t.transactionDate} 
+                      "transaction_date" > ${t.transactionDate}
                       OR ("transaction_date" = ${t.transactionDate} AND "id" > ${t.id})
                   )
             `;
@@ -75,6 +108,19 @@ export async function DELETE(
                 }
             });
         });
+
+        // Audit log (fire-and-forget)
+        if (deletedRecord && access.session) {
+            logAuditFromRequest(request, access.session, {
+                action: "DELETE",
+                module: "Laporan",
+                description: `Hapus ${deletedRecord.type === "in" ? "pemasukan" : "pengeluaran"} operasional ${deletedRecord.unitType || ""}: ${deletedRecord.description?.split("||RECEIPT:")[0] || "-"} — Rp${Number(deletedRecord.amount).toLocaleString("id-ID")}. Alasan: ${reason}`,
+                targetId: deletedRecord.id,
+                targetType: "CashBankTransaction",
+                oldData: deletedRecord,
+                metadata: { reason, transactionNo: deletedRecord.transactionNo },
+            }).catch(() => {});
+        }
 
         return NextResponse.json({ message: "Pengeluaran berhasil dihapus dan saldo kas/bank terkalkulasi ulang" });
     } catch (error: any) {
