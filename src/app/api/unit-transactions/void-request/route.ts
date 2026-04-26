@@ -69,34 +69,47 @@ export async function POST(request: Request) {
 
             // JALUR A: Operator/Superadmin → Void langsung (bypass approval)
             if (isOperator) {
-                // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
-                for (const item of storeSale.items) {
-                    const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
-                    if (prod && !prod.isService) {
-                        const newStockToko = prod.stockToko + item.quantity;
-                        const newStock = newStockToko + prod.stockGdg;
+                await prisma.$transaction(async (tx) => {
+                    // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
+                    for (const item of storeSale.items) {
+                        const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                        if (prod && !prod.isService) {
+                            const newStockToko = prod.stockToko + item.quantity;
+                            const newStock = newStockToko + prod.stockGdg;
 
-                        await prisma.storeProduct.update({
-                            where: { id: item.productId },
-                            data: {
-                                stockToko: newStockToko,
-                                stock: newStock,
-                            },
-                        });
+                            await tx.storeProduct.update({
+                                where: { id: item.productId },
+                                data: {
+                                    stockToko: newStockToko,
+                                    stock: newStock,
+                                },
+                            });
 
-                        // Insert log mutasi pengembalian stok
-                        await prisma.storeStockMovement.create({
-                            data: {
-                                productId: item.productId,
-                                type: "in",
-                                quantity: item.quantity,
-                                reference: `VOID ${storeSale.saleNo}`,
-                                notes: `Pengembalian stok (void operator)`,
-                                operatorId: currentUserId,
-                            },
-                        });
+                            // Insert log mutasi pengembalian stok
+                            await tx.storeStockMovement.create({
+                                data: {
+                                    productId: item.productId,
+                                    type: "in",
+                                    quantity: item.quantity,
+                                    reference: `VOID ${storeSale.saleNo}`,
+                                    notes: `Pengembalian stok (void operator)`,
+                                    operatorId: currentUserId,
+                                },
+                            });
+                        }
                     }
-                }
+
+                    // Tandai sebagai voided
+                    metadata.isVoided = true;
+                    metadata.voidReason = reason;
+                    metadata.voidedById = currentUserId;
+                    metadata.voidedAt = now.toISOString();
+
+                    await tx.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata: metadata },
+                    });
+                });
 
                 // ── FIX Bug #2: Reverse side-effects keuangan ───────────────
                 // 1. Reverse Journal (jika ada)
@@ -190,17 +203,6 @@ export async function POST(request: Request) {
                     console.error("[Void] Gagal void piutang terkait (non-fatal):", piutangErr);
                 }
                 // ── END FIX Bug #2 ──────────────────────────────────────────
-
-                // Tandai sebagai voided
-                metadata.isVoided = true;
-                metadata.voidReason = reason;
-                metadata.voidedById = currentUserId;
-                metadata.voidedAt = now.toISOString();
-
-                await prisma.storeSale.update({
-                    where: { id: storeSale.id },
-                    data: { metadata: metadata },
-                });
 
                 return NextResponse.json({
                     message: "Transaksi Toko dibatalkan oleh Operator. Stok telah dikembalikan.",

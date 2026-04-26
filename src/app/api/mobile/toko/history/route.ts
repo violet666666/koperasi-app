@@ -120,27 +120,39 @@ export async function POST(request: Request) {
 
         // Operator: auto-void langsung — restore stock to stockToko (same as web void flow)
         if (isOperator) {
-            for (const item of sale.items) {
-                const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
-                if (prod && !(prod as any).isService) {
-                    // Restore to stockToko first (matches the web void-approve pattern)
-                    const newStockToko = prod.stockToko + item.quantity;
-                    const newStock = newStockToko + prod.stockGdg;
-                    await prisma.storeProduct.update({
-                        where: { id: item.productId },
-                        data: { stockToko: newStockToko, stock: newStock },
-                    });
+            await prisma.$transaction(async (tx) => {
+                for (const item of sale.items) {
+                    const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                    if (prod && !prod.isService) {
+                        const newStockToko = prod.stockToko + item.quantity;
+                        const newStock = newStockToko + prod.stockGdg;
+                        await tx.storeProduct.update({
+                            where: { id: item.productId },
+                            data: { stockToko: newStockToko, stock: newStock },
+                        });
+
+                        await tx.storeStockMovement.create({
+                            data: {
+                                productId: item.productId,
+                                type: "in",
+                                quantity: item.quantity,
+                                reference: `VOID ${sale.saleNo}`,
+                                notes: `Pengembalian stok (void operator mobile)`,
+                                operatorId: currentUserId,
+                            },
+                        });
+                    }
                 }
-            }
 
-            metadata.isVoided = true;
-            metadata.voidReason = reason;
-            metadata.voidedById = currentUserId;
-            metadata.voidedAt = now.toISOString();
+                metadata.isVoided = true;
+                metadata.voidReason = reason;
+                metadata.voidedById = currentUserId;
+                metadata.voidedAt = now.toISOString();
 
-            await prisma.storeSale.update({
-                where: { id: sale.id },
-                data: { metadata },
+                await tx.storeSale.update({
+                    where: { id: sale.id },
+                    data: { metadata },
+                });
             });
 
             return NextResponse.json({

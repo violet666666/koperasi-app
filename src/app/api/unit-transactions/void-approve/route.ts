@@ -78,18 +78,9 @@ export async function POST(request: Request) {
         const now = new Date();
 
         // ── Atomic guard: Claim this request exclusively ──────────────
-        // Prevents race condition where double-click sends 2 requests
-        // and both pass the `status === "pending"` check above.
-        const claimResult = await prisma.approvalRequest.updateMany({
-            where: { id: approvalReq.id, status: "pending" },
-            data: { status: action === "approved" ? "approved" : "rejected" },
-        });
-        if (claimResult.count === 0) {
-            return NextResponse.json(
-                { message: "Request ini sudah diproses oleh pengguna lain." },
-                { status: 409 }
-            );
-        }
+        // NOTE: For StoreSale voids, we claim inside the transaction below.
+        // For UnitTransaction voids, we claim here (legacy behavior).
+        let claimResult = { count: 0 };
 
         // ================================================================
         // JALUR 1: Void untuk TRANSAKSI TOKO (StoreSale)
@@ -109,35 +100,62 @@ export async function POST(request: Request) {
                     ? (typeof storeSale.metadata === "object" ? storeSale.metadata : JSON.parse(storeSale.metadata as string))
                     : {};
 
-                // Kembalikan stok semua item produk fisik
-                // FIX: Gunakan absolute value (bukan increment) agar stock selalu = stockToko + stockGdg
-                for (const item of storeSale.items) {
-                    const prod = await prisma.storeProduct.findUnique({ where: { id: item.productId } });
-                    if (prod && !prod.isService) {
-                        const newStockToko = prod.stockToko + item.quantity;
-                        const newStock = newStockToko + prod.stockGdg;
-
-                        await prisma.storeProduct.update({
-                            where: { id: item.productId },
-                            data: {
-                                stockToko: newStockToko,
-                                stock: newStock,
-                            },
-                        });
-
-                        // Insert log mutasi pengembalian stok
-                        await prisma.storeStockMovement.create({
-                            data: {
-                                productId: item.productId,
-                                type: "in",
-                                quantity: item.quantity,
-                                reference: `VOID ${storeSale.saleNo}`,
-                                notes: `Pengembalian stok (void disetujui)`,
-                                operatorId: currentUserId,
-                            },
-                        });
+                // Single atomic transaction: claim approval + restore stock + update metadata
+                await prisma.$transaction(async (tx) => {
+                    // Atomic guard inside transaction
+                    const claim = await tx.approvalRequest.updateMany({
+                        where: { id: approvalReq.id, status: "pending" },
+                        data: { status: "approved" },
+                    });
+                    if (claim.count === 0) {
+                        throw new Error("ALREADY_PROCESSED");
                     }
-                }
+
+                    // Kembalikan stok semua item produk fisik
+                    for (const item of storeSale.items) {
+                        const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                        if (prod && !prod.isService) {
+                            const newStockToko = prod.stockToko + item.quantity;
+                            const newStock = newStockToko + prod.stockGdg;
+
+                            await tx.storeProduct.update({
+                                where: { id: item.productId },
+                                data: {
+                                    stockToko: newStockToko,
+                                    stock: newStock,
+                                },
+                            });
+
+                            // Insert log mutasi pengembalian stok
+                            await tx.storeStockMovement.create({
+                                data: {
+                                    productId: item.productId,
+                                    type: "in",
+                                    quantity: item.quantity,
+                                    reference: `VOID ${storeSale.saleNo}`,
+                                    notes: `Pengembalian stok (void disetujui)`,
+                                    operatorId: currentUserId,
+                                },
+                            });
+                        }
+                    }
+
+                    // Update metadata StoreSale: tandai voided, hapus voidPending
+                    metadata.isVoided = true;
+                    metadata.voidPending = false;
+                    metadata.voidApprovedById = currentUserId;
+                    metadata.voidApprovedAt = now.toISOString();
+
+                    await tx.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata },
+                    });
+
+                    await tx.approvalRequest.update({
+                        where: { id: approvalReq.id },
+                        data: { approvedById: currentUserId, approvedAt: now },
+                    });
+                });
 
                 // ── FIX Bug #2: Reverse side-effects keuangan ───────────────
                 // 1. Reverse Journal (jika ada)
@@ -232,24 +250,6 @@ export async function POST(request: Request) {
                 }
                 // ── END FIX Bug #2 ──────────────────────────────────────────
 
-                // Update metadata StoreSale: tandai voided, hapus voidPending
-                metadata.isVoided = true;
-                metadata.voidPending = false;
-                metadata.voidApprovedById = currentUserId;
-                metadata.voidApprovedAt = now.toISOString();
-
-                await prisma.$transaction([
-                    prisma.storeSale.update({
-                        where: { id: storeSale.id },
-                        data: { metadata },
-                    }),
-                    // Status already set by atomic guard, just update metadata
-                    prisma.approvalRequest.update({
-                        where: { id: approvalReq.id },
-                        data: { approvedById: currentUserId, approvedAt: now },
-                    }),
-                ]);
-
                 // Kirim notifikasi ke kasir pemohon
                 try {
                     const requester = await prisma.user.findUnique({ where: { id: approvalReq.requestedById }, select: { fcmToken: true } });
@@ -275,21 +275,29 @@ export async function POST(request: Request) {
 
                 metadata.voidPending = false;
 
-                await prisma.$transaction([
-                    prisma.storeSale.update({
+                await prisma.$transaction(async (tx) => {
+                    // Atomic guard: claim this approval exclusively
+                    const claim = await tx.approvalRequest.updateMany({
+                        where: { id: approvalReq.id, status: "pending" },
+                        data: { status: "rejected" },
+                    });
+                    if (claim.count === 0) {
+                        throw new Error("ALREADY_PROCESSED");
+                    }
+
+                    await tx.storeSale.update({
                         where: { id: storeSale.id },
                         data: { metadata },
-                    }),
-                    // Status already set by atomic guard
-                    prisma.approvalRequest.update({
+                    });
+                    await tx.approvalRequest.update({
                         where: { id: approvalReq.id },
                         data: {
                             rejectedById: currentUserId,
                             rejectedAt: now,
                             rejectionReason: notes || "Ditolak oleh Admin Unit.",
                         },
-                    }),
-                ]);
+                    });
+                });
 
                 // Kirim notifikasi ke kasir pemohon
                 try {
@@ -340,6 +348,15 @@ export async function POST(request: Request) {
             const securityHash = crypto.createHash("sha256").update(hashInput).digest("hex");
 
             await prisma.$transaction(async (tx) => {
+                // 0. Atomic guard: claim this approval exclusively
+                const claim = await tx.approvalRequest.updateMany({
+                    where: { id: approvalReq.id, status: "pending" },
+                    data: { status: "approved" },
+                });
+                if (claim.count === 0) {
+                    throw new Error("ALREADY_PROCESSED");
+                }
+
                 // 1. Buat Contra-Entry (nilai negatif sebagai jejak pembalik)
                 await tx.unitTransaction.create({
                     data: {
@@ -518,7 +535,13 @@ export async function POST(request: Request) {
                 },
             });
         }
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message === "ALREADY_PROCESSED") {
+            return NextResponse.json(
+                { message: "Request ini sudah diproses sebelumnya oleh admin lain." },
+                { status: 409 }
+            );
+        }
         console.error("POST /api/unit-transactions/void-approve error:", error);
         return NextResponse.json(
             { message: "Gagal memproses persetujuan void" },
