@@ -234,225 +234,230 @@ export default function RiwayatTransaksiUnitPage() {
         return "";
     };
 
-    const columns: ColumnDef<EnrichedTransaction>[] = [
-        // Expand toggle column
-        {
-            id: "expand",
-            header: () => null,
-            cell: ({ row }) => {
-                const tx = row.original;
-                const hasItems = tx.items && tx.items.length > 0;
-                if (!hasItems && tx.unitType !== "toko") return <span className="w-5 inline-block" />;
-                return (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); row.toggleExpanded(); }}
-                        className="p-1 rounded hover:bg-muted transition-colors"
-                    >
-                        {row.getIsExpanded()
-                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        }
-                    </button>
-                );
-            },
-            size: 40,
-        },
-        {
-            header: "No. Transaksi",
-            accessorKey: "transactionNo",
-            cell: ({ row }) => (
-                <div className="font-medium text-primary">{row.original.transactionNo}</div>
-            ),
-        },
-        {
-            header: "Tanggal",
-            accessorKey: "transactionDate",
-            cell: ({ row }) => {
-                const tx = row.original;
-                const dateObj = new Date((tx as any).createdAt || tx.transactionDate);
-                return (
-                    <div className="text-sm">
-                        {format(dateObj, "dd MMM yyyy", { locale: id })}
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {format(dateObj, "HH:mm", { locale: id })} WIB
-                        </div>
-                    </div>
-                );
-            },
-        },
-        {
-            header: "Anggota / Pelanggan",
-            accessorKey: "memberId",
-            cell: ({ row }) => {
-                const tx = row.original;
-                return (
-                    <div>
-                        <div className="font-medium">{tx.member?.name || tx.customerName || "-"}</div>
-                        {tx.member?.nrp && (
-                            <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded-sm bg-muted inline-block mt-1">
-                                NRP: {tx.member.nrp}
-                            </div>
-                        )}
-                    </div>
-                );
-            },
-        },
-        ...(isOperator ? [{
-            header: "Unit",
-            accessorKey: "unitType",
-            cell: ({ row }: { row: any }) => (
-                <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-200 uppercase text-[10px] whitespace-nowrap">
-                    {getUnitName(row.original.unitType)}
+    const isTokoView = filterUnit === "toko";
+
+    const columns: ColumnDef<EnrichedTransaction>[] = React.useMemo(() => {
+        // Common status renderer
+        const renderStatus = (tx: EnrichedTransaction) => {
+            const baseStatus = (tx as any).status || "completed";
+            if (baseStatus === "pending_void") return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">PENDING VOID</Badge>;
+            if (baseStatus === "voided") return <Badge variant="secondary" className="line-through text-muted-foreground">DIBATALKAN</Badge>;
+            return (
+                <Badge variant={tx.isPaid ? "default" : "destructive"} className={tx.isPaid ? "bg-emerald-500 hover:bg-emerald-600" : ""}>
+                    {tx.isPaid ? "LUNAS" : "BELUM LUNAS"}
                 </Badge>
-            ),
-        } as ColumnDef<EnrichedTransaction>] : []),
-        {
-            header: "Keterangan / Jasa",
-            accessorKey: "description",
-            cell: ({ row }) => {
-                const tx = row.original;
-                const hasItems = tx.items && tx.items.length > 0;
-                return (
-                    <div className="max-w-[200px]">
-                        <div className="truncate" title={tx.description || undefined}>
-                            {tx.description || "-"}
-                        </div>
-                        {hasItems && (
-                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {tx.items!.length} produk
-                            </div>
-                        )}
-                    </div>
-                );
-            },
-        },
-        ...(filterUnit === "cuci_mobil" ? [{
-            header: "Plat Nomor",
-            id: "platNomor",
-            cell: ({ row }: { row: any }) => {
-                const plat = parsePlat((row.original as any).notes);
-                if (!plat) return <span className="text-muted-foreground text-xs">-</span>;
-                return (
-                    <Badge variant="outline" className="font-mono text-xs bg-slate-50 border-slate-300 text-slate-700 tracking-wider">
-                        {plat}
-                    </Badge>
-                );
-            },
-        } as ColumnDef<EnrichedTransaction>] : []),
-        {
-            header: "Nominal",
-            accessorKey: "amount",
-            cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.amount)}</div>,
-        },
-        {
-            header: "Status",
-            accessorKey: "status",
-            cell: ({ row }) => {
-                const tx = row.original;
-                const baseStatus = (tx as any).status || "completed";
+            );
+        };
 
-                if (baseStatus === "pending_void") {
-                    return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">PENDING VOID</Badge>;
-                }
-                if (baseStatus === "voided") {
-                    return <Badge variant="secondary" className="line-through text-muted-foreground">DIBATALKAN</Badge>;
-                }
-
-                return (
-                    <Badge
-                        variant={tx.isPaid ? "default" : "destructive"}
-                        className={tx.isPaid ? "bg-emerald-500 hover:bg-emerald-600" : ""}
-                    >
-                        {tx.isPaid ? "LUNAS" : "BELUM LUNAS"}
-                    </Badge>
-                );
-            },
-        },
-        {
-            header: "Metode",
-            accessorKey: "paymentMethod",
-            cell: ({ row }) => {
-                const method = row.original.paymentMethod;
-                return <Badge variant="outline" className={`text-[10px] ${getPaymentColor(method)}`}>{getPaymentLabel(method)}</Badge>;
-            },
-        },
-        {
-            header: "Aksi",
-            id: "actions",
-            cell: ({ row }) => {
-                const tx = row.original;
-                const baseStatus = (tx as any).status || "completed";
-                const isVoidable = baseStatus === "completed";
-                const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
-                const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided" && tx.unitType === "cuci_mobil";
-
-                return (
-                    <div className="flex gap-1">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-slate-600 hover:text-slate-700 hover:bg-slate-50"
-                            title="Detail Transaksi"
-                            onClick={(e) => { e.stopPropagation(); openDetail(tx); }}
-                        >
-                            <Eye className="h-4 w-4" />
+        const renderActions = (tx: EnrichedTransaction) => {
+            const baseStatus = (tx as any).status || "completed";
+            const isVoidable = baseStatus === "completed";
+            const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
+            const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided" && tx.unitType === "cuci_mobil";
+            return (
+                <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="h-8 text-slate-600 hover:text-slate-700 hover:bg-slate-50" title="Detail Transaksi" onClick={(e) => { e.stopPropagation(); openDetail(tx); }}>
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                    {canEditNrp && (
+                        <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Tambah NRP Anggota" onClick={(e) => { e.stopPropagation(); setEditTx(tx); setNrpInput(""); setEditMemberFound(null); setIsEditNrpOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
                         </Button>
-                        {canEditNrp && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                title="Tambah NRP Anggota"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditTx(tx);
-                                    setNrpInput("");
-                                    setEditMemberFound(null);
-                                    setIsEditNrpOpen(true);
-                                }}
+                    )}
+                    {canEditDetails && (
+                        <Button variant="ghost" size="sm" className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Edit Plat Nomor & Keterangan" onClick={(e) => { e.stopPropagation(); const currentPlat = parsePlat((tx as any).notes) || ""; setEditDetailsTx(tx); setEditPlat(currentPlat); setEditDesc(tx.description || ""); setIsEditDetailsOpen(true); }}>
+                            <Car className="h-4 w-4" />
+                        </Button>
+                    )}
+                    {isVoidable && (
+                        <Button variant="ghost" size="sm" className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); setSelectedTx(tx); setVoidReason(""); setIsVoidModalOpen(true); }}>
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Void
+                        </Button>
+                    )}
+                </div>
+            );
+        };
+
+        // ============================================================
+        // TOKO-SPECIFIC COLUMNS (optimized for retail POS tracking)
+        // ============================================================
+        if (isTokoView) {
+            return [
+                {
+                    id: "expand",
+                    header: () => null,
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        const hasItems = tx.items && tx.items.length > 0;
+                        if (!hasItems) return <span className="w-5 inline-block" />;
+                        return (
+                            <button onClick={(e) => { e.stopPropagation(); row.toggleExpanded(); }} className="p-1 rounded hover:bg-muted transition-colors">
+                                {row.getIsExpanded() ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </button>
+                        );
+                    },
+                    size: 40,
+                },
+                {
+                    header: "Waktu",
+                    accessorKey: "transactionDate",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        const dateObj = new Date((tx as any).createdAt || tx.transactionDate);
+                        return (
+                            <div className="text-sm whitespace-nowrap">
+                                <div className="font-medium">{format(dateObj, "dd MMM yyyy", { locale: id })}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{format(dateObj, "HH:mm:ss", { locale: id })}</div>
+                            </div>
+                        );
+                    },
+                },
+                {
+                    header: "No. Transaksi",
+                    accessorKey: "transactionNo",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        const baseStatus = (tx as any).status || "completed";
+                        return (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); openDetail(tx); }}
+                                className="text-left hover:underline font-medium text-primary"
+                                title="Klik untuk lihat detail struk"
                             >
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                        )}
-                        {canEditDetails && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                title="Edit Plat Nomor & Keterangan"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const currentPlat = parsePlat((tx as any).notes) || "";
-                                    setEditDetailsTx(tx);
-                                    setEditPlat(currentPlat);
-                                    setEditDesc(tx.description || "");
-                                    setIsEditDetailsOpen(true);
-                                }}
-                            >
-                                <Car className="h-4 w-4" />
-                            </Button>
-                        )}
-                        {isVoidable && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedTx(tx);
-                                    setVoidReason("");
-                                    setIsVoidModalOpen(true);
-                                }}
-                            >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Void
-                            </Button>
-                        )}
-                    </div>
-                );
+                                {tx.transactionNo}
+                                {baseStatus === "voided" && (
+                                    <Badge variant="destructive" className="ml-1 text-[9px] px-1 py-0">VOID</Badge>
+                                )}
+                            </button>
+                        );
+                    },
+                },
+                {
+                    header: "Anggota / NRP",
+                    accessorKey: "memberId",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        return (
+                            <div>
+                                <div className="font-medium text-sm">{tx.member?.name || tx.customerName || <span className="text-muted-foreground">Umum</span>}</div>
+                                {tx.member?.nrp && (
+                                    <div className="text-[10px] text-muted-foreground font-mono">{tx.member.nrp}</div>
+                                )}
+                            </div>
+                        );
+                    },
+                },
+                {
+                    header: "Kasir",
+                    accessorKey: "createdBy",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        return <span className="text-sm text-muted-foreground">{(tx as any).createdBy?.name || "-"}</span>;
+                    },
+                },
+                {
+                    header: "Ringkasan",
+                    id: "ringkasan",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        const hasItems = tx.items && tx.items.length > 0;
+                        if (!hasItems) return <span className="text-muted-foreground text-sm">-</span>;
+                        const totalQty = tx.items!.reduce((s, i) => s + i.quantity, 0);
+                        const topItems = tx.items!.slice(0, 2);
+                        return (
+                            <div className="text-sm">
+                                <Badge variant="secondary" className="text-xs">{totalQty} barang</Badge>
+                                <div className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[140px]" title={tx.items!.map(i => i.productName).join(", ")}>
+                                    {topItems.map(i => i.productName).join(", ")}{tx.items!.length > 2 ? ` +${tx.items!.length - 2}` : ""}
+                                </div>
+                            </div>
+                        );
+                    },
+                },
+                {
+                    header: "Nominal",
+                    accessorKey: "amount",
+                    cell: ({ row }: { row: any }) => <div className="font-semibold tabular-nums">{formatCurrency((row.original as EnrichedTransaction).amount)}</div>,
+                },
+                {
+                    header: "Metode & Status",
+                    id: "metodeStatus",
+                    cell: ({ row }: { row: any }) => {
+                        const tx = row.original as EnrichedTransaction;
+                        return (
+                            <div className="flex flex-col gap-1">
+                                <Badge variant="outline" className={`text-[10px] w-fit ${getPaymentColor(tx.paymentMethod)}`}>{getPaymentLabel(tx.paymentMethod)}</Badge>
+                                {renderStatus(tx)}
+                            </div>
+                        );
+                    },
+                },
+                { header: "Aksi", id: "actions", cell: ({ row }: { row: any }) => renderActions(row.original as EnrichedTransaction) },
+            ] as ColumnDef<EnrichedTransaction>[];
+        }
+
+        // ============================================================
+        // DEFAULT COLUMNS (all other units — unchanged layout)
+        // ============================================================
+        return [
+            {
+                id: "expand",
+                header: () => null,
+                cell: ({ row }: { row: any }) => {
+                    const tx = row.original as EnrichedTransaction;
+                    const hasItems = tx.items && tx.items.length > 0;
+                    if (!hasItems && tx.unitType !== "toko") return <span className="w-5 inline-block" />;
+                    return (
+                        <button onClick={(e) => { e.stopPropagation(); row.toggleExpanded(); }} className="p-1 rounded hover:bg-muted transition-colors">
+                            {row.getIsExpanded() ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </button>
+                    );
+                },
+                size: 40,
             },
-        },
-    ];
+            { header: "No. Transaksi", accessorKey: "transactionNo", cell: ({ row }: { row: any }) => <div className="font-medium text-primary">{(row.original as EnrichedTransaction).transactionNo}</div> },
+            {
+                header: "Tanggal", accessorKey: "transactionDate",
+                cell: ({ row }: { row: any }) => {
+                    const tx = row.original as EnrichedTransaction;
+                    const dateObj = new Date((tx as any).createdAt || tx.transactionDate);
+                    return <div className="text-sm">{format(dateObj, "dd MMM yyyy", { locale: id })}<div className="text-[10px] text-muted-foreground mt-0.5">{format(dateObj, "HH:mm", { locale: id })} WIB</div></div>;
+                },
+            },
+            {
+                header: "Anggota / Pelanggan", accessorKey: "memberId",
+                cell: ({ row }: { row: any }) => {
+                    const tx = row.original as EnrichedTransaction;
+                    return (
+                        <div>
+                            <div className="font-medium">{tx.member?.name || tx.customerName || "-"}</div>
+                            {tx.member?.nrp && <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded-sm bg-muted inline-block mt-1">NRP: {tx.member.nrp}</div>}
+                        </div>
+                    );
+                },
+            },
+            ...(isOperator ? [{ header: "Unit", accessorKey: "unitType", cell: ({ row }: { row: any }) => <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-200 uppercase text-[10px] whitespace-nowrap">{getUnitName((row.original as EnrichedTransaction).unitType)}</Badge> } as ColumnDef<EnrichedTransaction>] : []),
+            {
+                header: "Keterangan / Jasa", accessorKey: "description",
+                cell: ({ row }: { row: any }) => {
+                    const tx = row.original as EnrichedTransaction;
+                    const hasItems = tx.items && tx.items.length > 0;
+                    return (
+                        <div className="max-w-[200px]">
+                            <div className="truncate" title={tx.description || undefined}>{tx.description || "-"}</div>
+                            {hasItems && <div className="text-[10px] text-muted-foreground mt-0.5">{tx.items!.length} produk</div>}
+                        </div>
+                    );
+                },
+            },
+            ...(filterUnit === "cuci_mobil" ? [{ header: "Plat Nomor", id: "platNomor", cell: ({ row }: { row: any }) => { const plat = parsePlat((row.original as any).notes); return plat ? <Badge variant="outline" className="font-mono text-xs bg-slate-50 border-slate-300 text-slate-700 tracking-wider">{plat}</Badge> : <span className="text-muted-foreground text-xs">-</span>; } } as ColumnDef<EnrichedTransaction>] : []),
+            { header: "Nominal", accessorKey: "amount", cell: ({ row }: { row: any }) => <div className="font-medium">{formatCurrency((row.original as EnrichedTransaction).amount)}</div> },
+            { header: "Status", accessorKey: "status", cell: ({ row }: { row: any }) => renderStatus(row.original as EnrichedTransaction) },
+            { header: "Metode", accessorKey: "paymentMethod", cell: ({ row }: { row: any }) => { const method = (row.original as EnrichedTransaction).paymentMethod; return <Badge variant="outline" className={`text-[10px] ${getPaymentColor(method)}`}>{getPaymentLabel(method)}</Badge>; } },
+            { header: "Aksi", id: "actions", cell: ({ row }: { row: any }) => renderActions(row.original as EnrichedTransaction) },
+        ] as ColumnDef<EnrichedTransaction>[];
+    }, [isTokoView, isOperator, isAdmin, filterUnit]);
 
     // Expanded row renderer
     const renderExpandedRow = React.useCallback(({ original: tx }: { original: EnrichedTransaction }) => {
