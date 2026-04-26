@@ -17,7 +17,7 @@ export const updateBranchSchema = createBranchSchema.partial();
 export const createUserSchema = z.object({
     name: z.string().min(1).max(255),
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z.string().min(8),
     roleId: z.number().int().positive(),
     branchId: z.number().int().positive().nullable().optional(),
     unitType: z.string().nullable().optional(), // toko, barbershop, fitness, cuci_mobil, dll
@@ -25,7 +25,7 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = createUserSchema.omit({ password: true }).partial().extend({
-    password: z.string().min(6).optional(),
+    password: z.string().min(8).optional(),
 });
 
 // Savings Product validation schemas

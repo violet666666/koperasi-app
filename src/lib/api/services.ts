@@ -294,7 +294,7 @@ export const usersApi = {
 
     delete: (id: number) => api.delete(`/users/${id}`),
 
-    roles: () => api.get<{ data: unknown[] }>("/users/roles"),
+    roles: () => api.get<{ data: unknown[] }>("/roles"),
 };
 
 // ============================================================

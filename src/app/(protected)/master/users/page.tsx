@@ -76,7 +76,7 @@ const columns: ColumnDef<UserData>[] = [
             const unitLabel: Record<string, string> = {
                 toko: "Toko PRIMKOPPOL", barbershop: "Barbershop", cuci_mobil: "Cuci Mobil",
                 fitness: "Fitness", playstation: "PlayStation", laundry: "Laundry",
-                resto_cafe: "Resto & Cafe", properti: "Properti", simpan_pinjam: "Simpan Pinjam",
+                fotocopy: "FotoCopy", resto_cafe: "Resto & Cafe", simpan_pinjam: "Simpan Pinjam",
             };
             const ut = (row.original as any).unitType;
             return (
@@ -114,14 +114,13 @@ const columns: ColumnDef<UserData>[] = [
 // User form
 const UNIT_OPTIONS = [
     { value: "toko", label: "Toko PRIMKOPPOL" },
+    { value: "resto_cafe", label: "Resto & Cafe (Latar)" },
     { value: "barbershop", label: "Barbershop" },
     { value: "cuci_mobil", label: "Cuci Mobil & Motor" },
     { value: "fitness", label: "Fitness" },
     { value: "playstation", label: "PlayStation" },
-    { value: "coffe_latar", label: "Coffe Latar" },
-    { value: "resto", label: "Resto Minakoncar" },
-    { value: "properti", label: "Properti (Tanah Kapling)" },
-    { value: "investasi_modal_jp", label: "Investasi Modal Jangka Pendek" },
+    { value: "laundry", label: "Laundry" },
+    { value: "fotocopy", label: "FotoCopy & Print" },
     { value: "simpan_pinjam", label: "Simpan Pinjam" },
 ];
 

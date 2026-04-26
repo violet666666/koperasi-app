@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { auth } from "@/lib/auth";
 import { createUserSchema, paginationSchema } from "@/lib/validations";
+
+// Roles that require unitType
+const UNIT_REQUIRED_ROLES = ["kasir", "admin"];
+const VALID_UNIT_TYPES = ["toko", "resto_cafe", "barbershop", "cuci_mobil", "fitness", "playstation", "laundry", "fotocopy", "simpan_pinjam"];
 
 // GET /api/users - List all users
 export async function GET(request: Request) {
@@ -68,8 +73,33 @@ export async function GET(request: Request) {
 // POST /api/users - Create new user
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        if (!session.user.permissions?.includes("user_management")) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
         const body = await request.json();
         const data = createUserSchema.parse(body);
+
+        // Validate unitType is required for kasir/admin
+        const role = await prisma.role.findUnique({ where: { id: data.roleId } });
+        if (role && UNIT_REQUIRED_ROLES.includes(role.name) && !data.unitType) {
+            return NextResponse.json(
+                { message: `Role ${role.displayName} wajib memilih unit usaha` },
+                { status: 400 }
+            );
+        }
+
+        // Validate unitType is a recognized value
+        if (data.unitType && !VALID_UNIT_TYPES.includes(data.unitType)) {
+            return NextResponse.json(
+                { message: `Unit type "${data.unitType}" tidak valid` },
+                { status: 400 }
+            );
+        }
 
         // Check for duplicate email
         const existing = await prisma.user.findUnique({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { auth } from "@/lib/auth";
 
 export async function GET(
     request: Request,
@@ -77,6 +78,14 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        if (!session.user.permissions?.includes("user_management")) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
         const { id: rawId } = await params;
         const id = parseInt(rawId);
         if (isNaN(id)) return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
