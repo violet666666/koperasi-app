@@ -87,6 +87,9 @@ export async function GET(request: Request) {
                 include: {
                     member: { select: { id: true, memberNo: true, nrp: true, name: true } },
                     createdBy: { select: { id: true, name: true } },
+                    items: {
+                        include: { product: { select: { id: true, sku: true, name: true, category: true } } },
+                    },
                 },
                 orderBy: { [query.sortBy === "transactionDate" ? "createdAt" : "createdAt"]: query.sortOrder },
             });
@@ -96,7 +99,10 @@ export async function GET(request: Request) {
         const mappedStoreSales = storeSales.map((s) => {
             const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata) : s.metadata || {};
             const isVoided = metadataObj.isVoided === true;
-            
+            const voidReason = metadataObj.voidReason || null;
+            const voidRequestedAt = metadataObj.voidRequestedAt || null;
+            const voidRequestedBy = metadataObj.voidRequestedBy || null;
+
             return {
                 id: s.id + 1000000, // Make ID unique
                 transactionNo: s.saleNo,
@@ -108,11 +114,28 @@ export async function GET(request: Request) {
                 isPaid: isVoided ? false : (s.paymentMethod !== "salary_cut"),
                 paidDate: s.paymentMethod !== "salary_cut" && !isVoided ? s.createdAt : null,
                 paymentMethod: s.paymentMethod,
+                cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
+                changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
                 notes: `Total Item: ${s.items?.length || 0}`,
                 status: isVoided ? "voided" : "completed",
+                voidReason,
+                voidRequestedAt,
+                voidRequestedBy,
                 member: s.member,
+                customerName: s.customerName,
                 createdBy: s.createdBy,
                 createdAt: s.createdAt,
+                items: (s.items || []).map((i: any) => ({
+                    id: i.id,
+                    productId: i.productId,
+                    productName: i.product?.name || "Produk Dihapus",
+                    productSku: i.product?.sku || null,
+                    productCategory: i.product?.category || null,
+                    quantity: i.quantity,
+                    unitPrice: Number(i.unitPrice),
+                    discount: Number(i.discount || 0),
+                    subtotal: Number(i.subtotal),
+                })),
             };
         });
         

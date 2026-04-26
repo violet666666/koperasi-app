@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car } from "lucide-react";
+import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car, ChevronDown, ChevronRight, Eye, Receipt, Package, Tag, User, Clock, CreditCard, AlertTriangle, ShoppingBag } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,30 @@ import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/hooks";
+import { Separator } from "@/components/ui/separator";
+
+// Extended type to include items from StoreSale mapping
+interface TransactionItem {
+    id: number;
+    productId: number;
+    productName: string;
+    productSku: string | null;
+    productCategory: string | null;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    subtotal: number;
+}
+
+type EnrichedTransaction = UnitTransaction & {
+    items?: TransactionItem[];
+    customerName?: string | null;
+    cashReceived?: number | null;
+    changeAmount?: number | null;
+    voidReason?: string | null;
+    voidRequestedAt?: string | null;
+    voidRequestedBy?: string | null;
+};
 
 // Helper: parse plat nomor dari field notes
 function parsePlat(notes: string | null | undefined): string | null {
@@ -53,22 +77,23 @@ export default function RiwayatTransaksiUnitPage() {
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(9999);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
-    // Unit filter
     const [filterUnit, setFilterUnit] = React.useState<string>(userUnitType || "all");
-    // Status filter
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
 
-    // Void state
     const queryClient = useQueryClient();
     const [isVoidModalOpen, setIsVoidModalOpen] = React.useState(false);
-    const [selectedTx, setSelectedTx] = React.useState<UnitTransaction | null>(null);
+    const [selectedTx, setSelectedTx] = React.useState<EnrichedTransaction | null>(null);
     const [voidReason, setVoidReason] = React.useState("");
     const [isSubmittingVoid, setIsSubmittingVoid] = React.useState(false);
+
+    // Detail dialog
+    const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+    const [detailTx, setDetailTx] = React.useState<EnrichedTransaction | null>(null);
 
     // Edit NRP (Admin only)
     const isAdmin = _roleName === "admin";
     const [isEditNrpOpen, setIsEditNrpOpen] = React.useState(false);
-    const [editTx, setEditTx] = React.useState<UnitTransaction | null>(null);
+    const [editTx, setEditTx] = React.useState<EnrichedTransaction | null>(null);
     const [nrpInput, setNrpInput] = React.useState("");
     const [editMemberFound, setEditMemberFound] = React.useState<any | null>(null);
     const [isSearchingNrp, setIsSearchingNrp] = React.useState(false);
@@ -76,10 +101,15 @@ export default function RiwayatTransaksiUnitPage() {
 
     // Edit Plat Nomor + Keterangan
     const [isEditDetailsOpen, setIsEditDetailsOpen] = React.useState(false);
-    const [editDetailsTx, setEditDetailsTx] = React.useState<UnitTransaction | null>(null);
+    const [editDetailsTx, setEditDetailsTx] = React.useState<EnrichedTransaction | null>(null);
     const [editPlat, setEditPlat] = React.useState("");
     const [editDesc, setEditDesc] = React.useState("");
     const [isSavingDetails, setIsSavingDetails] = React.useState(false);
+
+    const openDetail = (tx: EnrichedTransaction) => {
+        setDetailTx(tx);
+        setIsDetailOpen(true);
+    };
 
     const searchMemberByNrp = async (nrp: string) => {
         if (!nrp || nrp.length < 4) { setEditMemberFound(null); return; }
@@ -148,7 +178,7 @@ export default function RiwayatTransaksiUnitPage() {
 
     const filteredData = React.useMemo(() => {
         if (!response?.data) return [];
-        return (response.data as unknown as UnitTransaction[]).filter(tx => {
+        return (response.data as unknown as EnrichedTransaction[]).filter(tx => {
             const matchesDate = matchesDateRange(tx.transactionDate, dateRange);
             const matchesUnit = filterUnit === "all" ? true : tx.unitType === filterUnit;
             const txStatus = (tx as any).status || "completed";
@@ -162,7 +192,6 @@ export default function RiwayatTransaksiUnitPage() {
         });
     }, [response, dateRange, filterUnit, filterStatus]);
 
-    // Sync unit filter to user's unitType if they're not operator
     React.useEffect(() => {
         if (userUnitType && !isOperator) {
             setFilterUnit(userUnitType);
@@ -176,11 +205,58 @@ export default function RiwayatTransaksiUnitPage() {
             fotocopy: "FotoCopy",
             cuci_mobil: "Cuci Mobil",
             fitness: "Fitness",
+            barbershop: "Barbershop",
+            playstation: "Play Station",
+            laundry: "Laundry",
+            resto_cafe: "Resto & Cafe",
+            coffe_latar: "Coffe Latar",
         };
         return types[type] || type;
     };
 
-    const columns: ColumnDef<UnitTransaction>[] = [
+    const getUnitIcon = (type: string) => {
+        const icons: Record<string, React.ReactNode> = {
+            toko: <ShoppingBag className="h-4 w-4" />,
+            cuci_mobil: <Car className="h-4 w-4" />,
+        };
+        return icons[type] || <Package className="h-4 w-4" />;
+    };
+
+    const getPaymentLabel = (method?: string | null) => {
+        const label: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
+        return method ? (label[method] || method) : "-";
+    };
+
+    const getPaymentColor = (method?: string | null) => {
+        if (method === "cash") return "border-emerald-300 text-emerald-700 bg-emerald-50/50";
+        if (method === "qris") return "border-blue-300 text-blue-700 bg-blue-50/50";
+        if (method === "salary_cut") return "border-indigo-300 text-indigo-700 bg-indigo-50/50";
+        return "";
+    };
+
+    const columns: ColumnDef<EnrichedTransaction>[] = [
+        // Expand toggle column
+        {
+            id: "expand",
+            header: () => null,
+            cell: ({ row }) => {
+                const tx = row.original;
+                const hasItems = tx.items && tx.items.length > 0;
+                if (!hasItems && tx.unitType !== "toko") return <span className="w-5 inline-block" />;
+                return (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); row.toggleExpanded(); }}
+                        className="p-1 rounded hover:bg-muted transition-colors"
+                    >
+                        {row.getIsExpanded()
+                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        }
+                    </button>
+                );
+            },
+            size: 40,
+        },
         {
             header: "No. Transaksi",
             accessorKey: "transactionNo",
@@ -211,7 +287,7 @@ export default function RiwayatTransaksiUnitPage() {
                 const tx = row.original;
                 return (
                     <div>
-                        <div className="font-medium">{tx.member?.name || "-"}</div>
+                        <div className="font-medium">{tx.member?.name || tx.customerName || "-"}</div>
                         {tx.member?.nrp && (
                             <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded-sm bg-muted inline-block mt-1">
                                 NRP: {tx.member.nrp}
@@ -221,7 +297,6 @@ export default function RiwayatTransaksiUnitPage() {
                 );
             },
         },
-        // Kolom Unit hanya tampil jika Operator (lihat semua unit)
         ...(isOperator ? [{
             header: "Unit",
             accessorKey: "unitType",
@@ -230,17 +305,27 @@ export default function RiwayatTransaksiUnitPage() {
                     {getUnitName(row.original.unitType)}
                 </Badge>
             ),
-        } as ColumnDef<UnitTransaction>] : []),
+        } as ColumnDef<EnrichedTransaction>] : []),
         {
             header: "Keterangan / Jasa",
             accessorKey: "description",
-            cell: ({ row }) => (
-                <div className="max-w-[200px] truncate" title={row.original.description}>
-                    {row.original.description || "-"}
-                </div>
-            ),
+            cell: ({ row }) => {
+                const tx = row.original;
+                const hasItems = tx.items && tx.items.length > 0;
+                return (
+                    <div className="max-w-[200px]">
+                        <div className="truncate" title={tx.description || undefined}>
+                            {tx.description || "-"}
+                        </div>
+                        {hasItems && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {tx.items!.length} produk
+                            </div>
+                        )}
+                    </div>
+                );
+            },
         },
-        // Kolom Plat Nomor HANYA untuk unit Cuci Mobil (tidak tampil di semua / all unit mode)
         ...(filterUnit === "cuci_mobil" ? [{
             header: "Plat Nomor",
             id: "platNomor",
@@ -249,11 +334,11 @@ export default function RiwayatTransaksiUnitPage() {
                 if (!plat) return <span className="text-muted-foreground text-xs">-</span>;
                 return (
                     <Badge variant="outline" className="font-mono text-xs bg-slate-50 border-slate-300 text-slate-700 tracking-wider">
-                        🚗 {plat}
+                        {plat}
                     </Badge>
                 );
             },
-        } as ColumnDef<UnitTransaction>] : []),
+        } as ColumnDef<EnrichedTransaction>] : []),
         {
             header: "Nominal",
             accessorKey: "amount",
@@ -265,14 +350,14 @@ export default function RiwayatTransaksiUnitPage() {
             cell: ({ row }) => {
                 const tx = row.original;
                 const baseStatus = (tx as any).status || "completed";
-                
+
                 if (baseStatus === "pending_void") {
                     return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">PENDING VOID</Badge>;
                 }
                 if (baseStatus === "voided") {
                     return <Badge variant="secondary" className="line-through text-muted-foreground">DIBATALKAN</Badge>;
                 }
-                
+
                 return (
                     <Badge
                         variant={tx.isPaid ? "default" : "destructive"}
@@ -283,15 +368,12 @@ export default function RiwayatTransaksiUnitPage() {
                 );
             },
         },
-        // Kolom Metode Bayar
         {
             header: "Metode",
             accessorKey: "paymentMethod",
             cell: ({ row }) => {
                 const method = row.original.paymentMethod;
-                const label: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
-                const colorClass = method === "cash" ? "border-emerald-300 text-emerald-700" : method === "qris" ? "border-blue-300 text-blue-700" : "border-indigo-300 text-indigo-700";
-                return <Badge variant="outline" className={`text-[10px] ${colorClass}`}>{method ? (label[method] || method) : "-"}</Badge>;
+                return <Badge variant="outline" className={`text-[10px] ${getPaymentColor(method)}`}>{getPaymentLabel(method)}</Badge>;
             },
         },
         {
@@ -306,13 +388,23 @@ export default function RiwayatTransaksiUnitPage() {
 
                 return (
                     <div className="flex gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-slate-600 hover:text-slate-700 hover:bg-slate-50"
+                            title="Detail Transaksi"
+                            onClick={(e) => { e.stopPropagation(); openDetail(tx); }}
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
                         {canEditNrp && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                 title="Tambah NRP Anggota"
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditTx(tx);
                                     setNrpInput("");
                                     setEditMemberFound(null);
@@ -328,7 +420,8 @@ export default function RiwayatTransaksiUnitPage() {
                                 size="sm"
                                 className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                                 title="Edit Plat Nomor & Keterangan"
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     const currentPlat = parsePlat((tx as any).notes) || "";
                                     setEditDetailsTx(tx);
                                     setEditPlat(currentPlat);
@@ -344,7 +437,8 @@ export default function RiwayatTransaksiUnitPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedTx(tx);
                                     setVoidReason("");
                                     setIsVoidModalOpen(true);
@@ -354,12 +448,88 @@ export default function RiwayatTransaksiUnitPage() {
                                 Void
                             </Button>
                         )}
-                        {!isVoidable && !canEditNrp && !canEditDetails && <span className="text-muted-foreground text-xs text-center block">-</span>}
                     </div>
                 );
             },
         },
     ];
+
+    // Expanded row renderer
+    const renderExpandedRow = React.useCallback(({ original: tx }: { original: EnrichedTransaction }) => {
+        const hasItems = tx.items && tx.items.length > 0;
+        if (!hasItems) {
+            return (
+                <div className="px-12 py-3 bg-muted/30 text-sm text-muted-foreground">
+                    Tidak ada detail item untuk transaksi ini.
+                </div>
+            );
+        }
+
+        const totalDiscount = tx.items.reduce((sum, i) => sum + i.discount * i.quantity, 0);
+
+        return (
+            <div className="px-8 py-3 bg-muted/30 border-t">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5" />
+                    Detail Produk ({tx.items!.length} item)
+                </div>
+                <div className="rounded-lg border bg-background overflow-hidden">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-slate-50 border-b">
+                                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Produk</th>
+                                <th className="text-center px-3 py-2 text-xs font-medium text-muted-foreground w-16">Qty</th>
+                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-28">Harga</th>
+                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-24">Diskon</th>
+                                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-28">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tx.items!.map((item, idx) => (
+                                <tr key={item.id} className={idx % 2 === 1 ? "bg-slate-50/50" : ""}>
+                                    <td className="px-3 py-2">
+                                        <div className="font-medium text-sm">{item.productName}</div>
+                                        {item.productCategory && (
+                                            <div className="text-[10px] text-muted-foreground">{item.productCategory}</div>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">{item.quantity}</td>
+                                    <td className="px-3 py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                                    <td className="px-3 py-2 text-right">
+                                        {item.discount > 0 ? (
+                                            <span className="text-red-500">-{formatCurrency(item.discount * item.quantity)}</span>
+                                        ) : "-"}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.subtotal)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        {totalDiscount > 0 && (
+                            <tfoot>
+                                <tr className="border-t bg-slate-50">
+                                    <td colSpan={3} className="px-3 py-2 text-xs text-muted-foreground text-right">Total Diskon</td>
+                                    <td className="px-3 py-2 text-right text-xs font-medium text-red-500">-{formatCurrency(totalDiscount)}</td>
+                                    <td></td>
+                                </tr>
+                                <tr className="border-t font-semibold">
+                                    <td colSpan={4} className="px-3 py-2 text-right">Total</td>
+                                    <td className="px-3 py-2 text-right">{formatCurrency(tx.amount)}</td>
+                                </tr>
+                            </tfoot>
+                        )}
+                        {totalDiscount === 0 && (
+                            <tfoot>
+                                <tr className="border-t font-semibold bg-slate-50">
+                                    <td colSpan={4} className="px-3 py-2 text-right">Total</td>
+                                    <td className="px-3 py-2 text-right">{formatCurrency(tx.amount)}</td>
+                                </tr>
+                            </tfoot>
+                        )}
+                    </table>
+                </div>
+            </div>
+        );
+    }, []);
 
     const submitVoidRequest = async () => {
         if (!selectedTx) return;
@@ -394,7 +564,6 @@ export default function RiwayatTransaksiUnitPage() {
         }
     };
 
-    // Print handler — menggunakan filteredData sesuai filter aktif
     const handlePrint = React.useCallback(() => {
         const unitLabel = filterUnit === "all" ? "Semua Unit" : getUnitName(filterUnit);
         const statusLabel = filterStatus === "all" ? "Semua Status"
@@ -410,7 +579,7 @@ export default function RiwayatTransaksiUnitPage() {
                 <tr>
                     <td>${tx.transactionNo}</td>
                     <td>${format(new Date(tx.transactionDate), "d MMM yyyy", { locale: id })}</td>
-                    <td>${tx.member?.name || "-"}<br/><small style="color:#666">${tx.member?.nrp ? "NRP: " + tx.member.nrp : ""}</small></td>
+                    <td>${tx.member?.name || tx.customerName || "-"}<br/><small style="color:#666">${tx.member?.nrp ? "NRP: " + tx.member.nrp : ""}</small></td>
                     <td>${getUnitName(tx.unitType)}</td>
                     <td>${plat || "-"}</td>
                     <td>${tx.description || "-"}</td>
@@ -450,10 +619,10 @@ export default function RiwayatTransaksiUnitPage() {
                 <p>Dicetak: ${new Date().toLocaleString("id-ID")}</p>
             </div>
             <div class="meta">
-                <span>📅 Periode: <strong>${periodLabel}</strong></span>
-                <span>🏬 Unit: <strong>${unitLabel}</strong></span>
-                <span>💳 Status: <strong>${statusLabel}</strong></span>
-                <span>📊 Total: <strong>${filteredData.length} transaksi</strong></span>
+                <span>Periode: <strong>${periodLabel}</strong></span>
+                <span>Unit: <strong>${unitLabel}</strong></span>
+                <span>Status: <strong>${statusLabel}</strong></span>
+                <span>Total: <strong>${filteredData.length} transaksi</strong></span>
             </div>
             <table>
                 <thead><tr>
@@ -537,10 +706,10 @@ export default function RiwayatTransaksiUnitPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Semua Status</SelectItem>
-                                    <SelectItem value="lunas">✅ Lunas</SelectItem>
-                                    <SelectItem value="belum_lunas">🔴 Belum Lunas (Piutang)</SelectItem>
-                                    <SelectItem value="pending_void">⏳ Pending Void</SelectItem>
-                                    <SelectItem value="voided">⛔ Dibatalkan</SelectItem>
+                                    <SelectItem value="lunas">Lunas</SelectItem>
+                                    <SelectItem value="belum_lunas">Belum Lunas (Piutang)</SelectItem>
+                                    <SelectItem value="pending_void">Pending Void</SelectItem>
+                                    <SelectItem value="voided">Dibatalkan</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -555,6 +724,8 @@ export default function RiwayatTransaksiUnitPage() {
                 columns={columns}
                 data={filteredData}
                 isLoading={isLoading}
+                renderExpandedRow={renderExpandedRow}
+                getRowCanExpand={({ original: tx }) => !!(tx.items && tx.items.length > 0)}
             />
 
             {/* Void Request Dialog */}
@@ -568,6 +739,23 @@ export default function RiwayatTransaksiUnitPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        {/* Show items preview if toko */}
+                        {selectedTx?.items && selectedTx.items.length > 0 && (
+                            <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Produk dalam transaksi:</p>
+                                {selectedTx.items.map(item => (
+                                    <div key={item.id} className="flex justify-between text-sm">
+                                        <span>{item.productName} x{item.quantity}</span>
+                                        <span className="font-medium">{formatCurrency(item.subtotal)}</span>
+                                    </div>
+                                ))}
+                                <Separator />
+                                <div className="flex justify-between font-semibold text-sm">
+                                    <span>Total</span>
+                                    <span>{formatCurrency(selectedTx.amount)}</span>
+                                </div>
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label htmlFor="voidReason">Alasan Void <span className="text-red-500">*</span></Label>
                             <Textarea
@@ -592,6 +780,183 @@ export default function RiwayatTransaksiUnitPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Detail Transaction Dialog */}
+            <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Receipt className="h-5 w-5 text-primary" />
+                            Detail Transaksi
+                        </DialogTitle>
+                        <DialogDescription>
+                            Informasi lengkap transaksi {detailTx?.transactionNo}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {detailTx && (
+                        <div className="space-y-5 py-2">
+                            {/* Transaction Header */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Receipt className="h-3 w-3" /> No. Transaksi</p>
+                                    <p className="font-semibold text-sm">{detailTx.transactionNo}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Tanggal</p>
+                                    <p className="text-sm">{format(new Date((detailTx as any).createdAt || detailTx.transactionDate), "dd MMM yyyy, HH:mm", { locale: id })} WIB</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Pelanggan</p>
+                                    <p className="text-sm font-medium">{detailTx.member?.name || detailTx.customerName || "Umum"}</p>
+                                    {detailTx.member?.nrp && (
+                                        <p className="text-xs text-muted-foreground">NRP: {detailTx.member.nrp}</p>
+                                    )}
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Package className="h-3 w-3" /> Unit</p>
+                                    <Badge variant="outline" className="text-xs uppercase">{getUnitName(detailTx.unitType)}</Badge>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3" /> Metode Bayar</p>
+                                    <Badge variant="outline" className={`text-xs ${getPaymentColor(detailTx.paymentMethod)}`}>{getPaymentLabel(detailTx.paymentMethod)}</Badge>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">Status</p>
+                                    {(() => {
+                                        const baseStatus = (detailTx as any).status || "completed";
+                                        if (baseStatus === "pending_void") return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-xs">PENDING VOID</Badge>;
+                                        if (baseStatus === "voided") return <Badge variant="secondary" className="line-through text-muted-foreground text-xs">DIBATALKAN</Badge>;
+                                        return <Badge variant={detailTx.isPaid ? "default" : "destructive"} className={`text-xs ${detailTx.isPaid ? "bg-emerald-500" : ""}`}>{detailTx.isPaid ? "LUNAS" : "BELUM LUNAS"}</Badge>;
+                                    })()}
+                                </div>
+                            </div>
+
+                            {/* Keterangan */}
+                            {detailTx.description && (
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Keterangan</p>
+                                    <p className="text-sm bg-muted/50 rounded-md px-3 py-2">{detailTx.description}</p>
+                                </div>
+                            )}
+
+                            {/* Items table for toko */}
+                            {detailTx.items && detailTx.items.length > 0 && (
+                                <>
+                                    <Separator />
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                            <ShoppingBag className="h-3.5 w-3.5" />
+                                            Daftar Produk ({detailTx.items.length} item)
+                                        </p>
+                                        <div className="rounded-lg border overflow-hidden">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b">
+                                                        <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Produk</th>
+                                                        <th className="text-center px-3 py-2 text-xs font-medium text-muted-foreground w-14">Qty</th>
+                                                        <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-24">Harga Satuan</th>
+                                                        <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-20">Diskon</th>
+                                                        <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-24">Subtotal</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {detailTx.items.map((item, idx) => (
+                                                        <tr key={item.id} className={idx % 2 === 1 ? "bg-slate-50/50" : ""}>
+                                                            <td className="px-3 py-2">
+                                                                <div className="font-medium">{item.productName}</div>
+                                                                {item.productCategory && (
+                                                                    <Badge variant="outline" className="text-[10px] mt-0.5 h-4 px-1">{item.productCategory}</Badge>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-center">{item.quantity}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                {item.discount > 0
+                                                                    ? <span className="text-red-500 text-xs">-{formatCurrency(item.discount)}/pcs</span>
+                                                                    : <span className="text-muted-foreground">-</span>
+                                                                }
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.subtotal)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Payment Summary */}
+                            <Separator />
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Total Item</span>
+                                    <span>{detailTx.items?.length ?? "-"}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Total Transaksi</span>
+                                    <span className="font-bold text-lg">{formatCurrency(detailTx.amount)}</span>
+                                </div>
+                                {detailTx.cashReceived != null && detailTx.cashReceived > 0 && (
+                                    <>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Dibayar</span>
+                                            <span>{formatCurrency(detailTx.cashReceived)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Kembalian</span>
+                                            <span>{formatCurrency(detailTx.changeAmount || 0)}</span>
+                                        </div>
+                                    </>
+                                )}
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Kasir</span>
+                                    <span>{(detailTx as any).createdBy?.name || "-"}</span>
+                                </div>
+                            </div>
+
+                            {/* Void info */}
+                            {(() => {
+                                const baseStatus = (detailTx as any).status || "completed";
+                                if (baseStatus === "voided" || baseStatus === "pending_void") {
+                                    return (
+                                        <>
+                                            <Separator />
+                                            <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 space-y-1.5">
+                                                <p className="text-xs font-semibold text-red-700 flex items-center gap-1">
+                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                    {baseStatus === "voided" ? "Transaksi Dibatalkan" : "Menunggu Persetujuan Void"}
+                                                </p>
+                                                {detailTx.voidReason && (
+                                                    <p className="text-sm text-red-600">Alasan: {detailTx.voidReason}</p>
+                                                )}
+                                                {detailTx.voidRequestedAt && (
+                                                    <p className="text-xs text-red-500">
+                                                        Diajukan: {format(new Date(detailTx.voidRequestedAt), "dd MMM yyyy, HH:mm", { locale: id })} WIB
+                                                    </p>
+                                                )}
+                                                {detailTx.voidRequestedBy && (
+                                                    <p className="text-xs text-red-500">Oleh: {detailTx.voidRequestedBy}</p>
+                                                )}
+                                            </div>
+                                        </>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            {/* Notes */}
+                            {(detailTx as any).notes && !detailTx.items?.length && (
+                                <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Catatan</p>
+                                    <p className="text-sm bg-muted/50 rounded-md px-3 py-2">{(detailTx as any).notes}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             {/* Edit NRP Dialog (Admin Only) */}
             <Dialog open={isEditNrpOpen} onOpenChange={(open) => { setIsEditNrpOpen(open); if (!open) { setNrpInput(""); setEditMemberFound(null); }}}>
                 <DialogContent>
@@ -622,12 +987,12 @@ export default function RiwayatTransaksiUnitPage() {
                         </div>
                         {editMemberFound ? (
                             <div className="p-3 border rounded-lg bg-emerald-50 border-emerald-200">
-                                <p className="text-sm font-semibold text-emerald-800">✅ Anggota Ditemukan</p>
+                                <p className="text-sm font-semibold text-emerald-800">Anggota Ditemukan</p>
                                 <p className="font-medium mt-1">{editMemberFound.name}</p>
                                 <p className="text-xs text-muted-foreground">NRP: {editMemberFound.nrp || "-"} | No. Anggota: {editMemberFound.memberNo}</p>
                             </div>
                         ) : nrpInput.length >= 4 && !isSearchingNrp ? (
-                            <p className="text-sm text-red-600">❌ NRP tidak ditemukan. Coba tekan Enter atau klik ikon 🔍.</p>
+                            <p className="text-sm text-red-600">NRP tidak ditemukan. Coba tekan Enter atau klik ikon pencarian.</p>
                         ) : null}
                     </div>
                     <DialogFooter>
@@ -654,7 +1019,7 @@ export default function RiwayatTransaksiUnitPage() {
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <Label htmlFor="edit-plat">🚗 Plat Nomor Kendaraan</Label>
+                            <Label htmlFor="edit-plat">Plat Nomor Kendaraan</Label>
                             <Input
                                 id="edit-plat"
                                 placeholder="Contoh: AB 1234 CD"

@@ -4,10 +4,12 @@ import * as React from "react";
 import {
     ColumnDef,
     ColumnFiltersState,
+    ExpandedState,
     SortingState,
     VisibilityState,
     flexRender,
     getCoreRowModel,
+    getExpandedRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
@@ -57,7 +59,9 @@ interface DataTableProps<TData, TValue> {
     showColumnToggle?: boolean;
     showPagination?: boolean;
     onRowClick?: (row: TData) => void;
-    
+    renderExpandedRow?: (row: { original: TData }) => React.ReactNode;
+    getRowCanExpand?: (row: { original: TData }) => boolean;
+
     // Server-side pagination and filtering props
     pageCount?: number;
     pagination?: { pageIndex: number; pageSize: number };
@@ -78,7 +82,9 @@ export function DataTable<TData, TValue>({
     showColumnToggle = true,
     showPagination = true,
     onRowClick,
-    
+    renderExpandedRow,
+    getRowCanExpand,
+
     pageCount,
     pagination,
     onPaginationChange,
@@ -92,6 +98,7 @@ export function DataTable<TData, TValue>({
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [globalFilter, setGlobalFilter] = React.useState("");
+    const [expanded, setExpanded] = React.useState<ExpandedState>({});
 
     const table = useReactTable({
         data,
@@ -102,10 +109,13 @@ export function DataTable<TData, TValue>({
         getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
+        getExpandedRowModel: getExpandedRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         onGlobalFilterChange: onGlobalFilterChange || setGlobalFilter,
         globalFilterFn: "includesString",
+        onExpandedChange: setExpanded,
+        getRowCanExpand: getRowCanExpand ? (row) => getRowCanExpand({ original: row.original }) : undefined,
         
         // Manual control
         manualPagination,
@@ -256,21 +266,29 @@ export function DataTable<TData, TValue>({
                                 ))
                             ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                                        onClick={() => onRowClick?.(row.original)}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell 
-                                                key={cell.id}
-                                                className={cell.column.id === "actions" ? "sticky right-0 bg-background sm:static sm:bg-transparent sm:shadow-none shadow-[-4px_0_12px_rgba(0,0,0,0.05)] z-10" : ""}
-                                            >
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
+                                    <React.Fragment key={row.id}>
+                                        <TableRow
+                                            data-state={row.getIsSelected() && "selected"}
+                                            className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                                            onClick={() => onRowClick?.(row.original)}
+                                        >
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell
+                                                    key={cell.id}
+                                                    className={cell.column.id === "actions" ? "sticky right-0 bg-background sm:static sm:bg-transparent sm:shadow-none shadow-[-4px_0_12px_rgba(0,0,0,0.05)] z-10" : ""}
+                                                >
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                        {row.getIsExpanded() && renderExpandedRow && (
+                                            <TableRow>
+                                                <TableCell colSpan={row.getVisibleCells().length} className="p-0">
+                                                    {renderExpandedRow({ original: row.original })}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </React.Fragment>
                                 ))
                             ) : (
                                 <TableRow>
