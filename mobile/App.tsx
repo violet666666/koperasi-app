@@ -65,7 +65,7 @@ const KwitansiViewerScreen = React.lazy(() => import("./src/screens/common/Kwita
 
 // Suspense wrapper for lazy screens
 const LS = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}><ActivityIndicator color="#1A2A44" /></Suspense>}>
+  <Suspense fallback={<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}><ActivityIndicator color="#1A2A44" /></View>}>
     {children}
   </Suspense>
 );

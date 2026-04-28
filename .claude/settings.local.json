@@ -15,7 +15,9 @@
       "Bash(xargs grep *)",
       "Bash(dir \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\\\\mobile\\\\assets\")",
       "Bash(npx --yes sharp-cli --version)",
-      "Bash(npx sharp-cli *)"
+      "Bash(npx sharp-cli *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   },
   "enabledPlugins": {
