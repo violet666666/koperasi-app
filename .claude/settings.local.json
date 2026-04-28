@@ -10,7 +10,12 @@
       "Bash(npx eas *)",
       "Bash(./gradlew assembleRelease)",
       "Bash(gradle --version)",
-      "Bash(java *)"
+      "Bash(java *)",
+      "Bash(xargs ls *)",
+      "Bash(xargs grep *)",
+      "Bash(dir \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\\\\mobile\\\\assets\")",
+      "Bash(npx --yes sharp-cli --version)",
+      "Bash(npx sharp-cli *)"
     ]
   },
   "enabledPlugins": {

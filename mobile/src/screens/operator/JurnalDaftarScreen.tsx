@@ -194,6 +194,10 @@ export default function JurnalDaftarScreen({ navigation }: any) {
               <Text style={{ color: C.mutedForeground, marginTop: 12 }}>Tidak ada jurnal di periode ini.</Text>
             </View>
           }
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
 

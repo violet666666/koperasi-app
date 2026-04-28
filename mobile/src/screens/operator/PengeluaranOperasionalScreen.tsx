@@ -198,6 +198,10 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardTop}>

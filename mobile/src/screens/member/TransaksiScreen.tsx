@@ -229,6 +229,10 @@ export default function TransaksiScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
     </View>

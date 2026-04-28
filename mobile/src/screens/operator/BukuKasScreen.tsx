@@ -255,6 +255,10 @@ export default function BukuKasScreen() {
               <Text style={styles.emptyText}>Tidak ada transaksi pada periode ini</Text>
             </View>
           }
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
     </View>

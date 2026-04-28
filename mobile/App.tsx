@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -22,48 +22,53 @@ import { registerForPushNotificationsAsync } from "./src/lib/notifications";
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import MainTabs from "./src/navigation/MainTabs";
 
-// Sub-screens (with back button via Stack header)
-import ChangePasswordScreen from "./src/screens/auth/ChangePasswordScreen";
-import LoanApplicationScreen from "./src/screens/member/LoanApplicationScreen";
-import AnggotaCardScreen from "./src/screens/member/AnggotaCardScreen";
-import SavingsTransactionScreen from "./src/screens/operator/SavingsTransactionScreen";
-import LoanPaymentScreen from "./src/screens/operator/LoanPaymentScreen";
-import LaporanSimpananScreen from "./src/screens/operator/LaporanSimpananScreen";
-import LaporanPinjamanScreen from "./src/screens/operator/LaporanPinjamanScreen";
-import MemberDetailScreen from "./src/screens/operator/MemberDetailScreen";
-import PengumumanDetailScreen from "./src/screens/common/PengumumanDetailScreen";
-import PengumumanScreen from "./src/screens/common/PengumumanScreen";
-import ApprovalScreen from "./src/screens/operator/ApprovalScreen";
-import MemberListScreen from "./src/screens/operator/MemberListScreen";
-import KasirScreen from "./src/screens/kasir/KasirScreen";
-import StokScreen from "./src/screens/kasir/StokScreen";
-import ShiftScreen from "./src/screens/kasir/ShiftScreen";
-import RiwayatKasirScreen from "./src/screens/kasir/RiwayatKasirScreen";
-import EditNrpScreen from "./src/screens/kasir/EditNrpScreen";
+// Sub-screens — lazy loaded for faster startup
+const ChangePasswordScreen = React.lazy(() => import("./src/screens/auth/ChangePasswordScreen"));
+const LoanApplicationScreen = React.lazy(() => import("./src/screens/member/LoanApplicationScreen"));
+const AnggotaCardScreen = React.lazy(() => import("./src/screens/member/AnggotaCardScreen"));
+const SavingsTransactionScreen = React.lazy(() => import("./src/screens/operator/SavingsTransactionScreen"));
+const LoanPaymentScreen = React.lazy(() => import("./src/screens/operator/LoanPaymentScreen"));
+const LaporanSimpananScreen = React.lazy(() => import("./src/screens/operator/LaporanSimpananScreen"));
+const LaporanPinjamanScreen = React.lazy(() => import("./src/screens/operator/LaporanPinjamanScreen"));
+const MemberDetailScreen = React.lazy(() => import("./src/screens/operator/MemberDetailScreen"));
+const PengumumanDetailScreen = React.lazy(() => import("./src/screens/common/PengumumanDetailScreen"));
+const PengumumanScreen = React.lazy(() => import("./src/screens/common/PengumumanScreen"));
+const ApprovalScreen = React.lazy(() => import("./src/screens/operator/ApprovalScreen"));
+const MemberListScreen = React.lazy(() => import("./src/screens/operator/MemberListScreen"));
+const KasirScreen = React.lazy(() => import("./src/screens/kasir/KasirScreen"));
+const StokScreen = React.lazy(() => import("./src/screens/kasir/StokScreen"));
+const ShiftScreen = React.lazy(() => import("./src/screens/kasir/ShiftScreen"));
+const RiwayatKasirScreen = React.lazy(() => import("./src/screens/kasir/RiwayatKasirScreen"));
+const EditNrpScreen = React.lazy(() => import("./src/screens/kasir/EditNrpScreen"));
+const DaftarPinjamanScreen = React.lazy(() => import("./src/screens/operator/DaftarPinjamanScreen"));
+const RekeningListScreen = React.lazy(() => import("./src/screens/operator/RekeningListScreen"));
+const ProfilKoperasiScreen = React.lazy(() => import("./src/screens/operator/ProfilKoperasiScreen"));
+const KasBankScreen = React.lazy(() => import("./src/screens/operator/KasBankScreen"));
+const AuditLogScreen = React.lazy(() => import("./src/screens/operator/AuditLogScreen"));
+const JurnalDaftarScreen = React.lazy(() => import("./src/screens/operator/JurnalDaftarScreen"));
+const JurnalInputScreen = React.lazy(() => import("./src/screens/operator/JurnalInputScreen"));
+const BukuBesarScreen = React.lazy(() => import("./src/screens/operator/BukuBesarScreen"));
+const LabaRugiScreen = React.lazy(() => import("./src/screens/operator/LabaRugiScreen"));
+const NeracaScreen = React.lazy(() => import("./src/screens/operator/NeracaScreen"));
+const LaporanSHUScreen = React.lazy(() => import("./src/screens/operator/LaporanSHUScreen"));
+const AsetListScreen = React.lazy(() => import("./src/screens/operator/AsetListScreen"));
+const AsetDetailScreen = React.lazy(() => import("./src/screens/operator/AsetDetailScreen"));
+const MasterDataHubScreen = React.lazy(() => import("./src/screens/operator/MasterDataHubScreen"));
+const ImportDataScreen = React.lazy(() => import("./src/screens/operator/ImportDataScreen"));
+const KwitansiListScreen = React.lazy(() => import("./src/screens/operator/KwitansiListScreen"));
+const KwitansiFormScreen = React.lazy(() => import("./src/screens/operator/KwitansiFormScreen"));
+const BukuKasScreen = React.lazy(() => import("./src/screens/operator/BukuKasScreen"));
+const PengeluaranOperasionalScreen = React.lazy(() => import("./src/screens/operator/PengeluaranOperasionalScreen"));
+const LaporanCuciMobilScreen = React.lazy(() => import("./src/screens/operator/LaporanCuciMobilScreen"));
+const DirectDisburseScreen = React.lazy(() => import("./src/screens/operator/DirectDisburseScreen"));
+const KwitansiViewerScreen = React.lazy(() => import("./src/screens/common/KwitansiViewerScreen"));
 
-// New operator screens
-import DaftarPinjamanScreen from "./src/screens/operator/DaftarPinjamanScreen";
-import RekeningListScreen from "./src/screens/operator/RekeningListScreen";
-import ProfilKoperasiScreen from "./src/screens/operator/ProfilKoperasiScreen";
-import KasBankScreen from "./src/screens/operator/KasBankScreen";
-import AuditLogScreen from "./src/screens/operator/AuditLogScreen";
-import JurnalDaftarScreen from "./src/screens/operator/JurnalDaftarScreen";
-import JurnalInputScreen from "./src/screens/operator/JurnalInputScreen";
-import BukuBesarScreen from "./src/screens/operator/BukuBesarScreen";
-import LabaRugiScreen from "./src/screens/operator/LabaRugiScreen";
-import NeracaScreen from "./src/screens/operator/NeracaScreen";
-import LaporanSHUScreen from "./src/screens/operator/LaporanSHUScreen";
-import AsetListScreen from "./src/screens/operator/AsetListScreen";
-import AsetDetailScreen from "./src/screens/operator/AsetDetailScreen";
-import MasterDataHubScreen from "./src/screens/operator/MasterDataHubScreen";
-import ImportDataScreen from "./src/screens/operator/ImportDataScreen";
-import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
-import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
-import BukuKasScreen from "./src/screens/operator/BukuKasScreen";
-import PengeluaranOperasionalScreen from "./src/screens/operator/PengeluaranOperasionalScreen";
-import LaporanCuciMobilScreen from "./src/screens/operator/LaporanCuciMobilScreen";
-import DirectDisburseScreen from "./src/screens/operator/DirectDisburseScreen";
-import KwitansiViewerScreen from "./src/screens/common/KwitansiViewerScreen";
+// Suspense wrapper for lazy screens
+const LS = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}><ActivityIndicator color="#1A2A44" /></Suspense>}>
+    {children}
+  </Suspense>
+);
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient({
@@ -200,77 +205,53 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             </Stack.Screen>
 
             {/* ====== Auth Sub-screens ====== */}
-            <Stack.Screen
-              name="ChangePassword"
-              component={ChangePasswordScreen}
-            />
+            <Stack.Screen name="ChangePassword">{() => <LS><ChangePasswordScreen /></LS>}</Stack.Screen>
 
             {/* ====== Member Sub-screens ====== */}
-            <Stack.Screen
-              name="LoanApplication"
-              component={LoanApplicationScreen}
-            />
-            <Stack.Screen name="AnggotaCard" component={AnggotaCardScreen} />
+            <Stack.Screen name="LoanApplication">{() => <LS><LoanApplicationScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="AnggotaCard">{() => <LS><AnggotaCardScreen /></LS>}</Stack.Screen>
 
             {/* ====== Operator Sub-screens ====== */}
-            <Stack.Screen
-              name="SavingsTransaction"
-              component={SavingsTransactionScreen}
-            />
-            <Stack.Screen name="LoanPayment" component={LoanPaymentScreen} />
-            <Stack.Screen
-              name="LaporanSimpanan"
-              component={LaporanSimpananScreen}
-            />
-            <Stack.Screen
-              name="LaporanPinjaman"
-              component={LaporanPinjamanScreen}
-            />
-            <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
-            <Stack.Screen
-              name="DaftarPinjaman"
-              component={DaftarPinjamanScreen}
-            />
-            <Stack.Screen name="RekeningList" component={RekeningListScreen} />
-            <Stack.Screen
-              name="ProfilKoperasi"
-              component={ProfilKoperasiScreen}
-            />
-            <Stack.Screen name="KasBankFull" component={KasBankScreen} />
-            <Stack.Screen name="AuditLogFull" component={AuditLogScreen} />
-            <Stack.Screen name="JurnalDaftar" component={JurnalDaftarScreen} />
-            <Stack.Screen name="JurnalInput" component={JurnalInputScreen} />
-            <Stack.Screen name="BukuBesar" component={BukuBesarScreen} />
-            <Stack.Screen name="LabaRugi" component={LabaRugiScreen} />
-            <Stack.Screen name="Neraca" component={NeracaScreen} />
-            <Stack.Screen name="LaporanSHU" component={LaporanSHUScreen} />
-            <Stack.Screen name="AsetList" component={AsetListScreen} />
-            <Stack.Screen name="AsetDetail" component={AsetDetailScreen} />
-            <Stack.Screen name="MasterDataHub" component={MasterDataHubScreen} />
-            <Stack.Screen name="ImportData" component={ImportDataScreen} />
-            <Stack.Screen name="KwitansiList" component={KwitansiListScreen} />
-            <Stack.Screen name="KwitansiForm" component={KwitansiFormScreen} />
-            <Stack.Screen name="BukuKasList" component={BukuKasScreen} />
+            <Stack.Screen name="SavingsTransaction">{() => <LS><SavingsTransactionScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LoanPayment">{() => <LS><LoanPaymentScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LaporanSimpanan">{() => <LS><LaporanSimpananScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LaporanPinjaman">{() => <LS><LaporanPinjamanScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="MemberDetail">{() => <LS><MemberDetailScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="DaftarPinjaman">{() => <LS><DaftarPinjamanScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="RekeningList">{() => <LS><RekeningListScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="ProfilKoperasi">{() => <LS><ProfilKoperasiScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="KasBankFull">{() => <LS><KasBankScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="AuditLogFull">{() => <LS><AuditLogScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="JurnalDaftar">{() => <LS><JurnalDaftarScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="JurnalInput">{() => <LS><JurnalInputScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="BukuBesar">{() => <LS><BukuBesarScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LabaRugi">{() => <LS><LabaRugiScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="Neraca">{() => <LS><NeracaScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LaporanSHU">{() => <LS><LaporanSHUScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="AsetList">{() => <LS><AsetListScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="AsetDetail">{() => <LS><AsetDetailScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="MasterDataHub">{() => <LS><MasterDataHubScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="ImportData">{() => <LS><ImportDataScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="KwitansiList">{() => <LS><KwitansiListScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="KwitansiForm">{() => <LS><KwitansiFormScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="BukuKasList">{() => <LS><BukuKasScreen /></LS>}</Stack.Screen>
 
             {/* ====== Common Sub-screens ====== */}
-            <Stack.Screen
-              name="PengumumanDetail"
-              component={PengumumanDetailScreen}
-            />
-            <Stack.Screen name="Pengumuman" component={PengumumanScreen} />
+            <Stack.Screen name="PengumumanDetail">{() => <LS><PengumumanDetailScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="Pengumuman">{() => <LS><PengumumanScreen /></LS>}</Stack.Screen>
 
             {/* ====== Full-screen Tab Alternatives (from Dashboard quick actions) ====== */}
-            <Stack.Screen name="ApprovalFull" component={ApprovalScreen} />
-            <Stack.Screen name="MemberListFull" component={MemberListScreen} />
-            <Stack.Screen name="KasirFull" component={KasirScreen} />
-            <Stack.Screen name="StokFull" component={StokScreen} />
-            <Stack.Screen name="PengeluaranOperasional" component={PengeluaranOperasionalScreen} />
-            <Stack.Screen name="DirectDisburse" component={DirectDisburseScreen} />
-            <Stack.Screen name="KwitansiViewer" component={KwitansiViewerScreen} />
-            <Stack.Screen name="ShiftKasir" component={ShiftScreen} />
-            <Stack.Screen name="RiwayatKasir" component={RiwayatKasirScreen} />
-            <Stack.Screen name="EditNrp" component={EditNrpScreen} />
-            <Stack.Screen name="LaporanCuciMobil" component={LaporanCuciMobilScreen} />
+            <Stack.Screen name="ApprovalFull">{() => <LS><ApprovalScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="MemberListFull">{() => <LS><MemberListScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="KasirFull">{() => <LS><KasirScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="StokFull">{() => <LS><StokScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="PengeluaranOperasional">{() => <LS><PengeluaranOperasionalScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="DirectDisburse">{() => <LS><DirectDisburseScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="KwitansiViewer">{() => <LS><KwitansiViewerScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="ShiftKasir">{() => <LS><ShiftScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="RiwayatKasir">{() => <LS><RiwayatKasirScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="EditNrp">{() => <LS><EditNrpScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LaporanCuciMobil">{() => <LS><LaporanCuciMobilScreen /></LS>}</Stack.Screen>
           </>
         )}
       </Stack.Navigator>

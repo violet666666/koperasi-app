@@ -184,6 +184,10 @@ export default function AsetListScreen({ navigation }: any) {
               <Text style={{ color: C.mutedForeground, marginTop: 12 }}>Tidak ada aset ditemukan.</Text>
             </View>
           }
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
 

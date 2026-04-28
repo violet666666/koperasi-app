@@ -308,6 +308,10 @@ export default function DaftarPinjamanScreen() {
               <ActivityIndicator size="small" color={C.accent} style={{ marginVertical: 16 }} />
             ) : null
           }
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
     </View>

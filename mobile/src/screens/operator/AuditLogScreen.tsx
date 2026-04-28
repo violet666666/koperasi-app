@@ -170,6 +170,10 @@ export default function AuditLogScreen() {
               colors={[C.accent]}
             />
           }
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
     </View>

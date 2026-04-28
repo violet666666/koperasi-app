@@ -317,6 +317,10 @@ export default function RekeningListScreen({ navigation }: any) {
             />
           }
           showsVerticalScrollIndicator={false}
+          windowSize={10}
+          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
     </View>

@@ -186,7 +186,11 @@ export default function BukuBesarScreen({ navigation }: any) {
                     data={ledger}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderItem}
-                    scrollEnabled={false} // Disable vertical scroll inside horizontal scroll
+                    scrollEnabled={false}
+                    windowSize={10}
+                    maxToRenderPerBatch={5}
+                    initialNumToRender={10}
+                    removeClippedSubviews={true}
                   />
                 ) : (
                   <View style={{ alignItems: "center", justifyContent: "center", padding: 40, backgroundColor: "white", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
