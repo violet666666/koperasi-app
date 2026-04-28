@@ -92,14 +92,18 @@ export async function PUT(request: Request) {
                         where: { id: p.id },
                         data: { stock: newStockVal, stockGdg: newGdg, stockToko: newToko },
                     });
-                    // Create movement record
-                    await prisma.storeStockMovement.create({
-                        data: {
-                            productId: p.id, type: "in", quantity: newStockVal,
-                            reference: `Set Stok Massal ke ${newStockVal}`,
-                            notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
-                        },
-                    });
+                    const diff = newStockVal - (p.stock || 0);
+                    if (diff !== 0) {
+                        await prisma.storeStockMovement.create({
+                            data: {
+                                productId: p.id,
+                                type: diff > 0 ? "in" : "out",
+                                quantity: Math.abs(diff),
+                                reference: `Set Stok Massal ke ${newStockVal}`,
+                                notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
+                            },
+                        });
+                    }
                 }
                 return NextResponse.json({
                     message: `Stok diset ke ${value} untuk ${productsForSet.length} produk`,

@@ -42,8 +42,15 @@ export async function PATCH(
             );
         }
 
+        if (discountValue !== undefined && (isNaN(Number(discountValue)) || Number(discountValue) < 0)) {
+            return NextResponse.json(
+                { message: "Nilai diskon tidak boleh negatif" },
+                { status: 400 }
+            );
+        }
+
         const product = await prisma.storeProduct.findUnique({ where: { id: productId } });
-        if (!product) {
+        if (!product || product.deletedAt) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
         }
 

@@ -117,10 +117,42 @@ export default function ManajemenHargaPage() {
 
     // Preview recalculate
     const handlePreview = async () => {
-        // Save first, then preview
-        await handleSave();
+        // Validate before preview
+        const mk = parseFloat(markupPercent);
+        const pp = parseFloat(ppnPercent);
+        if (isNaN(mk) || mk < 0 || mk > 100) {
+            toast.error("Markup harus antara 0-100%");
+            return;
+        }
+        if (isNaN(pp) || pp < 0 || pp > 100) {
+            toast.error("PPN harus antara 0-100%");
+            return;
+        }
 
-        setIsRecalculating(true);
+        // Save first
+        setIsSaving(true);
+        try {
+            const saveRes = await fetch("/api/settings", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    settings: [
+                        { key: `${effectiveUnitType}_markup_percent`, value: markupPercent },
+                        { key: `${effectiveUnitType}_ppn_percent`, value: ppnPercent },
+                        { key: `${effectiveUnitType}_excluded_categories`, value: JSON.stringify(excludedCategories) },
+                    ],
+                }),
+            });
+            const saveJson = await saveRes.json();
+            if (!saveRes.ok) { toast.error(saveJson.message || "Gagal menyimpan"); setIsSaving(false); return; }
+            toast.success("Pengaturan harga berhasil disimpan!");
+        } catch {
+            toast.error("Gagal menyimpan pengaturan");
+            setIsSaving(false);
+            return;
+        } finally {
+            setIsSaving(false);
+        }
         try {
             const res = await fetch(`/api/toko/products/recalculate-prices?preview=true&unitType=${effectiveUnitType}`, {
                 method: "POST",

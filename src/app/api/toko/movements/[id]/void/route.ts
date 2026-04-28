@@ -74,6 +74,8 @@ export async function POST(
         const fromGudang = refLower.includes("gudang");
 
         // Use interactive transaction to prevent race conditions
+        let resultNewStock = 0, resultNewStockGdg = 0, resultNewStockToko = 0;
+
         await prisma.$transaction(async (tx) => {
             // Re-read product inside transaction for fresh values
             const currentProduct = await tx.storeProduct.findUnique({
@@ -81,28 +83,24 @@ export async function POST(
             });
             if (!currentProduct) throw new Error("Produk tidak ditemukan");
 
-            let newStockGdg = currentProduct.stockGdg;
-            let newStockToko = currentProduct.stockToko;
+            resultNewStockGdg = currentProduct.stockGdg;
+            resultNewStockToko = currentProduct.stockToko;
 
             if (movement.type === "in") {
-                // Original was stock-in → reverse = remove from where it was added
                 if (fromToko) {
-                    newStockToko = Math.max(0, currentProduct.stockToko - movement.quantity);
+                    resultNewStockToko = Math.max(0, currentProduct.stockToko - movement.quantity);
                 } else {
-                    // Default: stock-in went to gudang
-                    newStockGdg = Math.max(0, currentProduct.stockGdg - movement.quantity);
+                    resultNewStockGdg = Math.max(0, currentProduct.stockGdg - movement.quantity);
                 }
             } else {
-                // Original was stock-out → reverse = add back to where it was taken from
                 if (fromGudang) {
-                    newStockGdg = currentProduct.stockGdg + movement.quantity;
+                    resultNewStockGdg = currentProduct.stockGdg + movement.quantity;
                 } else {
-                    // Default: stock-out came from toko
-                    newStockToko = currentProduct.stockToko + movement.quantity;
+                    resultNewStockToko = currentProduct.stockToko + movement.quantity;
                 }
             }
 
-            const newStock = newStockGdg + newStockToko;
+            resultNewStock = resultNewStockGdg + resultNewStockToko;
 
             await tx.storeStockMovement.update({
                 where: { id: movementId },
@@ -116,7 +114,7 @@ export async function POST(
 
             await tx.storeProduct.update({
                 where: { id: movement.productId },
-                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+                data: { stock: resultNewStock, stockGdg: resultNewStockGdg, stockToko: resultNewStockToko },
             });
         });
 
@@ -127,9 +125,9 @@ export async function POST(
                 productName: movement.product.name,
                 reversedQuantity: movement.quantity,
                 type: movement.type,
-                newStock,
-                newStockGdg,
-                newStockToko,
+                newStock: resultNewStock,
+                newStockGdg: resultNewStockGdg,
+                newStockToko: resultNewStockToko,
             },
         });
     } catch (error) {

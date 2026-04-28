@@ -194,7 +194,7 @@ export default function TokoPage() {
                             </Link>
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href="/toko/produk">
+                            <Link href="/toko/produk/tambah">
                                 <Package className="mr-2 h-4 w-4" />
                                 Tambah Produk
                             </Link>

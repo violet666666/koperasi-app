@@ -173,10 +173,12 @@ export default function KasirPage() {
         fetchUnitStats();
     }, []);
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredProducts = React.useMemo(() =>
+        products.filter(p =>
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+        ),
+    [products, searchQuery]);
 
     // Hardware barcode gun support — fires when scanner sends rapid chars + Enter
     const addByBarcode = React.useCallback((code: string) => {
