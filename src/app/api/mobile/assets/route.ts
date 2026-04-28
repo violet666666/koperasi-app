@@ -108,6 +108,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "Berhasil menyimpan aset", data: asset }, { status: 201 });
     } catch (error) {
         console.error("POST /api/mobile/assets error:", error);
-        return NextResponse.json({ message: "Gagal internal server", error }, { status: 500 });
+        return NextResponse.json({ message: "Gagal menyimpan aset" }, { status: 500 });
     }
 }

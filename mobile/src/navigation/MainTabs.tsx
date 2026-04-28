@@ -32,7 +32,8 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
     const userData = StorageManager.getFastString('userData');
     if (userData) {
       const parsed = JSON.parse(userData);
-      setRole(parsed.role || 'member');
+      const roleName = typeof parsed.role === 'object' ? parsed.role?.name : parsed.role;
+      setRole(roleName || 'member');
     }
   }, []);
 

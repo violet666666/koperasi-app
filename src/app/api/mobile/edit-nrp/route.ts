@@ -71,6 +71,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
+    if (user.role !== "kasir" && user.role !== "operator" && user.role !== "admin") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
 
     try {
         const body = await request.json();

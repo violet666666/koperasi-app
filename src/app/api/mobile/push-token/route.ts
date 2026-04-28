@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { getMobileUser, unauthorizedResponse } from '../middleware';
 
 export async function POST(request: Request) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in /api/mobile/push-token:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' },
+      { message: 'Gagal mendaftarkan push token' },
       { status: 500 }
     );
   }

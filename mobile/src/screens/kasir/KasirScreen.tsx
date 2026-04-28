@@ -96,6 +96,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
   // ── S2-02: Piutang Info ───────────────────────────────────────────────
   const [memberPiutang, setMemberPiutang] = useState<PiutangInfo | null>(null);
   const [loadingPiutang, setLoadingPiutang] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
 
   // QRIS Modal State
   const qrisModalRef = useRef<BottomSheetModal>(null);
@@ -116,6 +117,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   // ── S2-04: Debounce ref for member search ─────────────────────────────
   const memberSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (memberSearchDebounceRef.current) clearTimeout(memberSearchDebounceRef.current);
+    };
+  }, []);
 
   // Flags for mode
   // JALUR 1 (unit-layanan / quick sale): cuci_mobil, barbershop, fotocopy
@@ -833,8 +840,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
   function renderMemberModal() {
     const isSalaryCut = pendingCheckoutMethod === 'salary_cut';
     // S2-02: Cek piutang hanya untuk potong gaji
-    const canProceed = !isSalaryCut || !memberPiutang || memberPiutang.canTransact && total <= memberPiutang.sisaLimit;
-    const limitTooLow = isSalaryCut && memberPiutang && total > memberPiutang.sisaLimit;
+    const limitTooLow = isSalaryCut && memberPiutang && (!memberPiutang.canTransact || total > memberPiutang.sisaLimit);
 
     return (
       <>
@@ -900,6 +906,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
                       onPress={async () => {
                         if (isSalaryCut) {
                           // S2-02: Fetch piutang info sebelum konfirmasi
+                          setSelectedMemberId(item.id);
                           await fetchMemberPiutang(item.id);
                         } else {
                           // Cash/QRIS: langsung proses dengan memberId
@@ -939,14 +946,13 @@ export default function KasirScreen({ navigation: navProp }: any) {
                   style={[styles.cashBtn, { marginTop: 16, opacity: limitTooLow ? 0.4 : 1 }]}
                   disabled={!!limitTooLow || processing}
                   onPress={() => {
-                    const selectedMember = members.find(m => m.name === memberPiutang.memberName);
-                    if (!selectedMember) return;
+                    if (!selectedMemberId) return;
                     Alert.alert(
                       'Konfirmasi Anggota',
                       `Potong Gaji atas nama:\n${memberPiutang.memberName}\nTotal: ${formatRp(total)}\nSisa Limit: ${formatRp(memberPiutang.sisaLimit)}`,
                       [
                         { text: 'Batal', style: 'cancel' },
-                        { text: 'Setuju & Proses', onPress: () => isQuickSale ? performQuickCheckoutAPI('salary_cut', selectedMember.id) : performStandardCheckoutAPI('salary_cut', selectedMember.id) }
+                        { text: 'Setuju & Proses', onPress: () => isQuickSale ? performQuickCheckoutAPI('salary_cut', selectedMemberId) : performStandardCheckoutAPI('salary_cut', selectedMemberId) }
                       ]
                     );
                   }}

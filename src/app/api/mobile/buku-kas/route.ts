@@ -105,6 +105,6 @@ export async function GET(request: Request) {
         });
     } catch (error: any) {
         console.error("GET /api/mobile/buku-kas error:", error);
-        return NextResponse.json({ message: "Gagal memuat Buku Kas", error: error?.message }, { status: 500 });
+        return NextResponse.json({ message: "Gagal memuat Buku Kas" }, { status: 500 });
     }
 }

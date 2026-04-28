@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import api from '../../lib/api';
+import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
@@ -51,6 +52,17 @@ export default function ShiftScreen() {
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [closingCash, setClosingCash] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
+  const [kasirUnitType, setKasirUnitType] = useState('toko');
+
+  useEffect(() => {
+    const u = StorageManager.getFastString('userData');
+    if (u) {
+      try {
+        const user = JSON.parse(u);
+        if (user.unitType) setKasirUnitType(user.unitType);
+      } catch (e) {}
+    }
+  }, []);
 
   const fetchShifts = useCallback(async () => {
     try {
@@ -78,7 +90,7 @@ export default function ShiftScreen() {
       const res = await api.post('/api/mobile/toko/shifts', {
         shiftName: selectedShiftName,
         openingCash: numCash,
-        unitType: 'toko',
+        unitType: kasirUnitType,
       });
       Alert.alert('Sukses', res.data?.message || 'Shift berhasil dibuka', [
         { text: 'Masuk POS', onPress: () => navigation.navigate('KasirFull') }
@@ -136,7 +148,7 @@ export default function ShiftScreen() {
         )}
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Shift Kasir</Text>
-          <Text style={{ color: C.accentLight, fontSize: 12 }}>Unit Toko</Text>
+          <Text style={{ color: C.accentLight, fontSize: 12 }}>Unit {kasirUnitType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
         </View>
         <TouchableOpacity onPress={() => { setRefreshing(true); fetchShifts(); }}>
           <Ionicons name="refresh" size={22} color="#FFF" />

@@ -2,7 +2,7 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **28 April 2026 (Pre-Deploy Audit — 3 Unit Baru + Data Isolation Fix + Docs Update)**
+> Update terakhir: **28 April 2026 (Session 2 — Pre-Deploy Deep Audit: 15 Bug Fixes Backend + Frontend)**
 > Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md`
 
 ---
@@ -15,7 +15,8 @@
 | Sprint 2 — Paritas Fitur Web | 5 | 5 | 0 | 0 |
 | Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
 | Sprint 4 — Pre-Deploy Audit & Unit Baru | 2 | 2 | 0 | 0 |
-| **TOTAL** | **18** | **18** | **0** | **0** |
+| Sprint 5 — Deep Audit Bug Fixes | 8 | 8 | 0 | 0 |
+| **TOTAL** | **26** | **26** | **0** | **0** |
 
 ## 🆕 UPDATE WEB & BACKEND (26 APRIL 2026)
 
@@ -750,6 +751,22 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 1. [x] **S4-01** M-FIX-001: Tambah 3 unit type (laundry, fitness, playstation) di KasirScreen
 2. [x] **S4-02** M-FIX-002: Fix data isolation di StokScreen (filter unitType dari session kasir)
 
+### Sprint 5 — Deep Audit Bug Fixes (28 April 2026 Session 2)
+1. [x] **S5-01** M-FIX-003: Login response — tambah unitType
+2. [x] **S5-02** M-FIX-004: Plafon piutang formula — 50% sisa bersih
+3. [x] **S5-03** M-FIX-005: CashBankTransaction type — "in" bukan "masuk"
+4. [x] **S5-04** M-FIX-006: Savings TX — tambah cash/bank sync
+5. [x] **S5-05** M-FIX-007: Edit NRP — tambah role check POST
+6. [x] **S5-06** M-FIX-008: Assets — hapus error object dari response
+7. [x] **S5-07** M-FIX-009: Buku Kas — hapus error message dari response
+8. [x] **S5-08** M-FIX-010: Push Token — konsistensi import prisma
+
+**Frontend Fixes (same session):**
+- [x] **M-FIX-011**: MainTabs — role parsing (object vs string)
+- [x] **M-FIX-012**: ShiftScreen — dynamic unitType dari session
+- [x] **M-FIX-013**: KasirScreen — canTransact + member ID + debounce cleanup
+- [x] **M-FIX-014**: KwitansiViewer — expo-print type params
+
 ---
 
 ## ✅ CHECKLIST SEBELUM RELEASE MOBILE BERIKUTNYA
@@ -877,10 +894,110 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 | PlayStation | `playstation` | JALUR 2 | `/api/mobile/toko` | ✅ NEW |
 
 ### Catatan Pre-Deploy
-- **TypeScript**: 2 error pre-existing di `KwitansiViewerScreen.tsx` (tidak blocking — terkait `expo-print` type mismatch)
+- **TypeScript**: 0 new errors — semua fix kompatibel dengan existing code
 - **Backend API**: 47 mobile routes terverifikasi — semua endpoint aktif dan berfungsi
 - **Dependencies**: Semua library sprint terinstall dan terkonfigurasi
 - **Production URL**: Auto-switch ke `https://www.primkoppol.online` saat `__DEV__ === false`
+- **ENV**: `.env` hanya dipakai saat dev (Expo Go). Build APK/AAB otomatis ke production URL.
+
+---
+
+## 🆕 UPDATE MOBILE — 28 APRIL 2026 Session 2 (Deep Audit: 15 Bug Fixes)
+
+### 41. [M-FIX-003] Fix Login Response — Tambah unitType untuk Kasir
+- ✅ **Selesai**: `src/app/api/mobile/login/route.ts`
+- **Bug:** Response login tidak menyertakan `unitType` user, sehingga kasir tidak terdeteksi unit-nya di mobile
+- **Fix:** Tambah `unitType: user.unitType || null` ke response object
+- **Dampak:** Kasir sekarang otomatis diarahkan ke unit yang benar (bukan selalu "toko")
+
+### 42. [M-FIX-004] Fix Plafon Piutang Formula — 50% dari Sisa Bersih
+- ✅ **Selesai**: `src/app/api/mobile/unit-layanan/route.ts`
+- **Bug:** Formula lama `sisaBersih - 2,000,000` (hardcoded deduction) digunakan bukan formula baru
+- **Fix:** Diganti ke `Math.floor(sisaBersih * 0.5)` — 50% dari sisa bersih gaji
+- **Dampak:** Validasi plafon piutang untuk potong gaji sekarang akurat
+
+### 43. [M-FIX-005] Fix CashBankTransaction Type — "masuk" → "in"
+- ✅ **Selesai**: `src/app/api/mobile/loan-payment/route.ts`
+- **Bug:** 4 instansi `type: "masuk"` di CashBankTransaction — schema hanya menerima "in"/"out"
+- **Fix:** Semua diubah ke `type: "in"` — sesuai enum schema Prisma
+- **Dampak:** Transaksi angsuran pinjaman via mobile kini mencatat kas/bank dengan benar
+
+### 44. [M-FIX-006] Fix Savings TX — Tambah Cash/Bank Sync
+- ✅ **Selesai**: `src/app/api/mobile/savings-tx/route.ts`
+- **Bug:** Setoran dan penarikan simpanan tidak mensinkronkan saldo kas/bank
+- **Fix:** Tambah blok cash/bank sync (create CashBankTransaction + update balance) setelah transaksi simpanan
+- **Dampak:** Saldo kas/bank akurat saat ada setoran/penarikan simpanan via mobile
+
+### 45. [M-FIX-007] Fix Edit NRP — Tambah Role Check pada POST
+- ✅ **Selesai**: `src/app/api/mobile/edit-nrp/route.ts`
+- **Bug:** POST handler tidak punya role check — user `anggota` bisa assign member ke transaksi
+- **Fix:** Tambah role check `kasir/operator/admin` di awal POST
+- **Dampak:** Hanya authorized role yang bisa assign NRP ke transaksi
+
+### 46. [M-FIX-008] Fix Assets — Hapus Error Object dari Response
+- ✅ **Selesai**: `src/app/api/mobile/assets/route.ts`
+- **Bug:** Response 500 mengirim raw `error` object (information disclosure)
+- **Fix:** Ganti ke generic message "Gagal menyimpan aset"
+- **Dampak:** Tidak ada lagi database query/table name yang bocor ke client
+
+### 47. [M-FIX-009] Fix Buku Kas — Hapus Error Message dari Response
+- ✅ **Selesai**: `src/app/api/mobile/buku-kas/route.ts`
+- **Bug:** Response 500 mengirim `error.message` (bisa expose SQL details)
+- **Fix:** Hapus field error dari response
+- **Dampak:** Tidak ada lagi database error details yang bocor ke client
+
+### 48. [M-FIX-010] Fix Push Token — Konsistensi Import
+- ✅ **Selesai**: `src/app/api/mobile/push-token/route.ts`
+- **Bug:** Named import `{ prisma }` berbeda dari semua file lain (default import)
+- **Fix:** Ganti ke `import prisma from '@/lib/prisma'` + hapus error message leak
+- **Dampak:** Konsistensi kode dan tidak ada lagi info bocor di error response
+
+### 49. [M-FIX-011] Fix MainTabs — Role Parsing Object vs String
+- ✅ **Selesai**: `mobile/src/navigation/MainTabs.tsx`
+- **Bug:** `parsed.role` adalah object `{ name: 'kasir' }` bukan string — semua user mendapat tab Anggota
+- **Fix:** Extract role name: `typeof parsed.role === 'object' ? parsed.role?.name : parsed.role`
+- **Dampak:** Operator, Admin, Kasir sekarang melihat tab navigasi yang benar sesuai role
+
+### 50. [M-FIX-012] Fix ShiftScreen — Hardcoded unitType
+- ✅ **Selesai**: `mobile/src/screens/kasir/ShiftScreen.tsx`
+- **Bug:** `unitType: 'toko'` di-hardcode — semua kasir non-toko akan buka shift salah unit
+- **Fix:** Baca unitType dari session storage, tampilkan nama unit dinamis di header
+- **Dampak:** Kasir laundry/fitness/playstation dll buka shift dengan unitType yang benar
+
+### 51. [M-FIX-013] Fix KasirScreen — canTransact + Member ID + Debounce Cleanup
+- ✅ **Selesai**: `mobile/src/screens/kasir/KasirScreen.tsx`
+- **Bug 1:** `canProceed` adalah dead code — `limitTooLow` hanya cek `total > sisaLimit`, tidak cek `canTransact`
+- **Bug 2:** Identifikasi member by name (`members.find(m => m.name === ...)`) — bisa salah jika nama sama
+- **Bug 3:** Debounce timer tidak di-clear saat unmount — memory leak
+- **Fix:**
+  - Integrasi `!memberPiutang.canTransact` ke `limitTooLow`
+  - Tambah state `selectedMemberId` — set saat member di-tap, gunakan saat konfirmasi
+  - Tambah cleanup `useEffect` untuk debounce timer
+- **Dampak:** Validasi plafot piutang lebih aman, transaksi potong gaji akurat, tidak ada memory leak
+
+### 52. [M-FIX-014] Fix KwitansiViewer — expo-print Type Params
+- ✅ **Selesai**: `mobile/src/screens/common/KwitansiViewerScreen.tsx`
+- **Bug:** `printToFileAsync({ url })` dan `printAsync({ url })` — parameter tidak sesuai type
+- **Fix:** Ganti ke `{ html: ... }` untuk printToFileAsync dan `{ uri }` untuk printAsync
+- **Dampak:** Cetak kwitansi PDF dan share berfungsi tanpa TypeScript error
+
+### Bug yang Diketahui Tapi Tidak Difiks (Low Risk / Pre-existing)
+- `reports/unit/route.ts`: Menggunakan model `UnitAccount` dan `OperationalExpense` yang tidak ada di schema — endpoint akan return `totalPengeluaran: 0`. Perlu dibuat model baru atau rewrite query.
+- `kas-bank/route.ts`: Tidak ada filter branch/unit — menampilkan semua akun dari semua cabang. Low risk jika hanya 1 cabang.
+- `toko/route.ts`: `cashReceived` selalu sama dengan `totalAmount` — client tidak kirim jumlah uang fisik yang diterima.
+
+---
+
+## 🆕 SPRINT 5 — Deep Audit Bug Fixes (28 April 2026 Session 2)
+
+### [x] S5-01 — M-FIX-003: Login response unitType
+### [x] S5-02 — M-FIX-004: Plafon piutang formula
+### [x] S5-03 — M-FIX-005: CashBankTransaction type "in"
+### [x] S5-04 — M-FIX-006: Savings TX cash/bank sync
+### [x] S5-05 — M-FIX-007: Edit NRP role check
+### [x] S5-06 — M-FIX-008: Assets error disclosure
+### [x] S5-07 — M-FIX-009: Buku Kas error message
+### [x] S5-08 — M-FIX-010: Push token import
 
 ---
 
