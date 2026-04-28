@@ -70,7 +70,7 @@ export default function LaporanCuciMobilScreen({ navigation: navProp }: any) {
           )}
           <View>
             <Text style={styles.headerTitle}>Laporan Cuci Mobil</Text>
-            <Text style={styles.headerSub}>Bagi Hasil Koperasi & Karyawan</Text>
+            <Text style={styles.headerSub}>Bagi Hasil PRIMKOPPOL & Karyawan</Text>
           </View>
         </View>
       </View>
@@ -125,13 +125,13 @@ export default function LaporanCuciMobilScreen({ navigation: navProp }: any) {
               <View style={styles.row}>
                 <View style={[styles.iconContainer, { backgroundColor: '#F0FDF4' }]}><Ionicons name="business" size={20} color="#10B981" /></View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Bagian Koperasi (50%)</Text>
+                  <Text style={styles.label}>Bagian PRIMKOPPOL (50%)</Text>
                   <Text style={[styles.value, { color: '#10B981' }]}>{formatRp(data.bagianKoperasi)}</Text>
                 </View>
               </View>
             </View>
 
-            <Text style={styles.sectionTitle}>Pengeluaran & Laba Koperasi</Text>
+            <Text style={styles.sectionTitle}>Pengeluaran & Laba PRIMKOPPOL</Text>
 
             <View style={[styles.card, { borderColor: C.accent, borderWidth: 1 }]}>
               <View style={[styles.row, { borderBottomWidth: 1, borderColor: '#F1F5F9', paddingBottom: 12, marginBottom: 12 }]}>
@@ -145,7 +145,7 @@ export default function LaporanCuciMobilScreen({ navigation: navProp }: any) {
               <View style={styles.row}>
                 <View style={[styles.iconContainer, { backgroundColor: C.primaryLight + '20' }]}><Ionicons name="stats-chart" size={20} color={C.primary} /></View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.label, { fontWeight: 'bold' }]}>Laba Bersih Koperasi</Text>
+                  <Text style={[styles.label, { fontWeight: 'bold' }]}>Laba Bersih PRIMKOPPOL</Text>
                   <Text style={[styles.valuePrimary, { fontSize: 22 }]}>{formatRp(data.labaBersihKoperasi)}</Text>
                 </View>
               </View>

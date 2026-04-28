@@ -260,7 +260,7 @@ export default function LaporanSHUScreen({ navigation }: any) {
               </Text>
               {data.totalCarwashBonus > 0 && (
                 <Text style={[styles.infoText, { marginTop: 4 }]}>
-                  🚗 Total SHU Cuci Mobil: {formatRupiah(data.totalCarwashBonus)} (Rp 2.000 × per transaksi anggota). Dibebankan ke pendapatan kotor koperasi.
+                  🚗 Total SHU Cuci Mobil: {formatRupiah(data.totalCarwashBonus)} (Rp 2.000 × per transaksi anggota). Dibebankan ke pendapatan kotor PRIMKOPPOL.
                 </Text>
               )}
             </View>

@@ -51,7 +51,7 @@ const DEFAULT_PROFILE: KoperasiProfile = {
   email: "primkoppol@polreslumajang.go.id",
   website: "https://primkoppol-polreslumajang.go.id",
   description:
-    "Koperasi simpan pinjam yang melayani anggota kepolisian Resor Lumajang dan jajarannya untuk meningkatkan kesejahteraan anggota melalui layanan simpanan dan pinjaman.",
+    "Primer Koperasi Kepolisian yang melayani anggota Polres Lumajang dan jajarannya untuk meningkatkan kesejahteraan anggota melalui layanan simpanan dan pinjaman.",
   totalMembers: 0,
   totalSavings: 0,
   totalLoans: 0,
@@ -175,7 +175,7 @@ export default function ProfilKoperasiScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profil Koperasi</Text>
+        <Text style={styles.headerTitle}>Profil PRIMKOPPOL</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -203,7 +203,7 @@ export default function ProfilKoperasiScreen() {
           <View style={styles.heroBadge}>
             <Ionicons name="shield-checkmark" size={14} color={C.accent} />
             <Text style={styles.heroBadgeText}>
-              Koperasi Kepolisian Berdiri {ageYears} Tahun
+              PRIMKOPPOL Polres Lumajang Berdiri {ageYears} Tahun
             </Text>
           </View>
         </View>
@@ -235,7 +235,7 @@ export default function ProfilKoperasiScreen() {
         </View>
 
         {/* Identitas */}
-        <SectionCard title="Identitas Koperasi" icon="business-outline">
+        <SectionCard title="Identitas PRIMKOPPOL" icon="business-outline">
           <InfoRow
             icon="document-text-outline"
             label="No. Badan Hukum"
@@ -294,7 +294,7 @@ export default function ProfilKoperasiScreen() {
         </SectionCard>
 
         {/* Tentang */}
-        <SectionCard title="Tentang Koperasi" icon="information-circle-outline">
+        <SectionCard title="Tentang PRIMKOPPOL" icon="information-circle-outline">
           <Text style={styles.descText}>{profile.description}</Text>
         </SectionCard>
 

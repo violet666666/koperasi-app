@@ -67,7 +67,7 @@ export default function SimpananScreen() {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={[styles.txAmount, { color: textColor }]}>
-            {isDeposit ? '+' : '-'}{formatRp(item.amount)}
+            {(isDeposit || (isCorrection && Number(item.amount) >= 0)) ? '+' : '-'}{formatRp(item.amount)}
           </Text>
           {item.balanceAfter !== undefined && (
             <Text style={styles.txBalance}>Saldo: {formatRp(item.balanceAfter)}</Text>

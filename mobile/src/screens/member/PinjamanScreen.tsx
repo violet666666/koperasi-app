@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 15, color: C.mutedForeground },
   fab: {
-    position: 'absolute', bottom: 20, right: 20, left: 20,
+    position: 'absolute', bottom: 90, right: 20, left: 20,
     backgroundColor: C.accent, borderRadius: 16, paddingVertical: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     shadowColor: C.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,

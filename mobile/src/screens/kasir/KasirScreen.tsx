@@ -351,10 +351,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
       return;
     }
 
-    // Cash — tanya dulu apakah pelanggan anggota koperasi
+    // Cash — tanya dulu apakah pelanggan anggota PRIMKOPPOL
     Alert.alert(
       'Pembayaran Tunai',
-      `Total: ${formatRp(total)}\n\nApakah pelanggan adalah anggota koperasi?`,
+      `Total: ${formatRp(total)}\n\nApakah pelanggan adalah anggota PRIMKOPPOL?`,
       [
         { text: 'Bukan Anggota', onPress: () => isQuickSale ? performQuickCheckoutAPI('cash', null) : performStandardCheckoutAPI('cash', null) },
         { text: 'Ya, Pilih Anggota', style: 'default', onPress: () => openMemberSelection('cash') },
@@ -817,10 +817,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
             style={[styles.cashBtn, { backgroundColor: '#2563EB', width: '100%', marginTop: 20 }]}
             onPress={() => {
               qrisModalRef.current?.dismiss();
-              // Tanya apakah pelanggan anggota koperasi
+              // Tanya apakah pelanggan anggota PRIMKOPPOL
               Alert.alert(
                 'QRIS Berhasil',
-                'Apakah pelanggan adalah anggota koperasi?',
+                'Apakah pelanggan adalah anggota PRIMKOPPOL?',
                 [
                   { text: 'Bukan Anggota', onPress: () => isQuickSale ? performQuickCheckoutAPI('qris', null) : performStandardCheckoutAPI('qris', null) },
                   { text: 'Ya, Pilih Anggota', style: 'default', onPress: () => openMemberSelection('qris') },

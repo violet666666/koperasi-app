@@ -94,6 +94,12 @@ export default function TransaksiScreen() {
       if (statusFilter === 'voided') return t.status === 'voided';
       return true;
     }
+    // loan tab
+    if (activeTab === 'loan') {
+      if (statusFilter === 'unpaid') return t.isPaid === false && t.status !== 'voided';
+      if (statusFilter === 'completed') return t.isPaid === true;
+      if (statusFilter === 'voided') return t.status === 'voided';
+    }
     return true;
   });
 

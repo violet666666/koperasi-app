@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, ScrollView 
 import { StorageManager } from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import C from '../../lib/colors';
 
 export default function ProfileScreen({ setToken }: any) {
@@ -63,12 +64,12 @@ export default function ProfileScreen({ setToken }: any) {
           <View style={styles.infoRow}>
             <Ionicons name="shield-checkmark-outline" size={20} color="#64748B" />
             <Text style={styles.infoLabel}>Peran</Text>
-            <Text style={styles.infoValue}>{user?.role || '-'}</Text>
+            <Text style={styles.infoValue}>{user?.roleDisplayName || user?.role || '-'}</Text>
           </View>
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <Ionicons name="information-circle-outline" size={20} color="#64748B" />
             <Text style={styles.infoLabel}>Versi</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
+            <Text style={styles.infoValue}>{Constants.expoConfig?.version || '1.0.0'}</Text>
           </View>
         </View>
 

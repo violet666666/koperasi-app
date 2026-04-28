@@ -164,7 +164,7 @@ export default function LoanApplicationScreen({ navigation }: any) {
         <Text style={styles.headerTitle}>Pengajuan Pinjaman</Text>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} key={selectedProduct?.id || 'none'}>
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
 
           {/* Pilih Produk */}
