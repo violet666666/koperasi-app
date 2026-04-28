@@ -105,27 +105,38 @@ export default function TambahProdukPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!form.sku || !form.name || !form.sellPrice) {
-            toast.error("SKU, Nama Produk, dan Harga Jual wajib diisi");
+        if (!form.sku.trim()) {
+            toast.error("SKU / Kode Produk wajib diisi");
+            return;
+        }
+        if (!form.name.trim()) {
+            toast.error("Nama Produk wajib diisi");
+            return;
+        }
+        const sellPriceNum = parseFloat(form.sellPrice);
+        if (!form.sellPrice || isNaN(sellPriceNum) || sellPriceNum < 0) {
+            toast.error("Harga Jual harus berupa angka yang valid");
             return;
         }
 
         setIsSubmitting(true);
         try {
+            const stockGdgVal = parseInt(form.stockGdg) || 0;
+            const stockTokoVal = parseInt(form.stockToko) || 0;
             const res = await fetch("/api/toko/products", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    sku: form.sku,
-                    name: form.name,
+                    sku: form.sku.trim(),
+                    name: form.name.trim(),
                     category: form.category || null,
                     costPrice: parseFloat(form.costPrice) || 0,
-                    sellPrice: parseFloat(form.sellPrice),
+                    sellPrice: sellPriceNum,
                     discountType: form.discountType !== "none" ? form.discountType : null,
                     discountValue: parseFloat(form.discountValue) || 0,
-                    stock: (parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0), // Selalu hitung dari Gdg + Toko
-                    stockGdg: parseInt(form.stockGdg) || 0,
-                    stockToko: parseInt(form.stockToko) || 0,
+                    stock: stockGdgVal + stockTokoVal,
+                    stockGdg: stockGdgVal,
+                    stockToko: stockTokoVal,
                     minStock: parseInt(form.minStock) || 5,
                     unit: form.unit || "pcs",
                     imageUrl: form.imageUrl || null,
@@ -139,11 +150,15 @@ export default function TambahProdukPage() {
                 return;
             }
 
-            toast.success("Produk berhasil ditambahkan!");
+            if (json.restored) {
+                toast.success(`Produk "${form.name}" berhasil dipulihkan dari arsip`);
+            } else {
+                toast.success("Produk berhasil ditambahkan!");
+            }
             router.push("/toko/produk");
         } catch (error) {
             console.error("Submit error:", error);
-            toast.error("Gagal menambahkan produk");
+            toast.error("Gagal menambahkan produk. Periksa koneksi internet Anda.");
         } finally {
             setIsSubmitting(false);
         }
@@ -284,7 +299,8 @@ export default function TambahProdukPage() {
                             <div className="space-y-2">
                                 <Label htmlFor="stock">Total Stock</Label>
                                 <Input id="stock" type="number" min={0} placeholder="0"
-                                    value={form.stock} onChange={e => handleChange("stock", e.target.value)} />
+                                    value={(parseInt(form.stockGdg) || 0) + (parseInt(form.stockToko) || 0)} readOnly
+                                    className="bg-muted cursor-not-allowed" />
                             </div>
                         </div>
 

@@ -76,10 +76,54 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType } = body;
 
-        if (!sku || !name || sellPrice === undefined) {
+        if (!sku || !name || sellPrice === undefined || sellPrice === null) {
             return NextResponse.json(
-                { message: "SKU, name, and sellPrice are required" },
+                { message: "SKU, Nama Produk, dan Harga Jual wajib diisi" },
                 { status: 400 }
+            );
+        }
+
+        if (isNaN(Number(sellPrice)) || Number(sellPrice) < 0) {
+            return NextResponse.json(
+                { message: "Harga Jual harus berupa angka yang valid" },
+                { status: 400 }
+            );
+        }
+
+        // Check if SKU already exists (including soft-deleted)
+        const existing = await prisma.storeProduct.findFirst({
+            where: { sku },
+        });
+
+        if (existing) {
+            // If soft-deleted, offer to restore
+            if (existing.deletedAt) {
+                const restored = await prisma.storeProduct.update({
+                    where: { id: existing.id },
+                    data: {
+                        name,
+                        category: category || null,
+                        imageUrl: imageUrl || null,
+                        costPrice: costPrice || 0,
+                        sellPrice,
+                        discountType: discountType || null,
+                        discountValue: discountValue || 0,
+                        stock: stock || 0,
+                        stockGdg: stockGdg || 0,
+                        stockToko: stockToko || 0,
+                        minStock: minStock || 5,
+                        unit: unit || "pcs",
+                        unitType: unitType || "toko",
+                        isService: isService || false,
+                        isActive: true,
+                        deletedAt: null,
+                    },
+                });
+                return NextResponse.json({ data: restored, restored: true }, { status: 201 });
+            }
+            return NextResponse.json(
+                { message: `SKU "${sku}" sudah digunakan oleh produk "${existing.name}". Gunakan SKU lain.` },
+                { status: 409 }
             );
         }
 
@@ -118,10 +162,22 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json({ data: product }, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST /api/toko/products error:", error);
+
+        // Prisma unique constraint violation (P2002)
+        if (error?.code === "P2002") {
+            const target = error.meta?.target as string[] | undefined;
+            if (target?.includes("sku")) {
+                return NextResponse.json(
+                    { message: "SKU sudah digunakan. Gunakan kode produk yang berbeda." },
+                    { status: 409 }
+                );
+            }
+        }
+
         return NextResponse.json(
-            { message: "Failed to create product" },
+            { message: "Gagal menambahkan produk. Periksa kembali data yang diinput." },
             { status: 500 }
         );
     }
