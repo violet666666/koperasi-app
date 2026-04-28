@@ -9,7 +9,8 @@
       "Bash(node *)",
       "Bash(npx eas *)",
       "Bash(./gradlew assembleRelease)",
-      "Bash(gradle --version)"
+      "Bash(gradle --version)",
+      "Bash(java *)"
     ]
   },
   "enabledPlugins": {
