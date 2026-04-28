@@ -6,7 +6,10 @@
       "Bash(npx next *)",
       "Bash(npx prisma *)",
       "Bash(psql *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(npx eas *)",
+      "Bash(./gradlew assembleRelease)",
+      "Bash(gradle --version)"
     ]
   },
   "enabledPlugins": {
