@@ -39,6 +39,7 @@ export default function TambahProdukPage() {
     });
     const [imagePreview, setImagePreview] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [dynamicCategories, setDynamicCategories] = React.useState<string[]>([]);
 
     // Fetch pricing settings from DB
     const [markupPercent, setMarkupPercent] = React.useState(2);
@@ -57,6 +58,18 @@ export default function TambahProdukPage() {
                         const exc = data.map[`${productUnitType}_excluded_categories`];
                         if (exc) setExcludedCategories(JSON.parse(exc));
                     } catch {}
+                }
+            })
+            .catch(() => {});
+    }, [productUnitType]);
+
+    // Fetch dynamic categories from API
+    React.useEffect(() => {
+        fetch(`/api/toko/products/categories?unitType=${productUnitType}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.data) {
+                    setDynamicCategories(data.data.map((c: any) => c.name));
                 }
             })
             .catch(() => {});
@@ -207,13 +220,21 @@ export default function TambahProdukPage() {
                                 <Select value={form.category} onValueChange={v => handleChange("category", v)}>
                                     <SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="makanan">Makanan</SelectItem>
-                                        <SelectItem value="minuman">Minuman</SelectItem>
-                                        <SelectItem value="sembako">Sembako</SelectItem>
-                                        <SelectItem value="rokok">🚬 Rokok</SelectItem>
-                                        <SelectItem value="atk">ATK</SelectItem>
-                                        <SelectItem value="elektronik">Elektronik</SelectItem>
-                                        <SelectItem value="lainnya">Lainnya</SelectItem>
+                                        {dynamicCategories.length > 0 ? (
+                                            dynamicCategories.map(cat => (
+                                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <SelectItem value="makanan">Makanan</SelectItem>
+                                                <SelectItem value="minuman">Minuman</SelectItem>
+                                                <SelectItem value="sembako">Sembako</SelectItem>
+                                                <SelectItem value="rokok">🚬 Rokok</SelectItem>
+                                                <SelectItem value="atk">ATK</SelectItem>
+                                                <SelectItem value="elektronik">Elektronik</SelectItem>
+                                                <SelectItem value="lainnya">Lainnya</SelectItem>
+                                            </>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>
