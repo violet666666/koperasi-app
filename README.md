@@ -4,8 +4,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
-![Expo](https://img.shields.io/badge/Expo-52-000020?style=for-the-badge&logo=expo&logoColor=white)
-![React Native](https://img.shields.io/badge/React_Native-0.76-61DAFB?style=for-the-badge&logo=react&logoColor=white)
+![Expo](https://img.shields.io/badge/Expo-55-000020?style=for-the-badge&logo=expo&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-0.83-61DAFB?style=for-the-badge&logo=react&logoColor=white)
 
 Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL Polres Lumajang**. Dibangun dengan Next.js 16, TypeScript, dan Prisma untuk platform web, serta Expo/React Native untuk platform mobile (Android & iOS).
 
@@ -89,7 +89,7 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 | Layer | Teknologi |
 |-------|-----------|
 | **Web Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
-| **Mobile Framework** | [Expo 52](https://expo.dev/) + [React Native](https://reactnative.dev/) |
+| **Mobile Framework** | [Expo 55](https://expo.dev/) + [React Native 0.83](https://reactnative.dev/) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/) |
 | **Database** | PostgreSQL + [Prisma ORM 6.19](https://www.prisma.io/) |
 | **Auth** | [NextAuth.js v5](https://authjs.dev/) |
@@ -210,9 +210,10 @@ npx prisma studio
 |--------|-------|
 | Web Pages | 160+ |
 | API Endpoints | 90+ |
-| Mobile Screens | 31 |
+| Mobile Screens | 40+ |
 | Database Models | 25+ |
 | Total Routes | 250+ |
+| Unit Usaha | 8 |
 
 ## 🤝 Contributing
 

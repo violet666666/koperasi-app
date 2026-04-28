@@ -42,6 +42,9 @@ const UNIT_TYPES = [
   { id: 'cuci_mobil', name: 'Cuci Mobil & Mtr' },
   { id: 'barbershop', name: 'Barbershop' },
   { id: 'fotocopy', name: 'Fotocopy' },
+  { id: 'laundry', name: 'Laundry' },
+  { id: 'fitness', name: 'Fitness / Gym' },
+  { id: 'playstation', name: 'PlayStation' },
 ];
 
 // ── Paper Size Config (58mm & 80mm thermal printer) ────────────────────────
@@ -115,8 +118,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const memberSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Flags for mode
-  const isQuickSale = unitType === 'cuci_mobil' || unitType === 'barbershop' || unitType === 'fotocopy';
-  const isTokoUnit = unitType === 'toko' || unitType === 'resto_cafe';
+  // JALUR 1 (unit-layanan / quick sale): cuci_mobil, barbershop, fotocopy
+  // JALUR 2 (toko / product cart): toko, resto_cafe, laundry, fitness, playstation
+  const isQuickSale = ['cuci_mobil', 'barbershop', 'fotocopy'].includes(unitType);
+  const isTokoUnit = ['toko', 'resto_cafe', 'laundry', 'fitness', 'playstation'].includes(unitType);
   const isCarwash = unitType === 'cuci_mobil';
 
   // ── S1-03: Fetch paket via React Query ──────────────────────────────────────
@@ -130,14 +135,14 @@ export default function KasirScreen({ navigation: navProp }: any) {
   });
   const packages = packagesData.length > 0 ? packagesData : ([] as ServicePackage[]);
 
-  // ── S0-01: Fetch products via React Query ──────────────────────────────────
+  // ── S0-01: Fetch products via React Query (JALUR 2: toko, resto, laundry, fitness, playstation)
   const { data: productsData = [], isLoading: productsLoading, refetch: refetchProducts } = useQuery({
     queryKey: ['products', unitType, search],
     queryFn: async () => {
       const res = await api.get(`/api/mobile/toko?search=${search}&unitType=${unitType}`);
       return res.data.data as Product[];
     },
-    enabled: ['toko', 'resto_cafe'].includes(unitType),
+    enabled: ['toko', 'resto_cafe', 'laundry', 'fitness', 'playstation'].includes(unitType),
   });
   const products = productsData.length > 0 ? productsData : ([] as Product[]);
 

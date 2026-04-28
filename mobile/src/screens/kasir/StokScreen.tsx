@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
+import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
 
 interface Product {
@@ -26,19 +27,32 @@ export default function StokScreen({ navigation: navProp }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const getUnitFilter = useCallback(() => {
+    const u = StorageManager.getFastString('userData');
+    if (u) {
+      try {
+        const user = JSON.parse(u);
+        if (user.role?.name === 'kasir' && user.unitType) return user.unitType;
+      } catch (e) {}
+    }
+    return null;
+  }, []);
+
   const loadData = useCallback(async (q?: string) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/mobile/toko?search=${q ?? search}`);
+      const unitType = getUnitFilter();
+      const unitParam = unitType ? `&unitType=${unitType}` : '';
+      const res = await api.get(`/api/mobile/toko?search=${q ?? search}${unitParam}`);
       setProducts(res.data.data || []);
     } catch (err) {
       console.log('Stok fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, getUnitFilter]);
 
-  useEffect(() => { loadData(''); }, []);
+  useEffect(() => { loadData(''); }, [loadData]);
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
   const handleSearch = () => { loadData(search); };
