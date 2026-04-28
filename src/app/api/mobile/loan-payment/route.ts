@@ -154,7 +154,7 @@ export async function POST(request: Request) {
                         data: {
                             cashBankAccountId: Number(cashBankAccountId),
                             transactionDate: today,
-                            type: "masuk",
+                            type: "in",
                             category: "angsuran_pokok",
                             amount: principalOut,
                             description: `Pelunasan pokok pinjaman ${loan.loanNo} (${loan.member.name})`,
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
                         data: {
                             cashBankAccountId: Number(cashBankAccountId),
                             transactionDate: today,
-                            type: "masuk",
+                            type: "in",
                             category: "penalti_pelunasan",
                             amount: penaltyFee,
                             description: `Penalti pelunasan ${penaltyMultiplier}× bunga - ${loan.loanNo} (${loan.member.name})`,
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
                         data: {
                             cashBankAccountId: Number(cashBankAccountId),
                             transactionDate: new Date(),
-                            type: "masuk",
+                            type: "in",
                             category: "angsuran_pokok",
                             amount: principalPortion,
                             description: `Angsuran pokok ${loan.loanNo} (${loan.member.name})`,
@@ -265,7 +265,7 @@ export async function POST(request: Request) {
                         data: {
                             cashBankAccountId: Number(cashBankAccountId),
                             transactionDate: new Date(),
-                            type: "masuk",
+                            type: "in",
                             category: "jasa_pinjaman",
                             amount: interestPortion,
                             description: `Jasa/bunga pinjaman ${loan.loanNo} (${loan.member.name})`,

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { accountId, amount, type, description } = body;
+        const { accountId, amount, type, description, cashBankAccountId } = body;
 
         if (!accountId || !amount || !type || !["deposit", "withdrawal"].includes(type)) {
             return NextResponse.json({ message: "accountId, amount, dan type (deposit/withdrawal) wajib diisi" }, { status: 400 });
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
                     accountId: Number(accountId),
                     memberId: account.memberId,
                     productId: account.productId,
-                    branchId: 1, // Fallback DB constraint
+                    branchId: 1,
                     type,
                     amount: numAmount,
                     balanceBefore: currentBalance,
@@ -66,6 +66,38 @@ export async function POST(request: Request) {
                 data: { balance: newBalance },
             }),
         ]);
+
+        // Cash/Bank sync (same pattern as toko/route.ts)
+        if (cashBankAccountId) {
+            try {
+                const cbAccount = await prisma.cashBankAccount.findUnique({ where: { id: Number(cashBankAccountId) } });
+                if (cbAccount) {
+                    const cbBal = Number(cbAccount.currentBalance);
+                    const cbNewBal = type === "deposit" ? cbBal + numAmount : cbBal - numAmount;
+                    await prisma.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `SV-M-${type === 'deposit' ? 'IN' : 'OUT'}-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: cbAccount.id,
+                            branchId: cbAccount.branchId,
+                            type: type === "deposit" ? "in" : "out",
+                            category: type === "deposit" ? "setoran_simpanan" : "penarikan_simpanan",
+                            amount: numAmount,
+                            balanceBefore: cbBal,
+                            balanceAfter: cbNewBal,
+                            description: `${type === "deposit" ? "Setoran" : "Penarikan"} simpanan ${account.member.name} (${account.product.name}) via mobile - ${txNo}`,
+                            transactionDate: new Date(),
+                            createdById: Number(user.id),
+                        },
+                    });
+                    await prisma.cashBankAccount.update({
+                        where: { id: cbAccount.id },
+                        data: { currentBalance: cbNewBal },
+                    });
+                }
+            } catch (cbErr) {
+                console.error("[Mobile Savings-TX] Cash/Bank sync failed (non-fatal):", cbErr);
+            }
+        }
 
         await logAudit({
             userId: Number(user.id),

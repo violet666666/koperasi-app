@@ -108,8 +108,7 @@ export async function POST(request: Request) {
                 const salary = Number(member.salary || 0);
                 const tunkin = Number(member.tunlesKinerja || 0);
                 const sisaBersih = salary + tunkin - totalAngsuran;
-                const batasAman = 2000000;
-                plafonPiutang = Math.max(0, sisaBersih - batasAman);
+                plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
             }
 
             const sisaLimit = plafonPiutang - totalTagihan;

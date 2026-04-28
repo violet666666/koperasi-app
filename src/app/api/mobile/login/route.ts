@@ -105,6 +105,7 @@ export async function POST(request: Request) {
                 role: user.role.name,
                 roleDisplayName: user.role.displayName,
                 nrp: user.member?.nrp || null,
+                unitType: user.unitType || null,
             }
         });
     } catch (error) {

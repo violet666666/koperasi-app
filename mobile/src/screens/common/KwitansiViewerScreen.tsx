@@ -18,8 +18,8 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
     setExporting(true);
     try {
       const { uri } = await Print.printToFileAsync({
-        url: url,
-        width: 612, // Standard letter size
+        html: `<iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>`,
+        width: 612,
         height: 792,
       });
 
@@ -45,7 +45,7 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Print.printAsync({
-        url: url,
+        uri: url,
       });
     } catch (error) {
       console.log('User cancelled print or error occurred');
