@@ -5,8 +5,8 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 
 /**
  * PATCH /api/unit-transactions/[id]/details
- * Update plat nomor dan/atau keterangan (description) pada transaksi.
- * Body: { vehiclePlate?: string, description?: string }
+ * Update plat nomor, keterangan, dan/atau tanggal transaksi.
+ * Body: { vehiclePlate?: string, description?: string, transactionDate?: string }
  *
  * Hanya Admin Unit (unit sendiri) atau Operator yang bisa akses.
  * Tidak bisa edit transaksi yang sudah voided.
@@ -37,16 +37,24 @@ export async function PATCH(
         }
 
         const body = await request.json();
-        const { vehiclePlate, description } = body;
+        const { vehiclePlate, description, transactionDate } = body;
 
-        if (vehiclePlate === undefined && description === undefined) {
+        if (vehiclePlate === undefined && description === undefined && transactionDate === undefined) {
             return NextResponse.json({ message: "Tidak ada data yang akan diubah" }, { status: 400 });
+        }
+
+        // Validate transactionDate format
+        if (transactionDate !== undefined) {
+            const parsed = new Date(transactionDate);
+            if (isNaN(parsed.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(transactionDate)) {
+                return NextResponse.json({ message: "Format tanggal tidak valid. Gunakan YYYY-MM-DD" }, { status: 400 });
+            }
         }
 
         // Ambil transaksi
         const tx = await prisma.unitTransaction.findUnique({
             where: { id: txId },
-            select: { id: true, transactionNo: true, unitType: true, status: true, notes: true, description: true },
+            select: { id: true, transactionNo: true, unitType: true, status: true, notes: true, description: true, transactionDate: true },
         });
 
         if (!tx) {
@@ -81,22 +89,47 @@ export async function PATCH(
             updateData.description = description.trim();
         }
 
-        const updated = await prisma.unitTransaction.update({
-            where: { id: txId },
-            data: updateData,
-            select: { id: true, transactionNo: true, notes: true, description: true },
+        // Update tanggal transaksi — sync ke CashBankTransaction juga
+        if (transactionDate !== undefined) {
+            updateData.transactionDate = new Date(transactionDate);
+        }
+
+        // Run update + sync CashBankTransaction in transaction
+        const updated = await prisma.$transaction(async (tx) => {
+            const result = await tx.unitTransaction.update({
+                where: { id: txId },
+                data: updateData,
+                select: { id: true, transactionNo: true, notes: true, description: true, transactionDate: true },
+            });
+
+            // Sync date to related CashBankTransaction
+            if (transactionDate !== undefined) {
+                await tx.cashBankTransaction.updateMany({
+                    where: {
+                        referenceType: 'unit_transaction',
+                        referenceId: txId,
+                    },
+                    data: { transactionDate: new Date(transactionDate) },
+                });
+            }
+
+            return result;
         });
 
         // Audit log
         try {
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
+            const changes: string[] = [];
+            if (vehiclePlate !== undefined) changes.push('plat');
+            if (description !== undefined) changes.push('keterangan');
+            if (transactionDate !== undefined) changes.push('tanggal');
             await logAudit({
                 ...userInfo, ...reqInfo,
                 action: "UPDATE", module: "Unit_Layanan",
-                description: `Edit Detail: Transaksi ${tx.transactionNo} — plat/keterangan diperbarui`,
+                description: `Edit Detail: Transaksi ${tx.transactionNo} — ${changes.join(', ')} diperbarui`,
                 targetId: String(txId), targetType: "UnitTransaction",
-                oldData: { notes: tx.notes, description: tx.description },
+                oldData: { notes: tx.notes, description: tx.description, transactionDate: tx.transactionDate },
                 newData: updateData,
             });
         } catch (e) { /* audit failure tidak blocking */ }
