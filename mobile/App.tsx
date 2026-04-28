@@ -61,6 +61,7 @@ import KwitansiListScreen from "./src/screens/operator/KwitansiListScreen";
 import KwitansiFormScreen from "./src/screens/operator/KwitansiFormScreen";
 import BukuKasScreen from "./src/screens/operator/BukuKasScreen";
 import PengeluaranOperasionalScreen from "./src/screens/operator/PengeluaranOperasionalScreen";
+import LaporanCuciMobilScreen from "./src/screens/operator/LaporanCuciMobilScreen";
 import DirectDisburseScreen from "./src/screens/operator/DirectDisburseScreen";
 import KwitansiViewerScreen from "./src/screens/common/KwitansiViewerScreen";
 
@@ -269,6 +270,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="ShiftKasir" component={ShiftScreen} />
             <Stack.Screen name="RiwayatKasir" component={RiwayatKasirScreen} />
             <Stack.Screen name="EditNrp" component={EditNrpScreen} />
+            <Stack.Screen name="LaporanCuciMobil" component={LaporanCuciMobilScreen} />
           </>
         )}
       </Stack.Navigator>

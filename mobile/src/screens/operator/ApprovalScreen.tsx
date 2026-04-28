@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
-  TouchableOpacity, Alert
+  TouchableOpacity, Alert, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -73,6 +73,7 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -91,6 +92,8 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
   const handleAction = (item: ApprovalItem, action: 'approve' | 'reject') => {
+    const key = `${item.requestType}-${item.id}`;
+    if (processingId === key) return;
     const label = action === 'approve' ? 'Setujui' : 'Tolak';
     const typeLabel = getRequestTypeLabel(item.requestType);
 
@@ -113,6 +116,7 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
           text: label,
           style: action === 'reject' ? 'destructive' : 'default',
           onPress: async () => {
+            setProcessingId(key);
             try {
               if (item.requestType === 'loan_application') {
                 // Loan approval endpoint
@@ -128,6 +132,8 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
               loadData();
             } catch (err: any) {
               Alert.alert('Gagal', err.message || err.response?.data?.message || 'Terjadi kesalahan');
+            } finally {
+              setProcessingId(null);
             }
           },
         },
@@ -138,6 +144,7 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
   const renderItem = ({ item }: { item: ApprovalItem }) => {
     const isLoan = item.requestType === 'loan_application';
     const isVoid = item.requestType === 'unit_void' || item.requestType === 'void_store_sale';
+    const isProcessing = processingId === `${item.requestType}-${item.id}`;
 
     return (
       <View style={styles.card}>
@@ -187,13 +194,13 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
         </View>
 
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.rejectBtn} onPress={() => handleAction(item, 'reject')}>
+          <TouchableOpacity style={[styles.rejectBtn, isProcessing && { opacity: 0.5 }]} onPress={() => handleAction(item, 'reject')} disabled={isProcessing}>
             <Ionicons name="close-circle" size={18} color={C.destructive} />
             <Text style={styles.rejectText}>Tolak</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.approveBtn} onPress={() => handleAction(item, 'approve')}>
-            <Ionicons name="checkmark-circle" size={18} color="#FFF" />
-            <Text style={styles.approveText}>Setujui</Text>
+          <TouchableOpacity style={[styles.approveBtn, isProcessing && { opacity: 0.5 }]} onPress={() => handleAction(item, 'approve')} disabled={isProcessing}>
+            {isProcessing ? <ActivityIndicator color="#FFF" size="small" /> : <Ionicons name="checkmark-circle" size={18} color="#FFF" />}
+            <Text style={styles.approveText}>{isProcessing ? 'Memproses...' : 'Setujui'}</Text>
           </TouchableOpacity>
         </View>
       </View>

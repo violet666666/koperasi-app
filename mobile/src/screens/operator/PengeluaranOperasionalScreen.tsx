@@ -91,7 +91,10 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
   }, []);
 
   const loadData = useCallback(async () => {
-    if (!unitSlug) return;
+    if (!unitSlug) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/api/unit/${unitSlug}/operational-expense?period=${period}`);

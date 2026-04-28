@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, StatusBar, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, StatusBar, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
@@ -14,13 +14,17 @@ export default function LaporanPinjamanScreen({ navigation: navProp }: any) {
   const navigation = navProp || navHook;
   const [data, setData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await api.get('/api/mobile/reports/loans');
       setData(res.data.data);
     } catch (err: any) {
       console.log('Failed to load loans report:', err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -120,12 +124,19 @@ export default function LaporanPinjamanScreen({ navigation: navProp }: any) {
               <Text style={styles.headerSubtitle}>Laporan Agregasi Produk Pinjaman</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={exportPDF} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 }}>
-            <Ionicons name="print" size={24} color="#FFF" />
-          </TouchableOpacity>
+          {!loading && data && (
+            <TouchableOpacity onPress={exportPDF} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 }}>
+              <Ionicons name="print" size={24} color="#FFF" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={C.accent} />
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
@@ -193,6 +204,7 @@ export default function LaporanPinjamanScreen({ navigation: navProp }: any) {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      )}
     </View>
   );
 }

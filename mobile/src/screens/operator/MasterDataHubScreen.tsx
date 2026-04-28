@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import C from "../../lib/colors";
 
@@ -93,8 +93,7 @@ export default function MasterDataHubScreen({ navigation }: any) {
               borderColor: "#e2e8f0"
             }}
             onPress={() => {
-              if (menu.id === "users") navigation.navigate("UserManagement");
-              // TODO: sub-screen for rest. Just mock or show alert for non-implemented if any
+              Alert.alert('Segera Hadir', `Fitur "${menu.title}" sedang dalam pengembangan.`);
             }}
           >
             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: menu.bgColor, justifyContent: "center", alignItems: "center", marginRight: 16 }}>

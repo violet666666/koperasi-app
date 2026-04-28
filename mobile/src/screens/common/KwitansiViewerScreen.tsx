@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
+import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
 
 export default function KwitansiViewerScreen({ route, navigation }: any) {
@@ -17,8 +18,10 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setExporting(true);
     try {
+      const htmlResponse = await fetch(url);
+      const htmlContent = await htmlResponse.text();
       const { uri } = await Print.printToFileAsync({
-        html: `<iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>`,
+        html: htmlContent,
         width: 612,
         height: 792,
       });
@@ -66,6 +69,11 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
         source={{ uri: url }}
         style={{ flex: 1 }}
         onLoadEnd={() => setLoading(false)}
+        originWhitelist={['https://www.primkoppol.online/*']}
+        onShouldStartLoadWithRequest={(request) =>
+          request.url.startsWith('https://www.primkoppol.online/')
+        }
+        allowsBackForwardNavigationGestures={false}
       />
 
       {loading && (

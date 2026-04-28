@@ -349,7 +349,7 @@ export default function ShiftScreen() {
               </View>
               {s.cashDifference !== null && (
                 <Text style={{ fontSize: 12, marginTop: 4, fontWeight: 'bold', color: s.cashDifference === 0 ? C.success : C.destructive }}>
-                  Selisih: {s.cashDifference === 0 ? 'Pas ✅' : `${formatRp(s.cashDifference)} ${s.cashDifference > 0 ? '(lebih)' : '(kurang)'}`}
+                  Selisih: {s.cashDifference === 0 ? 'Pas ✅' : `${formatRp(Math.abs(s.cashDifference))} ${s.cashDifference > 0 ? '(lebih)' : '(kurang)'}`}
                 </Text>
               )}
             </View>

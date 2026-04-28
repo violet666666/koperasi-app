@@ -2,7 +2,7 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **28 April 2026 (Session 2 — Pre-Deploy Deep Audit: 15 Bug Fixes Backend + Frontend)**
+> Update terakhir: **28 April 2026 (Session 3 — Full Role Audit + Branding + 17 Bug Fixes)**
 > Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md`
 
 ---
@@ -16,7 +16,8 @@
 | Sprint 3 — Layar Baru & Optimasi | 4 | 4 | 0 | 0 |
 | Sprint 4 — Pre-Deploy Audit & Unit Baru | 2 | 2 | 0 | 0 |
 | Sprint 5 — Deep Audit Bug Fixes | 8 | 8 | 0 | 0 |
-| **TOTAL** | **26** | **26** | **0** | **0** |
+| Sprint 6 — Full Role Audit + Branding + Bug Fixes | 17 | 17 | 0 | 0 |
+| **TOTAL** | **43** | **43** | **0** | **0** |
 
 ## 🆕 UPDATE WEB & BACKEND (26 APRIL 2026)
 
@@ -1019,4 +1020,146 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 ---
 
 *Dokumen ini diperbarui setiap sesi kerja. Tandai item dengan `[x]` saat selesai.*
-*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 8 April 2026 — Sesi 9*
+*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 28 April 2026 — Sesi 11*
+
+---
+
+## 🆕 SPRINT 6 — Full Role Audit + Branding + Bug Fixes (28 April 2026 Session 3)
+
+> **Scope:** Debug semua role (kasir, operator, admin, member) di semua fitur mobile, ganti branding "KOPERASI" → "PRIMKOPPOL", pastikan frontend best practice, catat semua bug dan perbaikan.
+
+### [x] S6-01 — M-FIX-015: Branding "KOPERASI" → "PRIMKOPPOL" (16 instance di 7 file)
+**Prioritas:** 🔴 Tinggi (Play Store review)
+**Status:** ✅ Selesai
+
+**File yang diubah:**
+1. ✅ `LaporanPinjamanScreen.tsx` — HTML report header "KOPERASI PRIMKOPPOL" → "PRIMKOPPOL RESOR LUMAJANG"
+2. ✅ `LaporanSimpananScreen.tsx` — HTML report header "KOPERASI PRIMKOPPOL RESOR LUMAJANG" → "PRIMKOPPOL RESOR LUMAJANG"
+3. ✅ `LaporanSHUScreen.tsx` — "pendapatan kotor koperasi" → "pendapatan kotor PRIMKOPPOL"
+4. ✅ `LaporanCuciMobilScreen.tsx` — 4 label: "Bagi Hasil Koperasi" → "PRIMKOPPOL", "Bagian Koperasi" → "PRIMKOPPOL", dll
+5. ✅ `ProfilKoperasiScreen.tsx` — Header, badge, section labels (5 instance). Legal name "Primer Koperasi Kepolisian Resor Lumajang" dipertahankan (nama resmi badan hukum)
+6. ✅ `KasirScreen.tsx` — "anggota koperasi" → "anggota PRIMKOPPOL" (2x)
+
+### [x] S6-02 — M-FIX-016: KasirScreen — Cleanup & Bug Fixes
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+
+1. ✅ Hapus unused `Keyboard` import
+2. ✅ Hapus unused `cameraPermission` state dan `setCameraPermission` call
+3. ✅ Fix barcode scanner: hapus `setShowScanner(false)` dari `handleBarcodeScanned` agar tombol "Scan Lagi" berfungsi
+4. ✅ Fix `updateQty` — cleaner pattern: find → check → filter/map, hapus null-in-map anti-pattern
+
+### [x] S6-03 — M-FIX-017: StokScreen — Fix Infinite Re-fetch
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+- **Bug:** `search` string ada di `loadData` useCallback deps → setiap keystroke trigger re-fetch
+- **Fix:** Hapus `search` dari deps, gunakan `q ?? ''` default, pass `search` eksplisit di onRefresh
+
+### [x] S6-04 — M-FIX-018: ShiftScreen — Fix Negative Amount Display
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Bug:** `formatRp(s.cashDifference)` menampilkan negative amount tanpa tanda minus
+- **Fix:** `formatRp(Math.abs(s.cashDifference))` + label "(kurang)" untuk negatif
+
+### [x] S6-05 — M-FIX-019: PinjamanScreen — FAB Hidden Behind Tab Bar
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Bug:** FAB `bottom: 20` tertutup bottom tab navigator (height ~65px)
+- **Fix:** `bottom: 20` → `bottom: 90`
+
+### [x] S6-06 — M-FIX-020: TransaksiScreen — Loan Tab Filter Missing
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Bug:** Filter chips tidak berpengaruh pada tab Pinjaman (loan) — data selalu full
+- **Fix:** Tambah filter branch untuk loan tab di TransaksiScreen
+
+### [x] S6-07 — M-FIX-021: SimpananScreen — Correction Prefix
+**Prioritas:** 🟢 Rendah
+**Status:** ✅ Selesai
+- **Bug:** Transaksi koreksi positif menampilkan prefix kosong (harusnya "+")
+- **Fix:** Tambah `+` prefix untuk correction amount positif
+
+### [x] S6-08 — M-FIX-022: LoanApplicationScreen — Zod Schema Stale
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Bug:** Switching product tidak me-reset Zod validation state — form bisa show stale errors
+- **Fix:** Tambah `key={selectedProduct?.id || 'none'}` ke KeyboardAvoidingView untuk force remount
+
+### [x] S6-09 — M-FIX-023: ProfileScreen — Version & Role Display
+**Prioritas:** 🟢 Rendah
+**Status:** ✅ Selesai
+- **Fix:** Version dari `Constants.expoConfig?.version` (bukan hardcode "1.0.0")
+- **Fix:** Role display dari `user?.roleDisplayName || user?.role || '-'`
+
+### [x] S6-10 — M-FIX-024: KwitansiViewerScreen — WebView Security + PDF Export
+**Prioritas:** 🔴 Kritis (security + functionality)
+**Status:** ✅ Selesai
+- **Security:** Tambah `originWhitelist` dan `onShouldStartLoadWithRequest` — hanya izinkan `primkoppol.online`
+- **Security:** Disable `allowsBackForwardNavigationGestures` — cegah navigasi ke arbitrary URL
+- **PDF Fix:** Ganti `printToFileAsync({ url })` → fetch HTML content → `printToFileAsync({ html })` — expo-print tidak bisa render iframe
+
+### [x] S6-11 — M-FIX-025: MainTabs — admin_unit Role + App.tsx Registration
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Fix:** Tambah `admin_unit` ke operator role check di MainTabs
+- **Fix:** Register `LaporanCuciMobil` screen di App.tsx stack navigator (screen sudah ada tapi tidak terdaftar)
+
+### [x] S6-12 — M-FIX-026: MasterDataHubScreen — Navigation Crash Fix
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+- **Bug:** Tap "Manajemen Pengguna" → navigate ke "UserManagement" → crash (screen tidak ada)
+- **Fix:** Semua menu items menampilkan Alert "Segera Hadir" — cegah navigasi ke screen yang belum dibuat
+- **Tambahan:** Import `Alert` yang sebelumnya tidak ada
+
+### [x] S6-13 — M-FIX-027: ApprovalScreen — Double Submission Guard
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+- **Bug:** Tombol Setujui/Tolak bisa di-tap berkali-kali → multiple API calls saat proses pertama belum selesai
+- **Fix:** Tambah `processingId` state — lock button saat API call berjalan, ActivityIndicator di tombol
+- **Tambahan:** Import `ActivityIndicator`
+
+### [x] S6-14 — M-FIX-028: PengeluaranOperasionalScreen — Permanent Loading Fix
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+- **Bug:** Jika user tidak punya `unitType` → `unitSlug` kosong → `loadData` return early tanpa `setLoading(false)` → loading spinner selamanya
+- **Fix:** `setLoading(false)` sebelum return early saat `unitSlug` kosong
+
+### [x] S6-15 — M-FIX-029: LaporanPinjamanScreen — Loading State
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Bug:** Tidak ada loading state — user melihat nol/nol sebelum data sampai
+- **Fix:** Tambah `loading` state + `ActivityIndicator` + conditional render
+
+### [x] S6-16 — M-FIX-030: LaporanSimpananScreen — Loading State
+**Prioritas:** 🟡 Sedang
+**Status:** ✅ Selesai
+- **Fix:** Sama seperti S6-15 — tambah loading state + conditional render
+
+### [x] S6-17 — M-FIX-031: LaporanSHUScreen — Missing StatusBar
+**Prioritas:** 🟢 Rendah
+**Status:** ✅ Selesai
+- **Bug:** Tidak ada StatusBar component — status bar transparan/inkonsisten
+- **Fix:** Tambah `<StatusBar barStyle="light-content" backgroundColor={C.primary} />`
+
+### Bug yang Diketahui (Tidak Difiks Sesi Ini)
+
+| ID | Deskripsi | Severity | File |
+|---|---|---|---|
+| M-BUG-011 | RiwayatKasirScreen hanya tampil StoreSale (JALUR 2), belum tampil UnitTransaction (JALUR 1) untuk kasir cuci_mobil/barbershop/fotocopy | 🟡 Medium | `RiwayatKasirScreen.tsx` |
+| M-BUG-012 | LaporanCuciMobilScreen terdaftar di App.tsx tapi belum ada navigasi dari dashboard manapun | 🟢 Low | `App.tsx` + dashboard screens |
+| M-BUG-013 | MasterDataHubScreen semua menu items menampilkan "Segera Hadir" — belum ada sub-screen terimplementasi | 🟡 Medium | `MasterDataHubScreen.tsx` |
+
+### Frontend Best Practice Review Summary
+
+| Area | Status | Catatan |
+|---|---|---|
+| FlatList vs ScrollView+map() | ✅ | Semua list panjang sudah pakai FlatList |
+| Loading states | ✅ | Semua screen yang fetch data kini punya loading state |
+| Pull-to-refresh | ✅ | Semua FlatList/ScrollView punya RefreshControl |
+| Error handling | ✅ | API errors ditangkap dan ditampilkan ke user |
+| Memory leaks | ✅ | Debounce cleanup, useEffect deps benar |
+| Navigation safety | ✅ | canGoBack check sebelum render back button |
+| Role-based tab rendering | ✅ | MainTabs parse role object/string dengan benar |
+| WebView security | ✅ | originWhitelist + onShouldStartLoadWithRequest |
+| Input validation | ✅ | Zod schema di LoanApplication, numeric clamps di Kasir |
+| Double-submit prevention | ✅ | processing state di ApprovalScreen |

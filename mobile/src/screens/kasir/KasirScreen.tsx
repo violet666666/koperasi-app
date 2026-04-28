@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
-  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator, Keyboard
+  TextInput, TouchableOpacity, Alert, ScrollView, Modal, ActivityIndicator
 } from 'react-native';
 import {
   BottomSheetModal,
@@ -112,7 +112,6 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   // Barcode Camera Scanner State (Toko only)
   const [showScanner, setShowScanner] = useState(false);
-  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
 
   // ── S2-04: Debounce ref for member search ─────────────────────────────
@@ -206,7 +205,6 @@ export default function KasirScreen({ navigation: navProp }: any) {
   // Open barcode camera scanner (Toko / Resto only)
   const openScanner = async () => {
     const { status } = await Camera.requestCameraPermissionsAsync();
-    setCameraPermission(status === 'granted');
     if (status === 'granted') {
       setScanned(false);
       setShowScanner(true);
@@ -218,7 +216,6 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
     if (scanned) return;
     setScanned(true);
-    setShowScanner(false);
     const found = products.find(
       (p) => p.sku === data || p.sku.replace(/-/g, '') === data.replace(/-/g, '')
     );
@@ -233,15 +230,12 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   const updateQty = (productId: number, delta: number) => {
     setCart((prev) => {
-      return prev.map((c) => {
-        if (c.product.id === productId) {
-          const newQty = c.quantity + delta;
-          if (newQty <= 0) return null;
-          if (newQty > c.product.stock) { Alert.alert('Stok tidak cukup'); return c; }
-          return { ...c, quantity: newQty };
-        }
-        return c;
-      }).filter(Boolean) as CartItem[];
+      const item = prev.find(c => c.product.id === productId);
+      if (!item) return prev;
+      const newQty = item.quantity + delta;
+      if (newQty <= 0) return prev.filter(c => c.product.id !== productId);
+      if (newQty > item.product.stock) { Alert.alert('Stok tidak cukup'); return prev; }
+      return prev.map(c => c.product.id === productId ? { ...c, quantity: newQty } : c);
     });
   };
 

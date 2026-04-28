@@ -37,7 +37,7 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
     }
   }, []);
 
-  const isOperator = role === 'operator' || role === 'admin' || role === 'superadmin';
+  const isOperator = ['operator', 'admin', 'superadmin', 'admin_unit'].includes(role);
   const isKasir = role === 'kasir';
 
   const bottomPadding = Math.max(insets.bottom, 12);

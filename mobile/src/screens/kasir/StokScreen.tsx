@@ -43,18 +43,19 @@ export default function StokScreen({ navigation: navProp }: any) {
     try {
       const unitType = getUnitFilter();
       const unitParam = unitType ? `&unitType=${unitType}` : '';
-      const res = await api.get(`/api/mobile/toko?search=${q ?? search}${unitParam}`);
+      const searchTerm = q ?? '';
+      const res = await api.get(`/api/mobile/toko?search=${searchTerm}${unitParam}`);
       setProducts(res.data.data || []);
     } catch (err) {
       console.log('Stok fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [search, getUnitFilter]);
+  }, [getUnitFilter]);
 
   useEffect(() => { loadData(''); }, [loadData]);
 
-  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await loadData(search); setRefreshing(false); };
   const handleSearch = () => { loadData(search); };
 
   const renderItem = ({ item }: { item: Product }) => (
