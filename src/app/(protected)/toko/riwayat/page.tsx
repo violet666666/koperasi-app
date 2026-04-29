@@ -43,6 +43,7 @@ interface Sale {
     changeAmount: number | null;
     createdAt: string;
     createdBy: { id: number; name: string };
+    cashierDisplayName: string | null;
     items: SaleItem[];
     metadata?: any;
     shiftId?: number | null;
@@ -137,6 +138,8 @@ export default function RiwayatTransaksiPage() {
                 s.saleNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (s.customerName && s.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (s.member?.name && s.member.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (s.cashierDisplayName && s.cashierDisplayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (s.createdBy?.name && s.createdBy.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 s.items.some(i => (i.product?.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
             const matchMethod = methodFilters.has(s.paymentMethod);
             const matchShift = shiftFilter === "all"
@@ -315,7 +318,9 @@ export default function RiwayatTransaksiPage() {
                                             <TableCell className="text-right">
                                                 <span className="font-bold tabular-nums text-sm">{formatCurrency(sale.totalAmount)}</span>
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">{sale.createdBy.name}</TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {sale.cashierDisplayName || sale.createdBy.name}
+                                            </TableCell>
                                             <TableCell className="text-center">
                                                 {sale.shift ? (
                                                     <Badge variant="outline" className={`text-[10px] ${
@@ -374,7 +379,7 @@ export default function RiwayatTransaksiPage() {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Kasir</p>
-                                    <p className="font-medium flex items-center gap-1"><User className="h-3.5 w-3.5" />{selectedSale.createdBy.name}</p>
+                                    <p className="font-medium flex items-center gap-1"><User className="h-3.5 w-3.5" />{selectedSale.cashierDisplayName || selectedSale.createdBy.name}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Pelanggan</p>

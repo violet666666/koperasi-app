@@ -60,6 +60,7 @@ export async function GET(
                     },
                 },
                 createdBy: { select: { id: true, name: true } },
+                cashierIdentity: { select: { id: true, displayName: true } },
             },
             orderBy: { createdAt: "desc" },
         });
@@ -80,6 +81,7 @@ export async function GET(
                 changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
                 createdAt: s.createdAt.toISOString(),
                 createdBy: s.createdBy,
+                cashierDisplayName: s.cashierIdentity?.displayName || null,
                 items: s.items.map((i: any) => ({
                     id: i.id,
                     product: i.product,

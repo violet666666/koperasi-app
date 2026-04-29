@@ -243,6 +243,12 @@ export default function TransaksiPortalPage() {
                                     <span className="text-muted-foreground">Pembayaran</span>
                                     <span className="font-medium">{selectedTx.paymentMethodLabel}</span>
                                 </div>
+                                {selectedTx.cashierDisplayName && (
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">Kasir</span>
+                                        <span className="font-medium">{selectedTx.cashierDisplayName}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-xs">
                                     <span className="text-muted-foreground">Status</span>
                                     {selectedTx.isPaid ? (

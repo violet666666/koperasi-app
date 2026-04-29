@@ -60,6 +60,7 @@ export async function GET(request: Request) {
                         paymentMethod: true, customerName: true, createdAt: true,
                         metadata: true, unitType: true,
                         items: { select: { product: { select: { name: true } }, quantity: true, unitPrice: true, subtotal: true } },
+                        cashierIdentity: { select: { displayName: true } },
                     },
                 }) : Promise.resolve([]),
             ]);
@@ -100,6 +101,7 @@ export async function GET(request: Request) {
                         isPaid: s.paymentMethod !== "salary_cut",
                         category: "unit",
                         status: "completed",
+                        cashierDisplayName: s.cashierIdentity?.displayName || null,
                         items: s.items?.map((i: any) => ({
                             name: i.product?.name || "[Produk Dihapus]",
                             quantity: i.quantity,

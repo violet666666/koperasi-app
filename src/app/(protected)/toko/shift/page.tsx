@@ -776,6 +776,7 @@ export default function ShiftKasirPage() {
                                                     <TableHead className="text-xs">No. Transaksi</TableHead>
                                                     <TableHead className="text-xs">Waktu</TableHead>
                                                     <TableHead className="text-xs">Pelanggan</TableHead>
+                                                    <TableHead className="text-xs">Kasir</TableHead>
                                                     <TableHead className="text-xs text-center">Item</TableHead>
                                                     <TableHead className="text-xs">Metode</TableHead>
                                                     <TableHead className="text-xs text-right">Total</TableHead>
@@ -784,7 +785,7 @@ export default function ShiftKasirPage() {
                                             <TableBody>
                                                 {detailData.sales.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={6} className="text-center text-muted-foreground py-6 text-sm">
+                                                        <TableCell colSpan={7} className="text-center text-muted-foreground py-6 text-sm">
                                                             Tidak ada transaksi
                                                         </TableCell>
                                                     </TableRow>
@@ -803,6 +804,9 @@ export default function ShiftKasirPage() {
                                                         </TableCell>
                                                         <TableCell className="text-xs">
                                                             {sale.member?.name || sale.customerName || "Umum"}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-muted-foreground">
+                                                            {sale.cashierDisplayName || sale.createdBy?.name || "-"}
                                                         </TableCell>
                                                         <TableCell className="text-center text-xs">
                                                             {sale.items.reduce((s: number, i: any) => s + i.quantity, 0)} pcs
