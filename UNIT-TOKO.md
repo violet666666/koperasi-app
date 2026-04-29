@@ -412,6 +412,7 @@ Halaman `/toko/kasir-manajemen` menyediakan:
 | Stale Cookie Cleanup | GET session otomatis hapus cookie jika identitas inactive |
 | Cart Guard on Switch | Konfirmasi sebelum ganti kasir jika keranjang ada item |
 | Shift Mismatch Warning | Banner peringatan jika shift terbuka oleh kasir berbeda |
+| Void Filtering (Member Portal) | UnitTransaction voided & Contra-Entry tidak muncul di riwayat anggota, StoreSale voided juga terfilter |
 
 ### File Terkait
 

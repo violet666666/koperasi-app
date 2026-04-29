@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         };
 
         if (!type || type === "unit") {
-            const unitWhere: Record<string, unknown> = { memberId };
+            const unitWhere: Record<string, unknown> = { memberId, status: { notIn: ["voided"] } };
             if (unitType && unitType !== "all") unitWhere.unitType = unitType;
             if (isPaid !== null && isPaid !== undefined && isPaid !== "all") {
                 unitWhere.isPaid = isPaid === "true";
@@ -65,7 +65,18 @@ export async function GET(request: Request) {
                 }) : Promise.resolve([]),
             ]);
 
-            const storeCount = includeToko ? await prisma.storeSale.count({ where: { memberId } }) : 0;
+            // Count StoreSales excluding voided (metadata.isVoided !== true)
+            let storeCount = 0;
+            if (includeToko) {
+                const allSaleIds = await prisma.storeSale.findMany({
+                    where: { memberId },
+                    select: { id: true, metadata: true },
+                });
+                storeCount = allSaleIds.filter((s) => {
+                    const meta = (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata) as Record<string, unknown> | null;
+                    return !meta?.isVoided;
+                }).length;
+            }
 
             const mappedUnitTxns = unitTxns.map((t) => ({
                 id: t.id,
