@@ -96,8 +96,8 @@ export async function POST(request: Request) {
         });
 
         if (existing) {
-            // If soft-deleted, offer to restore
-            if (existing.deletedAt) {
+            // If soft-deleted or inactive, restore with new data
+            if (existing.deletedAt || !existing.isActive) {
                 const restored = await prisma.storeProduct.update({
                     where: { id: existing.id },
                     data: {

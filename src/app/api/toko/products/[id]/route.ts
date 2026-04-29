@@ -61,7 +61,7 @@ export async function PUT(
         if (body.sku !== undefined) {
             updateData.sku = body.sku;
             const skuConflict = await prisma.storeProduct.findFirst({
-                where: { sku: body.sku, NOT: { id } },
+                where: { sku: body.sku, NOT: { id }, deletedAt: null, isActive: true },
             });
             if (skuConflict) {
                 return NextResponse.json(

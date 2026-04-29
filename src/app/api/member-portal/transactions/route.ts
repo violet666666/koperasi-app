@@ -59,7 +59,7 @@ export async function GET(request: Request) {
                         id: true, saleNo: true, totalAmount: true,
                         paymentMethod: true, customerName: true, createdAt: true,
                         metadata: true, unitType: true,
-                        items: { select: { product: { select: { name: true } }, quantity: true } },
+                        items: { select: { product: { select: { name: true } }, quantity: true, unitPrice: true, subtotal: true } },
                     },
                 }) : Promise.resolve([]),
             ]);
@@ -86,19 +86,28 @@ export async function GET(request: Request) {
                 })
                 .map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
+                    const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
                     return {
-                        id: s.id + 10000000, // offset to avoid key collision
+                        id: s.id + 10000000,
+                        saleId: s.id,
                         transactionNo: s.saleNo,
                         unitType: "toko",
                         description: itemDesc || `Pembelian Toko PRIMKOPPOL`,
-                    amount: Number(s.totalAmount),
-                    paymentMethod: s.paymentMethod,
-                    transactionDate: s.createdAt,
-                    isPaid: s.paymentMethod !== "salary_cut",
-                    category: "unit",
-                    status: "completed",
-                };
-            });
+                        amount: Number(s.totalAmount),
+                        paymentMethod: s.paymentMethod,
+                        paymentMethodLabel: paymentLabels[s.paymentMethod] || s.paymentMethod,
+                        transactionDate: s.createdAt,
+                        isPaid: s.paymentMethod !== "salary_cut",
+                        category: "unit",
+                        status: "completed",
+                        items: s.items?.map((i: any) => ({
+                            name: i.product?.name || "[Produk Dihapus]",
+                            quantity: i.quantity,
+                            unitPrice: Number(i.unitPrice),
+                            subtotal: Number(i.subtotal),
+                        })) || [],
+                    };
+                });
 
             // Merge & sort by date
             const allUnitTxns = [...mappedUnitTxns, ...mappedStoreSales]

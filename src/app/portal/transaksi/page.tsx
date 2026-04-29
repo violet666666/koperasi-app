@@ -12,7 +12,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Store, Car, Printer, BookOpen, Dumbbell, Wallet } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Store, Car, Printer, BookOpen, Dumbbell, Wallet, Receipt, X } from "lucide-react";
 
 function getUnitName(unitType: string) {
     const types: Record<string, string> = {
@@ -34,8 +36,8 @@ export default function TransaksiPortalPage() {
     const [activeTab, setActiveTab] = React.useState("unit");
     const [unitType, setUnitType] = React.useState("all");
     const [isPaid, setIsPaid] = React.useState("all");
+    const [selectedTx, setSelectedTx] = React.useState<any>(null);
 
-    // We only type the data response we care about
     const { data: response, isLoading } = useQuery<{ data: any }>({
         queryKey: ["portal-transactions", activeTab, unitType, isPaid, page],
         queryFn: () => memberPortalApi.transactions({
@@ -107,7 +109,13 @@ export default function TransaksiPortalPage() {
                         ) : (
                             <div className="divide-y">
                                 {activeTab === "unit" && response?.data.unitTransactions?.map((tx: any) => (
-                                    <div key={tx.id} className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between gap-4 bg-white hover:bg-slate-50 transition-colors first:rounded-t-lg last:rounded-b-lg">
+                                    <div
+                                        key={tx.id}
+                                        className={`p-4 sm:p-6 flex flex-col sm:flex-row justify-between gap-4 bg-white transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                                            tx.items?.length ? "hover:bg-slate-50 cursor-pointer" : ""
+                                        } ${tx.status === "voided" ? "opacity-50" : ""}`}
+                                        onClick={() => tx.items?.length && setSelectedTx(tx)}
+                                    >
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <p className="font-semibold text-base">{tx.description}</p>
@@ -118,6 +126,9 @@ export default function TransaksiPortalPage() {
                                                         {!tx.isPaid && <Badge variant="destructive" className="h-5 text-[10px]">BELUM LUNAS</Badge>}
                                                         {tx.isPaid && <Badge variant="default" className="bg-emerald-500 h-5 text-[10px]">LUNAS</Badge>}
                                                     </>
+                                                )}
+                                                {tx.items?.length > 0 && (
+                                                    <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
                                                 )}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
@@ -130,6 +141,9 @@ export default function TransaksiPortalPage() {
                                         </div>
                                         <div className="flex flex-col items-start sm:items-end justify-center">
                                             <div className="text-lg font-bold text-slate-800">{formatCurrency(tx.amount)}</div>
+                                            {tx.paymentMethodLabel && (
+                                                <div className="text-xs text-muted-foreground mt-0.5">{tx.paymentMethodLabel}</div>
+                                            )}
                                             {tx.isPaid && tx.paidDate && (
                                                 <div className="text-xs text-emerald-600 mt-1">Dibayar: {format(new Date(tx.paidDate), "d MMM", { locale: id })}</div>
                                             )}
@@ -198,6 +212,97 @@ export default function TransaksiPortalPage() {
                     </Card>
                 </div>
             </Tabs>
+
+            {/* Detail Nota/Struk Dialog */}
+            <Dialog open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Detail Transaksi {selectedTx?.transactionNo}</DialogTitle>
+                    </DialogHeader>
+                    {selectedTx && (
+                        <div className="space-y-0">
+                            {/* Header */}
+                            <div className="text-center pb-4">
+                                <p className="text-sm font-bold tracking-wide uppercase">PRIMKOPPOL RESOR LUMAJANG</p>
+                                <p className="text-xs text-muted-foreground">{getUnitName(selectedTx.unitType)}</p>
+                            </div>
+
+                            <Separator className="border-dashed" />
+
+                            {/* Info Transaksi */}
+                            <div className="py-3 space-y-1">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">No. Transaksi</span>
+                                    <span className="font-mono font-medium">{selectedTx.transactionNo}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Tanggal</span>
+                                    <span>{format(new Date(selectedTx.transactionDate), "dd/MM/yyyy HH:mm", { locale: id })}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Pembayaran</span>
+                                    <span className="font-medium">{selectedTx.paymentMethodLabel}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Status</span>
+                                    {selectedTx.isPaid ? (
+                                        <span className="text-emerald-600 font-semibold">LUNAS</span>
+                                    ) : (
+                                        <span className="text-red-600 font-semibold">BELUM LUNAS</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <Separator className="border-dashed" />
+
+                            {/* Items Table */}
+                            <div className="py-3">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="text-muted-foreground">
+                                            <th className="text-left font-medium pb-2">Item</th>
+                                            <th className="text-center font-medium pb-2 w-10">Qty</th>
+                                            <th className="text-right font-medium pb-2">Harga</th>
+                                            <th className="text-right font-medium pb-2">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedTx.items?.map((item: any, idx: number) => (
+                                            <tr key={idx} className="border-t border-dashed border-slate-200">
+                                                <td className="py-1.5 pr-2">{item.name}</td>
+                                                <td className="py-1.5 text-center">{item.quantity}</td>
+                                                <td className="py-1.5 text-right tabular-nums">{formatCurrency(item.unitPrice)}</td>
+                                                <td className="py-1.5 text-right tabular-nums font-medium">{formatCurrency(item.subtotal)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <Separator className="border-dashed" />
+
+                            {/* Total */}
+                            <div className="py-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold uppercase">Total</span>
+                                    <span className="text-lg font-bold">{formatCurrency(selectedTx.amount)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                    <span>{selectedTx.items?.length || 0} item</span>
+                                </div>
+                            </div>
+
+                            <Separator className="border-dashed" />
+
+                            {/* Footer */}
+                            <div className="pt-3 pb-1 text-center">
+                                <p className="text-[10px] text-muted-foreground">Terima kasih atas pembelian Anda</p>
+                                <p className="text-[10px] text-muted-foreground">PRIMKOPPOL RESOR LUMAJANG</p>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
