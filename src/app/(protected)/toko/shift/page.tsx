@@ -50,6 +50,7 @@ interface ShiftData {
     id: number;
     userId: number;
     userName: string;
+    cashierDisplayName: string | null;
     unitType: string;
     shiftName: string;
     startedAt: string;
@@ -93,6 +94,9 @@ export default function ShiftKasirPage() {
     const [detailOpen, setDetailOpen] = React.useState(false);
     const [detailData, setDetailData] = React.useState<any>(null);
     const [detailLoading, setDetailLoading] = React.useState(false);
+
+    // Cashier identity for shift creation
+    const [cashierIdentityId, setCashierIdentityId] = React.useState<number | null>(null);
 
     const fetchShiftDetail = async (shiftId: number) => {
         setDetailLoading(true);
@@ -139,6 +143,23 @@ export default function ShiftKasirPage() {
         fetchShifts();
     }, [fetchShifts]);
 
+    // Fetch cashier identity for shift creation
+    React.useEffect(() => {
+        async function fetchCashierIdentity() {
+            try {
+                const res = await fetch("/api/toko/cashier-session");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json.data) {
+                    setCashierIdentityId(json.data.id);
+                }
+            } catch {
+                // Non-critical
+            }
+        }
+        fetchCashierIdentity();
+    }, []);
+
     const handleOpenShift = async () => {
         if (!shiftName) return toast.error("Pilih shift terlebih dahulu");
 
@@ -151,6 +172,7 @@ export default function ShiftKasirPage() {
                     shiftName,
                     openingCash: parseInt(openingCash.replace(/\D/g, "") || "0"),
                     unitType,
+                    cashierIdentityId,
                 }),
             });
             const json = await res.json();
@@ -229,7 +251,7 @@ export default function ShiftKasirPage() {
                                 </h3>
                                 <p className="text-sm text-green-600 dark:text-green-400">
                                     <User className="inline h-3.5 w-3.5 mr-1" />
-                                    {activeShift.userName} • Dibuka {formatDateTime(activeShift.startedAt)}
+                                    {activeShift.cashierDisplayName || activeShift.userName} • Dibuka {formatDateTime(activeShift.startedAt)}
                                 </p>
                             </div>
                         </div>
@@ -359,7 +381,9 @@ export default function ShiftKasirPage() {
                                 <div className="flex-1 space-y-1">
                                     <div className="flex items-center gap-2">
                                         <Badge variant="secondary">{s.shiftName}</Badge>
-                                        <span className="text-sm font-medium">{s.userName}</span>
+                                        <span className="text-sm font-medium">
+                                            {s.cashierDisplayName || s.userName}
+                                        </span>
                                         {s.closedByUserId && (
                                             <Badge variant="outline" className="text-xs">
                                                 Ditutup oleh Admin

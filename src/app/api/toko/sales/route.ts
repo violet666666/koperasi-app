@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId } = body;
+        const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId } = body;
         const unitType = reqUnitType || "toko";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -285,6 +285,7 @@ export async function POST(request: Request) {
                     journalId,
                     periodId: currentPeriod?.id || null,
                     shiftId,
+                    cashierIdentityId: cashierIdentityId ? Number(cashierIdentityId) : null,
                     createdById: userId,
                     items: {
                         create: validatedItems.map((vi) => ({

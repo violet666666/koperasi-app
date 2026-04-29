@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
     Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check, QrCode, AlertCircle, CheckCircle2,
-    Timer, PlayCircle, Clock,
+    Timer, PlayCircle, Clock, LogOut,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -43,6 +43,9 @@ export default function KasirPage() {
     const [shiftLoading, setShiftLoading] = React.useState(true);
     const [activeShift, setActiveShift] = React.useState<{ id: number; shiftName: string; startedAt: string; userName: string } | null>(null);
 
+    // ── Cashier Identity ────────────────────────────────────────────
+    const [cashierIdentity, setCashierIdentity] = React.useState<{ id: number; username: string; displayName: string } | null>(null);
+
     React.useEffect(() => {
         async function checkShift() {
             try {
@@ -59,6 +62,23 @@ export default function KasirPage() {
             }
         }
         checkShift();
+    }, []);
+
+    // Fetch cashier identity
+    React.useEffect(() => {
+        async function fetchCashierIdentity() {
+            try {
+                const res = await fetch("/api/toko/cashier-session");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json.data) {
+                    setCashierIdentity(json.data);
+                }
+            } catch {
+                // Non-critical — cashier identity is optional for display
+            }
+        }
+        fetchCashierIdentity();
     }, []);
 
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -328,6 +348,7 @@ export default function KasirPage() {
                 customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerQuery || undefined),
                 paymentMethod: method,
                 unitType: "toko",
+                cashierIdentityId: cashierIdentity?.id || undefined,
             };
             if (method === "cash") {
                 body.cashReceived = effectivePayment; // pakai effectivePayment bukan paymentAmount string
@@ -362,7 +383,7 @@ export default function KasirPage() {
                 saleNo: json.data.saleNo,
                 saleDate: new Date().toISOString(),
                 customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerQuery || undefined),
-                cashierName: "Kasir Toko",
+                cashierName: cashierIdentity?.displayName || "Kasir Toko",
                 items: cart.map(item => {
                     const price = getEffectivePrice(item.product);
                     return {
@@ -397,6 +418,15 @@ export default function KasirPage() {
     };
 
     // ── Shift Lock Screen ──────────────────────────────────────────
+    const handleGantiKasir = async () => {
+        try {
+            await fetch("/api/toko/cashier-session", { method: "DELETE" });
+            window.location.reload();
+        } catch {
+            toast.error("Gagal mengganti kasir");
+        }
+    };
+
     if (shiftLoading) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
@@ -442,6 +472,13 @@ export default function KasirPage() {
                 description="Point of Sale — Penjualan Toko PRIMKOPPOL"
                 actions={
                     <div className="flex items-center gap-2">
+                        {/* Cashier Identity Badge */}
+                        {cashierIdentity && (
+                            <Badge variant="outline" className="gap-1.5 text-xs px-3 py-1.5 border-blue-300 text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20">
+                                <User className="h-3.5 w-3.5" />
+                                {cashierIdentity.displayName}
+                            </Badge>
+                        )}
                         {/* Shift Info Badge */}
                         <Link href="/toko/shift">
                             <Badge variant="outline" className="gap-1.5 text-xs cursor-pointer hover:bg-muted px-3 py-1.5 border-green-300 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
@@ -449,9 +486,9 @@ export default function KasirPage() {
                                 Shift {activeShift.shiftName} • {activeShift.userName}
                             </Badge>
                         </Link>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="bg-primary/5 hover:bg-primary/10 border-primary/20"
                             onClick={() => {
                                 if (!document.fullscreenElement) {
@@ -463,6 +500,17 @@ export default function KasirPage() {
                         >
                             <Maximize className="mr-2 h-4 w-4" /> Mode POS (Fullscreen)
                         </Button>
+                        {cashierIdentity && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={handleGantiKasir}
+                                title="Ganti kasir (kembali ke layar pilih identitas)"
+                            >
+                                <LogOut className="mr-2 h-4 w-4" /> Ganti Kasir
+                            </Button>
+                        )}
                         <Badge variant="secondary" className="gap-1.5 text-xs">
                             <ScanBarcode className="h-3.5 w-3.5" />
                             Scanner Aktif

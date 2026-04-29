@@ -54,6 +54,7 @@ model User {
   stockMovementsVoided    StoreStockMovement[]  @relation("stockMovementVoidedBy")
   uploadedFiles           UploadedFile[]        @relation("FileUploadedBy")
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
+  cashierIdentities       CashierIdentity[]
 
   @@map("users")
 }
@@ -823,6 +824,7 @@ model StoreSale {
   periodId      Int?      @map("period_id")
   shiftId       Int?      @map("shift_id")
   createdById   Int       @map("created_by_id")
+  cashierIdentityId Int?  @map("cashier_identity_id")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   member    Member?       @relation(fields: [memberId], references: [id])
@@ -830,6 +832,7 @@ model StoreSale {
   period    FiscalPeriod? @relation(fields: [periodId], references: [id])
   createdBy User          @relation("StoreSaleCreatedBy", fields: [createdById], references: [id])
   shift     CashierShift? @relation(fields: [shiftId], references: [id])
+  cashierIdentity CashierIdentity? @relation(fields: [cashierIdentityId], references: [id])
   items     StoreSaleItem[]
 
   @@map("store_sales")
@@ -1075,13 +1078,37 @@ model CashierShift {
   cashDifference    Decimal?  @map("cash_difference") @db.Decimal(15, 2) // closingCash - expectedCash
   notes             String?
   closedByUserId    Int?      @map("closed_by_user_id") // Bisa ditutup oleh admin/operator
+  cashierIdentityId Int?      @map("cashier_identity_id")
   status            String    @default("open")          // "open" | "closed"
   createdAt         DateTime  @default(now()) @map("created_at")
 
   user       User        @relation("CashierShiftUser", fields: [userId], references: [id])
+  cashierIdentity CashierIdentity? @relation(fields: [cashierIdentityId], references: [id])
   storeSales StoreSale[]
 
   @@map("cashier_shifts")
+}
+
+// =================================================================
+// CASHIER IDENTITIES (Sub-akun Kasir per Device)
+// =================================================================
+
+model CashierIdentity {
+  id            Int       @id @default(autoincrement())
+  parentUserId  Int       @map("parent_user_id")
+  username      String    @db.VarChar(20)
+  pin           String    @db.Text
+  displayName   String    @map("display_name") @db.VarChar(50)
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  parentUser    User      @relation(fields: [parentUserId], references: [id])
+  shifts        CashierShift[]
+  sales         StoreSale[]
+
+  @@unique([parentUserId, username])
+  @@map("cashier_identities")
 }
 
 // =================================================================

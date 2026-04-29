@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { cookies } from "next/headers";
 
 // Definisi jadwal shift
 const SHIFT_SCHEDULE = [
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
             where,
             include: {
                 user: { select: { id: true, name: true, email: true } },
+                cashierIdentity: { select: { id: true, displayName: true } },
                 _count: { select: { storeSales: true } },
             },
             orderBy: { startedAt: "desc" },
@@ -106,6 +108,7 @@ export async function GET(request: Request) {
                 id: s.id,
                 userId: s.userId,
                 userName: s.user.name,
+                cashierDisplayName: s.cashierIdentity?.displayName || null,
                 unitType: s.unitType,
                 shiftName: s.shiftName,
                 startedAt: s.startedAt.toISOString(),
@@ -145,13 +148,23 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { shiftName, openingCash, unitType } = body;
+        const { shiftName, openingCash, unitType, cashierIdentityId } = body;
 
         if (!shiftName || !unitType) {
             return NextResponse.json({ message: "shiftName dan unitType wajib diisi" }, { status: 400 });
         }
 
         const userId = Number(session.user.id);
+
+        // Resolve cashierIdentityId: explicit param > cookie > null
+        let resolvedIdentityId: number | null = cashierIdentityId ? Number(cashierIdentityId) : null;
+        if (!resolvedIdentityId) {
+            try {
+                const cookieStore = await cookies();
+                const cookieVal = cookieStore.get("cashier_identity_id")?.value;
+                if (cookieVal) resolvedIdentityId = parseInt(cookieVal);
+            } catch { /* non-critical */ }
+        }
 
         // Cek apakah user sudah punya shift yang masih open
         const existingOpenShift = await prisma.cashierShift.findFirst({
@@ -173,6 +186,7 @@ export async function POST(request: Request) {
                 startedAt: new Date(),
                 openingCash: openingCash || 0,
                 status: "open",
+                cashierIdentityId: resolvedIdentityId,
             },
             include: {
                 user: { select: { id: true, name: true } },

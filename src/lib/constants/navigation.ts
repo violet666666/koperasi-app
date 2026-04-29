@@ -40,6 +40,7 @@ import {
     Shirt,
     Copy,
     Calculator,
+    UserCircle,
 } from "lucide-react";
 
 export interface NavItem {
@@ -195,6 +196,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Produk", href: "/toko/produk" },
                     { title: "Manajemen Harga", href: "/toko/manajemen-harga" },
                     { title: "Kasir / POS", href: "/toko/kasir" },
+                    { title: "Manajemen Kasir", href: "/toko/kasir-manajemen" },
                     { title: "Shift Kasir", href: "/toko/shift" },
                     { title: "Persediaan", href: "/toko/persediaan" },
                 ],
@@ -326,6 +328,11 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             {
                 title: "Kasir POS", href: "/toko/kasir", icon: Store,
                 permission: "manage_toko",
+            },
+            {
+                title: "Manajemen Kasir", href: "/toko/kasir-manajemen", icon: UserCircle,
+                permission: "manage_toko",
+                roles: ["admin", "operator"],
             },
             {
                 title: "Manajemen Produk", href: "/toko/produk", icon: Package,
