@@ -46,6 +46,23 @@ export async function PUT(
             updateData.displayName = body.displayName;
         }
 
+        if (body.username !== undefined) {
+            if (!/^[a-zA-Z0-9_]{3,20}$/.test(body.username)) {
+                return NextResponse.json({ message: "Username harus 3-20 karakter alfanumerik" }, { status: 400 });
+            }
+            const existingUsername = await prisma.cashierIdentity.findFirst({
+                where: {
+                    username: body.username,
+                    parentUserId: existing.parentUserId,
+                    id: { not: id },
+                },
+            });
+            if (existingUsername) {
+                return NextResponse.json({ message: "Username sudah digunakan" }, { status: 409 });
+            }
+            updateData.username = body.username;
+        }
+
         if (body.pin !== undefined) {
             if (!/^\d{4,6}$/.test(body.pin)) {
                 return NextResponse.json({ message: "PIN harus 4-6 digit angka" }, { status: 400 });

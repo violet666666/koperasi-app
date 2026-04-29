@@ -22,6 +22,7 @@ export async function GET(request: Request) {
             const unitType = (session.user as any).unitType;
             identities = await prisma.cashierIdentity.findMany({
                 where: { parentUser: { unitType } },
+                include: { parentUser: { select: { id: true, name: true, email: true } } },
                 orderBy: { displayName: "asc" },
             });
         } else if (role === "kasir") {
@@ -35,12 +36,14 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            data: identities.map((i) => ({
+            data: identities.map((i: any) => ({
                 id: i.id,
                 username: i.username,
                 displayName: i.displayName,
                 isActive: i.isActive,
                 parentUserId: i.parentUserId,
+                parentUserName: i.parentUser?.name || null,
+                parentUserEmail: i.parentUser?.email || null,
                 createdAt: i.createdAt,
             })),
         });

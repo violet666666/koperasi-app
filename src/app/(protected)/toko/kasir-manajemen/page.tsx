@@ -66,6 +66,8 @@ interface CashierIdentity {
     displayName: string;
     isActive: boolean;
     parentUserId: number;
+    parentUserName: string | null;
+    parentUserEmail: string | null;
     createdAt: string;
 }
 
@@ -102,6 +104,7 @@ export default function KasirManajemenPage() {
     const [editOpen, setEditOpen] = React.useState(false);
     const [editTarget, setEditTarget] = React.useState<CashierIdentity | null>(null);
     const [editForm, setEditForm] = React.useState({
+        username: "",
         displayName: "",
         pin: "",
     });
@@ -220,7 +223,7 @@ export default function KasirManajemenPage() {
 
     const openEdit = (identity: CashierIdentity) => {
         setEditTarget(identity);
-        setEditForm({ displayName: identity.displayName, pin: "" });
+        setEditForm({ username: identity.username, displayName: identity.displayName, pin: "" });
         setEditOpen(true);
     };
 
@@ -228,6 +231,10 @@ export default function KasirManajemenPage() {
         if (!editTarget) return;
         if (!editForm.displayName.trim()) {
             toast.error("Nama tampilan wajib diisi");
+            return;
+        }
+        if (editForm.username && !/^[a-zA-Z0-9_]{3,20}$/.test(editForm.username)) {
+            toast.error("Username harus 3-20 karakter alfanumerik");
             return;
         }
         if (editForm.pin && !/^\d{4,6}$/.test(editForm.pin)) {
@@ -240,6 +247,9 @@ export default function KasirManajemenPage() {
             const body: Record<string, string> = {
                 displayName: editForm.displayName.trim(),
             };
+            if (editForm.username && editForm.username !== editTarget?.username) {
+                body.username = editForm.username;
+            }
             if (editForm.pin) {
                 body.pin = editForm.pin;
             }
@@ -428,6 +438,7 @@ export default function KasirManajemenPage() {
                                 <TableRow>
                                     <TableHead>Username</TableHead>
                                     <TableHead>Nama Tampilan</TableHead>
+                                    <TableHead>Akun Induk</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Dibuat</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
@@ -446,6 +457,9 @@ export default function KasirManajemenPage() {
                                         </TableCell>
                                         <TableCell className="font-medium">
                                             {identity.displayName}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {identity.parentUserName || "-"}
                                         </TableCell>
                                         <TableCell>
                                             {identity.isActive ? (
@@ -655,6 +669,24 @@ export default function KasirManajemenPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                        <div>
+                            <Label htmlFor="editUsername">Username</Label>
+                            <Input
+                                id="editUsername"
+                                value={editForm.username}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                        ...prev,
+                                        username: e.target.value,
+                                    }))
+                                }
+                                className="mt-1.5"
+                                maxLength={20}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                                3-20 karakter, alfanumerik atau underscore
+                            </p>
+                        </div>
                         <div>
                             <Label htmlFor="editDisplayName">Nama Tampilan *</Label>
                             <Input
