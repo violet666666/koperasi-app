@@ -52,7 +52,7 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 ## 4. Fitur Shift Kasir (20 April 2026)
 
 ### Latar Belakang
-Unit Toko beroperasi dengan 3 shift (Pagi 08-15, Siang 15-21, Malam 21-08) dan membutuhkan pencatatan serah terima kas antar kasir. Sebelumnya tidak ada mekanisme shift — kasir langsung masuk ke POS dan semua transaksi tidak terikat ke shift tertentu.
+Unit Toko beroperasi dengan 3 shift (**configurable oleh admin**, default: Pagi 07-15, Sore 15-21, Malam 21-07) dan membutuhkan pencatatan serah terima kas antar kasir. Sebelumnya tidak ada mekanisme shift — kasir langsung masuk ke POS dan semua transaksi tidak terikat ke shift tertentu.
 
 ### Arsitektur
 
@@ -83,7 +83,7 @@ cashier_shifts
 
 ### Flow Kasir
 1. Kasir login → Masuk ke halaman `/toko/shift`
-2. Pilih shift (Pagi/Siang/Malam, auto-detect dari jam) + input modal awal
+2. Pilih shift (Pagi/Sore/Malam, auto-detect dari jam) + input modal awal
 3. Klik "Mulai Shift" → Shift status = `open`
 4. Kasir bekerja di POS → setiap `StoreSale` otomatis terikat ke `shiftId`
 5. Akhir shift → Klik "Tutup Shift" → Dialog rekap:
@@ -327,3 +327,104 @@ Void → Kembalikan stockToko + stock
 - **[Riwayat] Filter Per Shift**: Riwayat transaksi toko (`/toko/riwayat`) mendapat checkbox filter per shift. Setiap baris transaksi menampilkan badge shift (Pagi/Siang/Malam). API sales sekarang mengembalikan `shiftId` dan `shift` info
 - **[Transaksi] Nomor Sequential**: Format `saleNo` diubah dari `TK-YYYYMMDD-BASE36` ke `TK-DDMMYYYY-SEQ` (contoh: `TK-26042026-0001`). Berlaku untuk web POS dan mobile POS (`POS-M-DDMMYYYY-SEQ`). Format lama tetap valid untuk transaksi yang sudah ada
 
+---
+
+## 9. Fitur Sub-Akun Kasir & Identitas Kasir (30 April 2026)
+
+### Latar Belakang
+Unit Toko membutuhkan sistem dimana **satu perangkat (satu akun email kasir)** dapat digunakan oleh **beberapa kasir** secara bergantian. Setiap kasir memiliki identitas sendiri (username + PIN) sehingga transaksi terikat ke kasir yang sebenarnya memproses, bukan hanya ke akun perangkat.
+
+### Arsitektur
+
+**Model Prisma: `CashierIdentity`**
+```
+cashier_identities
+├── id, parentUserId (FK ke User), username, pin (bcrypt hash)
+├── displayName (nama yang tampil di struk/riwayat)
+├── isActive (soft delete flag)
+└── createdAt
+```
+
+**Relasi:** `StoreSale.cashierIdentityId` → `CashierIdentity.id` dan `CashierShift.cashierIdentityId` → `CashierIdentity.id`
+
+### Flow Kasir Multi-Identitas
+1. Admin membuat identitas kasir (username + PIN + nama tampilan) via halaman Manajemen Kasir
+2. Kasir buka perangkat → Login email 1x → Masuk ke Lock Screen
+3. Pilih identitas → Input PIN → Verifikasi → Session cookie tersimpan
+4. Kasir bekerja di POS → Semua transaksi terikat ke `cashierIdentityId`
+5. Ganti kasir → Klik "Ganti Kasir" → Kembali ke Lock Screen → Kasir berikutnya login PIN
+
+### API Endpoints
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `GET` | `/api/toko/cashier-identities` | List identities (kasir: milik sendiri, admin: unit) |
+| `POST` | `/api/toko/cashier-identities` | Buat identitas baru (admin/operator only) |
+| `PUT` | `/api/toko/cashier-identities/[id]` | Update username/nama/PIN/status |
+| `DELETE` | `/api/toko/cashier-identities/[id]` | Soft delete (cek shift aktif dulu) |
+| `POST` | `/api/toko/cashier-identities/verify-pin` | Verifikasi PIN (rate limit 5x, lock 5 menit) |
+| `GET` | `/api/toko/cashier-session` | Baca session cookie identitas aktif |
+| `POST` | `/api/toko/cashier-session` | Set cookie identitas aktif |
+| `DELETE` | `/api/toko/cashier-session` | Hapus session (ganti kasir) |
+| `GET/PUT` | `/api/toko/shift-schedule` | Baca/simpan jadwal shift (admin configurable) |
+
+### Manajemen Kasir (Admin)
+Halaman `/toko/kasir-manajemen` menyediakan:
+- **Buat kasir**: Pilih akun induk (device), username, PIN 4-6 digit, nama tampilan
+- **Edit kasir**: Ubah username, nama tampilan, atau ganti PIN
+- **Aktifkan/Nonaktifkan**: Toggle status tanpa menghapus data
+- **Hapus kasir**: Soft delete (tidak bisa jika ada shift aktif)
+- **Tabel informasi**: Kolom Akun Induk menampilkan perangkat mana kasir beroperasi
+
+### Jadwal Shift Configurable (Admin)
+- Tombol "Atur Jadwal Shift" di halaman `/toko/shift` (hanya admin/operator)
+- Bisa mengubah nama shift, jam mulai, jam selesai, tambah/hapus shift
+- Data tersimpan di `app_settings` table sebagai JSON (`{unitType}_shift_schedule`)
+- Default: Pagi 07:00-14:59, Sore 15:00-20:59, Malam 21:00-06:59
+
+### Penulusuran Identitas Kasir di Seluruh Sistem
+
+| Modul | Informasi Kasir | Status |
+|---|---|---|
+| POS Kasir (`/toko/kasir`) | Badge nama kasir, tombol Ganti Kasir | ✅ Tampil |
+| Struk/Receipt | Nama kasir tercetak | ✅ Tampil |
+| Riwayat Transaksi (`/toko/riwayat`) | Kolom Kasir menampilkan `cashierDisplayName` | ✅ Tampil |
+| Shift Detail (klik shift) | Kolom Kasir per transaksi | ✅ Tampil |
+| Riwayat Shift (`/toko/shift`) | `cashierDisplayName` per shift | ✅ Tampil |
+| Portal Anggota (nota/struk) | "Kasir: [nama]" di detail transaksi | ✅ Tampil |
+| Laporan Unit (`/unit/[slug]/laporan`) | - | Belum tersedia |
+
+### Keamanan Produksi
+
+| Aspek | Implementasi |
+|---|---|
+| PIN Storage | bcrypt hash (10 rounds) |
+| Rate Limiting | 5x gagal → lock 5 menit (in-memory, reset on restart) |
+| Session Cookie | httpOnly, secure (production), sameSite=lax, 24h expiry |
+| Role Authorization | Sales API: admin/operator/kasir only, tidak bisa diakses anggota |
+| Unit Isolation | Admin hanya kelola kasir di unit sendiri, tidak bisa cross-unit |
+| Shift Validation | shiftName divalidasi terhadap jadwal yang dikonfigurasi |
+| Sale Number | Retry loop mencegah duplicate key saat concurrent checkout |
+| Shift-Sale Unit Match | Sales divalidasi shift milik unit yang sama |
+
+### File Terkait
+
+| File | Fungsi |
+|---|---|
+| `src/app/api/toko/cashier-identities/route.ts` | CRUD identitas kasir |
+| `src/app/api/toko/cashier-identities/[id]/route.ts` | Update/delete identitas + unit isolation |
+| `src/app/api/toko/cashier-identities/verify-pin/route.ts` | Verifikasi PIN + rate limiting |
+| `src/app/api/toko/cashier-session/route.ts` | Cookie session management |
+| `src/lib/actions/cashier-identity.action.ts` | Server actions (set/clear/get cookie) |
+| `src/lib/shift-schedule.ts` | Shared helper: load jadwal shift dari DB |
+| `src/components/patterns/cashier-lock-screen.tsx` | Lock screen UI |
+| `src/app/(protected)/toko/layout.tsx` | Route guard + lock screen |
+| `src/app/(protected)/toko/kasir-manajemen/page.tsx` | Admin manajemen kasir |
+| `src/app/api/toko/shift-schedule/route.ts` | API jadwal shift configurable |
+| `src/app/api/toko/sales/route.ts` | Sales API + cashier identity + role check |
+| `src/app/api/toko/shifts/route.ts` | Shifts API + dynamic schedule |
+| `src/app/api/toko/shifts/[id]/sales/route.ts` | Shift detail + per-sale cashier |
+| `src/app/api/member-portal/transactions/route.ts` | Member portal + cashier info |
+
+---
+*Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
