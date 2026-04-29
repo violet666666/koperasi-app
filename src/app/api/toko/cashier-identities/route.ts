@@ -19,9 +19,11 @@ export async function GET(request: Request) {
         let identities;
         if (ALLOWED_ROLES.includes(role)) {
             // Admin/Operator: see all identities for users in their unit
+            // Super_admin: see all identities (no unit filter)
             const unitType = (session.user as any).unitType;
+            const whereClause = role === "super_admin" ? {} : { parentUser: { unitType } };
             identities = await prisma.cashierIdentity.findMany({
-                where: { parentUser: { unitType } },
+                where: whereClause,
                 include: { parentUser: { select: { id: true, name: true, email: true } } },
                 orderBy: { displayName: "asc" },
             });

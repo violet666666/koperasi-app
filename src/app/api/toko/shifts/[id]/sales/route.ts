@@ -104,6 +104,7 @@ export async function GET(
         const productMap = new Map<string, { name: string; sku: string; qty: number; revenue: number }>();
         for (const sale of activeSales) {
             for (const item of sale.items) {
+                if (!item.product) continue;
                 const key = item.product.name;
                 const existing = productMap.get(key) || { name: item.product.name, sku: item.product.sku, qty: 0, revenue: 0 };
                 existing.qty += item.quantity;

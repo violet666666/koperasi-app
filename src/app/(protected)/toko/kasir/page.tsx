@@ -41,7 +41,7 @@ export default function KasirPage() {
 
     // ── Shift Enforcement ──────────────────────────────────────────
     const [shiftLoading, setShiftLoading] = React.useState(true);
-    const [activeShift, setActiveShift] = React.useState<{ id: number; shiftName: string; startedAt: string; userName: string } | null>(null);
+    const [activeShift, setActiveShift] = React.useState<{ id: number; shiftName: string; startedAt: string; userName: string; cashierIdentityId?: number | null } | null>(null);
 
     // ── Cashier Identity ────────────────────────────────────────────
     const [cashierIdentity, setCashierIdentity] = React.useState<{ id: number; username: string; displayName: string } | null>(null);
@@ -419,6 +419,10 @@ export default function KasirPage() {
 
     // ── Shift Lock Screen ──────────────────────────────────────────
     const handleGantiKasir = async () => {
+        if (cart.length > 0) {
+            const ok = window.confirm(`Anda memiliki ${cart.length} item di keranjang. Yakin ingin ganti kasir? Keranjang akan dikosongkan.`);
+            if (!ok) return;
+        }
         try {
             await fetch("/api/toko/cashier-session", { method: "DELETE" });
             window.location.reload();
@@ -465,8 +469,17 @@ export default function KasirPage() {
         );
     }
 
+    const shiftIdentityMismatch = activeShift?.cashierIdentityId && cashierIdentity?.id
+        && activeShift.cashierIdentityId !== cashierIdentity.id;
+
     return (
         <div className="space-y-6">
+            {shiftIdentityMismatch && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>Shift ini dibuka oleh kasir lain. Transaksi akan tercatat atas nama <strong>{cashierIdentity?.displayName}</strong>.</span>
+                </div>
+            )}
             <PageHeader
                 title="Kasir POS"
                 description="Point of Sale — Penjualan Toko PRIMKOPPOL"

@@ -382,6 +382,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 </tr>
 <tr><td colspan="3">Pembayaran</td><td style="text-align:right;">${methodLabel}</td></tr>
 ${changeRow}
+${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;">${data.cashierName}</td></tr>` : ""}
 </tfoot></table>
 <div class="footer">
   <p>Terima kasih telah berbelanja!</p>
@@ -394,7 +395,10 @@ ${changeRow}
     if (win) {
         win.document.write(html);
         win.document.close();
-        setTimeout(() => win.close(), 2000);
+        win.addEventListener("afterprint", () => {
+            setTimeout(() => { if (!win.closed) win.close(); }, 300);
+        });
+        setTimeout(() => { if (!win.closed) win.close(); }, 10000);
     }
 }
 

@@ -24,7 +24,9 @@ export async function GET() {
         });
 
         if (!identity || !identity.isActive) {
-            return NextResponse.json({ data: null });
+            const response = NextResponse.json({ data: null });
+            response.cookies.delete("cashier_identity_id");
+            return response;
         }
 
         return NextResponse.json({

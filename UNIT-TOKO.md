@@ -406,6 +406,12 @@ Halaman `/toko/kasir-manajemen` menyediakan:
 | Shift Validation | shiftName divalidasi terhadap jadwal yang dikonfigurasi |
 | Sale Number | Retry loop mencegah duplicate key saat concurrent checkout |
 | Shift-Sale Unit Match | Sales divalidasi shift milik unit yang sama |
+| Cashier Ownership | Server-side validasi cashierIdentityId milik user yg login |
+| topProducts Null Safety | Guard `item.product` null di agregasi shift detail |
+| super_admin Identity Listing | super_admin lihat semua identitas tanpa filter unitType |
+| Stale Cookie Cleanup | GET session otomatis hapus cookie jika identitas inactive |
+| Cart Guard on Switch | Konfirmasi sebelum ganti kasir jika keranjang ada item |
+| Shift Mismatch Warning | Banner peringatan jika shift terbuka oleh kasir berbeda |
 
 ### File Terkait
 

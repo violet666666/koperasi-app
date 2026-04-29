@@ -104,6 +104,16 @@ export async function POST(request: Request) {
 
         const userId = Number(session.user.id);
 
+        // Validate cashierIdentityId ownership before entering transaction
+        if (cashierIdentityId) {
+            const identity = await prisma.cashierIdentity.findFirst({
+                where: { id: Number(cashierIdentityId), parentUserId: userId, isActive: true },
+            });
+            if (!identity) {
+                return NextResponse.json({ message: "Identitas kasir tidak valid" }, { status: 403 });
+            }
+        }
+
         // Pre-transaction validations (reads that don't need locking)
         const method = paymentMethod || "cash";
         let payment = cashReceived || 0;
