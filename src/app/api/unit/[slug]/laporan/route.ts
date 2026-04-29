@@ -246,7 +246,7 @@ export async function GET(
             id: sale.saleNo,
             date: sale.createdAt,
             no: sale.saleNo,
-            description: sale.items.map((i: any) => i.product.name).join(", ") || sale.customerName || "Penjualan Toko",
+            description: sale.items.map((i: any) => i.product?.name || "[Produk Dihapus]").join(", ") || sale.customerName || "Penjualan Toko",
             memberName: sale.member?.name || sale.customerName || null,
             memberNrp: sale.member?.nrp || null,
             paymentMethod: sale.paymentMethod,

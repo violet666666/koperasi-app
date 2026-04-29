@@ -85,7 +85,7 @@ export async function GET(request: Request) {
                     return !meta?.isVoided;
                 })
                 .map((s: any) => {
-                    const itemDesc = s.items?.map((i: any) => `${i.product.name} x${i.quantity}`).join(', ');
+                    const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                     return {
                         id: s.id + 10000000, // offset to avoid key collision
                         transactionNo: s.saleNo,

@@ -28,9 +28,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "File harus berupa gambar (PNG/JPG)" }, { status: 400 });
         }
 
-        // Validate size (2MB max)
-        if (file.size > 2 * 1024 * 1024) {
-            return NextResponse.json({ message: "Ukuran file maksimal 2MB" }, { status: 400 });
+        // Validate size (4MB max — base64 encoding adds ~33% overhead)
+        if (file.size > 4 * 1024 * 1024) {
+            return NextResponse.json({ message: "Ukuran file maksimal 4MB" }, { status: 400 });
         }
 
         const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();

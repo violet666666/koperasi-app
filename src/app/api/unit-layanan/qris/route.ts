@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
-const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+const MAX_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
 export async function POST(request: Request) {
     try {
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
         // Validate size
         if (file.size > MAX_SIZE_BYTES) {
-            return NextResponse.json({ message: "Ukuran file maksimal 2MB" }, { status: 400 });
+            return NextResponse.json({ message: "Ukuran file maksimal 4MB" }, { status: 400 });
         }
 
         // Validate type

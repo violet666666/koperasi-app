@@ -137,7 +137,7 @@ export default function RiwayatTransaksiPage() {
                 s.saleNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (s.customerName && s.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (s.member?.name && s.member.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                s.items.some(i => i.product.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                s.items.some(i => (i.product?.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
             const matchMethod = methodFilters.has(s.paymentMethod);
             const matchShift = shiftFilter === "all"
                 || (shiftFilter === "none" && !s.shiftId)
@@ -411,8 +411,8 @@ export default function RiwayatTransaksiPage() {
                                         {selectedSale.items.map((item) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>
-                                                    <span className="text-sm font-medium">{item.product.name}</span>
-                                                    <span className="text-xs text-muted-foreground ml-1">({item.product.sku})</span>
+                                                    <span className="text-sm font-medium">{item.product?.name || "[Produk Dihapus]"}</span>
+                                                    {item.product?.sku && <span className="text-xs text-muted-foreground ml-1">({item.product.sku})</span>}
                                                 </TableCell>
                                                 <TableCell className="text-center text-sm tabular-nums">{item.quantity}</TableCell>
                                                 <TableCell className="text-right text-sm tabular-nums">{formatCurrency(item.unitPrice)}</TableCell>

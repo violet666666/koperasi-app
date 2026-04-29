@@ -151,8 +151,32 @@ export default function SettingsPage() {
     // --- State and Functions for QRIS Upload ---
     const [qrisUnitType, setQrisUnitType] = React.useState("toko");
     const [isUploadingQris, setIsUploadingQris] = React.useState(false);
-    const [qrisPreviewKey, setQrisPreviewKey] = React.useState(Date.now().toString()); // For forcing image reloads
+    const [qrisPreviewUrl, setQrisPreviewUrl] = React.useState<string | null>(null);
+    const [isLoadingQris, setIsLoadingQris] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Fetch QRIS preview from API whenever unitType changes
+    React.useEffect(() => {
+        let cancelled = false;
+        async function fetchQris() {
+            setIsLoadingQris(true);
+            try {
+                const res = await fetch(`/api/unit-layanan/stats?unitType=${qrisUnitType}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (!cancelled) setQrisPreviewUrl(json.data?.qrisUrl || null);
+                } else {
+                    if (!cancelled) setQrisPreviewUrl(null);
+                }
+            } catch {
+                if (!cancelled) setQrisPreviewUrl(null);
+            } finally {
+                if (!cancelled) setIsLoadingQris(false);
+            }
+        }
+        fetchQris();
+        return () => { cancelled = true; };
+    }, [qrisUnitType]);
 
     const handleQrisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -163,8 +187,8 @@ export default function SettingsPage() {
             return;
         }
 
-        if (file.size > 2 * 1024 * 1024) {
-            toast.error("Ukuran maksimal file adalah 2MB");
+        if (file.size > 4 * 1024 * 1024) {
+            toast.error("Ukuran maksimal file adalah 4MB");
             return;
         }
 
@@ -179,13 +203,14 @@ export default function SettingsPage() {
                 body: formData,
             });
 
+            const data = await res.json();
             if (res.ok) {
                 toast.success("QRIS unit berhasil diperbarui");
-                setQrisPreviewKey(Date.now().toString()); // reload image
+                setQrisPreviewUrl(data.url || null);
             } else {
-                toast.error("Terjadi kesalahan saat mengupload QRIS");
+                toast.error(data.message || "Terjadi kesalahan saat mengupload QRIS");
             }
-        } catch (error) {
+        } catch {
             toast.error("Gagal terhubung ke server");
         } finally {
             setIsUploadingQris(false);
@@ -588,51 +613,72 @@ export default function SettingsPage() {
                                     <div className="pt-4 border-t">
                                         <Label className="mb-4 block">Pratinjau QRIS Aktif ({qrisUnitType})</Label>
                                         <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-zinc-50 dark:bg-zinc-900 overflow-hidden relative min-h-[300px]">
-                                            <img 
-                                                src={`/uploads/qris/qris-${qrisUnitType}.png?key=${qrisPreviewKey}`} 
-                                                alt={`QRIS ${qrisUnitType}`}
-                                                className="max-h-[250px] object-contain shwadow-lg"
-                                                onError={(e) => {
-                                                    // Jika gambar tidak ditemukan, tampilkan placeholder
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.style.display = 'none';
-                                                    target.nextElementSibling?.classList.remove('hidden');
-                                                    target.nextElementSibling?.classList.add('flex');
-                                                }}
-                                                onLoad={(e) => {
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.style.display = 'block';
-                                                    target.nextElementSibling?.classList.add('hidden');
-                                                    target.nextElementSibling?.classList.remove('flex');
-                                                }}
-                                            />
-                                            <div className="hidden flex-col items-center text-muted-foreground">
-                                                <QrCode className="h-16 w-16 mb-2 opacity-50" />
-                                                <p className="text-sm">Belum ada QRIS untuk unit ini</p>
-                                            </div>
+                                            {isLoadingQris ? (
+                                                <div className="flex flex-col items-center text-muted-foreground">
+                                                    <Loader2 className="h-8 w-8 mb-2 animate-spin" />
+                                                    <p className="text-sm">Memuat QRIS...</p>
+                                                </div>
+                                            ) : qrisPreviewUrl ? (
+                                                <img
+                                                    src={qrisPreviewUrl}
+                                                    alt={`QRIS ${qrisUnitType}`}
+                                                    className="max-h-[250px] object-contain shadow-lg rounded"
+                                                />
+                                            ) : (
+                                                <div className="flex flex-col items-center text-muted-foreground">
+                                                    <QrCode className="h-16 w-16 mb-2 opacity-50" />
+                                                    <p className="text-sm">Belum ada QRIS untuk unit ini</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div className="pt-2">
-                                        <input 
-                                            type="file" 
-                                            accept="image/png, image/jpeg" 
-                                            className="hidden" 
-                                            ref={fileInputRef} 
-                                            onChange={handleQrisUpload} 
-                                        />
-                                        <Button 
-                                            type="button"
-                                            className="w-full gap-2 bg-violet-600 hover:bg-violet-700" 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={isUploadingQris}
-                                        >
-                                            {isUploadingQris ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                                            {isUploadingQris ? "Mengunggah..." : "Unggah Gambar QR Code Baru"}
-                                        </Button>
-                                        <p className="text-xs text-center text-muted-foreground mt-2">
-                                            Format yang didukung: PNG, JPG (Maks 2MB)
-                                        </p>
+                                    <div className="pt-2 flex gap-2">
+                                        <div className="flex-1">
+                                            <input
+                                                type="file"
+                                                accept="image/png, image/jpeg, image/webp"
+                                                className="hidden"
+                                                ref={fileInputRef}
+                                                onChange={handleQrisUpload}
+                                            />
+                                            <Button
+                                                type="button"
+                                                className="w-full gap-2 bg-violet-600 hover:bg-violet-700"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploadingQris}
+                                            >
+                                                {isUploadingQris ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                                                {isUploadingQris ? "Mengunggah..." : "Unggah Gambar QR Code Baru"}
+                                            </Button>
+                                            <p className="text-xs text-center text-muted-foreground mt-2">
+                                                Format: PNG, JPG, WebP (Maks 4MB)
+                                            </p>
+                                        </div>
+                                        {qrisPreviewUrl && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                onClick={async () => {
+                                                    if (!confirm("Hapus QRIS unit ini?")) return;
+                                                    try {
+                                                        const res = await fetch(`/api/unit-layanan/qris?unitType=${qrisUnitType}`, { method: "DELETE" });
+                                                        if (res.ok) {
+                                                            toast.success("QRIS berhasil dihapus");
+                                                            setQrisPreviewUrl(null);
+                                                        } else {
+                                                            toast.error("Gagal menghapus QRIS");
+                                                        }
+                                                    } catch {
+                                                        toast.error("Gagal terhubung ke server");
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Hapus
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>
