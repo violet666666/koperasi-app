@@ -3,12 +3,19 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
+const ALLOWED_SALES_ROLES = ["admin", "operator", "super_admin", "kasir"];
+
 // GET /api/toko/sales - List sales with items
 export async function GET(request: Request) {
     try {
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (!ALLOWED_SALES_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -72,6 +79,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
+        const role = session.user.role as string;
+        if (!ALLOWED_SALES_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
         const body = await request.json();
         const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId } = body;
         const unitType = reqUnitType || "toko";
@@ -121,9 +133,18 @@ export async function POST(request: Request) {
             let shiftId: number | null = reqShiftId ? Number(reqShiftId) : null;
             if (!shiftId) {
                 const openShift = await tx.cashierShift.findFirst({
-                    where: { userId, status: "open" },
+                    where: { userId, status: "open", unitType },
                 });
                 shiftId = openShift?.id || null;
+            } else {
+                // Validate provided shift belongs to same unit
+                const shift = await tx.cashierShift.findUnique({ where: { id: shiftId } });
+                if (!shift || shift.status !== "open") {
+                    throw new Error("Shift tidak valid atau sudah ditutup");
+                }
+                if (shift.unitType !== unitType) {
+                    throw new Error("Shift tidak sesuai dengan unit");
+                }
             }
 
             // Validate stock with row-level awareness (inside transaction)
@@ -209,15 +230,23 @@ export async function POST(request: Request) {
                 changeAmount = 0;
             }
 
-            // Generate sequential sale number: TK-DDMMYYYY-0001
+            // Generate sequential sale number: TK-DDMMYYYY-0001 (with retry for concurrency)
             const now = new Date();
             const datePart = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}${now.getFullYear()}`;
+            const saleNoPrefix = `TK-${datePart}-`;
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const todayCount = await tx.storeSale.count({
                 where: { createdAt: { gte: startOfDay } },
             });
-            const seq = String(todayCount + 1).padStart(4, "0");
-            const saleNo = `TK-${datePart}-${seq}`;
+            let saleNo = "";
+            for (let attempt = todayCount + 1; attempt < todayCount + 100; attempt++) {
+                const candidate = saleNoPrefix + String(attempt).padStart(4, "0");
+                const exists = await tx.storeSale.findUnique({ where: { saleNo: candidate } });
+                if (!exists) { saleNo = candidate; break; }
+            }
+            if (!saleNo) {
+                saleNo = saleNoPrefix + String(todayCount + 1).padStart(4, "0");
+            }
 
             // Create journal (inside transaction for atomicity)
             let journalId: number | null = null;

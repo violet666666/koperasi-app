@@ -2,13 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
-
-// Definisi jadwal shift
-const SHIFT_SCHEDULE = [
-    { name: "Pagi", startHour: 8, endHour: 15 },
-    { name: "Siang", startHour: 15, endHour: 21 },
-    { name: "Malam", startHour: 21, endHour: 8 }, // crosses midnight
-];
+import { getShiftSchedule } from "@/lib/shift-schedule";
 
 // GET /api/toko/shifts — List shifts
 // Kasir: hanya shift milik sendiri
@@ -131,7 +125,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             data: shiftResults,
-            meta: { shiftSchedule: SHIFT_SCHEDULE },
+            meta: { shiftSchedule: await getShiftSchedule(unitType || undefined) },
         });
     } catch (error) {
         console.error("GET /api/toko/shifts error:", error);
@@ -152,6 +146,12 @@ export async function POST(request: Request) {
 
         if (!shiftName || !unitType) {
             return NextResponse.json({ message: "shiftName dan unitType wajib diisi" }, { status: 400 });
+        }
+
+        // Validate shiftName against configured schedule
+        const schedule = await getShiftSchedule(unitType);
+        if (!schedule.some(s => s.name === shiftName)) {
+            return NextResponse.json({ message: `Shift "${shiftName}" tidak valid` }, { status: 400 });
         }
 
         const userId = Number(session.user.id);

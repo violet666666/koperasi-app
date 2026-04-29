@@ -48,6 +48,11 @@ export async function PUT(
             return NextResponse.json({ message: "Anda tidak memiliki akses untuk menutup shift ini" }, { status: 403 });
         }
 
+        // Admin hanya bisa tutup shift di unit sendiri
+        if (isAdmin && shift.unitType !== sessionUser.unitType) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses untuk menutup shift di unit ini" }, { status: 403 });
+        }
+
         // Hitung total penjualan dari StoreSale yang terikat ke shift ini
         // FIX Bug #3: Exclude voided sales dari perhitungan shift
         const allShiftSales = await prisma.storeSale.findMany({

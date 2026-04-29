@@ -30,14 +30,14 @@ import {
     Clock, DollarSign, PlayCircle, StopCircle, Loader2,
     ArrowRight, Banknote, CreditCard, QrCode, AlertTriangle,
     CheckCircle, User, Calendar, TrendingUp, TrendingDown,
-    Package, Eye,
+    Package, Eye, Settings, Save, Trash2,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-const SHIFT_OPTIONS = [
-    { value: "Pagi", label: "Pagi (08:00 - 15:00)", hours: "08:00 - 15:00" },
-    { value: "Siang", label: "Siang (15:00 - 21:00)", hours: "15:00 - 21:00" },
-    { value: "Malam", label: "Malam (21:00 - 08:00)", hours: "21:00 - 08:00" },
+const DEFAULT_SHIFT_OPTIONS = [
+    { value: "Pagi", label: "Pagi (07:00 - 14:59)" },
+    { value: "Sore", label: "Sore (15:00 - 20:59)" },
+    { value: "Malam", label: "Malam (21:00 - 06:59)" },
 ];
 
 const formatRp = (n: number) =>
@@ -73,10 +73,15 @@ export default function ShiftKasirPage() {
     const { data: session } = useSession();
     const unitType = session?.user?.unitType || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType as string);
+    const isAdmin = ["admin", "operator", "super_admin"].includes(session?.user?.role as string);
 
     const [loading, setLoading] = React.useState(true);
     const [activeShift, setActiveShift] = React.useState<ShiftData | null>(null);
     const [history, setHistory] = React.useState<ShiftData[]>([]);
+
+    // Dynamic shift schedule
+    const [shiftOptions, setShiftOptions] = React.useState(DEFAULT_SHIFT_OPTIONS);
+    const [shiftSchedule, setShiftSchedule] = React.useState<{ name: string; startHour: number; endHour: number }[]>([]);
 
     // Buka shift form
     const [shiftName, setShiftName] = React.useState("");
@@ -94,6 +99,11 @@ export default function ShiftKasirPage() {
     const [detailOpen, setDetailOpen] = React.useState(false);
     const [detailData, setDetailData] = React.useState<any>(null);
     const [detailLoading, setDetailLoading] = React.useState(false);
+
+    // Admin shift config dialog
+    const [configOpen, setConfigOpen] = React.useState(false);
+    const [configShifts, setConfigShifts] = React.useState<{ name: string; startHour: number; endHour: number }[]>([]);
+    const [configSaving, setConfigSaving] = React.useState(false);
 
     // Cashier identity for shift creation
     const [cashierIdentityId, setCashierIdentityId] = React.useState<number | null>(null);
@@ -117,17 +127,45 @@ export default function ShiftKasirPage() {
     // Auto-detect shift name berdasarkan jam
     React.useEffect(() => {
         const hour = new Date().getHours();
-        if (hour >= 8 && hour < 15) setShiftName("Pagi");
-        else if (hour >= 15 && hour < 21) setShiftName("Siang");
-        else setShiftName("Malam");
-    }, []);
+        if (shiftSchedule.length > 0) {
+            for (const shift of shiftSchedule) {
+                if (shift.startHour < shift.endHour) {
+                    if (hour >= shift.startHour && hour < shift.endHour) { setShiftName(shift.name); return; }
+                } else {
+                    if (hour >= shift.startHour || hour < shift.endHour) { setShiftName(shift.name); return; }
+                }
+            }
+            setShiftName(shiftSchedule[0].name);
+        } else {
+            if (hour >= 7 && hour < 15) setShiftName("Pagi");
+            else if (hour >= 15 && hour < 21) setShiftName("Sore");
+            else setShiftName("Malam");
+        }
+    }, [shiftSchedule]);
 
     const fetchShifts = React.useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/toko/shifts?unitType=${unitType}&limit=20`);
-            const json = await res.json();
+            const [shiftsRes, scheduleRes] = await Promise.all([
+                fetch(`/api/toko/shifts?unitType=${unitType}&limit=20`),
+                fetch(`/api/toko/shift-schedule?unitType=${unitType}`),
+            ]);
+            const json = await shiftsRes.json();
             const shifts: ShiftData[] = json.data || [];
+
+            // Load dynamic schedule
+            try {
+                const schedJson = await scheduleRes.json();
+                const sched = schedJson.data as { name: string; startHour: number; endHour: number }[];
+                if (Array.isArray(sched) && sched.length > 0) {
+                    setShiftSchedule(sched);
+                    setShiftOptions(sched.map(s => {
+                        const fmtH = (h: number) => String(h).padStart(2, "0");
+                        const endLabel = s.endHour <= s.startHour ? `${fmtH(s.endHour)}:59` : `${fmtH(s.endHour)}:59`;
+                        return { value: s.name, label: `${s.name} (${fmtH(s.startHour)}:00 - ${endLabel})` };
+                    }));
+                }
+            } catch { /* use defaults */ }
 
             const open = shifts.find((s) => s.status === "open");
             setActiveShift(open || null);
@@ -229,13 +267,61 @@ export default function ShiftKasirPage() {
         );
     }
 
+    const handleOpenConfig = () => {
+        setConfigShifts(shiftSchedule.length > 0
+            ? shiftSchedule.map(s => ({ ...s }))
+            : [{ name: "Pagi", startHour: 7, endHour: 15 }, { name: "Sore", startHour: 15, endHour: 21 }, { name: "Malam", startHour: 21, endHour: 7 }]
+        );
+        setConfigOpen(true);
+    };
+
+    const handleSaveConfig = async () => {
+        setConfigSaving(true);
+        try {
+            const res = await fetch("/api/toko/shift-schedule", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ unitType, schedule: configShifts }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(json.message);
+            setConfigOpen(false);
+            fetchShifts();
+        } catch (err: any) {
+            toast.error(err.message || "Gagal menyimpan konfigurasi shift");
+        } finally {
+            setConfigSaving(false);
+        }
+    };
+
+    const updateConfigShift = (index: number, field: string, value: string | number) => {
+        setConfigShifts(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+    };
+
+    const addConfigShift = () => {
+        setConfigShifts(prev => [...prev, { name: "", startHour: 0, endHour: 0 }]);
+    };
+
+    const removeConfigShift = (index: number) => {
+        setConfigShifts(prev => prev.filter((_, i) => i !== index));
+    };
+
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Shift Kasir"
-                description="Buka dan tutup shift untuk pencatatan kas harian"
-                backHref={isResto ? "/resto/kasir" : "/toko/kasir"}
-            />
+            <div className="flex items-center justify-between">
+                <PageHeader
+                    title="Shift Kasir"
+                    description="Buka dan tutup shift untuk pencatatan kas harian"
+                    backHref={isResto ? "/resto/kasir" : "/toko/kasir"}
+                />
+                {isAdmin && (
+                    <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={handleOpenConfig}>
+                        <Settings className="h-4 w-4" />
+                        Atur Jadwal Shift
+                    </Button>
+                )}
+            </div>
 
             {/* ── ACTIVE SHIFT ───────────────────────────────────── */}
             {activeShift ? (
@@ -322,7 +408,7 @@ export default function ShiftKasirPage() {
                                     <SelectValue placeholder="Pilih shift" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {SHIFT_OPTIONS.map((s) => (
+                                    {shiftOptions.map((s) => (
                                         <SelectItem key={s.value} value={s.value}>
                                             {s.label}
                                         </SelectItem>
@@ -759,6 +845,81 @@ export default function ShiftKasirPage() {
                             )}
                         </div>
                     ) : null}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── ADMIN SHIFT CONFIG DIALOG ──────────────────────── */}
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Konfigurasi Jadwal Shift
+                        </DialogTitle>
+                        <DialogDescription>
+                            Atur jam shift untuk unit {unitType}. Perubahan berlaku untuk shift baru.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        {configShifts.map((shift, idx) => (
+                            <div key={idx} className="flex items-end gap-2">
+                                <div className="flex-1">
+                                    <Label className="text-xs">Nama Shift</Label>
+                                    <Input
+                                        value={shift.name}
+                                        onChange={(e) => updateConfigShift(idx, "name", e.target.value)}
+                                        placeholder="Nama"
+                                        className="h-9"
+                                    />
+                                </div>
+                                <div className="w-20">
+                                    <Label className="text-xs">Jam Mulai</Label>
+                                    <Select
+                                        value={String(shift.startHour)}
+                                        onValueChange={(v) => updateConfigShift(idx, "startHour", parseInt(v))}
+                                    >
+                                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 24 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}:00</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="w-20">
+                                    <Label className="text-xs">Jam Selesai</Label>
+                                    <Select
+                                        value={String(shift.endHour)}
+                                        onValueChange={(v) => updateConfigShift(idx, "endHour", parseInt(v))}
+                                    >
+                                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 24 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}:00</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {configShifts.length > 1 && (
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeConfigShift(idx)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        <Button variant="outline" size="sm" onClick={addConfigShift} className="w-full">
+                            + Tambah Shift
+                        </Button>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfigOpen(false)} disabled={configSaving}>
+                            Batal
+                        </Button>
+                        <Button onClick={handleSaveConfig} disabled={configSaving} className="gap-2">
+                            {configSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            Simpan
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -28,6 +28,14 @@ export async function PUT(
         const existing = await prisma.cashierIdentity.findUnique({ where: { id } });
         if (!existing) return NextResponse.json({ message: "Identitas tidak ditemukan" }, { status: 404 });
 
+        // Admin unit isolation: verify identity belongs to admin's unit
+        if (role === "admin") {
+            const parentUser = await prisma.user.findUnique({ where: { id: existing.parentUserId } });
+            if (parentUser?.unitType !== session.user.unitType) {
+                return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+            }
+        }
+
         const body = await request.json();
         const updateData: Record<string, unknown> = {};
 
@@ -89,6 +97,14 @@ export async function DELETE(
 
         const existing = await prisma.cashierIdentity.findUnique({ where: { id } });
         if (!existing) return NextResponse.json({ message: "Identitas tidak ditemukan" }, { status: 404 });
+
+        // Admin unit isolation
+        if (role === "admin") {
+            const parentUser = await prisma.user.findUnique({ where: { id: existing.parentUserId } });
+            if (parentUser?.unitType !== session.user.unitType) {
+                return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+            }
+        }
 
         // Check for active shifts
         const activeShift = await prisma.cashierShift.findFirst({

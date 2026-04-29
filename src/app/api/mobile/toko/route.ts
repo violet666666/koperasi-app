@@ -160,15 +160,23 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Generate sequential sale number: POS-M-DDMMYYYY-0001
+            // Generate sequential sale number: POS-M-DDMMYYYY-0001 (with retry for concurrency)
             const now = new Date();
             const datePart = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}${now.getFullYear()}`;
+            const saleNoPrefix = `POS-M-${datePart}-`;
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const todayCount = await tx.storeSale.count({
                 where: { createdAt: { gte: startOfDay } },
             });
-            const seq = String(todayCount + 1).padStart(4, "0");
-            const saleNo = `POS-M-${datePart}-${seq}`;
+            let saleNo = "";
+            for (let attempt = todayCount + 1; attempt < todayCount + 100; attempt++) {
+                const candidate = saleNoPrefix + String(attempt).padStart(4, "0");
+                const exists = await tx.storeSale.findUnique({ where: { saleNo: candidate } });
+                if (!exists) { saleNo = candidate; break; }
+            }
+            if (!saleNo) {
+                saleNo = saleNoPrefix + String(todayCount + 1).padStart(4, "0");
+            }
 
             let payment = method === "cash" || method === "qris" ? totalAmount : 0;
             let changeAmount = 0;

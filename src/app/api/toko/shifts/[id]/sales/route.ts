@@ -16,6 +16,11 @@ export async function GET(
         const { id } = await params;
         const shiftId = parseInt(id);
 
+        const sessionUser = await prisma.user.findUnique({
+            where: { id: Number(session.user.id) },
+            include: { role: true },
+        });
+
         const shift = await prisma.cashierShift.findUnique({
             where: { id: shiftId },
             include: {
@@ -25,6 +30,23 @@ export async function GET(
 
         if (!shift) {
             return NextResponse.json({ message: "Shift tidak ditemukan" }, { status: 404 });
+        }
+
+        // Access control
+        const role = sessionUser?.role?.name;
+        const isKasir = role === "kasir";
+        const isAdmin = role === "admin";
+        const isOperator = role === "operator";
+        const isOwner = shift.userId === Number(session.user.id);
+
+        if (isKasir && !isOwner) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses" }, { status: 403 });
+        }
+        if (isAdmin && shift.unitType !== sessionUser?.unitType) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses" }, { status: 403 });
+        }
+        if (!isKasir && !isAdmin && !isOperator) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         // Fetch all StoreSales in this shift with items

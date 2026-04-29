@@ -33,7 +33,7 @@ interface Shift {
   unitType: string;
 }
 
-const SHIFT_OPTIONS = ['Pagi', 'Siang', 'Malam'];
+const SHIFT_OPTIONS = ['Pagi', 'Sore', 'Malam'];
 
 export default function ShiftScreen() {
   const navigation = useNavigation<any>();
