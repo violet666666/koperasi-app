@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
+import { createNotification } from "@/lib/notifications";
 
 const ALLOWED_SALES_ROLES = ["admin", "operator", "super_admin", "kasir"];
 
@@ -465,6 +466,33 @@ export async function POST(request: Request) {
                 newData: { saleNo: result.saleNo, totalAmount: result.totalAmount, paymentMethod: method, memberId: body.memberId || null, unitType },
             });
         } catch (e) { /* audit log failure must not break response */ }
+
+        // Low stock notification (fire-and-forget)
+        try {
+            const soldProductIds = result.sale.items?.map((item: any) => item.productId) || [];
+            const soldProducts = await prisma.storeProduct.findMany({
+                where: { id: { in: soldProductIds }, minStock: { gt: 0 } },
+                select: { id: true, name: true, stockToko: true, minStock: true, unitType: true },
+            });
+            const lowStockProducts = soldProducts.filter((p) => p.stockToko <= p.minStock);
+            if (lowStockProducts.length > 0) {
+                const admins = await prisma.user.findMany({
+                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
+                    select: { id: true },
+                });
+                if (admins.length > 0) {
+                    for (const prod of lowStockProducts) {
+                        await createNotification({
+                            userId: admins.map((a) => a.id),
+                            type: "low_stock",
+                            title: "Stok Rendah",
+                            message: `${prod.name}: sisa ${prod.stockToko} ${prod.minStock ? `(min: ${prod.minStock})` : ""}`,
+                            data: { productId: prod.id, unitType: prod.unitType },
+                        });
+                    }
+                }
+            }
+        } catch (e) { /* notification failure must not break response */ }
 
         return NextResponse.json({
             data: {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * FIX K-2: API Penyesuaian Stok Produk Toko
@@ -168,6 +169,25 @@ export async function POST(
                 operatorId: userId
             }
         });
+
+        // Low stock notification (fire-and-forget)
+        try {
+            if (updatedProduct.minStock && updatedProduct.minStock > 0 && newStockToko <= updatedProduct.minStock) {
+                const admins = await prisma.user.findMany({
+                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
+                    select: { id: true },
+                });
+                if (admins.length > 0) {
+                    await createNotification({
+                        userId: admins.map((a) => a.id),
+                        type: "low_stock",
+                        title: "Stok Rendah",
+                        message: `${updatedProduct.name}: sisa ${newStockToko} di toko (min: ${updatedProduct.minStock})`,
+                        data: { productId: updatedProduct.id, unitType: updatedProduct.unitType },
+                    });
+                }
+            }
+        } catch (e) { /* notification failure must not break response */ }
 
         return NextResponse.json({
             data: {

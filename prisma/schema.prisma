@@ -56,6 +56,7 @@ model User {
   uploadedFiles           UploadedFile[]        @relation("FileUploadedBy")
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
   cashierIdentities       CashierIdentity[]
+  notifications           Notification[]
 
   @@map("users")
 }
@@ -1124,4 +1125,25 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+// =================================================================
+// NOTIFICATIONS
+// =================================================================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   // "low_stock" | "expiring_soon" | "batch_expired" | "stock_in" | "void_request" | "info"
+  title     String
+  message   String
+  data      Json?    // payload: { productId, batchId, unitType, dll }
+  isRead    Boolean  @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -249,6 +250,23 @@ export async function POST(request: Request) {
                 },
             });
 
+            // Notify admins about void request
+            try {
+                const admins = await prisma.user.findMany({
+                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
+                    select: { id: true },
+                });
+                if (admins.length > 0) {
+                    await createNotification({
+                        userId: admins.map((a) => a.id),
+                        type: "void_request",
+                        title: "Permintaan Void",
+                        message: `Kasir mengajukan void untuk ${storeSale.saleNo}${reason ? `: ${reason}` : ""}`,
+                        data: { saleId: storeSale.id, saleNo: storeSale.saleNo, unitType: storeSale.unitType },
+                    });
+                }
+            } catch (e) { /* notification failure must not break response */ }
+
             return NextResponse.json({
                 message: `Permintaan void untuk transaksi ${transactionNo} telah dikirim ke Admin. Menunggu persetujuan.`,
                 data: { transactionNo: storeSale.saleNo, status: "pending_void" },
@@ -344,6 +362,23 @@ export async function POST(request: Request) {
                 },
             }),
         ]);
+
+        // Notify admins about unit void request
+        try {
+            const admins = await prisma.user.findMany({
+                where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
+                select: { id: true },
+            });
+            if (admins.length > 0) {
+                await createNotification({
+                    userId: admins.map((a) => a.id),
+                    type: "void_request",
+                    title: "Permintaan Void",
+                    message: `Void diajukan untuk ${transaction.transactionNo}${reason ? `: ${reason}` : ""}`,
+                    data: { transactionId: transaction.id, transactionNo: transaction.transactionNo, unitType: transaction.unitType },
+                });
+            }
+        } catch (e) { /* notification failure must not break response */ }
 
         return NextResponse.json({
             message: "Permintaan void berhasil diajukan. Menunggu persetujuan Admin Unit.",

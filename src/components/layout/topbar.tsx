@@ -26,13 +26,13 @@ import {
     ChevronRight,
     Home,
 } from "lucide-react";
+import { NotificationBell } from "@/components/patterns/notification-bell";
 import type { User as UserType } from "@/types";
 
 interface TopbarProps {
     user?: UserType | null;
     onMenuClick?: () => void;
     onLogout?: () => void;
-    pendingApprovals?: number;
     className?: string;
 }
 
@@ -40,7 +40,6 @@ export function Topbar({
     user,
     onMenuClick,
     onLogout,
-    pendingApprovals = 0,
     className,
 }: TopbarProps) {
     const pathname = usePathname();
@@ -99,15 +98,7 @@ export function Topbar({
             </Button>
 
             {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {pendingApprovals > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-destructive-foreground">
-                        {pendingApprovals > 9 ? "9+" : pendingApprovals}
-                    </span>
-                )}
-                <span className="sr-only">Notifications</span>
-            </Button>
+            <NotificationBell />
 
             {/* User Menu */}
             <DropdownMenu>
@@ -219,6 +210,7 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
         "tutup-buku": "Tutup Buku",
         kartu: "Kartu Anggota",
         buku: "Buku Anggota",
+        notifikasi: "Notifikasi",
     };
 
     let currentPath = "";

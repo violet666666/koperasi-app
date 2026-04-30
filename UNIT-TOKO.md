@@ -434,4 +434,33 @@ Halaman `/toko/kasir-manajemen` menyediakan:
 | `src/app/api/member-portal/transactions/route.ts` | Member portal + cashier info |
 
 ---
+
+## Changelog — 30 April 2026
+
+### Fitur Baru
+
+- **[Produk] Inline Edit Satuan**: Kolom "Sat" di daftar produk (`/toko/produk`) kini bisa diedit langsung via inline edit (klik ikon pensil). Field `unit` dikirim ke PUT endpoint yang sudah ada.
+- **[Produk] Bulk Edit Satuan**: Tombol "Edit Satuan" (ikon Ruler) ditambahkan ke bulk action toolbar. Dialog menampilkan chips satuan yang sudah ada + input teks bebas. Backend `set_unit` ditambahkan ke `PUT /api/toko/products/bulk`.
+- **[Riwayat] Cetak Ulang Struk per Baris**: Kolom "Aksi" baru di tabel riwayat transaksi (`/toko/riwayat`) dengan ikon Eye (detail) + Printer (cetak ulang). Klik printer langsung cetak tanpa buka dialog. Tombol printer tersembunyi untuk transaksi voided. Menggunakan `generateKasirReceiptPDF` dari export-utils.
+- **[Riwayat] Cetak Struk di Dialog Detail**: Tombol "Cetak Struk" di dialog detail transaksi riwayat (hanya non-void).
+- **[Shift] Cetak Rekap Shift**: Tombol "Cetak Rekap" di pojok kanan atas dialog detail shift (`/toko/shift`). Menghasilkan struk thermal (default 80mm) berisi: header shift, ringkasan pendapatan (modal awal, tunai/QRIS/kredit, total), rekonsiliasi kas (kas seharusnya, fisik, selisih), daftar transaksi lengkap, top 5 produk terlaris. Fungsi `generateShiftRecapPDF` dan interface `ShiftRecapData` ditambahkan di `export-utils.ts`.
+
+### Bug Fix
+
+- **[Struk] Kertas Berlebihan / Space Kosong Panjang**: Root cause: CSS `@page` menggunakan `width: 58mm` tanpa `auto` height, menyebabkan browser generate satu halaman penuh. Fix: `@page { size: 58mm auto; margin: 0; }` — tinggi halaman menyesuaikan konten. Padding/margin seluruh elemen struk diperkecil. Diterapkan di dua jalur cetak:
+  - `generateKasirReceiptPDF()` di `src/lib/export-utils.ts` (Toko kasir)
+  - `ReceiptPrimkopol.handlePrint()` di `src/components/patterns/receipt-primkopol.tsx` (Resto, Barbershop, dll)
+
+### File Terkait
+
+| File | Perubahan |
+|---|---|
+| `src/app/(protected)/toko/produk/page.tsx` | Inline edit satuan, bulk Edit Satuan toolbar + dialog |
+| `src/app/api/toko/products/bulk/route.ts` | Aksi `set_unit` di switch statement |
+| `src/app/(protected)/toko/riwayat/page.tsx` | Tombol cetak ulang per baris + di dialog detail |
+| `src/app/(protected)/toko/shift/page.tsx` | Tombol Cetak Rekap di dialog detail shift |
+| `src/lib/export-utils.ts` | Fix `@page size auto`, perkecil padding struk, tambah `generateShiftRecapPDF` + `ShiftRecapData` |
+| `src/components/patterns/receipt-primkopol.tsx` | Fix `@page` padding, perkecil divider/margin |
+
+---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
