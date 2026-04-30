@@ -30,9 +30,10 @@ import {
     Clock, DollarSign, PlayCircle, StopCircle, Loader2,
     ArrowRight, Banknote, CreditCard, QrCode, AlertTriangle,
     CheckCircle, User, Calendar, TrendingUp, TrendingDown,
-    Package, Eye, Settings, Save, Trash2,
+    Package, Eye, Settings, Save, Trash2, Printer,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { generateShiftRecapPDF, type ShiftRecapData } from "@/lib/export-utils";
 
 const DEFAULT_SHIFT_OPTIONS = [
     { value: "Pagi", label: "Pagi (07:00 - 14:59)" },
@@ -122,6 +123,46 @@ export default function ShiftKasirPage() {
         } finally {
             setDetailLoading(false);
         }
+    };
+
+    const handlePrintShiftRecap = () => {
+        if (!detailData) return;
+        const s = detailData.shift;
+        const recapData: ShiftRecapData = {
+            shiftName: s.shiftName,
+            cashierName: s.cashierDisplayName || s.userName,
+            unitType: s.unitType || (unitType as string),
+            startedAt: s.startedAt,
+            endedAt: s.endedAt,
+            status: s.status,
+            openingCash: Number(s.openingCash || 0),
+            totalCash: Number(detailData.summary.totalCash || 0),
+            totalQris: Number(detailData.summary.totalQris || 0),
+            totalCredit: Number(detailData.summary.totalCredit || 0),
+            totalRevenue: Number(detailData.summary.totalRevenue || 0),
+            activeSales: detailData.summary.activeSales || 0,
+            voidedSales: detailData.summary.voidedSales || 0,
+            expectedCash: s.expectedCash != null ? Number(s.expectedCash) : null,
+            closingCash: s.closingCash != null ? Number(s.closingCash) : null,
+            cashDifference: s.cashDifference != null ? Number(s.cashDifference) : null,
+            notes: s.notes || null,
+            sales: (detailData.sales || []).map((sale: any) => ({
+                saleNo: sale.saleNo,
+                createdAt: sale.createdAt,
+                customer: sale.member?.name || sale.customerName || "Umum",
+                cashier: sale.cashierDisplayName || sale.createdBy?.name || "-",
+                items: (sale.items || []).reduce((sum: number, i: any) => sum + i.quantity, 0),
+                method: sale.paymentMethod,
+                total: Number(sale.totalAmount || 0),
+                isVoided: !!sale.isVoided,
+            })),
+            topProducts: (detailData.topProducts || []).map((p: any) => ({
+                name: p.name,
+                qty: p.qty,
+                revenue: Number(p.revenue || 0),
+            })),
+        };
+        generateShiftRecapPDF(recapData);
     };
 
     // Auto-detect shift name berdasarkan jam
@@ -677,10 +718,18 @@ export default function ShiftKasirPage() {
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
                 <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5" />
-                            {detailData ? `Detail Shift ${detailData.shift.shiftName}` : "Detail Shift"}
-                        </DialogTitle>
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="flex items-center gap-2">
+                                <Calendar className="h-5 w-5" />
+                                {detailData ? `Detail Shift ${detailData.shift.shiftName}` : "Detail Shift"}
+                            </DialogTitle>
+                            {detailData && (
+                                <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={handlePrintShiftRecap}>
+                                    <Printer className="h-3.5 w-3.5" />
+                                    Cetak Rekap
+                                </Button>
+                            )}
+                        </div>
                     </DialogHeader>
 
                     {detailLoading ? (

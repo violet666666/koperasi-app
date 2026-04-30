@@ -410,3 +410,141 @@ ${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;
 function formatRp(n: number): string {
     return "Rp " + n.toLocaleString("id-ID");
 }
+
+// ─── Shift Recap Thermal Print ──────────────────────────────────────────────
+
+export interface ShiftRecapData {
+    shiftName: string;
+    cashierName: string;
+    unitType: string;
+    startedAt: string;
+    endedAt: string | null;
+    status: string;
+    openingCash: number;
+    totalCash: number;
+    totalQris: number;
+    totalCredit: number;
+    totalRevenue: number;
+    activeSales: number;
+    voidedSales: number;
+    expectedCash: number | null;
+    closingCash: number | null;
+    cashDifference: number | null;
+    notes: string | null;
+    sales: Array<{
+        saleNo: string;
+        createdAt: string;
+        customer: string;
+        cashier: string;
+        items: number;
+        method: string;
+        total: number;
+        isVoided: boolean;
+    }>;
+    topProducts: Array<{ name: string; qty: number; revenue: number }>;
+}
+
+export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | "80mm" = "80mm") {
+    const bodyWidth = paperSize === "58mm" ? "200px" : "280px";
+    const fontSize = paperSize === "58mm" ? "10px" : "11px";
+    const windowWidth = paperSize === "58mm" ? "240" : "320";
+
+    const fmtDt = (iso: string) =>
+        new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    const methodLabel = (m: string) =>
+        m === "cash" ? "Tunai" : m === "qris" ? "QRIS" : "Potong Gaji";
+
+    const saleRows = data.sales.map(s =>
+        `<tr style="${s.isVoided ? 'opacity:0.4;' : ''}">
+            <td style="padding:1px 0;font-size:9px;">${s.saleNo}</td>
+            <td style="text-align:center;font-size:9px;">${new Date(s.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</td>
+            <td style="font-size:9px;">${s.customer || "Umum"}</td>
+            <td style="text-align:center;font-size:9px;">${methodLabel(s.method)}</td>
+            <td style="text-align:right;font-size:9px;">${formatRp(s.total)}</td>
+        </tr>`
+    ).join("");
+
+    const topProductLines = data.topProducts.slice(0, 5).map(p =>
+        `<tr><td style="font-size:9px;">${p.name}</td><td style="text-align:center;font-size:9px;">${p.qty}</td><td style="text-align:right;font-size:9px;">${formatRp(p.revenue)}</td></tr>`
+    ).join("");
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Rekap Shift ${data.shiftName}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
+  .header h2 { font-size: ${paperSize === "58mm" ? "12px" : "14px"}; font-weight: bold; line-height: 1.2; }
+  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; line-height: 1.2; }
+  .row { display: flex; justify-content: space-between; margin: 1px 0; }
+  .divider { border-top: 1px dashed #000; margin: 3px 0; }
+  .bold { font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; }
+  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: 9px; text-align: left; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #666; line-height: 1.3; }
+  @media print {
+    @page { size: ${paperSize} auto; margin: 0; }
+    body { padding: 1mm; }
+  }
+</style>
+</head><body>
+<div class="header">
+  <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
+  <p>REKAP SHIFT ${data.shiftName.toUpperCase()}</p>
+  <p style="margin-top:2px;">${fmtDt(data.startedAt)} ${data.endedAt ? ' → ' + fmtDt(data.endedAt) : '(Masih Berlangsung)'}</p>
+</div>
+
+<div class="row"><span>Kasir</span><span>: ${data.cashierName}</span></div>
+<div class="row"><span>Status</span><span>: ${data.status === "open" ? "AKTIF" : "DITUTUP"}</span></div>
+
+<div class="divider"></div>
+<div class="bold" style="margin-bottom:2px;">RINGKASAN</div>
+<div class="row"><span>Modal Awal</span><span>${formatRp(data.openingCash)}</span></div>
+<div class="row"><span>Tunai (${data.activeSales} trx)</span><span>${formatRp(data.totalCash)}</span></div>
+<div class="row"><span>QRIS</span><span>${formatRp(data.totalQris)}</span></div>
+<div class="row"><span>Potong Gaji</span><span>${formatRp(data.totalCredit)}</span></div>
+<div class="divider"></div>
+<div class="row bold"><span>TOTAL PENDAPATAN</span><span>${formatRp(data.totalRevenue)}</span></div>
+${data.voidedSales > 0 ? `<div class="row" style="color:#999;"><span>Dibatalkan (Void)</span><span>${data.voidedSales} trx</span></div>` : ""}
+
+${data.expectedCash != null ? `
+<div class="divider"></div>
+<div class="bold" style="margin-bottom:2px;">REKONSILIASI KAS</div>
+<div class="row"><span>Kas Seharusnya</span><span>${formatRp(data.expectedCash)}</span></div>
+${data.closingCash != null ? `<div class="row"><span>Kas Fisik</span><span>${formatRp(data.closingCash)}</span></div>` : ""}
+${data.cashDifference != null ? `<div class="row bold"><span>Selisih</span><span>${data.cashDifference === 0 ? "Rp 0 (Seimbang)" : formatRp(data.cashDifference)}</span></div>` : ""}
+` : ""}
+
+${data.notes ? `<div class="divider"></div><div class="row"><span>Catatan</span><span>: ${data.notes}</span></div>` : ""}
+
+<div class="divider"></div>
+<div class="bold" style="margin-bottom:2px;">DAFTAR TRANSAKSI</div>
+<table><thead><tr>
+  <th>No. Trx</th><th style="text-align:center;">Jam</th><th>Pelanggan</th><th style="text-align:center;">Metode</th><th style="text-align:right;">Total</th>
+</tr></thead><tbody>${saleRows}</tbody></table>
+
+${topProductLines ? `
+<div class="divider"></div>
+<div class="bold" style="margin-bottom:2px;">PRODUK TERLARIS</div>
+<table><thead><tr><th>Produk</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Pendapatan</th></tr></thead>
+<tbody>${topProductLines}</tbody></table>
+` : ""}
+
+<div class="footer">
+  <p>Dicetak: ${new Date().toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+  <p>Rekap Shift — PRIMKOPPOL Resor Lumajang</p>
+</div>
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+
+    const win = window.open("", "_blank", `width=${windowWidth},height=600`);
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+        win.addEventListener("afterprint", () => {
+            setTimeout(() => { if (!win.closed) win.close(); }, 300);
+        });
+        setTimeout(() => { if (!win.closed) win.close(); }, 15000);
+    }
+}

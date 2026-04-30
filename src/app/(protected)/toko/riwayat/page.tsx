@@ -291,13 +291,14 @@ export default function RiwayatTransaksiPage() {
                                     <TableHead className="text-right">Total</TableHead>
                                     <TableHead>Kasir</TableHead>
                                     <TableHead className="text-center">Shift</TableHead>
-                                    <TableHead className="text-center w-[40px]"></TableHead>
+                                    <TableHead className="text-center w-[80px]">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filtered.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                                        <TableCell colSpan={9} className="text-center text-muted-foreground py-10"
+                                            >
                                             {searchQuery ? "Transaksi tidak ditemukan" : "Belum ada transaksi"}
                                         </TableCell>
                                     </TableRow>
@@ -358,7 +359,18 @@ export default function RiwayatTransaksiPage() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                <Eye className="h-4 w-4 text-muted-foreground" />
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Lihat Detail"
+                                                        onClick={(e) => { e.stopPropagation(); openDetail(sale); }}>
+                                                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    </Button>
+                                                    {!voided && (
+                                                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Cetak Ulang Struk"
+                                                            onClick={(e) => { e.stopPropagation(); handleReprint(sale); }}>
+                                                            <Printer className="h-3.5 w-3.5 text-blue-600" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     );
