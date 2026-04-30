@@ -716,7 +716,7 @@ export default function ShiftKasirPage() {
 
             {/* ── SHIFT DETAIL DIALOG ─────────────────────────── */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <DialogTitle className="flex items-center gap-2">
@@ -764,26 +764,26 @@ export default function ShiftKasirPage() {
                             </div>
 
                             {/* Payment breakdown */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
                                 <div className="rounded-lg border p-3 flex items-center gap-3">
-                                    <Banknote className="h-5 w-5 text-emerald-500" />
-                                    <div>
+                                    <Banknote className="h-5 w-5 text-emerald-500 shrink-0" />
+                                    <div className="min-w-0">
                                         <p className="text-xs text-muted-foreground">Tunai</p>
-                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalCash)}</p>
+                                        <p className="font-bold text-sm truncate">{formatRp(detailData.summary.totalCash)}</p>
                                     </div>
                                 </div>
                                 <div className="rounded-lg border p-3 flex items-center gap-3">
-                                    <QrCode className="h-5 w-5 text-blue-500" />
-                                    <div>
+                                    <QrCode className="h-5 w-5 text-blue-500 shrink-0" />
+                                    <div className="min-w-0">
                                         <p className="text-xs text-muted-foreground">QRIS</p>
-                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalQris)}</p>
+                                        <p className="font-bold text-sm truncate">{formatRp(detailData.summary.totalQris)}</p>
                                     </div>
                                 </div>
                                 <div className="rounded-lg border p-3 flex items-center gap-3">
-                                    <CreditCard className="h-5 w-5 text-orange-500" />
-                                    <div>
+                                    <CreditCard className="h-5 w-5 text-orange-500 shrink-0" />
+                                    <div className="min-w-0">
                                         <p className="text-xs text-muted-foreground">Potong Gaji</p>
-                                        <p className="font-bold text-sm">{formatRp(detailData.summary.totalCredit)}</p>
+                                        <p className="font-bold text-sm truncate">{formatRp(detailData.summary.totalCredit)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -812,29 +812,27 @@ export default function ShiftKasirPage() {
                                 </div>
                             )}
 
-                            {/* Transaction Table */}
+                            {/* Transaction Table — compact 5 columns */}
                             <div>
                                 <h4 className="text-sm font-semibold mb-2">
                                     Transaksi ({detailData.sales.length} — {detailData.summary.voidedSales} void)
                                 </h4>
                                 <div className="rounded-lg border overflow-hidden">
-                                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                                    <div className="max-h-[300px] overflow-y-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead className="text-xs">No. Transaksi</TableHead>
-                                                    <TableHead className="text-xs">Waktu</TableHead>
-                                                    <TableHead className="text-xs">Pelanggan</TableHead>
-                                                    <TableHead className="text-xs">Kasir</TableHead>
-                                                    <TableHead className="text-xs text-center">Item</TableHead>
-                                                    <TableHead className="text-xs">Metode</TableHead>
-                                                    <TableHead className="text-xs text-right">Total</TableHead>
+                                                    <TableHead className="text-xs w-[140px]">No. Transaksi</TableHead>
+                                                    <TableHead className="text-xs w-[60px]">Waktu</TableHead>
+                                                    <TableHead className="text-xs">Info</TableHead>
+                                                    <TableHead className="text-xs w-[90px]">Metode</TableHead>
+                                                    <TableHead className="text-xs text-right w-[110px]">Total</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {detailData.sales.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={7} className="text-center text-muted-foreground py-6 text-sm">
+                                                        <TableCell colSpan={5} className="text-center text-muted-foreground py-6 text-sm">
                                                             Tidak ada transaksi
                                                         </TableCell>
                                                     </TableRow>
@@ -852,13 +850,10 @@ export default function ShiftKasirPage() {
                                                             {new Date(sale.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                                                         </TableCell>
                                                         <TableCell className="text-xs">
-                                                            {sale.member?.name || sale.customerName || "Umum"}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-muted-foreground">
-                                                            {sale.cashierDisplayName || sale.createdBy?.name || "-"}
-                                                        </TableCell>
-                                                        <TableCell className="text-center text-xs">
-                                                            {sale.items.reduce((s: number, i: any) => s + i.quantity, 0)} pcs
+                                                            <p className="truncate max-w-[200px]">{sale.member?.name || sale.customerName || "Umum"}</p>
+                                                            <p className="text-[10px] text-muted-foreground">
+                                                                {sale.cashierDisplayName || sale.createdBy?.name || "-"} · {sale.items.reduce((s: number, i: any) => s + i.quantity, 0)} item
+                                                            </p>
                                                         </TableCell>
                                                         <TableCell>
                                                             <Badge variant="outline" className={`text-[10px] ${
