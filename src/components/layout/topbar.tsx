@@ -211,6 +211,7 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
         kartu: "Kartu Anggota",
         buku: "Buku Anggota",
         notifikasi: "Notifikasi",
+        batch: "Manajemen Batch",
     };
 
     let currentPath = "";

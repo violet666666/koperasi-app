@@ -41,6 +41,7 @@ import {
     Copy,
     Calculator,
     UserCircle,
+    Layers,
 } from "lucide-react";
 
 export interface NavItem {
@@ -348,6 +349,10 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
+                permission: "manage_toko",
+            },
+            {
+                title: "Manajemen Batch", href: "/toko/batch", icon: Layers,
                 permission: "manage_toko",
             },
             {

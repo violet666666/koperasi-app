@@ -129,11 +129,28 @@ export async function POST(
 
             // Create StockBatch + update product + log movement in transaction
             const result = await prisma.$transaction(async (tx) => {
+                // Auto-generate batch number if not provided
+                let finalBatchNo = batchNo || null;
+                if (!finalBatchNo) {
+                    const today = new Date();
+                    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+                    const prefix = `BATCH-${dateStr}-`;
+                    const todayBatches = await tx.stockBatch.findMany({
+                        where: { batchNo: { startsWith: prefix } },
+                        select: { batchNo: true },
+                    });
+                    const maxSeq = todayBatches.reduce((max, b) => {
+                        const seq = parseInt(b.batchNo?.replace(prefix, "") || "0", 10);
+                        return seq > max ? seq : max;
+                    }, 0);
+                    finalBatchNo = `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+                }
+
                 // Create batch
                 const batch = await tx.stockBatch.create({
                     data: {
                         productId,
-                        batchNo: batchNo || null,
+                        batchNo: finalBatchNo,
                         purchasePrice: hargaBeli || costBefore || 0,
                         quantity: qty,
                         originalQuantity: qty,
@@ -186,9 +203,23 @@ export async function POST(
                         userId: admins.map((a) => a.id),
                         type: "stock_in",
                         title: "Stok Masuk",
-                        message: `${product.name}: +${qty} unit${hargaBeli ? ` (HPP: Rp ${hargaBeli.toLocaleString()})` : ""}`,
+                        message: `${product.name}: +${qty} unit${hargaBeli ? ` (HPP: Rp ${hargaBeli.toLocaleString()})` : ""} — Batch ${result.batch.batchNo || result.batch.id}`,
                         data: { productId, batchId: result.batch.id, unitType: product.unitType },
                     });
+
+                    // Expiry warning if batch expires within 90 days
+                    if (result.batch.expiryDate) {
+                        const daysUntilExpiry = Math.ceil((new Date(result.batch.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        if (daysUntilExpiry > 0 && daysUntilExpiry <= 90) {
+                            await createNotification({
+                                userId: admins.map((a) => a.id),
+                                type: "expiring_soon",
+                                title: "Batch Hampir Expired",
+                                message: `${product.name} batch ${result.batch.batchNo || result.batch.id} — expired dalam ${daysUntilExpiry} hari`,
+                                data: { batchId: result.batch.id, productId, daysLeft: daysUntilExpiry, unitType: product.unitType },
+                            });
+                        }
+                    }
                 }
             } catch (e) { /* non-critical */ }
 
