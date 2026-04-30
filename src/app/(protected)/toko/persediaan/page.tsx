@@ -294,9 +294,6 @@ export default function PersediaanPage() {
                             <DialogTrigger asChild>
                                 <Button onClick={() => setMovementType("in")}><Plus className="mr-2 h-4 w-4" />Stok Masuk</Button>
                             </DialogTrigger>
-                            <DialogTrigger asChild>
-                                <Button onClick={() => setMovementType("in")}><Plus className="mr-2 h-4 w-4" />Stok Masuk</Button>
-                            </DialogTrigger>
                             <Button variant="outline" onClick={() => setWriteoffDialogOpen(true)}><Minus className="mr-2 h-4 w-4" />Stok Keluar</Button>
                             <DialogContent>
                                 <DialogHeader>

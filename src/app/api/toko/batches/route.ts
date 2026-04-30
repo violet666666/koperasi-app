@@ -34,12 +34,18 @@ export async function GET(req: Request) {
             data: { isActive: false },
         });
 
-        // Notify about newly auto-expired batches
+        // Notify about newly auto-expired batches only
         if (expiredResult.count > 0) {
             try {
+                // Only get batches that were just expired (isActive just set to false, still have stock)
                 const newlyExpired = await prisma.stockBatch.findMany({
-                    where: { isActive: false, quantity: { gt: 0 } },
-                    include: { product: { select: { name: true, unitType: true } } },
+                    where: {
+                        isActive: false,
+                        quantity: { gt: 0 },
+                        expiryDate: { lt: now },
+                        unitType,
+                    },
+                    include: { product: { select: { name: true } } },
                     take: 20,
                     orderBy: { expiryDate: "desc" },
                 });
@@ -49,13 +55,22 @@ export async function GET(req: Request) {
                 });
                 if (admins.length > 0) {
                     for (const batch of newlyExpired) {
-                        await createNotification({
-                            userId: admins.map((a) => a.id),
-                            type: "batch_expired",
-                            title: "Batch Expired",
-                            message: `${batch.product?.name || "Produk"} batch ${batch.batchNo || batch.id} sudah kadaluarsa`,
-                            data: { batchId: batch.id, productId: batch.productId, unitType: batch.unitType },
+                        // Deduplicate: skip if already notified about this batch
+                        const existing = await prisma.notification.findFirst({
+                            where: {
+                                type: "batch_expired",
+                                data: { path: ["batchId"], equals: batch.id },
+                            },
                         });
+                        if (!existing) {
+                            await createNotification({
+                                userId: admins.map((a) => a.id),
+                                type: "batch_expired",
+                                title: "Batch Expired",
+                                message: `${batch.product?.name || "Produk"} batch ${batch.batchNo || batch.id} sudah kadaluarsa`,
+                                data: { batchId: batch.id, productId: batch.productId, unitType: batch.unitType },
+                            });
+                        }
                     }
                 }
             } catch (e) { /* non-critical */ }

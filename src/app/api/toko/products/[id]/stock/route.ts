@@ -78,17 +78,20 @@ export async function POST(
             }
 
             const newStock = newStockGdg + newStockToko;
-            const updatedProduct = await prisma.storeProduct.update({
-                where: { id: productId },
-                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
-            });
-
             const refText = `Transfer ${from === "gudang" ? "Gudang → Toko" : "Toko → Gudang"}`;
-            await prisma.storeStockMovement.createMany({
-                data: [
-                    { productId, type: "out", quantity: qty, reference: `${refText} (keluar dari ${from === "gudang" ? "Gudang" : "Toko"})`, notes: notes || null, operatorId: userId, reason: "transfer" },
-                    { productId, type: "in", quantity: qty, reference: `${refText} (masuk ke ${to === "toko" ? "Toko" : "Gudang"})`, notes: notes || null, operatorId: userId, reason: "transfer" },
-                ],
+
+            const updatedProduct = await prisma.$transaction(async (tx) => {
+                const updated = await tx.storeProduct.update({
+                    where: { id: productId },
+                    data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+                });
+                await tx.storeStockMovement.createMany({
+                    data: [
+                        { productId, type: "out", quantity: qty, reference: `${refText} (keluar dari ${from === "gudang" ? "Gudang" : "Toko"})`, notes: notes || null, operatorId: userId, reason: "transfer" },
+                        { productId, type: "in", quantity: qty, reference: `${refText} (masuk ke ${to === "toko" ? "Toko" : "Gudang"})`, notes: notes || null, operatorId: userId, reason: "transfer" },
+                    ],
+                });
+                return updated;
             });
 
             return NextResponse.json({
@@ -258,30 +261,31 @@ export async function POST(
 
         const newStock = newStockGdg + newStockToko;
         const costSnapshot = Number(product.costPrice) || 0;
-
-        const updatedProduct = await prisma.storeProduct.update({
-            where: { id: productId },
-            data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
-        });
-
         const movementReason = type === "out_writeoff" ? reason : "adjustment";
         const movementReasonNote = type === "out_writeoff" ? reasonNote : null;
         const refLabel = type === "out_writeoff"
             ? `Stok Keluar: ${reasonLabel(reason)} (${stockLocation === "toko" ? "Toko" : "Gudang"})`
             : `Pengurangan Manual (${stockLocation === "toko" ? "Toko" : "Gudang"})`;
 
-        await prisma.storeStockMovement.create({
-            data: {
-                productId: updatedProduct.id,
-                type: "out",
-                quantity: qty,
-                reference: refLabel,
-                notes: notes || movementReasonNote || null,
-                operatorId: userId,
-                reason: movementReason,
-                reasonNote: movementReasonNote,
-                costAtTime: costSnapshot,
-            },
+        const updatedProduct = await prisma.$transaction(async (tx) => {
+            const updated = await tx.storeProduct.update({
+                where: { id: productId },
+                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+            });
+            await tx.storeStockMovement.create({
+                data: {
+                    productId,
+                    type: "out",
+                    quantity: qty,
+                    reference: refLabel,
+                    notes: notes || movementReasonNote || null,
+                    operatorId: userId,
+                    reason: movementReason,
+                    reasonNote: movementReasonNote,
+                    costAtTime: costSnapshot,
+                },
+            });
+            return updated;
         });
 
         // Notifications
@@ -302,8 +306,8 @@ export async function POST(
                 }
             }
 
-            // Low stock alert
-            if (updatedProduct.minStock && updatedProduct.minStock > 0 && newStockToko <= updatedProduct.minStock) {
+            // Low stock alert (only when toko stock was affected)
+            if (updatedProduct.minStock && updatedProduct.minStock > 0 && stockLocation === "toko" && newStockToko <= updatedProduct.minStock) {
                 const admins = await prisma.user.findMany({
                     where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
                     select: { id: true },

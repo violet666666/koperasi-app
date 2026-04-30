@@ -59,6 +59,15 @@ const typeBadgeVariants: Record<string, string> = {
   info: "bg-gray-100 text-gray-700",
 };
 
+const typeIconColors: Record<string, string> = {
+  low_stock: "text-orange-500",
+  expiring_soon: "text-yellow-500",
+  batch_expired: "text-red-500",
+  stock_in: "text-blue-500",
+  void_request: "text-purple-500",
+  info: "text-gray-500",
+};
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -132,7 +141,13 @@ export default function NotifikasiPage() {
     try {
       const res = await fetch(`/api/notifications/${id}`, { method: "DELETE" });
       if (res.ok) {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
+        setNotifications((prev) => {
+          const deleted = prev.find((n) => n.id === id);
+          if (deleted && !deleted.isRead) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          }
+          return prev.filter((n) => n.id !== id);
+        });
         setTotal((prev) => prev - 1);
       }
     } catch {
@@ -198,7 +213,7 @@ export default function NotifikasiPage() {
                   )}
                 >
                   <div className="mt-0.5 shrink-0">
-                    <Icon className={cn("h-5 w-5", typeBadgeVariants[n.type]?.replace("bg-", "text-").replace("100", "500").split(" ")[1] || "text-muted-foreground")} />
+                    <Icon className={cn("h-5 w-5", typeIconColors[n.type] || "text-muted-foreground")} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
