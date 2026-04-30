@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
  * Body:
  * {
  *   ids: number[],
- *   action: "zero_stock" | "zero_price" | "zero_all" | "set_stock" | "set_price" | "set_category" | "deactivate" | "activate",
+ *   action: "zero_stock" | "zero_price" | "zero_all" | "set_stock" | "set_price" | "set_category" | "set_unit" | "deactivate" | "activate",
  *   value?: number | string  // untuk set_stock, set_price, set_category
  * }
  */
@@ -126,6 +126,14 @@ export async function PUT(request: Request) {
                 }
                 updateData = { category: categoryValue.trim() };
                 actionLabel = `Kategori diset ke "${categoryValue.trim()}"`;
+                break;
+            case "set_unit":
+                const unitValue = typeof value === "string" ? value.trim() : "";
+                if (!unitValue) {
+                    return NextResponse.json({ message: "Satuan harus diisi" }, { status: 400 });
+                }
+                updateData = { unit: unitValue };
+                actionLabel = `Satuan diset ke "${unitValue}"`;
                 break;
             case "deactivate":
                 updateData = { isActive: false };

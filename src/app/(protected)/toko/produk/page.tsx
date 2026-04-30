@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import {
     Plus, Package, TrendingUp, AlertTriangle, Upload,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
-    CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag,
+    CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -78,6 +78,7 @@ export default function TokoProdukPage() {
     const [bulkAction, setBulkAction] = React.useState<string>("");
     const [bulkValue, setBulkValue] = React.useState("");
     const [bulkCategory, setBulkCategory] = React.useState("");
+    const [bulkUnit, setBulkUnit] = React.useState("");
     const [showBulkDialog, setShowBulkDialog] = React.useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
 
@@ -216,6 +217,11 @@ export default function TokoProdukPage() {
         return Array.from(cats);
     }, [products]);
 
+    const unitList = React.useMemo(() => {
+        const units = new Set(products.map(p => p.unit).filter(Boolean));
+        return Array.from(units);
+    }, [products]);
+
     const filteredProducts = React.useMemo(() => {
         return products.filter(p => {
             const matchCat = filterCategory === "all" || p.category === filterCategory;
@@ -238,6 +244,7 @@ export default function TokoProdukPage() {
             stockGdg: product.stockGdg,
             stockToko: product.stockToko,
             category: product.category,
+            unit: product.unit,
         });
     };
 
@@ -335,6 +342,7 @@ export default function TokoProdukPage() {
         setBulkAction(action);
         setBulkValue("");
         setBulkCategory("");
+        setBulkUnit("");
         setShowBulkDialog(true);
     };
 
@@ -346,6 +354,7 @@ export default function TokoProdukPage() {
             case "set_stock": return "Set Stok";
             case "set_price": return "Set Harga";
             case "set_category": return "Set Kategori";
+            case "set_unit": return "Edit Satuan";
             case "deactivate": return "Nonaktifkan";
             default: return "";
         }
@@ -375,6 +384,15 @@ export default function TokoProdukPage() {
                     return;
                 }
                 body.category = cat;
+            }
+            if (bulkAction === "set_unit") {
+                const unitVal = bulkUnit.trim();
+                if (!unitVal) {
+                    toast.error("Masukkan atau pilih satuan");
+                    setIsBulkProcessing(false);
+                    return;
+                }
+                body.value = unitVal;
             }
 
             const res = await fetch("/api/toko/products/bulk", {
@@ -597,6 +615,9 @@ export default function TokoProdukPage() {
                         <Button size="sm" variant="outline" onClick={() => openBulkAction("set_category")}>
                             <Tag className="mr-1.5 h-3.5 w-3.5" />Set Kategori
                         </Button>
+                        <Button size="sm" variant="outline" onClick={() => openBulkAction("set_unit")}>
+                            <Ruler className="mr-1.5 h-3.5 w-3.5" />Edit Satuan
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                             <X className="mr-1.5 h-3.5 w-3.5" />Batal
                         </Button>
@@ -732,7 +753,14 @@ export default function TokoProdukPage() {
                                                     </div>
                                                 )}
                                             </TableCell>
-                                            <TableCell><span className="text-xs text-muted-foreground">{p.unit || "-"}</span></TableCell>
+                                            <TableCell>
+                                                {isEditing ? (
+                                                    <Input className="h-8 text-xs w-[70px]" value={editData.unit || ""}
+                                                        onChange={(e) => setEditData(prev => ({ ...prev, unit: e.target.value }))} />
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">{p.unit || "-"}</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 {isEditing ? (
                                                     <Input type="number" className="h-8 text-xs w-[100px] text-right" value={editData.price ?? ""}
@@ -883,6 +911,45 @@ export default function TokoProdukPage() {
                         </div>
                     )}
 
+                    {bulkAction === "set_unit" && (
+                        <div className="space-y-3 py-2">
+                            <Label>Satuan Baru</Label>
+                            {unitList.length > 0 && (
+                                <div className="space-y-1.5">
+                                    <p className="text-xs text-muted-foreground">Pilih satuan yang sudah ada:</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {unitList.map(u => (
+                                            <button
+                                                key={u}
+                                                type="button"
+                                                onClick={() => setBulkUnit(u)}
+                                                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                                                    bulkUnit === u
+                                                        ? "bg-primary text-primary-foreground border-primary"
+                                                        : "bg-background hover:bg-accent border-input"
+                                                }`}
+                                            >
+                                                {u}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-1.5">
+                                <p className="text-xs text-muted-foreground">Atau ketik satuan baru:</p>
+                                <Input
+                                    value={bulkUnit}
+                                    onChange={(e) => setBulkUnit(e.target.value)}
+                                    placeholder="Contoh: pcs, kg, liter, lusin, pack..."
+                                    autoFocus
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Akan diterapkan ke <strong>{selectedIds.size} produk</strong> yang dipilih.
+                            </p>
+                        </div>
+                    )}
+
                     {(bulkAction === "zero_stock" || bulkAction === "zero_all") && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 text-sm">
                             <p className="font-medium text-amber-800 dark:text-amber-300">Produk yang akan dinolkan stoknya:</p>
@@ -905,7 +972,7 @@ export default function TokoProdukPage() {
                         <Button
                             variant={bulkAction.startsWith("zero") || bulkAction === "deactivate" ? "destructive" : "default"}
                             onClick={executeBulk}
-                            disabled={isBulkProcessing || ((bulkAction === "set_stock" || bulkAction === "set_price") && !bulkValue) || (bulkAction === "set_category" && !bulkCategory.trim())}
+                            disabled={isBulkProcessing || ((bulkAction === "set_stock" || bulkAction === "set_price") && !bulkValue) || (bulkAction === "set_category" && !bulkCategory.trim()) || (bulkAction === "set_unit" && !bulkUnit.trim())}
                         >
                             {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                             {isBulkProcessing ? "Memproses..." : `Ya, ${getBulkActionLabel()}`}
