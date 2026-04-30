@@ -95,6 +95,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Daftar Pinjaman", href: "/pinjaman" },
                     { title: "Angsuran", href: "/pinjaman/angsuran" },
                     { title: "Jadwal Angsuran", href: "/pinjaman/jadwal" },
+                    { title: "Laporan Jasa", href: "/pinjaman/laporan-jasa" },
                 ],
             },
             {
