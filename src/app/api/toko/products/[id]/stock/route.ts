@@ -104,34 +104,43 @@ export async function POST(
         if (type === "in") {
             const hargaBeli = purchasePrice ? parseFloat(purchasePrice) : null;
 
-            if (stockLocation === "toko") {
-                newStockToko = product.stockToko + qty;
-            } else {
-                newStockGdg = product.stockGdg + qty;
-            }
-            const newStock = newStockGdg + newStockToko;
-
-            // Snapshot costPrice before update
-            const costBefore = Number(product.costPrice) || 0;
-
-            // Check excluded categories
-            const isExcluded = await isExcludedCategory(product.unitType, product.category);
-
-            let newCostPrice = costBefore;
-            let newSellPrice = Number(product.sellPrice);
-
-            if (hargaBeli && hargaBeli > 0 && !isExcluded && costBefore > 0) {
-                // HPP Moving Average formula
-                newCostPrice = (effectiveStock * costBefore + qty * hargaBeli) / (effectiveStock + qty);
-                newSellPrice = await calculateSellPrice(newCostPrice, product.unitType);
-            } else if (hargaBeli && hargaBeli > 0 && !isExcluded && costBefore === 0) {
-                // First purchase — set directly
-                newCostPrice = hargaBeli;
-                newSellPrice = await calculateSellPrice(newCostPrice, product.unitType);
-            }
-
             // Create StockBatch + update product + log movement in transaction
+            // Product data is re-read inside the transaction to prevent stale HPP calculation
             const result = await prisma.$transaction(async (tx) => {
+                // Re-read product inside transaction for accurate HPP calculation
+                const freshProduct = await tx.storeProduct.findUnique({ where: { id: productId, deletedAt: null } });
+                if (!freshProduct) throw new Error("Produk tidak ditemukan");
+
+                const freshEffectiveStock = freshProduct.stockGdg + freshProduct.stockToko;
+                let freshStockGdg = freshProduct.stockGdg;
+                let freshStockToko = freshProduct.stockToko;
+
+                if (stockLocation === "toko") {
+                    freshStockToko = freshProduct.stockToko + qty;
+                } else {
+                    freshStockGdg = freshProduct.stockGdg + qty;
+                }
+                const freshNewStock = freshStockGdg + freshStockToko;
+
+                // Snapshot costPrice from fresh data
+                const costBefore = Number(freshProduct.costPrice) || 0;
+
+                // Check excluded categories
+                const isExcluded = await isExcludedCategory(freshProduct.unitType, freshProduct.category);
+
+                let newCostPrice = costBefore;
+                let newSellPrice = Number(freshProduct.sellPrice);
+
+                if (hargaBeli && hargaBeli > 0 && !isExcluded && costBefore > 0) {
+                    // HPP Moving Average formula
+                    newCostPrice = (freshEffectiveStock * costBefore + qty * hargaBeli) / (freshEffectiveStock + qty);
+                    newSellPrice = await calculateSellPrice(newCostPrice, freshProduct.unitType);
+                } else if (hargaBeli && hargaBeli > 0 && !isExcluded && costBefore === 0) {
+                    // First purchase — set directly
+                    newCostPrice = hargaBeli;
+                    newSellPrice = await calculateSellPrice(newCostPrice, freshProduct.unitType);
+                }
+
                 // Auto-generate batch number if not provided
                 let finalBatchNo = batchNo || null;
                 if (!finalBatchNo) {
@@ -160,7 +169,7 @@ export async function POST(
                         expiryDate: expiryDate ? new Date(expiryDate) : null,
                         supplierName: supplierName || null,
                         location: stockLocation,
-                        unitType: product.unitType,
+                        unitType: freshProduct.unitType,
                         notes: notes || null,
                     },
                 });
@@ -169,9 +178,9 @@ export async function POST(
                 const updated = await tx.storeProduct.update({
                     where: { id: productId },
                     data: {
-                        stock: newStock,
-                        stockGdg: newStockGdg,
-                        stockToko: newStockToko,
+                        stock: freshNewStock,
+                        stockGdg: freshStockGdg,
+                        stockToko: freshStockToko,
                         costPrice: newCostPrice,
                         sellPrice: newSellPrice,
                     },
@@ -192,7 +201,7 @@ export async function POST(
                     },
                 });
 
-                return { updated, batch };
+                return { updated, batch, freshEffectiveStock, freshNewStock, freshStockGdg, freshStockToko, newCostPrice, newSellPrice };
             });
 
             // Notify admins about stock-in
@@ -229,14 +238,14 @@ export async function POST(
             return NextResponse.json({
                 data: {
                     productId, sku: result.updated.sku, name: result.updated.name,
-                    previousStock: effectiveStock, currentStock: newStock,
-                    stockGdg: newStockGdg, stockToko: newStockToko,
+                    previousStock: result.freshEffectiveStock, currentStock: result.freshNewStock,
+                    stockGdg: result.freshStockGdg, stockToko: result.freshStockToko,
                     change: qty, type: "in",
-                    costPrice: newCostPrice, sellPrice: newSellPrice,
+                    costPrice: result.newCostPrice, sellPrice: result.newSellPrice,
                     batchId: result.batch.id,
                     notes: notes || null, updatedBy: userId, updatedAt: new Date().toISOString(),
                 },
-                message: `Stok masuk berhasil. Stok: ${newStock} (Gudang: ${newStockGdg}, Toko: ${newStockToko})${!isExcluded && hargaBeli ? `. HPP: Rp ${Math.round(newCostPrice).toLocaleString()}` : ""}`,
+                message: `Stok masuk berhasil. Stok: ${result.freshNewStock} (Gudang: ${result.freshStockGdg}, Toko: ${result.freshStockToko})${hargaBeli ? `. HPP: Rp ${Math.round(result.newCostPrice).toLocaleString()}` : ""}`,
             }, { status: 200 });
         }
 

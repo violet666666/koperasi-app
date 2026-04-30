@@ -110,19 +110,18 @@ export async function POST(request: Request) {
                         where: { id: storeSale.id },
                         data: { metadata: metadata },
                     });
-                });
 
-                // ── FIX Bug #2: Reverse side-effects keuangan ───────────────
-                // 1. Reverse Journal (jika ada)
-                try {
+                    // ── Reverse side-effects keuangan (atomic, inside transaction) ──
+
+                    // 1. Reverse Journal (jika ada)
                     if (storeSale.journalId) {
-                        const originalJournal = await prisma.journal.findUnique({
+                        const originalJournal = await tx.journal.findUnique({
                             where: { id: storeSale.journalId },
                             include: { lines: true },
                         });
                         if (originalJournal) {
                             const reverseJournalNo = `RV-${Date.now().toString(36).toUpperCase()}`;
-                            const reverseJournal = await prisma.journal.create({
+                            const reverseJournal = await tx.journal.create({
                                 data: {
                                     journalNo: reverseJournalNo,
                                     branchId: originalJournal.branchId,
@@ -134,7 +133,7 @@ export async function POST(request: Request) {
                                     createdById: currentUserId,
                                 },
                             });
-                            await prisma.journalLine.createMany({
+                            await tx.journalLine.createMany({
                                 data: originalJournal.lines.map((line: any) => ({
                                     journalId: reverseJournal.id,
                                     accountId: line.accountId,
@@ -145,24 +144,19 @@ export async function POST(request: Request) {
                             });
                         }
                     }
-                } catch (journalErr) {
-                    console.error("[Void] Gagal buat jurnal pembalik (non-fatal):", journalErr);
-                }
 
-                // 2. Reverse CashBankTransaction (tunai/QRIS)
-                try {
+                    // 2. Reverse CashBankTransaction (tunai/QRIS) — atomic balance update
                     if (storeSale.paymentMethod === "cash" || storeSale.paymentMethod === "qris") {
-                        const originalCashTx = await prisma.cashBankTransaction.findFirst({
+                        const originalCashTx = await tx.cashBankTransaction.findFirst({
                             where: { description: { contains: storeSale.saleNo } },
                         });
                         if (originalCashTx) {
-                            const account = await prisma.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
+                            const account = await tx.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
                             if (account) {
                                 const currentBal = Number(account.currentBalance);
                                 const voidAmount = Number(storeSale.totalAmount);
-                                const newBal = currentBal - voidAmount;
 
-                                await prisma.cashBankTransaction.create({
+                                await tx.cashBankTransaction.create({
                                     data: {
                                         transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
                                         accountId: account.id,
@@ -171,28 +165,25 @@ export async function POST(request: Request) {
                                         category: "void_penjualan_toko",
                                         amount: voidAmount,
                                         balanceBefore: currentBal,
-                                        balanceAfter: newBal,
+                                        balanceAfter: currentBal - voidAmount,
                                         unitType: storeSale.unitType || "toko",
                                         description: `[VOID] Pembatalan ${storeSale.saleNo}`,
                                         transactionDate: now,
                                         createdById: currentUserId,
                                     },
                                 });
-                                await prisma.cashBankAccount.update({
+                                // Atomic decrement to prevent race condition
+                                await tx.cashBankAccount.update({
                                     where: { id: account.id },
-                                    data: { currentBalance: newBal },
+                                    data: { currentBalance: { decrement: voidAmount } },
                                 });
                             }
                         }
                     }
-                } catch (cashErr) {
-                    console.error("[Void] Gagal reverse kas/bank (non-fatal):", cashErr);
-                }
 
-                // 3. Void linked UnitTransaction for salary_cut (piutang)
-                try {
+                    // 3. Void linked UnitTransaction for salary_cut (piutang)
                     if (storeSale.paymentMethod === "salary_cut") {
-                        await prisma.unitTransaction.updateMany({
+                        await tx.unitTransaction.updateMany({
                             where: {
                                 description: { contains: storeSale.saleNo },
                                 status: { in: ["completed", "pending_void"] },
@@ -200,10 +191,7 @@ export async function POST(request: Request) {
                             data: { status: "voided", isPaid: false },
                         });
                     }
-                } catch (piutangErr) {
-                    console.error("[Void] Gagal void piutang terkait (non-fatal):", piutangErr);
-                }
-                // ── END FIX Bug #2 ──────────────────────────────────────────
+                });
 
                 return NextResponse.json({
                     message: "Transaksi Toko dibatalkan oleh Operator. Stok telah dikembalikan.",

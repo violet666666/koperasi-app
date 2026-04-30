@@ -95,9 +95,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Keranjang kosong" }, { status: 400 });
         }
 
-        // Server-side validation: reject negative/zero quantities (parseFloat untuk desimal)
+        // Server-side validation: reject negative/zero quantities
         for (const item of items) {
-            const qty = parseFloat(item.quantity);
+            const qty = parseInt(item.quantity, 10);
             if (!qty || qty <= 0 || isNaN(qty)) {
                 return NextResponse.json({ message: "Jumlah item harus lebih dari 0" }, { status: 400 });
             }

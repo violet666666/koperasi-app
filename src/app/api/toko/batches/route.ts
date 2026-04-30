@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +23,13 @@ export async function GET(req: Request) {
         const now = new Date();
         const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-        // Auto-expire batches whose expiryDate has passed
+        // Auto-expire batches whose expiryDate has passed (scoped to this unitType only)
         const expiredResult = await prisma.stockBatch.updateMany({
             where: {
                 expiryDate: { lt: now },
                 isActive: true,
                 quantity: { gt: 0 },
+                unitType,
             },
             data: { isActive: false },
         });
@@ -53,24 +53,34 @@ export async function GET(req: Request) {
                     where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
                     select: { id: true },
                 });
-                if (admins.length > 0) {
-                    for (const batch of newlyExpired) {
-                        // Deduplicate: skip if already notified about this batch
-                        const existing = await prisma.notification.findFirst({
-                            where: {
-                                type: "batch_expired",
-                                data: { path: ["batchId"], equals: batch.id },
-                            },
-                        });
-                        if (!existing) {
-                            await createNotification({
-                                userId: admins.map((a) => a.id),
+                if (admins.length > 0 && newlyExpired.length > 0) {
+                    // Batch dedup check: find all existing notifications for these batch IDs in one query
+                    const batchIds = newlyExpired.map((b) => b.id);
+                    const existingNotifs = await prisma.notification.findMany({
+                        where: {
+                            type: "batch_expired",
+                            data: { path: ["batchId"], in: batchIds },
+                        },
+                        select: { data: true },
+                    });
+                    const notifiedBatchIds = new Set(
+                        existingNotifs.map((n: any) => n.data?.batchId)
+                    );
+                    const toNotify = newlyExpired.filter((b) => !notifiedBatchIds.has(b.id));
+
+                    if (toNotify.length > 0) {
+                        // Create notifications in bulk
+                        const adminIds = admins.map((a) => a.id);
+                        const notifData = toNotify.flatMap((batch) =>
+                            adminIds.map((adminId) => ({
+                                userId: adminId,
                                 type: "batch_expired",
                                 title: "Batch Expired",
                                 message: `${batch.product?.name || "Produk"} batch ${batch.batchNo || batch.id} sudah kadaluarsa`,
                                 data: { batchId: batch.id, productId: batch.productId, unitType: batch.unitType },
-                            });
-                        }
+                            }))
+                        );
+                        await prisma.notification.createMany({ data: notifData as any });
                     }
                 }
             } catch (e) { /* non-critical */ }
@@ -94,25 +104,35 @@ export async function GET(req: Request) {
                         select: { id: true },
                     });
                     if (admins.length > 0) {
-                        for (const batch of expiringSoon.slice(0, 5)) {
-                            const daysLeft = Math.ceil((batch.expiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                            // Only notify if we haven't already (check if notification exists for this batch)
-                            const existing = await prisma.notification.findFirst({
-                                where: {
-                                    type: "expiring_soon",
-                                    data: { path: ["batchId"], equals: batch.id },
-                                    createdAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
-                                },
-                            });
-                            if (!existing) {
-                                await createNotification({
-                                    userId: admins.map((a) => a.id),
+                        const batchesToCheck = expiringSoon.slice(0, 5);
+                        // Batch dedup check: find all existing expiring_soon notifications in one query
+                        const batchIds = batchesToCheck.map((b) => b.id);
+                        const existingNotifs = await prisma.notification.findMany({
+                            where: {
+                                type: "expiring_soon",
+                                data: { path: ["batchId"], in: batchIds },
+                                createdAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+                            },
+                            select: { data: true },
+                        });
+                        const notifiedBatchIds = new Set(
+                            existingNotifs.map((n: any) => n.data?.batchId)
+                        );
+                        const toNotify = batchesToCheck.filter((b) => !notifiedBatchIds.has(b.id));
+
+                        if (toNotify.length > 0) {
+                            const adminIds = admins.map((a) => a.id);
+                            const notifData = toNotify.map((batch) => {
+                                const daysLeft = Math.ceil((batch.expiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                return adminIds.map((adminId) => ({
+                                    userId: adminId,
                                     type: "expiring_soon",
                                     title: "Batch Hampir Expired",
                                     message: `${batch.product?.name || "Produk"} batch ${batch.batchNo || batch.id} — ${daysLeft} hari lagi`,
                                     data: { batchId: batch.id, productId: batch.productId, daysLeft, unitType: batch.unitType },
-                                });
-                            }
+                                }));
+                            }).flat();
+                            await prisma.notification.createMany({ data: notifData as any });
                         }
                     }
                 }

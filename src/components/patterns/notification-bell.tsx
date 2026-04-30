@@ -54,24 +54,29 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [open, setOpen] = React.useState(false);
 
-  const fetchNotifications = React.useCallback(async () => {
+  const fetchNotifications = React.useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch("/api/notifications?limit=10");
+      const res = await fetch("/api/notifications?limit=10", { signal });
       if (res.ok) {
         const json = await res.json();
         setNotifications(json.data || []);
         setUnreadCount(json.unreadCount || 0);
       }
-    } catch {
-      // Silently fail
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      console.error("[NotificationBell]", error);
     }
   }, []);
 
   // Poll every 30s
   React.useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchNotifications(controller.signal);
+    const interval = setInterval(() => fetchNotifications(controller.signal), 30000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchNotifications]);
 
   const markAsRead = async (id: number) => {
@@ -83,8 +88,8 @@ export function NotificationBell() {
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-    } catch {
-      // Silently fail
+    } catch (error) {
+      console.error("[NotificationBell]", error);
     }
   };
 
@@ -95,8 +100,8 @@ export function NotificationBell() {
         setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         setUnreadCount(0);
       }
-    } catch {
-      // Silently fail
+    } catch (error) {
+      console.error("[NotificationBell]", error);
     }
   };
 

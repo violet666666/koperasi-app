@@ -91,6 +91,20 @@ export async function POST(request: Request) {
         const existing = await prisma.cashierIdentity.findUnique({
             where: { parentUserId_username: { parentUserId, username } },
         });
+
+        // Verify target user belongs to the same unit (unless super_admin)
+        const targetUser = await prisma.user.findUnique({
+            where: { id: parentUserId },
+            select: { unitType: true },
+        });
+        if (!targetUser) {
+            return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
+        }
+        const adminUnitType = (session.user as any).unitType;
+        if (role !== "super_admin" && targetUser.unitType !== adminUnitType) {
+            return NextResponse.json({ message: "User bukan dari unit Anda" }, { status: 403 });
+        }
+
         if (existing) {
             return NextResponse.json({ message: `Username "${username}" sudah digunakan.` }, { status: 409 });
         }

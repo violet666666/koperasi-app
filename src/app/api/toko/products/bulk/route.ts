@@ -83,28 +83,41 @@ export async function PUT(request: Request) {
                     select: { id: true, stockGdg: true, stockToko: true, stock: true },
                 });
                 const newStockVal = Number(value);
-                for (const p of productsForSet) {
-                    const totalCurrent = p.stock || 1;
-                    const gdgRatio = Number(p.stockGdg) / totalCurrent;
-                    const newGdg = Math.round(newStockVal * gdgRatio);
-                    const newToko = newStockVal - newGdg;
-                    await prisma.storeProduct.update({
-                        where: { id: p.id },
-                        data: { stock: newStockVal, stockGdg: newGdg, stockToko: newToko },
-                    });
-                    const diff = newStockVal - (p.stock || 0);
-                    if (diff !== 0) {
-                        await prisma.storeStockMovement.create({
-                            data: {
-                                productId: p.id,
-                                type: diff > 0 ? "in" : "out",
-                                quantity: Math.abs(diff),
-                                reference: `Set Stok Massal ke ${newStockVal}`,
-                                notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
-                            },
-                        });
+
+                // Wrap entire set_stock loop in a transaction for atomicity
+                await prisma.$transaction(async (tx) => {
+                    for (const p of productsForSet) {
+                        const totalCurrent = Number(p.stockGdg) + Number(p.stockToko);
+                        if (totalCurrent === 0) {
+                            // No existing distribution — put everything in gudang by default
+                            await tx.storeProduct.update({
+                                where: { id: p.id },
+                                data: { stock: newStockVal, stockGdg: newStockVal, stockToko: 0 },
+                            });
+                        } else {
+                            const gdgRatio = Number(p.stockGdg) / totalCurrent;
+                            const newGdg = Math.round(newStockVal * gdgRatio);
+                            const newToko = newStockVal - newGdg;
+                            await tx.storeProduct.update({
+                                where: { id: p.id },
+                                data: { stock: newStockVal, stockGdg: newGdg, stockToko: newToko },
+                            });
+                        }
+                        const diff = newStockVal - (p.stock || 0);
+                        if (diff !== 0) {
+                            await tx.storeStockMovement.create({
+                                data: {
+                                    productId: p.id,
+                                    type: diff > 0 ? "in" : "out",
+                                    quantity: Math.abs(diff),
+                                    reference: `Set Stok Massal ke ${newStockVal}`,
+                                    notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
+                                },
+                            });
+                        }
                     }
-                }
+                });
+
                 return NextResponse.json({
                     message: `Stok diset ke ${value} untuk ${productsForSet.length} produk`,
                     data: { count: productsForSet.length },

@@ -38,7 +38,7 @@ export default function TransaksiPortalPage() {
     const [isPaid, setIsPaid] = React.useState("all");
     const [selectedTx, setSelectedTx] = React.useState<any>(null);
 
-    const { data: response, isLoading } = useQuery<{ data: any }>({
+    const { data: response, isLoading, isError } = useQuery<{ data: any }>({
         queryKey: ["portal-transactions", activeTab, unitType, isPaid, page],
         queryFn: () => memberPortalApi.transactions({
             type: activeTab,
@@ -55,7 +55,7 @@ export default function TransaksiPortalPage() {
                 <p className="text-muted-foreground">Monitor semua mutasi dan transaksi koperasi Anda di bawah ini.</p>
             </div>
 
-            <Tabs defaultValue="unit" onValueChange={setActiveTab} className="w-full">
+            <Tabs defaultValue="unit" onValueChange={(v) => { setActiveTab(v); setPage(1); }} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 max-w-md bg-white border shadow-sm">
                     <TabsTrigger value="unit" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Transaksi Unit</TabsTrigger>
                     <TabsTrigger value="savings" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Simpanan</TabsTrigger>
@@ -66,7 +66,7 @@ export default function TransaksiPortalPage() {
                     {activeTab === "unit" && (
                         <>
                             <div className="w-full sm:w-48">
-                                <Select value={unitType} onValueChange={setUnitType}>
+                                <Select value={unitType} onValueChange={(v) => { setUnitType(v); setPage(1); }}>
                                     <SelectTrigger className="bg-white">
                                         <SelectValue placeholder="Semua Unit" />
                                     </SelectTrigger>
@@ -85,7 +85,7 @@ export default function TransaksiPortalPage() {
                                 </Select>
                             </div>
                             <div className="w-full sm:w-48">
-                                <Select value={isPaid} onValueChange={setIsPaid}>
+                                <Select value={isPaid} onValueChange={(v) => { setIsPaid(v); setPage(1); }}>
                                     <SelectTrigger className="bg-white">
                                         <SelectValue placeholder="Status Pembayaran" />
                                     </SelectTrigger>
@@ -105,6 +105,10 @@ export default function TransaksiPortalPage() {
                         {isLoading ? (
                             <div className="p-12 flex justify-center">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        ) : isError ? (
+                            <div className="p-12 text-center text-destructive">
+                                Gagal memuat data transaksi. Silakan coba lagi.
                             </div>
                         ) : (
                             <div className="divide-y">
@@ -136,7 +140,7 @@ export default function TransaksiPortalPage() {
                                                 <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                                 <span className="font-medium text-slate-700">{getUnitName(tx.unitType)}</span>
                                                 <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                                <span>{format(new Date(tx.transactionDate), "EEEE, d MMM yyyy", { locale: id })}</span>
+                                                <span>{tx.transactionDate ? format(new Date(tx.transactionDate), "EEEE, d MMM yyyy", { locale: id }) : "-"}</span>
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-start sm:items-end justify-center">
@@ -145,7 +149,7 @@ export default function TransaksiPortalPage() {
                                                 <div className="text-xs text-muted-foreground mt-0.5">{tx.paymentMethodLabel}</div>
                                             )}
                                             {tx.isPaid && tx.paidDate && (
-                                                <div className="text-xs text-emerald-600 mt-1">Dibayar: {format(new Date(tx.paidDate), "d MMM", { locale: id })}</div>
+                                                <div className="text-xs text-emerald-600 mt-1">Dibayar: {tx.paidDate ? format(new Date(tx.paidDate), "d MMM", { locale: id }) : "-"}</div>
                                             )}
                                         </div>
                                     </div>
@@ -164,7 +168,7 @@ export default function TransaksiPortalPage() {
                                             <div className="flex items-center gap-x-4 text-sm text-muted-foreground">
                                                 <span>{tx.transactionNo}</span>
                                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                                <span>{format(new Date(tx.transactionDate), "d MMM yyyy", { locale: id })}</span>
+                                                <span>{tx.transactionDate ? format(new Date(tx.transactionDate), "d MMM yyyy", { locale: id }) : "-"}</span>
                                             </div>
                                             {tx.notes && <p className="text-sm mt-2 text-slate-500">{tx.notes}</p>}
                                         </div>
@@ -184,7 +188,7 @@ export default function TransaksiPortalPage() {
                                             <div className="flex items-center gap-x-4 text-sm text-muted-foreground">
                                                 <span>{tx.loan?.loanNo}</span>
                                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                                <span>{format(new Date(tx.paymentDate), "d MMM yyyy", { locale: id })}</span>
+                                                <span>{tx.paymentDate ? format(new Date(tx.paymentDate), "d MMM yyyy", { locale: id }) : "-"}</span>
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-start sm:items-end justify-center">
@@ -237,7 +241,7 @@ export default function TransaksiPortalPage() {
                                 </div>
                                 <div className="flex justify-between text-xs">
                                     <span className="text-muted-foreground">Tanggal</span>
-                                    <span>{format(new Date(selectedTx.transactionDate), "dd/MM/yyyy HH:mm", { locale: id })}</span>
+                                    <span>{selectedTx.transactionDate ? format(new Date(selectedTx.transactionDate), "dd/MM/yyyy HH:mm", { locale: id }) : "-"}</span>
                                 </div>
                                 <div className="flex justify-between text-xs">
                                     <span className="text-muted-foreground">Pembayaran</span>

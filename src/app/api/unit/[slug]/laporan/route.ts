@@ -150,8 +150,10 @@ export async function GET(
                 orderBy: { createdAt: "desc" },
             });
             storeSales = rawStoreSales.filter(sale => {
-                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
-                return !meta.isVoided;
+                try {
+                    const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
+                    return !meta.isVoided;
+                } catch { return true; } // include if metadata is malformed
             });
         }
 

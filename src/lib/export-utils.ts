@@ -7,6 +7,11 @@
 import * as XLSX from "xlsx";
 import { terbilang } from "./terbilang";
 
+function escapeHtml(str: string | number | undefined | null): string {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export interface ExportColumn {
     header: string;
     key: string;
@@ -107,14 +112,14 @@ export function exportToPDF(
     const tableRows = rows
         .map(
             (row) =>
-                `<tr>${row.map((cell) => `<td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:11px;">${cell}</td>`).join("")}</tr>`
+                `<tr>${row.map((cell) => `<td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:11px;">${escapeHtml(cell)}</td>`).join("")}</tr>`
         )
         .join("");
 
     const headers = columns
         .map(
             (c) =>
-                `<th style="padding:8px;background:#4C1D95;color:#fff;text-align:left;font-size:11px;border:1px solid #7C3AED;">${c.header}</th>`
+                `<th style="padding:8px;background:#4C1D95;color:#fff;text-align:left;font-size:11px;border:1px solid #7C3AED;">${escapeHtml(c.header)}</th>`
         )
         .join("");
 
@@ -122,7 +127,7 @@ export function exportToPDF(
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
     h2 { color: #4C1D95; margin-bottom: 4px; font-size: 16px; }
@@ -136,9 +141,9 @@ export function exportToPDF(
 </head>
 <body>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-    <h2>${title}</h2>
+    <h2>${escapeHtml(title)}</h2>
   </div>
-  ${options?.subtitle ? `<p style="color:#666;font-size:12px;margin-bottom:8px;">${options.subtitle}</p>` : ""}
+  ${options?.subtitle ? `<p style="color:#666;font-size:12px;margin-bottom:8px;">${escapeHtml(options.subtitle)}</p>` : ""}
   <p class="sub">Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
   <table>
     <thead><tr>${headers}</tr></thead>
@@ -191,7 +196,7 @@ export function generateReceiptPDF(data: ReceiptData) {
     };
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Kwitansi ${data.receiptNo}</title>
+<html><head><meta charset="utf-8"><title>Kwitansi ${escapeHtml(data.receiptNo)}</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 40px; font-size: 12px; color: #111; }
   .header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
@@ -221,22 +226,22 @@ export function generateReceiptPDF(data: ReceiptData) {
 <div class="divider"></div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
   <span class="title">KWITANSI</span>
-  <div style="text-align:right;"><div style="font-size:10px;color:#666;">No. Kwitansi</div><div style="font-family:monospace;font-weight:bold;">${data.receiptNo}</div></div>
+  <div style="text-align:right;"><div style="font-size:10px;color:#666;">No. Kwitansi</div><div style="font-family:monospace;font-weight:bold;">${escapeHtml(data.receiptNo)}</div></div>
 </div>
-<div class="field-row"><span style="color:#666;">Sudah Terima Dari</span><span>:</span><strong>${data.receivedFrom}</strong></div>
-<div class="field-row"><span style="color:#666;">Kategori</span><span>:</span><span>${data.category || "-"}</span></div>
-<div class="field-row"><span style="color:#666;">NRP / NIP Anggota</span><span>:</span><span>${data.nrp || data.memberNo || "-"}</span></div>
+<div class="field-row"><span style="color:#666;">Sudah Terima Dari</span><span>:</span><strong>${escapeHtml(data.receivedFrom)}</strong></div>
+<div class="field-row"><span style="color:#666;">Kategori</span><span>:</span><span>${escapeHtml(data.category || "-")}</span></div>
+<div class="field-row"><span style="color:#666;">NRP / NIP Anggota</span><span>:</span><span>${escapeHtml(data.nrp || data.memberNo || "-")}</span></div>
 <div class="amount-box"><span>Banyaknya Uang</span><span class="amount-big">Rp ${Number(data.amount).toLocaleString("id-ID")}</span></div>
 <div class="terbilang">Terbilang: <strong style="font-style: italic; text-transform: capitalize;">${numberToWords(data.amount)}</strong></div>
-<div class="field-row"><span style="color:#666;">Untuk Pembayaran</span><span>:</span><span>${typeLabels[data.type] || data.type}</span></div>
-<div class="field-row"><span style="color:#666;">Keterangan</span><span>:</span><span>${data.description}</span></div>
-<div class="field-row" style="margin-top:8px;"><span style="color:#666;">Metode Bayar</span><span>:</span><span>${data.paymentMethod}</span></div>
-${data.referenceNo ? `<div class="field-row"><span style="color:#666;">No. Referensi</span><span>:</span><span style="font-family:monospace;">${data.referenceNo}</span></div>` : ""}
-${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><span>:</span><span>${data.notes}</span></div>` : ""}
+<div class="field-row"><span style="color:#666;">Untuk Pembayaran</span><span>:</span><span>${escapeHtml(typeLabels[data.type] || data.type)}</span></div>
+<div class="field-row"><span style="color:#666;">Keterangan</span><span>:</span><span>${escapeHtml(data.description)}</span></div>
+<div class="field-row" style="margin-top:8px;"><span style="color:#666;">Metode Bayar</span><span>:</span><span>${escapeHtml(data.paymentMethod)}</span></div>
+${data.referenceNo ? `<div class="field-row"><span style="color:#666;">No. Referensi</span><span>:</span><span style="font-family:monospace;">${escapeHtml(data.referenceNo)}</span></div>` : ""}
+${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><span>:</span><span>${escapeHtml(data.notes)}</span></div>` : ""}
 <div class="ttd-area">
   <div style="font-size:11px;color:#666;">Lumajang, ${receiptDate}</div>
   <div style="display:flex;gap:40px;">
-    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${data.receivedFrom}</p><p style="font-size:10px;color:#888;">Anggota</p></div>
+    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${escapeHtml(data.receivedFrom)}</p><p style="font-size:10px;color:#888;">Anggota</p></div>
     <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Operator</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">Operator PRIMKOPPOL</p><p style="font-size:10px;color:#888;">Petugas</p></div>
   </div>
 </div>
@@ -253,7 +258,7 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
     const typeLabels: Record<string, string> = {
         simpanan: "Simpanan", pinjaman: "Pinjaman", angsuran: "Angsuran", unit_transaction: "Transaksi Unit",
     };
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${data.receiptNo}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(data.receiptNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Courier New', monospace; font-size: 11px; width: 280px; margin: auto; padding: 8px; }
@@ -266,15 +271,15 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
 </style>
 </head><body>
 <div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Polres Lumajang</span></div>
-<div class="row"><span class="label">No</span><span>${data.receiptNo}</span></div>
+<div class="row"><span class="label">No</span><span>${escapeHtml(data.receiptNo)}</span></div>
 <div class="row"><span class="label">Tgl</span><span>${receiptDate}</span></div>
-<div class="row"><span class="label">Dari</span><span>${data.receivedFrom}</span></div>
-<div class="row"><span class="label">NRP</span><span>${data.nrp || "-"}</span></div>
-<div class="row"><span class="label">Jenis</span><span>${typeLabels[data.type] || data.type}</span></div>
-<div class="row"><span class="label">Ket</span><span>${data.description}</span></div>
+<div class="row"><span class="label">Dari</span><span>${escapeHtml(data.receivedFrom)}</span></div>
+<div class="row"><span class="label">NRP</span><span>${escapeHtml(data.nrp || "-")}</span></div>
+<div class="row"><span class="label">Jenis</span><span>${escapeHtml(typeLabels[data.type] || data.type)}</span></div>
+<div class="row"><span class="label">Ket</span><span>${escapeHtml(data.description)}</span></div>
 <div class="amount-row"><span>TOTAL</span><span>Rp ${data.amount.toLocaleString("id-ID")}</span></div>
-<div class="row"><span class="label">Pembayaran</span><span>${data.paymentMethod}</span></div>
-${data.referenceNo ? `<div class="row"><span class="label">Ref</span><span>${data.referenceNo}</span></div>` : ""}
+<div class="row"><span class="label">Pembayaran</span><span>${escapeHtml(data.paymentMethod)}</span></div>
+${data.referenceNo ? `<div class="row"><span class="label">Ref</span><span>${escapeHtml(data.referenceNo)}</span></div>` : ""}
 <div class="footer">Terima kasih<br/>PRIMKOPPOL Resor Lumajang</div>
 <script>window.onload = () => window.print();</script>
 </body></html>`;
@@ -329,7 +334,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
         .map(
             (item) =>
                 `<tr>
-                    <td style="padding:1px 0;font-size:${fontSize};">${item.name}</td>
+                    <td style="padding:1px 0;font-size:${fontSize};">${escapeHtml(item.name)}</td>
                     <td style="text-align:center;padding:1px 2px;">${item.quantity}</td>
                     <td style="text-align:right;padding:1px 0;">${formatRp(item.price)}</td>
                     <td style="text-align:right;padding:1px 0;">${formatRp(item.subtotal)}</td>
@@ -349,7 +354,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
     });
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Struk ${data.saleNo}</title>
+<html><head><meta charset="utf-8"><title>Struk ${escapeHtml(data.saleNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
@@ -374,9 +379,9 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
   <p style="margin-top:2px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
 </div>
 <table><tbody>
-  <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${data.saleNo}</td></tr>
+  <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${escapeHtml(data.saleNo)}</td></tr>
   <tr><td>Tanggal</td><td colspan="3" style="text-align:right;">${saleDate}</td></tr>
-  ${data.customerName ? `<tr><td>Pelanggan</td><td colspan="3" style="text-align:right;">${data.customerName}</td></tr>` : ""}
+  ${data.customerName ? `<tr><td>Pelanggan</td><td colspan="3" style="text-align:right;">${escapeHtml(data.customerName)}</td></tr>` : ""}
 </tbody></table>
 <table style="margin-top:3px;"><thead><tr>
   <th style="text-align:left;">Produk</th><th>Qty</th><th style="text-align:right;">@Hrg</th><th style="text-align:right;">Sub</th>
@@ -387,7 +392,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 </tr>
 <tr><td colspan="3">Pembayaran</td><td style="text-align:right;">${methodLabel}</td></tr>
 ${changeRow}
-${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;">${data.cashierName}</td></tr>` : ""}
+${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;">${escapeHtml(data.cashierName)}</td></tr>` : ""}
 </tfoot></table>
 <div class="footer">
   <p>Terima kasih telah berbelanja!</p>
@@ -457,20 +462,20 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
 
     const saleRows = data.sales.map(s =>
         `<tr style="${s.isVoided ? 'opacity:0.4;' : ''}">
-            <td style="padding:1px 0;font-size:9px;">${s.saleNo}</td>
-            <td style="text-align:center;font-size:9px;">${new Date(s.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</td>
-            <td style="font-size:9px;">${s.customer || "Umum"}</td>
+            <td style="padding:1px 0;font-size:9px;">${escapeHtml(s.saleNo)}</td>
+            <td style="text-align:center;font-size:9px;">${s.createdAt ? new Date(s.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+            <td style="font-size:9px;">${escapeHtml(s.customer || "Umum")}</td>
             <td style="text-align:center;font-size:9px;">${methodLabel(s.method)}</td>
             <td style="text-align:right;font-size:9px;">${formatRp(s.total)}</td>
         </tr>`
     ).join("");
 
     const topProductLines = data.topProducts.slice(0, 5).map(p =>
-        `<tr><td style="font-size:9px;">${p.name}</td><td style="text-align:center;font-size:9px;">${p.qty}</td><td style="text-align:right;font-size:9px;">${formatRp(p.revenue)}</td></tr>`
+        `<tr><td style="font-size:9px;">${escapeHtml(p.name)}</td><td style="text-align:center;font-size:9px;">${p.qty}</td><td style="text-align:right;font-size:9px;">${formatRp(p.revenue)}</td></tr>`
     ).join("");
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Rekap Shift ${data.shiftName}</title>
+<html><head><meta charset="utf-8"><title>Rekap Shift ${escapeHtml(data.shiftName)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
@@ -491,11 +496,11 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
 </head><body>
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
-  <p>REKAP SHIFT ${data.shiftName.toUpperCase()}</p>
+  <p>REKAP SHIFT ${escapeHtml(data.shiftName.toUpperCase())}</p>
   <p style="margin-top:2px;">${fmtDt(data.startedAt)} ${data.endedAt ? ' → ' + fmtDt(data.endedAt) : '(Masih Berlangsung)'}</p>
 </div>
 
-<div class="row"><span>Kasir</span><span>: ${data.cashierName}</span></div>
+<div class="row"><span>Kasir</span><span>: ${escapeHtml(data.cashierName)}</span></div>
 <div class="row"><span>Status</span><span>: ${data.status === "open" ? "AKTIF" : "DITUTUP"}</span></div>
 
 <div class="divider"></div>
@@ -516,7 +521,7 @@ ${data.closingCash != null ? `<div class="row"><span>Kas Fisik</span><span>${for
 ${data.cashDifference != null ? `<div class="row bold"><span>Selisih</span><span>${data.cashDifference === 0 ? "Rp 0 (Seimbang)" : formatRp(data.cashDifference)}</span></div>` : ""}
 ` : ""}
 
-${data.notes ? `<div class="divider"></div><div class="row"><span>Catatan</span><span>: ${data.notes}</span></div>` : ""}
+${data.notes ? `<div class="divider"></div><div class="row"><span>Catatan</span><span>: ${escapeHtml(data.notes)}</span></div>` : ""}
 
 <div class="divider"></div>
 <div class="bold" style="margin-bottom:2px;">DAFTAR TRANSAKSI</div>

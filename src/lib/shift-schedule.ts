@@ -23,7 +23,14 @@ export async function getShiftSchedule(unitType?: string): Promise<ShiftDefiniti
         const setting = await prisma.appSetting.findUnique({ where: { key } });
         if (setting) {
             const parsed = JSON.parse(setting.value);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (
+                Array.isArray(parsed) && parsed.length > 0 &&
+                parsed.every((s: any) =>
+                    typeof s.name === "string" &&
+                    typeof s.startHour === "number" &&
+                    typeof s.endHour === "number"
+                )
+            ) {
                 return parsed as ShiftDefinition[];
             }
         }

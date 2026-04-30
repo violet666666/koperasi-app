@@ -18,8 +18,8 @@ export async function GET() {
             return NextResponse.json({ data: null });
         }
 
-        const identity = await prisma.cashierIdentity.findUnique({
-            where: { id: parseInt(identityId) },
+        const identity = await prisma.cashierIdentity.findFirst({
+            where: { id: parseInt(identityId), parentUserId: parseInt(session.user.id) },
             select: { id: true, username: true, displayName: true, isActive: true },
         });
 
