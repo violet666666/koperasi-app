@@ -18,10 +18,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     Search, ShoppingBag, Eye, Banknote, CreditCard, QrCode,
-    Calendar, User, Package, Receipt,
+    Calendar, User, Package, Receipt, Printer,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useSession } from "next-auth/react";
+import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
 
 interface SaleItem {
     id: number;
@@ -164,6 +165,28 @@ export default function RiwayatTransaksiPage() {
     const openDetail = (sale: Sale) => {
         setSelectedSale(sale);
         setDetailOpen(true);
+    };
+
+    const handleReprint = (sale: Sale) => {
+        const receiptData: KasirReceiptData = {
+            saleNo: sale.saleNo,
+            saleDate: sale.createdAt,
+            customerName: sale.member
+                ? `${sale.member.name} (${sale.member.memberNo})`
+                : sale.customerName || undefined,
+            cashierName: sale.cashierDisplayName || sale.createdBy?.name || "Kasir",
+            items: sale.items.map(item => ({
+                name: item.product?.name || "[Produk Dihapus]",
+                quantity: item.quantity,
+                price: item.unitPrice,
+                subtotal: item.subtotal,
+            })),
+            totalAmount: sale.totalAmount,
+            paymentMethod: sale.paymentMethod,
+            cashReceived: sale.cashReceived ?? undefined,
+            changeAmount: sale.changeAmount ?? undefined,
+        };
+        generateKasirReceiptPDF(receiptData);
     };
 
     const isVoided = (s: Sale) => s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;
@@ -452,7 +475,15 @@ export default function RiwayatTransaksiPage() {
                                 )}
                             </div>
 
-                            <Button variant="outline" className="w-full" onClick={() => setDetailOpen(false)}>Tutup</Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" className="flex-1" onClick={() => setDetailOpen(false)}>Tutup</Button>
+                                {!isVoided(selectedSale) && (
+                                    <Button className="flex-1 gap-2" onClick={() => handleReprint(selectedSale)}>
+                                        <Printer className="h-4 w-4" />
+                                        Cetak Struk
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     )}
                 </DialogContent>

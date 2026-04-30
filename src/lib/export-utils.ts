@@ -352,28 +352,33 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <html><head><meta charset="utf-8"><title>Struk ${data.saleNo}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: auto; padding: 8px; }
-  .header { text-align: center; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
-  .header h2 { font-size: ${headerFontSize}; font-weight: bold; }
-  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #444; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
+  .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.2; }
+  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #444; line-height: 1.2; }
   table { width: 100%; border-collapse: collapse; }
-  th { border-bottom: 1px solid #000; padding: 2px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; }
-  .total-row td { border-top: 1px dashed #000; padding-top: 4px; font-weight: bold; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; }
-  @media print { @page { margin: 0; width: ${pageWidth}; } }
+  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; }
+  td { padding: 1px 0; line-height: 1.3; }
+  .total-row td { border-top: 1px dashed #000; padding-top: 3px; font-weight: bold; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; line-height: 1.3; }
+  @media print {
+    @page { size: ${pageWidth} auto; margin: 0; }
+    body { padding: 1mm; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head><body>
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
   <p>Polres Lumajang</p>
-  <p style="margin-top:4px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
+  <p style="margin-top:2px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
 </div>
 <table><tbody>
   <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${data.saleNo}</td></tr>
   <tr><td>Tanggal</td><td colspan="3" style="text-align:right;">${saleDate}</td></tr>
   ${data.customerName ? `<tr><td>Pelanggan</td><td colspan="3" style="text-align:right;">${data.customerName}</td></tr>` : ""}
 </tbody></table>
-<table style="margin-top:6px;"><thead><tr>
+<table style="margin-top:3px;"><thead><tr>
   <th style="text-align:left;">Produk</th><th>Qty</th><th style="text-align:right;">@Hrg</th><th style="text-align:right;">Sub</th>
 </tr></thead><tbody>${itemRows}</tbody>
 <tfoot><tr class="total-row">
