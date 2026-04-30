@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **28 April 2026 (Session 3 — Full Role Audit + Branding + 17 Bug Fixes)**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md`
+> Update terakhir: **30 April 2026 (Sistem Notifikasi, HPP Moving Average, Batch & Expiry Tracking)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md` | `UNIT-TOKO.md`
 
 ---
 
@@ -17,7 +17,8 @@
 | Sprint 4 — Pre-Deploy Audit & Unit Baru | 2 | 2 | 0 | 0 |
 | Sprint 5 — Deep Audit Bug Fixes | 8 | 8 | 0 | 0 |
 | Sprint 6 — Full Role Audit + Branding + Bug Fixes | 17 | 17 | 0 | 0 |
-| **TOTAL** | **43** | **43** | **0** | **0** |
+| Sprint 7 — Web Backend Sync (Notifikasi, HPP, Batch) | 3 | 3 | 0 | 0 |
+| **TOTAL** | **46** | **46** | **0** | **0** |
 
 ## 🆕 UPDATE WEB & BACKEND (26 APRIL 2026)
 
@@ -768,6 +769,11 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 - [x] **M-FIX-013**: KasirScreen — canTransact + member ID + debounce cleanup
 - [x] **M-FIX-014**: KwitansiViewer — expo-print type params
 
+### Sprint 7 — Web Backend Sync: Notifikasi, HPP, Batch (30 April 2026)
+1. [x] **S7-01** M-SYNC-033: Sistem Notifikasi (model, API, UI bell, Expo push)
+2. [x] **S7-02** M-SYNC-034: HPP Moving Average + FIFO Batch Deduction + Audit Trail
+3. [x] **S7-03** M-SYNC-035: Batch & Expiry Tracking (auto-expire, notifications, batch page)
+
 ---
 
 ## ✅ CHECKLIST SEBELUM RELEASE MOBILE BERIKUTNYA
@@ -816,6 +822,10 @@ Beberapa perbaikan Web terbaru yang TIDAK memerlukan tindakan di sisi mobile kar
 | ~~M-FEAT-023~~ | ~~Dropdown Sumber Pemotongan Angsuran (Gaji/Tunkin/BS) di DirectDisburseScreen~~ | **✅ DONE** | 🔴 |
 | ~~M-FEAT-022~~ | ~~Fitur Buka/Tutup Shift Kasir Toko & POS Lock~~ | **✅ DONE** | 🔴 |
 | ~~M-FEAT-004~~ | ~~Edit NRP Transaksi Lama (Assign Member ke StoreSale)~~ | **✅ DONE** | 🟡 |
+| M-FEAT-027 | Layar Notifikasi Mobile — list, filter, mark read/delete | 2–3 hari | 🟡 |
+| M-FEAT-028 | Badge unread count notifikasi di mobile | 1 hari | 🟢 |
+| M-FEAT-029 | Dialog stok masuk StokScreen dengan field HPP (purchasePrice, batchNo, expiryDate) | 2 hari | 🟡 |
+| M-FEAT-030 | Layar manajemen batch untuk admin/operator mobile | 2–3 hari | 🟡 |
 
 ---
 
@@ -1020,7 +1030,7 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 ---
 
 *Dokumen ini diperbarui setiap sesi kerja. Tandai item dengan `[x]` saat selesai.*
-*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 28 April 2026 — Sesi 11*
+*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` (112 item) | Tanggal: 30 April 2026 — Sesi 12*
 
 ---
 
@@ -1163,3 +1173,90 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 | WebView security | ✅ | originWhitelist + onShouldStartLoadWithRequest |
 | Input validation | ✅ | Zod schema di LoanApplication, numeric clamps di Kasir |
 | Double-submit prevention | ✅ | processing state di ApprovalScreen |
+
+---
+
+## 🆕 UPDATE WEB & BACKEND (30 APRIL 2026)
+
+> **3 fitur besar untuk Unit Toko:** Sistem Notifikasi, HPP Moving Average, dan Batch & Expiry Tracking. Referensi lengkap: `UNIT-TOKO.md` Section 10.
+
+### 53. [M-SYNC-033] Sistem Notifikasi — Model, API, UI Bell + Push Notification
+- ✅ **Selesai (Web Backend + UI)**:
+  - Model `Notification` ditambahkan ke Prisma schema (id, userId, type, title, message, data Json, isRead, readAt, createdAt)
+  - Helper `src/lib/notifications.ts` — `createNotification()` dengan DB insert + Expo push (fire-and-forget)
+  - 4 API endpoints: GET `/api/notifications` (pagination + type filter), PUT `/api/notifications/read` (mark all), PUT `/api/notifications/[id]/read` (mark single), DELETE `/api/notifications/[id]`
+  - UI: `NotificationBell` popover di topbar (30s polling, badge unread count) + halaman `/notifikasi` (filter tipe, pagination, mark read/delete)
+  - 6 tipe notifikasi: `low_stock`, `stock_in`, `void_request`, `expiring_soon`, `batch_expired`, `info`
+  - Push notifications via Expo dikirim ke semua admin/operator/super_admin (fire-and-forget, tidak memblokir response)
+- **Dampak Mobile:**
+  - ✅ Push notifications otomatis diterima oleh mobile app — `expo-notifications` sudah terkonfigurasi (Sprint 3, M-FEAT-009)
+  - ❌ **Gap:** Mobile belum punya layar notifikasi (list, filter, mark read). Tambahkan ke backlog (`M-FEAT-027`)
+  - ❌ **Gap:** Mobile belum menampilkan badge unread count di ikon/tab manapun. Tambahkan ke backlog (`M-FEAT-028`)
+
+### 54. [M-SYNC-034] HPP Moving Average + Audit Trail + FIFO Batch Deduction
+- ✅ **Selesai (Web Backend)**:
+  - Model `StockBatch` ditambahkan ke Prisma schema (productId, batchNo, purchasePrice, quantity, expiryDate, supplierName, isActive, unitType)
+  - `StoreStockMovement` mendapat field baru: `reason`, `reasonNote`, `batchId`, `costAtTime`
+  - `StoreSaleItem` mendapat field `costPrice` (snapshot HPP saat transaksi)
+  - HPP Moving Average formula: `(oldStock × oldCostPrice + newQty × purchasePrice) / (oldStock + newQty)`
+  - Kategori yang dikecualikan (e.g. rokok/HET) tidak dihitung Moving Average — configurable via `app_settings`
+  - Auto harga jual: `ceil((HPP × (1 + markup%) × (1 + PPN%)) / 100) × 100`
+  - Stok keluar (writeoff): alasan wajib (damaged/expired/internal_use/other), snapshot `costAtTime`
+  - FIFO batch deduction saat penjualan: consume oldest active batch first (`ORDER BY receivedAt ASC`)
+  - Laporan API (`/api/unit/[slug]/laporan`) sekarang mengembalikan `totalHPP`, `totalWriteOff`, `netProfit`
+  - Semua operasi multi-tabel dibungkus `prisma.$transaction` (atomic)
+- **Dampak Mobile:**
+  - ✅ FIFO batch deduction dan HPP calculation sepenuhnya server-side — mobile POS tidak perlu perubahan kode
+  - ✅ Mobile POS checkout (`POST /api/mobile/toko`) otomatis mendapat FIFO deduction dan costPrice snapshot
+  - ✅ Stok masuk dari mobile (jika ada) akan otomatis menggunakan HPP Moving Average
+  - ❌ **Gap:** Mobile StokScreen belum punya dialog stok masuk dengan field HPP (purchasePrice, batchNo, expiryDate, supplierName). Saat ini hanya view-only. Tambahkan ke backlog (`M-FEAT-029`)
+
+### 55. [M-SYNC-035] Batch & Expiry Tracking — Manajemen Batch Page
+- ✅ **Selesai (Web Backend + UI)**:
+  - API `GET /api/toko/batches` dengan view filter (active/expiring_soon/expired/all), search, pagination
+  - Auto-expire check: batch dengan `expiryDate < now` di-set `isActive: false` saat halaman batch diakses (lazy check, bukan cron)
+  - Notifikasi expiry: batch ≤ 90 hari → `expiring_soon`, batch expired → `batch_expired`
+  - Deduplication: cek existing notification sebelum kirim baru (7-day window untuk expiring_soon, lifetime untuk batch_expired)
+  - Auto batch number: `BATCH-YYYYMMDD-XXXX` (generated transactionally)
+  - Halaman `/toko/batch` dengan 4 tab (Aktif, Hampir Expired, Expired, Semua), summary cards, searchable table
+  - Menu "Manajemen Batch" (icon Layers) ditambahkan ke sidebar navigasi toko
+- **Dampak Mobile:**
+  - ✅ Auto-expire dan notifikasi berjalan server-side — mobile tidak perlu perubahan
+  - ❌ **Gap:** Mobile belum punya layar manajemen batch. Admin/operator mobile tidak bisa cek batch status dari device. Tambahkan ke backlog (`M-FEAT-030`)
+
+### Bug Fixes Terkait (30 April 2026)
+
+| Bug | Masalah | Solusi |
+|---|---|---|
+| Duplikat Button | Dua tombol "Stok Masuk" identik di persediaan page | Hapus duplikat DialogTrigger |
+| Transaction Safety | Transfer + stock-out/writeoff di luar `$transaction` | Wrap dalam `$transaction` |
+| Low Stock False Alert | Notifikasi saat deduct dari Gudang (stockToko unchanged) | Kondisi `stockLocation === "toko"` |
+| Notification Spam | Auto-expire re-notify semua batch setiap GET | Deduplication via `findFirst` |
+| Shift Label Off-by-One | Label shift menampilkan `endHour:59` padahal exclusive | `(endHour === 0 ? 23 : endHour - 1):59` |
+| Shift Detail Overflow | Tabel 7 kolom overflow di `max-w-3xl` dialog | Lebar `max-w-4xl`, 5 kolom |
+
+### Tugas Mobile yang Perlu Dikerjakan
+
+| ID | Deskripsi | Estimasi | Prioritas |
+|---|---|---|---|
+| M-FEAT-027 | Layar Notifikasi Mobile — list, filter tipe, mark read/delete | 2–3 hari | 🟡 Medium |
+| M-FEAT-028 | Badge unread count notifikasi di mobile (tab bar atau icon) | 1 hari | 🟢 Low |
+| M-FEAT-029 | Dialog stok masuk di StokScreen dengan field HPP (purchasePrice, batchNo, expiryDate) | 2 hari | 🟡 Medium |
+| M-FEAT-030 | Layar manajemen batch untuk admin/operator mobile | 2–3 hari | 🟡 Medium |
+
+### File Backend yang Diubah (Berlaku Otomatis untuk Mobile)
+
+| File | Perubahan |
+|---|---|
+| `prisma/schema.prisma` | Model Notification, StockBatch; field baru di StoreStockMovement & StoreSaleItem |
+| `src/lib/notifications.ts` | Helper createNotification + Expo push |
+| `src/app/api/notifications/route.ts` | GET notifikasi |
+| `src/app/api/notifications/read/route.ts` | PUT mark all read |
+| `src/app/api/notifications/[id]/route.ts` | PUT mark single read + DELETE |
+| `src/app/api/toko/products/[id]/stock/route.ts` | HPP Moving Average, batch creation, writeoff |
+| `src/app/api/toko/sales/route.ts` | FIFO batch deduction, costPrice snapshot |
+| `src/app/api/toko/batches/route.ts` | Batch listing, auto-expire, notifications |
+| `src/app/api/unit-transactions/void-request/route.ts` | Void request notifications |
+| `src/app/api/unit/[slug]/laporan/route.ts` | totalHPP, totalWriteOff, netProfit |
+| `src/lib/shift-schedule.ts` | Fix formatShiftLabel off-by-one |
+| `src/lib/constants/navigation.ts` | Menu "Manajemen Batch" |

@@ -463,4 +463,160 @@ Halaman `/toko/kasir-manajemen` menyediakan:
 | `src/components/patterns/receipt-primkopol.tsx` | Fix `@page` padding, perkecil divider/margin |
 
 ---
+
+## 10. Sistem Notifikasi, HPP Moving Average & Batch Tracking (30 April 2026)
+
+### 10.1 Tahap 1 — Sistem Notifikasi
+
+#### Latar Belakang
+Sebelumnya tidak ada mekanisme notifikasi di seluruh aplikasi. Admin harus manual cek stok, tidak ada pemberitahuan saat ada void request, dan tidak ada alert untuk produk yang hampir expired.
+
+#### Arsitektur
+
+**Model Prisma: `Notification`**
+```
+notifications
+├── id, userId (FK ke User), type (string), title, message
+├── data (Json — metadata terstruktur per tipe)
+├── isRead, readAt
+└── createdAt
+```
+
+**Tipe Notifikasi:**
+
+| Tipe | Label | Trigger |
+|---|---|---|
+| `low_stock` | Stok Rendah | Setelah penjualan atau stok keluar jika `stockToko ≤ minStock` |
+| `stock_in` | Stok Masuk | Saat input stok masuk via persediaan |
+| `void_request` | Void Request | Kasir mengajukan pembatalan transaksi |
+| `expiring_soon` | Hampir Expired | Batch dengan expiry ≤ 90 hari |
+| `batch_expired` | Batch Expired | Auto-detect saat halaman batch diakses |
+| `info` | Info | Stok keluar (writeoff) dan kejadian umum |
+
+#### Komponen UI
+
+| Komponen | Lokasi | Fungsi |
+|---|---|---|
+| `NotificationBell` | Topbar (global) | Popover 10 notifikasi terbaru, badge unread count, polling 30 detik |
+| `/notifikasi` | Halaman penuh | List semua notifikasi, filter tipe, pagination, mark read/delete |
+| Push Notification | Backend (fire-and-forget) | Expo Push Notifications ke device mobile admin |
+
+#### API Endpoints
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `GET` | `/api/notifications` | List notifikasi user (pagination + type filter + unread count) |
+| `PUT` | `/api/notifications/read` | Tandai semua sebagai dibaca |
+| `PUT` | `/api/notifications/[id]/read` | Tandai satu sebagai dibaca |
+| `DELETE` | `/api/notifications/[id]` | Hapus notifikasi (scoped ke userId) |
+
+#### Helper
+`src/lib/notifications.ts` — `createNotification()` melakukan DB insert + fire-and-forget Expo push. Push failure tidak memblokir response.
+
+---
+
+### 10.2 Tahap 2 — HPP Moving Average + Audit Trail
+
+#### Latar Belakang
+HPP (Harga Pokok Penjualan) sebelumnya statis per produk, diupdate manual via inline edit. Tidak ada batch tracking, tidak ada audit trail untuk stok keluar, dan profit calculation tidak akurat karena COGS tidak terupdate otomatis.
+
+#### Model Prisma: `StockBatch`
+```
+stock_batches
+├── id, productId (FK), batchNo (auto: BATCH-YYYYMMDD-XXXX)
+├── purchasePrice, quantity, originalQuantity
+├── expiryDate (nullable), supplierName (nullable)
+├── location (toko/gudang), unitType, notes
+├── isActive (auto-false jika expired)
+└── receivedAt, createdAt
+```
+
+#### Schema Changes
+
+| Model | Field Baru | Fungsi |
+|---|---|---|
+| `StoreStockMovement` | `reason`, `reasonNote`, `batchId`, `costAtTime` | Audit trail lengkap |
+| `StoreSaleItem` | `costPrice` | Snapshot HPP saat transaksi |
+
+#### HPP Moving Average Formula
+```
+newCostPrice = (oldStock × oldCostPrice + newQty × purchasePrice) / (oldStock + newQty)
+```
+
+**Kategori Dikecualikan:** Produk seperti rokok (HET/manual pricing) tidak dihitung Moving Average. Daftar kategori diambil dari `app_settings` (`{unitType}_excluded_categories`).
+
+**Auto Harga Jual:** `sellPrice = ceil((HPP × (1 + markup%) × (1 + PPN%)) / 100) × 100`
+
+#### Stok Keluar (Writeoff)
+- Dialog writeoff di persediaan dengan pilihan alasan: Rusak/Hilang, Kadaluarsa, Pemakaian Internal, Lainnya
+- Semua operasi multi-tabel dibungkus `prisma.$transaction` (atomic)
+- `costAtTime` di-snapshot untuk audit trail
+
+#### FIFO Batch Deduction saat Penjualan
+- Saat checkout, sistem mengurangi oldest active batch first (`ORDER BY receivedAt ASC`)
+- `costPrice` di-snapshot di `StoreSaleItem` untuk historical accuracy
+
+#### Laporan
+`/api/unit/[slug]/laporan` sekarang mengembalikan: `totalHPP`, `totalWriteOff`, `netProfit`
+
+---
+
+### 10.3 Tahap 3 — Batch & Expiry Tracking
+
+#### Batch Management Page
+- **URL**: `/toko/batch` — navigasi "Manajemen Batch" (icon Layers) di sidebar toko
+- **4 Tab View**: Aktif, Hampir Expired, Expired, Semua
+- **Summary Cards**: Jumlah batch aktif, hampir expired, expired
+- **Tabel**: Batch number, produk, harga beli, qty, tanggal expired (badge warna), supplier, status
+
+#### Auto Batch Number
+Format: `BATCH-YYYYMMDD-XXXX` (contoh: `BATCH-20260430-0001`)
+- Di-generate transactionally saat `batchNo` tidak disediakan
+- Sequence counter di-reset per hari
+
+#### Expiry System
+- **Lazy expiry check**: Batches di-auto-expire saat halaman batch diakses (bukan cron job)
+- **Expiring soon notification**: Batch dengan expiry ≤ 90 hari → notifikasi ke semua admin
+- **Deduplication**: Cek existing notification sebelum kirim baru (7-day window untuk expiring_soon, lifetime untuk batch_expired)
+
+---
+
+### 10.4 Perbaikan Bug Post-Implementation
+
+| Bug | Masalah | Solusi |
+|---|---|---|
+| **Duplikat Button** | Dua tombol "Stok Masuk" identik di persediaan | Hapus duplikat DialogTrigger |
+| **Transaction Safety** | Transfer + stock-out/writeoff di luar `$transaction` | Wrap semua multi-table ops dalam `$transaction` |
+| **Low Stock False Alert** | Notifikasi stok rendah saat deduct dari Gudang (stockToko tidak berubah) | Tambah kondisi `stockLocation === "toko"` |
+| **Notification Spam** | Auto-expire re-notify semua batch expired setiap GET | Deduplication via `findFirst` cek sebelum create |
+| **Delete Unread Count** | Hapus notifikasi unread tidak decrement counter | Cek `isRead` sebelum filter, decrement jika unread |
+| **Icon Color Fragile** | String manipulation `replace("bg-","text-")` untuk warna icon | Explicit `typeIconColors` mapping per tipe |
+| **Shift Label Off-by-One** | Label shift menampilkan `endHour:59` padahal `endHour` exclusive | Fix: `(endHour === 0 ? 23 : endHour - 1):59` |
+| **Shift Detail Overflow** | Tabel 7 kolom overflow di `max-w-3xl` dialog | Lebar `max-w-4xl`, 5 kolom, kolom gabungan "Info" |
+
+### File Terkait (Ketiga Tahap)
+
+| File | Fungsi |
+|---|---|
+| `prisma/schema.prisma` | Model Notification, StockBatch; field baru di StoreStockMovement & StoreSaleItem |
+| `src/lib/notifications.ts` | Helper createNotification + Expo push |
+| `src/app/api/notifications/route.ts` | GET notifikasi dengan pagination & filter |
+| `src/app/api/notifications/read/route.ts` | PUT mark all read |
+| `src/app/api/notifications/[id]/read/route.ts` | PUT mark single read |
+| `src/app/api/notifications/[id]/route.ts` | PUT read + DELETE |
+| `src/components/patterns/notification-bell.tsx` | Popover notifikasi di topbar |
+| `src/app/(protected)/notifikasi/page.tsx` | Halaman notifikasi penuh |
+| `src/app/api/toko/products/[id]/stock/route.ts` | HPP Moving Average, batch creation, writeoff, transfer (atomic) |
+| `src/app/api/toko/sales/route.ts` | FIFO batch deduction, costPrice snapshot, low stock notification |
+| `src/app/api/toko/batches/route.ts` | Batch listing, auto-expire, deduplicated notifications |
+| `src/app/(protected)/toko/batch/page.tsx` | Batch management UI (4 tabs, search, pagination) |
+| `src/app/(protected)/toko/persediaan/page.tsx` | Dialog stok masuk (HPP fields), writeoff dialog |
+| `src/app/api/unit-transactions/void-request/route.ts` | Void request notifications ke admin |
+| `src/app/api/unit/[slug]/laporan/route.ts` | totalHPP, totalWriteOff, netProfit |
+| `src/lib/shift-schedule.ts` | Fix formatShiftLabel off-by-one |
+| `src/app/(protected)/toko/shift/page.tsx` | Fix shift label + detail dialog layout |
+| `src/components/layout/topbar.tsx` | NotificationBell menggantikan Bell icon mati |
+| `src/lib/constants/navigation.ts` | Menu "Manajemen Batch" dengan Layers icon |
+
+---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
