@@ -73,13 +73,13 @@ export function ReceiptPrimkopol({
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
                         width: ${paperSize};
-                        padding: 2mm;
+                        padding: 1mm;
                         color: #000;
                     }
                     .center { text-align: center; }
                     .bold { font-weight: bold; }
-                    .divider { border-top: 1px dashed #000; margin: 3px 0; }
-                    .row { display: flex; justify-content: space-between; margin: 1px 0; }
+                    .divider { border-top: 1px dashed #000; margin: 2px 0; }
+                    .row { display: flex; justify-content: space-between; margin: 0; }
                     .label { min-width: ${paperSize === "58mm" ? "70px" : "100px"}; }
                     .value-right { text-align: right; word-break: break-all; }
                     .void-mark {
@@ -87,15 +87,15 @@ export function ReceiptPrimkopol({
                         font-size: 14px;
                         font-weight: bold;
                         border: 2px solid #000;
-                        padding: 3px;
-                        margin: 4px 0;
+                        padding: 2px;
+                        margin: 2px 0;
                         letter-spacing: 2px;
                     }
                     .item-name { font-size: 11px; }
                     .item-detail { font-size: 10px; }
                     @media print {
-                        body { width: ${paperSize}; padding: 1mm; }
-                        .divider { margin: 2px 0; }
+                        body { width: ${paperSize}; padding: 0.5mm; }
+                        .divider { margin: 1px 0; }
                         .row { margin: 0; }
                     }
                 </style>

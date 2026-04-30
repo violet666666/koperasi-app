@@ -329,17 +329,17 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
         .map(
             (item) =>
                 `<tr>
-                    <td style="padding:2px 0;font-size:${fontSize};">${item.name}</td>
-                    <td style="text-align:center;padding:2px 4px;">${item.quantity}</td>
-                    <td style="text-align:right;padding:2px 0;">${formatRp(item.price)}</td>
-                    <td style="text-align:right;padding:2px 0;">${formatRp(item.subtotal)}</td>
+                    <td style="padding:1px 0;font-size:${fontSize};">${item.name}</td>
+                    <td style="text-align:center;padding:1px 2px;">${item.quantity}</td>
+                    <td style="text-align:right;padding:1px 0;">${formatRp(item.price)}</td>
+                    <td style="text-align:right;padding:1px 0;">${formatRp(item.subtotal)}</td>
                 </tr>`
         )
         .join("");
 
     const changeRow =
         data.paymentMethod === "cash" && data.cashReceived !== undefined
-            ? `<tr><td colspan="3" style="padding-top:4px;">Uang Diterima</td><td style="text-align:right;">${formatRp(data.cashReceived)}</td></tr>
+            ? `<tr><td colspan="3" style="padding-top:2px;">Uang Diterima</td><td style="text-align:right;">${formatRp(data.cashReceived)}</td></tr>
                <tr><td colspan="3"><b>Kembalian</b></td><td style="text-align:right;"><b>${formatRp(data.changeAmount || 0)}</b></td></tr>`
             : "";
 
