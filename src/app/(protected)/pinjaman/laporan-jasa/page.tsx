@@ -67,9 +67,11 @@ export default function LaporanJasaPage() {
     grandTotalTransactions: 0,
   });
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   async function fetchData() {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({ monthFrom, monthTo });
       const res = await fetch(`/api/loans/reports/interest?${params}`);
@@ -81,6 +83,7 @@ export default function LaporanJasaPage() {
       );
     } catch (err) {
       console.error(err);
+      setError("Gagal memuat data. Silakan coba lagi.");
       setData([]);
     } finally {
       setIsLoading(false);
@@ -88,7 +91,27 @@ export default function LaporanJasaPage() {
   }
 
   React.useEffect(() => {
-    fetchData();
+    async function load() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ monthFrom, monthTo });
+        const res = await fetch(`/api/loans/reports/interest?${params}`);
+        if (!res.ok) throw new Error("Gagal memuat data");
+        const json = await res.json();
+        setData(json.data || []);
+        setSummary(
+          json.summary || { grandTotalJasa: 0, grandTotalPokok: 0, grandTotalTransactions: 0 }
+        );
+      } catch (err) {
+        console.error(err);
+        setError("Gagal memuat data. Silakan coba lagi.");
+        setData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
   }, [monthFrom, monthTo]);
 
   function handleExportExcel() {
@@ -159,6 +182,12 @@ export default function LaporanJasaPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="print:hidden text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+          {error}
+        </div>
+      )}
 
       {/* Print Header */}
       <div className="hidden print:block mb-4">
