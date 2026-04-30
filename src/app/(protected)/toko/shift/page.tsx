@@ -202,8 +202,8 @@ export default function ShiftKasirPage() {
                     setShiftSchedule(sched);
                     setShiftOptions(sched.map(s => {
                         const fmtH = (h: number) => String(h).padStart(2, "0");
-                        const endLabel = s.endHour <= s.startHour ? `${fmtH(s.endHour)}:59` : `${fmtH(s.endHour)}:59`;
-                        return { value: s.name, label: `${s.name} (${fmtH(s.startHour)}:00 - ${endLabel})` };
+                        const lastHour = s.endHour === 0 ? 23 : s.endHour - 1;
+                        return { value: s.name, label: `${s.name} (${fmtH(s.startHour)}:00 - ${fmtH(lastHour)}:59)` };
                     }));
                 }
             } catch { /* use defaults */ }
@@ -940,7 +940,7 @@ export default function ShiftKasirPage() {
                                     </Select>
                                 </div>
                                 <div className="w-20">
-                                    <Label className="text-xs">Jam Selesai</Label>
+                                    <Label className="text-xs">Jam Selesai (exclusive)</Label>
                                     <Select
                                         value={String(shift.endHour)}
                                         onValueChange={(v) => updateConfigShift(idx, "endHour", parseInt(v))}

@@ -35,7 +35,11 @@ export async function getShiftSchedule(unitType?: string): Promise<ShiftDefiniti
 
 export function formatShiftLabel(shift: ShiftDefinition): string {
     const fmt = (h: number) => String(h).padStart(2, "0") + ":00";
-    return `${shift.name} (${fmt(shift.startHour)} - ${shift.endHour <= shift.startHour ? fmt(shift.endHour) : String(shift.endHour).padStart(2, "0") + ":59"})`;
+    const fmtEnd = (h: number) => String(h).padStart(2, "0") + ":59";
+    // endHour is exclusive (detection uses hour < endHour), so display last valid minute: (endHour - 1):59
+    // For cross-midnight (e.g., endHour=7), the last valid hour is endHour-1 (could wrap to 23)
+    const lastHour = shift.endHour === 0 ? 23 : shift.endHour - 1;
+    return `${shift.name} (${fmt(shift.startHour)} - ${fmtEnd(lastHour)})`;
 }
 
 export function detectCurrentShift(schedule: ShiftDefinition[]): string {
