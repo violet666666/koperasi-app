@@ -783,6 +783,7 @@ model StoreProduct {
 
   saleItems      StoreSaleItem[]
   stockMovements StoreStockMovement[]
+  stockBatches   StockBatch[]
 
   @@map("store_products")
 }
@@ -799,16 +800,19 @@ model StoreStockMovement {
   voidedAt    DateTime? @map("voided_at")
   voidedById  Int?      @map("voided_by_id")
   createdAt   DateTime  @default(now()) @map("created_at")
+  reason      String?   // "sale" | "damaged" | "expired" | "internal_use" | "other" | "adjustment" | "transfer"
+  reasonNote  String?   @map("reason_note")
+  batchId     Int?      @map("batch_id")
+  costAtTime  Decimal?  @map("cost_at_time") @db.Decimal(15, 2)
 
   product     StoreProduct @relation(fields: [productId], references: [id])
   operator    User?        @relation("stockMovementOperator", fields: [operatorId], references: [id])
   voidedBy    User?        @relation("stockMovementVoidedBy", fields: [voidedById], references: [id])
+  batch       StockBatch?  @relation(fields: [batchId], references: [id])
 
   @@index([productId])
   @@index([type])
   @@map("store_stock_movements")
-
-
 }
 
 model StoreSale {
@@ -848,6 +852,7 @@ model StoreSaleItem {
   unitPrice Decimal @map("unit_price") @db.Decimal(15, 2)
   discount  Decimal @default(0) @db.Decimal(15, 2)
   subtotal  Decimal @db.Decimal(15, 2)
+  costPrice Decimal? @map("cost_price") @db.Decimal(15, 2)
 
   sale    StoreSale    @relation(fields: [saleId], references: [id])
   product StoreProduct @relation(fields: [productId], references: [id])
@@ -1146,4 +1151,31 @@ model Notification {
 
   @@index([userId, isRead, createdAt])
   @@map("notifications")
+}
+
+// =================================================================
+// STOCK BATCHES (HPP & Batch Tracking)
+// =================================================================
+
+model StockBatch {
+  id               Int       @id @default(autoincrement())
+  productId        Int       @map("product_id")
+  batchNo          String?   @map("batch_no")
+  purchasePrice    Decimal   @map("purchase_price") @db.Decimal(15, 2)
+  quantity         Int
+  originalQuantity Int       @map("original_quantity")
+  expiryDate       DateTime? @map("expiry_date")
+  supplierName     String?   @map("supplier_name")
+  receivedAt       DateTime  @default(now()) @map("received_at")
+  location         String    @default("gudang")
+  isActive         Boolean   @default(true) @map("is_active")
+  notes            String?
+  unitType         String    @default("toko") @map("unit_type")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  product      StoreProduct        @relation(fields: [productId], references: [id])
+  movements    StoreStockMovement[]
+
+  @@index([productId, isActive, receivedAt])
+  @@map("stock_batches")
 }

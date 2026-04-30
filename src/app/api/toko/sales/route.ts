@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 
             // Validate stock with row-level awareness (inside transaction)
             let totalAmount = 0;
-            const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number }[] = [];
+            const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number; costPrice: number }[] = [];
 
             for (const item of items) {
                 const product = await tx.storeProduct.findUnique({ where: { id: item.productId } });
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
                 const subtotal = unitPrice * item.quantity;
                 totalAmount += subtotal;
 
-                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount });
+                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0 });
             }
 
             // Validate payment
@@ -336,6 +336,7 @@ export async function POST(request: Request) {
                             unitPrice: vi.unitPrice,
                             discount: vi.discount,
                             subtotal: vi.subtotal,
+                            costPrice: vi.costPrice || null,
                         })),
                     },
                 },
@@ -375,8 +376,26 @@ export async function POST(request: Request) {
                             reference: `Penjualan ${saleNo}`,
                             notes: `Terjual (${method})`,
                             operatorId: userId,
+                            costAtTime: vi.costPrice,
+                            reason: "sale",
                         },
                     });
+
+                    // FIFO batch deduction — consume oldest active batches first
+                    let remainingToDeduct = vi.quantity;
+                    const batches = await tx.stockBatch.findMany({
+                        where: { productId: vi.productId, isActive: true, quantity: { gt: 0 } },
+                        orderBy: { receivedAt: "asc" },
+                    });
+                    for (const batch of batches) {
+                        if (remainingToDeduct <= 0) break;
+                        const deduct = Math.min(batch.quantity, remainingToDeduct);
+                        await tx.stockBatch.update({
+                            where: { id: batch.id },
+                            data: { quantity: batch.quantity - deduct, isActive: batch.quantity - deduct > 0 },
+                        });
+                        remainingToDeduct -= deduct;
+                    }
                 }
             }
 

@@ -107,8 +107,13 @@ export default function PersediaanPage() {
     const [movementType, setMovementType] = React.useState<"in" | "out" | "transfer">("in");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [openProductSelect, setOpenProductSelect] = React.useState(false);
-    const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "" });
+    const [formData, setFormData] = React.useState({ productId: "", quantity: "", notes: "", purchasePrice: "", batchNo: "", expiryDate: "", supplierName: "" });
     const [stockLocation, setStockLocation] = React.useState<"gudang" | "toko">("gudang");
+    // Writeoff dialog
+    const [writeoffDialogOpen, setWriteoffDialogOpen] = React.useState(false);
+    const [writeoffData, setWriteoffData] = React.useState({ productId: "", quantity: "", reason: "", reasonNote: "", notes: "", location: "gudang" as "gudang" | "toko" });
+    const [isWriteoffSubmitting, setIsWriteoffSubmitting] = React.useState(false);
+    const [openWriteoffProductSelect, setOpenWriteoffProductSelect] = React.useState(false);
     // Transfer dialog
     const [transferDialogOpen, setTransferDialogOpen] = React.useState(false);
     const [transferDirection, setTransferDirection] = React.useState<"gudang" | "toko">("gudang"); // from location
@@ -241,6 +246,12 @@ export default function PersediaanPage() {
                     quantity: qty,
                     notes: formData.notes,
                     location: stockLocation,
+                    ...(movementType === "in" ? {
+                        purchasePrice: formData.purchasePrice || null,
+                        batchNo: formData.batchNo || null,
+                        expiryDate: formData.expiryDate || null,
+                        supplierName: formData.supplierName || null,
+                    } : {}),
                 }),
             });
             const json = await res.json();
@@ -261,7 +272,7 @@ export default function PersediaanPage() {
             if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
 
             setDialogOpen(false);
-            setFormData({ productId: "", quantity: "", notes: "" });
+            setFormData({ productId: "", quantity: "", notes: "", purchasePrice: "", batchNo: "", expiryDate: "", supplierName: "" });
             setStockLocation("gudang");
         } catch {
             toast.error("Gagal memperbarui stok");
@@ -284,8 +295,9 @@ export default function PersediaanPage() {
                                 <Button onClick={() => setMovementType("in")}><Plus className="mr-2 h-4 w-4" />Stok Masuk</Button>
                             </DialogTrigger>
                             <DialogTrigger asChild>
-                                <Button variant="outline" onClick={() => setMovementType("out")}><Minus className="mr-2 h-4 w-4" />Stok Keluar</Button>
+                                <Button onClick={() => setMovementType("in")}><Plus className="mr-2 h-4 w-4" />Stok Masuk</Button>
                             </DialogTrigger>
+                            <Button variant="outline" onClick={() => setWriteoffDialogOpen(true)}><Minus className="mr-2 h-4 w-4" />Stok Keluar</Button>
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>{movementType === "in" ? "Stok Masuk" : "Stok Keluar"}</DialogTitle>
@@ -363,13 +375,24 @@ export default function PersediaanPage() {
                                             </Button>
                                         </div>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            {movementType === "in"
-                                                ? `Stok masuk akan ditambahkan ke ${stockLocation === "gudang" ? "Stok Gudang" : "Stok Toko"}`
-                                                : `Stok keluar akan dikurangi dari ${stockLocation === "gudang" ? "Stok Gudang" : "Stok Toko"} terlebih dahulu`
-                                            }
+                                            Stok masuk akan ditambahkan ke {stockLocation === "gudang" ? "Stok Gudang" : "Stok Toko"}
                                         </p>
                                     </div>
-                                    <div><Label>Keterangan</Label><Input value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} placeholder={movementType === "in" ? "Pengadaan supplier" : "Penjualan/rusak"} /></div>
+                                    {movementType === "in" && (
+                                        <>
+                                            <div>
+                                                <Label>Harga Beli / HPP (Rp)</Label>
+                                                <Input type="number" min={0} step="100" value={formData.purchasePrice} onChange={e => setFormData(prev => ({ ...prev, purchasePrice: e.target.value }))} placeholder="Harga beli dari supplier" />
+                                                <p className="text-xs text-muted-foreground mt-1">Kosongkan jika tidak mengubah HPP</p>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div><Label>No. Batch</Label><Input value={formData.batchNo} onChange={e => setFormData(prev => ({ ...prev, batchNo: e.target.value }))} placeholder="Opsional" /></div>
+                                                <div><Label>Tgl. Kadaluarsa</Label><Input type="date" value={formData.expiryDate} onChange={e => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))} /></div>
+                                            </div>
+                                            <div><Label>Nama Supplier</Label><Input value={formData.supplierName} onChange={e => setFormData(prev => ({ ...prev, supplierName: e.target.value }))} placeholder="Opsional" /></div>
+                                        </>
+                                    )}
+                                    <div><Label>Keterangan</Label><Input value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} placeholder="Pengadaan supplier" /></div>
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
@@ -567,6 +590,146 @@ export default function PersediaanPage() {
                             disabled={isTransferring || !transferProductId || !transferQty}
                         >
                             {isTransferring ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses...</> : <><ArrowRightLeft className="mr-2 h-4 w-4" />Transfer</>}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Stock Write-off Dialog */}
+            <Dialog open={writeoffDialogOpen} onOpenChange={setWriteoffDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Minus className="h-5 w-5 text-red-600" />
+                            Stok Keluar (Non-Penjualan)
+                        </DialogTitle>
+                        <DialogDescription>Catat pengurangan stok karena rusak, kadaluarsa, pemakaian internal, atau alasan lainnya</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div>
+                            <Label className="mb-1 block">Produk</Label>
+                            <Popover open={openWriteoffProductSelect} onOpenChange={setOpenWriteoffProductSelect}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" role="combobox" className="w-full justify-between">
+                                        {writeoffData.productId
+                                            ? (() => {
+                                                const p = products.find((p) => String(p.id) === writeoffData.productId);
+                                                return p ? `${p.sku} - ${p.name} (Stok: Gdg ${p.stockGdg || 0}, Toko ${p.stockToko || 0})` : "Pilih produk...";
+                                            })()
+                                            : "Pilih produk..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Cari produk..." autoFocus />
+                                        <CommandList>
+                                            <CommandEmpty>Produk tidak ditemukan.</CommandEmpty>
+                                            <CommandGroup>
+                                                {products.filter((p) => (p.stockGdg || 0) + (p.stockToko || 0) > 0).map((p) => (
+                                                    <CommandItem
+                                                        key={p.id}
+                                                        value={`${p.sku} ${p.name}`}
+                                                        onSelect={() => {
+                                                            setWriteoffData(prev => ({ ...prev, productId: String(p.id) }));
+                                                            setOpenWriteoffProductSelect(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", writeoffData.productId === String(p.id) ? "opacity-100" : "opacity-0")} />
+                                                        <span className="font-mono mr-2">{p.sku}</span>
+                                                        <span className="flex-1">{p.name}</span>
+                                                        <span className="text-xs text-muted-foreground ml-2">Stok: {(p.stockGdg || 0) + (p.stockToko || 0)}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div><Label>Jumlah</Label><Input type="number" min={1} value={writeoffData.quantity} onChange={e => setWriteoffData(prev => ({ ...prev, quantity: e.target.value }))} /></div>
+                        <div>
+                            <Label>Lokasi</Label>
+                            <div className="flex gap-2 mt-1.5">
+                                <Button type="button" variant={writeoffData.location === "gudang" ? "default" : "outline"} size="sm" onClick={() => setWriteoffData(prev => ({ ...prev, location: "gudang" }))}>
+                                    <Warehouse className="mr-1.5 h-3.5 w-3.5" />Gudang
+                                </Button>
+                                <Button type="button" variant={writeoffData.location === "toko" ? "default" : "outline"} size="sm" onClick={() => setWriteoffData(prev => ({ ...prev, location: "toko" }))}>
+                                    <Package className="mr-1.5 h-3.5 w-3.5" />Toko
+                                </Button>
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Alasan Stok Keluar <span className="text-destructive">*</span></Label>
+                            <div className="grid grid-cols-2 gap-2 mt-1.5">
+                                {[
+                                    { value: "damaged", label: "Rusak / Hilang", icon: "🗑️" },
+                                    { value: "expired", label: "Kadaluarsa", icon: "📅" },
+                                    { value: "internal_use", label: "Pemakaian Internal", icon: "🏢" },
+                                    { value: "other", label: "Lainnya", icon: "📝" },
+                                ].map((r) => (
+                                    <Button
+                                        key={r.value}
+                                        type="button"
+                                        variant={writeoffData.reason === r.value ? "default" : "outline"}
+                                        size="sm"
+                                        className="justify-start"
+                                        onClick={() => setWriteoffData(prev => ({ ...prev, reason: r.value }))}
+                                    >
+                                        <span className="mr-1.5">{r.icon}</span>{r.label}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                        {writeoffData.reason === "other" && (
+                            <div>
+                                <Label>Catatan Alasan <span className="text-destructive">*</span></Label>
+                                <Input value={writeoffData.reasonNote} onChange={e => setWriteoffData(prev => ({ ...prev, reasonNote: e.target.value }))} placeholder="Jelaskan alasan stok keluar" />
+                            </div>
+                        )}
+                        <div>
+                            <Label>Keterangan Tambahan</Label>
+                            <Input value={writeoffData.notes} onChange={e => setWriteoffData(prev => ({ ...prev, notes: e.target.value }))} placeholder="Opsional" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setWriteoffDialogOpen(false)}>Batal</Button>
+                        <Button
+                            variant="destructive"
+                            disabled={isWriteoffSubmitting || !writeoffData.productId || !writeoffData.quantity || !writeoffData.reason || (writeoffData.reason === "other" && !writeoffData.reasonNote.trim())}
+                            onClick={async () => {
+                                const qty = parseInt(writeoffData.quantity);
+                                if (isNaN(qty) || qty <= 0) { toast.error("Jumlah tidak valid"); return; }
+                                setIsWriteoffSubmitting(true);
+                                try {
+                                    const res = await fetch(`/api/toko/products/${writeoffData.productId}/stock`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            type: "out_writeoff",
+                                            quantity: qty,
+                                            location: writeoffData.location,
+                                            reason: writeoffData.reason,
+                                            reasonNote: writeoffData.reasonNote || null,
+                                            notes: writeoffData.notes || null,
+                                        }),
+                                    });
+                                    const json = await res.json();
+                                    if (!res.ok) { toast.error(json.message || "Gagal"); return; }
+                                    toast.success(json.message);
+                                    setWriteoffDialogOpen(false);
+                                    setWriteoffData({ productId: "", quantity: "", reason: "", reasonNote: "", notes: "", location: "gudang" });
+                                    const [productsRes, movementsRes] = await Promise.all([
+                                        fetch(`/api/toko/products?unitType=${productUnitType}`),
+                                        fetch("/api/toko/movements"),
+                                    ]);
+                                    if (productsRes.ok) setProducts((await productsRes.json()).data || []);
+                                    if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+                                } catch { toast.error("Gagal mencatat stok keluar"); }
+                                finally { setIsWriteoffSubmitting(false); }
+                            }}
+                        >
+                            {isWriteoffSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses...</> : "Catat Stok Keluar"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

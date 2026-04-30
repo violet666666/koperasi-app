@@ -262,6 +262,32 @@ export async function GET(
 
         const totalPendapatan = (usesStoreSales ? storeSaleAgg.total : 0) + unitTxAgg.total + totalOpIncome;
 
+        // ── HPP & Write-off calculation ──
+        let totalHPP = 0;
+        let totalWriteOff = 0;
+        if (usesStoreSales) {
+            // Total HPP = SUM(quantity × costPrice) from StoreSaleItems
+            totalHPP = storeSales.reduce((acc, sale) => {
+                return acc + (sale.items || []).reduce((itemAcc: number, item: any) => {
+                    return itemAcc + (Number(item.costPrice) || 0) * item.quantity;
+                }, 0);
+            }, 0);
+
+            // Total Write-off = SUM(quantity × costAtTime) from non-sale stock movements
+            const writeoffMovements = await prisma.storeStockMovement.findMany({
+                where: {
+                    reason: { in: ["damaged", "expired", "internal_use", "other"] },
+                    costAtTime: { not: null },
+                    createdAt: { gte: dateFrom, lte: dateTo },
+                    status: "active",
+                },
+                include: { product: { select: { unitType: true } } },
+            });
+            totalWriteOff = writeoffMovements
+                .filter((m) => m.product?.unitType === unitType)
+                .reduce((acc, m) => acc + (Number(m.costAtTime) || 0) * m.quantity, 0);
+        }
+
         return NextResponse.json({
             data: {
                 unitType,
@@ -283,6 +309,10 @@ export async function GET(
                     shuPerCuci: isCuciMobil ? SHU_PER_CUCI_ANGGOTA : 0,
                     // Laba sudah dikurangi potongan SHU
                     laba: totalPendapatan - totalExpenses - (isCuciMobil ? potonganSHUMember : 0),
+                    // HPP & Profit
+                    totalHPP,
+                    totalWriteOff,
+                    netProfit: totalPendapatan - totalHPP - totalWriteOff - totalExpenses - (isCuciMobil ? potonganSHUMember : 0),
                 },
                 transactions: allTransactions,
                 operationalExpenses: operationalExpenses.map((e) => {
