@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,7 +18,6 @@ import {
 import {
     Bell,
     Menu,
-    Search,
     User,
     Settings,
     LogOut,
@@ -91,12 +90,6 @@ export function Topbar({
             {/* Mobile spacer to push items to the right */}
             <div className="flex-1 lg:hidden" />
 
-            {/* Search */}
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-                <Search className="h-5 w-5" />
-                <span className="sr-only">Search</span>
-            </Button>
-
             {/* Notifications */}
             <NotificationBell />
 
@@ -105,7 +98,6 @@ export function Topbar({
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src="" alt={user?.name || "User"} />
                             <AvatarFallback className="bg-primary text-primary-foreground">
                                 {getInitials(user?.name || "U")}
                             </AvatarFallback>

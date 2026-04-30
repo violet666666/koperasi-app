@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Store, Car, Printer, BookOpen, Dumbbell, Wallet, Receipt, X } from "lucide-react";
+import { Loader2, Store, Car, Printer, BookOpen, Dumbbell, Wallet, Receipt, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 function getUnitName(unitType: string) {
     const types: Record<string, string> = {
@@ -214,6 +215,35 @@ export default function TransaksiPortalPage() {
                             </div>
                         )}
                     </Card>
+
+                    {/* Pagination */}
+                    {(activeTab === "unit" || activeTab === "savings" || activeTab === "loan") && response?.data?.meta && response.data.meta.total > 0 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="gap-1"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Sebelumnya
+                            </Button>
+                            <span className="text-sm text-muted-foreground px-2">
+                                Halaman {page} dari {Math.max(1, Math.ceil(response.data.meta.total / response.data.meta.perPage))}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={page >= Math.ceil(response.data.meta.total / response.data.meta.perPage)}
+                                className="gap-1"
+                            >
+                                Selanjutnya
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </Tabs>
 

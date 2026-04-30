@@ -19,6 +19,14 @@ export interface ExportColumn {
     format?: (value: unknown) => string;
 }
 
+/** Resolve a dot-notation key (e.g. "loan.product.name") from a flat/nested object. */
+function resolveKey(obj: Record<string, unknown>, key: string): unknown {
+    return key.split('.').reduce<unknown>((acc, part) => {
+        if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[part];
+        return undefined;
+    }, obj);
+}
+
 // ─── Excel Export ────────────────────────────────────────────────────────────
 
 export function exportToExcel(
@@ -28,7 +36,7 @@ export function exportToExcel(
     sheetName: string = "Data"
 ) {
     if (!data || data.length === 0) {
-        alert("Tidak ada data untuk diekspor.");
+        console.warn("Tidak ada data untuk diekspor.");
         return;
     }
 
@@ -36,13 +44,6 @@ export function exportToExcel(
     const headers = columns.map((c) => c.header);
 
     // Build data rows
-    const resolveKey = (obj: Record<string, unknown>, key: string): unknown => {
-        return key.split('.').reduce<unknown>((acc, part) => {
-            if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[part];
-            return undefined;
-        }, obj);
-    };
-
     const rows = data.map((row) =>
         columns.map((col) => {
             const raw = resolveKey(row, col.key);
@@ -91,16 +92,9 @@ export function exportToPDF(
     options?: { subtitle?: string }
 ) {
     if (!data || data.length === 0) {
-        alert("Tidak ada data untuk diekspor.");
+        console.warn("Tidak ada data untuk diekspor.");
         return;
     }
-
-    const resolveKey = (obj: Record<string, unknown>, key: string): unknown => {
-        return key.split('.').reduce<unknown>((acc, part) => {
-            if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[part];
-            return undefined;
-        }, obj);
-    };
 
     const rows = data.map((row) =>
         columns.map((col) => {

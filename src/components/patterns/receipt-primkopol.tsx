@@ -49,9 +49,11 @@ export function ReceiptPrimkopol({
     const printRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
-        if (autoprint) handlePrint();
+        if (autoprint && data && printRef.current) {
+            handlePrint();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [autoprint]);
+    }, [autoprint, data]);
 
     const handlePrint = () => {
         const printContents = printRef.current?.innerHTML;
