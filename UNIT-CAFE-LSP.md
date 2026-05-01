@@ -130,7 +130,32 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 
 ---
 
-## 8. Roadmap Selanjutnya
+## 8. Menu & Resep
+
+### 8.1 Daftar Menu (35 items)
+
+| Kategori | Jumlah | Harga Range |
+|---|---|---|
+| Mocktail | 5 | Rp14.000 – Rp19.000 |
+| Tea Series | 5 | Rp12.000 |
+| Frappe | 2 | Rp18.000 |
+| Choco Series | 4 | Rp16.000 – Rp18.000 |
+| Matcha Series | 3 | Rp17.000 – Rp20.000 |
+| Ice Coffee | 9 | Rp15.000 – Rp18.000 |
+| Hot Coffee | 7 | Rp8.000 – Rp17.000 |
+
+### 8.2 Resep & HPP
+
+Setiap menu memiliki resep terstruktur di tabel `ProductRecipe`:
+- Admin dapat CRUD bahan baku per menu (nama, qty, satuan, harga/unit)
+- `costPrice` dihitung otomatis dari total resep
+- Margin rata-rata: ~68%
+- 45 bahan baku unik dilacak
+- SKU format: `LSP-{DEPT}-{VARIANT}` (standar F&B)
+
+---
+
+## 9. Roadmap Selanjutnya
 
 ### Phase 2: Fitur Lanjutan 🟡
 - Kitchen Display System (KDS) real hardware
@@ -174,3 +199,13 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 | 3 | 🟡 IMPORTANT | Wrapper pages (shift, marketing) punya `backHref` hardcoded ke `/toko/kasir` — cafe_lsp kasir tidak punya akses ke route tersebut, trigger route guard | Tambah kondisi `unitType === "cafe_lsp" ? "/cafe-lsp/kasir" : ...` |
 | 4 | 🟡 IMPORTANT | `UNIT_PRODUCT_LABELS` di produk page tidak ada entry `cafe_lsp` — judul halaman menampilkan "Produk Toko" bukan "Manajemen Menu" | Tambah `cafe_lsp: { title: "Manajemen Menu", desc: "Kelola menu Cafe LSP", itemName: "Menu" }` |
 | 5 | 🟡 MEDIUM | Race condition pada queue number — dua kasir concurrent bisa generate nomor antrian sama. Queue number dihitung client-side sebelum POST | Catatan: server-side atomic fix perlu perubahan API. Risiko rendah untuk single-counter cafe. Ditandai untuk Phase 2 |
+
+### Menu & Resep — 1 Mei 2026
+- **[MENU]** 35 menu items di-seed ke database (7 kategori, 45 bahan baku unik)
+- **[SKU]** Format `LSP-{DEPT}-{VARIANT}` (standar F&B industry)
+- **[RECIPE]** Model `ProductRecipe` baru — tabel resep dengan breakdown bahan
+- **[RECIPE]** API CRUD `/api/toko/products/[id]/recipe` — GET/POST/PUT/DELETE
+- **[RECIPE]** `costPrice` auto-recalculate dari total resep setiap perubahan
+- **[RECIPE]** Admin dialog resep di halaman Manajemen Menu (tombol BookOpen)
+- **[RECIPE]** Reusable untuk semua unit F&B (Resto, Cafe lainnya)
+- **[DATA]** Semua 35 resep lengkap berdasarkan data HPP dari manajemen
