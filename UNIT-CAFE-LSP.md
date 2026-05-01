@@ -37,6 +37,10 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 | Order Queue Board (full page) | `cafe-lsp/antrian/page.tsx` | ✅ |
 | Struk Receipt 80mm | `receipt-primkopol.tsx` | ✅ |
 | Zustand state (persist localStorage) | `cafe-lsp/kasir/page.tsx` | ✅ |
+| Resep & HPP (ProductRecipe) | `toko/produk/page.tsx` + API | ✅ |
+| Admin CRUD resep (breakdown bahan) | `toko/produk/page.tsx` | ✅ |
+| Auto-calculate costPrice dari resep | API recipe endpoint | ✅ |
+| 35 menu + 35 resep + 45 bahan baku | `seed-cafe-lsp-recipes.ts` | ✅ |
 
 ---
 
@@ -120,6 +124,9 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 | `src/app/api/toko/sales/route.ts` | API checkout (shared) |
 | `src/app/api/toko/products/route.ts` | API produk (filter by unitType) |
 | `prisma/seed-cafe-lsp.ts` | Seed script khusus Cafe LSP |
+| `prisma/seed-cafe-lsp-menu.ts` | Seed 35 menu items (SKU: LSP-XXX) |
+| `prisma/seed-cafe-lsp-recipes.ts` | Seed 35 resep + 45 bahan baku |
+| `src/app/api/toko/products/[id]/recipe/route.ts` | API CRUD resep/HPP |
 
 ---
 
