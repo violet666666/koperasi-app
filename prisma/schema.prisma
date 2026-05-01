@@ -799,8 +799,25 @@ model StoreProduct {
   saleItems      StoreSaleItem[]
   stockMovements StoreStockMovement[]
   stockBatches   StockBatch[]
+  recipes        ProductRecipe[]
 
   @@map("store_products")
+}
+
+model ProductRecipe {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  ingredientName String   @map("ingredient_name") // e.g. "Kremilk", "Espresso", "Arunika Syrup"
+  quantity       Decimal  @db.Decimal(10, 2) // amount used per recipe
+  unit           String   @default("ml") // ml, gr, pcs
+  unitCost       Decimal  @db.Decimal(15, 2) @map("unit_cost") // cost per unit of ingredient
+  subtotal       Decimal  @db.Decimal(15, 2) // quantity * unitCost
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  product StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_recipes")
 }
 
 model StoreStockMovement {

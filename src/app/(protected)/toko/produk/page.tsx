@@ -22,7 +22,7 @@ import {
     Plus, Package, TrendingUp, AlertTriangle, Upload,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
-    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -104,6 +104,88 @@ export default function TokoProdukPage() {
     const [editingCategory, setEditingCategory] = React.useState<string | null>(null);
     const [newCategoryName, setNewCategoryName] = React.useState("");
     const [isCategoryProcessing, setIsCategoryProcessing] = React.useState(false);
+
+    // Recipe state
+    const isFnB = !isToko;
+    const [showRecipeDialog, setShowRecipeDialog] = React.useState(false);
+    const [recipeProductId, setRecipeProductId] = React.useState<number | null>(null);
+    const [recipeProductName, setRecipeProductName] = React.useState("");
+    const [recipeItems, setRecipeItems] = React.useState<{ id?: number; ingredientName: string; quantity: string; unit: string; unitCost: string }[]>([]);
+    const [recipeTotalCost, setRecipeTotalCost] = React.useState(0);
+    const [isRecipeSaving, setIsRecipeSaving] = React.useState(false);
+    const [isRecipeLoading, setIsRecipeLoading] = React.useState(false);
+
+    const openRecipeDialog = async (product: Product) => {
+        setRecipeProductId(product.id);
+        setRecipeProductName(product.name);
+        setShowRecipeDialog(true);
+        setIsRecipeLoading(true);
+        try {
+            const res = await fetch(`/api/toko/products/${product.id}/recipe`);
+            const json = await res.json();
+            if (json.data && json.data.length > 0) {
+                setRecipeItems(json.data.map((r: any) => ({
+                    id: r.id,
+                    ingredientName: r.ingredientName,
+                    quantity: String(r.quantity),
+                    unit: r.unit,
+                    unitCost: String(r.unitCost),
+                })));
+                setRecipeTotalCost(json.totalCost || 0);
+            } else {
+                setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+                setRecipeTotalCost(0);
+            }
+        } catch {
+            setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+        } finally { setIsRecipeLoading(false); }
+    };
+
+    const addRecipeRow = () => {
+        setRecipeItems(prev => [...prev, { ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+    };
+
+    const removeRecipeRow = (index: number) => {
+        setRecipeItems(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateRecipeRow = (index: number, field: string, value: string) => {
+        setRecipeItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+    };
+
+    const calcRecipeTotal = () => {
+        return recipeItems.reduce((sum, item) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const cost = parseFloat(item.unitCost) || 0;
+            return sum + (qty * cost);
+        }, 0);
+    };
+
+    const saveRecipe = async () => {
+        if (!recipeProductId) return;
+        const validItems = recipeItems.filter(i => i.ingredientName.trim() && parseFloat(i.quantity) > 0);
+        if (validItems.length === 0) { toast.error("Minimal 1 bahan harus diisi"); return; }
+        setIsRecipeSaving(true);
+        try {
+            const payload = validItems.map(i => ({
+                ingredientName: i.ingredientName.trim(),
+                quantity: parseFloat(i.quantity),
+                unit: i.unit || "ml",
+                unitCost: parseFloat(i.unitCost) || 0,
+            }));
+            const res = await fetch(`/api/toko/products/${recipeProductId}/recipe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message); return; }
+            toast.success(`Resep "${recipeProductName}" disimpan — HPP: ${formatCurrency(calcRecipeTotal())}`);
+            fetchProducts();
+            setShowRecipeDialog(false);
+        } catch { toast.error("Gagal menyimpan resep"); }
+        finally { setIsRecipeSaving(false); }
+    };
 
     const fetchCategories = React.useCallback(async () => {
         try {
@@ -829,6 +911,11 @@ export default function TokoProdukPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-0.5">
+                                                            {isFnB && (
+                                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openRecipeDialog(p)} title="Resep / HPP">
+                                                                    <BookOpen className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
                                                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)} title="Edit Produk">
                                                                 <Pencil className="h-3.5 w-3.5" />
                                                             </Button>
@@ -1103,6 +1190,78 @@ export default function TokoProdukPage() {
                     {resultDialogContent}
                     <DialogFooter>
                         <Button onClick={() => setShowResultDialog(false)}>Tutup</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Recipe / HPP Dialog */}
+            <Dialog open={showRecipeDialog} onOpenChange={setShowRecipeDialog}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-amber-600" />
+                            Resep & HPP — {recipeProductName}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Kelola bahan baku per menu. HPP dihitung otomatis dari total resep.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {isRecipeLoading ? (
+                        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-[1fr_80px_60px_100px_80px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+                                <span>Nama Bahan</span>
+                                <span>Qty</span>
+                                <span>Satuan</span>
+                                <span>Harga/Unit</span>
+                                <span>Subtotal</span>
+                                <span></span>
+                            </div>
+                            {recipeItems.map((item, idx) => {
+                                const subtotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitCost) || 0);
+                                return (
+                                    <div key={idx} className="grid grid-cols-[1fr_80px_60px_100px_80px_32px] gap-2 items-center">
+                                        <Input className="h-8 text-sm" placeholder="Nama bahan" value={item.ingredientName}
+                                            onChange={e => updateRecipeRow(idx, "ingredientName", e.target.value)} />
+                                        <Input className="h-8 text-sm text-center" type="number" placeholder="0" value={item.quantity}
+                                            onChange={e => updateRecipeRow(idx, "quantity", e.target.value)} />
+                                        <select className="h-8 text-sm border rounded px-1 bg-background"
+                                            value={item.unit} onChange={e => updateRecipeRow(idx, "unit", e.target.value)}>
+                                            <option value="ml">ml</option>
+                                            <option value="gr">gr</option>
+                                            <option value="pcs">pcs</option>
+                                            <option value="ltr">ltr</option>
+                                            <option value="kg">kg</option>
+                                        </select>
+                                        <Input className="h-8 text-sm text-right" type="number" placeholder="0" value={item.unitCost}
+                                            onChange={e => updateRecipeRow(idx, "unitCost", e.target.value)} />
+                                        <span className="text-sm text-right tabular-nums">{formatCurrency(subtotal)}</span>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => removeRecipeRow(idx)} disabled={recipeItems.length <= 1}>
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                            <Button variant="outline" size="sm" className="w-full" onClick={addRecipeRow}>
+                                <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Bahan
+                            </Button>
+                            <div className="flex items-center justify-between pt-3 border-t">
+                                <div className="text-sm">
+                                    <span className="text-muted-foreground">Total HPP:</span>{" "}
+                                    <span className="font-bold text-lg">{formatCurrency(calcRecipeTotal())}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowRecipeDialog(false)}>Batal</Button>
+                        <Button onClick={saveRecipe} disabled={isRecipeSaving}>
+                            {isRecipeSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Simpan Resep
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
