@@ -75,7 +75,7 @@ export default function ProfilPortalPage() {
                 maritalStatus: member.maritalStatus || "",
                 religion: member.religion || "",
                 education: member.education || "",
-                occupation: member.occupation || "",
+                pangkat: member.pangkat || "",
                 phone: member.phone || "",
                 email: member.email || "",
                 address: member.address || "",
@@ -395,8 +395,8 @@ export default function ProfilPortalPage() {
                     </div>
 
                     <div>
-                        <Label>Pekerjaan</Label>
-                        <Input name="occupation" value={formData.occupation || ""} onChange={handleChange} />
+                        <Label>Pangkat</Label>
+                        <Input name="pangkat" value={formData.pangkat || ""} onChange={handleChange} />
                     </div>
                 </CardContent>
             </Card>

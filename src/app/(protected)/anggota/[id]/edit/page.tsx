@@ -51,7 +51,11 @@ export default function EditAnggotaPage() {
         maritalStatus: "",
         religion: "",
         education: "",
-        occupation: "",
+        pangkat: "",
+        golongan: "",
+        kesatuan: "",
+        employeeType: "",
+        noRekening: "",
         phone: "",
         email: "",
         address: "",
@@ -96,7 +100,11 @@ export default function EditAnggotaPage() {
                     maritalStatus: mData.maritalStatus || "",
                     religion: mData.religion || "",
                     education: mData.education || "",
-                    occupation: mData.occupation || "",
+                    pangkat: mData.pangkat || "",
+                    golongan: mData.golongan || "",
+                    kesatuan: mData.kesatuan || "",
+                    employeeType: mData.employeeType || "",
+                    noRekening: mData.noRekening || "",
                     phone: mData.phone || "",
                     email: mData.email || "",
                     address: mData.address || "",
@@ -358,8 +366,36 @@ export default function EditAnggotaPage() {
                         </div>
 
                         <div>
-                            <Label>Pekerjaan</Label>
-                            <Input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Pekerjaan saat ini" />
+                            <Label>Pangkat</Label>
+                            <Input name="pangkat" value={formData.pangkat} onChange={handleChange} placeholder="Contoh: IPTU" />
+                        </div>
+
+                        <div>
+                            <Label>Golongan</Label>
+                            <Input name="golongan" value={formData.golongan} onChange={handleChange} placeholder="Contoh: III/b" />
+                        </div>
+
+                        <div>
+                            <Label>Kesatuan</Label>
+                            <Input name="kesatuan" value={formData.kesatuan} onChange={handleChange} placeholder="Contoh: Sat Reskrim" />
+                        </div>
+
+                        <div>
+                            <Label>Jenis Pegawai</Label>
+                            <Select value={formData.employeeType} onValueChange={(v) => handleSelectChange("employeeType", v)}>
+                                <SelectTrigger><SelectValue placeholder="Pilih jenis pegawai" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="organik_polri">Polri</SelectItem>
+                                    <SelectItem value="pns_polri">PNS</SelectItem>
+                                    <SelectItem value="purnawirawan">Purnawirawan</SelectItem>
+                                    <SelectItem value="masyarakat_umum">Masyarakat Umum</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label>No. Rekening BRI</Label>
+                            <Input name="noRekening" value={formData.noRekening} onChange={handleChange} placeholder="15 digit" />
                         </div>
 
                         {activeRoles.length > 0 && formData.roleId !== undefined && (

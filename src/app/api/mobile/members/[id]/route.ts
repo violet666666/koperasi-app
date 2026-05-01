@@ -49,7 +49,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         email: member.email,
         phone: member.phone,
         category: member.category,
-        occupation: member.occupation,
+        pangkat: member.pangkat,
+        golongan: member.golongan,
+        kesatuan: member.kesatuan,
+        employeeType: member.employeeType,
+        noRekening: member.noRekening,
         gender: member.gender,
         address: member.address,
         joinDate: member.joinDate,
@@ -87,7 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 /**
  * PATCH /api/mobile/members/[id] — Update member data from mobile
- * Only operator/admin can update. Fields: phone, email, salary, tunlesKinerja, plafonPiutang, category, occupation, address
+ * Only operator/admin can update. Fields: phone, email, salary, tunlesKinerja, plafonPiutang, category, pangkat, golongan, kesatuan, employeeType, noRekening, address
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -117,7 +121,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       email: 'string',
       address: 'string',
       category: 'string',
-      occupation: 'string',
+      pangkat: 'string',
+      golongan: 'string',
+      kesatuan: 'string',
+      employeeType: 'string',
+      noRekening: 'string',
       salary: 'number',
       tunlesKinerja: 'number',
       plafonPiutang: 'number',

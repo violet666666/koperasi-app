@@ -9,6 +9,16 @@ import C from '../../lib/colors';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
+const employeeTypeLabel = (type: string) => {
+  const map: Record<string, string> = {
+    organik_polri: 'Polri',
+    pns_polri: 'PNS',
+    purnawirawan: 'Purnawirawan',
+    masyarakat_umum: 'Masyarakat Umum',
+  };
+  return map[type] || type;
+};
+
 export default function MemberDetailScreen({ route, navigation }: any) {
   const { memberId, memberName } = route?.params || {};
   const [data, setData] = useState<any>(null);
@@ -41,7 +51,10 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       email: data.email || '',
       address: data.address || '',
       category: data.category || '',
-      occupation: data.occupation || '',
+      pangkat: data.pangkat || '',
+      golongan: data.golongan || '',
+      kesatuan: data.kesatuan || '',
+      employeeType: data.employeeType || '',
       salary: data.salary?.toString() || '0',
       tunlesKinerja: data.tunlesKinerja?.toString() || '0',
       plafonPiutang: data.plafonPiutang?.toString() || '0',
@@ -58,7 +71,10 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       if (editData.email !== (data.email || '')) payload.email = editData.email;
       if (editData.address !== (data.address || '')) payload.address = editData.address;
       if (editData.category !== (data.category || '')) payload.category = editData.category;
-      if (editData.occupation !== (data.occupation || '')) payload.occupation = editData.occupation;
+      if (editData.pangkat !== (data.pangkat || '')) payload.pangkat = editData.pangkat;
+      if (editData.golongan !== (data.golongan || '')) payload.golongan = editData.golongan;
+      if (editData.kesatuan !== (data.kesatuan || '')) payload.kesatuan = editData.kesatuan;
+      if (editData.employeeType !== (data.employeeType || '')) payload.employeeType = editData.employeeType;
       
       const numSalary = parseInt(editData.salary.replace(/\D/g, ''), 10) || 0;
       const numTunkin = parseInt(editData.tunlesKinerja.replace(/\D/g, ''), 10) || 0;
@@ -129,7 +145,10 @@ export default function MemberDetailScreen({ route, navigation }: any) {
             <InfoRow icon="mail-outline" label="Email" value={data.email || '-'} />
             <InfoRow icon="call-outline" label="Telepon" value={data.phone || '-'} />
             <InfoRow icon="ribbon-outline" label="Kategori" value={data.category || '-'} />
-            <InfoRow icon="briefcase-outline" label="Pekerjaan" value={data.occupation || '-'} />
+            <InfoRow icon="briefcase-outline" label="Pangkat" value={data.pangkat || '-'} />
+            <InfoRow icon="grid-outline" label="Golongan" value={data.golongan || '-'} />
+            <InfoRow icon="business-outline" label="Kesatuan" value={data.kesatuan || '-'} />
+            <InfoRow icon="people-outline" label="Jenis Pegawai" value={data.employeeType ? employeeTypeLabel(data.employeeType) : '-'} />
             <InfoRow icon="calendar-outline" label="Tgl Bergabung" value={data.joinDate ? new Date(data.joinDate).toLocaleDateString('id-ID') : '-'} last />
           </View>
 
@@ -214,7 +233,9 @@ export default function MemberDetailScreen({ route, navigation }: any) {
                 {/* ── Informasi Pekerjaan ── */}
                 <Text style={styles.editSectionTitle}>💼 Pekerjaan & Kategori</Text>
                 <EditField label="Kategori" value={editData.category} onChange={(v: string) => setEditData({ ...editData, category: v })} icon="ribbon-outline" placeholder="Polri, PNS, Karyawan..." />
-                <EditField label="Pekerjaan" value={editData.occupation} onChange={(v: string) => setEditData({ ...editData, occupation: v })} icon="briefcase-outline" />
+                <EditField label="Pangkat" value={editData.pangkat} onChange={(v: string) => setEditData({ ...editData, pangkat: v })} icon="briefcase-outline" placeholder="Contoh: IPTU" />
+                <EditField label="Golongan" value={editData.golongan} onChange={(v: string) => setEditData({ ...editData, golongan: v })} icon="grid-outline" placeholder="Contoh: III/b" />
+                <EditField label="Kesatuan" value={editData.kesatuan} onChange={(v: string) => setEditData({ ...editData, kesatuan: v })} icon="business-outline" placeholder="Contoh: Sat Reskrim" />
 
                 {/* ── Informasi Keuangan ── */}
                 <Text style={styles.editSectionTitle}>💰 Data Keuangan</Text>

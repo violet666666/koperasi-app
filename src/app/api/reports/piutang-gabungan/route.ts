@@ -45,7 +45,11 @@ export async function GET(request: Request) {
                 name: true,
                 nrp: true,
                 memberNo: true,
-                occupation: true,
+                pangkat: true,
+                golongan: true,
+                kesatuan: true,
+                employeeType: true,
+                noRekening: true,
                 category: true,
             },
             orderBy: { name: "asc" },
@@ -166,7 +170,8 @@ export async function GET(request: Request) {
                 seq: seqNo,
                 nama: member.name,
                 nrp: member.nrp || member.memberNo,
-                pangkat: member.occupation || member.category || "-",
+                pangkat: member.pangkat || member.category || "-",
+                kesatuan: member.kesatuan || "-",
                 piutangToko,
                 piutangUnit,
                 piutangSPPokok,
@@ -231,6 +236,7 @@ interface PiutangItem {
     nama: string;
     nrp: string;
     pangkat: string;
+    kesatuan: string;
     piutangToko: number;
     piutangUnit: number;
     piutangSPPokok: number;

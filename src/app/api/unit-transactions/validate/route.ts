@@ -37,7 +37,7 @@ export async function POST(request: Request) {
                 name: true,
                 nrp: true,
                 status: true,
-                occupation: true,
+                pangkat: true,
                 plafonPiutang: true,
                 salary: true,
                 tunlesKinerja: true,
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
                     sisaLimit,
                     plafonPiutang,
                     totalTagihan,
-                    member: { name: member.name, nrp: member.nrp, occupation: member.occupation },
+                    member: { name: member.name, nrp: member.nrp, pangkat: member.pangkat },
                 },
                 { status: 200 }
             );
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
                 id: member.id,
                 name: member.name,
                 nrp: member.nrp,
-                occupation: member.occupation,
+                pangkat: member.pangkat,
             },
         });
     } catch (error) {

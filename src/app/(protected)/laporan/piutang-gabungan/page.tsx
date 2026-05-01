@@ -32,6 +32,7 @@ interface PiutangItem {
     nama: string;
     nrp: string;
     pangkat: string;
+    kesatuan: string;
     piutangToko: number;
     piutangUnit: number;
     piutangSPPokok: number;
@@ -63,6 +64,7 @@ const exportColumns: ExportColumn[] = [
     { header: "No", key: "seq", width: 6 },
     { header: "NRP", key: "nrp", width: 14 },
     { header: "Pangkat", key: "pangkat", width: 10 },
+    { header: "Kesatuan", key: "kesatuan", width: 18 },
     { header: "Nama", key: "nama", width: 28 },
     { header: "Piutang Toko", key: "piutangToko", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
     { header: "Piutang Unit", key: "piutangUnit", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
@@ -158,7 +160,8 @@ export default function PiutangGabunganPage() {
             (item) =>
                 item.nama.toLowerCase().includes(q) ||
                 item.nrp.toLowerCase().includes(q) ||
-                item.pangkat.toLowerCase().includes(q)
+                item.pangkat.toLowerCase().includes(q) ||
+                (item.kesatuan || "").toLowerCase().includes(q)
         );
     }, [data?.piutangList, search]);
 
@@ -303,6 +306,7 @@ export default function PiutangGabunganPage() {
                                     <TableHead>NRP</TableHead>
                                     <TableHead>Nama</TableHead>
                                     <TableHead>Pangkat</TableHead>
+                                    <TableHead>Kesatuan</TableHead>
                                     <TableHead className="text-right">Piutang Toko</TableHead>
                                     <TableHead className="text-right">Piutang Unit</TableHead>
                                     <TableHead className="text-right">Pokok SP</TableHead>
@@ -319,6 +323,7 @@ export default function PiutangGabunganPage() {
                                         <TableCell className="font-mono text-xs">{item.nrp}</TableCell>
                                         <TableCell className="font-medium">{item.nama}</TableCell>
                                         <TableCell className="text-muted-foreground">{item.pangkat}</TableCell>
+                                        <TableCell className="text-muted-foreground">{item.kesatuan || "-"}</TableCell>
                                         <TableCell className="text-right tabular-nums">
                                             {item.piutangToko > 0 ? formatCurrency(item.piutangToko) : "-"}
                                         </TableCell>
@@ -339,7 +344,7 @@ export default function PiutangGabunganPage() {
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-primary/5 font-bold">
-                                    <TableCell colSpan={4} className="text-right">TOTAL</TableCell>
+                                    <TableCell colSpan={5} className="text-right">TOTAL</TableCell>
                                     <TableCell className="text-right tabular-nums">
                                         {formatCurrency(data.totalPiutangToko)}
                                     </TableCell>

@@ -63,7 +63,11 @@ export async function GET(request: Request) {
                 name: true,
                 nrp: true,
                 memberNo: true,
-                occupation: true,   // Pangkat
+                pangkat: true,   // Pangkat
+                golongan: true,  // Golongan
+                kesatuan: true,  // Kesatuan
+                employeeType: true, // Jenis Pegawai
+                noRekening: true, // No Rekening
                 category: true,     // Polri / PNS
                 tabunganWajib: true, // Nominal simpanan wajib per bulan
             },
@@ -256,8 +260,8 @@ export async function GET(request: Request) {
                 notaBuku: `NB-${monthStr}${yearStr}-${String(seqNo).padStart(4, "0")}`,
                 nama: member.name,
                 nrp: member.nrp || member.memberNo,
-                pangkat: member.occupation || member.category || "-",
-                kesatuan: "-", // Not stored separately in schema, could be derived from notes
+                pangkat: member.pangkat || member.category || "-",
+                kesatuan: member.kesatuan || "-",
                 potongan: potonganItems,
                 totalPotongan,
             });

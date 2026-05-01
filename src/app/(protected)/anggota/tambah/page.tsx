@@ -37,6 +37,11 @@ export default function TambahAnggotaPage() {
         category: "",
         branch_id: "1",
         join_date: new Date().toISOString().split("T")[0],
+        pangkat: "",
+        golongan: "",
+        kesatuan: "",
+        employeeType: "",
+        noRekening: "",
     });
 
     const handleChange = (
@@ -73,6 +78,11 @@ export default function TambahAnggotaPage() {
                 category: formData.category || undefined,
                 branchId: parseInt(formData.branch_id),
                 joinDate: formData.join_date,
+                pangkat: formData.pangkat || undefined,
+                golongan: formData.golongan || undefined,
+                kesatuan: formData.kesatuan || undefined,
+                employeeType: formData.employeeType || undefined,
+                noRekening: formData.noRekening || undefined,
             };
 
             await membersApi.create(payload);
@@ -155,6 +165,65 @@ export default function TambahAnggotaPage() {
                                 <option value="Purnawirawan" />
                                 <option value="Polri" />
                             </datalist>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="pangkat">Pangkat</Label>
+                            <Input
+                                id="pangkat"
+                                name="pangkat"
+                                value={formData.pangkat}
+                                onChange={handleChange}
+                                placeholder="Contoh: IPTU"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="golongan">Golongan</Label>
+                            <Input
+                                id="golongan"
+                                name="golongan"
+                                value={formData.golongan}
+                                onChange={handleChange}
+                                placeholder="Contoh: III/b"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="kesatuan">Kesatuan</Label>
+                            <Input
+                                id="kesatuan"
+                                name="kesatuan"
+                                value={formData.kesatuan}
+                                onChange={handleChange}
+                                placeholder="Contoh: Sat Reskrim"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="employeeType">Jenis Pegawai</Label>
+                            <Select value={formData.employeeType} onValueChange={(v) => handleSelectChange("employeeType", v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih jenis pegawai" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="organik_polri">Polri</SelectItem>
+                                    <SelectItem value="pns_polri">PNS</SelectItem>
+                                    <SelectItem value="purnawirawan">Purnawirawan</SelectItem>
+                                    <SelectItem value="masyarakat_umum">Masyarakat Umum</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="noRekening">No. Rekening BRI</Label>
+                            <Input
+                                id="noRekening"
+                                name="noRekening"
+                                value={formData.noRekening}
+                                onChange={handleChange}
+                                placeholder="15 digit"
+                            />
                         </div>
                     </CardContent>
                 </Card>

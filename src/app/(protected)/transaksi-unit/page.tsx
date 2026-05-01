@@ -385,7 +385,7 @@ export default function TransaksiUnitPage() {
                                     { label: "Nama", value: member.name },
                                     { label: "NRP", value: member.nrp || "-" },
                                     { label: "No. Anggota", value: member.memberNo },
-                                    { label: "Kesatuan", value: (member as any).occupation || "-" },
+                                    { label: "Kesatuan", value: (member as any).kesatuan || (member as any).pangkat || "-" },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="grid grid-cols-3 gap-2 py-2 border-b">
                                         <div className="text-sm text-muted-foreground">{label}</div>

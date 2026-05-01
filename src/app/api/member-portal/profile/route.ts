@@ -39,7 +39,8 @@ export async function PUT(request: Request) {
         // Only allow updating personal info fields (not memberNo, branchId, status, etc.)
         const allowedFields = [
             "name", "nik", "gender", "birthDate", "birthPlace",
-            "maritalStatus", "religion", "education", "occupation",
+            "maritalStatus", "religion", "education", "pangkat",
+            "golongan", "kesatuan", "employeeType", "noRekening",
             "phone", "email", "address", "city", "province", "postalCode",
         ];
 
