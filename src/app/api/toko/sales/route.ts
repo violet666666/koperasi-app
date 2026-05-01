@@ -6,7 +6,7 @@ import { createNotification } from "@/lib/notifications";
 
 const ALLOWED_SALES_ROLES = ["admin", "operator", "super_admin", "kasir"];
 
-// GET /api/toko/sales - List sales with items
+// GET /api/toko/sales - List sales with items (server-side pagination + filters)
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -20,25 +20,71 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const limit = parseInt(searchParams.get("limit") || "100");
         const unitType = searchParams.get("unitType") || null;
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+        const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "25")));
+        const search = searchParams.get("search")?.trim() || null;
+        const paymentMethods = searchParams.get("paymentMethods")?.split(",").filter(Boolean) || null;
+        const showVoided = searchParams.get("showVoided") !== "false"; // default true
+        const shiftId = searchParams.get("shiftId") || null;
 
-        const sales = await prisma.storeSale.findMany({
-            where: {
-                ...(unitType && { unitType }),
-            },
-            include: {
-                items: {
-                    include: { product: { select: { id: true, sku: true, name: true } } },
+        // Build where clause
+        const where: Record<string, unknown> = {
+            ...(unitType && { unitType }),
+        };
+
+        // Filter voided sales
+        if (!showVoided) {
+            where.NOT = { metadata: { path: ["isVoided"], equals: true } };
+        }
+
+        // Filter by payment methods
+        if (paymentMethods && paymentMethods.length > 0) {
+            where.paymentMethod = { in: paymentMethods };
+        }
+
+        // Filter by shift
+        if (shiftId && shiftId !== "all") {
+            if (shiftId === "none") {
+                where.shiftId = null;
+            } else {
+                where.shiftId = Number(shiftId);
+            }
+        }
+
+        // Search filter — apply at DB level where possible, narrow with JS for item-level search
+        if (search) {
+            const lowered = search.toLowerCase();
+            where.OR = [
+                { saleNo: { contains: lowered, mode: "insensitive" } },
+                { customerName: { contains: lowered, mode: "insensitive" } },
+                { member: { name: { contains: lowered, mode: "insensitive" } } },
+                { createdBy: { name: { contains: lowered, mode: "insensitive" } } },
+                { cashierIdentity: { displayName: { contains: lowered, mode: "insensitive" } } },
+                { items: { some: { product: { name: { contains: lowered, mode: "insensitive" } } } } },
+            ];
+        }
+
+        const [sales, total] = await Promise.all([
+            prisma.storeSale.findMany({
+                where: where as any,
+                include: {
+                    items: {
+                        include: { product: { select: { id: true, sku: true, name: true } } },
+                    },
+                    createdBy: { select: { id: true, name: true } },
+                    member: { select: { id: true, name: true, memberNo: true } },
+                    shift: { select: { id: true, shiftName: true, status: true } },
+                    cashierIdentity: { select: { id: true, displayName: true } },
                 },
-                createdBy: { select: { id: true, name: true } },
-                member: { select: { id: true, name: true, memberNo: true } },
-                shift: { select: { id: true, shiftName: true, status: true } },
-                cashierIdentity: { select: { id: true, displayName: true } },
-            },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-        });
+                orderBy: { createdAt: "desc" },
+                skip: (page - 1) * perPage,
+                take: perPage,
+            }),
+            prisma.storeSale.count({ where: where as any }),
+        ]);
+
+        const totalPages = Math.max(1, Math.ceil(total / perPage));
 
         return NextResponse.json({
             data: sales.map((s: any) => ({
@@ -65,6 +111,12 @@ export async function GET(request: Request) {
                     subtotal: Number(i.subtotal),
                 })),
             })),
+            pagination: {
+                page,
+                perPage,
+                total,
+                totalPages,
+            },
         });
     } catch (error) {
         console.error("GET /api/toko/sales error:", error);

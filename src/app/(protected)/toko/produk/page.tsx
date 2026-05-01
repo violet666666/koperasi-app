@@ -22,6 +22,7 @@ import {
     Plus, Package, TrendingUp, AlertTriangle, Upload,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -67,6 +68,9 @@ export default function TokoProdukPage() {
     const [products, setProducts] = React.useState<Product[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState("");
+    const [totalProducts, setTotalProducts] = React.useState(0);
+    const [page, setPage] = React.useState(1);
+    const perPage = 50;
 
     // Inline edit state
     const [editingId, setEditingId] = React.useState<number | null>(null);
@@ -129,6 +133,7 @@ export default function TokoProdukPage() {
             setEditingCategory(null);
             setNewCategoryName("");
             fetchCategories();
+            fetchCategoriesList();
             fetchProducts();
         } catch { toast.error("Gagal mengubah kategori"); }
         finally { setIsCategoryProcessing(false); }
@@ -146,6 +151,7 @@ export default function TokoProdukPage() {
             if (!res.ok) { toast.error(json.message); return; }
             toast.success(json.message);
             fetchCategories();
+            fetchCategoriesList();
             fetchProducts();
         } catch { toast.error("Gagal menghapus kategori"); }
         finally { setIsCategoryProcessing(false); }
@@ -188,34 +194,55 @@ export default function TokoProdukPage() {
 
     // Stats
     const stats = React.useMemo(() => {
-        const total = products.length;
+        const total = totalProducts;
         const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
         const outOfStock = products.filter(p => getStatus(p) === "out_of_stock").length;
         const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
         return { total, totalStock, outOfStock, totalValue };
-    }, [products]);
+    }, [products, totalProducts]);
 
     // Fetch
     const fetchProducts = React.useCallback(async () => {
         try {
-            const res = await fetch(`/api/toko/products?unitType=${productUnitType}`);
+            const params = new URLSearchParams({ unitType: productUnitType, page: String(page), perPage: String(perPage) });
+            if (searchQuery) params.set("search", searchQuery);
+            if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
+            const res = await fetch(`/api/toko/products?${params}`);
             if (!res.ok) throw new Error('Failed');
             const result = await res.json();
-            setProducts(mapProducts(result.data || []));
+            setProducts(mapProducts(result.data?.products || []));
+            setTotalProducts(result.data?.pagination?.totalCount || 0);
         } catch (error) {
             console.error("Failed to fetch products:", error);
         }
-    }, [productUnitType]);
+    }, [productUnitType, page, searchQuery, filterCategory]);
 
     React.useEffect(() => {
         setIsLoading(true);
         fetchProducts().finally(() => setIsLoading(false));
     }, [fetchProducts]);
 
-    const categories = React.useMemo(() => {
-        const cats = new Set(products.map(p => p.category).filter(Boolean));
-        return Array.from(cats);
-    }, [products]);
+    // Reset page when filters change
+    React.useEffect(() => {
+        setPage(1);
+    }, [searchQuery, filterCategory, filterStatus]);
+
+    const [categories, setCategories] = React.useState<string[]>([]);
+
+    // Fetch categories list separately (not from paginated products)
+    const fetchCategoriesList = React.useCallback(async () => {
+        try {
+            const res = await fetch(`/api/toko/products/categories?unitType=${productUnitType}`);
+            const json = await res.json();
+            if (res.ok) {
+                setCategories((json.data || []).map((c: { name: string }) => c.name));
+            }
+        } catch {}
+    }, [productUnitType]);
+
+    React.useEffect(() => {
+        fetchCategoriesList();
+    }, [fetchCategoriesList]);
 
     const unitList = React.useMemo(() => {
         const units = new Set(products.map(p => p.unit).filter(Boolean));
@@ -224,15 +251,11 @@ export default function TokoProdukPage() {
 
     const filteredProducts = React.useMemo(() => {
         return products.filter(p => {
-            const matchCat = filterCategory === "all" || p.category === filterCategory;
             const status = getStatus(p);
             const matchStatus = filterStatus === "all" || status === filterStatus;
-            const matchSearch = !searchQuery ||
-                p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.sku.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchCat && matchStatus && matchSearch;
+            return matchStatus;
         });
-    }, [products, filterCategory, filterStatus, searchQuery]);
+    }, [products, filterStatus]);
 
     // ── Inline Edit ──
     const startEdit = (product: Product) => {
@@ -821,9 +844,31 @@ export default function TokoProdukPage() {
                             </TableBody>
                         </Table>
                     </div>
-                    {filteredProducts.length > 0 && (
-                        <div className="px-4 py-2 border-t text-xs text-muted-foreground">
-                            Menampilkan {filteredProducts.length} dari {products.length} produk
+                    {totalProducts > 0 && (
+                        <div className="px-4 py-2 border-t flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-xs text-muted-foreground">
+                                Menampilkan {((page - 1) * perPage) + 1} - {Math.min(page * perPage, totalProducts)} dari {totalProducts} produk
+                            </div>
+                            {(() => {
+                                const totalPages = Math.max(1, Math.ceil(totalProducts / perPage));
+                                return totalPages > 1 ? (
+                                    <div className="flex items-center gap-1">
+                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(1)} disabled={page <= 1}>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <span className="px-2 text-sm tabular-nums">{page} / {totalPages}</span>
+                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(totalPages)} disabled={page >= totalPages}>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : null;
+                            })()}
                         </div>
                     )}
                 </Card>

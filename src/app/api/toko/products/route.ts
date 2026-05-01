@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// GET /api/toko/products - List store products
+// GET /api/toko/products - List store products (with server-side pagination)
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -13,42 +13,69 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
         const unitType = searchParams.get("unitType") || null;
+        const category = searchParams.get("category") || null;
+        const pageParam = searchParams.get("page");
+        const perPageParam = searchParams.get("perPage");
+        const isPaginated = !!pageParam || !!perPageParam;
+        const page = Math.max(1, parseInt(pageParam || "1"));
+        const perPage = Math.min(200, Math.max(1, parseInt(perPageParam || "50")));
 
-        const products = await prisma.storeProduct.findMany({
-            where: {
-                deletedAt: null,
-                isActive: true,
-                ...(unitType && { unitType: unitType }),
-                ...(search && {
-                    OR: [
-                        { name: { contains: search, mode: "insensitive" as const } },
-                        { sku: { contains: search, mode: "insensitive" as const } },
-                    ],
-                }),
-            },
-            orderBy: { name: "asc" },
-        });
+        const where = {
+            deletedAt: null,
+            isActive: true,
+            ...(unitType && { unitType: unitType }),
+            ...(category && category !== "all" && { category }),
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: "insensitive" as const } },
+                    { sku: { contains: search, mode: "insensitive" as const } },
+                ],
+            }),
+        };
 
-        return NextResponse.json({
-            data: products.map((p) => ({
-                id: p.id,
-                sku: p.sku,
-                name: p.name,
-                category: p.category,
-                imageUrl: p.imageUrl,
-                price: Number(p.sellPrice),
-                discountType: p.discountType,
-                discountValue: Number(p.discountValue),
-                costPrice: Number(p.costPrice),
-                stock: p.stockGdg + p.stockToko, // Selalu hitung total dari Gdg + Toko
-                stockGdg: p.stockGdg,
-                stockToko: p.stockToko,
-                minStock: p.minStock,
-                unit: p.unit,
-                isService: p.isService,
-                unitType: p.unitType,
-            })),
-        });
+        const queryOptions = {
+            where,
+            orderBy: { name: "asc" } as const,
+            ...(isPaginated && { skip: (page - 1) * perPage, take: perPage }),
+        };
+
+        const [products, totalCount] = await Promise.all([
+            prisma.storeProduct.findMany(queryOptions),
+            isPaginated ? prisma.storeProduct.count({ where }) : Promise.resolve(0),
+        ]);
+
+        const mapped = products.map((p) => ({
+            id: p.id,
+            sku: p.sku,
+            name: p.name,
+            category: p.category,
+            imageUrl: p.imageUrl,
+            price: Number(p.sellPrice),
+            discountType: p.discountType,
+            discountValue: Number(p.discountValue),
+            costPrice: Number(p.costPrice),
+            stock: p.stockGdg + p.stockToko,
+            stockGdg: p.stockGdg,
+            stockToko: p.stockToko,
+            minStock: p.minStock,
+            unit: p.unit,
+            isService: p.isService,
+            unitType: p.unitType,
+        }));
+
+        // Backward-compatible: paginated requests return { data: { products, pagination } }
+        // Non-paginated requests return { data: [...] } (original format)
+        if (isPaginated) {
+            const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+            return NextResponse.json({
+                data: {
+                    products: mapped,
+                    pagination: { page, perPage, totalCount, totalPages },
+                },
+            });
+        }
+
+        return NextResponse.json({ data: mapped });
     } catch (error) {
         console.error("GET /api/toko/products error:", error);
         return NextResponse.json(

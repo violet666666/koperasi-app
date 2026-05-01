@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
     Search, ShoppingBag, Eye, Banknote, CreditCard, QrCode,
-    Calendar, User, Package, Receipt, Printer,
+    Calendar, User, Package, Receipt, Printer, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useSession } from "next-auth/react";
@@ -78,18 +78,133 @@ const paymentMethodColor = (m: string) => {
     }
 };
 
+interface PaginationInfo {
+    page: number;
+    perPage: number;
+    total: number;
+    totalPages: number;
+}
+
+interface StatsData {
+    totalSalesCount: number;
+    todaySalesCount: number;
+    todaySales: number;
+    todayItemsSold: number;
+}
+
 export default function RiwayatTransaksiPage() {
     const { data: session } = useSession();
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
 
+    // Pagination state
+    const [page, setPage] = React.useState(1);
+    const perPage = 25;
+
+    // Data state
     const [sales, setSales] = React.useState<Sale[]>([]);
+    const [pagination, setPagination] = React.useState<PaginationInfo>({ page: 1, perPage, total: 0, totalPages: 1 });
     const [isLoading, setIsLoading] = React.useState(true);
+
+    // Stats from /api/toko/stats
+    const [stats, setStats] = React.useState<StatsData>({
+        totalSalesCount: 0,
+        todaySalesCount: 0,
+        todaySales: 0,
+        todayItemsSold: 0,
+    });
+
+    // Filter state
     const [searchQuery, setSearchQuery] = React.useState("");
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
     const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
     const [showVoided, setShowVoided] = React.useState(true);
     const [shiftFilter, setShiftFilter] = React.useState<string>("all");
     const [availableShifts, setAvailableShifts] = React.useState<{ id: number; shiftName: string; startedAt: string; status: string }[]>([]);
+
+    const [selectedSale, setSelectedSale] = React.useState<Sale | null>(null);
+    const [detailOpen, setDetailOpen] = React.useState(false);
+
+    // Debounce search input
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, methodFilters, showVoided, shiftFilter]);
+
+    // Fetch stats once on mount
+    React.useEffect(() => {
+        async function fetchStats() {
+            try {
+                const res = await fetch(`/api/toko/stats?unitType=${unitType}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    const d = json.data;
+                    setStats({
+                        totalSalesCount: d.totalSalesCount || 0,
+                        todaySalesCount: d.todaySalesCount || 0,
+                        todaySales: d.todaySales || 0,
+                        todayItemsSold: d.todayItemsSold || 0,
+                    });
+                }
+            } catch { /* non-critical */ }
+        }
+        fetchStats();
+    }, [unitType]);
+
+    // Fetch shifts once on mount
+    React.useEffect(() => {
+        async function fetchShifts() {
+            try {
+                const res = await fetch(`/api/toko/shifts?unitType=${unitType}&limit=50`);
+                if (res.ok) {
+                    const json = await res.json();
+                    setAvailableShifts((json.data || []).map((s: Record<string, unknown>) => ({
+                        id: s.id as number,
+                        shiftName: s.shiftName as string,
+                        startedAt: s.startedAt as string,
+                        status: s.status as string,
+                    })));
+                }
+            } catch { /* non-critical */ }
+        }
+        fetchShifts();
+    }, [unitType]);
+
+    // Fetch paginated sales whenever page or filters change
+    React.useEffect(() => {
+        async function fetchSales() {
+            setIsLoading(true);
+            try {
+                const methods = Array.from(methodFilters).join(",");
+                const params = new URLSearchParams({
+                    unitType,
+                    page: String(page),
+                    perPage: String(perPage),
+                    ...(debouncedSearch && { search: debouncedSearch }),
+                    ...(methods && { paymentMethods: methods }),
+                    ...(!showVoided && { showVoided: "false" }),
+                    ...(shiftFilter !== "all" && { shiftId: shiftFilter }),
+                });
+                const res = await fetch(`/api/toko/sales?${params}`);
+                if (!res.ok) throw new Error();
+                const json = await res.json();
+                setSales(json.data || []);
+                setPagination(json.pagination || { page: 1, perPage, total: 0, totalPages: 1 });
+            } catch {
+                toast.error("Gagal memuat riwayat transaksi");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchSales();
+    }, [unitType, page, debouncedSearch, methodFilters, showVoided, shiftFilter]);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {
@@ -99,68 +214,6 @@ export default function RiwayatTransaksiPage() {
             return next;
         });
     };
-    const [selectedSale, setSelectedSale] = React.useState<Sale | null>(null);
-    const [detailOpen, setDetailOpen] = React.useState(false);
-
-    React.useEffect(() => {
-        async function fetchSales() {
-            setIsLoading(true);
-            try {
-                const [salesRes, shiftsRes] = await Promise.all([
-                    fetch(`/api/toko/sales?unitType=${unitType}&limit=500`),
-                    fetch(`/api/toko/shifts?unitType=${unitType}&limit=50`),
-                ]);
-                if (!salesRes.ok) throw new Error();
-                const salesJson = await salesRes.json();
-                setSales(salesJson.data || []);
-                if (shiftsRes.ok) {
-                    const shiftsJson = await shiftsRes.json();
-                    setAvailableShifts((shiftsJson.data || []).map((s: any) => ({
-                        id: s.id,
-                        shiftName: s.shiftName,
-                        startedAt: s.startedAt,
-                        status: s.status,
-                    })));
-                }
-            } catch {
-                toast.error("Gagal memuat riwayat transaksi");
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchSales();
-    }, [unitType]);
-
-    const filtered = React.useMemo(() => {
-        return sales.filter(s => {
-            const voided = s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;
-            if (!showVoided && voided) return false;
-            const matchSearch = !searchQuery ||
-                s.saleNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (s.customerName && s.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (s.member?.name && s.member.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (s.cashierDisplayName && s.cashierDisplayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (s.createdBy?.name && s.createdBy.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                s.items.some(i => (i.product?.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
-            const matchMethod = methodFilters.has(s.paymentMethod);
-            const matchShift = shiftFilter === "all"
-                || (shiftFilter === "none" && !s.shiftId)
-                || (shiftFilter !== "none" && s.shiftId === Number(shiftFilter));
-            return matchSearch && matchMethod && matchShift;
-        });
-    }, [sales, searchQuery, methodFilters, showVoided, shiftFilter]);
-
-    const stats = React.useMemo(() => {
-        const activeSales = sales.filter(s => !(s.metadata && typeof s.metadata === "object" && s.metadata.isVoided));
-        const today = new Date().toDateString();
-        const todaySales = activeSales.filter(s => new Date(s.createdAt).toDateString() === today);
-        return {
-            totalTransactions: activeSales.length,
-            todayTransactions: todaySales.length,
-            todayRevenue: todaySales.reduce((sum, s) => sum + s.totalAmount, 0),
-            todayItems: todaySales.reduce((sum, s) => sum + s.items.reduce((is, i) => is + i.quantity, 0), 0),
-        };
-    }, [sales]);
 
     const openDetail = (sale: Sale) => {
         setSelectedSale(sale);
@@ -203,19 +256,19 @@ export default function RiwayatTransaksiPage() {
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-primary/10 p-3"><Receipt className="h-5 w-5 text-primary" /></div>
-                    <div><p className="text-sm text-muted-foreground">Total Transaksi</p><p className="text-2xl font-bold">{stats.totalTransactions}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Total Transaksi</p><p className="text-2xl font-bold">{stats.totalSalesCount.toLocaleString("id-ID")}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><ShoppingBag className="h-5 w-5 text-emerald-600" /></div>
-                    <div><p className="text-sm text-muted-foreground">Hari Ini</p><p className="text-2xl font-bold text-emerald-600">{stats.todayTransactions} trx</p></div>
+                    <div><p className="text-sm text-muted-foreground">Hari Ini</p><p className="text-2xl font-bold text-emerald-600">{stats.todaySalesCount} trx</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/30"><Banknote className="h-5 w-5 text-blue-600" /></div>
-                    <div><p className="text-sm text-muted-foreground">Pendapatan Hari Ini</p><p className="text-lg font-bold text-blue-600">{formatCurrency(stats.todayRevenue)}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Pendapatan Hari Ini</p><p className="text-lg font-bold text-blue-600">{formatCurrency(stats.todaySales)}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-4 p-4">
                     <div className="rounded-lg bg-orange-100 p-3 dark:bg-orange-900/30"><Package className="h-5 w-5 text-orange-600" /></div>
-                    <div><p className="text-sm text-muted-foreground">Item Terjual Hari Ini</p><p className="text-2xl font-bold text-orange-600">{stats.todayItems} <span className="text-sm font-normal">pcs</span></p></div>
+                    <div><p className="text-sm text-muted-foreground">Item Terjual Hari Ini</p><p className="text-2xl font-bold text-orange-600">{stats.todayItemsSold} <span className="text-sm font-normal">pcs</span></p></div>
                 </CardContent></Card>
             </div>
 
@@ -295,14 +348,14 @@ export default function RiwayatTransaksiPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filtered.length === 0 ? (
+                                {sales.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={9} className="text-center text-muted-foreground py-10"
                                             >
-                                            {searchQuery ? "Transaksi tidak ditemukan" : "Belum ada transaksi"}
+                                            {debouncedSearch ? "Transaksi tidak ditemukan" : "Belum ada transaksi"}
                                         </TableCell>
                                     </TableRow>
-                                ) : filtered.map(sale => {
+                                ) : sales.map(sale => {
                                     const voided = isVoided(sale);
                                     return (
                                         <TableRow
@@ -378,11 +431,37 @@ export default function RiwayatTransaksiPage() {
                             </TableBody>
                         </Table>
                     </div>
-                    {filtered.length > 0 && (
-                        <div className="px-4 py-2 border-t text-xs text-muted-foreground">
-                            Menampilkan {filtered.length} dari {sales.length} transaksi
+                    {/* Pagination Footer */}
+                    <div className="px-4 py-3 border-t flex flex-col sm:flex-row items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            Menampilkan {sales.length > 0 ? ((pagination.page - 1) * pagination.perPage) + 1 : 0}–{((pagination.page - 1) * pagination.perPage) + sales.length} dari {pagination.total.toLocaleString("id-ID")} transaksi
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1"
+                                disabled={page <= 1 || isLoading}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Sebelumnya
+                            </Button>
+                            <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">
+                                {pagination.page} / {pagination.totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1"
+                                disabled={page >= pagination.totalPages || isLoading}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                            >
+                                Selanjutnya
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
                         </div>
-                    )}
+                    </div>
                 </Card>
             )}
 

@@ -127,6 +127,11 @@ export default function PersediaanPage() {
     const [isVoiding, setIsVoiding] = React.useState(false);
     const [voidReason, setVoidReason] = React.useState("");
 
+    // Pagination state for movements
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(50);
+    const [totalRows, setTotalRows] = React.useState(0);
+
     // Role check — kasir tidak bisa void
     const roleName = typeof session?.user?.role === "string" 
          ? session.user.role 
@@ -136,6 +141,9 @@ export default function PersediaanPage() {
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
     const productUnitType = isResto ? "resto" : unitType;
+
+    // Filter state
+    const [filterType, setFilterType] = React.useState<string>("all");
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -147,39 +155,40 @@ export default function PersediaanPage() {
         return { todayIn, todayOut, totalMovements: activeMovements.length, voidedCount };
     }, [movements]);
 
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                // Fetch stock movements directly from DB
-                const [movementsRes, productsRes] = await Promise.all([
-                    fetch("/api/toko/movements"),
-                    fetch(`/api/toko/products?unitType=${productUnitType}`),
-                ]);
+    const fetchMovements = React.useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+            if (filterType && filterType !== "all") params.set("type", filterType);
+            // Fetch stock movements from DB with pagination
+            const [movementsRes, productsRes] = await Promise.all([
+                fetch(`/api/toko/movements?${params}`),
+                fetch(`/api/toko/products?unitType=${productUnitType}`),
+            ]);
 
-                const productsJson = await productsRes.json();
-                setProducts(productsJson.data || []);
+            const productsJson = await productsRes.json();
+            setProducts(productsJson.data?.products || productsJson.data || []);
 
-                if (movementsRes.ok) {
-                    const movementsJson = await movementsRes.json();
-                    setMovements(movementsJson.data || []);
-                }
-            } catch (error) {
-                console.error("Failed to fetch:", error);
-            } finally {
-                setIsLoading(false);
+            if (movementsRes.ok) {
+                const movementsJson = await movementsRes.json();
+                setMovements(movementsJson.data || []);
+                setTotalRows(movementsJson.pagination?.totalCount || 0);
             }
+        } catch (error) {
+            console.error("Failed to fetch:", error);
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
-    }, []);
+    }, [page, perPage, filterType, productUnitType]);
 
-    // Filter states
-    const [filterType, setFilterType] = React.useState<string>("all");
+    React.useEffect(() => {
+        fetchMovements();
+    }, [fetchMovements]);
 
-    // Derived filtered data
-    const filteredMovements = React.useMemo(() => {
-        return movements.filter(m => filterType === "all" || m.type === filterType);
-    }, [movements, filterType]);
+    // Reset page when filter or perPage changes
+    React.useEffect(() => {
+        setPage(1);
+    }, [filterType, perPage]);
 
     // Void handler
     const handleVoidClick = (id: number) => {
@@ -202,13 +211,8 @@ export default function PersediaanPage() {
                 return;
             }
             toast.success(json.message || "Mutasi berhasil dibatalkan");
-            // Refresh data
-            const [movementsRes, productsRes] = await Promise.all([
-                fetch("/api/toko/movements"),
-                fetch(`/api/toko/products?unitType=${productUnitType}`),
-            ]);
-            if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
-            if (productsRes.ok) setProducts((await productsRes.json()).data || []);
+            // Refresh data with current pagination state
+            await fetchMovements();
         } catch {
             toast.error("Gagal membatalkan mutasi");
         } finally {
@@ -264,12 +268,7 @@ export default function PersediaanPage() {
             toast.success(json.message || `Stok ${movementType === "in" ? "masuk" : "keluar"} berhasil dicatat`);
 
             // Refresh daftar agar data terbaru tampil
-            const [productsRes, movementsRes] = await Promise.all([
-                 fetch(`/api/toko/products?unitType=${productUnitType}`),
-                 fetch("/api/toko/movements")
-            ]);
-            if (productsRes.ok) setProducts((await productsRes.json()).data || []);
-            if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+            await fetchMovements();
 
             setDialogOpen(false);
             setFormData({ productId: "", quantity: "", notes: "", purchasePrice: "", batchNo: "", expiryDate: "", supplierName: "" });
@@ -434,10 +433,26 @@ export default function PersediaanPage() {
                                 <option value="out">Hanya Stok Keluar</option>
                             </select>
                         </div>
-                        <DataTable 
-                           columns={columns} 
-                           data={filteredMovements} 
-                           searchPlaceholder="Scan barcode atau cari produk..." 
+                        <DataTable
+                           columns={columns}
+                           data={movements}
+                           searchPlaceholder="Scan barcode atau cari produk..."
+                           pageSize={perPage}
+                           manualPagination={true}
+                           pageCount={Math.max(1, Math.ceil(totalRows / perPage))}
+                           pagination={{ pageIndex: page - 1, pageSize: perPage }}
+                           onPaginationChange={(updater: unknown) => {
+                               const newPagination = typeof updater === "function"
+                                   ? updater({ pageIndex: page - 1, pageSize: perPage })
+                                   : updater;
+                               const np = newPagination as { pageIndex: number; pageSize: number };
+                               setPage(np.pageIndex + 1);
+                               if (np.pageSize !== perPage) {
+                                   setPerPage(np.pageSize);
+                                   setPage(1);
+                               }
+                           }}
+                           totalRows={totalRows}
                         />
                     </div>
                 </>
@@ -571,13 +586,8 @@ export default function PersediaanPage() {
                                     setTransferProductId("");
                                     setTransferQty("");
                                     setTransferNotes("");
-                                    // Refresh
-                                    const [productsRes, movementsRes] = await Promise.all([
-                                        fetch(`/api/toko/products?unitType=${productUnitType}`),
-                                        fetch("/api/toko/movements"),
-                                    ]);
-                                    if (productsRes.ok) setProducts((await productsRes.json()).data || []);
-                                    if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+                                    // Refresh with current pagination state
+                                    await fetchMovements();
                                 } catch {
                                     toast.error("Gagal transfer stok");
                                 } finally {
@@ -716,12 +726,8 @@ export default function PersediaanPage() {
                                     toast.success(json.message);
                                     setWriteoffDialogOpen(false);
                                     setWriteoffData({ productId: "", quantity: "", reason: "", reasonNote: "", notes: "", location: "gudang" });
-                                    const [productsRes, movementsRes] = await Promise.all([
-                                        fetch(`/api/toko/products?unitType=${productUnitType}`),
-                                        fetch("/api/toko/movements"),
-                                    ]);
-                                    if (productsRes.ok) setProducts((await productsRes.json()).data || []);
-                                    if (movementsRes.ok) setMovements((await movementsRes.json()).data || []);
+                                    // Refresh with current pagination state
+                                    await fetchMovements();
                                 } catch { toast.error("Gagal mencatat stok keluar"); }
                                 finally { setIsWriteoffSubmitting(false); }
                             }}
