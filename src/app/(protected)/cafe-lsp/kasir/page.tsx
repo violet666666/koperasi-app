@@ -146,12 +146,10 @@ export default function CafeLspKasirPage() {
     React.useEffect(() => {
         async function fetchQueueCount() {
             try {
-                const today = new Date();
-                const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&from=${start}`);
+                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1`);
                 const json = await res.json();
-                const count = (json.data || []).length + 1;
-                setNextQueueNumber(`A${String(count).padStart(3, "0")}`);
+                const total = json.pagination?.total || 0;
+                setNextQueueNumber(`A${String(total + 1).padStart(3, "0")}`);
             } catch { setNextQueueNumber("A001"); }
         }
         fetchQueueCount();

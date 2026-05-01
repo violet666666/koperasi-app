@@ -264,7 +264,7 @@ export default function MarketingPage() {
             <PageHeader
                 title={isResto ? "Promo Menu Resto" : "Promo & Diskon"}
                 description={isResto ? "Kelola diskon dan promosi menu resto" : "Kelola diskon dan promosi produk toko PRIMKOPPOL"}
-                backHref={isResto ? "/resto/kasir" : "/toko"}
+                backHref={isResto ? "/resto/kasir" : unitType === "cafe_lsp" ? "/cafe-lsp/kasir" : "/toko"}
             />
 
             {/* Stats Cards */}

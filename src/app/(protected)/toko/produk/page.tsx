@@ -57,6 +57,7 @@ export default function TokoProdukPage() {
         resto: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Resto", itemName: "Menu" },
         resto_cafe: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Resto", itemName: "Menu" },
         coffe_latar: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Cafe", itemName: "Menu" },
+        cafe_lsp: { title: "Manajemen Menu", desc: "Kelola menu makanan & minuman Cafe LSP", itemName: "Menu" },
         barbershop: { title: "Manajemen Layanan", desc: "Kelola layanan pangkas rambut", itemName: "Layanan" },
         playstation: { title: "Manajemen Produk & Jasa", desc: "Kelola produk snack & jasa rental PS", itemName: "Produk" },
         fitness: { title: "Manajemen Layanan", desc: "Kelola paket gym & fitness", itemName: "Layanan" },
