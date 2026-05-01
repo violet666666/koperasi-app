@@ -27,6 +27,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "file dan unitType wajib diisi" }, { status: 400 });
         }
 
+        // Unit isolation: admin hanya bisa upload QRIS untuk unit sendiri
+        const hasManageAll = session.user.permissions?.includes("manage_all");
+        const userUnitType = (session.user as any).unitType as string | undefined;
+        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
+        }
+
         // Validate size
         if (file.size > MAX_SIZE_BYTES) {
             return NextResponse.json({ message: "Ukuran file maksimal 4MB" }, { status: 400 });
@@ -84,6 +91,13 @@ export async function DELETE(request: Request) {
 
         if (!unitType) {
             return NextResponse.json({ message: "unitType wajib diisi" }, { status: 400 });
+        }
+
+        // Unit isolation: admin hanya bisa hapus QRIS untuk unit sendiri
+        const hasManageAll = session.user.permissions?.includes("manage_all");
+        const userUnitType = (session.user as any).unitType as string | undefined;
+        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
         }
 
         const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();

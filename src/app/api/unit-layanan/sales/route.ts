@@ -69,6 +69,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: `unitType '${unitType}' tidak valid` }, { status: 400 });
         }
 
+        // Unit isolation: kasir/admin hanya boleh transaksi di unit sendiri
+        const userUnitType = (session.user as any).unitType as string | undefined;
+        const hasManageAll = session.user.permissions?.includes("manage_all");
+        if (!hasManageAll && userUnitType && userUnitType !== unitType) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
+        }
+
         // Normalisasi payment method
         let method = paymentMethod;
         if (method === "credit") method = "salary_cut";

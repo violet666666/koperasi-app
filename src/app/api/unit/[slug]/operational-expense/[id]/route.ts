@@ -205,6 +205,16 @@ export async function PUT(
                 });
 
                 receiptImagePath = `/api/uploads/${uploadedFile.id}`;
+
+                // Clean up old receipt file if replacing
+                if (oldReceiptPath) {
+                    const oldFileIdMatch = oldReceiptPath.match(/\/api\/uploads\/(\d+)/);
+                    if (oldFileIdMatch) {
+                        await tx.uploadedFile.deleteMany({
+                            where: { id: parseInt(oldFileIdMatch[1]) },
+                        }).catch(() => {});
+                    }
+                }
             }
 
             // Because this is an OUT payment, its net impact was -oldAmount

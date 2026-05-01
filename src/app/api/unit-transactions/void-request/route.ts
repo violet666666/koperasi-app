@@ -44,7 +44,8 @@ export async function POST(request: Request) {
         }
 
         const currentUserId = parseInt(session.user.id);
-        const isOperator = session.user.role === "operator" || session.user.permissions?.includes("manage_all");
+        const isOperator = ["operator", "admin", "super_admin"].includes(session.user.role)
+            || session.user.permissions?.includes("manage_all");
         const now = new Date();
         
         let branchIdToUse = session.user.branchId || 1;
@@ -282,9 +283,9 @@ export async function POST(request: Request) {
             const hashInput = `${transaction.member?.nrp || "UMUM"}-${-Number(transaction.amount)}-${contraNo}-${now.toISOString()}`;
             const securityHash = crypto.createHash("sha256").update(hashInput).digest("hex");
 
-            await prisma.$transaction([
+            await prisma.$transaction(async (tx) => {
                 // 1. Buat Contra-Entry (nilai negatif)
-                prisma.unitTransaction.create({
+                await tx.unitTransaction.create({
                     data: {
                         transactionNo: contraNo,
                         memberId: transaction.memberId,
@@ -305,13 +306,82 @@ export async function POST(request: Request) {
                         securityHash,
                         createdById: currentUserId,
                     },
-                }),
+                });
+
                 // 2. Update status transaksi asli = voided
-                prisma.unitTransaction.update({
+                await tx.unitTransaction.update({
                     where: { id: transaction.id },
                     data: { status: "voided", voidReason: reason, voidedById: currentUserId, voidedAt: now },
-                })
-            ]);
+                });
+
+                // 3. Reverse Journal entry jika ada
+                const originalJournal = await tx.journal.findFirst({
+                    where: { description: { contains: transaction.transactionNo }, sourceType: "unit_transaction" },
+                    include: { lines: true },
+                });
+                if (originalJournal) {
+                    const headOffice = await tx.branch.findFirst({ where: { isHeadOffice: true } });
+                    const currentPeriod = await tx.fiscalPeriod.findFirst({
+                        where: { status: "open", startDate: { lte: now }, endDate: { gte: now } },
+                    });
+                    if (headOffice && currentPeriod) {
+                        const reverseJournal = await tx.journal.create({
+                            data: {
+                                journalNo: `RV-${Date.now().toString(36).toUpperCase()}`,
+                                branchId: headOffice.id,
+                                transactionDate: now,
+                                description: `[VOID] Pembalik ${originalJournal.journalNo} - ${transaction.transactionNo}`,
+                                sourceType: "unit_void",
+                                periodId: currentPeriod.id,
+                                isPosted: true,
+                                createdById: currentUserId,
+                            },
+                        });
+                        await tx.journalLine.createMany({
+                            data: originalJournal.lines.map((line: any) => ({
+                                journalId: reverseJournal.id,
+                                accountId: line.accountId,
+                                debit: Number(line.credit),
+                                credit: Number(line.debit),
+                                description: `[VOID] ${line.description}`,
+                            })),
+                        });
+                    }
+                }
+
+                // 4. Reverse Cash/Bank untuk transaksi cash/QRIS
+                if (transaction.paymentMethod === "cash" || transaction.paymentMethod === "qris") {
+                    const originalCashTx = await tx.cashBankTransaction.findFirst({
+                        where: { description: { contains: transaction.transactionNo } },
+                    });
+                    if (originalCashTx) {
+                        const voidAmount = Number(transaction.amount);
+                        // Atomic decrement
+                        const updatedAccount = await tx.cashBankAccount.update({
+                            where: { id: originalCashTx.accountId },
+                            data: { currentBalance: { decrement: voidAmount } },
+                        });
+                        const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
+
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `VOID-${UNIT_ABBR[transaction.unitType] || "UT"}-${Date.now().toString(36).toUpperCase()}`,
+                                accountId: originalCashTx.accountId,
+                                branchId: originalCashTx.branchId,
+                                type: "out",
+                                category: "void_unit_transaction",
+                                amount: voidAmount,
+                                balanceBefore,
+                                balanceAfter: Number(updatedAccount.currentBalance),
+                                unitType: transaction.unitType,
+                                description: `[VOID] Pembatalan ${transaction.transactionNo}`,
+                                transactionDate: now,
+                                createdById: currentUserId,
+                            },
+                        });
+                    }
+                }
+            });
 
             return NextResponse.json({
                 message: "Permintaan Void berhasil disetujui secara otomatis (Bypass Admin).",

@@ -11,7 +11,26 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const unitType = url.searchParams.get("unitType") || (session.user as any).unitType;
+    const requestedUnitType = url.searchParams.get("unitType");
+    const userUnitType = (session.user as any).unitType as string | undefined;
+    const roleName = session.user.role;
+    const hasManageAll = session.user.permissions?.includes("manage_all");
+
+    // Role check: anggota tidak boleh akses stats
+    if (roleName === "anggota") {
+        return NextResponse.json({ message: "Akses ditolak." }, { status: 403 });
+    }
+
+    // Unit isolation: non-operator hanya lihat unit sendiri
+    let unitType: string;
+    if (hasManageAll) {
+        unitType = requestedUnitType || userUnitType || "";
+    } else {
+        unitType = userUnitType || "";
+        if (requestedUnitType && requestedUnitType !== unitType) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
+        }
+    }
 
     if (!unitType) {
         return NextResponse.json({ message: "unitType diperlukan" }, { status: 400 });
@@ -77,7 +96,9 @@ export async function GET(request: Request) {
             + todayStoreSales.filter(s => s.paymentMethod === "qris").reduce((s, t) => s + Number(t.totalAmount), 0);
         // Hanya hitung potong gaji yang bukan pending_void (sudah exclude voided di query)
         const todaySalaryCut = todayTrx.filter(t => t.paymentMethod === "salary_cut" && t.status !== "pending_void")
-            .reduce((s, t) => s + Number(t.amount), 0);
+            .reduce((s, t) => s + Number(t.amount), 0)
+            + todayStoreSales.filter(s => s.paymentMethod === "salary_cut")
+            .reduce((s, t) => s + Number(t.totalAmount), 0);
         // Total = Cash + QRIS + SalaryCut (konsisten, tidak include transaksi yang tidak terkategori)
         const todayTotal = todayCash + todayQris + todaySalaryCut;
         const todayCount = todayTrx.length + todayStoreSales.length;

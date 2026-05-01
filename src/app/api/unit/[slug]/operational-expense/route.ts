@@ -189,11 +189,17 @@ export async function GET(
         const slug = params.slug;
         const unitType = slug.replace(/-/g, "_");
 
+        // RBAC: same as POST — admin unit or operator only
+        const access = await checkAccess(slug);
+        if (!access.authorized) {
+            return NextResponse.json({ message: "Hanya Admin Unit atau Operator yang dapat melihat pengeluaran." }, { status: 403 });
+        }
+
         const expenses = await prisma.cashBankTransaction.findMany({
             where: {
                 type: "out",
                 category: "operational",
-                description: { contains: `[${unitType.toUpperCase()}]` },
+                unitType: unitType,
             },
             orderBy: { transactionDate: "desc" },
             take: 100,
