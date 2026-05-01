@@ -147,13 +147,11 @@ export default function PersediaanPage() {
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
-        const activeMovements = movements.filter(m => m.status !== "voided");
-        const todayMovements = activeMovements.filter(m => new Date(m.date).toDateString() === today);
+        const todayMovements = movements.filter(m => m.status !== "voided" && new Date(m.date).toDateString() === today);
         const todayIn = todayMovements.filter(m => m.type === "in").reduce((sum, m) => sum + m.quantity, 0);
         const todayOut = todayMovements.filter(m => m.type === "out").reduce((sum, m) => sum + m.quantity, 0);
-        const voidedCount = movements.filter(m => m.status === "voided").length;
-        return { todayIn, todayOut, totalMovements: activeMovements.length, voidedCount };
-    }, [movements]);
+        return { todayIn, todayOut, totalMovements: totalRows };
+    }, [movements, totalRows]);
 
     const fetchMovements = React.useCallback(async () => {
         setIsLoading(true);

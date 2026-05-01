@@ -15,8 +15,8 @@ export async function GET(request: Request) {
         const pageParam = searchParams.get("page");
         const perPageParam = searchParams.get("perPage");
         const shouldPaginate = pageParam !== null || perPageParam !== null;
-        const page = Math.max(1, Number(pageParam || 1));
-        const perPage = Math.min(100, Math.max(1, Number(perPageParam || 25)));
+        const page = Math.max(1, Math.floor(Number(pageParam || 1)) || 1);
+        const perPage = Math.min(100, Math.max(1, Math.floor(Number(perPageParam || 25))) || 25);
 
         // Build date filter
         const now = new Date();

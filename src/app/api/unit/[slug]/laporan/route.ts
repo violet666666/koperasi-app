@@ -43,8 +43,8 @@ export async function GET(
         const period = searchParams.get("period") || "month";
         const dateFromParam = searchParams.get("dateFrom");
         const dateToParam = searchParams.get("dateTo");
-        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-        const perPage = Math.min(200, Math.max(1, parseInt(searchParams.get("perPage") || "50", 10)));
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+        const perPage = Math.min(200, Math.max(1, parseInt(searchParams.get("perPage") || "50", 10)) || 50);
         const isExport = searchParams.get("export") === "true";
 
         // Compute date range with WIB (+7) timezone

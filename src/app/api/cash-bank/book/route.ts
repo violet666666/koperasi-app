@@ -31,8 +31,8 @@ export async function GET(request: Request) {
         const category = searchParams.get("category");
 
         // Pagination parameters
-        const page = Math.max(1, Number(searchParams.get("page") || 1));
-        const perPage = Math.min(200, Math.max(1, Number(searchParams.get("perPage") || 50)));
+        const page = Math.max(1, Math.floor(Number(searchParams.get("page") || 1)) || 1);
+        const perPage = Math.min(200, Math.max(1, Math.floor(Number(searchParams.get("perPage") || 50))) || 50);
         const isExport = searchParams.get("export") === "true";
 
         const now = new Date();
