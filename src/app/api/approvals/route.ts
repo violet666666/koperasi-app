@@ -16,6 +16,8 @@ export async function GET(request: Request) {
         const branchId = searchParams.get("branchId");
         const statusParam = searchParams.get("status");
         const typeFilter = searchParams.get("type");
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+        const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "25", 10)));
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
@@ -48,7 +50,6 @@ export async function GET(request: Request) {
                           product: { select: { id: true, code: true, name: true } },
                       },
                       orderBy: { submittedAt: "desc" },
-                      take: 100,
                   });
 
         const loanApprovals = loanApplications.map((app) => ({
@@ -93,7 +94,6 @@ export async function GET(request: Request) {
                           requestedBy: { select: { id: true, name: true } },
                       },
                       orderBy: { requestedAt: "desc" },
-                      take: 200,
                   });
 
         const voidApprovals = voidRequests
@@ -140,10 +140,45 @@ export async function GET(request: Request) {
                 new Date(a.requestedAt || 0).getTime()
         );
 
-        // Hitung pending count untuk badge notifikasi
-        const pendingCount = allApprovals.filter((a) => a.status === "pending").length;
+        const total = allApprovals.length;
+        const totalPages = Math.max(1, Math.ceil(total / perPage));
+        const skip = (page - 1) * perPage;
+        const paginatedData = allApprovals.slice(skip, skip + perPage);
 
-        return NextResponse.json({ data: allApprovals, pendingCount });
+        // Hitung pending count dari data mentah (sebelum statusParam filter)
+        // agar badge selalu akurat terlepas dari tab aktif
+        const [pendingLoanCount, pendingVoidCount] = await Promise.all([
+            canSeeLoans
+                ? prisma.loanApplication.count({ where: { status: "submitted", ...(branchId ? { branchId: parseInt(branchId) } : {}) } })
+                : Promise.resolve(0),
+            prisma.approvalRequest.count({
+                where: {
+                    type: { in: ["unit_void", "void_store_sale", "laporan_unit"] },
+                    status: "pending",
+                },
+            }),
+        ]);
+        const pendingCount = pendingLoanCount + pendingVoidCount;
+
+        // Total approved/rejected counts for summary cards
+        const [approvedLoanCount, rejectedLoanCount, approvedVoidCount, rejectedVoidCount] = await Promise.all([
+            canSeeLoans
+                ? prisma.loanApplication.count({ where: { status: { in: ["approved", "disbursed"] }, ...(branchId ? { branchId: parseInt(branchId) } : {}) } })
+                : Promise.resolve(0),
+            canSeeLoans
+                ? prisma.loanApplication.count({ where: { status: "rejected", ...(branchId ? { branchId: parseInt(branchId) } : {}) } })
+                : Promise.resolve(0),
+            prisma.approvalRequest.count({ where: { type: { in: ["unit_void", "void_store_sale", "laporan_unit"] }, status: "approved" } }),
+            prisma.approvalRequest.count({ where: { type: { in: ["unit_void", "void_store_sale", "laporan_unit"] }, status: "rejected" } }),
+        ]);
+
+        return NextResponse.json({
+            data: paginatedData,
+            pendingCount,
+            approvedCount: approvedLoanCount + approvedVoidCount,
+            rejectedCount: rejectedLoanCount + rejectedVoidCount,
+            pagination: { page, perPage, total, totalPages },
+        });
     } catch (error) {
         console.error("GET /api/approvals error:", error);
         return NextResponse.json(

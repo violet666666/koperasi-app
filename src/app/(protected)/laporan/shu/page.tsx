@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText } from "lucide-react";
+import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText, Loader2 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
@@ -69,6 +69,13 @@ interface IncomeExpenseDetail {
     amount: number;
 }
 
+interface PaginationMeta {
+    page: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+}
+
 interface SHUData {
     totalShu: number;
     totalIncome: number;
@@ -84,6 +91,7 @@ interface SHUData {
     expenseDetails: IncomeExpenseDetail[];
     memberShu: MemberSHU[];
     memberSharePercent: number;
+    pagination?: PaginationMeta;
 }
 
 const MONTHS = [
@@ -164,6 +172,13 @@ export default function LaporanSHUPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<SHUData | null>(null);
 
+    // Server-side pagination state
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+
+    // Print state: all-member data for print view
+    const [printData, setPrintData] = React.useState<MemberSHU[] | null>(null);
+    const [isExporting, setIsExporting] = React.useState(false);
+
     const yearOptions = React.useMemo(() => {
         const years: string[] = [];
         for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
@@ -172,29 +187,49 @@ export default function LaporanSHUPage() {
         return years;
     }, []);
 
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                const params: { year: number; month?: number } = { year: parseInt(selectedYear) };
-                if (selectedMonth !== "all") {
-                    params.month = parseInt(selectedMonth);
-                }
-                const response = await reportsApi.shu(params);
-                const reportData = response.data as unknown as SHUData;
-                setData(reportData);
-            } catch (error) {
-                console.error("Failed to fetch SHU data:", error);
-                setData(null);
-            } finally {
-                setIsLoading(false);
+    const fetchData = React.useCallback(async (page: number, perPage: number) => {
+        setIsLoading(true);
+        try {
+            const params: Record<string, unknown> = { year: parseInt(selectedYear), page, perPage };
+            if (selectedMonth !== "all") {
+                params.month = parseInt(selectedMonth);
             }
+            const response = await reportsApi.shu(params as Parameters<typeof reportsApi.shu>[0]);
+            const reportData = response.data as unknown as SHUData;
+            setData(reportData);
+        } catch (error) {
+            console.error("Failed to fetch SHU data:", error);
+            setData(null);
+        } finally {
+            setIsLoading(false);
         }
-        fetchData();
+    }, [selectedYear, selectedMonth]);
+
+    // Fetch paginated data when filters or page change
+    React.useEffect(() => {
+        fetchData(pagination.pageIndex + 1, pagination.pageSize);
+    }, [selectedYear, selectedMonth, pagination.pageIndex, pagination.pageSize, fetchData]);
+
+    // Fetch ALL members for export (no pagination)
+    const fetchAllMembers = React.useCallback(async (): Promise<MemberSHU[]> => {
+        const params: Record<string, unknown> = { year: parseInt(selectedYear), export: "true" };
+        if (selectedMonth !== "all") {
+            params.month = parseInt(selectedMonth);
+        }
+        const response = await reportsApi.shu(params as Parameters<typeof reportsApi.shu>[0]);
+        const reportData = response.data as unknown as SHUData;
+        return reportData.memberShu || [];
+    }, [selectedYear, selectedMonth]);
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, [selectedYear, selectedMonth]);
 
     const totalMemberContribution = data?.memberShu?.reduce((sum, m) => sum + m.totalContribution, 0) || 0;
     const totalMemberShuShare = data?.memberShu?.reduce((sum, m) => sum + m.shuShare, 0) || 0;
+    // Use totalItems from pagination for accurate count in summary
+    const totalMemberCount = data?.pagination?.totalItems ?? data?.memberShu?.length ?? 0;
 
     const periodDisplay = data?.periodLabel
         || (selectedMonth !== "all"
@@ -202,6 +237,55 @@ export default function LaporanSHUPage() {
             : `Tahun ${selectedYear}`);
 
     const isMonthlyView = selectedMonth !== "all";
+
+    // Handlers for export/print — fetch all data first
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const allMembers = await fetchAllMembers();
+            exportToExcel(allMembers as unknown as Record<string, unknown>[], shuExportColumns, `Laporan_SHU_${selectedYear}`, "SHU");
+        } catch (error) {
+            console.error("Export Excel failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExporting(true);
+        try {
+            const allMembers = await fetchAllMembers();
+            exportToPDF(allMembers as unknown as Record<string, unknown>[], shuExportColumns, `Laporan SHU - PRIMKOPPOL Resor Lumajang (${periodDisplay})`, `Laporan_SHU_${selectedYear}`);
+        } catch (error) {
+            console.error("Export PDF failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handlePrint = async () => {
+        setIsExporting(true);
+        try {
+            const allMembers = await fetchAllMembers();
+            setPrintData(allMembers);
+            // Wait for React to render the print div, then trigger print
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        } catch (error) {
+            console.error("Print failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Pagination handler for DataTable
+    const handlePaginationChange = (updater: any) => {
+        setPagination(prev => {
+            const next = typeof updater === "function" ? updater(prev) : updater;
+            return { ...prev, ...next };
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -215,7 +299,7 @@ export default function LaporanSHUPage() {
                     <h2 className="text-lg font-bold text-black">PRIMKOPPOL RESOR LUMAJANG</h2>
                     <p className="text-sm font-medium text-black mt-1">Periode: {periodDisplay}</p>
                     {isMonthlyView && (
-                        <p className="text-xs text-gray-600 mt-0.5">⚠ Proyeksi Bulanan — SHU resmi dibagi setahun sekali saat RAT</p>
+                        <p className="text-xs text-gray-600 mt-0.5">Proyeksi Bulanan -- SHU resmi dibagi setahun sekali saat RAT</p>
                     )}
                 </div>
             </div>
@@ -228,16 +312,16 @@ export default function LaporanSHUPage() {
                     backHref="/laporan"
                     actions={
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => window.print()}>
-                                <Printer className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                                 Cetak
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => exportToExcel(data?.memberShu as unknown as Record<string, unknown>[] || [], shuExportColumns, `Laporan_SHU_${selectedYear}`, "SHU")}>
-                                <Download className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                                 Excel
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => exportToPDF(data?.memberShu as unknown as Record<string, unknown>[] || [], shuExportColumns, `Laporan SHU - PRIMKOPPOL Resor Lumajang (${periodDisplay})`, `Laporan_SHU_${selectedYear}`)}>
-                                <FileText className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                                 PDF
                             </Button>
                         </div>
@@ -301,14 +385,14 @@ export default function LaporanSHUPage() {
                                         <p className="text-3xl font-bold tabular-nums">{formatCurrency(data.totalShu)}</p>
                                         {isMonthlyView && (
                                             <p className="text-xs text-muted-foreground mt-1 print:block">
-                                                ⚠ SHU resmi dibagi setahun sekali saat RAT. Ini adalah proyeksi perbulan.
+                                                SHU resmi dibagi setahun sekali saat RAT. Ini adalah proyeksi perbulan.
                                             </p>
                                         )}
                                     </div>
                                 </div>
                                 <div className="flex gap-6">
                                     <div className="text-center">
-                                        <p className="text-2xl font-bold text-primary">{data.memberShu?.length || 0}</p>
+                                        <p className="text-2xl font-bold text-primary">{totalMemberCount}</p>
                                         <p className="text-sm text-muted-foreground">Anggota</p>
                                     </div>
                                     <div className="text-center">
@@ -344,13 +428,13 @@ export default function LaporanSHUPage() {
                             {data.incomeDetails && data.incomeDetails.length > 0 && (
                                 <Card className="border-emerald-200 print:border-gray-300 print:shadow-none">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-emerald-700 print:text-black">📈 Rincian Pendapatan — {periodDisplay}</CardTitle>
+                                        <CardTitle className="text-base text-emerald-700 print:text-black">Rincian Pendapatan -- {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
                                             {data.incomeDetails.map((item) => (
                                                 <div key={item.code} className="flex justify-between text-sm">
-                                                    <span className="text-muted-foreground">{item.code} — {item.name}</span>
+                                                    <span className="text-muted-foreground">{item.code} -- {item.name}</span>
                                                     <span className="font-medium tabular-nums text-emerald-600">{formatCurrency(item.amount)}</span>
                                                 </div>
                                             ))}
@@ -361,13 +445,13 @@ export default function LaporanSHUPage() {
                             {data.expenseDetails && data.expenseDetails.length > 0 && (
                                 <Card className="border-red-200 print:border-gray-300 print:shadow-none">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-base text-red-700 print:text-black">📉 Rincian Beban — {periodDisplay}</CardTitle>
+                                        <CardTitle className="text-base text-red-700 print:text-black">Rincian Beban -- {periodDisplay}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
                                             {data.expenseDetails.map((item) => (
                                                 <div key={item.code} className="flex justify-between text-sm">
-                                                    <span className="text-muted-foreground">{item.code} — {item.name}</span>
+                                                    <span className="text-muted-foreground">{item.code} -- {item.name}</span>
                                                     <span className="font-medium tabular-nums text-red-600">{formatCurrency(item.amount)}</span>
                                                 </div>
                                             ))}
@@ -485,7 +569,7 @@ export default function LaporanSHUPage() {
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Users className="h-5 w-5 print:hidden" />
-                                Pembagian SHU Anggota — {periodDisplay}
+                                Pembagian SHU Anggota -- {periodDisplay}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -494,17 +578,21 @@ export default function LaporanSHUPage() {
                                 {isMonthlyView && <span className="text-blue-600"> Proporsi dihitung berdasarkan data {periodDisplay}.</span>}
                             </p>
 
-                            {/* Screen view: DataTable with pagination */}
+                            {/* Screen view: DataTable with server-side pagination */}
                             <div className="print:hidden">
                                 <DataTable
                                     columns={columns}
                                     data={data.memberShu || []}
-                                    searchColumn="name"
                                     searchPlaceholder="Cari anggota berdasarkan nama..."
+                                    manualPagination
+                                    pageCount={data.pagination?.totalPages ?? 1}
+                                    pagination={pagination}
+                                    onPaginationChange={handlePaginationChange}
+                                    totalRows={data.pagination?.totalItems ?? 0}
                                 />
                             </div>
 
-                            {/* Print view: plain table, ALL rows, no pagination */}
+                            {/* Print view: plain table, ALL rows from printData, no pagination */}
                             <div className="hidden print:block">
                                 <table className="w-full text-sm border-collapse">
                                     <thead>
@@ -521,7 +609,7 @@ export default function LaporanSHUPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(data.memberShu || []).map((member, index) => (
+                                        {(printData || data.memberShu || []).map((member, index) => (
                                             <tr key={member.memberNo} className={index % 2 === 0 ? "" : "bg-gray-50"} style={{ borderBottom: "1px solid #e5e7eb" }}>
                                                 <td className="py-1.5 px-2 text-gray-500">{index + 1}</td>
                                                 <td className="py-1.5 px-2 font-mono text-xs">{member.memberNo}</td>
@@ -538,17 +626,17 @@ export default function LaporanSHUPage() {
                                     <tfoot>
                                         <tr className="border-t-2 border-gray-400 bg-gray-100 font-bold">
                                             <td colSpan={3} className="py-2 px-2 text-right">TOTAL</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.simpananPokok, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.simpananWajib, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.modalPortion, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(data.memberShu?.reduce((s, m) => s + m.usahaPortion, 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums text-cyan-600">{formatCurrency(data.memberShu?.reduce((s, m) => s + (m.carwashBonus || 0), 0) || 0)}</td>
-                                            <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatCurrency(totalMemberShuShare)}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + m.simpananPokok, 0))}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + m.simpananWajib, 0))}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + m.modalPortion, 0))}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + m.usahaPortion, 0))}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums text-cyan-600">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + (m.carwashBonus || 0), 0))}</td>
+                                            <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatCurrency((printData || data.memberShu || []).reduce((s, m) => s + m.shuShare, 0))}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
                                 <p className="text-xs text-gray-500 mt-3">
-                                    Total anggota: {data.memberShu?.length || 0} orang | Dicetak: {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
+                                    Total anggota: {(printData || data.memberShu || []).length} orang | Dicetak: {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
                                 </p>
                             </div>
                         </CardContent>

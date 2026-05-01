@@ -24,7 +24,7 @@ import { Loader2, Printer, Search, Users, Banknote, FileText, ShieldAlert } from
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 
-// ── Types ───────────────────────────────────────────────
+// -- Types --
 interface PotonganLine {
     jenis: string;
     ptKe: string;
@@ -43,6 +43,13 @@ interface FakturItem {
     totalPotongan: number;
 }
 
+interface PaginationMeta {
+    page: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+}
+
 interface FakturResponse {
     fakturList: FakturItem[];
     month: number;
@@ -50,6 +57,7 @@ interface FakturResponse {
     periodLabel: string;
     totalAnggota: number;
     totalNominal: number;
+    pagination?: PaginationMeta;
 }
 
 const BULAN_OPTIONS = [
@@ -83,12 +91,21 @@ export default function FakturPotonganPage() {
     const [data, setData] = React.useState<FakturResponse | null>(null);
     const [error, setError] = React.useState("");
 
+    // Server-side pagination state
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+
+    // Print state: all-member data for print view
+    const [printData, setPrintData] = React.useState<FakturItem[] | null>(null);
+    const [isExporting, setIsExporting] = React.useState(false);
+
     const handleGenerate = async () => {
         setIsLoading(true);
         setError("");
         setData(null);
+        setPrintData(null);
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
         try {
-            const res = await fetch(`/api/reports/faktur-potongan?month=${month}&year=${year}`);
+            const res = await fetch(`/api/reports/faktur-potongan?month=${month}&year=${year}&page=1&perPage=${pagination.pageSize}`);
             const json = await res.json();
             if (!res.ok) throw new Error(json.message || "Gagal memuat data");
             setData(json.data);
@@ -99,11 +116,60 @@ export default function FakturPotonganPage() {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
+    // Fetch paginated data when page changes (after initial generate)
+    React.useEffect(() => {
+        if (!data) return;
+        async function fetchPage() {
+            setIsLoading(true);
+            try {
+                const res = await fetch(`/api/reports/faktur-potongan?month=${month}&year=${year}&page=${pagination.pageIndex + 1}&perPage=${pagination.pageSize}`);
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || "Gagal memuat data");
+                setData(json.data);
+            } catch (err: any) {
+                setError(err.message || "Gagal memuat data");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchPage();
+    }, [pagination.pageIndex, pagination.pageSize]);
+
+    const fetchAllForPrint = async (): Promise<FakturItem[]> => {
+        const res = await fetch(`/api/reports/faktur-potongan?month=${month}&year=${year}&export=true`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Gagal memuat data");
+        return json.data.fakturList || [];
     };
 
-    // ── Access Control ─────────────────────────────────
+    const handlePrint = async () => {
+        setIsExporting(true);
+        try {
+            const allFaktur = await fetchAllForPrint();
+            setPrintData(allFaktur);
+            // Wait for React to render the print div, then trigger print
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        } catch (err: any) {
+            setError(err.message || "Gagal menyiapkan data cetak");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handlePaginationChange = (updater: any) => {
+        setPagination(prev => {
+            const next = typeof updater === "function" ? updater(prev) : updater;
+            return { ...prev, ...next };
+        });
+    };
+
+    // Use totalItems from pagination for accurate count
+    const totalAnggota = data?.pagination?.totalItems ?? data?.totalAnggota ?? 0;
+    const totalNominal = data?.totalNominal ?? 0;
+
+    // -- Access Control --
     if (!isOperator) {
         return (
             <div className="space-y-6">
@@ -123,7 +189,7 @@ export default function FakturPotonganPage() {
 
     return (
         <div className="space-y-6">
-            {/* ── Screen Header (hidden on print) ─────────── */}
+            {/* -- Screen Header (hidden on print) -- */}
             <div className="print:hidden">
                 <PageHeader
                     title="Faktur Potongan Gaji"
@@ -132,7 +198,7 @@ export default function FakturPotonganPage() {
                 />
             </div>
 
-            {/* ── Filter Bar (hidden on print) ──────────────── */}
+            {/* -- Filter Bar (hidden on print) -- */}
             <Card className="print:hidden">
                 <CardContent className="flex flex-wrap items-end gap-4 py-4">
                     <div className="space-y-1">
@@ -165,23 +231,23 @@ export default function FakturPotonganPage() {
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Generate
                     </Button>
-                    {data && data.fakturList.length > 0 && (
-                        <Button variant="outline" onClick={handlePrint}>
-                            <Printer className="mr-2 h-4 w-4" />
+                    {data && data.pagination && data.pagination.totalItems > 0 && (
+                        <Button variant="outline" onClick={handlePrint} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                             Cetak Faktur
                         </Button>
                     )}
                 </CardContent>
             </Card>
 
-            {/* ── Error ──────────────────────────────────────── */}
+            {/* -- Error -- */}
             {error && (
                 <Card className="border-red-200 bg-red-50 print:hidden">
                     <CardContent className="py-4 text-red-700">{error}</CardContent>
                 </Card>
             )}
 
-            {/* ── Summary Cards (hidden on print) ────────────── */}
+            {/* -- Summary Cards (hidden on print) -- */}
             {data && (
                 <div className="grid gap-4 sm:grid-cols-3 print:hidden">
                     <Card>
@@ -199,7 +265,7 @@ export default function FakturPotonganPage() {
                             <Users className="h-4 w-4 text-blue-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold tabular-nums">{data.totalAnggota}</div>
+                            <div className="text-2xl font-bold tabular-nums">{totalAnggota}</div>
                         </CardContent>
                     </Card>
                     <Card>
@@ -209,18 +275,20 @@ export default function FakturPotonganPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold tabular-nums text-emerald-600">
-                                {formatCurrency(data.totalNominal)}
+                                {formatCurrency(totalNominal)}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             )}
 
-            {/* ── Preview Table (hidden on print) ────────────── */}
+            {/* -- Preview Table with pagination (hidden on print) -- */}
             {data && data.fakturList.length > 0 && (
                 <Card className="print:hidden">
                     <CardHeader>
-                        <CardTitle className="text-base">Preview Faktur ({data.fakturList.length} anggota)</CardTitle>
+                        <CardTitle className="text-base">
+                            Preview Faktur ({totalAnggota} anggota)
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                         <Table>
@@ -246,7 +314,9 @@ export default function FakturPotonganPage() {
                                         .reduce((s, p) => s + p.jumlah, 0);
                                     return (
                                         <TableRow key={idx}>
-                                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                                            <TableCell className="text-muted-foreground">
+                                                {(data.pagination ? (data.pagination.page - 1) * data.pagination.perPage + idx + 1 : idx + 1)}
+                                            </TableCell>
                                             <TableCell className="font-mono text-xs">{f.nrp}</TableCell>
                                             <TableCell className="font-medium">{f.nama}</TableCell>
                                             <TableCell className="text-right tabular-nums">{sp > 0 ? formatCurrency(sp) : "-"}</TableCell>
@@ -262,16 +332,83 @@ export default function FakturPotonganPage() {
                                 <TableRow className="bg-primary/5 font-bold">
                                     <TableCell colSpan={7} className="text-right">GRAND TOTAL</TableCell>
                                     <TableCell className="text-right tabular-nums text-lg">
-                                        {formatCurrency(data.totalNominal)}
+                                        {formatCurrency(totalNominal)}
                                     </TableCell>
                                 </TableRow>
                             </TableFooter>
                         </Table>
                     </CardContent>
+
+                    {/* Pagination controls */}
+                    {data.pagination && data.pagination.totalPages > 1 && (
+                        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4 border-t">
+                            <div className="text-sm text-muted-foreground">
+                                Menampilkan {(data.pagination.page - 1) * data.pagination.perPage + 1} - {Math.min(data.pagination.page * data.pagination.perPage, data.pagination.totalItems)} dari {data.pagination.totalItems} data
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Select
+                                    value={`${pagination.pageSize}`}
+                                    onValueChange={(value) => {
+                                        setPagination(prev => ({ ...prev, pageIndex: 0, pageSize: Number(value) }));
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((size) => (
+                                            <SelectItem key={size} value={`${size}`}>{size}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => setPagination(prev => ({ ...prev, pageIndex: 0 }))}
+                                        disabled={pagination.pageIndex === 0}
+                                    >
+                                        {"<<"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
+                                        disabled={pagination.pageIndex === 0}
+                                    >
+                                        {"<"}
+                                    </Button>
+                                    <span className="px-2 text-sm">
+                                        {data.pagination.page} / {data.pagination.totalPages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => setPagination(prev => ({ ...prev, pageIndex: prev.pageIndex + 1 }))}
+                                        disabled={pagination.pageIndex >= data.pagination.totalPages - 1}
+                                    >
+                                        {">"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => setPagination(prev => ({ ...prev, pageIndex: (data.pagination?.totalPages ?? 1) - 1 }))}
+                                        disabled={pagination.pageIndex >= (data.pagination?.totalPages ?? 1) - 1}
+                                    >
+                                        {">>"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
                 </Card>
             )}
 
-            {/* ── Empty State ────────────────────────────────── */}
+            {/* -- Empty State -- */}
             {data && data.fakturList.length === 0 && (
                 <Card className="print:hidden">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -282,11 +419,11 @@ export default function FakturPotonganPage() {
                 </Card>
             )}
 
-            {/* ══════════════════════════════════════════════════
-                PRINT LAYOUT — 4 kolom × 2 baris per halaman A4 Landscape
+            {/* ==================================================
+                PRINT LAYOUT -- 4 kolom x 2 baris per halaman A4 Landscape
                 Hidden on screen, visible only when printing
-               ══════════════════════════════════════════════════ */}
-            {data && data.fakturList.length > 0 && (
+               ================================================== */}
+            {data && (printData || data.fakturList).length > 0 && (
                 <div className="hidden print:block">
                     <style>{`
                         @media print {
@@ -302,7 +439,7 @@ export default function FakturPotonganPage() {
                         gridTemplateColumns: "repeat(4, 1fr)",
                         gap: "2px",
                     }}>
-                        {data.fakturList.map((faktur, idx) => (
+                        {(printData || data.fakturList).map((faktur, idx) => (
                             <div
                                 key={idx}
                                 className="faktur-ticket"

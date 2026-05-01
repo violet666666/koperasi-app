@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import { toast } from "sonner";
 import { ColumnDef } from "@tanstack/react-table";
 import { ApprovalDialog, ApprovalItem } from "@/components/patterns/approval-dialog";
 import {
@@ -18,10 +16,9 @@ import {
     FileText,
     CreditCard,
     Wallet,
-    Loader2,
 } from "lucide-react";
 import { formatCurrency, APPROVAL_STATUS } from "@/lib/constants";
-import { approvalsApi, loansApi } from "@/lib/api";
+import { approvalsApi } from "@/lib/api";
 
 
 
@@ -163,58 +160,73 @@ export default function ApprovalPage() {
     const [selectedApproval, setSelectedApproval] = React.useState<ApprovalItem | null>(null);
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
-    // Counts
+    // Pagination state — per tab
+    const [activeTab, setActiveTab] = React.useState("pending");
+    const [pendingPage, setPendingPage] = React.useState({ pageIndex: 0, pageSize: 25 });
+    const [historyPage, setHistoryPage] = React.useState({ pageIndex: 0, pageSize: 25 });
+    const [pageInfo, setPageInfo] = React.useState({ total: 0, totalPages: 0 });
+    const [pendingCount, setPendingCount] = React.useState(0);
+    const [approvedCount, setApprovedCount] = React.useState(0);
+    const [rejectedCount, setRejectedCount] = React.useState(0);
+
+    // Counts — sourced from server-side totals
     const counts = React.useMemo(() => ({
-        pending: approvals.filter((a) => a.status === "pending").length,
-        approved: approvals.filter((a) => a.status === "approved").length,
-        rejected: approvals.filter((a) => a.status === "rejected").length,
-    }), [approvals]);
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+    }), [pendingCount, approvedCount, rejectedCount]);
 
-    // Fetch approvals from API
-    React.useEffect(() => {
-        async function fetchData() {
-            try {
-                setIsLoading(true);
-                const [pendingRes, historyRes] = await Promise.all([
-                    approvalsApi.list("pending"),
-                    approvalsApi.list("history")
-                ]);
-                const combined = [
-                    ...((pendingRes as any).data || []),
-                    ...((historyRes as any).data || [])
-                ];
-                setApprovals(combined);
-            } catch (error) {
-                console.error("Failed to fetch approvals:", error);
-                setApprovals([]);
-            } finally {
-                setIsLoading(false);
-            }
-        }
+    // Current pagination for active tab
+    const currentPagination = activeTab === "pending" ? pendingPage : historyPage;
+    const setCurrentPagination = activeTab === "pending" ? setPendingPage : setHistoryPage;
 
-        fetchData();
-    }, []);
-
-    const fetchApprovals = async () => {
+    // Fetch approvals from API — server-side paginated
+    const fetchApprovals = React.useCallback(async () => {
         try {
-            const [pendingRes, historyRes] = await Promise.all([
-                approvalsApi.list("pending"),
-                approvalsApi.list("history")
-            ]);
-            const combined = [
-                ...((pendingRes as any).data || []),
-                ...((historyRes as any).data || [])
-            ];
-            setApprovals(combined);
+            setIsLoading(true);
+            const status = activeTab === "pending" ? "pending" : "history";
+            const page = currentPagination.pageIndex + 1;
+            const perPage = currentPagination.pageSize;
+
+            const res = await approvalsApi.list(status, { page, perPage });
+            const raw = res as any;
+            setApprovals((raw.data || []) as ApprovalItem[]);
+            setPendingCount(raw.pendingCount ?? 0);
+            setApprovedCount(raw.approvedCount ?? 0);
+            setRejectedCount(raw.rejectedCount ?? 0);
+            if (raw.pagination) {
+                setPageInfo({
+                    total: raw.pagination.total as number,
+                    totalPages: raw.pagination.totalPages as number,
+                });
+            }
         } catch (error) {
             console.error("Failed to fetch approvals:", error);
+            setApprovals([]);
+        } finally {
+            setIsLoading(false);
         }
+    }, [activeTab, currentPagination]);
+
+    React.useEffect(() => {
+        fetchApprovals();
+    }, [fetchApprovals]);
+
+    // Handle pagination change from DataTable
+    const handlePaginationChange = (updater: any) => {
+        setCurrentPagination((prev: { pageIndex: number; pageSize: number }) =>
+            typeof updater === "function" ? updater(prev) : updater
+        );
+    };
+
+    // Handle tab change
+    const handleTabChange = (value: string) => {
+        setActiveTab(value);
     };
 
 
-    // Pending approvals only
-    const pendingApprovals = approvals.filter((a) => a.status === "pending");
-    const historyApprovals = approvals.filter((a) => a.status !== "pending");
+    // Data sudah terfilter dari server berdasarkan tab aktif
+    const displayData = approvals;
 
     // Add action column for pending
     const pendingColumns: ColumnDef<ApprovalItem>[] = [
@@ -276,7 +288,7 @@ export default function ApprovalPage() {
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="pending" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="pending" className="gap-2">
                         Menunggu Persetujuan
@@ -290,27 +302,39 @@ export default function ApprovalPage() {
                 <TabsContent value="pending">
                     <DataTable
                         columns={pendingColumns}
-                        data={pendingApprovals}
+                        data={displayData}
                         isLoading={isLoading}
                         searchPlaceholder="Cari pengajuan..."
+                        manualPagination={true}
+                        pageCount={pageInfo.totalPages}
+                        pagination={currentPagination}
+                        onPaginationChange={handlePaginationChange}
+                        totalRows={pageInfo.total}
+                        pageSize={currentPagination.pageSize}
                     />
                 </TabsContent>
 
                 <TabsContent value="history">
                     <DataTable
                         columns={columns}
-                        data={historyApprovals}
+                        data={displayData}
                         isLoading={isLoading}
                         searchPlaceholder="Cari riwayat..."
+                        manualPagination={true}
+                        pageCount={pageInfo.totalPages}
+                        pagination={currentPagination}
+                        onPaginationChange={handlePaginationChange}
+                        totalRows={pageInfo.total}
+                        pageSize={currentPagination.pageSize}
                     />
                 </TabsContent>
             </Tabs>
 
-            <ApprovalDialog 
-                open={dialogOpen} 
-                onOpenChange={setDialogOpen} 
-                approval={selectedApproval} 
-                onSuccess={fetchApprovals} 
+            <ApprovalDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                approval={selectedApproval}
+                onSuccess={fetchApprovals}
             />
         </div>
     );

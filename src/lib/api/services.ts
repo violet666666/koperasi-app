@@ -242,10 +242,10 @@ export const reportsApi = {
     labaRugi: (params?: { branchId?: number; periodFrom?: string; periodTo?: string }) =>
         api.get<{ data: unknown }>("/reports/laba-rugi", { params }),
 
-    shu: (params?: { branchId?: number; year?: number; month?: number }) =>
+    shu: (params?: { branchId?: number; year?: number; month?: number; page?: number; perPage?: number; export?: string }) =>
         api.get<{ data: unknown }>("/reports/shu", { params }),
 
-    membersRecap: (params?: { branchId?: number }) =>
+    membersRecap: (params?: { branchId?: number; page?: number; perPage?: number; export?: string }) =>
         api.get<{ data: unknown }>("/reports/members-recap", { params }),
 
     savingsRecap: (params?: { branchId?: number; year?: number }) =>
@@ -263,8 +263,10 @@ export const reportsApi = {
 // ============================================================
 
 export const approvalsApi = {
-    list: (status?: "pending" | "history") =>
-        api.get<{ data: unknown[] }>("/approvals", { params: { status } }),
+    list: (status?: "pending" | "history", params?: Record<string, string | number>) =>
+        api.get<{ data: unknown[]; pagination?: { page: number; perPage: number; total: number; totalPages: number } }>("/approvals", {
+            params: { status, ...params },
+        }),
 };
 
 // ============================================================

@@ -11,6 +11,9 @@ import { auth } from "@/lib/auth";
  *   2. Angsuran Pinjaman (P + J) — LoanSchedule jatuh tempo bulan ini
  *   3. Piutang Unit (BRG)   — UnitTransaction + StoreSale salary_cut belum lunas
  *
+ * Pagination: ?page=1&perPage=20 (applies to fakturList array only)
+ * Export: ?export=true returns ALL items (for Print)
+ *
  * Akses: Operator only
  */
 export async function GET(request: Request) {
@@ -35,6 +38,11 @@ export async function GET(request: Request) {
         const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1));
         const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
+        // Pagination params
+        const isExport = searchParams.get("export") === "true";
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+        const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "20")));
+
         if (month < 1 || month > 12 || year < 2020 || year > 2100) {
             return NextResponse.json({ message: "Bulan/tahun tidak valid" }, { status: 400 });
         }
@@ -47,7 +55,7 @@ export async function GET(request: Request) {
         const BULAN_LABEL = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
-        // ── 1. Fetch all active members ─────────────────────────────
+        // -- 1. Fetch all active members --
         const members = await prisma.member.findMany({
             where: { status: "active", deletedAt: null },
             select: {
@@ -70,7 +78,7 @@ export async function GET(request: Request) {
 
         const memberIds = members.map((m) => m.id);
 
-        // ── 2. Check which members already paid Simpanan Wajib this month ──
+        // -- 2. Check which members already paid Simpanan Wajib this month --
         const savingsWajibProducts = await prisma.savingsProduct.findMany({
             where: { type: "wajib", isActive: true },
             select: { id: true },
@@ -92,7 +100,7 @@ export async function GET(request: Request) {
             paidWajibMemberIds = new Set(paidTx.map((t) => t.memberId));
         }
 
-        // ── 3. Fetch active loan schedules due this month ───────────
+        // -- 3. Fetch active loan schedules due this month --
         const activeLoans = await prisma.loan.findMany({
             where: {
                 memberId: { in: memberIds },
@@ -141,7 +149,7 @@ export async function GET(request: Request) {
             }
         }
 
-        // ── 4. Fetch unpaid salary_cut piutang (Unit Transactions) ──
+        // -- 4. Fetch unpaid salary_cut piutang (Unit Transactions) --
         const unitPiutang = await prisma.unitTransaction.findMany({
             where: {
                 memberId: { in: memberIds },
@@ -202,7 +210,7 @@ export async function GET(request: Request) {
             unitPiutangMap.set(sale.memberId, items);
         }
 
-        // ── 5. Build faktur per member ──────────────────────────────
+        // -- 5. Build faktur per member --
         const fakturList: FakturItem[] = [];
         let seqNo = 0;
 
@@ -255,14 +263,42 @@ export async function GET(request: Request) {
             });
         }
 
+        // Aggregates are always complete
+        const totalAnggota = fakturList.length;
+        const totalNominal = fakturList.reduce((s, f) => s + f.totalPotongan, 0);
+
+        // Apply pagination only when NOT exporting
+        if (isExport) {
+            return NextResponse.json({
+                data: {
+                    fakturList,
+                    month,
+                    year,
+                    periodLabel: `${BULAN_LABEL[month]} ${year}`,
+                    totalAnggota,
+                    totalNominal,
+                },
+            });
+        }
+
+        const totalItems = fakturList.length;
+        const totalPages = Math.ceil(totalItems / perPage);
+        const paginatedList = fakturList.slice((page - 1) * perPage, page * perPage);
+
         return NextResponse.json({
             data: {
-                fakturList,
+                fakturList: paginatedList,
                 month,
                 year,
                 periodLabel: `${BULAN_LABEL[month]} ${year}`,
-                totalAnggota: fakturList.length,
-                totalNominal: fakturList.reduce((s, f) => s + f.totalPotongan, 0),
+                totalAnggota,
+                totalNominal,
+                pagination: {
+                    page,
+                    perPage,
+                    totalItems,
+                    totalPages,
+                },
             },
         });
     } catch (error) {
@@ -274,7 +310,7 @@ export async function GET(request: Request) {
     }
 }
 
-// ── Types ──────────────────────────────────────────────────
+// -- Types --
 interface PotonganLine {
     jenis: string;  // Sp, P, J, BRG, CM, dll
     ptKe: string;   // "6/12" or ""
@@ -293,7 +329,7 @@ interface FakturItem {
     totalPotongan: number;
 }
 
-// ── Helpers ────────────────────────────────────────────────
+// -- Helpers --
 function getUnitShortLabel(unitType: string): string {
     const map: Record<string, string> = {
         toko: "BRG",

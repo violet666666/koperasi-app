@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ColumnDef } from "@tanstack/react-table";
-import { Download, Users, UserCheck, UserX, UserPlus, FileText } from "lucide-react";
+import { Download, Users, UserCheck, UserX, UserPlus, FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
@@ -36,6 +36,19 @@ interface RecapStats {
     active: number;
     inactive: number;
     pending: number;
+}
+
+interface PaginationMeta {
+    page: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+}
+
+interface RecapResponse {
+    members: MemberSummary[];
+    summary: RecapStats;
+    pagination?: PaginationMeta;
 }
 
 // Table columns
@@ -139,33 +152,79 @@ export default function RekapAnggotaPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<MemberSummary[]>([]);
     const [stats, setStats] = React.useState<RecapStats>({ total: 0, active: 0, inactive: 0, pending: 0 });
+    const [isExporting, setIsExporting] = React.useState(false);
 
-    // Fetch data from API
-    React.useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            try {
-                const response = await reportsApi.membersRecap({});
-                const data = response.data as unknown as { members: MemberSummary[]; stats: RecapStats };
+    // Server-side pagination state
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+    const [paginationMeta, setPaginationMeta] = React.useState<PaginationMeta | null>(null);
 
-                if (data.members) {
-                    setMembers(data.members);
-                    setStats(data.stats || { total: data.members.length, active: 0, inactive: 0, pending: 0 });
-                } else {
-                    setMembers([]);
-                    setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
-                }
-            } catch (error) {
-                console.error("Failed to fetch members recap:", error);
+    const fetchData = React.useCallback(async (page: number, perPage: number) => {
+        setIsLoading(true);
+        try {
+            const response = await reportsApi.membersRecap({ page, perPage });
+            const data = response.data as unknown as RecapResponse;
+
+            if (data.members) {
+                setMembers(data.members);
+                setStats(data.summary || { total: data.members.length, active: 0, inactive: 0, pending: 0 });
+                setPaginationMeta(data.pagination || null);
+            } else {
                 setMembers([]);
                 setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
-            } finally {
-                setIsLoading(false);
+                setPaginationMeta(null);
             }
+        } catch (error) {
+            console.error("Failed to fetch members recap:", error);
+            setMembers([]);
+            setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
+            setPaginationMeta(null);
+        } finally {
+            setIsLoading(false);
         }
-
-        fetchData();
     }, []);
+
+    // Fetch paginated data on mount and when page changes
+    React.useEffect(() => {
+        fetchData(pagination.pageIndex + 1, pagination.pageSize);
+    }, [pagination.pageIndex, pagination.pageSize, fetchData]);
+
+    // Fetch ALL members for export (no pagination)
+    const fetchAllMembers = React.useCallback(async (): Promise<MemberSummary[]> => {
+        const response = await reportsApi.membersRecap({ export: "true" });
+        const data = response.data as unknown as RecapResponse;
+        return data.members || [];
+    }, []);
+
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const allMembers = await fetchAllMembers();
+            exportToExcel(allMembers as unknown as Record<string, unknown>[], exportColumns, "Rekap_Anggota", "Anggota");
+        } catch (error) {
+            console.error("Export Excel failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExporting(true);
+        try {
+            const allMembers = await fetchAllMembers();
+            exportToPDF(allMembers as unknown as Record<string, unknown>[], exportColumns, "Rekap Anggota - PRIMKOPPOL Resor Lumajang", "Rekap_Anggota");
+        } catch (error) {
+            console.error("Export PDF failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handlePaginationChange = (updater: any) => {
+        setPagination(prev => {
+            const next = typeof updater === "function" ? updater(prev) : updater;
+            return { ...prev, ...next };
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -175,12 +234,12 @@ export default function RekapAnggotaPage() {
                 backHref="/laporan"
                 actions={
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, "Rekap_Anggota", "Anggota")}>
-                            <Download className="mr-2 h-4 w-4" />
+                        <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF(members as unknown as Record<string, unknown>[], exportColumns, "Rekap Anggota - PRIMKOPPOL Resor Lumajang", "Rekap_Anggota")}>
-                            <FileText className="mr-2 h-4 w-4" />
+                        <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                             PDF
                         </Button>
                     </div>
@@ -195,13 +254,18 @@ export default function RekapAnggotaPage() {
                 <StatCard icon={UserPlus} label="Pending" value={stats.pending} color="blue" />
             </div>
 
-            {/* Data Table */}
+            {/* Data Table with server-side pagination */}
             <DataTable
                 columns={columns}
                 data={members}
                 isLoading={isLoading}
                 searchPlaceholder="Cari anggota..."
                 searchColumn="name"
+                manualPagination
+                pageCount={paginationMeta?.totalPages ?? 1}
+                pagination={pagination}
+                onPaginationChange={handlePaginationChange}
+                totalRows={paginationMeta?.totalItems ?? 0}
             />
         </div>
     );
