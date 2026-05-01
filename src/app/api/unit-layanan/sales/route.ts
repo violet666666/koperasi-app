@@ -22,14 +22,14 @@ const UNIT_ABBR_TX: Record<string, string> = {
 const VALID_UNIT_TYPES = Object.keys(UNIT_ABBR_TX);
 const VALID_PAYMENT_METHODS = ["cash", "qris", "salary_cut", "credit"];
 
-async function generateTxNo(unitType: string, tx: any): Promise<string> {
+async function generateTxNo(unitType: string, tx: any, date?: Date): Promise<string> {
     const abbr = UNIT_ABBR_TX[unitType] || unitType.substring(0, 2).toUpperCase();
-    const now = new Date();
-    const d = String(now.getDate()).padStart(2, "0");
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const y = now.getFullYear();
-    const datePart = `${d}${m}${y}`;
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const d = date || new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const y = d.getFullYear();
+    const datePart = `${dd}${mm}${y}`;
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const count = await tx.unitTransaction.count({
         where: { unitType, transactionDate: { gte: startOfDay } }
     });
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate } = body;
+        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate, transactionDate } = body;
 
         // Validasi input wajib
         if (!unitType || !amount || !paymentMethod) {
@@ -132,11 +132,22 @@ export async function POST(request: Request) {
             }
         }
 
-        const now = new Date();
+        // Parse transaction date (backdate support for old transactions)
+        let now = new Date();
+        if (transactionDate) {
+            const parsed = new Date(transactionDate);
+            if (isNaN(parsed.getTime())) {
+                return NextResponse.json({ message: "Format tanggal tidak valid" }, { status: 400 });
+            }
+            if (parsed > new Date()) {
+                return NextResponse.json({ message: "Tanggal transaksi tidak boleh lebih dari hari ini" }, { status: 400 });
+            }
+            now = parsed;
+        }
 
         // ── INTERACTIVE TRANSACTION: Atomic multi-table operations ─────
         const ut = await prisma.$transaction(async (tx) => {
-            const trxNo = await generateTxNo(unitType, tx);
+            const trxNo = await generateTxNo(unitType, tx, now);
 
             // 1. Create UnitTransaction
             const unitTx = await tx.unitTransaction.create({

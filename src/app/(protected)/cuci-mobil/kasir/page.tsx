@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize, AlertTriangle, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, X } from "lucide-react";
+import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize, AlertTriangle, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, X, CalendarDays } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateRawText, ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -28,6 +28,7 @@ export default function CuciMobilKasirPage() {
     // Cuci Mobil specific metadata
     const [vehiclePlate, setVehiclePlate] = React.useState("");
     const [washerName, setWasherName] = React.useState("");
+    const [transactionDate, setTransactionDate] = React.useState("");
 
     // Payment state
     const [paymentAmount, setPaymentAmount] = React.useState("");
@@ -179,6 +180,9 @@ export default function CuciMobilKasirPage() {
             if (selectedMember?.id) body.memberId = selectedMember.id;
             else if (selectedCustomerObj?.id) body.memberId = selectedCustomerObj.id;
 
+            // Kirim tanggal transaksi jika diisi (untuk input transaksi lama)
+            if (transactionDate) body.transactionDate = transactionDate;
+
             const res = await fetch("/api/unit-layanan/sales", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -191,7 +195,7 @@ export default function CuciMobilKasirPage() {
 
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.transactionNo,
-                tanggal: new Date().toLocaleString("id-ID"),
+                tanggal: transactionDate ? new Date(transactionDate).toLocaleString("id-ID") : new Date().toLocaleString("id-ID"),
                 nrpNip: selectedMember?.nrp || selectedCustomerObj?.nrp || "-",
                 namaAnggota: selectedMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
                 kesatuan: "-",
@@ -206,7 +210,7 @@ export default function CuciMobilKasirPage() {
             setShowReceipt(true);
 
             // Reset
-            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName(""); clearCustomer();
+            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName(""); setTransactionDate(""); clearCustomer();
             setSelectedMember(null); setShowCreditDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
@@ -235,16 +239,28 @@ export default function CuciMobilKasirPage() {
                                 <Car className="h-5 w-5" /> Data Kendaraan
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-4 grid grid-cols-2 gap-4">
+                        <CardContent className="p-4 grid grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label>Nomor Polisi (Plat) <span className="text-red-500">*</span></Label>
-                                <Input placeholder="Contoh: N 1234 XY" className="uppercase font-mono text-lg tracking-wider" 
+                                <Input placeholder="Contoh: N 1234 XY" className="uppercase font-mono text-lg tracking-wider"
                                     value={vehiclePlate} onChange={e => setVehiclePlate(e.target.value.toUpperCase())} />
                             </div>
                             <div className="space-y-2">
                                 <Label>Nama Petugas Cuci (Washer)</Label>
-                                <Input placeholder="Untuk perhitungan komisi..." 
+                                <Input placeholder="Untuk perhitungan komisi..."
                                     value={washerName} onChange={e => setWasherName(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">
+                                    <CalendarDays className="h-3.5 w-3.5" /> Tanggal Transaksi
+                                </Label>
+                                <Input type="date"
+                                    value={transactionDate}
+                                    onChange={e => setTransactionDate(e.target.value)}
+                                    max={new Date().toISOString().split("T")[0]} />
+                                {!transactionDate && (
+                                    <p className="text-[11px] text-slate-400">Kosongkan = hari ini</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

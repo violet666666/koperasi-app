@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize, X, Check } from "lucide-react";
+import { Loader2, Search, Banknote, CreditCard, User, ShieldX, Car, Scissors, Gamepad2, Dumbbell, Shirt, UtensilsCrossed, Store, QrCode, AlertCircle, CheckCircle2, Maximize, X, Check, CalendarDays } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +47,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     const [description, setDescription] = React.useState<string>("");
     const [selectedPackage, setSelectedPackage] = React.useState<string>("");
     const [vehiclePlate, setVehiclePlate] = React.useState<string>(""); // Plat Nomor (Cuci Mobil)
+    const [transactionDate, setTransactionDate] = React.useState<string>(""); // Tanggal transaksi (backdate)
 
     const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -225,6 +226,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                 customerName: method === "salary_cut" ? selectedMember?.name : (selectedCustomerObj?.name || customerName || undefined),
                 description: description || undefined,
                 vehiclePlate: vehiclePlate.trim() || undefined, // Plat nomor untuk cuci mobil
+                transactionDate: transactionDate || undefined, // Tanggal backdate
             };
 
             if (method === "salary_cut") {
@@ -254,6 +256,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setDescription("");
             setSelectedPackage("");
             setVehiclePlate(""); // Reset plat nomor
+            setTransactionDate(""); // Reset tanggal
             setSelectedMember(null);
             setSelectedCustomerObj(null);
             setCustomerSearchResults([]);
@@ -415,6 +418,22 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                 />
                             </div>
                         )}
+
+                        {/* Tanggal Transaksi — Backdate untuk input transaksi lama */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5 text-sm">
+                                <CalendarDays className="h-3.5 w-3.5" /> Tanggal Transaksi
+                            </Label>
+                            <Input
+                                type="date"
+                                value={transactionDate}
+                                onChange={(e) => setTransactionDate(e.target.value)}
+                                max={new Date().toISOString().split("T")[0]}
+                            />
+                            {!transactionDate && (
+                                <p className="text-[11px] text-muted-foreground">Kosongkan = hari ini</p>
+                            )}
+                        </div>
 
                         <div className="space-y-2">
                             <Label className="flex items-center justify-between">
