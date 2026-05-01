@@ -30,21 +30,62 @@ export async function GET(request: Request) {
         // Get members with their financial summary
         const activeWhere = { ...where, status: "active" as const };
 
+        // Helper: fetch financial totals (savings balance + loan outstanding) for a list of member IDs
+        async function getFinancialTotals(memberIds: number[]) {
+            if (memberIds.length === 0) return new Map<number, { totalSavings: number; totalLoans: number }>();
+
+            // Sum savings balances per member
+            const savingsRows = await prisma.savingsAccount.groupBy({
+                by: ["memberId"],
+                where: {
+                    memberId: { in: memberIds },
+                    status: "active",
+                },
+                _sum: { balance: true },
+            });
+
+            // Sum loan outstanding per member (active loans only)
+            const loanRows = await prisma.loan.groupBy({
+                by: ["memberId"],
+                where: {
+                    memberId: { in: memberIds },
+                    status: "active",
+                },
+                _sum: {
+                    principalOutstanding: true,
+                    interestOutstanding: true,
+                },
+            });
+
+            const savingsMap = new Map(
+                savingsRows.map((r) => [r.memberId, Number(r._sum.balance ?? 0)])
+            );
+            const loanMap = new Map(
+                loanRows.map((r) => [r.memberId, Number(r._sum.principalOutstanding ?? 0) + Number(r._sum.interestOutstanding ?? 0)])
+            );
+
+            const result = new Map<number, { totalSavings: number; totalLoans: number }>();
+            for (const id of memberIds) {
+                result.set(id, {
+                    totalSavings: savingsMap.get(id) ?? 0,
+                    totalLoans: loanMap.get(id) ?? 0,
+                });
+            }
+            return result;
+        }
+
         if (isExport) {
             // Export mode: fetch ALL members (no pagination)
             const allMembers = await prisma.member.findMany({
                 where: activeWhere,
                 include: {
                     branch: { select: { id: true, name: true } },
-                    _count: {
-                        select: {
-                            savingsAccounts: true,
-                            loans: true,
-                        },
-                    },
                 },
                 orderBy: { memberNo: "asc" },
             });
+
+            const memberIds = allMembers.map((m) => m.id);
+            const financials = await getFinancialTotals(memberIds);
 
             const recap = {
                 summary: {
@@ -53,17 +94,20 @@ export async function GET(request: Request) {
                     inactive: inactiveMembers,
                     resigned: resignedMembers,
                 },
-                members: allMembers.map((m) => ({
-                    id: m.id,
-                    memberNo: m.memberNo,
-                    name: m.name,
-                    phone: m.phone,
-                    status: m.status,
-                    joinDate: m.joinDate,
-                    branch: m.branch?.name || "Pusat",
-                    savingsAccountCount: m._count.savingsAccounts,
-                    loanCount: m._count.loans,
-                })),
+                members: allMembers.map((m) => {
+                    const fin = financials.get(m.id) ?? { totalSavings: 0, totalLoans: 0 };
+                    return {
+                        id: m.id,
+                        memberNo: m.memberNo,
+                        name: m.name,
+                        phone: m.phone,
+                        status: m.status,
+                        joinDate: m.joinDate,
+                        branch: m.branch?.name || "Pusat",
+                        totalSavings: fin.totalSavings,
+                        totalLoans: fin.totalLoans,
+                    };
+                }),
             };
 
             return NextResponse.json({ data: recap });
@@ -77,17 +121,14 @@ export async function GET(request: Request) {
             where: activeWhere,
             include: {
                 branch: { select: { id: true, name: true } },
-                _count: {
-                    select: {
-                        savingsAccounts: true,
-                        loans: true,
-                    },
-                },
             },
             orderBy: { memberNo: "asc" },
             skip: (page - 1) * perPage,
             take: perPage,
         });
+
+        const memberIds = members.map((m) => m.id);
+        const financials = await getFinancialTotals(memberIds);
 
         const recap = {
             summary: {
@@ -96,17 +137,20 @@ export async function GET(request: Request) {
                 inactive: inactiveMembers,
                 resigned: resignedMembers,
             },
-            members: members.map((m) => ({
-                id: m.id,
-                memberNo: m.memberNo,
-                name: m.name,
-                phone: m.phone,
-                status: m.status,
-                joinDate: m.joinDate,
-                branch: m.branch?.name || "Pusat",
-                savingsAccountCount: m._count.savingsAccounts,
-                loanCount: m._count.loans,
-            })),
+            members: members.map((m) => {
+                const fin = financials.get(m.id) ?? { totalSavings: 0, totalLoans: 0 };
+                return {
+                    id: m.id,
+                    memberNo: m.memberNo,
+                    name: m.name,
+                    phone: m.phone,
+                    status: m.status,
+                    joinDate: m.joinDate,
+                    branch: m.branch?.name || "Pusat",
+                    totalSavings: fin.totalSavings,
+                    totalLoans: fin.totalLoans,
+                };
+            }),
             pagination: {
                 page,
                 perPage,

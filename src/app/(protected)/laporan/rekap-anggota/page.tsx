@@ -35,7 +35,7 @@ interface RecapStats {
     total: number;
     active: number;
     inactive: number;
-    pending: number;
+    resigned: number;
 }
 
 interface PaginationMeta {
@@ -151,7 +151,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 export default function RekapAnggotaPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [members, setMembers] = React.useState<MemberSummary[]>([]);
-    const [stats, setStats] = React.useState<RecapStats>({ total: 0, active: 0, inactive: 0, pending: 0 });
+    const [stats, setStats] = React.useState<RecapStats>({ total: 0, active: 0, inactive: 0, resigned: 0 });
     const [isExporting, setIsExporting] = React.useState(false);
 
     // Server-side pagination state
@@ -166,17 +166,17 @@ export default function RekapAnggotaPage() {
 
             if (data.members) {
                 setMembers(data.members);
-                setStats(data.summary || { total: data.members.length, active: 0, inactive: 0, pending: 0 });
+                setStats(data.summary || { total: data.members.length, active: 0, inactive: 0, resigned: 0 });
                 setPaginationMeta(data.pagination || null);
             } else {
                 setMembers([]);
-                setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
+                setStats({ total: 0, active: 0, inactive: 0, resigned: 0 });
                 setPaginationMeta(null);
             }
         } catch (error) {
             console.error("Failed to fetch members recap:", error);
             setMembers([]);
-            setStats({ total: 0, active: 0, inactive: 0, pending: 0 });
+            setStats({ total: 0, active: 0, inactive: 0, resigned: 0 });
             setPaginationMeta(null);
         } finally {
             setIsLoading(false);
@@ -251,7 +251,7 @@ export default function RekapAnggotaPage() {
                 <StatCard icon={Users} label="Total Anggota" value={stats.total} color="primary" />
                 <StatCard icon={UserCheck} label="Aktif" value={stats.active} color="emerald" />
                 <StatCard icon={UserX} label="Non-Aktif" value={stats.inactive} color="amber" />
-                <StatCard icon={UserPlus} label="Pending" value={stats.pending} color="blue" />
+                <StatCard icon={UserPlus} label="Keluar" value={stats.resigned} color="blue" />
             </div>
 
             {/* Data Table with server-side pagination */}
