@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         const isOperator = ["operator", "admin", "super_admin"].includes(session.user.role)
             || session.user.permissions?.includes("manage_all");
         const now = new Date();
-        
+
         let branchIdToUse = session.user.branchId || 1;
         if (!session.user.branchId) {
             const headOffice = await prisma.branch.findFirst({ where: { isHeadOffice: true } });
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
             });
 
             if (storeSale) {
-            
+
             const metadata: any = storeSale.metadata ? (typeof storeSale.metadata === 'object' ? storeSale.metadata : JSON.parse(storeSale.metadata as string)) : {};
             if (metadata.isVoided) return NextResponse.json({ message: "Transaksi Toko ini sudah dibatalkan." }, { status: 409 });
             if (metadata.voidPending) return NextResponse.json({ message: "Permintaan void untuk transaksi ini sudah menunggu persetujuan Admin." }, { status: 409 });
@@ -152,33 +152,44 @@ export async function POST(request: Request) {
                             where: { description: { contains: storeSale.saleNo } },
                         });
                         if (originalCashTx) {
-                            const account = await tx.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
-                            if (account) {
-                                const currentBal = Number(account.currentBalance);
-                                const voidAmount = Number(storeSale.totalAmount);
+                            const voidAmount = Number(storeSale.totalAmount);
+                            // FIX: Atomic decrement FIRST to prevent TOCTOU race condition
+                            const updatedAccount = await tx.cashBankAccount.update({
+                                where: { id: originalCashTx.accountId },
+                                data: { currentBalance: { decrement: voidAmount } },
+                            });
+                            const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                                await tx.cashBankTransaction.create({
-                                    data: {
-                                        transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
-                                        accountId: account.id,
-                                        branchId: originalCashTx.branchId,
-                                        type: "out",
-                                        category: "void_penjualan_toko",
-                                        amount: voidAmount,
-                                        balanceBefore: currentBal,
-                                        balanceAfter: currentBal - voidAmount,
-                                        unitType: storeSale.unitType || "toko",
-                                        description: `[VOID] Pembatalan ${storeSale.saleNo}`,
-                                        transactionDate: now,
-                                        createdById: currentUserId,
-                                    },
-                                });
-                                // Atomic decrement to prevent race condition
-                                await tx.cashBankAccount.update({
-                                    where: { id: account.id },
-                                    data: { currentBalance: { decrement: voidAmount } },
-                                });
-                            }
+                            const voidCashTx = await tx.cashBankTransaction.create({
+                                data: {
+                                    transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
+                                    accountId: originalCashTx.accountId,
+                                    branchId: originalCashTx.branchId,
+                                    type: "out",
+                                    category: "void_penjualan_toko",
+                                    amount: voidAmount,
+                                    balanceBefore,
+                                    balanceAfter: Number(updatedAccount.currentBalance),
+                                    unitType: storeSale.unitType || "toko",
+                                    description: `[VOID] Pembatalan ${storeSale.saleNo}`,
+                                    transactionDate: now,
+                                    createdById: currentUserId,
+                                },
+                            });
+
+                            // FIX: Adjust running balance chain for subsequent transactions
+                            const balanceImpact = -voidAmount;
+                            await tx.$executeRaw`
+                                UPDATE "cash_bank_transactions"
+                                SET
+                                    "balance_before" = "balance_before" + ${balanceImpact},
+                                    "balance_after" = "balance_after" + ${balanceImpact}
+                                WHERE "account_id" = ${originalCashTx.accountId}
+                                  AND (
+                                      "transaction_date" > ${now}
+                                      OR ("transaction_date" = ${now} AND "id" > ${voidCashTx.id})
+                                  )
+                            `;
                         }
                     }
 
@@ -275,6 +286,16 @@ export async function POST(request: Request) {
         if (session.user.role === "kasir" && transaction.createdById !== currentUserId) {
             return NextResponse.json({ message: "Kasir hanya dapat mengajukan void untuk transaksi miliknya sendiri." }, { status: 403 });
         }
+        // FIX: Unit type isolation for kasir
+        if (session.user.role === "kasir") {
+            const userUnitType = (session.user as Record<string, unknown>).unitType as string | undefined;
+            if (userUnitType && transaction.unitType !== userUnitType) {
+                return NextResponse.json(
+                    { message: "Anda tidak memiliki akses ke unit ini." },
+                    { status: 403 }
+                );
+            }
+        }
 
         // AUTO-APPROVE VOID JIKA OPERATOR atau ADMIN PUSAT
         if (isOperator) {
@@ -363,7 +384,7 @@ export async function POST(request: Request) {
                         });
                         const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                        await tx.cashBankTransaction.create({
+                        const voidCashTx = await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `VOID-${UNIT_ABBR[transaction.unitType] || "UT"}-${Date.now().toString(36).toUpperCase()}`,
                                 accountId: originalCashTx.accountId,
@@ -379,6 +400,20 @@ export async function POST(request: Request) {
                                 createdById: currentUserId,
                             },
                         });
+
+                        // FIX: Adjust running balance chain for subsequent transactions
+                        const balanceImpact = -voidAmount;
+                        await tx.$executeRaw`
+                            UPDATE "cash_bank_transactions"
+                            SET
+                                "balance_before" = "balance_before" + ${balanceImpact},
+                                "balance_after" = "balance_after" + ${balanceImpact}
+                            WHERE "account_id" = ${originalCashTx.accountId}
+                              AND (
+                                  "transaction_date" > ${now}
+                                  OR ("transaction_date" = ${now} AND "id" > ${voidCashTx.id})
+                              )
+                        `;
                     }
                 }
             });

@@ -157,11 +157,8 @@ export async function GET(request: Request) {
 
         const weeklyChart = Array.from(weeklyChartMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-        // Get QRIS Setting
-        const setting = await prisma.unitSetting.findUnique({
-            where: { unitType }
-        });
-        const qrisUrl = setting?.qrisBase64 || null;
+        // QRIS is no longer loaded here — it's fetched on-demand from /api/unit-layanan/qris
+        // This avoids shipping a 2.7MB base64 string on every stats call.
 
         // Recent transactions (last 10 combined)
         const recentUnitTrx = await prisma.unitTransaction.findMany({
@@ -235,7 +232,6 @@ export async function GET(request: Request) {
             data: {
                 unit: unitLabel[unitType] || unitType,
                 unitType,
-                qrisUrl,
                 today: {
                     total: todayTotal,
                     count: todayCount,

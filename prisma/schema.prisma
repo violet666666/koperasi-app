@@ -265,6 +265,9 @@ model Member {
   cashBankTransactions CashBankTransaction[] @relation("CashBankMember")
   shuDistributions     ShuDistribution[]
 
+  @@index([status])
+  @@index([nrp])
+  @@index([deletedAt])
   @@map("members")
 }
 
@@ -389,6 +392,9 @@ model SavingsTransaction {
   period          FiscalPeriod?    @relation(fields: [periodId], references: [id])
   createdBy       User             @relation("SavingsCreatedBy", fields: [createdById], references: [id])
 
+  @@index([transactionDate])
+  @@index([type, transactionDate])
+  @@index([savingsAccountId])
   @@map("savings_transactions")
 }
 
@@ -471,6 +477,9 @@ model Loan {
   schedules            LoanSchedule[]
   payments             LoanPayment[]
 
+  @@index([status])
+  @@index([disbursementDate])
+  @@index([memberId])
   @@map("loans")
 }
 
@@ -529,6 +538,8 @@ model LoanPayment {
   createdBy       User                      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
   allocations     LoanPaymentAllocation[]
 
+  @@index([paymentDate])
+  @@index([loanId])
   @@map("loan_payments")
 }
 
@@ -841,6 +852,10 @@ model StoreSale {
   cashierIdentity CashierIdentity? @relation(fields: [cashierIdentityId], references: [id])
   items     StoreSaleItem[]
 
+  @@index([unitType])
+  @@index([createdAt])
+  @@index([unitType, createdAt])
+  @@index([paymentMethod])
   @@map("store_sales")
 }
 
@@ -857,6 +872,8 @@ model StoreSaleItem {
   sale    StoreSale    @relation(fields: [saleId], references: [id])
   product StoreProduct @relation(fields: [productId], references: [id])
 
+  @@index([saleId])
+  @@index([productId])
   @@map("store_sale_items")
 }
 

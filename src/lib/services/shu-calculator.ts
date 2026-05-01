@@ -225,7 +225,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 select: { totalAmount: true, metadata: true }
             },
             unitTransactions: {
-                where: { transactionDate: { gte: startDate, lte: endDate }, status: "completed" },
+                where: { transactionDate: { gte: startDate, lte: endDate }, status: "completed", isPaid: true },
                 select: { amount: true, unitType: true }
             }
         }

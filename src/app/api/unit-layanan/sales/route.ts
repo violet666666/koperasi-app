@@ -208,7 +208,7 @@ export async function POST(request: Request) {
                     });
                     const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
 
-                    await tx.cashBankTransaction.create({
+                    const cashTx = await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: `UL-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id,
@@ -224,6 +224,24 @@ export async function POST(request: Request) {
                             createdById: userId,
                         },
                     });
+
+                    // Adjust subsequent running balances if backdated
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const txDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    if (txDay < today) {
+                        await tx.$executeRaw`
+                            UPDATE "cash_bank_transactions"
+                            SET
+                                "balance_before" = "balance_before" + ${totalAmount},
+                                "balance_after" = "balance_after" + ${totalAmount}
+                            WHERE "account_id" = ${targetAccount.id}
+                              AND (
+                                  "transaction_date" > ${now}
+                                  OR ("transaction_date" = ${now} AND "id" > ${cashTx.id})
+                              )
+                        `;
+                    }
                 }
             }
 

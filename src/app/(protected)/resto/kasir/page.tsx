@@ -122,16 +122,24 @@ export default function RestoKasirPage() {
                 setProducts(json.data || []);
             } catch { toast.error("Gagal memuat menu resto"); } finally { setIsLoading(false); }
         }
-        async function fetchQris() {
-            try {
-                const res = await fetch("/api/unit-layanan/stats?unitType=resto");
-                const json = await res.json();
-                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
-            } catch {}
-        }
         fetchProducts();
-        fetchQris();
     }, []);
+
+    // Lazy-load QRIS on-demand when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog) return;
+        let cancelled = false;
+        const fetchQris = async () => {
+            try {
+                const res = await fetch("/api/unit-layanan/qris?unitType=resto");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
+            } catch {}
+        };
+        if (!qrisUrl) fetchQris();
+        return () => { cancelled = true; };
+    }, [showQrisDialog, qrisUrl]);
 
     // Check shift status
     React.useEffect(() => {

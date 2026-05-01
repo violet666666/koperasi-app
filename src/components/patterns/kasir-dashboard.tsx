@@ -21,7 +21,6 @@ import { toast } from "sonner";
 interface UnitStats {
     unit: string;
     unitType: string;
-    qrisUrl: string | null;
     today: {
         total: number; count: number;
         cash: number; qris: number; salaryCut: number; pending: number;
@@ -85,7 +84,22 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     const [qrisFile, setQrisFile] = React.useState<File | null>(null);
     const [isUploadingQris, setIsUploadingQris] = React.useState(false);
     const [imageKey, setImageKey] = React.useState(Date.now());
+    const [qrisLoadedUrl, setQrisLoadedUrl] = React.useState<string | null>(null);
+    const [isLoadingQris, setIsLoadingQris] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Lazy-load QRIS on-demand when the admin modal opens
+    React.useEffect(() => {
+        if (!showQrisModal || !unitType || qrisPreview) return;
+        let cancelled = false;
+        setIsLoadingQris(true);
+        fetch(`/api/unit-layanan/qris?unitType=${unitType}`)
+            .then(r => r.json())
+            .then(json => { if (!cancelled) setQrisLoadedUrl(json.qrisUrl ?? null); })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setIsLoadingQris(false); });
+        return () => { cancelled = true; };
+    }, [showQrisModal, unitType, qrisPreview, imageKey]);
 
     const handleQrisFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -109,6 +123,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
             setShowQrisModal(false);
             setQrisFile(null);
             setQrisPreview(null);
+            setQrisLoadedUrl(null);
             setImageKey(Date.now());
         } catch (err: any) {
             toast.error(err.message);
@@ -129,6 +144,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                 if (!res.ok) throw new Error(json.message);
                 toast.success(json.message);
                 setShowQrisModal(false);
+                setQrisLoadedUrl(null);
                 setImageKey(Date.now());
             } catch (err: any) {
                 toast.error(err.message);
@@ -312,15 +328,17 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                     {/* Preview existing / new */}
                     <div className="border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 p-4 flex flex-col items-center justify-center min-h-[200px]">
                         <div className="border-2 border-dashed rounded-lg p-2 h-40 flex items-center justify-center bg-gray-50 relative group">
-                            {(qrisPreview || stats?.qrisUrl) && (
+                            {isLoadingQris ? (
+                                <p className="text-sm text-muted-foreground">Memuat QRIS...</p>
+                            ) : (qrisPreview || qrisLoadedUrl) ? (
                                 <img
-                                    src={qrisPreview || stats?.qrisUrl || ""}
+                                    src={qrisPreview || qrisLoadedUrl || ""}
                                     alt="QRIS"
                                     className="object-contain w-full h-full p-2"
                                 />
-                            )}
+                            ) : null}
                         </div>
-                        {!(qrisPreview || stats?.qrisUrl) && (
+                        {!isLoadingQris && !(qrisPreview || qrisLoadedUrl) && (
                             <p className="text-sm text-muted-foreground mt-2">Belum ada QRIS</p>
                         )}
                     </div>

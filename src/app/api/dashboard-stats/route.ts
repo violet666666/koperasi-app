@@ -80,8 +80,18 @@ export async function GET() {
             }),
         ]);
 
-        // Get counts by transaction type for today
-        const [todayDeposits, todayWithdrawals] = await Promise.all([
+        // Execute remaining queries in parallel — all are independent of each other
+        const [
+            todayDeposits,
+            todayWithdrawals,
+            arrearsStats,
+            todayPayments,
+            todayLoanDisbursements,
+            tunkinStats,
+            tabunganWajibStats,
+            cashFlowTxRaw,
+        ] = await Promise.all([
+            // Today's deposits
             prisma.savingsTransaction.aggregate({
                 _sum: { amount: true },
                 _count: { _all: true },
@@ -90,6 +100,8 @@ export async function GET() {
                     transactionDate: { gte: today, lt: tomorrow },
                 },
             }),
+
+            // Today's withdrawals
             prisma.savingsTransaction.aggregate({
                 _sum: { amount: true },
                 _count: { _all: true },
@@ -98,53 +110,53 @@ export async function GET() {
                     transactionDate: { gte: today, lt: tomorrow },
                 },
             }),
+
+            // Arrears (loans with overdue status)
+            prisma.loan.aggregate({
+                _sum: { principalOutstanding: true },
+                where: { status: "overdue" },
+            }),
+
+            // Today's loan payments
+            prisma.loanPayment.aggregate({
+                _sum: { amount: true },
+                _count: { _all: true },
+                where: {
+                    paymentDate: { gte: today, lt: tomorrow },
+                },
+            }),
+
+            // Today's loan disbursements (Pencairan)
+            prisma.loan.aggregate({
+                _sum: { principalAmount: true },
+                _count: { _all: true },
+                where: {
+                    disbursementDate: { gte: today, lt: tomorrow },
+                },
+            }),
+
+            // Total Tunjangan Kinerja (Tunkin)
+            prisma.member.aggregate({
+                _sum: { tunlesKinerja: true },
+                _count: { tunlesKinerja: true },
+                where: { status: "active", deletedAt: null, tunlesKinerja: { not: null } },
+            }),
+
+            // Total Simpanan Wajib from Member table (imported data)
+            prisma.member.aggregate({
+                _sum: { tabunganWajib: true },
+                _count: { tabunganWajib: true },
+                where: { status: "active", deletedAt: null, tabunganWajib: { not: null, gt: 0 } },
+            }),
+
+            // Cash flow for the last 7 months (Chart Data)
+            prisma.cashBankTransaction.groupBy({
+                by: ["type", "transactionDate"],
+                where: { transactionDate: { gte: sevenMonthsAgo } },
+                _sum: { amount: true },
+                orderBy: { transactionDate: "asc" }
+            }),
         ]);
-
-        // Calculate arrears (loans with overdue status)
-        const arrearsStats = await prisma.loan.aggregate({
-            _sum: { principalOutstanding: true },
-            where: { status: "overdue" },
-        });
-
-        // Get today's loan payments
-        const todayPayments = await prisma.loanPayment.aggregate({
-            _sum: { amount: true },
-            _count: { _all: true },
-            where: {
-                paymentDate: { gte: today, lt: tomorrow },
-            },
-        });
-
-        // Get today's loan disbursements (Pencairan)
-        const todayLoanDisbursements = await prisma.loan.aggregate({
-            _sum: { principalAmount: true },
-            _count: { _all: true },
-            where: {
-                disbursementDate: { gte: today, lt: tomorrow },
-            },
-        });
-
-        // Total Tunjangan Kinerja (Tunkin)
-        const tunkinStats = await prisma.member.aggregate({
-            _sum: { tunlesKinerja: true },
-            _count: { tunlesKinerja: true },
-            where: { status: "active", deletedAt: null, tunlesKinerja: { not: null } },
-        });
-
-        // Total Simpanan Wajib from Member table (imported data)
-        const tabunganWajibStats = await prisma.member.aggregate({
-            _sum: { tabunganWajib: true },
-            _count: { tabunganWajib: true },
-            where: { status: "active", deletedAt: null, tabunganWajib: { not: null, gt: 0 } },
-        });
-
-        // Cash flow logic for the last 7 months (Chart Data)
-        const cashFlowTxRaw = await prisma.cashBankTransaction.groupBy({
-            by: ["type", "transactionDate"],
-            where: { transactionDate: { gte: sevenMonthsAgo } },
-            _sum: { amount: true },
-            orderBy: { transactionDate: "asc" }
-        });
 
         // Process cash flow data into monthly buckets
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];

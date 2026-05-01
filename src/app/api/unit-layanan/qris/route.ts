@@ -7,6 +7,48 @@ export const dynamic = "force-dynamic";
 const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
 const MAX_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
+/**
+ * GET /api/unit-layanan/qris?unitType=xxx
+ * Fetch QRIS base64 image on-demand (lazy-loaded, not in stats).
+ */
+export async function GET(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const unitType = searchParams.get("unitType");
+        if (!unitType) {
+            return NextResponse.json({ message: "unitType wajib diisi" }, { status: 400 });
+        }
+
+        // Unit isolation: non-operator only see their own unit
+        const hasManageAll = session.user.permissions?.includes("manage_all");
+        const userUnitType = (session.user as any).unitType as string | undefined;
+        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
+        }
+
+        const safeUnitType = unitType.replace(/[^a-z0-9_]/gi, "").toLowerCase();
+        const setting = await prisma.unitSetting.findUnique({
+            where: { unitType: safeUnitType },
+            select: { qrisBase64: true },
+        });
+
+        return NextResponse.json({
+            qrisUrl: setting?.qrisBase64 || null,
+        });
+    } catch (error: unknown) {
+        console.error("GET /api/unit-layanan/qris error:", error);
+        return NextResponse.json(
+            { message: "Gagal memuat QRIS" },
+            { status: 500 }
+        );
+    }
+}
+
 export async function POST(request: Request) {
     try {
         const session = await auth();

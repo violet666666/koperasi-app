@@ -150,18 +150,22 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
         enabled: hasAccess && !isWrongUnit
     });
 
-    // Fetch QRIS image from DB via stats API
-    const { data: qrisUrl } = useQuery({
-        queryKey: ["unit-qris-url", unitType],
-        queryFn: async () => {
-            const res = await fetch(`/api/unit-layanan/stats?unitType=${unitType}`);
-            if (!res.ok) return null;
-            const json = await res.json();
-            return json.data?.qrisUrl ?? null;
-        },
-        enabled: hasAccess && !isWrongUnit && !!unitType,
-        staleTime: 30000,
-    });
+    // Fetch QRIS image from DB on-demand via dedicated endpoint
+    const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
+    const [isLoadingQris, setIsLoadingQris] = React.useState(false);
+
+    // Lazy-load QRIS only when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog || !unitType) return;
+        let cancelled = false;
+        setIsLoadingQris(true);
+        fetch(`/api/unit-layanan/qris?unitType=${unitType}`)
+            .then(r => r.json())
+            .then(json => { if (!cancelled) setQrisUrl(json.qrisUrl ?? null); })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setIsLoadingQris(false); });
+        return () => { cancelled = true; };
+    }, [showQrisDialog, unitType]);
 
     const currentUnit = UNIT_OPTIONS.find(u => u.value === unitType);
 
@@ -700,19 +704,26 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                     </DialogHeader>
                     
                     <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 min-h-[300px] relative">
-                        <img 
-                            src={qrisUrl || undefined} 
-                            alt={`QRIS ${unitType}`}
-                            className="max-h-[350px] object-contain shadow-lg rounded-xl border-4 border-white"
-                            style={{ display: qrisUrl ? 'block' : 'none' }}
-                        />
-                        <div className={`${qrisUrl ? 'hidden' : 'flex'} flex-col items-center text-muted-foreground mt-4`}>
-                            <AlertCircle className="h-16 w-16 mb-2 text-red-400" />
-                            <p className="text-sm font-semibold text-red-600">Kode QRIS Unit Belum Diatur!</p>
-                            <p className="text-xs max-w-[250px] text-center mt-1">
-                                Minta Admin Unit atau sistem untuk mendeklarasikan foto Barcode QRIS di Pengaturan Koperasi.
-                            </p>
-                        </div>
+                        {isLoadingQris ? (
+                            <div className="flex flex-col items-center text-muted-foreground">
+                                <Loader2 className="h-10 w-10 mb-2 animate-spin" />
+                                <p className="text-sm">Memuat QRIS...</p>
+                            </div>
+                        ) : qrisUrl ? (
+                            <img
+                                src={qrisUrl}
+                                alt={`QRIS ${unitType}`}
+                                className="max-h-[350px] object-contain shadow-lg rounded-xl border-4 border-white"
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center text-muted-foreground mt-4">
+                                <AlertCircle className="h-16 w-16 mb-2 text-red-400" />
+                                <p className="text-sm font-semibold text-red-600">Kode QRIS Unit Belum Diatur!</p>
+                                <p className="text-xs max-w-[250px] text-center mt-1">
+                                    Minta Admin Unit atau sistem untuk mendeklarasikan foto Barcode QRIS di Pengaturan Koperasi.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="bg-muted/50 p-4 rounded-lg flex justify-between items-center text-left">

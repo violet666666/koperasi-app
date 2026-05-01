@@ -86,16 +86,24 @@ export default function FitnessKasirPage() {
             } catch { toast.error("Gagal memuat layanan Fitness"); }
             finally { setIsLoading(false); }
         }
-        async function fetchQris() {
-            try {
-                const res = await fetch("/api/unit-layanan/stats?unitType=fitness");
-                const json = await res.json();
-                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
-            } catch {}
-        }
         fetchProducts();
-        fetchQris();
     }, []);
+
+    // Lazy-load QRIS on-demand when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog) return;
+        let cancelled = false;
+        const fetchQris = async () => {
+            try {
+                const res = await fetch("/api/unit-layanan/qris?unitType=fitness");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
+            } catch {}
+        };
+        if (!qrisUrl) fetchQris();
+        return () => { cancelled = true; };
+    }, [showQrisDialog, qrisUrl]);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const change = Number(paymentAmount) - subtotal;

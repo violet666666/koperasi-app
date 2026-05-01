@@ -85,16 +85,24 @@ export default function LaundryKasirPage() {
             } catch { toast.error("Gagal memuat layanan Laundry"); }
             finally { setIsLoading(false); }
         }
-        async function fetchQris() {
-            try {
-                const res = await fetch("/api/unit-layanan/stats?unitType=laundry");
-                const json = await res.json();
-                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
-            } catch {}
-        }
         fetchProducts();
-        fetchQris();
     }, []);
+
+    // Lazy-load QRIS on-demand when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog) return;
+        let cancelled = false;
+        const fetchQris = async () => {
+            try {
+                const res = await fetch("/api/unit-layanan/qris?unitType=laundry");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
+            } catch {}
+        };
+        if (!qrisUrl) fetchQris();
+        return () => { cancelled = true; };
+    }, [showQrisDialog, qrisUrl]);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 

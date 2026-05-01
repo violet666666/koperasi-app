@@ -177,21 +177,24 @@ export default function KasirPage() {
             } finally { setIsLoading(false); }
         }
 
-        async function fetchUnitStats() {
-            try {
-                const res = await fetch("/api/unit-layanan/stats?unitType=toko");
-                const json = await res.json();
-                if (json.data?.qrisUrl) {
-                    setQrisUrl(json.data.qrisUrl);
-                }
-            } catch (e) {
-                console.error("Gagal memuat info QRIS toko", e);
-            }
-        }
-        
         fetchProducts();
-        fetchUnitStats();
     }, []);
+
+    // Lazy-load QRIS on-demand when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog) return;
+        let cancelled = false;
+        const fetchQris = async () => {
+            try {
+                const res = await fetch("/api/unit-layanan/qris?unitType=toko");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
+            } catch {}
+        };
+        if (!qrisUrl) fetchQris();
+        return () => { cancelled = true; };
+    }, [showQrisDialog, qrisUrl]);
 
     const filteredProducts = React.useMemo(() =>
         products.filter(p =>

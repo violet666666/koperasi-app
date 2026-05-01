@@ -155,16 +155,16 @@ export default function SettingsPage() {
     const [isLoadingQris, setIsLoadingQris] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Fetch QRIS preview from API whenever unitType changes
+    // Fetch QRIS preview from dedicated QRIS endpoint whenever unitType changes
     React.useEffect(() => {
         let cancelled = false;
         async function fetchQris() {
             setIsLoadingQris(true);
             try {
-                const res = await fetch(`/api/unit-layanan/stats?unitType=${qrisUnitType}`);
+                const res = await fetch(`/api/unit-layanan/qris?unitType=${qrisUnitType}`);
                 if (res.ok) {
                     const json = await res.json();
-                    if (!cancelled) setQrisPreviewUrl(json.data?.qrisUrl || null);
+                    if (!cancelled) setQrisPreviewUrl(json.qrisUrl || null);
                 } else {
                     if (!cancelled) setQrisPreviewUrl(null);
                 }

@@ -196,16 +196,24 @@ export default function PSKasirPage() {
                 setProducts(fb);
             } catch { toast.error("Gagal memuat katalog produk/jasa"); } finally { setIsLoading(false); }
         }
-        async function fetchQris() {
-            try {
-                const res = await fetch("/api/unit-layanan/stats?unitType=playstation");
-                const json = await res.json();
-                if (json.data?.qrisUrl) setQrisUrl(json.data.qrisUrl);
-            } catch {}
-        }
         fetchProducts();
-        fetchQris();
     }, []);
+
+    // Lazy-load QRIS on-demand when the dialog opens
+    React.useEffect(() => {
+        if (!showQrisDialog) return;
+        let cancelled = false;
+        const fetchQris = async () => {
+            try {
+                const res = await fetch("/api/unit-layanan/qris?unitType=playstation");
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
+            } catch {}
+        };
+        if (!qrisUrl) fetchQris();
+        return () => { cancelled = true; };
+    }, [showQrisDialog, qrisUrl]);
 
     const filteredMenu = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
     const cart = activeTv?.cart || [];
