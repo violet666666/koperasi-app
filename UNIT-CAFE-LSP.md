@@ -155,3 +155,15 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 - **[ROUTE]** Route guard kasir + admin untuk `cafe_lsp`
 - **[SEED]** Akun `admincafelsp@koperasi.com` + `kasircafelsp@koperasi.com`
 - **[WRAPPER]** produk, shift, marketing, persediaan reuse komponen Toko
+
+### Code Review — 1 Mei 2026
+
+**5 bug ditemukan dan diperbaiki:**
+
+| # | Severity | Issue | Fix |
+|---|---|---|---|
+| 1 | 🔴 CRITICAL | Queue number menggunakan `from` param yang tidak didukung API — hitung count dari `json.data` (max 25 item), bukan total harian. Setelah 25 transaksi, antrian reset ke A001 | Gunakan `pagination.total` dari API response (`?perPage=1`) untuk mendapatkan count akurat |
+| 2 | 🔴 CRITICAL | Antrian Board mengirim `from` + `limit` params yang tidak didukung API — menampilkan max 25 order dari semua hari, bukan 50 order hari ini | Gunakan `perPage=50` (param yang didukung API) |
+| 3 | 🟡 IMPORTANT | Wrapper pages (shift, marketing) punya `backHref` hardcoded ke `/toko/kasir` — cafe_lsp kasir tidak punya akses ke route tersebut, trigger route guard | Tambah kondisi `unitType === "cafe_lsp" ? "/cafe-lsp/kasir" : ...` |
+| 4 | 🟡 IMPORTANT | `UNIT_PRODUCT_LABELS` di produk page tidak ada entry `cafe_lsp` — judul halaman menampilkan "Produk Toko" bukan "Manajemen Menu" | Tambah `cafe_lsp: { title: "Manajemen Menu", desc: "Kelola menu Cafe LSP", itemName: "Menu" }` |
+| 5 | 🟡 MEDIUM | Race condition pada queue number — dua kasir concurrent bisa generate nomor antrian sama. Queue number dihitung client-side sebelum POST | Catatan: server-side atomic fix perlu perubahan API. Risiko rendah untuk single-counter cafe. Ditandai untuk Phase 2 |
