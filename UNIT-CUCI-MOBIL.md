@@ -94,6 +94,54 @@ Fitur untuk mencatat pemasukan di luar transaksi POS kasir:
 | 2026-04-25 | ✅ Update laporan API untuk include operationalIncomes |
 | - | Rilis awal — POS generic + SHU insentif |
 
+### Changelog — 1 Mei 2026 (Code Review & Bug Fixes)
+
+**Fase 1 — CRITICAL (5 perbaikan, commit `487eb6d`)**
+
+| # | Severity | Masalah | Solusi | File |
+|---|---|---|---|---|
+| 1 | CRITICAL | Fiscal period query hanya cek `status: "open"`, bisa salah periode | Tambah range check: `startDate: { lte: now }, endDate: { gte: now }` | `sales/route.ts` |
+| 2 | CRITICAL | CashBankAccount balance pakai read-then-write (race condition) | Ganti ke atomic `{ increment: totalAmount }`, derive balanceBefore | `sales/route.ts` |
+| 3 | CRITICAL | Operational expense account lookup di luar `$transaction` (race condition) | Pindah ke dalam `$transaction`, pakai atomic `{ decrement: amount }` | `operational-expense/route.ts`, `operational-income/route.ts` |
+| 4 | CRITICAL | PUT expense: `balanceBefore` salah saat tanggal transaksi diubah | Recalculate dari predecessor di posisi baru, adjust semua subsequent | `operational-expense/[id]/route.ts` |
+| 5 | CRITICAL | SHU kalkulasi: `allocationsMember`/`allocationsNonMember` dihitung sebelum carwash bonus adjustment | Pindah ke setelah adjustment, pakai `adjustedNonMemberSurplus` | `shu-calculator.ts` |
+
+**Fase 2 — IMPORTANT (7 perbaikan, commit `0f161a2`)**
+
+| # | Severity | Masalah | Solusi | File |
+|---|---|---|---|---|
+| 6 | IMPORTANT | Operator direct void tidak membalikkan jurnal & kas/bank | Tambah journal reversal (swap debit/credit) + atomic `{ decrement }` pada CashBankAccount | `void-request/route.ts` |
+| 7 | IMPORTANT | `isOperator` di void hanya cek `"operator"`, admin/super_admin tidak masuk | Expand ke `["operator", "admin", "super_admin"]` | `void-request/route.ts` |
+| 8-9 | IMPORTANT | GET expense tanpa RBAC + pakai `description.contains` untuk query | Tambah `checkAccess()`, query by `unitType` column | `operational-expense/route.ts` |
+| 10 | IMPORTANT | PUT expense: old receipt file tidak dihapus saat diganti | Tambah cleanup: extract path → delete old UploadedFile | `operational-expense/[id]/route.ts` |
+| 11 | IMPORTANT | `todaySalaryCut` di stats tidak menghitung StoreSale salary_cut | Tambah StoreSale salary_cut amounts, tambah role check + unit isolation | `stats/route.ts` |
+| 12 | IMPORTANT | QRIS POST/DELETE tanpa unit isolation untuk admin role | Tambah pengecekan `userUnitType !== unitType` | `qris/route.ts` |
+| 13 | IMPORTANT | Kasir cuci_mobil tidak bisa akses `/cuci-mobil/*` (route guard) | Tambah `"/cuci-mobil"` ke KASIR_ALLOWED_ROUTES & ADMIN_ALLOWED_ROUTES | `layout.tsx` |
+
+**Fitur Tambahan (commit `643666a`)**
+
+| Fitur | Deskripsi |
+|---|---|
+| Backdate POS | Kasir bisa pilih tanggal transaksi mundur di POS kasir cepat. Date picker di panel checkout, validasi tidak boleh melebihi hari ini. |
+
+**File yang Diubah (Keseluruhan)**
+
+| File | Perubahan |
+|---|---|
+| `src/app/api/unit-layanan/sales/route.ts` | Fiscal period range, atomic balance, unit isolation, backdate support |
+| `src/app/api/unit-layanan/stats/route.ts` | StoreSale salary_cut, role check, unit isolation |
+| `src/app/api/unit-layanan/qris/route.ts` | Unit isolation admin role |
+| `src/app/api/unit-transactions/void-request/route.ts` | Journal reversal + cash/bank reversal, expand isOperator |
+| `src/app/api/unit/[slug]/operational-expense/route.ts` | Atomic transaction, RBAC, query by unitType |
+| `src/app/api/unit/[slug]/operational-expense/[id]/route.ts` | Balance recalculation, receipt cleanup |
+| `src/app/api/unit/[slug]/operational-income/route.ts` | Atomic transaction inside $transaction |
+| `src/app/(protected)/layout.tsx` | Route guard cuci_mobil kasir + admin |
+| `src/lib/services/shu-calculator.ts` | SHU allocation after carwash bonus |
+| `src/app/(protected)/cuci-mobil/kasir/page.tsx` | Backdate date picker |
+| `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx` | Backdate date picker |
+
+---
+
 ### Changelog — 26 April 2026
 - **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
 - **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi

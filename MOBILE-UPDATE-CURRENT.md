@@ -2,8 +2,8 @@
 # Roadmap & Backlog Update Aplikasi Mobile PRIMKOPPOL
 
 > **Dokumen ini melacak kesenjangan fitur antara Web (primkoppol.online) dan Mobile App (Expo/React Native).**
-> Update terakhir: **30 April 2026 (Sistem Notifikasi, HPP Moving Average, Batch & Expiry Tracking)**
-> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md` | `UNIT-TOKO.md`
+> Update terakhir: **1 Mei 2026 (Code Review Cuci Mobil, Backdate POS, Rekap Jasa Pinjaman)**
+> Referensi Web: `UPDATE-FIX-CURRENT.md` | `BUG-FIX-CURRENT.md` | `SIMPANAN-FEATURE.md` | `UNIT-TOKO.md` | `UNIT-CUCI-MOBIL.md`
 
 ---
 
@@ -18,7 +18,125 @@
 | Sprint 5 — Deep Audit Bug Fixes | 8 | 8 | 0 | 0 |
 | Sprint 6 — Full Role Audit + Branding + Bug Fixes | 17 | 17 | 0 | 0 |
 | Sprint 7 — Web Backend Sync (Notifikasi, HPP, Batch) | 3 | 3 | 0 | 0 |
-| **TOTAL** | **46** | **46** | **0** | **0** |
+| Sprint 8 — Code Review Cuci Mobil + Rekap Jasa + Backdate | 6 | 6 | 0 | 0 |
+| **TOTAL** | **52** | **52** | **0** | **0** |
+
+## 🆕 UPDATE WEB & BACKEND (1 MEI 2026)
+
+### 56. [M-SYNC-036] Code Review Cuci Mobil — CRITICAL Fixes (Race Condition, SHU, Balance Chain)
+- ✅ **Selesai (Web Backend)**: 5 perbaikan kritis dari code review menyeluruh unit Cuci Mobil.
+- **Perubahan Backend (otomatis berlaku untuk Mobile):**
+  1. ✅ Fiscal period query sekarang cek range tanggal transaksi (`startDate ≤ now ≤ endDate`), bukan hanya `status: "open"`
+  2. ✅ CashBankAccount balance update menggunakan atomic `{ increment: n }` / `{ decrement: n }` (mencegah race condition saat 2 kasir bayar bersamaan)
+  3. ✅ Operational expense/income: account lookup & balance update dipindah ke dalam `$transaction` (atomic)
+  4. ✅ PUT expense: `balanceBefore` direcalculate dari predecessor saat tanggal transaksi berubah, semua subsequent running balance disesuaikan
+  5. ✅ SHU calculator: `allocationsMember`/`allocationsNonMember` dihitung setelah carwash bonus adjustment (sebelumnya dihitung sebelum adjustment, menghasilkan angka salah)
+- **File yang diubah:**
+  - `src/app/api/unit-layanan/sales/route.ts`
+  - `src/app/api/unit/[slug]/operational-expense/route.ts`
+  - `src/app/api/unit/[slug]/operational-expense/[id]/route.ts`
+  - `src/app/api/unit/[slug]/operational-income/route.ts`
+  - `src/lib/services/shu-calculator.ts`
+- **Dampak Mobile:**
+  - ✅ Semua endpoint mobile yang menggunakan API yang sama otomatis mendapat perbaikan
+  - ✅ `POST /api/mobile/unit-layanan` (mobile POS) menggunakan `sales/route.ts` yang sama → atomic balance
+  - ✅ SHU dashboard operator mobile akan menampilkan angka yang benar setelah fix
+  - ❌ **Gap:** Mobile belum bisa mencatat pengeluaran/pemasukan operasional. Backend sudah siap, tapi belum ada UI di mobile untuk `operational-expense` dan `operational-income`. Tambahkan ke backlog (`M-FEAT-032`)
+
+### 57. [M-SYNC-037] Code Review Cuci Mobil — IMPORTANT Fixes (Void Reversal, RBAC, Route Guard)
+- ✅ **Selesai (Web Backend)**: 7 perbaikan kualitas kode dari code review.
+- **Perubahan Backend:**
+  1. ✅ Operator direct void sekarang membalikkan jurnal (swap debit/credit) dan mendekrementasi saldo kas/bank secara atomik
+  2. ✅ `isOperator` di void-request diperluas ke `["operator", "admin", "super_admin"]`
+  3. ✅ GET operational-expense mendapat RBAC via `checkAccess()` + query by `unitType` (bukan `description.contains`)
+  4. ✅ PUT expense: old receipt file dihapus saat diganti dengan file baru
+  5. ✅ Stats endpoint: `todaySalaryCut` sekarang menghitung StoreSale salary_cut; tambah role check (anggota blocked) + unit isolation
+  6. ✅ QRIS POST/DELETE: tambah unit isolation untuk admin role
+  7. ✅ Sales endpoint: tambah unit isolation check
+- **Perubahan Frontend (Web only):**
+  - ✅ `layout.tsx` — Route guard `cuci_mobil` ditambah `/cuci-mobil` untuk kasir dan admin
+- **Dampak Mobile:**
+  - ✅ Void reversal fix otomatis berlaku — void dari mobile POS akan membalikkan jurnal dengan benar
+  - ✅ RBAC fix berlaku — admin mobile bisa void langsung tanpa approval flow
+  - ✅ Stats fix berlaku — dashboard mobile menampilkan angka salary_cut yang benar
+  - ❌ **Gap:** Mobile belum bisa upload QRIS gambar per unit. Tambahkan ke backlog jika dibutuhkan (`M-FEAT-033`)
+
+### 58. [M-SYNC-038] Backdate POS — Kasir Bisa Pilih Tanggal Transaksi Mundur
+- ✅ **Selesai (Web Frontend + Backend)**: Kasir sekarang bisa mencatat transaksi dengan tanggal mundur (backdated).
+- **Perubahan Backend:**
+  - `sales/route.ts` menerima parameter opsional `transactionDate`
+  - Validasi: tidak boleh lebih dari hari ini, harus format tanggal valid
+  - Semua record (UnitTransaction, CashBankTransaction, Journal) menggunakan tanggal yang disediakan
+  - `generateTxNo()` menerima parameter `date` untuk nomor transaksi sesuai tanggal
+- **Perubahan Frontend (Web only):**
+  - `cuci-mobil/kasir/page.tsx` — Date picker di panel checkout
+  - `unit/[unitSlug]/kasir/page.tsx` — Date picker di panel checkout (semua unit jasa)
+- **Dampak Mobile:**
+  - ✅ Backend menerima `transactionDate` → mobile POS bisa kirim parameter ini
+  - ❌ **Gap:** Mobile `KasirScreen.tsx` belum punya date picker untuk backdate. Tambahkan ke backlog (`M-FEAT-034`)
+
+### 59. [M-SYNC-039] Rekap Jasa Pinjaman Per Bulan — Laporan Bunga Pinjaman
+- ✅ **Selesai (Web Backend + Frontend)**: Fitur baru menampilkan rekapitulasi jasa (bunga) pinjaman per bulan.
+- **Fitur:**
+  - Halaman `/pinjaman/laporan-jasa` — tabel rekap per bulan: total pinjaman, total bunga, jumlah pinjaman aktif/baru/lunas
+  - Export Excel dengan format siap cetak
+  - API: `GET /api/loans/rekap-jasa?year=YYYY`
+  - Helper: `src/app/(protected)/pinjaman/_lib/report-helpers.ts` (shared antara view dan export)
+- **File yang diubah:**
+  - `src/app/(protected)/pinjaman/laporan-jasa/page.tsx` — Halaman rekap
+  - `src/app/api/loans/rekap-jasa/route.ts` — API endpoint
+  - `src/app/api/loans/rekap-jasa/export/route.ts` — Export Excel
+  - `src/app/(protected)/pinjaman/_lib/report-helpers.ts` — Shared helpers
+- **Dampak Mobile:**
+  - ✅ API endpoint bisa diakses dari mobile untuk menampilkan rekap jasa
+  - ❌ **Gap:** Mobile belum punya layar rekap jasa pinjaman. Tambahkan ke backlog (`M-FEAT-035`)
+
+### 60. [M-SYNC-040] RBAC & Unit Isolation Audit — Cross-Unit Fixes
+- ✅ **Selesai (Web Backend)**: Audit menyeluruh pada semua endpoint yang terlibat operasi unit layanan.
+- **Perbaikan menyeluruh:**
+  - Sales API: unit isolation check (`userUnitType !== unitType` → 403)
+  - Stats API: role check (anggota blocked), unit isolation for non-operator
+  - QRIS API: unit isolation for admin role on POST/DELETE
+  - Void request: expanded isOperator to include admin/super_admin
+  - Operational expense: full RBAC via `checkAccess()`, proper query filtering
+- **Dampak Mobile:**
+  - ✅ Semua pengecekan akses berlaku otomatis — admin mobile tidak bisa akses data unit lain
+  - ✅ Error messages dalam Bahasa Indonesia (konsisten dengan UX mobile)
+
+### Bug Fixes Lainnya (1 Mei 2026)
+
+| Bug | Area | Solusi |
+|---|---|---|
+| Build error import path | Rekap Jasa Pinjaman | Fix relative import `./_lib/report-helpers` dan `../_lib/report-helpers` |
+| Predecessor query includes self | Operational expense PUT | Tambah `id: { not: transactionId }` di predecessor where clause |
+
+### Tugas Mobile yang Perlu Dikerjakan (Backlog Baru)
+
+| ID | Deskripsi | Estimasi | Prioritas |
+|---|---|---|---|
+| M-FEAT-031 | Layar Rekap Jasa Pinjaman per Bulan di mobile (operator) | 1–2 hari | 🟡 Medium |
+| M-FEAT-032 | Layar Catat Pengeluaran/Pemasukan Operasional di mobile (admin unit) | 2 hari | 🟡 Medium |
+| M-FEAT-033 | Upload QRIS gambar per unit dari mobile (admin) | 1 hari | 🟢 Low |
+| M-FEAT-034 | Date picker backdate di mobile POS KasirScreen | 1 hari | 🟡 Medium |
+| M-FEAT-035 | Rekap Jasa Pinjaman export dari mobile | 1 hari | 🟢 Low |
+
+### File Backend yang Diubah (Berlaku Otomatis untuk Mobile)
+
+| File | Perubahan |
+|---|---|
+| `src/app/api/unit-layanan/sales/route.ts` | Atomic balance, unit isolation, fiscal period, backdate support |
+| `src/app/api/unit-layanan/stats/route.ts` | StoreSale salary_cut, role check, unit isolation |
+| `src/app/api/unit-layanan/qris/route.ts` | Unit isolation admin role |
+| `src/app/api/unit-transactions/void-request/route.ts` | Journal reversal + cash/bank reversal, expand isOperator |
+| `src/app/api/unit/[slug]/operational-expense/route.ts` | Atomic transaction, RBAC, query by unitType |
+| `src/app/api/unit/[slug]/operational-expense/[id]/route.ts` | Balance recalculation, receipt cleanup |
+| `src/app/api/unit/[slug]/operational-income/route.ts` | Atomic transaction inside $transaction |
+| `src/app/api/loans/rekap-jasa/route.ts` | Rekap jasa pinjaman API |
+| `src/app/api/loans/rekap-jasa/export/route.ts` | Export Excel rekap jasa |
+| `src/lib/services/shu-calculator.ts` | SHU allocation after carwash bonus |
+| `src/app/(protected)/layout.tsx` | Route guard cuci_mobil update |
+
+---
 
 ## 🆕 UPDATE WEB & BACKEND (26 APRIL 2026)
 
