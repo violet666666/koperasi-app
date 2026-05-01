@@ -324,8 +324,17 @@ export interface UnitTransaction {
 }
 
 export const unitTransactionsApi = {
-    list: (params?: { page?: number; perPage?: number; unitType?: string; isPaid?: string; memberId?: number }) =>
-        api.get<PaginatedResponse<UnitTransaction>>("/unit-transactions", { params }),
+    list: (params?: {
+        page?: number;
+        perPage?: number;
+        unitType?: string;
+        isPaid?: string;
+        memberId?: number;
+        dateFrom?: string;
+        dateTo?: string;
+        paymentMethod?: string;
+        export?: boolean;
+    }) => api.get<PaginatedResponse<UnitTransaction>>("/unit-transactions", { params }),
 
     create: (data: {
         nrp: string;

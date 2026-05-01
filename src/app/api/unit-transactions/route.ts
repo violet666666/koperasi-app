@@ -3,7 +3,58 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 
-// GET /api/unit-transactions - List unit transactions
+// Helper: map StoreSale into UnitTransaction shape
+function mapStoreSale(s: Record<string, unknown>) {
+    const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata as string) : s.metadata || {};
+    const isVoided = (metadataObj as Record<string, unknown>).isVoided === true;
+    const voidReason = (metadataObj as Record<string, unknown>).voidReason || null;
+    const voidRequestedAt = (metadataObj as Record<string, unknown>).voidRequestedAt || null;
+    const voidRequestedBy = (metadataObj as Record<string, unknown>).voidRequestedBy || null;
+    const items = (s.items || []) as Record<string, unknown>[];
+    const paymentMethod = s.paymentMethod as string;
+    const customerName = s.customerName as string | null;
+    const createdAt = s.createdAt as Date;
+
+    return {
+        id: (s.id as number) + 1000000,
+        transactionNo: s.saleNo,
+        memberId: s.memberId,
+        unitType: "toko",
+        description: `Penjualan Toko ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
+        amount: s.totalAmount,
+        transactionDate: createdAt,
+        isPaid: isVoided ? false : (paymentMethod !== "salary_cut"),
+        paidDate: paymentMethod !== "salary_cut" && !isVoided ? createdAt : null,
+        paymentMethod,
+        cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
+        changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
+        notes: `Total Item: ${items.length}`,
+        status: isVoided ? "voided" : "completed",
+        voidReason,
+        voidRequestedAt,
+        voidRequestedBy,
+        member: s.member,
+        customerName,
+        createdBy: s.createdBy,
+        createdAt,
+        items: items.map((i) => {
+            const product = (i.product || {}) as Record<string, unknown>;
+            return {
+                id: i.id as number,
+                productId: i.productId as number,
+                productName: (product.name as string) || "Produk Dihapus",
+                productSku: (product.sku as string) || null,
+                productCategory: (product.category as string) || null,
+                quantity: i.quantity as number,
+                unitPrice: Number(i.unitPrice),
+                discount: Number(i.discount || 0),
+                subtotal: Number(i.subtotal),
+            };
+        }),
+    };
+}
+
+// GET /api/unit-transactions - List unit transactions with server-side pagination
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -12,9 +63,11 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
+        const isExport = searchParams.get("export") === "true";
+
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,
-            perPage: searchParams.get("perPage") || 15,
+            perPage: searchParams.get("perPage") || 25,
             search: searchParams.get("search") || undefined,
             sortBy: searchParams.get("sortBy") || "transactionDate",
             sortOrder: searchParams.get("sortOrder") || "desc",
@@ -23,6 +76,9 @@ export async function GET(request: Request) {
         const unitType = searchParams.get("unitType");
         const isPaid = searchParams.get("isPaid");
         const memberId = searchParams.get("memberId");
+        const dateFrom = searchParams.get("dateFrom");
+        const dateTo = searchParams.get("dateTo");
+        const paymentMethod = searchParams.get("paymentMethod");
 
         const where: Record<string, unknown> = {};
 
@@ -37,8 +93,25 @@ export async function GET(request: Request) {
             where.unitType = unitType;
         }
 
-        if (isPaid !== null && isPaid !== "all") {
+        if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
             where.isPaid = isPaid === "true";
+        }
+
+        // Server-side date range filter
+        if (dateFrom || dateTo) {
+            const dateFilter: Record<string, Date> = {};
+            if (dateFrom) dateFilter.gte = new Date(dateFrom);
+            if (dateTo) {
+                const toDate = new Date(dateTo);
+                toDate.setHours(23, 59, 59, 999);
+                dateFilter.lte = toDate;
+            }
+            where.transactionDate = dateFilter;
+        }
+
+        // Server-side payment method filter
+        if (paymentMethod && paymentMethod !== "all") {
+            where.paymentMethod = paymentMethod;
         }
 
         if (query.search) {
@@ -50,22 +123,33 @@ export async function GET(request: Request) {
             ];
         }
 
+        // For export mode, skip pagination -- fetch everything with filters applied
+        // For paginated mode, fetch with generous limits from both tables, then merge+slice
+        const fetchLimit = query.perPage * 3;
+
         // Fetch unitTransactions
-        const unitTransactions = await prisma.unitTransaction.findMany({
-            where,
-            include: {
-                member: { select: { id: true, memberNo: true, nrp: true, name: true } },
-                createdBy: { select: { id: true, name: true } },
-            },
-            orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder },
-        });
+        const [unitTransactions, unitCount] = await Promise.all([
+            prisma.unitTransaction.findMany({
+                where,
+                include: {
+                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                    createdBy: { select: { id: true, name: true } },
+                },
+                orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder },
+                ...(isExport ? {} : { take: fetchLimit }),
+            }),
+            prisma.unitTransaction.count({ where }),
+        ]);
 
         // If 'all' or 'toko' units are requested, fetch from StoreSale as well
-        let storeSales: any[] = [];
-        if (!unitType || unitType === "all" || unitType === "toko") {
+        let storeSales: Record<string, unknown>[] = [];
+        let storeCount = 0;
+        const includeStoreSales = !unitType || unitType === "all" || unitType === "toko";
+
+        if (includeStoreSales) {
             const storeWhere: Record<string, unknown> = {};
             if (where.memberId) storeWhere.memberId = where.memberId;
-            if (isPaid !== null && isPaid !== "all") {
+            if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
                 // StoreSales are paid unless it is salary_cut
                 if (isPaid === "true") {
                     storeWhere.paymentMethod = { not: "salary_cut" };
@@ -73,6 +157,24 @@ export async function GET(request: Request) {
                     storeWhere.paymentMethod = "salary_cut";
                 }
             }
+
+            // Date range filter for StoreSales (uses createdAt)
+            if (dateFrom || dateTo) {
+                const dateFilter: Record<string, Date> = {};
+                if (dateFrom) dateFilter.gte = new Date(dateFrom);
+                if (dateTo) {
+                    const toDate = new Date(dateTo);
+                    toDate.setHours(23, 59, 59, 999);
+                    dateFilter.lte = toDate;
+                }
+                storeWhere.createdAt = dateFilter;
+            }
+
+            // Payment method filter for StoreSales
+            if (paymentMethod && paymentMethod !== "all") {
+                storeWhere.paymentMethod = paymentMethod;
+            }
+
             if (query.search) {
                 storeWhere.OR = [
                     { saleNo: { contains: query.search, mode: "insensitive" } },
@@ -81,80 +183,54 @@ export async function GET(request: Request) {
                     { member: { nrp: { contains: query.search, mode: "insensitive" } } },
                 ];
             }
-            
-            storeSales = await prisma.storeSale.findMany({
-                where: storeWhere,
-                include: {
-                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
-                    createdBy: { select: { id: true, name: true } },
-                    items: {
-                        include: { product: { select: { id: true, sku: true, name: true, category: true } } },
-                    },
-                },
-                orderBy: { [query.sortBy === "transactionDate" ? "createdAt" : "createdAt"]: query.sortOrder },
-            });
-        }
-        
-        // Map StoreSale into UnitTransaction shape
-        const mappedStoreSales = storeSales.map((s) => {
-            const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata) : s.metadata || {};
-            const isVoided = metadataObj.isVoided === true;
-            const voidReason = metadataObj.voidReason || null;
-            const voidRequestedAt = metadataObj.voidRequestedAt || null;
-            const voidRequestedBy = metadataObj.voidRequestedBy || null;
 
-            return {
-                id: s.id + 1000000, // Make ID unique
-                transactionNo: s.saleNo,
-                memberId: s.memberId,
-                unitType: "toko",
-                description: `Penjualan Toko ${s.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${s.customerName ? `- ${s.customerName}`: ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
-                amount: s.totalAmount,
-                transactionDate: s.createdAt,
-                isPaid: isVoided ? false : (s.paymentMethod !== "salary_cut"),
-                paidDate: s.paymentMethod !== "salary_cut" && !isVoided ? s.createdAt : null,
-                paymentMethod: s.paymentMethod,
-                cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
-                changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
-                notes: `Total Item: ${s.items?.length || 0}`,
-                status: isVoided ? "voided" : "completed",
-                voidReason,
-                voidRequestedAt,
-                voidRequestedBy,
-                member: s.member,
-                customerName: s.customerName,
-                createdBy: s.createdBy,
-                createdAt: s.createdAt,
-                items: (s.items || []).map((i: any) => ({
-                    id: i.id,
-                    productId: i.productId,
-                    productName: i.product?.name || "Produk Dihapus",
-                    productSku: i.product?.sku || null,
-                    productCategory: i.product?.category || null,
-                    quantity: i.quantity,
-                    unitPrice: Number(i.unitPrice),
-                    discount: Number(i.discount || 0),
-                    subtotal: Number(i.subtotal),
-                })),
-            };
-        });
-        
+            [storeSales, storeCount] = await Promise.all([
+                prisma.storeSale.findMany({
+                    where: storeWhere,
+                    include: {
+                        member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                        createdBy: { select: { id: true, name: true } },
+                        items: {
+                            include: { product: { select: { id: true, sku: true, name: true, category: true } } },
+                        },
+                    },
+                    orderBy: { createdAt: query.sortOrder },
+                    ...(isExport ? {} : { take: fetchLimit }),
+                }),
+                prisma.storeSale.count({ where: storeWhere }),
+            ]);
+        }
+
+        const mappedStoreSales = storeSales.map(mapStoreSale);
+
         let allTransactions = [...unitTransactions, ...mappedStoreSales];
-        
-        // Sort
+
+        // Sort merged results
         const sortKey = query.sortBy || "transactionDate";
         const order = query.sortOrder === "desc" ? -1 : 1;
-        allTransactions.sort((a: any, b: any) => {
-            const valA = new Date(a[sortKey]).getTime();
-            const valB = new Date(b[sortKey]).getTime();
+        allTransactions.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+            const valA = new Date(a[sortKey] as string | Date).getTime();
+            const valB = new Date(b[sortKey] as string | Date).getTime();
             return (valA - valB) * order;
         });
 
-        // Paginate
-        const total = allTransactions.length;
+        // For export mode: return everything
+        if (isExport) {
+            return NextResponse.json({
+                data: allTransactions,
+                meta: {
+                    page: 1,
+                    perPage: allTransactions.length,
+                    total: allTransactions.length,
+                    totalPages: 1,
+                },
+            });
+        }
+
+        // For paginated mode: slice the merged sorted results
+        const total = unitCount + storeCount;
         const startIndex = (query.page - 1) * query.perPage;
         const paginatedTransactions = allTransactions.slice(startIndex, startIndex + query.perPage);
-
 
         return NextResponse.json({
             data: paginatedTransactions,
@@ -162,7 +238,7 @@ export async function GET(request: Request) {
                 page: query.page,
                 perPage: query.perPage,
                 total,
-                totalPages: Math.ceil(total / query.perPage),
+                totalPages: Math.max(1, Math.ceil(total / query.perPage)),
             },
         });
     } catch (error) {

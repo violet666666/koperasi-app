@@ -120,6 +120,16 @@ interface LaporanSummary {
     jumlahCuciAnggota: number;
     shuPerCuci: number;
     laba: number;
+    totalHPP: number;
+    totalWriteOff: number;
+    netProfit: number;
+}
+
+interface PaginationInfo {
+    page: number;
+    perPage: number;
+    total: number;
+    totalPages: number;
 }
 
 interface OperationalExpense {
@@ -139,6 +149,7 @@ interface LaporanData {
     dateTo: string;
     summary: LaporanSummary;
     transactions: LaporanTransaction[];
+    pagination: PaginationInfo;
     operationalExpenses: OperationalExpense[];
     operationalIncomes: OperationalExpense[]; // Same shape as expense
 }
@@ -163,6 +174,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [dateTo, setDateTo] = React.useState("");
     const [isLoading, setIsLoading] = React.useState(false);
     const [data, setData] = React.useState<LaporanData | null>(null);
+    const [page, setPage] = React.useState(1);
+    const perPage = 50;
+    const [isExporting, setIsExporting] = React.useState(false);
 
     // Expense Dialog
     const [editExpenseId, setEditExpenseId] = React.useState<number | null>(null);
@@ -274,7 +288,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             if (!res.ok) throw new Error(json.message);
             toast.success(deleteTarget.type === "income" ? "Pemasukan berhasil dihapus" : "Pengeluaran berhasil dihapus");
             setDeleteTarget(null);
-            fetchLaporan();
+            fetchLaporan(page);
         } catch (err: any) {
             toast.error(err.message || "Gagal menghapus");
         } finally {
@@ -329,7 +343,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             toast.success(`Pemasukan Rp${Number(incomeAmount).toLocaleString("id-ID")} berhasil dicatat`);
             setShowIncomeDialog(false);
             clearIncomeFile();
-            fetchLaporan();
+            fetchLaporan(page);
         } catch (err: any) {
             toast.error(err.message || "Gagal menyimpan pemasukan");
         } finally {
@@ -340,11 +354,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const unitInfo = UNIT_LABELS[unitType] || { label: formatUnitName(unitSlug), icon: Store };
     const UnitIcon = unitInfo.icon;
 
-    const fetchLaporan = React.useCallback(async () => {
+    const fetchLaporan = React.useCallback(async (targetPage: number = page) => {
         if (!hasAccess || isWrongUnit) return;
         setIsLoading(true);
         try {
-            const params = new URLSearchParams({ period, _t: Date.now().toString() });
+            const params = new URLSearchParams({
+                period,
+                page: String(targetPage),
+                perPage: String(perPage),
+                _t: Date.now().toString(),
+            });
             if (period === "custom" && dateFrom && dateTo) {
                 params.set("dateFrom", dateFrom);
                 params.set("dateTo", dateTo);
@@ -360,31 +379,95 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         } finally {
             setIsLoading(false);
         }
-    }, [hasAccess, isWrongUnit, unitSlug, period, dateFrom, dateTo]);
+    }, [hasAccess, isWrongUnit, unitSlug, period, dateFrom, dateTo, page]);
+
+    // Helper: fetch ALL data for export/print (no pagination)
+    const fetchAllData = React.useCallback(async (): Promise<LaporanData | null> => {
+        try {
+            const params = new URLSearchParams({
+                period,
+                perPage: String(perPage),
+                export: "true",
+                _t: Date.now().toString(),
+            });
+            if (period === "custom" && dateFrom && dateTo) {
+                params.set("dateFrom", dateFrom);
+                params.set("dateTo", dateTo);
+            }
+            const res = await fetch(`/api/unit/${unitSlug}/laporan?${params.toString()}`, {
+                cache: "no-store",
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            return json.data;
+        } catch (err: any) {
+            toast.error(err.message || "Gagal memuat data");
+            return null;
+        }
+    }, [unitSlug, period, dateFrom, dateTo]);
 
     React.useEffect(() => {
-        fetchLaporan();
-    }, [fetchLaporan]);
+        fetchLaporan(1);
+    }, [period, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handlePrint = () => window.print();
+    // Reset page to 1 when period or date range changes
+    React.useEffect(() => {
+        setPage(1);
+    }, [period, dateFrom, dateTo]);
+
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+        fetchLaporan(newPage);
+    };
+
+    const handlePeriodChange = (newPeriod: string) => {
+        setPeriod(newPeriod);
+        setPage(1);
+    };
+
+    const handlePrint = async () => {
+        setIsExporting(true);
+        try {
+            const allData = await fetchAllData();
+            if (!allData) return;
+            // Temporarily set all data for print, then restore
+            const currentData = data;
+            setData(allData);
+            // Small delay to ensure DOM updates before printing
+            await new Promise(resolve => setTimeout(resolve, 100));
+            window.print();
+            // Restore paginated data after print dialog closes
+            setData(currentData);
+        } catch {
+            toast.error("Gagal memuat data untuk cetak");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const handleExportExcel = async () => {
         if (!data) return;
+        setIsExporting(true);
         try {
+            const allData = await fetchAllData();
+            if (!allData) return;
+
             const ExcelJS = await import("xlsx");
             const headerRow = ["No.", "Tanggal", "No. Transaksi", "Keterangan"];
             if (isCuciMobil) headerRow.push("Plat Nomor");
             headerRow.push("Anggota/Pelanggan", "Metode", "Nominal", "Status");
 
+            const allTxForExport = allData.transactions.filter(tx => methodFilters.has(tx.paymentMethod));
+
             const exportData: any[][] = [
                 ["PRIMKOPPOL RESOR LUMAJANG"],
                 [`UNIT ${unitInfo.label.toUpperCase()}`],
                 ["LAPORAN TRANSAKSI & PENDAPATAN"],
-                [`Periode: ${data.periodLabel}`],
+                [`Periode: ${allData.periodLabel}`],
                 [],
                 headerRow,
             ];
-            transactions.forEach((tx, i) => {
+            allTxForExport.forEach((tx, i) => {
                 const row = [
                     i + 1,
                     new Date(tx.date).toLocaleDateString("id-ID"),
@@ -401,16 +484,18 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 exportData.push(row);
             });
             exportData.push([]);
-            exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", data.summary.totalPendapatan, ""]);
-            exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", data.summary.totalPengeluaran, ""]);
-            exportData.push(["", "", "", "LABA BERSIH", "", "", data.summary.laba, ""]);
+            exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", allData.summary.totalPendapatan, ""]);
+            exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", allData.summary.totalPengeluaran, ""]);
+            exportData.push(["", "", "", "LABA BERSIH", "", "", allData.summary.laba, ""]);
 
             const ws = ExcelJS.utils.aoa_to_sheet(exportData);
             const wb = ExcelJS.utils.book_new();
             ExcelJS.utils.book_append_sheet(wb, ws, "Laporan");
-            ExcelJS.writeFile(wb, `Laporan_${unitInfo.label}_${data.periodLabel}.xlsx`);
+            ExcelJS.writeFile(wb, `Laporan_${unitInfo.label}_${allData.periodLabel}.xlsx`);
         } catch {
             toast.error("Gagal export Excel");
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -452,7 +537,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             setExpenseDesc("");
             setExpenseDate(new Date().toISOString().split("T")[0]);
             clearExpenseFile();
-            fetchLaporan(); // Refresh
+            fetchLaporan(page); // Refresh
         } catch (err: any) {
             toast.error(err.message || "Gagal menyimpan pengeluaran");
         } finally {
@@ -506,28 +591,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const incomes = data?.operationalIncomes || [];
     const rawSummary = data?.summary;
 
-    // Apply checkbox method filters client-side
+    // Apply checkbox method filters client-side (for display only, not summary)
     const transactions = React.useMemo(() => {
         return rawTransactions.filter(tx => methodFilters.has(tx.paymentMethod));
     }, [rawTransactions, methodFilters]);
 
-    const summary = React.useMemo(() => {
-        if (!rawSummary) return null;
-        if (methodFilters.size === 3) return rawSummary;
-        const tunai = transactions.filter(tx => tx.paymentMethod === "cash").reduce((s, tx) => s + tx.amount, 0);
-        const qris = transactions.filter(tx => tx.paymentMethod === "qris").reduce((s, tx) => s + tx.amount, 0);
-        const potongGaji = transactions.filter(tx => tx.paymentMethod === "salary_cut").reduce((s, tx) => s + tx.amount, 0);
-        const totalPendapatan = transactions.reduce((s, tx) => s + tx.amount, 0) + rawSummary.totalPemasukan;
-        return {
-            ...rawSummary,
-            totalPendapatan,
-            totalTransaksi: transactions.length,
-            tunai,
-            qris,
-            potongGaji,
-            laba: totalPendapatan - rawSummary.totalPengeluaran - rawSummary.potonganSHUMember,
-        };
-    }, [rawSummary, transactions, methodFilters]);
+    // Summary always comes from server (full period data, unaffected by pagination or method filters)
+    const summary = rawSummary;
 
     // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
     const isCuciMobil = unitType === "cuci_mobil";
@@ -583,12 +653,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     Kirim ke Operator
                                 </Button>
                             )}
-                            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!data || isLoading}>
-                                <Download className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!data || isLoading || isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                                 Export Excel
                             </Button>
-                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={!data || isLoading}>
-                                <Printer className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={!data || isLoading || isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                                 Cetak
                             </Button>
                         </div>
@@ -619,7 +689,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <div className="flex flex-wrap gap-3 items-end">
                         <div>
                             <Label className="text-xs mb-1 block">Filter Periode</Label>
-                            <Select value={period} onValueChange={setPeriod}>
+                            <Select value={period} onValueChange={handlePeriodChange}>
                                 <SelectTrigger className="w-[160px]">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -641,7 +711,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <Label className="text-xs mb-1 block">Sampai Tanggal</Label>
                                     <Input type="date" className="w-[150px]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                                 </div>
-                                <Button size="sm" onClick={fetchLaporan} disabled={!dateFrom || !dateTo || isLoading}>
+                                <Button size="sm" onClick={() => fetchLaporan(page)} disabled={!dateFrom || !dateTo || isLoading}>
                                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tampilkan"}
                                 </Button>
                             </>
@@ -853,6 +923,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
                         </div>
                     ) : (
+                        <>
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -878,7 +949,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     ) : (
                                         transactions.map((tx, idx) => (
                                             <TableRow key={tx.id} className={tx.status === "voided" ? "opacity-50 line-through" : ""}>
-                                                <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
+                                                <TableCell className="text-center text-muted-foreground text-xs">{(page - 1) * perPage + idx + 1}</TableCell>
                                                 <TableCell className="tabular-nums text-xs">
                                                     {new Date(tx.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Asia/Jakarta" })}
                                                 </TableCell>
@@ -965,6 +1036,57 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 )}
                             </Table>
                         </div>
+
+                        {/* Pagination Controls */}
+                        {data?.pagination && data.pagination.totalPages > 1 && (
+                            <div className="print:hidden flex items-center justify-between px-4 py-3 border-t text-sm">
+                                <p className="text-muted-foreground">
+                                    Menampilkan {(page - 1) * perPage + 1}–{Math.min(page * perPage, data.pagination.total)} dari {data.pagination.total} transaksi
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8"
+                                        disabled={page <= 1 || isLoading}
+                                        onClick={() => handlePageChange(1)}
+                                    >
+                                        Awal
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8"
+                                        disabled={page <= 1 || isLoading}
+                                        onClick={() => handlePageChange(page - 1)}
+                                    >
+                                        Sebelumnya
+                                    </Button>
+                                    <span className="px-3 text-muted-foreground">
+                                        Hal. {page} / {data.pagination.totalPages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8"
+                                        disabled={page >= data.pagination.totalPages || isLoading}
+                                        onClick={() => handlePageChange(page + 1)}
+                                    >
+                                        Berikutnya
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8"
+                                        disabled={page >= data.pagination.totalPages || isLoading}
+                                        onClick={() => handlePageChange(data.pagination.totalPages)}
+                                    >
+                                        Akhir
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        </>
                     )}
                 </CardContent>
             </Card>

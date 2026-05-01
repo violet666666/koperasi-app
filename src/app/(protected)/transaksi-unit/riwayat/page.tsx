@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
-import { DatePeriodFilter, matchesDateRange, type DateRange } from "@/components/patterns/date-period-filter";
+import { DatePeriodFilter, type DateRange } from "@/components/patterns/date-period-filter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/hooks";
@@ -75,7 +75,7 @@ export default function RiwayatTransaksiUnitPage() {
     const isOperator = _roleName === "operator" || user?.permissions?.includes("manage_all");
 
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(9999);
+    const [perPage, setPerPage] = React.useState(25);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
     const [filterUnit, setFilterUnit] = React.useState<string>(userUnitType || "all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
@@ -171,32 +171,58 @@ export default function RiwayatTransaksiUnitPage() {
         } finally { setIsSavingDetails(false); }
     };
 
+    // Build API query params from current filters
+    const apiParams = React.useMemo(() => {
+        const params: Record<string, unknown> = { page, perPage };
+        if (filterUnit !== "all") params.unitType = filterUnit;
+        if (dateRange.start) params.dateFrom = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end) params.dateTo = format(dateRange.end, "yyyy-MM-dd");
+        // Map status filter to isPaid for API
+        if (filterStatus === "lunas") params.isPaid = "true";
+        else if (filterStatus === "belum_lunas") params.isPaid = "false";
+        return params;
+    }, [page, perPage, filterUnit, dateRange, filterStatus]);
+
     const { data: response, isLoading } = useQuery({
-        queryKey: ["unit-transactions", page, perPage],
-        queryFn: () => unitTransactionsApi.list({ page, perPage }),
+        queryKey: ["unit-transactions", apiParams],
+        queryFn: () => unitTransactionsApi.list(apiParams as Parameters<typeof unitTransactionsApi.list>[0]),
     });
+
+    const paginationMeta = response?.meta;
 
     const filteredData = React.useMemo(() => {
         if (!response?.data) return [];
-        return (response.data as unknown as EnrichedTransaction[]).filter(tx => {
-            const matchesDate = matchesDateRange(tx.transactionDate, dateRange);
-            const matchesUnit = filterUnit === "all" ? true : tx.unitType === filterUnit;
-            const txStatus = (tx as any).status || "completed";
-            const matchesStatus = filterStatus === "all" ? true
-                : filterStatus === "lunas" ? (tx.isPaid && txStatus !== "voided")
-                : filterStatus === "belum_lunas" ? (!tx.isPaid && txStatus !== "voided" && txStatus !== "pending_void")
-                : filterStatus === "pending_void" ? (txStatus === "pending_void")
-                : filterStatus === "voided" ? (txStatus === "voided")
-                : true;
-            return matchesDate && matchesUnit && matchesStatus;
-        });
-    }, [response, dateRange, filterUnit, filterStatus]);
+        const data = response.data as unknown as EnrichedTransaction[];
+        // Status filters that need client-side filtering (void-related statuses)
+        if (filterStatus === "pending_void") {
+            return data.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "pending_void");
+        }
+        if (filterStatus === "voided") {
+            return data.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "voided");
+        }
+        // For lunas/belum_lunas: server already filters by isPaid, but we need to exclude voided items
+        if (filterStatus === "lunas") {
+            return data.filter(tx => ((tx as Record<string, unknown>).status || "completed") !== "voided");
+        }
+        if (filterStatus === "belum_lunas") {
+            return data.filter(tx => {
+                const status = (tx as Record<string, unknown>).status || "completed";
+                return status !== "voided" && status !== "pending_void";
+            });
+        }
+        return data;
+    }, [response, filterStatus]);
 
     React.useEffect(() => {
         if (userUnitType && !isOperator) {
             setFilterUnit(userUnitType);
         }
     }, [userUnitType, isOperator]);
+
+    // Reset to page 1 when any filter changes
+    React.useEffect(() => {
+        setPage(1);
+    }, [filterUnit, filterStatus, dateRange, perPage]);
 
     const getUnitName = (type: string) => {
         const types: Record<string, string> = {
@@ -569,7 +595,7 @@ export default function RiwayatTransaksiUnitPage() {
         }
     };
 
-    const handlePrint = React.useCallback(() => {
+    const handlePrint = React.useCallback(async () => {
         const unitLabel = filterUnit === "all" ? "Semua Unit" : getUnitName(filterUnit);
         const statusLabel = filterStatus === "all" ? "Semua Status"
             : filterStatus === "lunas" ? "Lunas"
@@ -578,8 +604,29 @@ export default function RiwayatTransaksiUnitPage() {
             : "Dibatalkan";
         const periodLabel = dateRange.label || "Semua Data";
 
-        const rows = filteredData.map((tx) => {
-            const plat = parsePlat((tx as any).notes);
+        // Fetch ALL data for export (respecting filters)
+        const exportParams: Record<string, unknown> = { export: true };
+        if (filterUnit !== "all") exportParams.unitType = filterUnit;
+        if (dateRange.start) exportParams.dateFrom = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");
+        if (filterStatus === "lunas") exportParams.isPaid = "true";
+        else if (filterStatus === "belum_lunas") exportParams.isPaid = "false";
+
+        const exportRes = await unitTransactionsApi.list(exportParams as Parameters<typeof unitTransactionsApi.list>[0]);
+        let exportData = (exportRes.data as unknown as EnrichedTransaction[]);
+        // Apply client-side void status filters
+        if (filterStatus === "pending_void") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "pending_void");
+        } else if (filterStatus === "voided") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "voided");
+        } else if (filterStatus === "lunas") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") !== "voided");
+        } else if (filterStatus === "belum_lunas") {
+            exportData = exportData.filter(tx => { const s = ((tx as Record<string, unknown>).status || "completed"); return s !== "voided" && s !== "pending_void"; });
+        }
+
+        const rows = exportData.map((tx) => {
+            const plat = parsePlat((tx as Record<string, unknown>).notes as string);
             return `
                 <tr>
                     <td>${tx.transactionNo}</td>
@@ -594,7 +641,7 @@ export default function RiwayatTransaksiUnitPage() {
             `;
         }).join("");
 
-        const total = filteredData.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+        const total = exportData.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
         const win = window.open("", "_blank");
         if (!win) return;
@@ -627,7 +674,7 @@ export default function RiwayatTransaksiUnitPage() {
                 <span>Periode: <strong>${periodLabel}</strong></span>
                 <span>Unit: <strong>${unitLabel}</strong></span>
                 <span>Status: <strong>${statusLabel}</strong></span>
-                <span>Total: <strong>${filteredData.length} transaksi</strong></span>
+                <span>Total: <strong>${exportData.length} transaksi</strong></span>
             </div>
             <table>
                 <thead><tr>
@@ -635,7 +682,7 @@ export default function RiwayatTransaksiUnitPage() {
                 </tr></thead>
                 <tbody>${rows}</tbody>
                 <tfoot><tr class="total-row">
-                    <td colspan="6">TOTAL (${filteredData.length} transaksi)</td>
+                    <td colspan="6">TOTAL (${exportData.length} transaksi)</td>
                     <td style="text-align:right">${formatCurrency(total)}</td>
                     <td></td>
                 </tr></tfoot>
@@ -644,7 +691,53 @@ export default function RiwayatTransaksiUnitPage() {
         `);
         win.document.close();
         win.print();
-    }, [filteredData, filterUnit, filterStatus, dateRange]);
+    }, [filterUnit, filterStatus, dateRange]);
+
+    // Fetch ALL data for export (respecting current filters)
+    const [isExporting, setIsExporting] = React.useState(false);
+
+    const fetchExportData = React.useCallback(async (): Promise<EnrichedTransaction[]> => {
+        const exportParams: Record<string, unknown> = { export: true };
+        if (filterUnit !== "all") exportParams.unitType = filterUnit;
+        if (dateRange.start) exportParams.dateFrom = format(dateRange.start, "yyyy-MM-dd");
+        if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");
+        if (filterStatus === "lunas") exportParams.isPaid = "true";
+        else if (filterStatus === "belum_lunas") exportParams.isPaid = "false";
+
+        const exportRes = await unitTransactionsApi.list(exportParams as Parameters<typeof unitTransactionsApi.list>[0]);
+        let exportData = (exportRes.data as unknown as EnrichedTransaction[]);
+        // Apply client-side void status filters
+        if (filterStatus === "pending_void") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "pending_void");
+        } else if (filterStatus === "voided") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") === "voided");
+        } else if (filterStatus === "lunas") {
+            exportData = exportData.filter(tx => ((tx as Record<string, unknown>).status || "completed") !== "voided");
+        } else if (filterStatus === "belum_lunas") {
+            exportData = exportData.filter(tx => { const s = ((tx as Record<string, unknown>).status || "completed"); return s !== "voided" && s !== "pending_void"; });
+        }
+        return exportData;
+    }, [filterUnit, filterStatus, dateRange]);
+
+    const handleExportExcel = React.useCallback(async () => {
+        setIsExporting(true);
+        try {
+            const allData = await fetchExportData();
+            exportToExcel(allData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi");
+        } finally {
+            setIsExporting(false);
+        }
+    }, [fetchExportData]);
+
+    const handleExportPDF = React.useCallback(async () => {
+        setIsExporting(true);
+        try {
+            const allData = await fetchExportData();
+            exportToPDF(allData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - PRIMKOPPOL Resor Lumajang", "Riwayat_Transaksi_Unit");
+        } finally {
+            setIsExporting(false);
+        }
+    }, [fetchExportData]);
 
     return (
         <div className="space-y-6">
@@ -653,16 +746,16 @@ export default function RiwayatTransaksiUnitPage() {
                 description="Monitor semua transaksi dari unit-unit PRIMKOPPOL"
                 actions={(
                     <div className="flex gap-2 flex-wrap">
-                        <Button variant="outline" size="sm" onClick={() => exportToExcel(filteredData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat_Transaksi_Unit", "Transaksi")}>
-                            <Download className="mr-2 h-4 w-4" />
+                        <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                             Excel
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => exportToPDF(filteredData as unknown as Record<string, unknown>[], txExportColumns, "Riwayat Transaksi Unit - PRIMKOPPOL Resor Lumajang", "Riwayat_Transaksi_Unit")}>
-                            <FileText className="mr-2 h-4 w-4" />
+                        <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                             PDF
                         </Button>
-                        <Button variant="outline" size="sm" onClick={handlePrint}>
-                            <Printer className="mr-2 h-4 w-4" />
+                        <Button variant="outline" size="sm" onClick={handlePrint} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                             Cetak
                         </Button>
                         <Button asChild>
@@ -731,6 +824,16 @@ export default function RiwayatTransaksiUnitPage() {
                 isLoading={isLoading}
                 renderExpandedRow={renderExpandedRow}
                 getRowCanExpand={({ original: tx }) => !!(tx.items && tx.items.length > 0)}
+                manualPagination
+                pageCount={paginationMeta?.totalPages ?? 1}
+                totalRows={paginationMeta?.total ?? 0}
+                pagination={{ pageIndex: page - 1, pageSize: perPage }}
+                onPaginationChange={(updater: any) => {
+                    const newPagination = typeof updater === "function" ? updater({ pageIndex: page - 1, pageSize: perPage }) : updater;
+                    if (newPagination.pageIndex !== page - 1) setPage(newPagination.pageIndex + 1);
+                    if (newPagination.pageSize !== perPage) setPerPage(newPagination.pageSize);
+                }}
+                pageSize={perPage}
             />
 
             {/* Void Request Dialog */}

@@ -70,6 +70,7 @@ interface DataTableProps<TData, TValue> {
     globalFilterValue?: string;
     onGlobalFilterChange?: (value: string) => void;
     manualFiltering?: boolean;
+    totalRows?: number;
 }
 
 export function DataTable<TData, TValue>({
@@ -92,6 +93,7 @@ export function DataTable<TData, TValue>({
     globalFilterValue,
     onGlobalFilterChange,
     manualFiltering = false,
+    totalRows,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -308,11 +310,23 @@ export function DataTable<TData, TValue>({
             {showPagination && (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-muted-foreground">
-                        Menampilkan {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min(
-                            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                            table.getFilteredRowModel().rows.length
-                        )}{" "}
-                        dari {table.getFilteredRowModel().rows.length} data
+                        {manualPagination && totalRows !== undefined ? (
+                            <>
+                                Menampilkan {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min(
+                                    (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                                    totalRows
+                                )}{" "}
+                                dari {totalRows} data
+                            </>
+                        ) : (
+                            <>
+                                Menampilkan {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min(
+                                    (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                                    table.getFilteredRowModel().rows.length
+                                )}{" "}
+                                dari {table.getFilteredRowModel().rows.length} data
+                            </>
+                        )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Page Size */}

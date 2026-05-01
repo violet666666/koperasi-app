@@ -7,11 +7,14 @@ export const revalidate = 0;
 
 /**
  * GET /api/unit/[slug]/laporan
- * Query params: dateFrom, dateTo, period (today|week|month|year|custom)
+ * Query params: dateFrom, dateTo, period (today|week|month|year|custom),
+ *               page (default 1), perPage (default 50), export (boolean)
  *
  * Returns aggregated transaction report for the given unit slug.
  * - Unit Jasa (cuci_mobil, barbershop, dll): queries UnitTransaction
  * - Unit Toko: queries StoreSale + UnitTransaction (piutang)
+ * - Pagination only applies to the transactions list; summary/expenses/incomes are always complete.
+ * - export=true returns ALL transactions without pagination (for Excel/Print).
  */
 export async function GET(
     request: Request,
@@ -40,6 +43,9 @@ export async function GET(
         const period = searchParams.get("period") || "month";
         const dateFromParam = searchParams.get("dateFrom");
         const dateToParam = searchParams.get("dateTo");
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+        const perPage = Math.min(200, Math.max(1, parseInt(searchParams.get("perPage") || "50", 10)));
+        const isExport = searchParams.get("export") === "true";
 
         // Compute date range with WIB (+7) timezone
         const now = new Date();
@@ -262,6 +268,13 @@ export async function GET(
         const allTransactions = [...(usesStoreSales ? storeSaleRows : []), ...unitTxRows]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+        // Pagination: slice transactions unless export mode
+        const totalTransactions = allTransactions.length;
+        const totalPages = Math.ceil(totalTransactions / perPage);
+        const paginatedTransactions = isExport
+            ? allTransactions
+            : allTransactions.slice((page - 1) * perPage, page * perPage);
+
         const totalPendapatan = (usesStoreSales ? storeSaleAgg.total : 0) + unitTxAgg.total + totalOpIncome;
 
         // ── HPP & Write-off calculation ──
@@ -316,7 +329,13 @@ export async function GET(
                     totalWriteOff,
                     netProfit: totalPendapatan - totalHPP - totalWriteOff - totalExpenses - (isCuciMobil ? potonganSHUMember : 0),
                 },
-                transactions: allTransactions,
+                transactions: paginatedTransactions,
+                pagination: {
+                    page: isExport ? 1 : page,
+                    perPage: isExport ? totalTransactions : perPage,
+                    total: totalTransactions,
+                    totalPages: isExport ? 1 : totalPages,
+                },
                 operationalExpenses: operationalExpenses.map((e) => {
                     const rawDesc = e.description || "";
                     const parts = rawDesc.split("||RECEIPT:");
