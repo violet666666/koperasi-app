@@ -297,6 +297,7 @@ async function main() {
         { unit: "resto_cafe", label: "Resto & Cafe", emailKey: "cafe" },
         { unit: "playstation", label: "Playstation", emailKey: "ps" },
         { unit: "barbershop", label: "Barbershop", emailKey: "barbershop" },
+        { unit: "cafe_lsp", label: "Cafe LSP", emailKey: "cafelsp" },
         { unit: "aset", label: "Aset", emailKey: "aset" },
     ];
 

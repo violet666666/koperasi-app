@@ -232,6 +232,7 @@ export const createUnitTransactionSchema = z.object({
     unitType: z.enum([
         "toko", "simpan_pinjam", "fotocopy", "cuci_mobil", "fitness",
         "barbershop", "play_station", "coffe_latar", "resto", "properti",
+        "cafe_lsp",
     ]),
     description: z.string().min(1).max(500),
     amount: z.number().positive(),

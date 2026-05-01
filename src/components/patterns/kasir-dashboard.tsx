@@ -67,6 +67,7 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
         resto_cafe: "/resto/kasir",
         coffe_latar: "/resto/kasir",
         resto: "/resto/kasir",
+        cafe_lsp: "/cafe-lsp/kasir",
         barbershop: "/barbershop/kasir",
         playstation: "/play-station/kasir",
         fitness: "/fitness/kasir",

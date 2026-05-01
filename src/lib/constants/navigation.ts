@@ -42,6 +42,7 @@ import {
     Calculator,
     UserCircle,
     Layers,
+    Coffee,
 } from "lucide-react";
 
 export interface NavItem {
@@ -904,6 +905,104 @@ export const adminLaundryNavigation: (NavItem | NavGroup)[] = [
     },
 ];
 
+// ============================================================
+// KASIR CAFE LSP NAVIGATION — counter-based POS
+// ============================================================
+export const kasirCafeLspNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "CAFE LSP",
+        items: [
+            {
+                title: "Kasir POS", href: "/cafe-lsp/kasir", icon: Coffee,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Order Queue", href: "/cafe-lsp/antrian", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Shift Kasir", href: "/cafe-lsp/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=cafe_lsp", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN CAFE LSP NAVIGATION — Manajemen Menu, Promo, Stok, Laporan
+// ============================================================
+export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "CAFE & MENU",
+        items: [
+            {
+                title: "Kasir POS", href: "/cafe-lsp/kasir", icon: Coffee,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Order Queue", href: "/cafe-lsp/antrian", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Menu", href: "/cafe-lsp/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Promo & Diskon", href: "/cafe-lsp/marketing", icon: Tag,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Persediaan & Stok", href: "/cafe-lsp/persediaan", icon: Boxes,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Shift Kasir", href: "/cafe-lsp/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Riwayat Penjualan", href: "/transaksi-unit/riwayat?unitType=cafe_lsp", icon: ClipboardList,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "LAPORAN & KEUANGAN",
+        items: [
+            {
+                title: "Laporan Penjualan", href: "/unit/cafe-lsp/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "PERSETUJUAN",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
 /** @deprecated No longer used — bottom nav now derives items dynamically from getNavigationForUser */
 export const bottomNavigation: NavItem[] = [
     { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
@@ -1036,6 +1135,9 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     else if (user.roleName === "kasir" && user.unitType === "laundry") {
         finalNav = filterNavigationByUser(kasirLaundryNavigation, user);
     }
+    else if (user.roleName === "kasir" && user.unitType === "cafe_lsp") {
+        finalNav = filterNavigationByUser(kasirCafeLspNavigation, user);
+    }
     // Kasir unit jasa lain (fallback ke generic)
     else if (user.roleName === "kasir" && user.unitType) {
         finalNav = filterNavigationByUser(kasirNavigation, user);
@@ -1062,8 +1164,11 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     else if (user.roleName === "admin" && user.unitType === "laundry") {
         finalNav = filterNavigationByUser(adminLaundryNavigation, user);
     }
+    else if (user.roleName === "admin" && user.unitType === "cafe_lsp") {
+        finalNav = filterNavigationByUser(adminCafeLspNavigation, user);
+    }
     // Admin unit Jasa Cepat (fallback ke generic)
-    else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp"].includes(user.unitType)) {
+    else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp", "cafe_lsp"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminUnitNavigation, user);
     }
     // Default: operator koperasi pusat atau admin pusat (tanpa unitType)

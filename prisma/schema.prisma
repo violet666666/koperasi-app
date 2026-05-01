@@ -23,7 +23,7 @@ model User {
   roleId          Int       @map("role_id")
   branchId        Int?      @map("branch_id")
   memberId        Int?      @unique @map("member_id")
-  unitType        String?   @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset
+  unitType        String?   @map("unit_type") // simpan_pinjam, toko, fitness, cuci_mobil, fotocopy, laundry, resto_cafe, playstation, barbershop, aset, cafe_lsp
   fcmToken        String?   @map("fcm_token")
   isActive        Boolean   @default(true) @map("is_active")
   emailVerifiedAt DateTime? @map("email_verified_at")
