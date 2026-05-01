@@ -17,7 +17,6 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -31,6 +30,8 @@ import {
     Wallet,
     ArrowUpCircle,
     ArrowDownCircle,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { formatCurrency, CASH_BANK_CATEGORIES } from "@/lib/constants";
 import { api } from "@/lib/api/client";
@@ -56,6 +57,12 @@ interface BukuKasData {
     entries: BukuKasEntry[];
     accounts: { id: number; code: string; name: string; type: string }[];
     accountOpeningBreakdown?: { accountName: string; balance: number }[];
+    pagination: {
+        page: number;
+        perPage: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 const categoryLabels: Record<string, string> = Object.fromEntries(
@@ -85,6 +92,9 @@ export default function BukuKasPage() {
     const [selectedCategory, setSelectedCategory] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<BukuKasData | null>(null);
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const perPage = 50;
+    const [isExporting, setIsExporting] = React.useState(false);
 
     // Generate year options (5 years back and 1 forward)
     const yearOptions = React.useMemo(() => {
@@ -96,12 +106,14 @@ export default function BukuKasPage() {
     }, []);
 
     // Fetch data
-    const fetchData = React.useCallback(async () => {
+    const fetchData = React.useCallback(async (page?: number) => {
         setIsLoading(true);
         try {
             const params: Record<string, string> = {
                 month: selectedMonth,
                 year: selectedYear,
+                page: String(page ?? currentPage),
+                perPage: String(perPage),
             };
             if (selectedAccount !== "all") params.accountId = selectedAccount;
             if (selectedCategory !== "all") params.category = selectedCategory;
@@ -113,34 +125,76 @@ export default function BukuKasPage() {
         } finally {
             setIsLoading(false);
         }
+    }, [selectedAccount, selectedMonth, selectedYear, selectedCategory, currentPage]);
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
     }, [selectedAccount, selectedMonth, selectedYear, selectedCategory]);
 
     React.useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Print handler
-    const handlePrint = () => {
-        window.print();
+    // Fetch ALL data for export/print (bypasses pagination)
+    const fetchAllData = async (): Promise<BukuKasData | null> => {
+        try {
+            const params: Record<string, string> = {
+                month: selectedMonth,
+                year: selectedYear,
+                export: "true",
+            };
+            if (selectedAccount !== "all") params.accountId = selectedAccount;
+            if (selectedCategory !== "all") params.category = selectedCategory;
+
+            const response = await api.get<{ data: BukuKasData }>("/cash-bank/book", { params });
+            return response.data;
+        } catch (error) {
+            console.error("Failed to fetch all data for export:", error);
+            return null;
+        }
     };
 
-    // Export Excel handler
-    const handleExportExcel = async () => {
+    // Print handler — fetch all data first, then print
+    const handlePrint = async () => {
+        setIsExporting(true);
         try {
+            const allData = await fetchAllData();
+            if (allData) {
+                setData(allData);
+                // Small delay to let React re-render with full data before printing
+                setTimeout(() => {
+                    window.print();
+                    // Re-fetch paginated data after print dialog closes
+                    setTimeout(() => fetchData(), 200);
+                }, 100);
+            }
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Export Excel handler — fetch all data first
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const allData = await fetchAllData();
+            if (!allData) return;
+
             const ExcelJS = await import("xlsx");
             const exportData = [
                 // Header
                 ["BUKU KAS PRIMKOPPOL RESOR LUMAJANG"],
-                [`Periode: ${data?.period?.label || "-"}`],
+                [`Periode: ${allData.period?.label || "-"}`],
                 [],
                 ["Tanggal", "No. Bukti", "Keterangan", "Masuk (Debit)", "Keluar (Kredit)", "Saldo", "Kategori"],
                 // Saldo Awal
-                ["", "", "Saldo Awal Periode", "", "", data?.openingBalance || 0, ""],
+                ["", "", "Saldo Awal Periode", "", "", allData.openingBalance || 0, ""],
             ];
 
             // Entries
-            if (data?.entries) {
-                data.entries.forEach(entry => {
+            if (allData.entries) {
+                allData.entries.forEach(entry => {
                     exportData.push([
                         new Date(entry.transactionDate).toLocaleDateString("id-ID"),
                         entry.transactionNo,
@@ -156,20 +210,34 @@ export default function BukuKasPage() {
             // Summary
             exportData.push([]);
             exportData.push([
-                "", "", "TOTAL", data?.totalDebit || 0, data?.totalCredit || 0, data?.closingBalance || 0, ""
+                "", "", "TOTAL", allData.totalDebit || 0, allData.totalCredit || 0, allData.closingBalance || 0, ""
             ]);
 
             const worksheet = ExcelJS.utils.aoa_to_sheet(exportData);
             const workbook = ExcelJS.utils.book_new();
             ExcelJS.utils.book_append_sheet(workbook, worksheet, "Buku_Kas");
-            ExcelJS.writeFile(workbook, `Buku_Kas_${data?.period?.label || "All"}.xlsx`);
+            ExcelJS.writeFile(workbook, `Buku_Kas_${allData.period?.label || "All"}.xlsx`);
         } catch (error) {
             console.error("Failed to export Excel:", error);
+        } finally {
+            setIsExporting(false);
         }
     };
 
     const entries = data?.entries || [];
     const accounts = data?.accounts || [];
+    const pagination = data?.pagination;
+
+    // Pagination info
+    const pageStart = pagination ? (pagination.page - 1) * pagination.perPage + 1 : 0;
+    const pageEnd = pagination ? Math.min(pagination.page * pagination.perPage, pagination.total) : 0;
+
+    // Go to specific page (re-fetches data)
+    const goToPage = (newPage: number) => {
+        setCurrentPage(newPage);
+        // fetchData is a dependency of useEffect, so it will re-run
+        // when currentPage changes via setCurrentPage
+    };
 
     return (
         <div className="space-y-6">
@@ -180,11 +248,11 @@ export default function BukuKasPage() {
                     backHref="/kas-bank"
                     actions={
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Export Excel
+                                {isExporting ? "Mengunduh..." : "Export Excel"}
                             </Button>
-                            <Button variant="outline" size="sm" onClick={handlePrint}>
+                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={isExporting}>
                                 <Printer className="mr-2 h-4 w-4" />
                                 Cetak
                             </Button>
@@ -491,6 +559,50 @@ export default function BukuKasPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Pagination Controls */}
+            {pagination && pagination.total > 0 && !isLoading && (
+                <Card className="print:hidden">
+                    <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <p className="text-sm text-muted-foreground">
+                                Menampilkan{" "}
+                                <span className="font-medium text-foreground">
+                                    {pageStart}-{pageEnd}
+                                </span>{" "}
+                                dari{" "}
+                                <span className="font-medium text-foreground">
+                                    {pagination.total}
+                                </span>{" "}
+                                transaksi
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage <= 1}
+                                    onClick={() => goToPage(currentPage - 1)}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Sebelumnya
+                                </Button>
+                                <span className="text-sm font-medium tabular-nums px-2">
+                                    {currentPage} / {pagination.totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage >= pagination.totalPages}
+                                    onClick={() => goToPage(currentPage + 1)}
+                                >
+                                    Berikutnya
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// GET /api/journals - List journal entries
+// GET /api/journals - List journal entries with server-side pagination
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const period = searchParams.get("period"); // "current", "last", "year", "all"
         const adjustment = searchParams.get("adjustment"); // "true" to filter only adjustments
         const search = searchParams.get("search") || "";
+        const dateFrom = searchParams.get("dateFrom"); // "YYYY-MM-DD"
+        const dateTo = searchParams.get("dateTo"); // "YYYY-MM-DD"
 
+        // Pagination parameters — only paginate when explicitly requested
+        const pageParam = searchParams.get("page");
+        const perPageParam = searchParams.get("perPage");
+        const shouldPaginate = pageParam !== null || perPageParam !== null;
+        const page = Math.max(1, Number(pageParam || 1));
+        const perPage = Math.min(100, Math.max(1, Number(perPageParam || 25)));
+
+        // Build date filter
         const now = new Date();
-        let dateFilter: any = {};
+        let dateFilter: Record<string, Date> = {};
 
         if (period === "current") {
             const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -26,7 +36,16 @@ export async function GET(request: Request) {
             dateFilter = { gte: start, lte: end };
         }
 
-        const where: any = {};
+        // Override with explicit date range if provided
+        if (dateFrom) {
+            dateFilter.gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+            dateFilter.lte = new Date(dateTo);
+        }
+
+        // Build where clause
+        const where: Record<string, unknown> = {};
         if (Object.keys(dateFilter).length > 0) {
             where.transactionDate = dateFilter;
         }
@@ -34,22 +53,39 @@ export async function GET(request: Request) {
             where.isAdjustment = true;
         }
         if (search) {
-            where.description = { contains: search, mode: "insensitive" };
+            where.OR = [
+                { description: { contains: search, mode: "insensitive" } },
+                { journalNo: { contains: search, mode: "insensitive" } },
+            ];
         }
 
-        const journals = await prisma.journal.findMany({
+        // Get total count for pagination
+        const total = await prisma.journal.count({ where });
+        const totalPages = shouldPaginate ? Math.ceil(total / perPage) : 1;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const findManyArgs: any = {
             where,
             include: {
-                lines: true,
+                lines: { include: { account: true } },
                 createdBy: { select: { id: true, name: true } },
             },
-            orderBy: { transactionDate: "desc" },
-            take: 200,
-        });
+            orderBy: [{ transactionDate: "desc" }, { id: "desc" }],
+        };
 
-        const data = journals.map((j) => {
-            const totalDebit = j.lines.reduce((s, l) => s + Number(l.debit), 0);
-            const totalCredit = j.lines.reduce((s, l) => s + Number(l.credit), 0);
+        if (shouldPaginate) {
+            findManyArgs.skip = (page - 1) * perPage;
+            findManyArgs.take = perPage;
+        } else {
+            findManyArgs.take = 200;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const journals: any[] = await prisma.journal.findMany(findManyArgs);
+
+        const data = journals.map((j: any) => {
+            const totalDebit = j.lines.reduce((s: number, l: any) => s + Number(l.debit), 0);
+            const totalCredit = j.lines.reduce((s: number, l: any) => s + Number(l.credit), 0);
             return {
                 id: j.id,
                 journalNo: j.journalNo,
@@ -61,10 +97,24 @@ export async function GET(request: Request) {
                 isPosted: j.isPosted,
                 isAdjustment: j.isAdjustment,
                 createdBy: j.createdBy,
+                lines: j.lines.map((l: any) => ({
+                    id: l.id,
+                    accountId: l.accountId,
+                    accountCode: l.account?.code || "",
+                    accountName: l.account?.name || "",
+                    description: l.description,
+                    debit: Number(l.debit),
+                    credit: Number(l.credit),
+                })),
             };
         });
 
-        return NextResponse.json({ data });
+        return NextResponse.json({
+            data,
+            ...(shouldPaginate
+                ? { pagination: { page, perPage, total, totalPages } }
+                : {}),
+        });
     } catch (error) {
         console.error("GET /api/journals error:", error);
         return NextResponse.json({ message: "Failed to fetch journals" }, { status: 500 });

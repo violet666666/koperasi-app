@@ -30,6 +30,11 @@ export async function GET(request: Request) {
         const year = searchParams.get("year");
         const category = searchParams.get("category");
 
+        // Pagination parameters
+        const page = Math.max(1, Number(searchParams.get("page") || 1));
+        const perPage = Math.min(200, Math.max(1, Number(searchParams.get("perPage") || 50)));
+        const isExport = searchParams.get("export") === "true";
+
         const now = new Date();
         const filterYear = year ? parseInt(year) : now.getFullYear();
         const isAllMonths = month === "all" || !month;
@@ -194,10 +199,21 @@ export async function GET(request: Request) {
             };
         });
 
-        // Summary
+        // ================================================================
+        // SUMMARY (computed from ALL entries, before pagination)
+        // ================================================================
         const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0);
         const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0);
         const closingBalance = openingBalance + totalDebit - totalCredit;
+
+        // ================================================================
+        // PAGINATION (applied after running balance calculation)
+        // ================================================================
+        const totalEntries = entries.length;
+        const totalPages = Math.max(1, Math.ceil(totalEntries / perPage));
+        const paginatedEntries = isExport
+            ? entries
+            : entries.slice((page - 1) * perPage, page * perPage);
 
         // Fetch accounts for filter dropdown
         const accounts = await prisma.cashBankAccount.findMany({
@@ -247,10 +263,16 @@ export async function GET(request: Request) {
                 closingBalance,
                 totalDebit,
                 totalCredit,
-                entries,
+                entries: paginatedEntries,
                 accounts,
                 accountOpeningBreakdown,
                 latestTransactionDate: latestTx?.transactionDate?.toISOString() || null,
+                pagination: {
+                    page,
+                    perPage,
+                    total: totalEntries,
+                    totalPages,
+                },
             },
         });
     } catch (error) {
