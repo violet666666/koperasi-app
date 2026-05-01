@@ -394,7 +394,7 @@ model SavingsTransaction {
 
   @@index([transactionDate])
   @@index([type, transactionDate])
-  @@index([savingsAccountId])
+  @@index([accountId])
   @@map("savings_transactions")
 }
 
