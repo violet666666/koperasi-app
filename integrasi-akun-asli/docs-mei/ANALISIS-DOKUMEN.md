@@ -366,12 +366,13 @@ DATABASE (detail potongan)
 
 ## Rekomendasi Pengembangan
 
-### Prioritas 3: Piutang Gabungan (Toko + SP)
+### Prioritas 3: Piutang Gabungan (Toko + SP) — ✅ DONE
 
 **Data source:** Sheet `sp per des 25`
 - Query: `StoreSale.salaryCut` (unpaid) + `UnitTransaction.salaryCut` (unpaid) + `Loan.outstandingAmount`
 - Grouping: per Member, total per sumber
 - Output: Tabel Nama, Pangkat, NRP, Piutang Toko, Piutang SP, Total
+- **Implementasi**: `/laporan/piutang-gabungan` — API + Frontend + Export Excel/PDF
 
 ### Prioritas 4: Mass Debet Tunkin Export
 

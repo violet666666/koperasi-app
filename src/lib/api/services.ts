@@ -256,6 +256,9 @@ export const reportsApi = {
 
     arusKas: (params?: { month?: number; year?: number }) =>
         api.get<{ data: unknown }>("/reports/arus-kas", { params }),
+
+    piutangGabungan: (params?: { page?: number; perPage?: number; export?: string }) =>
+        api.get<{ data: unknown }>("/reports/piutang-gabungan", { params }),
 };
 
 // ============================================================

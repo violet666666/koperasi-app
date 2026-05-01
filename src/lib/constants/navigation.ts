@@ -166,6 +166,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Rekap Simpanan", href: "/laporan/rekap-simpanan" },
                     { title: "Rekap Pinjaman", href: "/laporan/rekap-pinjaman" },
                     { title: "Faktur Potongan", href: "/laporan/faktur-potongan" },
+                    { title: "Piutang Gabungan", href: "/laporan/piutang-gabungan" },
                 ],
             },
         ],
