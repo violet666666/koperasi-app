@@ -739,7 +739,7 @@ export default function TokoProdukPage() {
                                                     <Input className="h-8 text-sm w-[180px]" value={editData.name || ""}
                                                         onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))} />
                                                 ) : (
-                                                    <span className="font-medium text-sm truncate max-w-[200px] block">{p.name}</span>
+                                                    <span className="font-medium text-sm break-words whitespace-normal">{p.name}</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>

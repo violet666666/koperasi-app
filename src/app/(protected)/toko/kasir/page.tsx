@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
     ShoppingCart, Search, Plus, Minus, Trash2, Banknote, CreditCard,
     Receipt, User, Loader2, ScanBarcode, Maximize, ShieldAlert, ShieldCheck, AlertTriangle, X, Check, QrCode, AlertCircle, CheckCircle2,
-    Timer, PlayCircle, Clock, LogOut,
+    Timer, PlayCircle, Clock,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
@@ -420,20 +420,6 @@ export default function KasirPage() {
         } finally { setIsProcessing(false); }
     };
 
-    // ── Shift Lock Screen ──────────────────────────────────────────
-    const handleGantiKasir = async () => {
-        if (cart.length > 0) {
-            const ok = window.confirm(`Anda memiliki ${cart.length} item di keranjang. Yakin ingin ganti kasir? Keranjang akan dikosongkan.`);
-            if (!ok) return;
-        }
-        try {
-            await fetch("/api/toko/cashier-session", { method: "DELETE" });
-            window.location.reload();
-        } catch {
-            toast.error("Gagal mengganti kasir");
-        }
-    };
-
     if (shiftLoading) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
@@ -516,17 +502,6 @@ export default function KasirPage() {
                         >
                             <Maximize className="mr-2 h-4 w-4" /> Mode POS (Fullscreen)
                         </Button>
-                        {cashierIdentity && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={handleGantiKasir}
-                                title="Ganti kasir (kembali ke layar pilih identitas)"
-                            >
-                                <LogOut className="mr-2 h-4 w-4" /> Ganti Kasir
-                            </Button>
-                        )}
                         <Badge variant="secondary" className="gap-1.5 text-xs">
                             <ScanBarcode className="h-3.5 w-3.5" />
                             Scanner Aktif

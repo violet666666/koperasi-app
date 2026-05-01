@@ -285,6 +285,9 @@ export default function ShiftKasirPage() {
 
             setCloseResult(json.data);
             toast.success(json.message);
+
+            // Clear cashier identity session when shift closes
+            await fetch("/api/toko/cashier-session", { method: "DELETE" });
         } catch (err: any) {
             toast.error(err.message || "Gagal menutup shift");
         } finally {
