@@ -73,7 +73,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                             </Button>
                             <Link href="/portal/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight">
                                 <div className="flex h-12 w-12 items-center justify-center bg-white/10 p-1 rounded-lg shrink-0">
-                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm transform scale-110" />
+                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm" />
                                 </div>
                                 <span className="hidden sm:inline-block">PRIMKOPPOL<span className="text-white/70">.</span>Digital</span>
                             </Link>
@@ -140,7 +140,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                         <div className="flex flex-col h-full bg-slate-950 text-white">
                             <div className="p-6 border-b border-white/10 flex items-center gap-3">
                                 <div className="flex h-14 w-14 items-center justify-center bg-white/10 p-1 rounded-xl shrink-0">
-                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm transform scale-110" />
+                                    <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm" />
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold">PRIMKOPPOL<span className="text-primary">.</span>Digital</h2>
