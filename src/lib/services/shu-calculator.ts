@@ -200,22 +200,8 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     const memberSurplus = Math.round(netSurplus * memberRatio);
     const nonMemberSurplus = netSurplus - memberSurplus;
 
-    // 3. Alokasikan berdasar Konfigurasi AD-ART
-    const allocationsMember = config.memberAllocations.map((alloc) => ({
-        ...alloc,
-        amount: Math.round((memberSurplus * alloc.percentage) / 100),
-    }));
-
-    const allocationsNonMember = config.nonMemberAllocations.map((alloc) => ({
-        ...alloc,
-        amount: Math.round((nonMemberSurplus * alloc.percentage) / 100),
-    }));
-
     const modalAlloc = config.memberAllocations.find(a => a.key === "jasa_modal");
     const usahaAlloc = config.memberAllocations.find(a => a.key === "jasa_usaha");
-    
-    const jasaModalPool = Math.round((memberSurplus * (modalAlloc?.percentage || 20)) / 100);
-    const jasaUsahaPool = Math.round((memberSurplus * (usahaAlloc?.percentage || 25)) / 100);
 
     // 4. Hitung SHU Per Member
     const members = await prisma.member.findMany({
@@ -303,8 +289,20 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     // Potong beban SHU Cuci Mobil dari Laba Bersih agar Koperasi tidak tombok
     const adjustedNetSurplus = Math.max(0, netSurplus - totalCarwashBonus);
     const adjustedMemberSurplus = Math.round(adjustedNetSurplus * memberRatio);
+    const adjustedNonMemberSurplus = adjustedNetSurplus - adjustedMemberSurplus;
     const adjustedJasaModalPool = Math.round((adjustedMemberSurplus * (modalAlloc?.percentage || 20)) / 100);
     const adjustedJasaUsahaPool = Math.round((adjustedMemberSurplus * (usahaAlloc?.percentage || 25)) / 100);
+
+    // 3. Alokasikan berdasar Konfigurasi AD-ART (using adjusted values)
+    const allocationsMember = config.memberAllocations.map((alloc) => ({
+        ...alloc,
+        amount: Math.round((adjustedMemberSurplus * alloc.percentage) / 100),
+    }));
+
+    const allocationsNonMember = config.nonMemberAllocations.map((alloc) => ({
+        ...alloc,
+        amount: Math.round((adjustedNonMemberSurplus * alloc.percentage) / 100),
+    }));
 
     const memberDistribution = memberStats.map(m => {
         const modalPortion = totalSystemSavings > 0 ? Math.round((m.savingsContribution / totalSystemSavings) * adjustedJasaModalPool) : 0;
@@ -335,7 +333,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         memberRatio,
         nonMemberRatio,
         memberSurplus: adjustedMemberSurplus,
-        nonMemberSurplus,
+        nonMemberSurplus: adjustedNonMemberSurplus,
         jasaModalPool: adjustedJasaModalPool,
         jasaUsahaPool: adjustedJasaUsahaPool,
         memberDividend: adjustedJasaModalPool + adjustedJasaUsahaPool + totalCarwashBonus,

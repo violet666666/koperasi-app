@@ -210,25 +210,57 @@ export async function PUT(
             // Because this is an OUT payment, its net impact was -oldAmount
             const oldNet = -Number(t.amount);
             const newNet = -amount;
-            
-            // 3. Diff to apply to subsequent transactions
-            const diffImpact = newNet - oldNet;
-            
-            if (diffImpact !== 0) {
-                // Update subsequent balances
+            const dateChanged = txDate.getTime() !== new Date(t.transactionDate).getTime();
+
+            // Determine balanceBefore for this transaction
+            let newBalanceBefore: number;
+            if (dateChanged) {
+                // Date changed — recalculate balanceBefore from predecessor at new position
+                const predecessor = await tx.cashBankTransaction.findFirst({
+                    where: {
+                        accountId: t.accountId,
+                        id: { not: transactionId },
+                        OR: [
+                            { transactionDate: { lt: txDate } },
+                            { transactionDate: txDate, id: { lt: transactionId } },
+                        ],
+                    },
+                    orderBy: [{ transactionDate: "desc" }, { id: "desc" }],
+                });
+                newBalanceBefore = predecessor ? Number(predecessor.balanceAfter) : 0;
+            } else {
+                newBalanceBefore = Number(t.balanceBefore);
+            }
+
+            const newBalanceAfter = newBalanceBefore + newNet;
+
+            // Diff between old and new running balance impact
+            const diffImpact = newBalanceAfter - (Number(t.balanceBefore) + oldNet);
+
+            if (diffImpact !== 0 || dateChanged) {
+                // Adjust all subsequent transactions' running balances
+                // When date changes, adjust from the EARLIEST affected position
+                const affectedDate = dateChanged
+                    ? (txDate < t.transactionDate ? txDate : t.transactionDate)
+                    : t.transactionDate;
+                const affectedId = dateChanged
+                    ? 0  // adjust everything after the earlier of old/new date
+                    : t.id;
+
                 await tx.$executeRaw`
                     UPDATE "cash_bank_transactions"
-                    SET 
+                    SET
                         "balance_before" = "balance_before" + ${diffImpact},
                         "balance_after" = "balance_after" + ${diffImpact}
                     WHERE "account_id" = ${t.accountId}
                       AND (
-                          "transaction_date" > ${t.transactionDate} 
-                          OR ("transaction_date" = ${t.transactionDate} AND "id" > ${t.id})
+                          "transaction_date" > ${affectedDate}
+                          OR ("transaction_date" = ${affectedDate} AND "id" > ${affectedId})
                       )
+                      AND "id" != ${transactionId}
                 `;
-                
-                // Update the master account
+
+                // Update the master account balance
                 await tx.cashBankAccount.update({
                     where: { id: t.accountId },
                     data: {
@@ -243,14 +275,13 @@ export async function PUT(
                 ? `[${(unitType as string).toUpperCase()}] Pengeluaran Operasional: ${descriptionRaw}||RECEIPT:${receiptImagePath}`
                 : `[${(unitType as string).toUpperCase()}] Pengeluaran Operasional: ${descriptionRaw}`;
 
-            const newBalanceAfter = Number(t.balanceBefore) + newNet;
-            
             await tx.cashBankTransaction.update({
                 where: { id: transactionId },
                 data: {
                     amount: amount,
                     description: descWithMeta,
                     transactionDate: txDate,
+                    balanceBefore: newBalanceBefore,
                     balanceAfter: newBalanceAfter
                 }
             });

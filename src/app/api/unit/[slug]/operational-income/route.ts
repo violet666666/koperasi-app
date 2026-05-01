@@ -95,18 +95,6 @@ export async function POST(
         const currentUserId = parseInt(session.user.id);
         const txDate = transactionDate ? new Date(transactionDate) : new Date();
 
-        // Find cash account for this unit
-        const cashAccount = await prisma.cashBankAccount.findFirst({
-            where: { unitType, type: "cash", isActive: true },
-        }) || await prisma.cashBankAccount.findFirst({
-            where: { type: "cash", isActive: true },
-            orderBy: { id: "asc" },
-        });
-
-        if (!cashAccount) {
-            return NextResponse.json({ message: "Tidak ditemukan akun kas aktif untuk unit ini." }, { status: 404 });
-        }
-
         let branchId = session.user.branchId || 1;
         if (!session.user.branchId) {
             const headOffice = await prisma.branch.findFirst({ where: { isHeadOffice: true } });
@@ -114,43 +102,55 @@ export async function POST(
         }
 
         const nominalAmount = amount;
-        const currentBalance = Number(cashAccount.currentBalance);
-        const newBalance = currentBalance + nominalAmount; // INCOME = + (masuk)
         const transactionNo = `INC-${unitType.toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`;
 
         const descWithMeta = receiptImagePath
             ? `[${unitType.toUpperCase()}] Pemasukan Operasional: ${description}||RECEIPT:${receiptImagePath}`
             : `[${unitType.toUpperCase()}] Pemasukan Operasional: ${description}`;
 
-        const [cashTx] = await prisma.$transaction([
-            prisma.cashBankTransaction.create({
+        const cashTx = await prisma.$transaction(async (tx) => {
+            // Find cash account inside transaction for correct locking
+            const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { unitType, type: "cash", isActive: true },
+            }) || await tx.cashBankAccount.findFirst({
+                where: { type: "cash", isActive: true },
+                orderBy: { id: "asc" },
+            });
+
+            if (!cashAccount) throw new Error("Tidak ditemukan akun kas aktif untuk unit ini.");
+
+            // Atomic increment to prevent race condition
+            const updatedAccount = await tx.cashBankAccount.update({
+                where: { id: cashAccount.id },
+                data: { currentBalance: { increment: nominalAmount } },
+            });
+
+            const balanceBefore = Number(updatedAccount.currentBalance) - nominalAmount;
+
+            return tx.cashBankTransaction.create({
                 data: {
                     transactionNo,
                     accountId: cashAccount.id,
                     branchId,
-                    type: "in",              // INCOME
+                    type: "in",
                     category: "operational",
                     amount: nominalAmount,
-                    balanceBefore: currentBalance,
-                    balanceAfter: newBalance,
+                    balanceBefore,
+                    balanceAfter: Number(updatedAccount.currentBalance),
                     unitType: unitType,
                     description: descWithMeta,
                     transactionDate: txDate,
                     createdById: currentUserId,
                 },
-            }),
-            prisma.cashBankAccount.update({
-                where: { id: cashAccount.id },
-                data: { currentBalance: newBalance },
-            }),
-        ]);
+            });
+        });
 
         return NextResponse.json({
             message: "Pemasukan operasional berhasil dicatat.",
             data: {
                 transactionNo: cashTx.transactionNo,
                 amount: nominalAmount,
-                newBalance,
+                newBalance: Number(cashTx.balanceAfter),
                 receiptImagePath,
                 description,
             },

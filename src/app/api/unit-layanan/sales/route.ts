@@ -194,39 +194,36 @@ export async function POST(request: Request) {
                 }
 
                 if (targetAccount) {
-                    // Re-read di dalam transaction untuk mendapat nilai terbaru
-                    const freshAccount = await tx.cashBankAccount.findUnique({ where: { id: targetAccount.id } });
-                    if (freshAccount) {
-                        const currentBal = Number(freshAccount.currentBalance);
-                        const newBal = currentBal + totalAmount;
+                    // Atomic increment to prevent race condition
+                    const updatedAccount = await tx.cashBankAccount.update({
+                        where: { id: targetAccount.id },
+                        data: { currentBalance: { increment: totalAmount } },
+                    });
+                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
 
-                        await tx.cashBankTransaction.create({
-                            data: {
-                                transactionNo: `UL-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
-                                accountId: freshAccount.id,
-                                branchId: freshAccount.branchId,
-                                type: "in",
-                                category: "pendapatan_unit",
-                                amount: totalAmount,
-                                balanceBefore: currentBal,
-                                balanceAfter: newBal,
-                                unitType: unitType,
-                                description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
-                                transactionDate: now,
-                                createdById: userId,
-                            },
-                        });
-
-                        await tx.cashBankAccount.update({
-                            where: { id: freshAccount.id },
-                            data: { currentBalance: newBal },
-                        });
-                    }
+                    await tx.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `UL-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: targetAccount.id,
+                            branchId: targetAccount.branchId,
+                            type: "in",
+                            category: "pendapatan_unit",
+                            amount: totalAmount,
+                            balanceBefore,
+                            balanceAfter: Number(updatedAccount.currentBalance),
+                            unitType: unitType,
+                            description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
+                            transactionDate: now,
+                            createdById: userId,
+                        },
+                    });
                 }
             }
 
-            // 3. Journal entry
-            const currentPeriod = await tx.fiscalPeriod.findFirst({ where: { status: "open" }, orderBy: { startDate: "desc" } });
+            // 3. Journal entry — lookup fiscal period that covers the transaction date
+            const currentPeriod = await tx.fiscalPeriod.findFirst({
+                where: { status: "open", startDate: { lte: now }, endDate: { gte: now } },
+            });
             const headOffice = await tx.branch.findFirst({ where: { isHeadOffice: true } });
             const kasAccount = await tx.account.findFirst({ where: { code: "1101" } });
             const piutangAccount = await tx.account.findFirst({ where: { code: "1301" } });
