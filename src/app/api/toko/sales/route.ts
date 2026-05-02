@@ -27,11 +27,20 @@ export async function GET(request: Request) {
         const paymentMethods = searchParams.get("paymentMethods")?.split(",").filter(Boolean) || null;
         const showVoided = searchParams.get("showVoided") !== "false"; // default true
         const shiftId = searchParams.get("shiftId") || null;
+        const fromDate = searchParams.get("from") ? new Date(searchParams.get("from")!) : null;
+        const toDate = searchParams.get("to") ? new Date(searchParams.get("to")!) : null;
 
         // Build where clause
         const where: Record<string, unknown> = {
             ...(unitType && { unitType }),
         };
+
+        if (fromDate || toDate) {
+            const dateFilter: Record<string, unknown> = {};
+            if (fromDate) dateFilter.gte = fromDate;
+            if (toDate) dateFilter.lte = toDate;
+            where.createdAt = dateFilter;
+        }
 
         // Filter voided sales
         if (!showVoided) {
@@ -142,6 +151,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId } = body;
         const unitType = reqUnitType || "toko";
+        const salePrefixMap: Record<string, string> = { toko: "TK", playstation: "PS", cafe_lsp: "CF", resto_cafe: "RC", coffe_latar: "CL" };
+        const unitPrefix = salePrefixMap[unitType] || "TK";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "Keranjang kosong" }, { status: 400 });
@@ -149,7 +160,7 @@ export async function POST(request: Request) {
 
         // Server-side validation: reject negative/zero quantities
         for (const item of items) {
-            const qty = parseInt(item.quantity, 10);
+            const qty = Number(item.quantity);
             if (!qty || qty <= 0 || isNaN(qty)) {
                 return NextResponse.json({ message: "Jumlah item harus lebih dari 0" }, { status: 400 });
             }
@@ -296,10 +307,10 @@ export async function POST(request: Request) {
             // Generate sequential sale number: TK-DDMMYYYY-0001 (with retry for concurrency)
             const now = new Date();
             const datePart = `${String(now.getDate()).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}${now.getFullYear()}`;
-            const saleNoPrefix = `TK-${datePart}-`;
+            const saleNoPrefix = `${unitPrefix}-${datePart}-`;
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const todayCount = await tx.storeSale.count({
-                where: { createdAt: { gte: startOfDay } },
+                where: { createdAt: { gte: startOfDay }, unitType },
             });
             let saleNo = "";
             for (let attempt = todayCount + 1; attempt < todayCount + 100; attempt++) {
@@ -479,7 +490,7 @@ export async function POST(request: Request) {
 
                     await tx.cashBankTransaction.create({
                         data: {
-                            transactionNo: `TK-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                            transactionNo: `${unitPrefix}-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id,
                             branchId: targetAccount.branchId,
                             type: "in",
@@ -500,7 +511,7 @@ export async function POST(request: Request) {
             if (method === "salary_cut" && memberId) {
                 await tx.unitTransaction.create({
                     data: {
-                        transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}`,
+                        transactionNo: `${unitPrefix}-UTG-${Date.now().toString(36).toUpperCase()}`,
                         memberId: memberId,
                         unitType: unitType,
                         description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,

@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, Gamepad2, Settings } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
 
 interface PSConsoleEntry {
     id: string;
@@ -22,6 +23,7 @@ interface PSConsoleConfig {
     consoles: PSConsoleEntry[];
     ratePerBlock: number;
     blockDurationMins: number;
+    rateByType?: Record<string, number>;
 }
 
 export default function PSPengaturanPage() {
@@ -108,6 +110,15 @@ export default function PSPengaturanPage() {
 
     const ratePerHour = config.ratePerBlock * (60 / config.blockDurationMins);
 
+    // Derive rateByType with defaults for all console types (immutable)
+    const existingTypes = [...new Set(config.consoles.map(c => c.type))];
+    const effectiveRateByType: Record<string, number> = { ...(config.rateByType || {}) };
+    for (const type of existingTypes) {
+        if (effectiveRateByType[type] === undefined) {
+            effectiveRateByType[type] = config.ratePerBlock;
+        }
+    }
+
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
             <PageHeader
@@ -154,11 +165,11 @@ export default function PSPengaturanPage() {
                                 value={String(config.blockDurationMins)}
                                 onValueChange={(v) => {
                                     const mins = Number(v);
-                                    const perHour = ratePerHour;
+                                    const currentPerHour = config.ratePerBlock * (60 / config.blockDurationMins);
                                     setConfig({
                                         ...config,
                                         blockDurationMins: mins,
-                                        ratePerBlock: Math.round(perHour / (60 / mins)),
+                                        ratePerBlock: Math.round(currentPerHour / (60 / mins)),
                                     });
                                 }}
                             >
@@ -176,6 +187,50 @@ export default function PSPengaturanPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Per-Type Rates */}
+            {existingTypes.length > 1 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <Gamepad2 className="h-4 w-4" /> Tarif per Tipe Console
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {existingTypes.map(type => (
+                            <div key={type} className="flex items-center gap-4">
+                                <Badge variant="outline" className="w-16 justify-center">{type}</Badge>
+                                <div className="flex-1">
+                                    <Label className="text-xs">Tarif per Jam (Rp)</Label>
+                                    <Input
+                                        type="number"
+                                        value={(effectiveRateByType[type] || config.ratePerBlock) * (60 / config.blockDurationMins)}
+                                        onChange={(e) => {
+                                            const perHour = Number(e.target.value);
+                                            if (perHour > 0) {
+                                                setConfig({
+                                                    ...config,
+                                                    rateByType: {
+                                                        ...(config.rateByType || {}),
+                                                        [type]: Math.round(perHour / (60 / config.blockDurationMins)),
+                                                    },
+                                                });
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground pt-4">
+                                    {formatCurrency((effectiveRateByType[type] || config.ratePerBlock) * (60 / config.blockDurationMins))}/jam
+                                    ({formatCurrency(effectiveRateByType[type] || config.ratePerBlock)}/{config.blockDurationMins} min)
+                                </p>
+                            </div>
+                        ))}
+                        <p className="text-xs text-muted-foreground">
+                            Tarif berbeda per tipe console. Default mengikuti tarif utama jika tidak diatur.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Console Management */}
             <Card>
@@ -238,7 +293,12 @@ export default function PSPengaturanPage() {
             <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground space-y-1">
                     <p>Total console: <strong>{config.consoles.length}</strong></p>
-                    <p>Tarif: <strong>{formatCurrency(ratePerHour)}/jam</strong> ({formatCurrency(config.ratePerBlock)}/{config.blockDurationMins} menit)</p>
+                    <p>Tarif default: <strong>{formatCurrency(ratePerHour)}/jam</strong> ({formatCurrency(config.ratePerBlock)}/{config.blockDurationMins} menit)</p>
+                    {existingTypes.length > 1 && (
+                        <p className="text-xs">
+                            Per tipe: {existingTypes.map(t => `${t}: ${formatCurrency((effectiveRateByType[t] || config.ratePerBlock) * (60 / config.blockDurationMins))}/jam`).join(" | ")}
+                        </p>
+                    )}
                 </div>
                 <Button onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-700">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

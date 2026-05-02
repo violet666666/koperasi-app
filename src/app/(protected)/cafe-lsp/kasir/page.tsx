@@ -90,25 +90,33 @@ export default function CafeLspKasirPage() {
     const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
 
     const [nextQueueNumber, setNextQueueNumber] = React.useState("A001");
+    const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
 
     const quickKeyProducts = React.useMemo(() => {
-        const flagged = products.filter(p => p.metadata?.isQuickKey === true);
-        if (flagged.length > 0) return flagged.slice(0, 8);
+        if (quickKeyIds.length > 0) {
+            const map = new Map(products.map(p => [p.id, p]));
+            return quickKeyIds.map(id => map.get(id)).filter(Boolean).slice(0, 8) as Product[];
+        }
         const seen = new Set<string>();
         return products.filter(p => {
             if (!p.category || seen.has(p.category)) return false;
             seen.add(p.category);
             return true;
         }).slice(0, 8);
-    }, [products]);
+    }, [products, quickKeyIds]);
 
     React.useEffect(() => {
         async function fetchProducts() {
             setIsLoading(true);
             try {
-                const res = await fetch("/api/toko/products?unitType=cafe_lsp");
-                const json = await res.json();
-                setProducts(json.data || []);
+                const [productsRes, quickKeysRes] = await Promise.all([
+                    fetch("/api/toko/products?unitType=cafe_lsp"),
+                    fetch("/api/toko/products/quick-keys?unitType=cafe_lsp"),
+                ]);
+                const productsJson = await productsRes.json();
+                setProducts(productsJson.data || []);
+                const quickKeysJson = await quickKeysRes.json();
+                setQuickKeyIds(quickKeysJson.data || []);
             } catch { toast.error("Gagal memuat menu"); } finally { setIsLoading(false); }
         }
         fetchProducts();
@@ -146,14 +154,16 @@ export default function CafeLspKasirPage() {
     React.useEffect(() => {
         async function fetchQueueCount() {
             try {
-                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1`);
+                const today = new Date();
+                const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1&from=${startOfDay}`);
                 const json = await res.json();
                 const total = json.pagination?.total || 0;
                 setNextQueueNumber(`A${String(total + 1).padStart(3, "0")}`);
             } catch { setNextQueueNumber("A001"); }
         }
         fetchQueueCount();
-    }, [cart.length === 0]);
+    }, []);
 
     const categories = React.useMemo(() => {
         const cats = new Set<string>();
@@ -219,7 +229,14 @@ export default function CafeLspKasirPage() {
                 unitType: "cafe_lsp",
                 memberId: selectedMember?.id || undefined,
                 shiftId: activeShiftId || undefined,
-                metadata: { queueNumber: nextQueueNumber, orderType: "counter" },
+                metadata: {
+                    queueNumber: nextQueueNumber,
+                    orderType: "counter",
+                    itemNotes: cart.reduce((acc, item) => {
+                        if (item.notes) acc[String(item.product.id)] = item.notes;
+                        return acc;
+                    }, {} as Record<string, string>),
+                },
             };
 
             if (method === "cash") body.cashReceived = Number(paymentAmount);
@@ -234,6 +251,10 @@ export default function CafeLspKasirPage() {
 
             const currentQueue = nextQueueNumber;
             toast.success(`Antrian ${currentQueue} Lunas!`);
+
+            // Increment queue number locally for next order
+            const nextNum = parseInt(currentQueue.slice(1)) + 1;
+            setNextQueueNumber(`A${String(Math.min(nextNum, 999)).padStart(3, "0")}`);
 
             addQueueOrder({
                 id: `order-${Date.now()}`,

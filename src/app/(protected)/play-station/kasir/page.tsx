@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Gamepad2, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Play, Square, TimerReset, AlertTriangle, X, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+import { PlayStationCashierContext } from "../layout";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; }
 interface CartItem { product: Product; quantity: number; notes?: string; }
@@ -34,6 +35,7 @@ interface PSConsoleConfig {
     consoles: Array<{ id: string; label: string; type: "PS5" | "PS4" | "PS3" }>;
     ratePerBlock: number;
     blockDurationMins: number;
+    rateByType?: Record<string, number>;
 }
 
 interface PSStoreState {
@@ -47,6 +49,7 @@ interface PSStoreState {
     setCustomer: (tvId: string, name: string) => void;
     clearTv: (tvId: string) => void;
     initializeFromConfig: (consoles: PSConsoleConfig["consoles"], blockDurationMins: number) => void;
+    refreshProductPrice: (productId: number, newPrice: number) => void;
 }
 
 const DEFAULT_TVS: PSTvState[] = Array.from({ length: 8 }, (_, i) => ({
@@ -100,6 +103,16 @@ const usePSStore = create<PSStoreState>()(
                 );
                 return { tvs: newTvs, blockDurationMins };
             }),
+            refreshProductPrice: (productId, newPrice) => set((state) => ({
+                tvs: state.tvs.map(t => ({
+                    ...t,
+                    cart: t.cart.map(item =>
+                        item.product.id === productId
+                            ? { ...item, product: { ...item.product, price: newPrice } }
+                            : item
+                    )
+                }))
+            })),
         }),
         { name: "ps-pos-storage" }
     )
@@ -118,7 +131,8 @@ function calculateDurationString(startTime: number | null): string {
 }
 
 export default function PSKasirPage() {
-    const { tvs, activeTvId, setActiveTv, startTimer, stopTimer, updateCart, setCustomer, clearTv, blockDurationMins, initializeFromConfig } = usePSStore();
+    const { tvs, activeTvId, setActiveTv, startTimer, stopTimer, updateCart, setCustomer, clearTv, blockDurationMins, initializeFromConfig, refreshProductPrice } = usePSStore();
+    const { activeIdentity: cashierIdentity } = React.useContext(PlayStationCashierContext);
     const activeTv = tvs.find(t => t.id === activeTvId);
 
     const [products, setProducts] = React.useState<Product[]>([]);
@@ -127,6 +141,7 @@ export default function PSKasirPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
     const [configLoaded, setConfigLoaded] = React.useState(false);
+    const [psConfig, setPsConfig] = React.useState<PSConsoleConfig | null>(null);
     
     // Timer display re-render trigger
     const [, setTick] = React.useState(0);
@@ -223,6 +238,7 @@ export default function PSKasirPage() {
 
                 const configJson = await configRes.json();
                 const config: PSConsoleConfig = configJson.data;
+                setPsConfig(config);
                 if (config?.consoles?.length) {
                     initializeFromConfig(config.consoles, config.blockDurationMins || 15);
                 }
@@ -235,6 +251,13 @@ export default function PSKasirPage() {
         }
         initData();
     }, []);
+
+    // Refresh rental product price in all carts when product data changes (PS-7)
+    React.useEffect(() => {
+        if (rentalProduct) {
+            refreshProductPrice(rentalProduct.id, rentalProduct.price);
+        }
+    }, [rentalProduct]);
 
     // Lazy-load QRIS on-demand when the dialog opens
     React.useEffect(() => {
@@ -294,9 +317,13 @@ export default function PSKasirPage() {
 
         if (rentalProduct) {
             const blocks = Math.ceil(diffMins / blockDurationMins);
-            updateCart(tv.id, { product: rentalProduct, quantity: blocks }, "add");
+            // Use per-type rate if configured
+            const consoleType = psConfig?.consoles?.find(c => c.id === tv.id)?.type || "PS5";
+            const effectiveRate = psConfig?.rateByType?.[consoleType] || rentalProduct.price;
+            const ratedProduct = { ...rentalProduct, price: effectiveRate };
+            updateCart(tv.id, { product: ratedProduct, quantity: blocks }, "add");
             const totalMins = blocks * blockDurationMins;
-            toast.success(`Timer TV Dihentikan. Jasa rental: ${blocks} blok × ${blockDurationMins} menit = ${totalMins} menit.`);
+            toast.success(`Timer ${tv.label} Dihentikan. ${blocks} blok × ${blockDurationMins} min = ${totalMins} min @ ${formatCurrency(effectiveRate)}/blok.`);
         } else {
             toast.warning("Produk 'Sewa/Rental PS' tidak ditemukan di database. Tambahkan manual.");
         }
@@ -347,6 +374,7 @@ export default function PSKasirPage() {
                 paymentMethod: method,
                 unitType: "playstation",
                 shiftId: activeShift?.id,
+                cashierIdentityId: cashierIdentity?.id || undefined,
                 memberId: selectedCustomerObj?.id || (method === "salary_cut" ? selectedMember?.id : undefined),
                 metadata: { psNumber: activeTv.label, guestName: activeTv.customerName }
             };
@@ -733,8 +761,11 @@ export default function PSKasirPage() {
                                     <span className="font-medium">{tv?.label || tvId}</span>
                                     <Button size="sm" variant="destructive" onClick={() => {
                                         stopTimer(tvId);
-                                        setStaleTvs(prev => prev.filter(id => id !== tvId));
-                                        if (staleTvs.length <= 1) setShowStaleWarning(false);
+                                        setStaleTvs(prev => {
+                                            const next = prev.filter(id => id !== tvId);
+                                            if (next.length === 0) setShowStaleWarning(false);
+                                            return next;
+                                        });
                                     }}>Stop & Reset Timer</Button>
                                 </div>
                             );

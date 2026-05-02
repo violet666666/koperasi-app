@@ -221,3 +221,58 @@ Admin PS:
 - **[FEAT] Config API**: `GET/PUT /api/playstation/config` — simpan ke `AppSetting`, auto-update rental product sellPrice saat tarif berubah.
 - **[FEAT] Dynamic Config**: POS memuat konfigurasi console dari API saat init, tidak lagi hardcoded 8 TV.
 - **[FEAT] Shift Kasir**: Tautan shift ditambahkan ke navigasi kasir dan admin PS.
+
+### Code Review #2 — 2 Mei 2026
+
+**Verifikasi Bug Sebelumnya:** Semua 6 bug dikonfirmasi ✅ FIXED.
+
+**Bug Baru Ditemukan:**
+
+| # | Severity | Issue | Lokasi | Confidence |
+|:--|:---------|:------|:-------|:-----------|
+| PS-1 | **CRITICAL** | Stale closure `staleTvs.length` di onClick — dialog tidak tutup saat dismiss TV terakhir karena state belum terupdate | `kasir/page.tsx` onClick dismiss stale | 85% |
+| PS-2 | **CRITICAL** | Sale number prefix `TK-` untuk semua unit — PS sales seharusnya `PS-` prefix | `api/toko/sales/route.ts:299,482,503` | 85% |
+| PS-3 | **IMPORTANT** | PS kasir tidak kirim `cashierIdentityId` ke sales API — transaksi tanpa audit trail kasir spesifik | `kasir/page.tsx:344-358` | 90% |
+| PS-4 | **IMPORTANT** | Shift page backHref ke `/toko/kasir` untuk PS — harusnya `/play-station/kasir` | `toko/shift/page.tsx:394` | 90% |
+| PS-5 | **IMPORTANT** | `parseInt()` pada quantity — latent bug sama dengan Bug #1 asli, bisa rekuren untuk unit lain | `api/toko/sales/route.ts:152` | 80% |
+| PS-6 | **IMPORTANT** | Sale number `todayCount` tidak filter by `unitType` — nomor saling tumpang tindih antar unit | `api/toko/sales/route.ts:301-303` | 82% |
+| PS-7 | **IMPORTANT** | Harga rental basi di cart setelah admin ubah config — client pakai harga lama | `kasir/page.tsx:283,565` | 80% |
+
+**Saran Pengembangan POS PlayStation (Berdasarkan Best Practice):**
+
+| Prioritas | Fitur | Deskripsi |
+|:--|:--|:--|
+| Tinggi | Unit-specific sale prefix | `PS-DDMMYYYY-SEQ` bukan `TK-DDMMYYYY-SEQ` |
+| Tinggi | Cashier identity context | Pass `activeIdentity` dari layout ke kasir via React Context |
+| Tinggi | Shift backHref fix | Tambah kondisi `playstation` di ternary chain |
+| Menengah | Paket sesi prabayar | Paket 1/2/3 jam, daily pass, bonus waktu |
+| Menengah | Riwayat per konsol | Laporan per TV: total jam, pendapatan, tingkat utilisasi |
+| Menengah | Konfigurasi tarif multi-tipe | PS5 Rp15.000, PS4 Rp10.000 per tipe konsol |
+| Rendah | Antrean digital | Antrian saat semua konsol penuh, notifikasi saat tersedia |
+| Rendah | Tarif weekend vs weekday | Harga berbeda hari kerja vs weekend/libur |
+| Rendah | TV Display / Signage | Monitor depan toko menampilkan status konsol |
+
+### Changelog — 2 Mei 2026 (Bug Fix Round 2 + Features)
+
+**Bug Fixes (PS-1 to PS-7):**
+- **[FIX] PS-1 CRITICAL**: Stale closure `staleTvs.length` diperbaiki — gunakan functional state updater `setStaleTvs(prev => { ... })` agar state selalu terkini saat dismiss stale timer.
+- **[FIX] PS-2 CRITICAL**: Sale number prefix kini unit-specific. Mapping: `TK-` (toko), `PS-` (playstation), `CF-` (cafe_lsp), `RC-` (resto_cafe), `CL-` (coffe_latar). Transaksi bank dan piutang juga menggunakan prefix unit.
+- **[FIX] PS-3 IMPORTANT**: `cashierIdentityId` kini dikirim ke sales API. Layout menyediakan `PlayStationCashierContext`, kasir mengkonsumsinya via `useContext`.
+- **[FIX] PS-4 IMPORTANT**: Shift page backHref kini dinamis berdasarkan unitType — playstation mengarah ke `/play-station/kasir`.
+- **[FIX] PS-5 IMPORTANT**: `parseInt(item.quantity, 10)` diganti `Number(item.quantity)` di sales API — mendukung integer blocks tanpa truncation.
+- **[FIX] PS-6 IMPORTANT**: `todayCount` kini memfilter by `unitType` — nomor transaksi tidak lagi tumpang tindih antar unit.
+- **[FIX] PS-7 IMPORTANT**: `refreshProductPrice` ditambahkan ke Zustand store — harga rental di cart otomatis diperbarui saat `rentalProduct` berubah.
+
+**New Features:**
+- **[FEAT] Console Type Rates**: Admin dapat mengatur tarif berbeda per tipe console (PS5/PS4/PS3) di halaman Pengaturan. POS otomatis menggunakan tarif sesuai tipe console saat timer dihentikan. `rateByType` disimpan di config API.
+- **[FEAT] Cashier Identity Context**: `PlayStationCashierContext` dibuat di layout.tsx untuk menyediakan `activeIdentity` ke semua child pages. Kasir identity tercatat di setiap transaksi untuk audit trail.
+
+**Files Modified:**
+| File | Change |
+|:--|:--|
+| `src/app/(protected)/play-station/kasir/page.tsx` | PS-1 stale closure fix, PS-3 cashierIdentityId, PS-7 refreshProductPrice, console type rates, psConfig state |
+| `src/app/(protected)/play-station/layout.tsx` | PlayStationCashierContext export + Provider |
+| `src/app/(protected)/play-station/pengaturan/page.tsx` | Per-type rate configuration UI |
+| `src/app/api/playstation/config/route.ts` | rateByType support in PUT handler |
+| `src/app/api/toko/sales/route.ts` | PS-2 unit-specific prefix, PS-5 Number() fix, PS-6 unitType filter, date range filter |
+| `src/app/(protected)/toko/shift/page.tsx` | PS-4 backHref for playstation |

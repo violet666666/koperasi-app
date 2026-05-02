@@ -23,6 +23,7 @@ import {
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
+    Star,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -50,6 +51,7 @@ export default function TokoProdukPage() {
     // Dynamic unit type for API calls — use actual unitType instead of hardcoding
     const productUnitType = isResto ? "resto" : unitType;
     const isKasir = userRole === "kasir";
+    const produkBaseRoute = unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk";
 
     // Dynamic labels
     const UNIT_PRODUCT_LABELS: Record<string, { title: string; desc: string; itemName: string }> = {
@@ -115,6 +117,10 @@ export default function TokoProdukPage() {
     const [recipeTotalCost, setRecipeTotalCost] = React.useState(0);
     const [isRecipeSaving, setIsRecipeSaving] = React.useState(false);
     const [isRecipeLoading, setIsRecipeLoading] = React.useState(false);
+
+    // Quick Keys state
+    const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
+    const showQuickKeyToggle = ["cafe_lsp", "coffe_latar", "resto_cafe"].includes(unitType);
 
     const openRecipeDialog = async (product: Product) => {
         setRecipeProductId(product.id);
@@ -313,6 +319,12 @@ export default function TokoProdukPage() {
     React.useEffect(() => {
         setIsLoading(true);
         fetchProducts().finally(() => setIsLoading(false));
+        if (showQuickKeyToggle) {
+            fetch(`/api/toko/products/quick-keys?unitType=${productUnitType}`)
+                .then(r => r.json())
+                .then(json => setQuickKeyIds(json.data || []))
+                .catch(() => {});
+        }
     }, [fetchProducts]);
 
     // Reset page when filters change
@@ -673,10 +685,10 @@ export default function TokoProdukPage() {
                                 Hitung Ulang Harga
                             </Button>
                             <Button variant="outline" asChild>
-                                <Link href="/toko/produk/import"><Upload className="mr-2 h-4 w-4" />Import</Link>
+                                <Link href={`${produkBaseRoute}/import`}><Upload className="mr-2 h-4 w-4" />Import</Link>
                             </Button>
                             <Button asChild>
-                                <Link href="/toko/produk/tambah"><Plus className="mr-2 h-4 w-4" />Tambah Produk</Link>
+                                <Link href={`${produkBaseRoute}/tambah`}><Plus className="mr-2 h-4 w-4" />Tambah {unitLabels.itemName}</Link>
                             </Button>
                         </div>
                     ) : (
@@ -921,6 +933,27 @@ export default function TokoProdukPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-0.5">
+                                                            {showQuickKeyToggle && (
+                                                                <Button size="icon" variant="ghost"
+                                                                    className={`h-7 w-7 ${quickKeyIds.includes(p.id) ? "text-amber-500 bg-amber-50" : "text-slate-300 hover:text-amber-400 hover:bg-amber-50"}`}
+                                                                    onClick={async () => {
+                                                                        const next = quickKeyIds.includes(p.id)
+                                                                            ? quickKeyIds.filter(id => id !== p.id)
+                                                                            : [...quickKeyIds, p.id].slice(0, 12);
+                                                                        setQuickKeyIds(next);
+                                                                        try {
+                                                                            await fetch(`/api/toko/products/quick-keys?unitType=${productUnitType}`, {
+                                                                                method: "PUT",
+                                                                                headers: { "Content-Type": "application/json" },
+                                                                                body: JSON.stringify({ productIds: next }),
+                                                                            });
+                                                                            toast.success(next.includes(p.id) ? "Ditambahkan ke Quick Keys ★" : "Dihapus dari Quick Keys");
+                                                                        } catch { toast.error("Gagal menyimpan"); }
+                                                                    }}
+                                                                    title={quickKeyIds.includes(p.id) ? "Hapus dari Quick Keys" : "Tambah ke Quick Keys ★"}>
+                                                                    <Star className={`h-3.5 w-3.5 ${quickKeyIds.includes(p.id) ? "fill-current" : ""}`} />
+                                                                </Button>
+                                                            )}
                                                             {isFnB && (
                                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openRecipeDialog(p)} title="Resep / HPP">
                                                                     <BookOpen className="h-3.5 w-3.5" />

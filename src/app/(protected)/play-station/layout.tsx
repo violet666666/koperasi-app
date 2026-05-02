@@ -11,6 +11,8 @@ interface CashierIdentity {
     displayName: string;
 }
 
+export const PlayStationCashierContext = React.createContext<{ activeIdentity: CashierIdentity | null }>({ activeIdentity: null });
+
 export default function PlayStationLayout({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuth();
     const [identityStatus, setIdentityStatus] = React.useState<
@@ -83,5 +85,5 @@ export default function PlayStationLayout({ children }: { children: React.ReactN
         );
     }
 
-    return <>{children}</>;
+    return <PlayStationCashierContext.Provider value={{ activeIdentity }}>{children}</PlayStationCashierContext.Provider>;
 }

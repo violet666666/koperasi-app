@@ -182,7 +182,7 @@ export default function TambahProdukPage() {
             <PageHeader
                 title={isResto ? "Tambah Menu" : `Tambah ${unitType === "toko" ? "Produk" : "Layanan/Produk"}`}
                 description={isResto ? "Tambah menu baru ke daftar menu Resto" : `Tambah item baru untuk unit ${unitType.replace(/_/g, " ")}`}
-                backHref="/toko/produk"
+                backHref={unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk"}
             />
 
             <form onSubmit={handleSubmit}>

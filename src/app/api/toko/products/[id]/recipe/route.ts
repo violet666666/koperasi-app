@@ -4,6 +4,23 @@ import { auth } from "@/lib/auth";
 
 const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
 
+async function validateUnitAccess(session: any, productId: number): Promise<Response | null> {
+    if (["operator", "super_admin"].includes(session.user.role as string)) return null;
+    const user = await prisma.user.findUnique({
+        where: { id: Number(session.user.id) },
+        select: { unitType: true },
+    });
+    if (!user?.unitType) return null;
+    const product = await prisma.storeProduct.findUnique({
+        where: { id: productId },
+        select: { unitType: true },
+    });
+    if (!product || product.unitType !== user.unitType) {
+        return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
+    }
+    return null;
+}
+
 // GET /api/toko/products/[id]/recipe — List recipe ingredients
 export async function GET(
     _request: Request,
@@ -18,6 +35,9 @@ export async function GET(
         const { id } = await params;
         const productId = parseInt(id);
         if (isNaN(productId)) return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
+
+        const accessDenied = await validateUnitAccess(session, productId);
+        if (accessDenied) return accessDenied;
 
         const recipes = await prisma.productRecipe.findMany({
             where: { productId },
@@ -56,6 +76,9 @@ export async function POST(
         const { id } = await params;
         const productId = parseInt(id);
         if (isNaN(productId)) return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
+
+        const accessDenied = await validateUnitAccess(session, productId);
+        if (accessDenied) return accessDenied;
 
         const body = await request.json();
 
@@ -136,6 +159,9 @@ export async function PUT(
         const productId = parseInt(id);
         if (isNaN(productId)) return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
 
+        const accessDenied = await validateUnitAccess(session, productId);
+        if (accessDenied) return accessDenied;
+
         const { recipeId, ingredientName, quantity, unit, unitCost } = await request.json();
         if (!recipeId || !ingredientName || quantity <= 0 || unitCost < 0) {
             return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
@@ -174,6 +200,9 @@ export async function DELETE(
         const { id } = await params;
         const productId = parseInt(id);
         if (isNaN(productId)) return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
+
+        const accessDenied = await validateUnitAccess(session, productId);
+        if (accessDenied) return accessDenied;
 
         const { searchParams } = new URL(request.url);
         const recipeId = parseInt(searchParams.get("recipeId") || "");

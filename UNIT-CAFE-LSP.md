@@ -209,3 +209,62 @@ Setiap menu memiliki resep terstruktur di tabel `ProductRecipe`:
 - **[RECIPE]** Admin dialog resep di halaman Manajemen Menu (tombol BookOpen)
 - **[RECIPE]** Reusable untuk semua unit F&B (Resto, Cafe lainnya)
 - **[DATA]** Semua 35 resep lengkap berdasarkan data HPP dari manajemen
+
+---
+
+### Code Review #2 — 2 Mei 2026
+
+**Verifikasi Bug Sebelumnya:** Bug 1-4 dikonfirmasi ✅ FIXED. Bug 5 (race condition queue) diakui untuk Phase 2.
+
+**Bug Baru Ditemukan:**
+
+| # | Severity | Issue | Lokasi | Confidence |
+|:--|:---------|:------|:-------|:-----------|
+| CL-6 | **CRITICAL** | Nomor antrian `A001-A999` menggunakan ALL-TIME sales count, bukan hari ini. Setelah 999 total transaksi sejak awal, format A### pecah (A1000+). | `kasir/page.tsx:149` — fetch tanpa date filter | 90% |
+| CL-7 | **CRITICAL** | Antrian Board menampilkan order dari SEMUA hari, bukan hari ini saja. Hari berikutnya, order kemarin masih muncul. | `antrian/page.tsx:27` — fetch tanpa date filter | 90% |
+| CL-8 | **IMPORTANT** | Notes per item (max 60 char) diabaikan saat checkout — "kurang gula", "tanpa es" hilang. `StoreSaleItem` tidak punya kolom `notes`. | `kasir/page.tsx:216` — body hanya kirim `{productId, quantity}` | 85% |
+| CL-9 | **IMPORTANT** | Recipe API tidak ada unit isolation — admin cafe_lsp bisa modifikasi resep produk toko/resto jika tahu productId. | `api/toko/products/[id]/recipe/route.ts:56-95` | 85% |
+| CL-10 | **IMPORTANT** | Tombol "Tambah Produk" dan "Import" link ke `/toko/produk/tambah` — form mungkin tidak pass `unitType=cafe_lsp` | `toko/produk/page.tsx:676-679` | 82% |
+
+**Root Cause CL-6/CL-7:** API `GET /api/toko/sales` tidak mendukung filter tanggal (`from`/`to` params). Client hanya bisa filter by `unitType`, `paymentMethod`, `shiftId`. Perlu penambahan date range filter di API.
+
+**Saran Pengembangan POS Cafe LSP (Best Practice F&B Counter POS):**
+
+| Prioritas | Fitur | Deskripsi |
+|:--|:--|:--|
+| Tinggi | API date filter | Tambah `?from=&to=` di GET sales API untuk fix queue number dan antrian board |
+| Tinggi | Item notes persistence | Simpan notes di `StoreSaleItem.metadata` atau kolom baru |
+| Tinggi | Recipe API unit isolation | Validasi `product.unitType === session.user.unitType` |
+| Menengah | Kitchen Display System (KDS) | Layar dedicated dapur menampilkan order queue real-time |
+| Menengah | Split bill | 1 order bisa dibayar 2+ metode (misal Tunai + QRIS) |
+| Menengah | Laporan menu terlaris per periode | Ranking menu by quantity & revenue, per hari/minggu/bulan |
+| Menengah | Dynamic Quick Keys | Admin set ★ tab berdasarkan data penjualan aktual |
+| Rendah | Modifiers/add-ons terstruktur | Pilihan gula (25/50/75/100%), ukuran (S/M/L), topping (extra shot, dll) |
+| Rendah | Loyalty/Stamp card | Beli 10 gratis 1, track per member |
+| Rendah | Mobile ordering | Pelanggan scan QR → order langsung dari HP → masuk antrian |
+
+### Changelog — 2 Mei 2026 (Bug Fix Round 2 + Features)
+
+**Bug Fixes (CL-6 to CL-10):**
+- **[FIX] CL-6 CRITICAL**: Nomor antrian kini menggunakan daily count (filter `from=today`). Sebelumnya memakai ALL-TIME count yang menyebabkan nomor melebihi A999 setelah 999 total transaksi. API GET sales kini mendukung `?from=&to=` date range filter.
+- **[FIX] CL-7 CRITICAL**: Antrian Board kini menampilkan order hari ini saja (filter `from=today`). Sebelumnya menampilkan order dari semua hari.
+- **[FIX] CL-8 IMPORTANT**: Item notes (max 60 char) kini disimpan di `metadata.itemNotes` saat checkout. Format: `{ itemNotes: { "productId": "kurang gula" } }`.
+- **[FIX] CL-9 IMPORTANT**: Recipe API kini memvalidasi unit isolation. Admin hanya bisa CRUD resep produk yang `unitType`-nya sesuai dengan unit mereka. Operator/super_admin bypass check. Fungsi `validateUnitAccess()` ditambahkan ke semua handler (GET/POST/PUT/DELETE).
+- **[FIX] CL-10 IMPORTANT**: Link "Tambah Produk" dan "Import" di halaman produk kini dinamis berdasarkan unitType. `backHref` di halaman tambah/import juga dinamis — cafe_lsp kembali ke `/cafe-lsp/produk`.
+
+**New Features:**
+- **[FEAT] Dynamic Quick Keys**: Admin Cafe LSP dapat mengatur Quick Keys (★ tab) langsung dari halaman Manajemen Menu. Tombol bintang di setiap baris produk untuk toggle Quick Key status. Disimpan via `AppSetting` (`quick_keys_cafe_lsp`). Maksimal 12 produk. POS otomatis memuat Quick Keys dari API.
+- **[FEAT] Quick Keys API**: `GET/PUT /api/toko/products/quick-keys?unitType=cafe_lsp` — CRUD quick key product IDs.
+- **[FEAT] Date Range Filter**: API `GET /api/toko/sales` kini mendukung `?from=YYYY-MM-DD&to=YYYY-MM-DD` untuk filter tanggal. Digunakan oleh queue number dan antrian board.
+
+**Files Modified:**
+| File | Change |
+|:--|:--|
+| `src/app/api/toko/sales/route.ts` | Date range filter (`from`/`to` params), unit-specific prefix, Number() fix, unitType filter on todayCount |
+| `src/app/(protected)/cafe-lsp/kasir/page.tsx` | Daily queue count, item notes in metadata, API-driven Quick Keys |
+| `src/app/(protected)/cafe-lsp/antrian/page.tsx` | Daily order filter |
+| `src/app/api/toko/products/[id]/recipe/route.ts` | Unit isolation validation (validateUnitAccess) |
+| `src/app/api/toko/products/quick-keys/route.ts` | **NEW** Quick Keys CRUD API |
+| `src/app/(protected)/toko/produk/page.tsx` | Dynamic Quick Key toggle (★ button), dynamic links |
+| `src/app/(protected)/toko/produk/tambah/page.tsx` | Dynamic backHref |
+| `src/app/(protected)/toko/produk/import/page.tsx` | Dynamic back link |

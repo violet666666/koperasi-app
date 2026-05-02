@@ -59,6 +59,24 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 | **BUG-086** | 2 Mei 26 | **Stok Tidak Terbaca dari Kolom Total/Stock di Excel.** Solusi: Fallback jika Excel tidak punya kolom Gdg/Toko, kolom Total/Stock digunakan sebagai `stockToko`. | ✅ FIXED |
 | **BUG-087** | 2 Mei 26 | **Print Struk 58mm Kertas Berlebihan.** Solusi: CSS `html/body { height: fit-content; min-height: 0; max-height: none; }` + `page-break-inside: avoid` + kurangi window.open height ke 300px. | ✅ FIXED |
 | **BUG-088** | 2 Mei 26 | **Stats Manajemen Produk Salah karena Pagination.** Solusi: API mengembalikan `stats` (totalProducts, totalStock, totalValue, outOfStock, lowStock) dari aggregate query terpisah, bukan dari data halaman. | ✅ FIXED |
+
+### 02 Mei 2026 - Sprint 2: Shift Edit & Print Audit
+
+**Fitur Baru:**
+- **Edit Uang Fisik Shift (Admin Only):** Admin dapat mengedit `closingCash` pada shift yang sudah ditutup via tombol "Edit Fisik" di detail shift. `cashDifference` otomatis dihitung ulang. Perubahan tercatat di audit log. API: `PUT /api/toko/shifts/[id]`.
+- **Print Thermal Audit:** Seluruh code path cetak struk (7 jalur desktop, 3 jalur mobile) diaudit untuk C58BT-Pro 58mm. Semua CSS `@media print` kini konsisten: `html/body { height: fit-content; min-height: 0; max-height: none; }` + `@page { size: 58mm auto; margin: 0; }` + `page-break-inside: avoid`.
+
+**Bug Fixes:**
+| **BUG-089** | 2 Mei 26 | **Print Struk Masih Panjang (Round 3).** Solusi: `html, body { height: fit-content; min-height: 0; }` juga ditambahkan di non-print CSS baseline. `window.open` height dikurangi ke 300px di semua jalur. | ✅ FIXED |
+
+**File Terkait:**
+| File | Perubahan |
+|---|---|
+| `src/app/api/toko/shifts/[id]/route.ts` | [NEW] PUT endpoint edit closingCash (admin/operator only) |
+| `src/app/(protected)/toko/shift/page.tsx` | Edit closingCash dialog + "Edit Fisik" button di detail shift |
+| `src/lib/export-utils.ts` | CSS print fix di 4 fungsi (generateKasirReceiptPDF, generateThermalReceiptPDF, generateShiftRecapPDF) |
+| `src/components/patterns/receipt-primkopol.tsx` | CSS print fix + non-print baseline `min-height: 0` |
+| `src/app/api/toko/products/route.ts` | Aggregate stats endpoint untuk manajemen produk |
 ---
 
 ## 4. Fitur Shift Kasir (20 April 2026)

@@ -24,7 +24,9 @@ export default function CafeLspAntrianPage() {
 
     const fetchOrders = async () => {
         try {
-            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=50`);
+            const today = new Date();
+            const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=50&from=${startOfDay}`);
             const json = await res.json();
             const sales = (json.data || []).map((s: any) => ({
                 ...s,

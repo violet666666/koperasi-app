@@ -12,6 +12,7 @@ interface PSConsoleConfig {
     consoles: PSConsoleEntry[];
     ratePerBlock: number;
     blockDurationMins: number;
+    rateByType?: Record<string, number>;
 }
 
 const DEFAULT_CONFIG: PSConsoleConfig = {
@@ -50,7 +51,7 @@ export async function PUT(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { consoles, ratePerBlock, blockDurationMins } = body as PSConsoleConfig;
+        const { consoles, ratePerBlock, blockDurationMins, rateByType } = body as PSConsoleConfig;
 
         if (!Array.isArray(consoles) || consoles.length === 0) {
             return NextResponse.json({ message: "Minimal 1 console" }, { status: 400 });
@@ -72,6 +73,7 @@ export async function PUT(req: NextRequest) {
             consoles: consoles.map(c => ({ id: c.id, label: c.label, type: c.type })),
             ratePerBlock: Number(ratePerBlock),
             blockDurationMins: Number(blockDurationMins),
+            ...(rateByType && { rateByType }),
         };
 
         await prisma.$transaction(async (tx) => {

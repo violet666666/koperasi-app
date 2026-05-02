@@ -391,7 +391,7 @@ export default function ShiftKasirPage() {
                 <PageHeader
                     title="Shift Kasir"
                     description="Buka dan tutup shift untuk pencatatan kas harian"
-                    backHref={isResto ? "/resto/kasir" : unitType === "cafe_lsp" ? "/cafe-lsp/kasir" : "/toko/kasir"}
+                    backHref={isResto ? "/resto/kasir" : unitType === "cafe_lsp" ? "/cafe-lsp/kasir" : unitType === "playstation" ? "/play-station/kasir" : "/toko/kasir"}
                 />
                 {isAdmin && (
                     <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={handleOpenConfig}>

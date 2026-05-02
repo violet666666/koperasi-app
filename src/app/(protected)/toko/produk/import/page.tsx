@@ -241,7 +241,9 @@ export default function TokoProdukImportPage() {
                             Reset Semua Produk
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href="/toko/produk">
+                            <Link href={
+                                typeof window !== 'undefined' && document.referrer.includes('/cafe-lsp/') ? '/cafe-lsp/produk' : '/toko/produk'
+                            }>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Kembali ke Produk
                             </Link>
