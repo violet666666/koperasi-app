@@ -170,8 +170,23 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const isWrongUnit = !isOperator && userUnitType && userUnitType !== unitType;
 
     const [period, setPeriod] = React.useState("month");
-    const [dateFrom, setDateFrom] = React.useState("");
-    const [dateTo, setDateTo] = React.useState("");
+    const [dateFrom, setDateFrom] = React.useState(() => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        return `${y}-${m}-01`;
+    });
+    const [dateTo, setDateTo] = React.useState(() => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        const lastDay = new Date(y, m, 0).getDate();
+        return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    });
+    const [selectedMonth, setSelectedMonth] = React.useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    });
     const [isLoading, setIsLoading] = React.useState(false);
     const [data, setData] = React.useState<LaporanData | null>(null);
     const [page, setPage] = React.useState(1);
@@ -421,7 +436,28 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     };
 
     const handlePeriodChange = (newPeriod: string) => {
-        setPeriod(newPeriod);
+        if (newPeriod === "month") {
+            // Convert selectedMonth (YYYY-MM) to custom date range
+            const [year, month] = selectedMonth.split("-").map(Number);
+            const lastDay = new Date(year, month, 0).getDate();
+            const from = `${selectedMonth}-01`;
+            const to = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+            setDateFrom(from);
+            setDateTo(to);
+            setPeriod("custom");
+        } else {
+            setPeriod(newPeriod);
+        }
+        setPage(1);
+    };
+
+    const handleMonthChange = (monthValue: string) => {
+        setSelectedMonth(monthValue);
+        const [year, month] = monthValue.split("-").map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        setDateFrom(`${monthValue}-01`);
+        setDateTo(`${monthValue}-${String(lastDay).padStart(2, "0")}`);
+        setPeriod("custom");
         setPage(1);
     };
 
@@ -688,13 +724,22 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 <CardContent className="p-4 space-y-3">
                     <div className="flex flex-wrap gap-3 items-end">
                         <div>
-                            <Label className="text-xs mb-1 block">Filter Periode</Label>
+                            <Label className="text-xs mb-1 block">Pilih Bulan</Label>
+                            <Input
+                                type="month"
+                                className="w-[160px]"
+                                value={selectedMonth}
+                                onChange={(e) => handleMonthChange(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs mb-1 block">Atau Periode Lain</Label>
                             <Select value={period} onValueChange={handlePeriodChange}>
                                 <SelectTrigger className="w-[160px]">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {PERIODS.map((p) => (
+                                    {PERIODS.filter(p => p.value !== "month").map((p) => (
                                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                                     ))}
                                 </SelectContent>
