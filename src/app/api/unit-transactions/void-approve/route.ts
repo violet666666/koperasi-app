@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 // Transaction timeout config — default Prisma interactive tx timeout = 5s
 // which is too short for void operations (stock restore + journal reverse + cash bank reverse)
-const TX_OPTIONS = { maxWait: 10000, timeout: 15000 };
+// Monorepo POS dengan banyak unit + Neon DB cross-region butuh waktu lebih lama
+const TX_OPTIONS = { maxWait: 30000, timeout: 60000 };
 
 /**
  * POST /api/unit-transactions/void-approve
