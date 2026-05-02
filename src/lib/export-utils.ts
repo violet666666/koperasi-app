@@ -263,16 +263,22 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
   .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #666; }
   @media print {
     @page { size: 80mm auto; margin: 0; }
-    html, body {
-      height: auto !important;
-      overflow: visible !important;
-      margin: 0 !important;
+    html {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
     }
     body {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      margin: 0 !important;
       width: 100% !important;
       max-width: 80mm;
       padding: 1mm !important;
     }
+    table, tr, td, th, div, p, strong { page-break-inside: avoid; }
   }
 </style>
 </head><body>
@@ -289,7 +295,7 @@ ${data.referenceNo ? `<div class="row"><span class="label">Ref</span><span>${esc
 <div class="footer">Terima kasih<br/>PRIMKOPPOL Resor Lumajang</div>
 <script>window.onload = () => window.print();</script>
 </body></html>`;
-    const win = window.open("", "_blank", "width=320,height=600");
+    const win = window.open("", "_blank", "width=320,height=300");
     if (win) { win.document.write(html); win.document.close(); }
 }
 
@@ -363,6 +369,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <html><head><meta charset="utf-8"><title>Struk ${escapeHtml(data.saleNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { height: fit-content; }
   body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
   .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.2; }
@@ -374,17 +381,23 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
   .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; line-height: 1.3; }
   @media print {
     @page { size: ${pageWidth} auto; margin: 0; }
-    html, body {
-      height: auto !important;
-      overflow: visible !important;
-      margin: 0 !important;
+    html {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
     }
     body {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      margin: 0 !important;
       width: 100% !important;
       max-width: ${pageWidth};
       padding: 1mm !important;
     }
     .no-print { display: none !important; }
+    table, tr, td, th, div, p, h2 { page-break-inside: avoid; }
   }
 </style>
 </head><body>
@@ -416,14 +429,14 @@ ${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;
 <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-    const win = window.open("", "_blank", `width=${windowWidth},height=500`);
+    const win = window.open("", "_blank", `width=${windowWidth},height=300`);
     if (win) {
         win.document.write(html);
         win.document.close();
         win.addEventListener("afterprint", () => {
-            setTimeout(() => { if (!win.closed) win.close(); }, 300);
+            setTimeout(() => { if (!win.closed) win.close(); }, 200);
         });
-        setTimeout(() => { if (!win.closed) win.close(); }, 10000);
+        setTimeout(() => { if (!win.closed) win.close(); }, 8000);
     }
 }
 
@@ -505,16 +518,22 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
   .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #666; line-height: 1.3; }
   @media print {
     @page { size: ${paperSize} auto; margin: 0; }
-    html, body {
-      height: auto !important;
-      overflow: visible !important;
-      margin: 0 !important;
+    html {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
     }
     body {
+      height: fit-content !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      margin: 0 !important;
       width: 100% !important;
       max-width: ${paperSize};
       padding: 1mm !important;
     }
+    table, tr, td, th, div, p, h2 { page-break-inside: avoid; }
   }
 </style>
 </head><body>
@@ -567,7 +586,7 @@ ${topProductLines ? `
 <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-    const win = window.open("", "_blank", `width=${windowWidth},height=600`);
+    const win = window.open("", "_blank", `width=${windowWidth},height=300`);
     if (win) {
         win.document.write(html);
         win.document.close();

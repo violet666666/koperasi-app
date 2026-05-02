@@ -25,7 +25,8 @@
       "mcp__plugin_context7_context7__resolve-library-id",
       "Bash(git status *)",
       "Bash(npx tsx *)",
-      "Bash(Select-Object -First 30)"
+      "Bash(Select-Object -First 30)",
+      "Bash(python -c ' *)"
     ]
   },
   "enabledPlugins": {

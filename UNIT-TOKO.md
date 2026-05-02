@@ -14,6 +14,13 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 
 ## 2. Riwayat Pembaruan Fitur (Updates)
 
+### 02 Mei 2026 - Perbaikan Massal Toko (Bug Fix Sprint)
+- **Cetak Ulang Struk:** Tombol "Cetak Ulang Struk" ditambahkan di detail dialog riwayat transaksi toko (`/transaksi-unit/riwayat?unitType=toko`), memanggil `generateKasirReceiptPDF`.
+- **Notifikasi Terisolasi per Unit:** Semua endpoint notifikasi kini memfilter admin berdasarkan `unitType` sehingga admin toko tidak menerima notifikasi unit lain.
+- **Print Thermal 58mm:** CSS print dioptimalkan untuk C58BT-Pro 58mm thermal printer — `height: fit-content`, `page-break-inside: avoid`, window height dikurangi.
+- **Stats Produk Akurat:** API products mengembalikan aggregate stats (`totalStock`, `totalValue`, `outOfStock`) dari query database, bukan dari data halaman terpaginasi.
+- **Import Stok Aman:** Produk existing yang di-reimport tidak lagi ke-overwrite field stock.
+
 ### 13 April 2026 - Import History Belanja Toko Terisolasi
 - Dibuat custom route `/api/toko/sales/import-history` khusus untuk membaca file excel Import History Belanja (Tab Toko) dengan sistem pemetaaan bulan yang fleksibel (misal: 'feb', 'maret').
 - Skema impor mengekstraksi nilai dari sel BARANG saja (simpanan TAJIB dan SP diabaikan penuh agar tidak merusak data import tabungan). History dikonversi langsung menjadi Lunas (`paymentMethod: cash`) sehingga piutang kredit toko tidak terdampak ganda.
@@ -47,6 +54,11 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 | **BUG-UI-011** | 7 Apr 26 | **Kolom Metode Pembayaran Kosong (Rip).** Solusi: Render properti metode (Tunai/QRIS) milik StoreSale. | ✅ FIXED |
 | **BUG-UI-012** | 7 Apr 26 | **Aksi "Edit Plat Nomor" Tersesat di Toko.** Solusi: Disembunyikan karena toko tak punya atribut kendaraan. | ✅ FIXED |
 | **BUG-073** | 8 Apr 26 | **Pie Chart Dashboard Hanya Tampil Toko.** Solusi: Dashboard dirombak mengeksekusi tabel jasa layanan juga. | ✅ FIXED |
+| **BUG-084** | 2 Mei 26 | **Notifikasi Bocor ke Unit Lain.** Solusi: Helper `getNotificationRecipients(unitType)` memfilter admin berdasarkan unitType, diterapkan di 5 endpoint notifikasi (stock, sales, void, batches). | ✅ FIXED |
+| **BUG-085** | 2 Mei 26 | **Import Produk Overwrite Stok yang Ada.** Solusi: `upsert` update hanya mengubah name/category/costPrice/sellPrice/unit — field stock tidak di-overwrite saat update produk existing. | ✅ FIXED |
+| **BUG-086** | 2 Mei 26 | **Stok Tidak Terbaca dari Kolom Total/Stock di Excel.** Solusi: Fallback jika Excel tidak punya kolom Gdg/Toko, kolom Total/Stock digunakan sebagai `stockToko`. | ✅ FIXED |
+| **BUG-087** | 2 Mei 26 | **Print Struk 58mm Kertas Berlebihan.** Solusi: CSS `html/body { height: fit-content; min-height: 0; max-height: none; }` + `page-break-inside: avoid` + kurangi window.open height ke 300px. | ✅ FIXED |
+| **BUG-088** | 2 Mei 26 | **Stats Manajemen Produk Salah karena Pagination.** Solusi: API mengembalikan `stats` (totalProducts, totalStock, totalValue, outOfStock, lowStock) dari aggregate query terpisah, bukan dari data halaman. | ✅ FIXED |
 ---
 
 ## 4. Fitur Shift Kasir (20 April 2026)

@@ -44,6 +44,23 @@ export async function GET(request: Request) {
             isPaginated ? prisma.storeProduct.count({ where }) : Promise.resolve(0),
         ]);
 
+        // Aggregate stats across ALL matching products (not just current page)
+        const aggregates = isPaginated ? await prisma.storeProduct.aggregate({
+            where,
+            _sum: { sellPrice: true, stockGdg: true, stockToko: true },
+            _count: true,
+        }) : null;
+        const allStockValues = isPaginated ? await prisma.storeProduct.findMany({
+            where,
+            select: { sellPrice: true, stockGdg: true, stockToko: true, minStock: true },
+        }) : null;
+        const agStats = allStockValues ? {
+            totalStock: allStockValues.reduce((s, p) => s + p.stockGdg + p.stockToko, 0),
+            totalValue: allStockValues.reduce((s, p) => s + Number(p.sellPrice) * (p.stockGdg + p.stockToko), 0),
+            outOfStock: allStockValues.filter(p => (p.stockGdg + p.stockToko) <= 0).length,
+            lowStock: allStockValues.filter(p => { const st = p.stockGdg + p.stockToko; return st > 0 && st <= p.minStock; }).length,
+        } : null;
+
         const mapped = products.map((p) => ({
             id: p.id,
             sku: p.sku,
@@ -71,6 +88,13 @@ export async function GET(request: Request) {
                 data: {
                     products: mapped,
                     pagination: { page, perPage, totalCount, totalPages },
+                    stats: agStats ? {
+                        totalProducts: aggregates!._count,
+                        totalStock: agStats.totalStock,
+                        totalValue: agStats.totalValue,
+                        outOfStock: agStats.outOfStock,
+                        lowStock: agStats.lowStock,
+                    } : null,
                 },
             });
         }

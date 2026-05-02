@@ -59,7 +59,7 @@ export function ReceiptPrimkopol({
         const printContents = printRef.current?.innerHTML;
         if (!printContents) return;
         const pw = paperSize === "58mm" ? "58mm" : "80mm";
-        const w = window.open("", "_blank", "width=400,height=500");
+        const w = window.open("", "_blank", "width=300,height=300");
         if (!w) return;
         w.document.write(`
             <!DOCTYPE html>
@@ -68,6 +68,7 @@ export function ReceiptPrimkopol({
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
+                    html { height: fit-content; }
                     body {
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
@@ -94,18 +95,24 @@ export function ReceiptPrimkopol({
                     .item-detail { font-size: 10px; }
                     @media print {
                         @page { size: ${pw} auto; margin: 0; }
-                        html, body {
-                            height: auto !important;
-                            overflow: visible !important;
-                            margin: 0 !important;
+                        html {
+                            height: fit-content !important;
+                            min-height: 0 !important;
+                            max-height: none !important;
                         }
                         body {
+                            height: fit-content !important;
+                            min-height: 0 !important;
+                            max-height: none !important;
+                            overflow: visible !important;
+                            margin: 0 !important;
                             width: 100% !important;
                             max-width: ${pw};
                             padding: 0.5mm !important;
                         }
                         .divider { margin: 1px 0; }
                         .row { margin: 0; }
+                        .center, .bold, div, p, span { page-break-inside: avoid; }
                     }
                 </style>
             </head>

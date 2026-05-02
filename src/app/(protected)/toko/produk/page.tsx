@@ -71,6 +71,7 @@ export default function TokoProdukPage() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [totalProducts, setTotalProducts] = React.useState(0);
     const [page, setPage] = React.useState(1);
+    const [apiStats, setApiStats] = React.useState<{ totalProducts: number; totalStock: number; totalValue: number; outOfStock: number; lowStock: number } | null>(null);
     const perPage = 50;
 
     // Inline edit state
@@ -275,14 +276,22 @@ export default function TokoProdukPage() {
         return "available";
     };
 
-    // Stats
+    // Stats — use server-side aggregates when available, fallback to client-side
     const stats = React.useMemo(() => {
+        if (apiStats) {
+            return {
+                total: apiStats.totalProducts,
+                totalStock: apiStats.totalStock,
+                outOfStock: apiStats.outOfStock,
+                totalValue: apiStats.totalValue,
+            };
+        }
         const total = totalProducts;
         const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
         const outOfStock = products.filter(p => getStatus(p) === "out_of_stock").length;
         const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
         return { total, totalStock, outOfStock, totalValue };
-    }, [products, totalProducts]);
+    }, [apiStats, products, totalProducts]);
 
     // Fetch
     const fetchProducts = React.useCallback(async () => {
@@ -295,6 +304,7 @@ export default function TokoProdukPage() {
             const result = await res.json();
             setProducts(mapProducts(result.data?.products || []));
             setTotalProducts(result.data?.pagination?.totalCount || 0);
+            if (result.data?.stats) setApiStats(result.data.stats);
         } catch (error) {
             console.error("Failed to fetch products:", error);
         }
