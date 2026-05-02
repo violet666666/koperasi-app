@@ -173,12 +173,13 @@ export async function POST(request: Request) {
         let changeAmount = 0;
 
         // Validate member for salary_cut
+        let preValidatedMember: any = null;
         if (method === "salary_cut") {
             if (!memberId) {
                 return NextResponse.json({ message: "Member ID diperlukan untuk pembayaran potong gaji" }, { status: 400 });
             }
-            const member = await prisma.member.findUnique({ where: { id: memberId } });
-            if (!member) {
+            preValidatedMember = await prisma.member.findUnique({ where: { id: memberId } });
+            if (!preValidatedMember) {
                 return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
             }
         }
@@ -255,13 +256,10 @@ export async function POST(request: Request) {
                 payment = cashReceived || totalAmount;
                 changeAmount = payment - totalAmount;
             } else if (method === "salary_cut") {
-                // Validate credit limit inside transaction for consistency
-                const member = await tx.member.findUnique({ where: { id: memberId } });
-                if (!member) throw new Error("Anggota tidak ditemukan");
-
+                // Validate credit limit — use pre-validated member + lightweight check
                 const tagihanUnitTx = await tx.unitTransaction.aggregate({
                     where: {
-                        memberId: member.id,
+                        memberId: memberId,
                         paymentMethod: "salary_cut",
                         isPaid: false,
                         status: { in: ["completed", "pending_void"] },
@@ -269,16 +267,16 @@ export async function POST(request: Request) {
                     _sum: { amount: true },
                 });
                 const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
-                let plafonPiutang = Number(member.plafonPiutang || 0);
+                let plafonPiutang = Number(preValidatedMember?.plafonPiutang || 0);
 
-                if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
+                if (plafonPiutang === 0 && Number(preValidatedMember?.salary || 0) > 0) {
                     const activeLoans = await tx.loan.findMany({
-                        where: { memberId: member.id, status: { in: ["active", "overdue"] } },
+                        where: { memberId: memberId, status: { in: ["active", "overdue"] } },
                         select: { monthlyInstallment: true },
                     });
                     const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-                    const salary = Number(member.salary || 0);
-                    const tunkin = Number(member.tunlesKinerja || 0);
+                    const salary = Number(preValidatedMember.salary || 0);
+                    const tunkin = Number(preValidatedMember.tunlesKinerja || 0);
                     const sisaBersih = salary + tunkin - totalAngsuran;
                     plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
                 }
@@ -442,9 +440,10 @@ export async function POST(request: Request) {
                     for (const batch of batches) {
                         if (remainingToDeduct <= 0) break;
                         const deduct = Math.min(batch.quantity, remainingToDeduct);
+                        const newQty = batch.quantity - deduct;
                         await tx.stockBatch.update({
                             where: { id: batch.id },
-                            data: { quantity: batch.quantity - deduct, isActive: batch.quantity - deduct > 0 },
+                            data: { quantity: newQty, isActive: newQty > 0 },
                         });
                         remainingToDeduct -= deduct;
                     }
@@ -501,28 +500,25 @@ export async function POST(request: Request) {
 
             // Create piutang for salary_cut (inside transaction)
             if (method === "salary_cut" && memberId) {
-                const memberForCredit = await tx.member.findUnique({ where: { id: memberId } });
-                if (memberForCredit) {
-                    await tx.unitTransaction.create({
-                        data: {
-                            transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}`,
-                            memberId: memberId,
-                            unitType: unitType,
-                            description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,
-                            amount: totalAmount,
-                            transactionDate: now,
-                            isPaid: false,
-                            notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${saleNo}`,
-                            createdById: userId,
-                        },
-                    });
-                }
+                await tx.unitTransaction.create({
+                    data: {
+                        transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}`,
+                        memberId: memberId,
+                        unitType: unitType,
+                        description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,
+                        amount: totalAmount,
+                        transactionDate: now,
+                        isPaid: false,
+                        notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${saleNo}`,
+                        createdById: userId,
+                    },
+                });
             }
 
             return { sale, totalAmount: Number(sale.totalAmount), saleNo: sale.saleNo };
         }, {
-            maxWait: 10000,
-            timeout: 30000,
+            maxWait: 15000,
+            timeout: 60000,
         });
 
         // Audit log (outside transaction — non-critical)
