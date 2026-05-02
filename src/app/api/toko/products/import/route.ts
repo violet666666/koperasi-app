@@ -123,10 +123,17 @@ export async function POST(request: Request) {
             if (!sku || !name || name.toUpperCase() === 'NAMA BARANG') continue;
 
             const category = catIdx !== -1 && row[catIdx] ? String(row[catIdx]).trim() : '';
-            const stockGdg = stockGdgIdx !== -1 ? cleanNumber(row[stockGdgIdx]) : 0;
-            const stockToko = stockTokoIdx !== -1 ? cleanNumber(row[stockTokoIdx]) : 0;
-            // SELALU hitung stock total dari penjumlahan Gdg + Toko — jangan percaya kolom "Total" Excel
-            // karena sering tidak sinkron (misal: Gdg=0, Toko=0, Total=2)
+            let stockGdg = stockGdgIdx !== -1 ? cleanNumber(row[stockGdgIdx]) : -1;
+            let stockToko = stockTokoIdx !== -1 ? cleanNumber(row[stockTokoIdx]) : -1;
+            // Fallback: jika Excel tidak punya kolom Gudang/Toko, gunakan kolom Total/Stock sebagai stockToko
+            if (stockGdg === -1 && stockToko === -1 && totalStockIdx !== -1) {
+                const totalVal = cleanNumber(row[totalStockIdx]);
+                stockGdg = 0;
+                stockToko = totalVal;
+            } else {
+                stockGdg = Math.max(0, stockGdg);
+                stockToko = Math.max(0, stockToko);
+            }
             const stock = stockGdg + stockToko;
             const unit = satuanIdx !== -1 && row[satuanIdx] ? String(row[satuanIdx]).trim() || 'pcs' : 'pcs';
             
@@ -202,9 +209,11 @@ export async function POST(request: Request) {
                         update: {
                             name: item.name, category: item.category,
                             costPrice: item.costPrice, sellPrice: item.sellPrice,
-                            stock: item.stock, stockGdg: item.stockGdg,
-                            stockToko: item.stockToko, unit: item.unit,
-                            deletedAt: null, isActive: true, // Restore soft-deleted products
+                            unit: item.unit,
+                            deletedAt: null, isActive: true,
+                            // Stock TIDAK di-overwrite saat update produk yang sudah ada
+                            // karena stock di DB sudah mencerminkan penjualan, stok masuk, writeoff, dll.
+                            // Stock hanya di-set saat create produk baru.
                         },
                         create: {
                             sku: item.sku, name: item.name, category: item.category,
