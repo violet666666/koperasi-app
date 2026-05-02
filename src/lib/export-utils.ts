@@ -369,7 +369,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <html><head><meta charset="utf-8"><title>Struk ${escapeHtml(data.saleNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { height: fit-content; }
+  html, body { height: fit-content; min-height: 0; }
   body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
   .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.2; }

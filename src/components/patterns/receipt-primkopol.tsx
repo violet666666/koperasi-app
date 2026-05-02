@@ -68,7 +68,7 @@ export function ReceiptPrimkopol({
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    html { height: fit-content; }
+                    html, body { height: fit-content; min-height: 0; }
                     body {
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
