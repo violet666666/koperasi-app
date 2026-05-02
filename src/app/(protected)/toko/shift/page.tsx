@@ -106,6 +106,12 @@ export default function ShiftKasirPage() {
     const [configShifts, setConfigShifts] = React.useState<{ name: string; startHour: number; endHour: number }[]>([]);
     const [configSaving, setConfigSaving] = React.useState(false);
 
+    // Admin edit closingCash dialog
+    const [editCashOpen, setEditCashOpen] = React.useState(false);
+    const [editCashShiftId, setEditCashShiftId] = React.useState<number | null>(null);
+    const [editCashValue, setEditCashValue] = React.useState("");
+    const [editCashSaving, setEditCashSaving] = React.useState(false);
+
     // Cashier identity for shift creation
     const [cashierIdentityId, setCashierIdentityId] = React.useState<number | null>(null);
 
@@ -349,6 +355,34 @@ export default function ShiftKasirPage() {
 
     const removeConfigShift = (index: number) => {
         setConfigShifts(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleEditCash = async () => {
+        if (!editCashShiftId) return;
+        const raw = editCashValue.replace(/\D/g, "");
+        if (!raw) return toast.error("Masukkan jumlah uang fisik");
+        setEditCashSaving(true);
+        try {
+            const res = await fetch(`/api/toko/shifts/${editCashShiftId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ closingCash: parseInt(raw) }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(json.message);
+            setEditCashOpen(false);
+            setEditCashValue("");
+            // Refresh detail if open
+            if (detailOpen && detailData?.shift?.id === editCashShiftId) {
+                fetchShiftDetail(editCashShiftId);
+            }
+            fetchShifts();
+        } catch (err: any) {
+            toast.error(err.message || "Gagal mengedit closingCash");
+        } finally {
+            setEditCashSaving(false);
+        }
     };
 
     return (
@@ -808,9 +842,31 @@ export default function ShiftKasirPage() {
                                                 : formatRp(detailData.shift.cashDifference)}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                    <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
                                         <span>Modal + Tunai: {formatRp(detailData.shift.expectedCash || 0)}</span>
-                                        <span>Fisik: {detailData.shift.closingCash != null ? formatRp(detailData.shift.closingCash) : "-"}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>Fisik: {detailData.shift.closingCash != null ? formatRp(detailData.shift.closingCash) : "-"}</span>
+                                            {isAdmin && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-6 px-2 text-[11px] gap-1"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditCashShiftId(detailData.shift.id);
+                                                        setEditCashValue(
+                                                            detailData.shift.closingCash != null
+                                                                ? Number(detailData.shift.closingCash).toLocaleString("id-ID")
+                                                                : ""
+                                                        );
+                                                        setEditCashOpen(true);
+                                                    }}
+                                                >
+                                                    <Save className="h-3 w-3" />
+                                                    Edit Fisik
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -968,6 +1024,56 @@ export default function ShiftKasirPage() {
                         </Button>
                         <Button onClick={handleSaveConfig} disabled={configSaving} className="gap-2">
                             {configSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            Simpan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── ADMIN EDIT CLOSING CASH DIALOG ──────────────────── */}
+            <Dialog open={editCashOpen} onOpenChange={setEditCashOpen}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Banknote className="h-5 w-5" />
+                            Edit Uang Fisik
+                        </DialogTitle>
+                        <DialogDescription>
+                            Perbaiki jumlah uang fisik yang dihitung kasir saat tutup shift. Selisih kas akan otomatis dihitung ulang.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div>
+                            <Label htmlFor="editCash">Jumlah Uang Fisik (Rp)</Label>
+                            <Input
+                                id="editCash"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="Masukkan jumlah yang benar"
+                                value={editCashValue}
+                                onChange={(e) => {
+                                    const raw = e.target.value.replace(/\D/g, "");
+                                    setEditCashValue(raw ? parseInt(raw).toLocaleString("id-ID") : "");
+                                }}
+                                className="text-lg font-bold"
+                            />
+                        </div>
+                        {editCashValue && (
+                            <p className="text-xs text-muted-foreground">
+                                Nilai baru: {formatRp(parseInt(editCashValue.replace(/\D/g, "") || "0"))}
+                            </p>
+                        )}
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 text-amber-800 text-xs">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                            Perubahan ini akan tercatat di log audit.
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditCashOpen(false)} disabled={editCashSaving}>
+                            Batal
+                        </Button>
+                        <Button onClick={handleEditCash} disabled={editCashSaving} className="gap-2">
+                            {editCashSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Simpan
                         </Button>
                     </DialogFooter>
