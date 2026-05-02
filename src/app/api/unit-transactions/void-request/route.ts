@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -252,13 +252,10 @@ export async function POST(request: Request) {
 
             // Notify admins about void request
             try {
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0) {
+                const adminIds = await getNotificationRecipients(storeSale.unitType);
+                if (adminIds.length > 0) {
                     await createNotification({
-                        userId: admins.map((a) => a.id),
+                        userId: adminIds,
                         type: "void_request",
                         title: "Permintaan Void",
                         message: `Kasir mengajukan void untuk ${storeSale.saleNo}${reason ? `: ${reason}` : ""}`,
@@ -458,13 +455,10 @@ export async function POST(request: Request) {
 
         // Notify admins about unit void request
         try {
-            const admins = await prisma.user.findMany({
-                where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                select: { id: true },
-            });
-            if (admins.length > 0) {
+            const adminIds = await getNotificationRecipients(transaction.unitType);
+            if (adminIds.length > 0) {
                 await createNotification({
-                    userId: admins.map((a) => a.id),
+                    userId: adminIds,
                     type: "void_request",
                     title: "Permintaan Void",
                     message: `Void diajukan untuk ${transaction.transactionNo}${reason ? `: ${reason}` : ""}`,

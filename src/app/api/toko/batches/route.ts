@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getNotificationRecipients } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,8 @@ export async function GET(req: Request) {
                     take: 20,
                     orderBy: { expiryDate: "desc" },
                 });
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0 && newlyExpired.length > 0) {
+                const adminIds = await getNotificationRecipients(unitType);
+                if (adminIds.length > 0 && newlyExpired.length > 0) {
                     // Batch dedup check: find all existing notifications for these batch IDs in one query
                     const batchIds = newlyExpired.map((b) => b.id);
                     const existingNotifs = await prisma.notification.findMany({
@@ -70,7 +68,6 @@ export async function GET(req: Request) {
 
                     if (toNotify.length > 0) {
                         // Create notifications in bulk
-                        const adminIds = admins.map((a) => a.id);
                         const notifData = toNotify.flatMap((batch) =>
                             adminIds.map((adminId) => ({
                                 userId: adminId,
@@ -99,11 +96,8 @@ export async function GET(req: Request) {
                     include: { product: { select: { name: true } } },
                 });
                 if (expiringSoon.length > 0) {
-                    const admins = await prisma.user.findMany({
-                        where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                        select: { id: true },
-                    });
-                    if (admins.length > 0) {
+                    const adminIds = await getNotificationRecipients(unitType);
+                    if (adminIds.length > 0) {
                         const batchesToCheck = expiringSoon.slice(0, 5);
                         // Batch dedup check: find all existing expiring_soon notifications in one query
                         const batchIds = batchesToCheck.map((b) => b.id);
@@ -121,7 +115,6 @@ export async function GET(req: Request) {
                         const toNotify = batchesToCheck.filter((b) => !notifiedBatchIds.has(b.id));
 
                         if (toNotify.length > 0) {
-                            const adminIds = admins.map((a) => a.id);
                             const notifData = toNotify.map((batch) => {
                                 const daysLeft = Math.ceil((batch.expiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                                 return adminIds.map((adminId) => ({

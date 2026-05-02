@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+import { exportToExcel, exportToPDF, type ExportColumn, generateKasirReceiptPDF } from "@/lib/export-utils";
 import { DatePeriodFilter, type DateRange } from "@/components/patterns/date-period-filter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1060,6 +1060,42 @@ export default function RiwayatTransaksiUnitPage() {
                                     <p className="text-sm bg-muted/50 rounded-md px-3 py-2">{(detailTx as any).notes}</p>
                                 </div>
                             )}
+
+                            {/* Cetak Ulang Struk — hanya untuk transaksi toko non-voided */}
+                            {(() => {
+                                const baseStatus = (detailTx as any).status || "completed";
+                                const isVoided = baseStatus === "voided" || baseStatus === "pending_void";
+                                if (detailTx.unitType === "toko" && !isVoided) {
+                                    return (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full mt-2"
+                                            onClick={() => {
+                                                generateKasirReceiptPDF({
+                                                    saleNo: detailTx.transactionNo,
+                                                    saleDate: detailTx.transactionDate,
+                                                    customerName: detailTx.member?.name || detailTx.customerName || undefined,
+                                                    cashierName: (detailTx as any).createdBy?.name || undefined,
+                                                    items: detailTx.items?.map(i => ({
+                                                        name: i.productName,
+                                                        quantity: i.quantity,
+                                                        price: i.unitPrice,
+                                                        subtotal: i.subtotal,
+                                                    })) || [],
+                                                    totalAmount: detailTx.amount,
+                                                    paymentMethod: detailTx.paymentMethod || "cash",
+                                                    cashReceived: detailTx.cashReceived ?? undefined,
+                                                    changeAmount: detailTx.changeAmount ?? undefined,
+                                                });
+                                            }}
+                                        >
+                                            <Printer className="mr-2 h-4 w-4" />
+                                            Cetak Ulang Struk
+                                        </Button>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                     )}
                 </DialogContent>

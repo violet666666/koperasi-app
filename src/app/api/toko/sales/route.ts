@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 
 const ALLOWED_SALES_ROLES = ["admin", "operator", "super_admin", "kasir"];
 
@@ -542,14 +542,11 @@ export async function POST(request: Request) {
             });
             const lowStockProducts = soldProducts.filter((p) => p.stockToko <= p.minStock);
             if (lowStockProducts.length > 0) {
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0) {
+                const adminIds = await getNotificationRecipients("toko");
+                if (adminIds.length > 0) {
                     for (const prod of lowStockProducts) {
                         await createNotification({
-                            userId: admins.map((a) => a.id),
+                            userId: adminIds,
                             type: "low_stock",
                             title: "Stok Rendah",
                             message: `${prod.name}: sisa ${prod.stockToko} ${prod.minStock ? `(min: ${prod.minStock})` : ""}`,

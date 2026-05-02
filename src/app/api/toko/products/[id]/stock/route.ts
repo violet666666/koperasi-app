@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { Prisma } from "@prisma/client";
 
 export async function POST(
@@ -206,13 +206,10 @@ export async function POST(
 
             // Notify admins about stock-in
             try {
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0) {
+                const adminIds = await getNotificationRecipients(product.unitType);
+                if (adminIds.length > 0) {
                     await createNotification({
-                        userId: admins.map((a) => a.id),
+                        userId: adminIds,
                         type: "stock_in",
                         title: "Stok Masuk",
                         message: `${product.name}: +${qty} unit${hargaBeli ? ` (HPP: Rp ${hargaBeli.toLocaleString()})` : ""} — Batch ${result.batch.batchNo || result.batch.id}`,
@@ -224,7 +221,7 @@ export async function POST(
                         const daysUntilExpiry = Math.ceil((new Date(result.batch.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                         if (daysUntilExpiry > 0 && daysUntilExpiry <= 90) {
                             await createNotification({
-                                userId: admins.map((a) => a.id),
+                                userId: adminIds,
                                 type: "expiring_soon",
                                 title: "Batch Hampir Expired",
                                 message: `${product.name} batch ${result.batch.batchNo || result.batch.id} — expired dalam ${daysUntilExpiry} hari`,
@@ -309,13 +306,10 @@ export async function POST(
         // Notifications
         try {
             if (type === "out_writeoff") {
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0) {
+                const adminIds = await getNotificationRecipients(product.unitType);
+                if (adminIds.length > 0) {
                     await createNotification({
-                        userId: admins.map((a) => a.id),
+                        userId: adminIds,
                         type: "info",
                         title: "Stok Keluar",
                         message: `${product.name}: -${qty} unit — ${reasonLabel(reason)}${reasonNote ? ` (${reasonNote})` : ""}`,
@@ -326,13 +320,10 @@ export async function POST(
 
             // Low stock alert (only when toko stock was affected)
             if (updatedProduct.updated.minStock && updatedProduct.updated.minStock > 0 && stockLocation === "toko" && updatedProduct.freshStockToko <= updatedProduct.updated.minStock) {
-                const admins = await prisma.user.findMany({
-                    where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
-                    select: { id: true },
-                });
-                if (admins.length > 0) {
+                const adminIds = await getNotificationRecipients(updatedProduct.updated.unitType);
+                if (adminIds.length > 0) {
                     await createNotification({
-                        userId: admins.map((a) => a.id),
+                        userId: adminIds,
                         type: "low_stock",
                         title: "Stok Rendah",
                         message: `${updatedProduct.updated.name}: sisa ${updatedProduct.freshStockToko} di toko (min: ${updatedProduct.updated.minStock})`,

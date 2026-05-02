@@ -2,6 +2,27 @@ import { prisma } from "@/lib/prisma";
 import { sendBatchPushNotifications } from "@/lib/expo-push";
 import type { Prisma } from "@prisma/client";
 
+/**
+ * Get notification recipients filtered by unitType.
+ * - operator & super_admin always receive all notifications
+ * - admin only receives notifications matching their unitType
+ */
+export async function getNotificationRecipients(unitType: string): Promise<number[]> {
+    const admins = await prisma.user.findMany({
+        where: {
+            role: { name: { in: ["admin", "operator", "super_admin"] } },
+            isActive: true,
+            OR: [
+                { unitType },
+                { unitType: null },
+                { role: { name: { in: ["operator", "super_admin"] } } },
+            ],
+        },
+        select: { id: true },
+    });
+    return admins.map((a) => a.id);
+}
+
 interface CreateNotificationParams {
   userId: number | number[];
   type: string;
