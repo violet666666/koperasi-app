@@ -58,6 +58,7 @@ export function ReceiptPrimkopol({
     const handlePrint = () => {
         const printContents = printRef.current?.innerHTML;
         if (!printContents) return;
+        const pw = paperSize === "58mm" ? "58mm" : "80mm";
         const w = window.open("", "_blank", "width=400,height=500");
         if (!w) return;
         w.document.write(`
@@ -67,10 +68,6 @@ export function ReceiptPrimkopol({
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    @page {
-                        size: ${paperSize === "58mm" ? "58mm" : "80mm"} auto;
-                        margin: 0;
-                    }
                     body {
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
@@ -96,7 +93,17 @@ export function ReceiptPrimkopol({
                     .item-name { font-size: 11px; }
                     .item-detail { font-size: 10px; }
                     @media print {
-                        body { width: ${paperSize}; padding: 0.5mm; }
+                        @page { size: ${pw} auto; margin: 0; }
+                        html, body {
+                            height: auto !important;
+                            overflow: visible !important;
+                            margin: 0 !important;
+                        }
+                        body {
+                            width: 100% !important;
+                            max-width: ${pw};
+                            padding: 0.5mm !important;
+                        }
                         .divider { margin: 1px 0; }
                         .row { margin: 0; }
                     }

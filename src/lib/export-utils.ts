@@ -261,7 +261,19 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
   .label { color: #666; }
   .amount-row { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin: 6px 0; display: flex; justify-content: space-between; font-weight: bold; }
   .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #666; }
-  @media print { @page { margin: 0; width: 80mm; } }
+  @media print {
+    @page { size: 80mm auto; margin: 0; }
+    html, body {
+      height: auto !important;
+      overflow: visible !important;
+      margin: 0 !important;
+    }
+    body {
+      width: 100% !important;
+      max-width: 80mm;
+      padding: 1mm !important;
+    }
+  }
 </style>
 </head><body>
 <div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Polres Lumajang</span></div>
@@ -362,7 +374,16 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
   .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; line-height: 1.3; }
   @media print {
     @page { size: ${pageWidth} auto; margin: 0; }
-    body { padding: 1mm; }
+    html, body {
+      height: auto !important;
+      overflow: visible !important;
+      margin: 0 !important;
+    }
+    body {
+      width: 100% !important;
+      max-width: ${pageWidth};
+      padding: 1mm !important;
+    }
     .no-print { display: none !important; }
   }
 </style>
@@ -484,7 +505,16 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
   .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #666; line-height: 1.3; }
   @media print {
     @page { size: ${paperSize} auto; margin: 0; }
-    body { padding: 1mm; }
+    html, body {
+      height: auto !important;
+      overflow: visible !important;
+      margin: 0 !important;
+    }
+    body {
+      width: 100% !important;
+      max-width: ${paperSize};
+      padding: 1mm !important;
+    }
   }
 </style>
 </head><body>
