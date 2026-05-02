@@ -100,7 +100,7 @@ export async function POST(request: Request) {
                     ? (typeof storeSale.metadata === "object" ? storeSale.metadata : JSON.parse(storeSale.metadata as string))
                     : {};
 
-                // Single atomic transaction: claim approval + restore stock + update metadata
+                // Single atomic transaction: claim approval + restore stock + reverse financials + update metadata
                 await prisma.$transaction(async (tx) => {
                     // Atomic guard inside transaction
                     const claim = await tx.approvalRequest.updateMany({
@@ -126,7 +126,6 @@ export async function POST(request: Request) {
                                 },
                             });
 
-                            // Insert log mutasi pengembalian stok
                             await tx.storeStockMovement.create({
                                 data: {
                                     productId: item.productId,
@@ -155,21 +154,19 @@ export async function POST(request: Request) {
                         where: { id: approvalReq.id },
                         data: { approvedById: currentUserId, approvedAt: now },
                     });
-                });
 
-                // ── FIX Bug #2: Reverse side-effects keuangan ───────────────
-                // 1. Reverse Journal (jika ada)
-                try {
+                    // ── Reverse side-effects keuangan (inside transaction) ──
+
+                    // 1. Reverse Journal
                     if (storeSale.journalId) {
-                        const originalJournal = await prisma.journal.findUnique({
+                        const originalJournal = await tx.journal.findUnique({
                             where: { id: storeSale.journalId },
                             include: { lines: true },
                         });
                         if (originalJournal) {
-                            const reverseJournalNo = `RV-${Date.now().toString(36).toUpperCase()}`;
-                            const reverseJournal = await prisma.journal.create({
+                            const reverseJournal = await tx.journal.create({
                                 data: {
-                                    journalNo: reverseJournalNo,
+                                    journalNo: `RV-${Date.now().toString(36).toUpperCase()}`,
                                     branchId: originalJournal.branchId,
                                     transactionDate: now,
                                     description: `[VOID] Pembalik ${originalJournal.journalNo} - ${storeSale.saleNo}`,
@@ -179,7 +176,7 @@ export async function POST(request: Request) {
                                     createdById: currentUserId,
                                 },
                             });
-                            await prisma.journalLine.createMany({
+                            await tx.journalLine.createMany({
                                 data: originalJournal.lines.map((line: any) => ({
                                     journalId: reverseJournal.id,
                                     accountId: line.accountId,
@@ -190,54 +187,42 @@ export async function POST(request: Request) {
                             });
                         }
                     }
-                } catch (journalErr) {
-                    console.error("[Void] Gagal buat jurnal pembalik (non-fatal):", journalErr);
-                }
 
-                // 2. Reverse CashBankTransaction (tunai/QRIS)
-                try {
+                    // 2. Reverse CashBankTransaction (tunai/QRIS) — atomic decrement
                     if (storeSale.paymentMethod === "cash" || storeSale.paymentMethod === "qris") {
-                        const originalCashTx = await prisma.cashBankTransaction.findFirst({
+                        const originalCashTx = await tx.cashBankTransaction.findFirst({
                             where: { description: { contains: storeSale.saleNo } },
                         });
                         if (originalCashTx) {
-                            const account = await prisma.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
-                            if (account) {
-                                const currentBal = Number(account.currentBalance);
-                                const voidAmount = Number(storeSale.totalAmount);
-                                const newBal = currentBal - voidAmount;
+                            const voidAmount = Number(storeSale.totalAmount);
+                            const updatedAccount = await tx.cashBankAccount.update({
+                                where: { id: originalCashTx.accountId },
+                                data: { currentBalance: { decrement: voidAmount } },
+                            });
+                            const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                                await prisma.cashBankTransaction.create({
-                                    data: {
-                                        transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
-                                        accountId: account.id,
-                                        branchId: originalCashTx.branchId,
-                                        type: "out",
-                                        category: "void_penjualan_toko",
-                                        amount: voidAmount,
-                                        balanceBefore: currentBal,
-                                        balanceAfter: newBal,
-                                        unitType: storeSale.unitType || "toko",
-                                        description: `[VOID] Pembatalan ${storeSale.saleNo}`,
-                                        transactionDate: now,
-                                        createdById: currentUserId,
-                                    },
-                                });
-                                await prisma.cashBankAccount.update({
-                                    where: { id: account.id },
-                                    data: { currentBalance: newBal },
-                                });
-                            }
+                            await tx.cashBankTransaction.create({
+                                data: {
+                                    transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
+                                    accountId: originalCashTx.accountId,
+                                    branchId: originalCashTx.branchId,
+                                    type: "out",
+                                    category: "void_penjualan_toko",
+                                    amount: voidAmount,
+                                    balanceBefore,
+                                    balanceAfter: Number(updatedAccount.currentBalance),
+                                    unitType: storeSale.unitType || "toko",
+                                    description: `[VOID] Pembatalan ${storeSale.saleNo}`,
+                                    transactionDate: now,
+                                    createdById: currentUserId,
+                                },
+                            });
                         }
                     }
-                } catch (cashErr) {
-                    console.error("[Void] Gagal reverse kas/bank (non-fatal):", cashErr);
-                }
 
-                // 3. Void linked UnitTransaction for salary_cut (piutang)
-                try {
+                    // 3. Void linked UnitTransaction for salary_cut (piutang)
                     if (storeSale.paymentMethod === "salary_cut") {
-                        await prisma.unitTransaction.updateMany({
+                        await tx.unitTransaction.updateMany({
                             where: {
                                 description: { contains: storeSale.saleNo },
                                 status: { in: ["completed", "pending_void"] },
@@ -245,10 +230,7 @@ export async function POST(request: Request) {
                             data: { status: "voided", isPaid: false },
                         });
                     }
-                } catch (piutangErr) {
-                    console.error("[Void] Gagal void piutang terkait (non-fatal):", piutangErr);
-                }
-                // ── END FIX Bug #2 ──────────────────────────────────────────
+                });
 
                 // Kirim notifikasi ke kasir pemohon
                 try {
@@ -433,39 +415,35 @@ export async function POST(request: Request) {
                     });
                 }
 
-                // 5. Reverse CashBankTransaction (untuk tunai/QRIS)
+                // 5. Reverse CashBankTransaction (untuk tunai/QRIS) — atomic decrement
                 if (originalTx.paymentMethod === "cash" || originalTx.paymentMethod === "qris") {
                     const originalCashTx = await tx.cashBankTransaction.findFirst({
                         where: { description: { contains: originalTx.transactionNo } },
                     });
                     if (originalCashTx) {
-                        const account = await tx.cashBankAccount.findUnique({ where: { id: originalCashTx.accountId } });
-                        if (account) {
-                            const currentBal = Number(account.currentBalance);
-                            const voidAmount = Number(originalTx.amount);
-                            const newBal = currentBal - voidAmount;
+                        const voidAmount = Number(originalTx.amount);
+                        const updatedAccount = await tx.cashBankAccount.update({
+                            where: { id: originalCashTx.accountId },
+                            data: { currentBalance: { decrement: voidAmount } },
+                        });
+                        const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                            await tx.cashBankTransaction.create({
-                                data: {
-                                    transactionNo: `VOID-${Date.now().toString(36).toUpperCase()}`,
-                                    accountId: account.id,
-                                    branchId: originalCashTx.branchId,
-                                    type: "out",
-                                    category: "void_unit_transaction",
-                                    amount: voidAmount,
-                                    balanceBefore: currentBal,
-                                    balanceAfter: newBal,
-                                    unitType: originalTx.unitType,
-                                    description: `[VOID] Pembatalan ${originalTx.transactionNo}`,
-                                    transactionDate: now,
-                                    createdById: currentUserId,
-                                },
-                            });
-                            await tx.cashBankAccount.update({
-                                where: { id: account.id },
-                                data: { currentBalance: newBal },
-                            });
-                        }
+                        await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `VOID-${Date.now().toString(36).toUpperCase()}`,
+                                accountId: originalCashTx.accountId,
+                                branchId: originalCashTx.branchId,
+                                type: "out",
+                                category: "void_unit_transaction",
+                                amount: voidAmount,
+                                balanceBefore,
+                                balanceAfter: Number(updatedAccount.currentBalance),
+                                unitType: originalTx.unitType,
+                                description: `[VOID] Pembatalan ${originalTx.transactionNo}`,
+                                transactionDate: now,
+                                createdById: currentUserId,
+                            },
+                        });
                     }
                 }
             });

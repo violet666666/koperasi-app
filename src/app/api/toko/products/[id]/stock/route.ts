@@ -250,25 +250,7 @@ export async function POST(
         }
 
         // ─── STOCK OUT / OUT_WRITEOFF ───
-        if (stockLocation === "toko") {
-            if (product.stockToko >= qty) {
-                newStockToko = product.stockToko - qty;
-            } else {
-                const sisa = qty - product.stockToko;
-                newStockToko = 0;
-                newStockGdg = Math.max(0, product.stockGdg - sisa);
-            }
-        } else {
-            if (product.stockGdg >= qty) {
-                newStockGdg = product.stockGdg - qty;
-            } else {
-                const sisa = qty - product.stockGdg;
-                newStockGdg = 0;
-                newStockToko = Math.max(0, product.stockToko - sisa);
-            }
-        }
-
-        const newStock = newStockGdg + newStockToko;
+        // Re-read inside transaction to prevent race condition
         const costSnapshot = Number(product.costPrice) || 0;
         const movementReason = type === "out_writeoff" ? reason : "adjustment";
         const movementReasonNote = type === "out_writeoff" ? reasonNote : null;
@@ -277,9 +259,36 @@ export async function POST(
             : `Pengurangan Manual (${stockLocation === "toko" ? "Toko" : "Gudang"})`;
 
         const updatedProduct = await prisma.$transaction(async (tx) => {
+            // Re-read product inside transaction for accurate stock deduction
+            const freshProduct = await tx.storeProduct.findUnique({ where: { id: productId, deletedAt: null } });
+            if (!freshProduct) throw new Error("Produk tidak ditemukan");
+
+            let freshStockToko = freshProduct.stockToko;
+            let freshStockGdg = freshProduct.stockGdg;
+
+            if (stockLocation === "toko") {
+                if (freshProduct.stockToko >= qty) {
+                    freshStockToko = freshProduct.stockToko - qty;
+                } else {
+                    const sisa = qty - freshProduct.stockToko;
+                    freshStockToko = 0;
+                    freshStockGdg = Math.max(0, freshProduct.stockGdg - sisa);
+                }
+            } else {
+                if (freshProduct.stockGdg >= qty) {
+                    freshStockGdg = freshProduct.stockGdg - qty;
+                } else {
+                    const sisa = qty - freshProduct.stockGdg;
+                    freshStockGdg = 0;
+                    freshStockToko = Math.max(0, freshProduct.stockToko - sisa);
+                }
+            }
+
+            const freshNewStock = freshStockGdg + freshStockToko;
+
             const updated = await tx.storeProduct.update({
                 where: { id: productId },
-                data: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+                data: { stock: freshNewStock, stockGdg: freshStockGdg, stockToko: freshStockToko },
             });
             await tx.storeStockMovement.create({
                 data: {
@@ -294,7 +303,7 @@ export async function POST(
                     costAtTime: costSnapshot,
                 },
             });
-            return updated;
+            return { updated, freshNewStock, freshStockGdg, freshStockToko, freshEffectiveStock: freshProduct.stockGdg + freshProduct.stockToko };
         });
 
         // Notifications
@@ -316,7 +325,7 @@ export async function POST(
             }
 
             // Low stock alert (only when toko stock was affected)
-            if (updatedProduct.minStock && updatedProduct.minStock > 0 && stockLocation === "toko" && newStockToko <= updatedProduct.minStock) {
+            if (updatedProduct.updated.minStock && updatedProduct.updated.minStock > 0 && stockLocation === "toko" && updatedProduct.freshStockToko <= updatedProduct.updated.minStock) {
                 const admins = await prisma.user.findMany({
                     where: { role: { name: { in: ["admin", "operator", "super_admin"] } }, isActive: true },
                     select: { id: true },
@@ -326,8 +335,8 @@ export async function POST(
                         userId: admins.map((a) => a.id),
                         type: "low_stock",
                         title: "Stok Rendah",
-                        message: `${updatedProduct.name}: sisa ${newStockToko} di toko (min: ${updatedProduct.minStock})`,
-                        data: { productId: updatedProduct.id, unitType: updatedProduct.unitType },
+                        message: `${updatedProduct.updated.name}: sisa ${updatedProduct.freshStockToko} di toko (min: ${updatedProduct.updated.minStock})`,
+                        data: { productId: updatedProduct.updated.id, unitType: updatedProduct.updated.unitType },
                     });
                 }
             }
@@ -335,13 +344,13 @@ export async function POST(
 
         return NextResponse.json({
             data: {
-                productId: updatedProduct.id, sku: updatedProduct.sku, name: updatedProduct.name,
-                previousStock: effectiveStock, currentStock: newStock,
-                stockGdg: newStockGdg, stockToko: newStockToko,
+                productId: updatedProduct.updated.id, sku: updatedProduct.updated.sku, name: updatedProduct.updated.name,
+                previousStock: updatedProduct.freshEffectiveStock, currentStock: updatedProduct.freshNewStock,
+                stockGdg: updatedProduct.freshStockGdg, stockToko: updatedProduct.freshStockToko,
                 change: -qty, type, reason: movementReason, reasonNote: movementReasonNote,
                 notes: notes || null, updatedBy: userId, updatedAt: new Date().toISOString(),
             },
-            message: `Stok keluar berhasil dicatat. Stok sekarang: ${newStock} (Gudang: ${newStockGdg}, Toko: ${newStockToko})`,
+            message: `Stok keluar berhasil dicatat. Stok sekarang: ${updatedProduct.freshNewStock} (Gudang: ${updatedProduct.freshStockGdg}, Toko: ${updatedProduct.freshStockToko})`,
         }, { status: 200 });
     } catch (error) {
         console.error("POST /api/toko/products/[id]/stock error:", error);

@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { items, paymentMethod, memberId, customerName, unitType = "toko" } = body;
+        const { items, paymentMethod, memberId, customerName, unitType = "toko", cashierIdentityId } = body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "Keranjang belanja kosong" }, { status: 400 });
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
             // Validate stock and calculate total
             let totalAmount = 0;
-            const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number }[] = [];
+            const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number; costPrice: number }[] = [];
 
             for (const item of items) {
                 const product = await tx.storeProduct.findUnique({ where: { id: item.productId } });
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
                 const subtotal = unitPrice * item.quantity;
                 totalAmount += subtotal;
 
-                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount });
+                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0 });
             }
 
             // Validate credit limit for salary_cut
@@ -221,11 +221,13 @@ export async function POST(request: Request) {
                     cashReceived: payment, changeAmount,
                     metadata: null, journalId,
                     periodId: currentPeriod?.id || null,
-                    shiftId, createdById: userId,
+                    shiftId, cashierIdentityId: cashierIdentityId ? Number(cashierIdentityId) : null,
+                    createdById: userId,
                     items: {
                         create: validatedItems.map((vi) => ({
                             productId: vi.productId, quantity: vi.quantity,
                             unitPrice: vi.unitPrice, discount: vi.discount, subtotal: vi.subtotal,
+                            costPrice: vi.costPrice || null,
                         })),
                     },
                 },
@@ -258,8 +260,26 @@ export async function POST(request: Request) {
                             productId: vi.productId, type: "out", quantity: vi.quantity,
                             reference: `Penjualan Mobile ${saleNo}`,
                             notes: `Terjual Mobile (${method})`, operatorId: userId,
+                            costAtTime: vi.costPrice, reason: "sale",
                         },
                     });
+
+                    // FIFO batch deduction — consume oldest active batches first
+                    let remainingToDeduct = vi.quantity;
+                    const batches = await tx.stockBatch.findMany({
+                        where: { productId: vi.productId, isActive: true, quantity: { gt: 0 } },
+                        orderBy: { receivedAt: "asc" },
+                    });
+                    for (const batch of batches) {
+                        if (remainingToDeduct <= 0) break;
+                        const deduct = Math.min(batch.quantity, remainingToDeduct);
+                        const newQty = batch.quantity - deduct;
+                        await tx.stockBatch.update({
+                            where: { id: batch.id },
+                            data: { quantity: newQty, isActive: newQty > 0 },
+                        });
+                        remainingToDeduct -= deduct;
+                    }
                 }
             }
 
@@ -277,20 +297,20 @@ export async function POST(request: Request) {
                     });
                 }
                 if (targetAccount) {
-                    const currentBal = Number(targetAccount.currentBalance);
-                    const newBal = currentBal + totalAmount;
+                    const updatedAccount = await tx.cashBankAccount.update({
+                        where: { id: targetAccount.id },
+                        data: { currentBalance: { increment: totalAmount } },
+                    });
+                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
                     await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: `MB-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id, branchId: targetAccount.branchId,
                             type: "in", category: "pendapatan_toko", amount: totalAmount,
-                            balanceBefore: currentBal, balanceAfter: newBal, unitType,
+                            balanceBefore, balanceAfter: Number(updatedAccount.currentBalance), unitType,
                             description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now, createdById: userId,
                         },
-                    });
-                    await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id }, data: { currentBalance: newBal },
                     });
                 }
             }

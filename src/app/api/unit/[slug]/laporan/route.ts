@@ -128,9 +128,12 @@ export async function GET(
             status: { notIn: ["voided"] },
         };
 
-        // Untuk toko/resto, exclude auto-generated piutang records
+        // Untuk toko/resto, exclude auto-generated piutang records (web TK-UTG- & mobile MB-UTG-)
         if (usesStoreSales) {
-            unitTxWhere.NOT = { transactionNo: { startsWith: "TK-UTG-" } };
+            unitTxWhere.NOT = [
+                { transactionNo: { startsWith: "TK-UTG-" } },
+                { transactionNo: { startsWith: "MB-UTG-" } },
+            ];
         }
 
         unitTransactions = await prisma.unitTransaction.findMany({
@@ -344,7 +347,7 @@ export async function GET(
 
                     return {
                         id: e.id,
-                        date: (e as any).createdAt || e.transactionDate,
+                        date: e.transactionDate,
                         transactionNo: e.transactionNo,
                         description: description,
                         amount: Number(e.amount),
@@ -359,7 +362,7 @@ export async function GET(
 
                     return {
                         id: e.id,
-                        date: (e as any).createdAt || e.transactionDate,
+                        date: e.transactionDate,
                         transactionNo: e.transactionNo,
                         description: description,
                         amount: Number(e.amount),

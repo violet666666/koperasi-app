@@ -471,8 +471,11 @@ export async function POST(request: Request) {
                 }
 
                 if (targetAccount) {
-                    const currentBal = Number(targetAccount.currentBalance);
-                    const newBal = currentBal + totalAmount;
+                    const updatedAccount = await tx.cashBankAccount.update({
+                        where: { id: targetAccount.id },
+                        data: { currentBalance: { increment: totalAmount } },
+                    });
+                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
 
                     await tx.cashBankTransaction.create({
                         data: {
@@ -482,18 +485,13 @@ export async function POST(request: Request) {
                             type: "in",
                             category: "pendapatan_toko",
                             amount: totalAmount,
-                            balanceBefore: currentBal,
-                            balanceAfter: newBal,
+                            balanceBefore,
+                            balanceAfter: Number(updatedAccount.currentBalance),
                             unitType: unitType,
                             description: `Penjualan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now,
                             createdById: userId,
                         },
-                    });
-
-                    await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: newBal },
                     });
                 }
             }
