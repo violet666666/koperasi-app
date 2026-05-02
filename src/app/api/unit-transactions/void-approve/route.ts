@@ -6,6 +6,10 @@ import { sendPushNotification } from "@/lib/expo-push";
 
 export const dynamic = "force-dynamic";
 
+// Transaction timeout config — default Prisma interactive tx timeout = 5s
+// which is too short for void operations (stock restore + journal reverse + cash bank reverse)
+const TX_OPTIONS = { maxWait: 10000, timeout: 15000 };
+
 /**
  * POST /api/unit-transactions/void-approve
  * Admin Unit / Operator menyetujui atau menolak permintaan void.
@@ -37,6 +41,11 @@ export async function POST(request: Request) {
                 { status: 403 }
             );
         }
+
+        const roleName = session.user.role;
+        const userUnitType = (session.user as any).unitType;
+        const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
+        const isUnitAdmin = roleName === "admin" && userUnitType && userUnitType !== "simpan_pinjam";
 
         const body = await request.json();
         const { approvalRequestNo, action, notes } = body;
@@ -72,6 +81,19 @@ export async function POST(request: Request) {
                 { message: `Request ini sudah diproses sebelumnya (status: ${approvalReq.status}).` },
                 { status: 409 }
             );
+        }
+
+        // ── Unit Scope Validation: Admin unit hanya bisa approve void dari unit mereka ──
+        if (isUnitAdmin) {
+            const reqMeta: any = typeof approvalReq.metadata === 'string'
+                ? JSON.parse(approvalReq.metadata)
+                : approvalReq.metadata || {};
+            if (reqMeta.unitType && reqMeta.unitType !== userUnitType) {
+                return NextResponse.json(
+                    { message: `Anda (admin ${userUnitType}) tidak memiliki izin untuk memproses void dari unit ${reqMeta.unitType}.` },
+                    { status: 403 }
+                );
+            }
         }
 
         const currentUserId = parseInt(session.user.id);
@@ -230,7 +252,7 @@ export async function POST(request: Request) {
                             data: { status: "voided", isPaid: false },
                         });
                     }
-                });
+                }, TX_OPTIONS);
 
                 // Kirim notifikasi ke kasir pemohon
                 try {
@@ -279,7 +301,7 @@ export async function POST(request: Request) {
                             rejectionReason: notes || "Ditolak oleh Admin Unit.",
                         },
                     });
-                });
+                }, TX_OPTIONS);
 
                 // Kirim notifikasi ke kasir pemohon
                 try {
@@ -446,7 +468,7 @@ export async function POST(request: Request) {
                         });
                     }
                 }
-            });
+            }, TX_OPTIONS);
 
             // Kirim notifikasi ke pemohon void (jika kasir)
             try {
@@ -490,7 +512,7 @@ export async function POST(request: Request) {
                         rejectionReason: notes || "Ditolak oleh Admin Unit.",
                     },
                 });
-            });
+            }, TX_OPTIONS);
 
             // Kirim notifikasi ke pemohon void
             try {
@@ -520,9 +542,24 @@ export async function POST(request: Request) {
                 { status: 409 }
             );
         }
-        console.error("POST /api/unit-transactions/void-approve error:", error);
+
+        // Enhanced error logging for debugging
+        const errorInfo = {
+            message: error?.message,
+            code: error?.code,
+            meta: error?.meta,
+            stack: error?.stack?.substring(0, 500),
+        };
+        console.error("POST /api/unit-transactions/void-approve error:", JSON.stringify(errorInfo, null, 2));
+
+        // Detect Prisma transaction timeout
+        const isPrismaTimeout = error?.code === "P2028" || error?.message?.includes("Transaction API error");
+        const userMessage = isPrismaTimeout
+            ? "Timeout: Proses void memakan waktu terlalu lama. Silakan coba lagi."
+            : `Gagal memproses persetujuan void: ${error?.message || "Unknown error"}`;
+
         return NextResponse.json(
-            { message: "Gagal memproses persetujuan void" },
+            { message: userMessage },
             { status: 500 }
         );
     }

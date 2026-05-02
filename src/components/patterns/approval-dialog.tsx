@@ -105,8 +105,10 @@ export function ApprovalDialog({ open, onOpenChange, approval, onSuccess }: Appr
             );
             onSuccess();
             onOpenChange(false);
-        } catch (error) {
-            toast.error("Gagal memproses pengajuan");
+        } catch (error: any) {
+            const serverMsg = error?.data?.message || error?.message || "Gagal memproses pengajuan";
+            toast.error(serverMsg);
+            console.error("Approval processing error:", error);
         } finally {
             setProcessing(false);
         }

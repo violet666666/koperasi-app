@@ -145,18 +145,28 @@ export async function GET(request: Request) {
         const skip = (page - 1) * perPage;
         const paginatedData = allApprovals.slice(skip, skip + perPage);
 
+        // Build void count filter based on user scope
+        // Operator sees all; admin unit only sees their own unitType
+        const buildVoidCountWhere = (statusFilter: string | Record<string, unknown>) => {
+            const base: Record<string, unknown> = {
+                type: { in: ["unit_void", "void_store_sale", "laporan_unit"] },
+                status: statusFilter,
+            };
+            if (isUnitAdmin && userUnitType) {
+                base.metadata = { path: ["unitType"], equals: userUnitType };
+            } else if (isSimpanPinjamAdmin) {
+                base.metadata = { path: ["unitType"], equals: "simpan_pinjam" };
+            }
+            return base;
+        };
+
         // Hitung pending count dari data mentah (sebelum statusParam filter)
         // agar badge selalu akurat terlepas dari tab aktif
         const [pendingLoanCount, pendingVoidCount] = await Promise.all([
             canSeeLoans
                 ? prisma.loanApplication.count({ where: { status: "submitted", ...(branchId ? { branchId: parseInt(branchId) } : {}) } })
                 : Promise.resolve(0),
-            prisma.approvalRequest.count({
-                where: {
-                    type: { in: ["unit_void", "void_store_sale", "laporan_unit"] },
-                    status: "pending",
-                },
-            }),
+            prisma.approvalRequest.count({ where: buildVoidCountWhere("pending") as any }),
         ]);
         const pendingCount = pendingLoanCount + pendingVoidCount;
 
@@ -168,8 +178,8 @@ export async function GET(request: Request) {
             canSeeLoans
                 ? prisma.loanApplication.count({ where: { status: "rejected", ...(branchId ? { branchId: parseInt(branchId) } : {}) } })
                 : Promise.resolve(0),
-            prisma.approvalRequest.count({ where: { type: { in: ["unit_void", "void_store_sale", "laporan_unit"] }, status: "approved" } }),
-            prisma.approvalRequest.count({ where: { type: { in: ["unit_void", "void_store_sale", "laporan_unit"] }, status: "rejected" } }),
+            prisma.approvalRequest.count({ where: buildVoidCountWhere("approved") as any }),
+            prisma.approvalRequest.count({ where: buildVoidCountWhere("rejected") as any }),
         ]);
 
         return NextResponse.json({
