@@ -508,6 +508,7 @@ export async function POST(request: Request) {
                         description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,
                         amount: totalAmount,
                         transactionDate: now,
+                        paymentMethod: "salary_cut",
                         isPaid: false,
                         notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${saleNo}`,
                         createdById: userId,

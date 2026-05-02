@@ -61,6 +61,7 @@ import {
     Send,
     Award,
     CreditCard,
+    Eye,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -215,6 +216,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // Checkbox method filters
     const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
+
+    // Transaction detail modal
+    const [selectedTx, setSelectedTx] = React.useState<LaporanTransaction | null>(null);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {
@@ -1002,7 +1006,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                     <span className="font-mono text-xs text-muted-foreground">{tx.no}</span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <p className="text-sm font-medium">{tx.description}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm font-medium truncate max-w-[250px]" title={tx.description}>{tx.description}</p>
+                                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground shrink-0 hover:text-primary" onClick={() => setSelectedTx(tx)}>
+                                                            <Eye className="h-3 w-3 mr-1" />Detail
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                                 {isCuciMobil && (
                                                     <TableCell>
@@ -1608,6 +1617,64 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             Ya, Hapus
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Transaction Detail Modal */}
+            <Dialog open={!!selectedTx} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base">Detail Transaksi</DialogTitle>
+                    </DialogHeader>
+                    {selectedTx && (
+                        <div className="space-y-3 text-sm">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-muted-foreground text-xs">No. Transaksi</p>
+                                    <p className="font-mono font-medium">{selectedTx.no}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Tanggal</p>
+                                    <p>{new Date(selectedTx.date).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Tipe</p>
+                                    <Badge variant="outline">{selectedTx.type === "store_sale" ? "Penjualan Toko" : "Transaksi Unit"}</Badge>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Metode Bayar</p>
+                                    <Badge variant="outline" className={
+                                        selectedTx.paymentMethod === "cash" ? "border-emerald-300 text-emerald-700" :
+                                        selectedTx.paymentMethod === "qris" ? "border-blue-300 text-blue-700" :
+                                        "border-indigo-300 text-indigo-700"
+                                    }>
+                                        {METHOD_LABEL[selectedTx.paymentMethod] || selectedTx.paymentMethod}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Pelanggan</p>
+                                    <p className="font-medium">{selectedTx.memberName || "Walk-In"}</p>
+                                    {selectedTx.memberNrp && <p className="text-xs text-muted-foreground">NRP: {selectedTx.memberNrp}</p>}
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Status</p>
+                                    <Badge variant={selectedTx.status === "completed" ? "default" : "destructive"}>
+                                        {selectedTx.status === "completed" ? "Selesai" : selectedTx.status === "voided" ? "Dibatalkan" : selectedTx.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                            <Separator />
+                            <div>
+                                <p className="text-muted-foreground text-xs mb-1">Deskripsi</p>
+                                <p className="whitespace-pre-wrap break-words">{selectedTx.description}</p>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground font-medium">Total</span>
+                                <span className="text-xl font-bold">{formatCurrency(selectedTx.amount)}</span>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
