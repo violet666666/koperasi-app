@@ -622,6 +622,10 @@ export const kasirPSNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Shift Kasir", href: "/play-station/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Riwayat Transaksi", href: "/transaksi-unit/riwayat?unitType=playstation", icon: ClipboardList,
                 permission: "manage_unit_transactions",
             },
@@ -648,7 +652,15 @@ export const adminPSNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Shift Kasir", href: "/play-station/shift", icon: Timer,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Manajemen Produk & Jasa", href: "/play-station/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Pengaturan Console", href: "/play-station/pengaturan", icon: Settings,
                 permission: "manage_unit_transactions",
             },
             {

@@ -30,15 +30,23 @@ interface PSTvState {
     startTime: number | null; // null if stopped
 }
 
+interface PSConsoleConfig {
+    consoles: Array<{ id: string; label: string; type: "PS5" | "PS4" | "PS3" }>;
+    ratePerBlock: number;
+    blockDurationMins: number;
+}
+
 interface PSStoreState {
     tvs: PSTvState[];
     activeTvId: string | null;
+    blockDurationMins: number;
     setActiveTv: (id: string | null) => void;
     startTimer: (tvId: string) => void;
     stopTimer: (tvId: string) => void;
     updateCart: (tvId: string, item: CartItem, action: "add" | "update" | "remove") => void;
     setCustomer: (tvId: string, name: string) => void;
     clearTv: (tvId: string) => void;
+    initializeFromConfig: (consoles: PSConsoleConfig["consoles"], blockDurationMins: number) => void;
 }
 
 const DEFAULT_TVS: PSTvState[] = Array.from({ length: 8 }, (_, i) => ({
@@ -50,6 +58,7 @@ const usePSStore = create<PSStoreState>()(
         (set, get) => ({
             tvs: [...DEFAULT_TVS],
             activeTvId: null,
+            blockDurationMins: 15,
             setActiveTv: (id) => set({ activeTvId: id }),
             startTimer: (tvId) => set((state) => ({
                 tvs: state.tvs.map(t => t.id === tvId ? { ...t, startTime: Date.now() } : t)
@@ -63,7 +72,7 @@ const usePSStore = create<PSStoreState>()(
                     let newCart = [...t.cart];
                     const existing = newCart.find(c => c.product.id === item.product.id);
                     if (action === "add") {
-                        if (existing) existing.quantity += 1;
+                        if (existing) existing.quantity += item.quantity;
                         else newCart.push({ product: item.product, quantity: item.quantity, notes: "" });
                     } else if (action === "update") {
                         if (existing) {
@@ -84,13 +93,19 @@ const usePSStore = create<PSStoreState>()(
             clearTv: (tvId) => set((state) => ({
                 tvs: state.tvs.map(t => t.id === tvId ? { ...t, cart: [], customerName: "", startTime: null } : t)
             })),
+            initializeFromConfig: (consoles, blockDurationMins) => set((state) => {
+                const existingMap = new Map(state.tvs.map(t => [t.id, t]));
+                const newTvs = consoles.map(c =>
+                    existingMap.get(c.id) || { id: c.id, label: c.label, cart: [] as CartItem[], customerName: "", startTime: null as number | null }
+                );
+                return { tvs: newTvs, blockDurationMins };
+            }),
         }),
         { name: "ps-pos-storage" }
     )
 );
 
 // Constants
-const PS_RATE_PER_HOURS = 15000; // Rp 15,000 per hour
 const MINIMUM_DURATION_MINS = 15; // Minimum 15 mins bill
 
 function calculateDurationString(startTime: number | null): string {
@@ -103,7 +118,7 @@ function calculateDurationString(startTime: number | null): string {
 }
 
 export default function PSKasirPage() {
-    const { tvs, activeTvId, setActiveTv, startTimer, stopTimer, updateCart, setCustomer, clearTv } = usePSStore();
+    const { tvs, activeTvId, setActiveTv, startTimer, stopTimer, updateCart, setCustomer, clearTv, blockDurationMins, initializeFromConfig } = usePSStore();
     const activeTv = tvs.find(t => t.id === activeTvId);
 
     const [products, setProducts] = React.useState<Product[]>([]);
@@ -111,6 +126,7 @@ export default function PSKasirPage() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
+    const [configLoaded, setConfigLoaded] = React.useState(false);
     
     // Timer display re-render trigger
     const [, setTick] = React.useState(0);
@@ -143,6 +159,15 @@ export default function PSKasirPage() {
     // QRIS
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
     const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
+
+    // Shift validation
+    const [activeShift, setActiveShift] = React.useState<{ id: number; shiftName: string } | null>(null);
+    const [shiftLoading, setShiftLoading] = React.useState(true);
+
+    // Stale timer detection
+    const STALE_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
+    const [staleTvs, setStaleTvs] = React.useState<string[]>([]);
+    const [showStaleWarning, setShowStaleWarning] = React.useState(false);
 
     // Close customer dropdown on outside click
     React.useEffect(() => {
@@ -182,21 +207,33 @@ export default function PSKasirPage() {
     };
 
     React.useEffect(() => {
-        async function fetchProducts() {
+        async function initData() {
             setIsLoading(true);
             try {
-                const res = await fetch("/api/toko/products?unitType=playstation");
-                const json = await res.json();
-                const all = json.data || [];
-                // Separate rental service product from F&B (if it's flagged isService)
+                const [productsRes, configRes] = await Promise.all([
+                    fetch("/api/toko/products?unitType=playstation"),
+                    fetch("/api/playstation/config"),
+                ]);
+
+                const productsJson = await productsRes.json();
+                const all = productsJson.data || [];
                 const rental = all.find((p: any) => p.isService);
                 if (rental) setRentalProduct(rental);
+                setProducts(all.filter((p: any) => !p.isService));
 
-                const fb = all.filter((p: any) => !p.isService);
-                setProducts(fb);
-            } catch { toast.error("Gagal memuat katalog produk/jasa"); } finally { setIsLoading(false); }
+                const configJson = await configRes.json();
+                const config: PSConsoleConfig = configJson.data;
+                if (config?.consoles?.length) {
+                    initializeFromConfig(config.consoles, config.blockDurationMins || 15);
+                }
+            } catch {
+                toast.error("Gagal memuat katalog produk/jasa");
+            } finally {
+                setIsLoading(false);
+                setConfigLoaded(true);
+            }
         }
-        fetchProducts();
+        initData();
     }, []);
 
     // Lazy-load QRIS on-demand when the dialog opens
@@ -215,6 +252,32 @@ export default function PSKasirPage() {
         return () => { cancelled = true; };
     }, [showQrisDialog, qrisUrl]);
 
+    // Check for active shift on mount
+    React.useEffect(() => {
+        async function checkShift() {
+            setShiftLoading(true);
+            try {
+                const res = await fetch("/api/toko/shifts?unitType=playstation&status=open");
+                const json = await res.json();
+                const openShift = (json.data || []).find((s: Record<string, unknown>) => s.status === "open");
+                if (openShift) setActiveShift({ id: openShift.id as number, shiftName: openShift.shiftName as string });
+            } catch { /* shift check failed */ }
+            finally { setShiftLoading(false); }
+        }
+        checkShift();
+    }, []);
+
+    // Check for stale timers from localStorage persistence
+    React.useEffect(() => {
+        const now = Date.now();
+        const stale = tvs.filter(t => t.startTime && (now - t.startTime > STALE_THRESHOLD_MS));
+        if (stale.length > 0) {
+            setStaleTvs(stale.map(t => t.id));
+            setShowStaleWarning(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const filteredMenu = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
     const cart = activeTv?.cart || [];
     const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -224,18 +287,16 @@ export default function PSKasirPage() {
         if (!tv.startTime) return;
         const diffMs = Date.now() - tv.startTime;
         let diffMins = Math.ceil(diffMs / 60000);
-        if (diffMins < MINIMUM_DURATION_MINS) diffMins = MINIMUM_DURATION_MINS; // Minimum billable 15 mins
-        // Validasi durasi maksimal 12 jam
+        if (diffMins < MINIMUM_DURATION_MINS) diffMins = MINIMUM_DURATION_MINS;
         if (diffMins > 720) diffMins = 720;
 
-        stopTimer(tv.id); // Stop real timer
+        stopTimer(tv.id);
 
         if (rentalProduct) {
-            // Gunakan pembulatan ke atas ke 15 menit terdekat untuk akurasi billing
-            const roundedMins = Math.ceil(diffMins / 15) * 15;
-            const hoursRounded = Math.round((roundedMins / 60) * 100) / 100;
-            updateCart(tv.id, { product: rentalProduct, quantity: hoursRounded }, "add");
-            toast.success(`Timer TV Dihentikan. Jasa rental sebesar ${hoursRounded} Jam (${roundedMins} menit) masuk ke tagihan.`);
+            const blocks = Math.ceil(diffMins / blockDurationMins);
+            updateCart(tv.id, { product: rentalProduct, quantity: blocks }, "add");
+            const totalMins = blocks * blockDurationMins;
+            toast.success(`Timer TV Dihentikan. Jasa rental: ${blocks} blok × ${blockDurationMins} menit = ${totalMins} menit.`);
         } else {
             toast.warning("Produk 'Sewa/Rental PS' tidak ditemukan di database. Tambahkan manual.");
         }
@@ -269,6 +330,10 @@ export default function PSKasirPage() {
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTv) return;
+        if (!activeShift) {
+            toast.error("Buka shift terlebih dahulu sebelum memproses transaksi!");
+            return;
+        }
         if (activeTv.startTime) { toast.error("Hentikan timer Console terlebih dahulu sebelum pembayaran!"); return; }
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kas kurang"); return; }
@@ -281,6 +346,7 @@ export default function PSKasirPage() {
                 customerName: activeTv.customerName || (method === "salary_cut" ? selectedMember?.name : "Player Umum"),
                 paymentMethod: method,
                 unitType: "playstation",
+                shiftId: activeShift?.id,
                 memberId: selectedCustomerObj?.id || (method === "salary_cut" ? selectedMember?.id : undefined),
                 metadata: { psNumber: activeTv.label, guestName: activeTv.customerName }
             };
@@ -336,7 +402,19 @@ export default function PSKasirPage() {
                         </Button>
                     }
                 />
-                
+
+                {shiftLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 p-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Memuat status shift...
+                    </div>
+                ) : !activeShift && (
+                    <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-sm text-red-700 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <span>Belum ada shift aktif.</span>
+                        <a href="/play-station/shift" className="underline font-semibold">Buka Shift</a>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                     {tvs.map(t => {
                         const isRunning = t.startTime !== null;
@@ -490,7 +568,7 @@ export default function PSKasirPage() {
                                         </div>
                                         {/* For floating quantity, e.g. 1.25 hours */}
                                         {item.product.isService && (
-                                            <p className="text-[10px] text-slate-400 text-right mt-1">*Kuantitas melambangkan Jam (Hours)</p>
+                                            <p className="text-[10px] text-slate-400 text-right mt-1">*Kuantitas melambangkan blok {blockDurationMins} menit</p>
                                         )}
                                     </div>
                                 ))}
@@ -519,13 +597,13 @@ export default function PSKasirPage() {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2">
-                            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm col-span-2" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
+                            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm col-span-2" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null || !activeShift}>
                                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Setor Tunai
                             </Button>
-                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } if (activeTv.startTime) { toast.error("Stop timer dulu!"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
+                            <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } if (activeTv.startTime) { toast.error("Stop timer dulu!"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null || !activeShift}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
-                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => setShowCreditDialog(true)} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null}>
+                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => setShowCreditDialog(true)} disabled={cart.length === 0 || isProcessing || activeTv.startTime !== null || !activeShift}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
                         </div>
@@ -631,6 +709,40 @@ export default function PSKasirPage() {
                             <ReceiptPrimkopol data={lastReceipt} paperSize="58mm" />
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Stale Timer Warning Dialog */}
+            <Dialog open={showStaleWarning} onOpenChange={setShowStaleWarning}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="text-amber-500" />
+                            Timer Stale Terdeteksi
+                        </DialogTitle>
+                        <DialogDescription>
+                            {staleTvs.length} console memiliki timer yang berjalan lebih dari 12 jam.
+                            Kemungkinan browser ditutup paksa. Silakan hentikan atau reset.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        {staleTvs.map(tvId => {
+                            const tv = tvs.find(t => t.id === tvId);
+                            return (
+                                <div key={tvId} className="flex items-center justify-between p-3 border rounded-lg">
+                                    <span className="font-medium">{tv?.label || tvId}</span>
+                                    <Button size="sm" variant="destructive" onClick={() => {
+                                        stopTimer(tvId);
+                                        setStaleTvs(prev => prev.filter(id => id !== tvId));
+                                        if (staleTvs.length <= 1) setShowStaleWarning(false);
+                                    }}>Stop & Reset Timer</Button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowStaleWarning(false)}>Tutup</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
