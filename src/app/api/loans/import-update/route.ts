@@ -15,11 +15,20 @@ export async function POST(request: Request) {
         }
         const adminId = session.user.id ? Number(session.user.id) : 1;
 
-        // FIX #3: Request-scoped unique ID generator — avoids Date.now() collisions
-        let uidCounter = 0;
-        const uniqueId = (prefix: string) => {
-            uidCounter++;
-            return `${prefix}-${Date.now()}-${uidCounter}-${Math.random().toString(36).slice(2, 6)}`;
+        // Sequential transaction number generator — koperasi standard format
+        const importDate = new Date();
+        const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+        const importMonth = romawi[importDate.getMonth() + 1];
+        const importYear = importDate.getFullYear();
+        let loanSeq = 0;
+        let paySeq = 0;
+        const nextLoanNo = () => {
+            loanSeq++;
+            return `SP-IMP/${String(loanSeq).padStart(4, "0")}/PRIM/${importMonth}/${importYear}`;
+        };
+        const nextPaymentNo = (loanNumber: number) => {
+            paySeq++;
+            return `PAY-IMP/${String(paySeq).padStart(4, "0")}/PRIM/${importMonth}/${importYear}`;
         };
 
         const formData = await request.formData();
@@ -149,7 +158,7 @@ export async function POST(request: Request) {
 
             if (!member) {
                 // FIX #3: Use unique ID generator instead of raw Date.now()
-                const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${uniqueId("N")}`;
+                const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
                 const resultIdx = results.length;
                 results.push({
                     row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
@@ -205,7 +214,7 @@ export async function POST(request: Request) {
                                 if (!product) throw new Error("Missing product config");
 
                                 const applicationDate = taskData.tglPinjam || new Date();
-                                const applicationNo = uniqueId("IMP");
+                                const applicationNo = nextLoanNo();
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -226,7 +235,7 @@ export async function POST(request: Request) {
 
                                 const loan = await tx.loan.create({
                                     data: {
-                                        loanNo: `LN-${applicationNo}`,
+                                        loanNo: applicationNo,
                                         applicationId: app.id,
                                         memberId: activeMemberId,
                                         branchId: branch.id,
@@ -297,7 +306,7 @@ export async function POST(request: Request) {
 
                                     await tx.loanPayment.create({
                                         data: {
-                                            paymentNo: uniqueId(`PAY-${loanId}`),
+                                            paymentNo: nextPaymentNo(loanId!),
                                             loanId: loanId!,
                                             memberId: activeMemberId,
                                             branchId: branch.id,
@@ -405,7 +414,7 @@ export async function POST(request: Request) {
                                 if (!product || !branch) throw new Error("Missing product or branch config");
 
                                 const applicationDate = taskData.tglPinjam || new Date();
-                                const applicationNo = uniqueId("IMP");
+                                const applicationNo = nextLoanNo();
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -426,7 +435,7 @@ export async function POST(request: Request) {
 
                                 const loan = await tx.loan.create({
                                     data: {
-                                        loanNo: `LN-${applicationNo}`,
+                                        loanNo: applicationNo,
                                         applicationId: app.id,
                                         memberId: activeMemberId,
                                         branchId: branch.id,
@@ -548,7 +557,7 @@ export async function POST(request: Request) {
 
                                 await tx.loanPayment.create({
                                     data: {
-                                        paymentNo: uniqueId(`PAY-${loanId}`),
+                                        paymentNo: nextPaymentNo(loanId!),
                                         loanId: loanId!,
                                         memberId: activeMemberId,
                                         branchId: taskMember?.branchId || (defaultBranch?.id ?? 1),

@@ -343,6 +343,17 @@ export async function POST(request: Request) {
             const userInfo = extractUserFromSession(session);
             const adminId = userInfo.userId || 1;
 
+            // Sequential transaction numbers — koperasi standard format
+            const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+            const importDate = new Date();
+            const impMonth = romawi[importDate.getMonth() + 1];
+            const impYear = importDate.getFullYear();
+            let migrasiLoanSeq = 0;
+            const nextMigrasiLoanNo = () => {
+                migrasiLoanSeq++;
+                return `SP-MGR/${String(migrasiLoanSeq).padStart(4, "0")}/PRIM/${impMonth}/${impYear}`;
+            };
+
             // Process in batches of 20 to avoid transaction timeout
             const BATCH_SIZE = 20;
             for (let batchStart = 0; batchStart < commitData.length; batchStart += BATCH_SIZE) {
@@ -413,7 +424,7 @@ export async function POST(request: Request) {
 
                         if (!activeMemberId) continue;
 
-                        const applicationNo = generateLoanNo();
+                        const applicationNo = nextMigrasiLoanNo();
                         const app = await tx.loanApplication.create({
                             data: {
                                 applicationNo,
@@ -434,7 +445,7 @@ export async function POST(request: Request) {
 
                         await tx.loan.create({
                             data: {
-                                loanNo: 'LN-' + applicationNo,
+                                loanNo: applicationNo,
                                 applicationId: app.id,
                                 memberId: activeMemberId,
                                 branchId: defaultBranch.id,
