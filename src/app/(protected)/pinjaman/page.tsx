@@ -159,11 +159,15 @@ const columns: ColumnDef<Loan>[] = [
         cell: ({ row }) => {
             const schedulesPaid = row.original._count?.schedules || 0;
             const tenor = row.original.tenorMonths || 0;
-            // For migrated loans that have no LoanSchedule records,
-            // calculate paid installments from principalPaid / monthlyInstallment
+            const principalPaid = Number(row.original.principalPaid || 0);
+            const principalAmount = Number(row.original.principalAmount || 0);
+            // For loans with schedules, use the schedule count
             let paidCount = schedulesPaid;
-            if (paidCount === 0 && Number(row.original.principalPaid || 0) > 0 && Number(row.original.monthlyInstallment || 0) > 0) {
-                paidCount = Math.round(Number(row.original.principalPaid) / Number(row.original.monthlyInstallment));
+            // For imported loans without LoanSchedule records,
+            // calculate from principalPaid / (principalAmount / tenor)
+            if (paidCount === 0 && principalPaid > 0 && principalAmount > 0 && tenor > 0) {
+                const principalPerMonth = principalAmount / tenor;
+                paidCount = Math.round(principalPaid / principalPerMonth);
             }
             // Clamp to tenor
             if (tenor > 0 && paidCount > tenor) paidCount = tenor;
