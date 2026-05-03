@@ -5,6 +5,9 @@ import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
+// Allow up to 5 minutes for large imports
+export const maxDuration = 300;
+
 // POST /api/loans/import-update — Update/Create loans + monthly payments from Sheet2
 export async function POST(request: Request) {
     try {
@@ -16,19 +19,44 @@ export async function POST(request: Request) {
         const adminId = session.user.id ? Number(session.user.id) : 1;
 
         // Sequential transaction number generator — koperasi standard format
+        // C1 fix: query DB for max existing sequence to avoid collisions across runs
         const importDate = new Date();
-        const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-        const importMonth = romawi[importDate.getMonth() + 1];
+        const romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+        const importMonth = romawi[importDate.getMonth()];
         const importYear = importDate.getFullYear();
+        const loanPrefix = `SP-IMP/`;
+        const payPrefix = `PAY-IMP/`;
+        const monthYearSuffix = `/PRIM/${importMonth}/${importYear}`;
+
+        const lastLoanApp = await prisma.loanApplication.findFirst({
+            where: { applicationNo: { startsWith: loanPrefix } },
+            orderBy: { applicationNo: 'desc' },
+            select: { applicationNo: true },
+        });
         let loanSeq = 0;
+        if (lastLoanApp) {
+            const match = lastLoanApp.applicationNo.match(/SP-IMP\/(\d+)\//);
+            if (match) loanSeq = parseInt(match[1], 10);
+        }
+
+        const lastPayment = await prisma.loanPayment.findFirst({
+            where: { paymentNo: { startsWith: payPrefix } },
+            orderBy: { paymentNo: 'desc' },
+            select: { paymentNo: true },
+        });
         let paySeq = 0;
+        if (lastPayment) {
+            const match = lastPayment.paymentNo.match(/PAY-IMP\/(\d+)\//);
+            if (match) paySeq = parseInt(match[1], 10);
+        }
+
         const nextLoanNo = () => {
             loanSeq++;
-            return `SP-IMP/${String(loanSeq).padStart(4, "0")}/PRIM/${importMonth}/${importYear}`;
+            return `${loanPrefix}${String(loanSeq).padStart(4, "0")}${monthYearSuffix}`;
         };
-        const nextPaymentNo = (loanNumber: number) => {
+        const nextPaymentNo = () => {
             paySeq++;
-            return `PAY-IMP/${String(paySeq).padStart(4, "0")}/PRIM/${importMonth}/${importYear}`;
+            return `${payPrefix}${String(paySeq).padStart(4, "0")}${monthYearSuffix}`;
         };
 
         const formData = await request.formData();
@@ -306,7 +334,7 @@ export async function POST(request: Request) {
 
                                     await tx.loanPayment.create({
                                         data: {
-                                            paymentNo: nextPaymentNo(loanId!),
+                                            paymentNo: nextPaymentNo(),
                                             loanId: loanId!,
                                             memberId: activeMemberId,
                                             branchId: branch.id,
@@ -557,7 +585,7 @@ export async function POST(request: Request) {
 
                                 await tx.loanPayment.create({
                                     data: {
-                                        paymentNo: nextPaymentNo(loanId!),
+                                        paymentNo: nextPaymentNo(),
                                         loanId: loanId!,
                                         memberId: activeMemberId,
                                         branchId: taskMember?.branchId || (defaultBranch?.id ?? 1),
@@ -586,11 +614,11 @@ export async function POST(request: Request) {
             }
         }
 
-        // FIX #6: Execute sequentially instead of Promise.all batches
-        // Eliminates Date.now() collisions and reduces transaction contention
+        // Execute commit tasks in small batches — safe since sequence numbers are DB-aware
         if (mode === "commit" && commitTasks.length > 0) {
-            for (const task of commitTasks) {
-                await task();
+            const BATCH = 5;
+            for (let i = 0; i < commitTasks.length; i += BATCH) {
+                await Promise.all(commitTasks.slice(i, i + BATCH).map(fn => fn()));
             }
         }
 

@@ -5,10 +5,6 @@ import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
-function generateLoanNo() {
-    return 'SP-' + Date.now().toString(36) + '-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-}
-
 function parseIndonesianDate(dateStr: string): Date | null {
     if (!dateStr) return null;
     let cleanStr = String(dateStr).trim().toUpperCase();
@@ -74,6 +70,13 @@ function parseIndonesianDate(dateStr: string): Date | null {
 
 export async function POST(request: Request) {
     try {
+        // I3 fix: Auth check once at top
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const adminId = Number(session.user.id) || 1;
+
         const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview";
@@ -234,6 +237,7 @@ export async function POST(request: Request) {
             dataRows.push({ rowIdx: i, row, prevNrp: lastSeenNrp, prevName: lastSeenName });
         }
 
+        let validCount = 0;
         let successCount = 0;
         let failCount = 0;
         const results: any[] = [];
@@ -295,7 +299,7 @@ export async function POST(request: Request) {
                     row: rowIdx + 1, nrp: '', nama: nama, gaji: totalPinjam,
                     status: 'new_member', reason: `Akan buat akun: ${candidateEmail}`
                 });
-                successCount++;
+                validCount++;
                 commitData.push({
                     isNewMember: true,
                     newMemberName: nama,
@@ -322,7 +326,7 @@ export async function POST(request: Request) {
                 status: 'valid',
                 reason: `Tgl ${rawTgl ? rawTgl.trim() : 'Auto'}, Tenor ${selama || '?'} bln, Angsuran ${computedInstallment.toLocaleString('id-ID')}/bln${bsText}, Dibayar Rp ${principalPaid.toLocaleString('id-ID')}`
             });
-            successCount++;
+            validCount++;
 
             commitData.push({
                 memberId: match.id,
@@ -335,23 +339,34 @@ export async function POST(request: Request) {
                 applicationDate: parsedDate,
                 rawTgl
             });
-            successCount++;
         }
 
         if (mode === "commit" && commitData.length > 0 && defaultProduct && defaultBranch) {
-            const session = await auth();
-            const userInfo = extractUserFromSession(session);
-            const adminId = userInfo.userId || 1;
+            // adminId already captured at top of handler (I3 fix)
 
             // Sequential transaction numbers — koperasi standard format
-            const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+            // C1 fix: query DB for max existing sequence to avoid collisions across runs
+            const romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
             const importDate = new Date();
-            const impMonth = romawi[importDate.getMonth() + 1];
+            const impMonth = romawi[importDate.getMonth()];
             const impYear = importDate.getFullYear();
+            const loanPrefix = `SP-MGR/`;
+            const monthYearSuffix = `/PRIM/${impMonth}/${impYear}`;
+
+            const lastApp = await prisma.loanApplication.findFirst({
+                where: { applicationNo: { startsWith: loanPrefix } },
+                orderBy: { applicationNo: 'desc' },
+                select: { applicationNo: true },
+            });
             let migrasiLoanSeq = 0;
+            if (lastApp) {
+                const match = lastApp.applicationNo.match(/SP-MGR\/(\d+)\//);
+                if (match) migrasiLoanSeq = parseInt(match[1], 10);
+            }
+
             const nextMigrasiLoanNo = () => {
                 migrasiLoanSeq++;
-                return `SP-MGR/${String(migrasiLoanSeq).padStart(4, "0")}/PRIM/${impMonth}/${impYear}`;
+                return `${loanPrefix}${String(migrasiLoanSeq).padStart(4, "0")}${monthYearSuffix}`;
             };
 
             // Process in batches of 20 to avoid transaction timeout
@@ -376,8 +391,9 @@ export async function POST(request: Request) {
                                 activeMemberId = existingUser.memberId;
                             } else {
                                 // We need to create at least the member or both
-                                const generatedNrp = 'NO-NRP-' + Date.now().toString().slice(-4) + Math.floor(Math.random() * 100).toString().padStart(2, '0');
-                                const memberNo = 'M-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100).toString();
+                                const seqSuffix = `-${migrasiLoanSeq}-${Math.random().toString(36).slice(2, 6)}`;
+                                const generatedNrp = `NO-NRP${seqSuffix}`;
+                                const memberNo = `M${seqSuffix}`;
 
                                 const newMember = await tx.member.create({
                                     data: {
@@ -474,14 +490,16 @@ export async function POST(request: Request) {
                         });
                     }
                 }, { timeout: 60000 }); // 60 second timeout per batch
+                successCount += batch.length;
             }
 
             try {
                 const reqInfo = extractRequestInfo(request);
+                const userInfo = extractUserFromSession(session);
                 await logAudit({
                     ...userInfo, ...reqInfo, action: "IMPORT", module: "Loan_Migrasi",
-                    description: `Migrasi ${successCount} pinjaman aktif dari Excel SP.`,
-                    newData: { successCount, sheet: sheetName },
+                    description: `Migrasi ${mode === "commit" ? successCount : validCount} pinjaman aktif dari Excel SP.`,
+                    newData: { successCount: mode === "commit" ? successCount : validCount, failCount, sheet: sheetName },
                 });
             } catch (e) {}
         }
@@ -489,7 +507,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
             data: {
                 totalRows: results.length,
-                success: successCount,
+                success: mode === "commit" ? successCount : validCount,
                 failed: failCount,
                 preview: results.map(r => ({
                     row: r.row,

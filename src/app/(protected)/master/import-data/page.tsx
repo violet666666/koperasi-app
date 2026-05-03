@@ -308,10 +308,15 @@ export default function ImportDataPage() {
             formData.append("mode", "commit");
 
             const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            // Use AbortController with 5-minute timeout for large imports
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000);
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
+                signal: controller.signal,
             });
+            clearTimeout(timeoutId);
 
             const json = await res.json();
             if (!res.ok) {
@@ -324,9 +329,12 @@ export default function ImportDataPage() {
             setResult(json.data);
             toast.success(`Berhasil menyimpan ${json.data.success} data.`);
             setStatus("done");
-        } catch (err) {
-            setError("Terjadi kesalahan saat import");
-            toast.error("Ada masalah koneksi/server saat upload.");
+        } catch (err: any) {
+            const msg = err?.name === "AbortError"
+                ? "Import timeout — data mungkin sudah masuk sebagian. Cek data lalu import ulang jika perlu."
+                : "Ada masalah koneksi/server saat upload.";
+            setError(msg);
+            toast.error(msg);
             setStatus("previewing");
         }
     }, [file, importType]);
