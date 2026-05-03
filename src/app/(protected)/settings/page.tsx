@@ -259,6 +259,8 @@ export default function SettingsPage() {
                 setResetJournalData(false);
                 setResetMemberData(false);
                 setResetKasBankData(false);
+                setResetTunkinData(false);
+                setResetGajiData(false);
                 setResetConfirmation("");
             } else {
                 toast.error(result.error);

@@ -489,3 +489,56 @@ Route `import-update/route.ts` sekarang juga generate `LoanSchedule` saat membua
 
 *Diperbarui: 4 Mei 2026*
 *Total bug tercatat modul Pinjaman: 27 | Total fitur baru: 6*
+
+---
+
+### BUG-IMPORT-007 — Kalkulasi interestPaid dan interestOutstanding Salah (JUMLAH = Pokok, Bukan Total Kas)
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED (sebelum re-import)
+**Severity:** High (Data bunga terbayar selalu 0, sisa bunga selalu = total bunga)
+
+**Gejala:**
+Setelah import, field `interestPaid` pada semua pinjaman selalu bernilai 0, dan `interestOutstanding` selalu sama dengan `totalInterest`. Padahal pinjaman sudah dibayar beberapa bulan dan bunga seharusnya tercatat.
+
+**Root Cause:**
+Kode menganggap kolom JUMLAH (Col 18) dari Excel = total kas masuk (pokok + bunga), sehingga:
+```typescript
+// SALAH — menganggap jumlah = total cash
+principalPaid = pinjam - sisaSaldo;           // = 25,005,000 ✓
+interestPaid = jumlah - principalPaid;         // = 25,005,000 - 25,005,000 = 0 ✗
+```
+
+**Fakta dari Excel:** Kolom JUMLAH (Col 18) = total **pokok** yang terbayar, BUKAN total kas masuk.
+Terbukti dari 298 pinjaman: `JUMLAH = TOTAL × ANGSURAN` (pokok saja, tanpa bunga).
+
+**Kalkulasi yang benar:**
+```
+paidCount     = round(JUMLAH / ANGSURAN)    // berapa kali angsuran sudah dibayar
+principalPaid = JUMLAH                       // dari Excel langsung
+interestPaid  = paidCount × JASA            // berapa bulan × bunga per bulan
+```
+
+**Contoh EKO KRISDIANSYAH:**
+```
+JUMLAH = 25,005,000  ANGSURAN = 1,667,000  JASA = 1,000,000  SELAMA = 60
+
+paidCount     = round(25,005,000 / 1,667,000) = 15
+principalPaid = 25,005,000                     ✓ (dari Excel)
+interestPaid  = 15 × 1,000,000 = 15,000,000   ✓ (sebelumnya: 0)
+interestOutstanding = 60,000,000 - 15,000,000 = 45,000,000 ✓
+```
+
+**Verifikasi:**
+```
+pokok terbayar + sisa pokok = 25,005,000 + 74,995,000 = 100,000,000 ✓ (= plafond)
+bunga terbayar + sisa bunga = 15,000,000 + 45,000,000 = 60,000,000   ✓ (= total bunga)
+```
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (loan creation × 2 + loan update path)
+
+---
+
+*Diperbarui: 4 Mei 2026*
+*Total bug tercatat modul Pinjaman: 28 | Total fitur baru: 6*

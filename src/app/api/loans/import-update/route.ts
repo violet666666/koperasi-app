@@ -214,11 +214,11 @@ export async function POST(request: Request) {
                                         interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
                                         interestMethod: product.interestMethod || "flat",
                                         monthlyInstallment: taskData.angsuran + taskData.jasa,
-                                        principalPaid: taskData.pinjam - taskData.sisaSaldo,
-                                        interestPaid: Math.max(0, taskData.jumlah - (taskData.pinjam - taskData.sisaSaldo)),
+                                        principalPaid: taskData.jumlah,
+                                        interestPaid: taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0,
                                         lateFeePaid: 0,
                                         principalOutstanding: taskData.sisaSaldo,
-                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - Math.max(0, taskData.jumlah - (taskData.pinjam - taskData.sisaSaldo))),
+                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0)),
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
@@ -412,11 +412,11 @@ export async function POST(request: Request) {
                                         interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
                                         interestMethod: product.interestMethod || "flat",
                                         monthlyInstallment: taskData.angsuran + taskData.jasa,
-                                        principalPaid: taskData.pinjam - taskData.sisaSaldo,
-                                        interestPaid: Math.max(0, taskData.jumlah - (taskData.pinjam - taskData.sisaSaldo)),
+                                        principalPaid: taskData.jumlah,
+                                        interestPaid: taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0,
                                         lateFeePaid: 0,
                                         principalOutstanding: taskData.sisaSaldo,
-                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - Math.max(0, taskData.jumlah - (taskData.pinjam - taskData.sisaSaldo))),
+                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0)),
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
@@ -456,8 +456,9 @@ export async function POST(request: Request) {
                                 await tx.loanSchedule.createMany({ data: scheds2 });
                             } else {
                                 // Update existing loan
-                                const updatedPrincipalPaid = taskData.pinjam - taskData.sisaSaldo;
-                                const updatedInterestPaid = Math.max(0, taskData.jumlah - updatedPrincipalPaid);
+                                const updatedPrincipalPaid = taskData.jumlah;
+                                const paidCount = taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) : 0;
+                                const updatedInterestPaid = paidCount * taskData.jasa;
                                 const totalInterest = taskData.jasa * taskData.selama;
                                 await tx.loan.update({
                                     where: { id: loanId },
@@ -472,6 +473,34 @@ export async function POST(request: Request) {
                                         paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
                                     },
                                 });
+
+                                // Generate LoanSchedule records if missing
+                                const existingSchedules = await tx.loanSchedule.count({ where: { loanId: loanId! } });
+                                if (existingSchedules === 0) {
+                                    const schedBase = taskData.tglPinjam || new Date();
+                                    const schedsUpd = [];
+                                    for (let j = 1; j <= taskData.selama; j++) {
+                                        const dueDate = new Date(schedBase.getFullYear(), schedBase.getMonth() + j, 1);
+                                        let schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
+                                        let schedInterest = taskData.jasa;
+                                        if (j === taskData.selama) {
+                                            schedPrincipal += (taskData.pinjam - Math.floor(taskData.pinjam / taskData.selama) * taskData.selama);
+                                        }
+                                        const isPaid = j <= paidCount;
+                                        schedsUpd.push({
+                                            loanId: loanId!,
+                                            installmentNo: j,
+                                            dueDate,
+                                            principalAmount: schedPrincipal,
+                                            interestAmount: schedInterest,
+                                            totalAmount: schedPrincipal + schedInterest,
+                                            principalPaid: isPaid ? schedPrincipal : 0,
+                                            interestPaid: isPaid ? schedInterest : 0,
+                                            status: isPaid ? "paid" : "pending",
+                                        });
+                                    }
+                                    await tx.loanSchedule.createMany({ data: schedsUpd });
+                                }
                             }
 
                             // Create monthly payments (idempotent)

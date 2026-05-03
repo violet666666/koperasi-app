@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 
 export async function processDataReset(options: {
   resetStoreData: boolean;
@@ -14,6 +15,16 @@ export async function processDataReset(options: {
   resetKasBankData?: boolean;
 }) {
   try {
+    // Auth check
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized. Silakan login kembali." };
+    }
+    const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+    if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
+      return { success: false, error: "Akses ditolak. Hanya admin/operator yang dapat reset data." };
+    }
+
     const { resetStoreData, resetLoanData, resetSavingsData, resetJournalData, resetMemberData, resetTunkinData, resetGajiData, resetKasBankData } = options;
 
     if (!resetStoreData && !resetLoanData && !resetSavingsData && !resetJournalData && !resetMemberData && !resetTunkinData && !resetGajiData && !resetKasBankData) {
@@ -24,19 +35,69 @@ export async function processDataReset(options: {
       return { success: false, error: "Harap centang Data Pinjaman dan Data Simpanan terlebih dahulu sebelum mereset Data Anggota." };
     }
 
-    // We use Prisma Transactions to ensure atomic deletion and avoid foreign key violations.
-    // Order matters for relational databases.
-
     const operations: any[] = [];
+
+    // Phase 1: Null out FK references to prevent constraint violations
+    // Loans reference Journals and CashBankAccounts — null them before deleting either side
+    if (resetLoanData) {
+      operations.push(prisma.loan.updateMany({
+        where: { disbursementJournalId: { not: null } },
+        data: { disbursementJournalId: null, disbursementCashBankId: null },
+      }));
+      operations.push(prisma.loanPayment.updateMany({
+        where: { journalId: { not: null } },
+        data: { journalId: null },
+      }));
+    }
+
+    // StoreSales reference Journals — null before deleting journals
+    if (resetJournalData && !resetStoreData) {
+      operations.push(prisma.storeSale.updateMany({
+        where: { journalId: { not: null } },
+        data: { journalId: null },
+      }));
+    }
+
+    // CashBankTransactions reference Journals — null before deleting journals
+    if (resetJournalData && !resetKasBankData) {
+      operations.push(prisma.cashBankTransaction.updateMany({
+        where: { journalId: { not: null } },
+        data: { journalId: null },
+      }));
+    }
+
+    // Loans & SavingsTransactions reference Journals — null if only journals being reset
+    if (resetJournalData && !resetLoanData) {
+      operations.push(prisma.loan.updateMany({
+        where: { disbursementJournalId: { not: null } },
+        data: { disbursementJournalId: null, disbursementCashBankId: null },
+      }));
+      operations.push(prisma.loanPayment.updateMany({
+        where: { journalId: { not: null } },
+        data: { journalId: null },
+      }));
+    }
+    if (resetJournalData && !resetSavingsData) {
+      operations.push(prisma.savingsTransaction.updateMany({
+        where: { journalId: { not: null } },
+        data: { journalId: null },
+      }));
+    }
+
+    // Users reference Members — null before deleting members
+    if (resetMemberData) {
+      operations.push(prisma.user.updateMany({
+        where: { memberId: { not: null } },
+        data: { memberId: null },
+      }));
+    }
+
+    // Phase 2: Delete data in dependency order
 
     // 1. Data Toko
     if (resetStoreData) {
       operations.push(prisma.storeSaleItem.deleteMany({}));
       operations.push(prisma.storeSale.deleteMany({}));
-      operations.push(prisma.storeProduct.updateMany({
-        data: { stock: 0, stockGdg: 0, stockToko: 0 }
-      })); // Reset stock to 0 instead of deleting products might be safer? Let's delete it if user wants a clean slate.
-      // Although deleting products might break other references if exists, let's just delete products as well to clean up everything.
       operations.push(prisma.storeProduct.deleteMany({}));
     }
 
@@ -52,24 +113,19 @@ export async function processDataReset(options: {
     // 3. Data Simpanan
     if (resetSavingsData) {
       operations.push(prisma.savingsTransaction.deleteMany({}));
-      
-      // Tabungan Sejahtera 
       operations.push(prisma.tabunganSejahteraHistory.deleteMany({}));
+      // Reset savings account balances to 0 (accounts kept if members not deleted)
+      operations.push(prisma.savingsAccount.updateMany({
+        data: { balance: 0 }
+      }));
     }
 
     // 4. Data Jurnal Akuntansi
     if (resetJournalData) {
-      // Unit Transactions
       operations.push(prisma.unitTransaction.deleteMany({}));
-      
-      // Receipts
       operations.push(prisma.receipt.deleteMany({}));
-      
-      // Journals
       operations.push(prisma.journalLine.deleteMany({}));
       operations.push(prisma.journal.deleteMany({}));
-
-      // Approvals
       operations.push(prisma.approvalRequest.deleteMany({}));
     }
 
@@ -81,15 +137,13 @@ export async function processDataReset(options: {
       }));
     }
 
-    // 3. Data Anggota
+    // 6. Data Anggota
     if (resetMemberData) {
-      // Delete SavingsAccounts linked to Member (after deleting transactions above)
       operations.push(prisma.savingsAccount.deleteMany({}));
-      // Finally, delete Members
       operations.push(prisma.member.deleteMany({}));
     }
 
-    // 4. Data Tunkin & Gaji (Partial Member updates)
+    // 7. Data Tunkin & Gaji (Partial Member updates)
     if (resetTunkinData && !resetMemberData) {
         operations.push(prisma.member.updateMany({
             where: { deletedAt: null },
@@ -109,22 +163,23 @@ export async function processDataReset(options: {
     }
 
     // Log the audit
+    const auditUserName = session.user.name || session.user.email || "Unknown";
     await prisma.auditLog.create({
       data: {
         action: "DELETE",
         module: "Pengaturan",
-        description: `Reset Data Eksekusi. Toko: ${resetStoreData}, Pinjam: ${resetLoanData}, Simpan: ${resetSavingsData}, Jurnal: ${resetJournalData}, Anggota: ${resetMemberData}`,
+        description: `Reset Data Eksekusi. Toko: ${resetStoreData}, Pinjam: ${resetLoanData}, Simpan: ${resetSavingsData}, Jurnal: ${resetJournalData}, Anggota: ${resetMemberData}, KasBank: ${resetKasBankData}, Tunkin: ${resetTunkinData}, Gaji: ${resetGajiData}`,
         status: "success",
-        userName: "System Admin",
-        userRole: "admin",
+        userName: auditUserName,
+        userRole: roleName || "unknown",
       }
     });
 
     revalidatePath("/");
 
-    return { 
-      success: true, 
-      message: "Proses Reset Data Berhasil. Silahkan import kembali data Anda." 
+    return {
+      success: true,
+      message: "Proses Reset Data Berhasil. Silahkan import kembali data Anda."
     };
 
   } catch (error: any) {
