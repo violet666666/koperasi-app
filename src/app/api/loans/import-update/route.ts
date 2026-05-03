@@ -79,10 +79,12 @@ export async function POST(request: Request) {
 
             if (!rawNama || rawNama.toUpperCase() === "NAMA" || rawNama === "0") continue;
             if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
-            if (!nrp) continue;
 
             const pinjam = cleanNumber(row[COL.PINJAM]);
             if (pinjam <= 0) continue; // Skip rows without loans
+
+            // Skip rows with neither NRP nor name
+            if (!nrp && !rawNama) continue;
 
             const selama = cleanNumber(row[COL.SELAMA]) || 12;
             const jasa = cleanNumber(row[COL.JASA]);
@@ -100,17 +102,30 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Find member
-            let member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+            // Find member: NRP first, then name match (supports rows without NRP)
+            let member: typeof allMembers[0] | undefined;
+            if (nrp) {
+                member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+            }
             if (!member) {
                 const cleanName = cleanNameForMatch(rawNama);
+                // Exact name match
                 member = allMembers.find(m => cleanNameForMatch(m.name) === cleanName);
+                // Fuzzy partial match: check if one name contains the other
+                if (!member) {
+                    member = allMembers.find(m => {
+                        const mClean = cleanNameForMatch(m.name);
+                        return mClean.length > 3 && cleanName.length > 3 &&
+                            (mClean.includes(cleanName) || cleanName.includes(mClean));
+                    });
+                }
             }
 
             if (!member) {
                 // Will auto-register in commit mode — still queue commit task
+                const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
                 results.push({
-                    row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
+                    row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
                     monthlyCount: monthlyPayments.length,
                     newPaymentsCount: monthlyPayments.length,
                     memberId: null, memberName: `[BARU] ${rawNama}`,
@@ -124,7 +139,7 @@ export async function POST(request: Request) {
                 if (mode === "commit") {
                     const taskMember = null as any;
                     const taskLoan = null;
-                    const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
+                    const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
                     commitTasks.push(async () => {
                         try {
                             await prisma.$transaction(async (tx) => {
