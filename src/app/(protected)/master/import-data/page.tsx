@@ -27,7 +27,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas" | "toko_history";
+type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "update_pinjaman" | "potongan" | "buku_kas" | "toko_history";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -49,6 +49,7 @@ interface PreviewRow {
     pangkat?: string;
     rekening?: string;
     totalBarang?: number;
+    sisaSaldo?: number;
 }
 
 interface ImportResult {
@@ -72,6 +73,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
         gaji: [["gaji", "diterima", "bersih", "salary"]],
         gaji_uraian: [["gaji", "bersih"]],
         tajib: [["jml", "jumlah", "tajib", "Simpanan Wajib"]],
+        update_pinjaman: [["pinjam", "selama"]],
         akun_anggota: [["nrp", "nip"]],
         sejahtera: [[]],
         migrasi_pinjaman: [["pinjam", "selama", "angsuran", "saldo"]],
@@ -89,6 +91,7 @@ function findBestSheet(workbook: any, type: ImportType): string {
         gaji: ["pot gaji", "gaji"],
         gaji_uraian: ["uraian gaji", "uraian"],
         tajib: ["tajib", "tajip", "wajib"],
+        update_pinjaman: ["sheet2"],
         akun_anggota: ["anggota", "member"],
         sejahtera: [],
         migrasi_pinjaman: ["pinjam", "piutang", "rincian"],
@@ -238,7 +241,7 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "preview");
             
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "toko_history" ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "toko_history" ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
@@ -430,6 +433,9 @@ export default function ImportDataPage() {
                                         <SelectItem value="migrasi_pinjaman">
                                             Migrasi Pinjaman Aktif (SP)
                                         </SelectItem>
+                                        <SelectItem value="update_pinjaman">
+                                            Update Pinjaman SP (Periode 2026)
+                                        </SelectItem>
                                         <SelectItem value="potongan">
                                             Potongan Gaji Bulanan (Barang Primkoppol)
                                         </SelectItem>
@@ -538,6 +544,10 @@ export default function ImportDataPage() {
                             ) : importType === "migrasi_pinjaman" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Upload file <strong>RINCIAN PIUTANG SP (.xlsx)</strong>. Sistem otomatis mendeteksi kolom <strong>NRP</strong>, <strong>PINJAM</strong>, <strong>SELAMA</strong>, <strong>ANGSURAN</strong>, dan <strong className="bg-yellow-200">SISA SALDO</strong> terbaru. Data per satker (header berulang) otomatis diproses. Hanya pinjaman dengan sisa &gt; 0 yang dimigrasi. <strong>Tidak mempengaruhi Kas/Jurnal.</strong>
+                                </p>
+                            ) : importType === "update_pinjaman" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Upload file <strong>RINCIAN PIUTANG SP (.xlsx) — Sheet2</strong>. Update saldo pinjaman existing + catat pembayaran bulanan 2026 (<strong className="bg-yellow-200">Jan s/d Mei</strong>). Kolom: <strong>NRP</strong> (E), <strong>PINJAM</strong> (F), <strong>SELAMA</strong> (G), <strong>ANGSURAN</strong> (I), <strong>SISA SALDO</strong> (T). Pinjaman baru otomatis dibuat jika belum ada. <strong>Tidak mempengaruhi Kas/Jurnal.</strong>
                                 </p>
                             ) : importType === "potongan" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
@@ -710,10 +720,10 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih Baru" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "update_pinjaman" ? "Sisa Saldo" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih Baru" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" || importType === "toko_history" ? "Keterangan" : "Gaji Saat Ini"}
+                                                    {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "update_pinjaman" ? "Saldo Saat Ini" : importType === "potongan" || importType === "toko_history" ? "Keterangan" : "Gaji Saat Ini"}
                                                 </TableHead>
                                                 {importType === "tajib" && (
                                                     <TableHead className="text-right">Skema Deteksi Data</TableHead>
@@ -746,6 +756,13 @@ export default function ImportDataPage() {
                                                             `${r.mutasiCount} bulan`
                                                         ) : importType === "migrasi_pinjaman" || importType === "potongan" ? (
                                                             formatCurrency(r.gaji || 0)
+                                                        ) : importType === "update_pinjaman" ? (
+                                                            (() => {
+                                                                const val = r.sisaSaldo || 0;
+                                                                return val <= 0 ? (
+                                                                    <span className="text-emerald-600 font-bold">LUNAS</span>
+                                                                ) : formatCurrency(val);
+                                                            })()
                                                         ) : importType === "toko_history" ? (
                                                             <span className="text-emerald-600 font-bold">{formatCurrency(r.totalBarang || 0)}</span>
                                                         ) : (
@@ -758,7 +775,7 @@ export default function ImportDataPage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-muted-foreground">
-                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" || importType === "toko_history" ? (
+                                                        {importType === "sejahtera" || importType === "migrasi_pinjaman" || importType === "potongan" || importType === "toko_history" || importType === "update_pinjaman" ? (
                                                             <span className="text-xs">{r.reason}</span>
                                                         ) : (() => {
                                                             const val = importType === "tunkin" ? r.currentTunkin : importType === "tajib" ? r.currentTajib : r.currentGaji;
