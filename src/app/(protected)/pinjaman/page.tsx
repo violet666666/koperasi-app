@@ -189,13 +189,15 @@ const columns: ColumnDef<Loan>[] = [
     },
     {
         id: "bungaPerBulan",
-        header: "Bunga/Bulan (1%)",
+        header: "Bunga/Bulan",
         cell: ({ row }) => {
             const plafond = Number(row.original.principalAmount || 0);
-            const interest = Math.round(plafond * 0.01);
+            const rate = Number((row.original as any).interestRate || 1);
+            const interest = Math.round(plafond * (rate / 100));
             return (
                 <span className="font-medium tabular-nums text-sm text-amber-600">
                     {formatCurrency(interest)}
+                    <span className="text-xs text-muted-foreground ml-1">({rate}%)</span>
                 </span>
             );
         },
@@ -278,7 +280,10 @@ export default function PinjamanListPage() {
     }, [globalStats]);
 
     const estimatedInterest = React.useMemo(() => {
-        return loans.filter(l => l.status === "active").reduce((sum, l) => sum + (Number(l.principalAmount || 0) * 0.01), 0);
+        return loans.filter(l => l.status === "active").reduce((sum, l) => {
+            const rate = Number((l as any).interestRate || 1);
+            return sum + Math.round(Number(l.principalAmount || 0) * (rate / 100));
+        }, 0);
     }, [loans]);
 
     // Fetch data from API
