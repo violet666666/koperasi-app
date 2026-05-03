@@ -75,7 +75,10 @@ export default function LaporanJasaPage() {
     try {
       const params = new URLSearchParams({ monthFrom, monthTo });
       const res = await fetch(`/api/loans/reports/interest?${params}`);
-      if (!res.ok) throw new Error("Gagal memuat data");
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || "Gagal memuat data");
+      }
       const json = await res.json();
       setData(json.data || []);
       setSummary(

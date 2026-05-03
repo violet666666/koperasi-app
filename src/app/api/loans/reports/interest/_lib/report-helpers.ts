@@ -65,12 +65,12 @@ export function validateAndGetPeriod(
  * Returns a NextResponse error if unauthorized, or null if OK.
  */
 export function checkOperatorAuth(session: unknown): NextResponse | null {
-  const s = session as { user?: { role?: { name?: string } } } | null;
+  const s = session as { user?: { role?: string } } | null;
   if (!s?.user) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
-  const roleName = s.user?.role?.name;
-  if (roleName !== "operator") {
+  const roleName = s.user.role;
+  if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
     return NextResponse.json(
       { message: "Akses ditolak. Hanya operator." },
       { status: 403 },
