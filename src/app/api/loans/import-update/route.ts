@@ -89,6 +89,7 @@ export async function POST(request: Request) {
             const angsuran = cleanNumber(row[COL.ANGSURAN]) || Math.ceil(pinjam / selama);
             const jumlah = cleanNumber(row[COL.JUMLAH]);
             const sisaSaldo = cleanNumber(row[COL.SISA_SALDO]);
+            const tglPinjam = parseExcelDate(row[COL.TGL_PINJAM]);
 
             // Monthly payments
             const monthlyPayments: { amount: number; month: number; name: string }[] = [];
@@ -123,8 +124,7 @@ export async function POST(request: Request) {
                 if (mode === "commit") {
                     const taskMember = null as any;
                     const taskLoan = null;
-                    const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments };
-
+                    const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
                     commitTasks.push(async () => {
                         try {
                             await prisma.$transaction(async (tx) => {
@@ -164,8 +164,7 @@ export async function POST(request: Request) {
                                 const product = defaultProduct || await tx.loanProduct.findFirst({ where: { isActive: true } });
                                 if (!product) throw new Error("Missing product config");
 
-                                const applicationDate = new Date();
-                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                                const applicationDate = taskData.tglPinjam || new Date();                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -290,7 +289,7 @@ export async function POST(request: Request) {
             if (mode === "commit") {
                 const taskMember = member;
                 const taskLoan = existingLoan;
-                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments };
+                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
 
                 commitTasks.push(async () => {
                     try {
@@ -335,8 +334,7 @@ export async function POST(request: Request) {
                                 const branch = defaultBranch || await tx.branch.findFirst({ where: { isActive: true } });
                                 if (!product || !branch) throw new Error("Missing product or branch config");
 
-                                const applicationDate = new Date();
-                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                                const applicationDate = taskData.tglPinjam || new Date();                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -512,4 +510,40 @@ function cleanNameForMatch(name: string): string {
         }
     }
     return clean.replace(/\./g, "").replace(/\s+/g, " ").trim();
+}
+
+function parseExcelDate(raw: string | undefined): Date | null {
+    if (!raw || !String(raw).trim() || String(raw).trim() === "-") return null;
+    const str = String(raw).trim();
+
+    // Try "5 Feb 2025" or "5 Februari 2025" format
+    const monthMap: Record<string, number> = {
+        "jan": 0, "januari": 0, "peb": 1, "feb": 1, "februari": 1, "pebruari": 1,
+        "mar": 2, "maret": 2, "mrt": 2, "apr": 3, "april": 3,
+        "mei": 4, "may": 4, "jun": 5, "juni": 5, "jul": 6, "juli": 6,
+        "agu": 7, "agt": 7, "agustus": 7, "aug": 7, "sep": 8, "september": 8,
+        "okt": 9, "oktober": 9, "oct": 9, "nov": 10, "november": 10, "des": 11, "desember": 11, "dec": 11,
+    };
+    const parts = str.split(/[\s/-]+/);
+    if (parts.length >= 3) {
+        const day = parseInt(parts[0]);
+        const monthStr = parts[1].toLowerCase().replace(/\./g, "");
+        const year = parseInt(parts[2]);
+        const month = monthMap[monthStr];
+        if (!isNaN(day) && month !== undefined && !isNaN(year) && year > 2000) {
+            return new Date(year, month, day);
+        }
+    }
+
+    // Fallback: try native Date parse
+    const d = new Date(str);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
+
+    // Fallback: Excel serial date number
+    const num = parseFloat(str);
+    if (!isNaN(num) && num > 40000 && num < 60000) {
+        return new Date((num - 25569) * 86400 * 1000);
+    }
+
+    return null;
 }
