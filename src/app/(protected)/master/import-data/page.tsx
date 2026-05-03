@@ -228,7 +228,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'toko_history') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'toko_history') {
                 processedFile = file; // These APIs read .xlsx natively
             } else {
                 const arrayBuffer = await file.arrayBuffer();
@@ -294,7 +294,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'potongan') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'potongan') {
                 processedFile = file;
             } else {
                 const arrayBuffer = await file.arrayBuffer();
@@ -307,7 +307,7 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "commit");
 
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
