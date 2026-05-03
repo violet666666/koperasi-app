@@ -59,7 +59,7 @@ export function ReceiptPrimkopol({
         const printContents = printRef.current?.innerHTML;
         if (!printContents) return;
         const pw = paperSize === "58mm" ? "58mm" : "80mm";
-        const w = window.open("", "_blank", "width=300,height=300");
+        const w = window.open("", "_blank", "width=300,height=800");
         if (!w) return;
         w.document.write(`
             <!DOCTYPE html>
@@ -68,7 +68,6 @@ export function ReceiptPrimkopol({
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    html, body { height: fit-content; min-height: 0; }
                     body {
                         font-family: 'Courier New', Courier, monospace;
                         font-size: ${paperSize === "58mm" ? "11px" : "13px"};
@@ -95,16 +94,13 @@ export function ReceiptPrimkopol({
                     .item-detail { font-size: 10px; }
                     @media print {
                         @page { size: ${pw} auto; margin: 0; }
-                        html {
-                            height: fit-content !important;
-                            min-height: 0 !important;
-                            max-height: none !important;
-                        }
-                        body {
-                            height: fit-content !important;
+                        html, body {
+                            height: auto !important;
                             min-height: 0 !important;
                             max-height: none !important;
                             overflow: visible !important;
+                        }
+                        body {
                             margin: 0 !important;
                             width: 100% !important;
                             max-width: ${pw};
@@ -112,7 +108,6 @@ export function ReceiptPrimkopol({
                         }
                         .divider { margin: 1px 0; }
                         .row { margin: 0; }
-                        .center, .bold, div, p, span { page-break-inside: avoid; }
                     }
                 </style>
             </head>
@@ -120,11 +115,12 @@ export function ReceiptPrimkopol({
             </html>
         `);
         w.document.close();
-        w.focus();
         setTimeout(() => {
-            w.print();
-            setTimeout(() => w.close(), 500);
-        }, 300);
+            if (!w.closed) {
+                w.print();
+                setTimeout(() => { if (!w.closed) w.close(); }, 1000);
+            }
+        }, 500);
     };
 
     return (

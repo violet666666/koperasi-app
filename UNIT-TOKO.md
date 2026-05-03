@@ -64,10 +64,11 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 
 **Fitur Baru:**
 - **Edit Uang Fisik Shift (Admin Only):** Admin dapat mengedit `closingCash` pada shift yang sudah ditutup via tombol "Edit Fisik" di detail shift. `cashDifference` otomatis dihitung ulang. Perubahan tercatat di audit log. API: `PUT /api/toko/shifts/[id]`.
-- **Print Thermal Audit:** Seluruh code path cetak struk (7 jalur desktop, 3 jalur mobile) diaudit untuk C58BT-Pro 58mm. Semua CSS `@media print` kini konsisten: `html/body { height: fit-content; min-height: 0; max-height: none; }` + `@page { size: 58mm auto; margin: 0; }` + `page-break-inside: avoid`.
+- **Print Thermal Audit:** Seluruh code path cetak struk (7 jalur desktop, 3 jalur mobile) diaudit untuk C58BT-Pro 58mm. Semua CSS `@media print` kini konsisten: `html/body { height: auto; min-height: 0; max-height: none; }` + `@page { size: 58mm auto; margin: 0; }`. Tidak ada `page-break-inside: avoid` pada elemen blok. Print trigger menggunakan `setTimeout(500ms)` bukan `window.onload`.
 
 **Bug Fixes:**
 | **BUG-089** | 2 Mei 26 | **Print Struk Masih Panjang (Round 3).** Solusi: `html, body { height: fit-content; min-height: 0; }` juga ditambahkan di non-print CSS baseline. `window.open` height dikurangi ke 300px di semua jalur. | ✅ FIXED |
+| **BUG-090** | 3 Mei 26 | **Print Struk Kertas Kosong Panjang (Round 4).** Root cause: `page-break-inside: avoid` pada semua elemen (table, tr, td, div, p, h2) menyebabkan browser mendorong seluruh tabel ke halaman baru + window height 300px terlalu kecil. Solusi: Hapus semua `page-break-inside: avoid`, ganti `height: fit-content` ke `auto`, window height dinaikkan ke 800px, print trigger via setTimeout 500ms (bukan window.onload). | ✅ FIXED |
 
 **File Terkait:**
 | File | Perubahan |
