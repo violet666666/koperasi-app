@@ -27,7 +27,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import * as XLSX from "xlsx";
 
-type ImportType = "tunkin" | "gaji" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas" | "toko_history";
+type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "potongan" | "buku_kas" | "toko_history";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -46,6 +46,9 @@ interface PreviewRow {
     currentTajib?: number | null;
     isNewMember?: boolean;
     mutasiCount?: number;
+    pangkat?: string;
+    rekening?: string;
+    totalBarang?: number;
 }
 
 interface ImportResult {
@@ -67,12 +70,14 @@ function findBestSheet(workbook: any, type: ImportType): string {
     const requiredKeywords: Record<ImportType, string[][]> = {
         tunkin: [["tunkin", "sisa_tunkin", "sisa tunkin", "tunjangan", "tunles", "bersih"]],
         gaji: [["gaji", "diterima", "bersih", "salary"]],
+        gaji_uraian: [["gaji", "bersih"]],
         tajib: [["jml", "jumlah", "tajib", "Simpanan Wajib"]],
         akun_anggota: [["nrp", "nip"]],
         sejahtera: [[]],
         migrasi_pinjaman: [["pinjam", "selama", "angsuran", "saldo"]],
         potongan: [["tajib", "barang"]],
         buku_kas: [[]],
+        toko_history: [[]],
     };
 
     const keywords = requiredKeywords[type] || [];
@@ -82,12 +87,14 @@ function findBestSheet(workbook: any, type: ImportType): string {
     const nameHints: Record<ImportType, string[]> = {
         tunkin: ["tunkin", "tunjangan"],
         gaji: ["pot gaji", "gaji"],
+        gaji_uraian: ["uraian gaji", "uraian"],
         tajib: ["tajib", "tajip", "wajib"],
         akun_anggota: ["anggota", "member"],
         sejahtera: [],
         migrasi_pinjaman: ["pinjam", "piutang", "rincian"],
         potongan: ["barang", "potongan"],
         buku_kas: [],
+        toko_history: [],
     };
     for (const hint of (nameHints[type] || [])) {
         const match = sheetNames.find(s => s.toUpperCase().includes(hint.toUpperCase()));
@@ -406,7 +413,10 @@ export default function ImportDataPage() {
                                             Tunjangan Kinerja (Tunkin)
                                         </SelectItem>
                                         <SelectItem value="gaji">
-                                            Gaji Bersih
+                                            Gaji Bersih (POT GAJI)
+                                        </SelectItem>
+                                        <SelectItem value="gaji_uraian">
+                                            Gaji Bersih (Uraian Gaji) + Daftar Anggota
                                         </SelectItem>
                                         <SelectItem value="tajib">
                                             Simpanan Wajib Per Bulan
@@ -515,7 +525,11 @@ export default function ImportDataPage() {
                                 </p>
                             ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH.
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH. Dari sheet <strong>POT GAJI</strong>.
+                                </p>
+                            ) : importType === "gaji_uraian" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Upload file <strong>Gaji POLRES/POLSEK (.xls)</strong>. Sistem membaca sheet <strong>URAIAN GAJI</strong> dengan posisi kolom tetap: <strong>PANGKAT</strong> (C), <strong>NAMA</strong> (D), <strong>NRP</strong> (E), <strong>NO REKENING</strong> (G), <strong className="bg-yellow-200">GAJI BERSIH</strong> (H). Anggota baru otomatis didaftarkan dengan NRP + NAMA + GAJI + PANGKAT + NO REKENING.
                                 </p>
                             ) : importType === "sejahtera" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
@@ -696,7 +710,7 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih Baru" : "Gaji Baru"}
                                                 </TableHead>
                                                 <TableHead className="text-right">
                                                     {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "potongan" || importType === "toko_history" ? "Keterangan" : "Gaji Saat Ini"}

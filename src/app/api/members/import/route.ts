@@ -32,6 +32,10 @@ export async function POST(request: Request) {
         if (importType === 'gaji' && potGajiSheet) {
              sheetName = potGajiSheet;
         }
+        const uraianGajiSheet = workbook.SheetNames.find(s => s.toUpperCase().includes('URAIAN GAJI'));
+        if (importType === 'gaji_uraian' && uraianGajiSheet) {
+             sheetName = uraianGajiSheet;
+        }
         
         const worksheet = workbook.Sheets[sheetName];
         
@@ -68,6 +72,9 @@ export async function POST(request: Request) {
                 break;
             case "gaji":
                 result = await processGajiImport(headers, dataRows, mode);
+                break;
+            case "gaji_uraian":
+                result = await processGajiUraianImport(dataRows, mode);
                 break;
             case "tajib":
                 result = await processTajibImport(headers, dataRows, mode);
@@ -793,6 +800,136 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 
     return {
         mode, type: "gaji",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
+        preview: results,
+        allResults: mode === "commit" ? results : undefined,
+    };
+}
+
+// ==========================================
+// Gaji Uraian Import (from "uraian gaji" sheet — fixed column positions)
+// ==========================================
+async function processGajiUraianImport(dataRows: string[][], mode: string) {
+    // Fixed column mapping for "uraian gaji" sheet:
+    // C=2 PANGKAT, D=3 NAMA, E=4 NRP, G=6 NO REKENING, H=7 GAJI BERSIH
+    const PANGKAT = 2, NAMA = 3, NRP = 4, REKENING = 6, GAJI = 7;
+
+    // Filter valid data rows (skip header rows: empty NRP, numeric nama, etc.)
+    const validRows: { idx: number; row: string[] }[] = [];
+    for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length <= GAJI) continue;
+
+        const rawNama = String(row[NAMA] || '').trim();
+        const rawNrp = String(row[NRP] || '').trim();
+
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
+        if (!rawNrp || rawNrp === '0') continue;
+
+        validRows.push({ idx: i, row });
+    }
+
+    if (validRows.length === 0) {
+        return {
+            success: 0, failed: 0,
+            error: "Tidak ada data valid ditemukan. Pastikan file menggunakan sheet 'uraian gaji' dengan kolom: PANGKAT (C), NAMA (D), NRP (E), GAJI BERSIH (H).",
+            preview: [],
+        };
+    }
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, nrp: true, memberNo: true, salary: true, pangkat: true, noRekening: true }
+    });
+
+    const results: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const { idx, row } of validRows) {
+        const rawNama = String(row[NAMA] || '').trim();
+        const nrp = cleanNrp(row[NRP] || '');
+        const pangkat = String(row[PANGKAT] || '').trim().toUpperCase();
+        const rawRekening = String(row[REKENING] || '').trim();
+        const rekening = rawRekening.replace(/['\- ]/g, '');
+        const gaji = cleanNumber(row[GAJI] || 0);
+
+        // Match by NRP
+        let member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
+
+        // Fallback: exact name match
+        if (!member) {
+            const csvCleanName = cleanNameForMatch(rawNama);
+            member = allMembers.find(m => cleanNameForMatch(m.name) === csvCleanName);
+        }
+
+        if (!member) {
+            // Auto-register new member
+            if (mode === "commit") {
+                try {
+                    const newMember = await prisma.$transaction(async (tx) => {
+                        const created = await autoRegisterMember(nrp, rawNama, tx, gaji > 0 ? gaji : undefined);
+                        // Update pangkat and noRekening after creation
+                        await tx.member.update({
+                            where: { id: created.id },
+                            data: {
+                                ...(pangkat ? { pangkat } : {}),
+                                ...(rekening ? { noRekening: rekening } : {}),
+                            },
+                        });
+                        return { ...created, pangkat, noRekening: rekening };
+                    });
+                    allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary, pangkat, noRekening: rekening });
+
+                    results.push({
+                        row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+                        memberId: newMember.id, memberName: newMember.name,
+                        status: 'valid', reason: null, isNewMember: true,
+                    });
+                    successCount++;
+                } catch (err) {
+                    results.push({
+                        row: idx + 2, nrp, nama: rawNama, gaji,
+                        status: 'error', reason: 'Gagal mendaftarkan: ' + (err instanceof Error ? err.message : 'Unknown'),
+                    });
+                    failCount++;
+                }
+            } else {
+                results.push({
+                    row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+                    memberId: null, memberName: `[BARU] ${rawNama}`,
+                    status: 'valid', reason: null, isNewMember: true,
+                });
+                successCount++;
+            }
+            continue;
+        }
+
+        // Existing member — update salary, pangkat, noRekening
+        if (mode === "commit") {
+            await prisma.member.update({
+                where: { id: member.id },
+                data: {
+                    salary: gaji,
+                    ...(pangkat ? { pangkat } : {}),
+                    ...(rekening ? { noRekening: rekening } : {}),
+                },
+            });
+        }
+
+        results.push({
+            row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+            memberId: member.id, memberName: member.name,
+            status: 'valid', reason: null, isNewMember: false,
+            currentGaji: member.salary ? Number(member.salary) : null,
+        });
+        successCount++;
+    }
+
+    return {
+        mode, type: "gaji_uraian",
         totalRows: results.length,
         success: successCount, failed: failCount,
         preview: results,
