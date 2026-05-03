@@ -107,13 +107,154 @@ export async function POST(request: Request) {
             }
 
             if (!member) {
-                // Will auto-register in commit mode
+                // Will auto-register in commit mode — still queue commit task
                 results.push({
                     row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
                     monthlyCount: monthlyPayments.length,
-                    status: "valid", reason: "Anggota baru (akan didaftarkan)", isNewMember: true,
+                    newPaymentsCount: monthlyPayments.length,
+                    memberId: null, memberName: `[BARU] ${rawNama}`,
+                    loanId: null, loanNo: null, currentOutstanding: null,
+                    status: "valid", reason: `Buat baru (anggota baru + pinjaman), ${monthlyPayments.length} pembayaran`,
+                    isNewMember: true,
                 });
                 successCount++;
+
+                // Queue commit task even for new members
+                if (mode === "commit") {
+                    const taskMember = null as any;
+                    const taskLoan = null;
+                    const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments };
+
+                    commitTasks.push(async () => {
+                        try {
+                            await prisma.$transaction(async (tx) => {
+                                let activeMemberId: number;
+                                let loanId: number | undefined;
+
+                                // Auto-register member
+                                const branch = defaultBranch || await tx.branch.findFirst({ where: { isActive: true } });
+                                if (!branch) throw new Error("No active branch");
+
+                                const newMember = await tx.member.create({
+                                    data: {
+                                        memberNo: taskData.nrp,
+                                        nrp: taskData.nrp,
+                                        name: taskData.rawNama,
+                                        branchId: branch.id,
+                                        joinDate: new Date(),
+                                        status: "active",
+                                    },
+                                });
+                                activeMemberId = newMember.id;
+
+                                const anggotaRole = await tx.role.findUnique({ where: { name: "anggota" } });
+                                if (anggotaRole) {
+                                    const hashedPassword = await bcrypt.hash(taskData.nrp, 10);
+                                    await tx.user.create({
+                                        data: {
+                                            name: taskData.rawNama, email: `${taskData.nrp}@koperasi.local`, password: hashedPassword,
+                                            roleId: anggotaRole.id, branchId: branch.id, memberId: newMember.id, isActive: true,
+                                        },
+                                    });
+                                }
+
+                                // Create loan
+                                const session = await auth();
+                                const adminId = session?.user?.id ? Number(session.user.id) : 1;
+                                const product = defaultProduct || await tx.loanProduct.findFirst({ where: { isActive: true } });
+                                if (!product) throw new Error("Missing product config");
+
+                                const applicationDate = new Date();
+                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                                const app = await tx.loanApplication.create({
+                                    data: {
+                                        applicationNo,
+                                        memberId: activeMemberId,
+                                        branchId: branch.id,
+                                        productId: product.id,
+                                        amount: taskData.pinjam,
+                                        tenorMonths: taskData.selama,
+                                        purpose: "Import Update Pinjaman SP Mei 2026",
+                                        status: "disbursed",
+                                        deductionSource: "gaji",
+                                        createdById: adminId,
+                                        createdAt: applicationDate,
+                                        approvedAt: applicationDate,
+                                        approvedById: adminId,
+                                    },
+                                });
+
+                                const loan = await tx.loan.create({
+                                    data: {
+                                        loanNo: `LN-${applicationNo}`,
+                                        applicationId: app.id,
+                                        memberId: activeMemberId,
+                                        branchId: branch.id,
+                                        productSnapshot: JSON.parse(JSON.stringify(product)),
+                                        principalAmount: taskData.pinjam,
+                                        interestAmount: taskData.jasa * taskData.selama,
+                                        totalAmount: taskData.pinjam + (taskData.jasa * taskData.selama),
+                                        adminFee: 0,
+                                        disbursedAmount: taskData.pinjam,
+                                        tenorMonths: taskData.selama,
+                                        interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
+                                        interestMethod: product.interestMethod || "flat",
+                                        monthlyInstallment: taskData.angsuran + taskData.jasa,
+                                        principalPaid: taskData.jumlah,
+                                        interestPaid: 0,
+                                        lateFeePaid: 0,
+                                        principalOutstanding: taskData.sisaSaldo,
+                                        interestOutstanding: 0,
+                                        disbursementDate: applicationDate,
+                                        firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
+                                        lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
+                                        status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
+                                        paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                                        disbursedById: adminId,
+                                    },
+                                });
+                                loanId = loan.id;
+
+                                // Create monthly payments
+                                const sysUser = await tx.user.findFirst({ where: { isActive: true } });
+                                const sysUserId = sysUser ? sysUser.id : 1;
+
+                                for (const mp of taskData.monthlyPayments) {
+                                    const paymentDate = new Date(2026, mp.month, 28);
+                                    const existing = await tx.loanPayment.findFirst({
+                                        where: {
+                                            loanId: loanId!,
+                                            paymentDate: { gte: new Date(2026, mp.month, 1), lt: new Date(2026, mp.month + 1, 1) },
+                                        },
+                                    });
+                                    if (existing) continue;
+
+                                    const principalPortion = Math.min(taskData.angsuran, mp.amount);
+                                    const interestPortion = mp.amount - principalPortion;
+
+                                    await tx.loanPayment.create({
+                                        data: {
+                                            paymentNo: `PAY-IMP-${loanId}-${Date.now()}-${mp.month}`,
+                                            loanId: loanId!,
+                                            memberId: activeMemberId,
+                                            branchId: branch.id,
+                                            amount: mp.amount,
+                                            principalPortion,
+                                            interestPortion,
+                                            lateFeePortion: 0,
+                                            paymentType: "installment",
+                                            notes: `Import SP ${mp.name} 2026`,
+                                            paymentDate,
+                                            createdById: sysUserId,
+                                        },
+                                    });
+                                }
+                            });
+                        } catch (err) {
+                            console.error("Commit task error (new member):", err);
+                        }
+                    });
+                }
                 continue;
             }
 
