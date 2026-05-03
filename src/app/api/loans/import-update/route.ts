@@ -8,6 +8,20 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 // POST /api/loans/import-update — Update/Create loans + monthly payments from Sheet2
 export async function POST(request: Request) {
     try {
+        // FIX #5: Auth check ONCE at top — never inside transactions
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const adminId = session.user.id ? Number(session.user.id) : 1;
+
+        // FIX #3: Request-scoped unique ID generator — avoids Date.now() collisions
+        let uidCounter = 0;
+        const uniqueId = (prefix: string) => {
+            uidCounter++;
+            return `${prefix}-${Date.now()}-${uidCounter}-${Math.random().toString(36).slice(2, 6)}`;
+        };
+
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview";
@@ -66,8 +80,9 @@ export async function POST(request: Request) {
         const defaultBranch = await prisma.branch.findFirst({ where: { isHeadOffice: true, isActive: true } }) || await prisma.branch.findFirst({ where: { isActive: true } });
 
         const results: any[] = [];
-        let successCount = 0;
-        let failCount = 0;
+        let validCount = 0;    // FIX #2: separate preview count from commit count
+        let successCount = 0;  // Only incremented after successful commit
+        let failCount = 0;     // FIX #1: now properly incremented in catch blocks
         const commitTasks: (() => Promise<void>)[] = [];
 
         for (let i = 0; i < dataRows.length; i++) {
@@ -133,8 +148,9 @@ export async function POST(request: Request) {
             }
 
             if (!member) {
-                // Will auto-register in commit mode — still queue commit task
-                const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+                // FIX #3: Use unique ID generator instead of raw Date.now()
+                const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${uniqueId("N")}`;
+                const resultIdx = results.length;
                 results.push({
                     row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
                     terbayar, deductionSource,
@@ -145,15 +161,14 @@ export async function POST(request: Request) {
                     status: "valid", reason: `Buat baru (anggota baru + pinjaman), ${monthlyPayments.length} pembayaran, ${isBayarSendiri ? 'BS' : 'Gaji'}`,
                     isNewMember: true,
                 });
-                successCount++;
+                validCount++;
 
                 // Queue commit task even for new members
                 if (mode === "commit") {
-                    const taskMember = null as any;
-                    const taskLoan = null;
                     const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
                     commitTasks.push(async () => {
                         try {
+                            // FIX #4: Transaction timeout 30 seconds
                             await prisma.$transaction(async (tx) => {
                                 let activeMemberId: number;
                                 let loanId: number | undefined;
@@ -185,13 +200,12 @@ export async function POST(request: Request) {
                                     });
                                 }
 
-                                // Create loan
-                                const session = await auth();
-                                const adminId = session?.user?.id ? Number(session.user.id) : 1;
+                                // Create loan — uses captured adminId (FIX #5)
                                 const product = defaultProduct || await tx.loanProduct.findFirst({ where: { isActive: true } });
                                 if (!product) throw new Error("Missing product config");
 
-                                const applicationDate = taskData.tglPinjam || new Date();                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                                const applicationDate = taskData.tglPinjam || new Date();
+                                const applicationNo = uniqueId("IMP");
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -268,9 +282,6 @@ export async function POST(request: Request) {
                                 await tx.loanSchedule.createMany({ data: scheds });
 
                                 // Create monthly payments
-                                const sysUser = await tx.user.findFirst({ where: { isActive: true } });
-                                const sysUserId = sysUser ? sysUser.id : 1;
-
                                 for (const mp of taskData.monthlyPayments) {
                                     const paymentDate = new Date(2026, mp.month, 28);
                                     const existing = await tx.loanPayment.findFirst({
@@ -286,7 +297,7 @@ export async function POST(request: Request) {
 
                                     await tx.loanPayment.create({
                                         data: {
-                                            paymentNo: `PAY-IMP-${loanId}-${Date.now()}-${mp.month}`,
+                                            paymentNo: uniqueId(`PAY-${loanId}`),
                                             loanId: loanId!,
                                             memberId: activeMemberId,
                                             branchId: branch.id,
@@ -297,13 +308,19 @@ export async function POST(request: Request) {
                                             paymentType: "installment",
                                             notes: `Import SP ${mp.name} 2026`,
                                             paymentDate,
-                                            createdById: sysUserId,
+                                            createdById: adminId,
                                         },
                                     });
                                 }
-                            });
+                            }, { timeout: 30000 });
+                            // FIX #2: Count success AFTER commit succeeds
+                            successCount++;
                         } catch (err) {
+                            // FIX #1: Properly track failures
+                            failCount++;
                             console.error("Commit task error (new member):", err);
+                            results[resultIdx].status = "failed";
+                            results[resultIdx].reason = String((err as Error)?.message || err);
                         }
                     });
                 }
@@ -319,11 +336,11 @@ export async function POST(request: Request) {
             const loanAction = existingLoan ? "update" : "create";
             const newPaymentsCount = existingLoan
                 ? monthlyPayments.filter(mp => {
-                    const paymentDate = new Date(2026, mp.month, 28);
                     return !existingPayments.some(p => p.loanId === existingLoan!.id && p.paymentDate.getMonth() === mp.month && p.paymentDate.getFullYear() === 2026);
                 }).length
                 : monthlyPayments.length;
 
+            const resultIdx = results.length;
             results.push({
                 row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
                 terbayar, deductionSource,
@@ -337,7 +354,7 @@ export async function POST(request: Request) {
                 reason: `${loanAction === "update" ? "Update" : "Buat baru"} pinjaman, ${newPaymentsCount} pembayaran baru, ${isBayarSendiri ? 'BS' : 'Gaji'}`,
                 isNewMember: false,
             });
-            successCount++;
+            validCount++;
 
             // Queue commit task
             if (mode === "commit") {
@@ -347,6 +364,7 @@ export async function POST(request: Request) {
 
                 commitTasks.push(async () => {
                     try {
+                        // FIX #4: Transaction timeout 30 seconds
                         await prisma.$transaction(async (tx) => {
                             let activeMemberId = taskMember!.id;
                             let loanId = taskLoan?.id;
@@ -381,14 +399,13 @@ export async function POST(request: Request) {
                             }
 
                             if (!loanId) {
-                                // Create new loan
-                                const session = await auth();
-                                const adminId = session?.user?.id ? Number(session.user.id) : 1;
+                                // Create new loan — uses captured adminId (FIX #5)
                                 const product = defaultProduct || await tx.loanProduct.findFirst({ where: { isActive: true } });
                                 const branch = defaultBranch || await tx.branch.findFirst({ where: { isActive: true } });
                                 if (!product || !branch) throw new Error("Missing product or branch config");
 
-                                const applicationDate = taskData.tglPinjam || new Date();                                const applicationNo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                                const applicationDate = taskData.tglPinjam || new Date();
+                                const applicationNo = uniqueId("IMP");
                                 const app = await tx.loanApplication.create({
                                     data: {
                                         applicationNo,
@@ -513,9 +530,6 @@ export async function POST(request: Request) {
                             }
 
                             // Create monthly payments (idempotent)
-                            const sysUser = await tx.user.findFirst({ where: { isActive: true } });
-                            const sysUserId = sysUser ? sysUser.id : 1;
-
                             for (const mp of taskData.monthlyPayments) {
                                 const paymentDate = new Date(2026, mp.month, 28);
                                 const existing = await tx.loanPayment.findFirst({
@@ -534,7 +548,7 @@ export async function POST(request: Request) {
 
                                 await tx.loanPayment.create({
                                     data: {
-                                        paymentNo: `PAY-IMP-${loanId}-${Date.now()}-${mp.month}`,
+                                        paymentNo: uniqueId(`PAY-${loanId}`),
                                         loanId: loanId!,
                                         memberId: activeMemberId,
                                         branchId: taskMember?.branchId || (defaultBranch?.id ?? 1),
@@ -545,36 +559,41 @@ export async function POST(request: Request) {
                                         paymentType: "installment",
                                         notes: `Import SP ${mp.name} 2026`,
                                         paymentDate,
-                                        createdById: sysUserId,
+                                        createdById: adminId,
                                     },
                                 });
                             }
-                        });
+                        }, { timeout: 30000 });
+                        // FIX #2: Count success AFTER commit succeeds
+                        successCount++;
                     } catch (err) {
+                        // FIX #1: Properly track failures
+                        failCount++;
                         console.error("Commit task error:", err);
+                        results[resultIdx].status = "failed";
+                        results[resultIdx].reason = String((err as Error)?.message || err);
                     }
                 });
             }
         }
 
-        // Execute commit tasks in batches
+        // FIX #6: Execute sequentially instead of Promise.all batches
+        // Eliminates Date.now() collisions and reduces transaction contention
         if (mode === "commit" && commitTasks.length > 0) {
-            const BATCH = 10;
-            for (let i = 0; i < commitTasks.length; i += BATCH) {
-                await Promise.all(commitTasks.slice(i, i + BATCH).map(fn => fn()));
+            for (const task of commitTasks) {
+                await task();
             }
         }
 
-        // Audit
+        // Audit — uses session captured at top (FIX #5)
         try {
-            const session = await auth();
             const reqInfo = extractRequestInfo(request);
             const userInfo = extractUserFromSession(session);
             await logAudit({
                 ...userInfo, ...reqInfo,
                 action: "IMPORT", module: "Loan_Migrasi",
-                description: `Import update pinjaman: ${successCount} berhasil, ${failCount} gagal`,
-                newData: { mode, successCount, failCount, totalRows: results.length },
+                description: `Import update pinjaman: ${mode === "commit" ? successCount : validCount} berhasil, ${failCount} gagal`,
+                newData: { mode, successCount: mode === "commit" ? successCount : validCount, failCount, totalRows: results.length },
             });
         } catch (e) {}
 
@@ -582,7 +601,8 @@ export async function POST(request: Request) {
             data: {
                 mode, type: "update_pinjaman",
                 totalRows: results.length,
-                success: successCount, failed: failCount,
+                success: mode === "commit" ? successCount : validCount,
+                failed: failCount,
                 preview: results,
                 allResults: mode === "commit" ? results : undefined,
             },

@@ -542,3 +542,88 @@ bunga terbayar + sisa bunga = 15,000,000 + 45,000,000 = 60,000,000   ✓ (= tota
 
 *Diperbarui: 4 Mei 2026*
 *Total bug tercatat modul Pinjaman: 28 | Total fitur baru: 6*
+
+---
+
+## 🔴 BUG KRITIS DITEMUKAN — 4 Mei 2026 (Import Data Loss: 293 → 176)
+
+### BUG-IMPORT-008 — 117 dari 293 Baris Pinjaman Hilang Saat Import (Silent Failure)
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Critical (40% data pinjaman hilang tanpa pesan error)
+**Dampak:** Import "293 valid" → hanya 176 masuk database, 117 baris lenyap tanpa error
+
+**Gejala:**
+Saat upload file Excel dan preview menunjukkan "293 import valid", setelah commit hanya 176 record tersimpan di database. API melaporkan "293 berhasil, 0 gagal" — semua terlihat sukses padahal 117 baris gagal.
+
+**Root Cause — 6 Bug Berantai:**
+
+#### 1. failCount Tidak Pernah Di-increment (Silent Failure)
+`failCount` diinisialisasi `= 0` tapi **tidak pernah** di-increment di manapun. Semua error di catch block hanya `console.error` tanpa tracking. API selalu melaporkan `failed: 0`.
+
+#### 2. successCount Di-increment SEBELUM Commit Berhasil
+`successCount++` berjalan di preview loop (sebelum commit task dieksekusi), sehingga selalu = jumlah valid rows. Pada kenyataannya banyak task yang gagal di tahap commit.
+
+#### 3. Date.now() Collision pada Unique Identifiers
+`applicationNo`, `paymentNo`, dan `effectiveNrp` menggunakan `Date.now()` yang menghasilkan nilai sama ketika 10 task berjalan paralel via `Promise.all(batch=10)`. Unique constraint violation → transaction rollback → data hilang.
+
+#### 4. Transaction Timeout Default 5 Detik
+`prisma.$transaction()` tanpa opsi timeout menggunakan default Prisma 5 detik. Import yang kompleks (create member + user + loanApplication + loan + loanSchedules × 60 + loanPayments × 5) bisa melebihi 5 detik.
+
+#### 5. auth() Dipanggil di Dalam Transaction Callback
+`const session = await auth()` di dalam `$transaction(async (tx) => { ... })` bisa return `null` karena tidak stabil dalam konteks transaction. Akibatnya `adminId` = 1, dan jika user ID 1 tidak ada → FK violation.
+
+#### 6. Promise.all(10) Menyebabkan Transaction Contention
+Batch 10 task paralel menyebabkan database contention — banyak transaction bersaing untuk lock yang sama pada tabel yang sama, meningkatkan peluang deadlock dan timeout.
+
+**Solusi Komprehensif:**
+
+```typescript
+// FIX #5: Auth check ONCE at top
+const session = await auth();
+if (!session?.user) return 401;
+const adminId = Number(session.user.id);
+
+// FIX #3: Request-scoped unique ID generator
+let uidCounter = 0;
+const uniqueId = (prefix) => `${prefix}-${Date.now()}-${++uidCounter}-${random}`;
+
+// FIX #2: Separate validCount from commit-time successCount
+let validCount = 0;    // preview loop
+let successCount = 0;  // only after commit succeeds
+let failCount = 0;     // FIX #1: now incremented in catch
+
+// FIX #4: Transaction timeout
+await prisma.$transaction(async (tx) => { ... }, { timeout: 30000 });
+
+// FIX #1+#2: Count inside commit task
+commitTasks.push(async () => {
+    try {
+        await prisma.$transaction(..., { timeout: 30000 });
+        successCount++;  // AFTER commit
+    } catch (err) {
+        failCount++;     // NOW tracked
+        results[idx].status = "failed";
+        results[idx].reason = err.message;
+    }
+});
+
+// FIX #6: Sequential execution instead of Promise.all
+for (const task of commitTasks) {
+    await task();
+}
+```
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (full rewrite preserving business logic)
+
+**Hasil yang Diharapkan:**
+- Preview: 293 valid → Commit: 293 success, 0 failed
+- Jika ada yang gagal, `failCount` tercatat dan baris gagal ditandai di results
+- `failed` rows menampilkan error reason untuk debugging
+
+---
+
+*Diperbarui: 4 Mei 2026*
+*Total bug tercatat modul Pinjaman: 29 | Total fitur baru: 6*
