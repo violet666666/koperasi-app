@@ -302,3 +302,190 @@ Menghapus pengecekan `totalPaid > 0` (baik di frontend maupun backend). Tombol E
 
 *Diperbarui: 19 April 2026*
 *Total bug tercatat modul Pinjaman: 21 | Total fitur baru: 6*
+
+---
+
+## 🔴 BUG BARU DITEMUKAN — 4 Mei 2026 (Sesi Import Update Pinjaman)
+
+### BUG-IMPORT-001 — Import Pinjaman Tidak Potong 2% Biaya Resiko
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** High (Data keuangan pinjaman tidak akurat)
+**Dilaporkan:** "ini dana cairnya salah, harusnya kan kepotong 2% buat biaya resiko"
+
+**Gejala:**
+Semua pinjaman yang diimport via `import-update` dan `import-migrasi` menunjukkan `disbursedAmount = principalAmount` dan `adminFee = 0`. Padahal pada flow normal (disburse/direct-disburse), `disbursedAmount = principalAmount - 2%` dan `adminFee = principalAmount * 0.02`.
+
+**Root Cause:**
+Kedua route import meng-hardcode:
+```typescript
+adminFee: 0,
+disbursedAmount: taskData.pinjam,  // atau data.principalAmount
+```
+Sedangkan flow normal menghitung:
+```typescript
+adminFee = Math.round(principalAmount * 0.02);
+disbursedAmount = principalAmount - adminFee;
+```
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (kedua loan creation block)
+- `src/app/api/loans/import-migrasi/route.ts`
+
+---
+
+### BUG-IMPORT-002 — principalPaid dan interestPaid Salah di Import Update
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** High (Data pembayaran tidak akurat, mengganggu kalkulasi progress)
+
+**Gejala:**
+Field `principalPaid` pada loan yang diimport bernilai sama dengan kolom JUMLAH dari Excel, padahal JUMLAH = total uang masuk (pokok + bunga). Field `interestPaid` selalu 0, dan `interestOutstanding` selalu 0.
+
+**Root Cause:**
+```typescript
+// SALAH — JUMLAH = total kas masuk, bukan hanya pokok
+principalPaid: taskData.jumlah,  // seharusnya: pinjam - sisaSaldo
+interestPaid: 0,                  // seharusnya: jumlah - principalPaid
+interestOutstanding: 0,           // seharusnya: totalInterest - interestPaid
+```
+
+**Kalkulasi yang benar:**
+- `principalPaid = pinjam - sisaSaldo` (pokok yang sudah dilunasi)
+- `interestPaid = jumlah - principalPaid` (sisa dari total terbayar = bunga)
+- `interestOutstanding = totalInterest - interestPaid` (bunga belum terbayar)
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (loan creation + loan update path)
+
+---
+
+### BUG-IMPORT-003 — Laporan Jasa Pinjaman Gagal Memuat (Auth Check Type Mismatch)
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** High (Halaman laporan jasa tidak bisa diakses)
+**URL Terdampak:** `https://www.primkoppol.online/pinjaman/laporan-jasa`
+
+**Gejala:**
+Halaman Rekap Jasa Pinjaman selalu menampilkan "Gagal memuat data".
+
+**Root Cause:**
+Function `checkOperatorAuth()` di `report-helpers.ts` mengakses `session.user.role.name` (seolah role adalah object), padahal NextAuth setup menyimpan `session.user.role` langsung sebagai string `"operator"`.
+
+```typescript
+// SALAH
+const s = session as { user?: { role?: { name?: string } } } | null;
+const roleName = s.user?.role?.name;  // undefined karena role adalah string
+
+// BENAR
+const s = session as { user?: { role?: string } } | null;
+const roleName = s.user?.role;  // "operator"
+```
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/reports/interest/_lib/report-helpers.ts`
+- `src/app/(protected)/pinjaman/laporan-jasa/page.tsx` (improved error messages)
+
+---
+
+### BUG-IMPORT-004 — Kolom "Angsuran Ke" Salah Hitung untuk Pinjaman Import
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Medium (Tampilan data tidak akurat di tabel pinjaman)
+
+**Gejala:**
+Kolom "Angsuran Ke" di tabel pinjaman menampilkan angka yang terlalu kecil. Contoh: EKO KRISDIANSYAH yang sudah bayar 15x ditampilkan sebagai 9.
+
+**Root Cause:**
+Kalkulasi fallback membagi `principalPaid / monthlyInstallment`:
+- `monthlyInstallment` = pokok + bunga = 2,667,000
+- Hasil: 25,005,000 / 2,667,000 = 9.4 → dibulatkan menjadi 9
+
+Seharusnya membagi oleh porsi pokok per bulan:
+- `principalAmount / tenorMonths` = 100,000,000 / 60 = 1,666,667
+- Hasil: 25,005,000 / 1,666,667 = 15.0 → dibulatkan menjadi 15
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/page.tsx`
+
+---
+
+### BUG-IMPORT-005 — Bunga/Bulan Hardcode 1% di Tabel Pinjaman
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Low (Tampilan tidak fleksibel)
+
+**Gejala:**
+Kolom "Bunga/Bulan" dan card "Potensi Bunga" selalu menghitung `plafond * 1%` terlepas dari interest rate aktual pinjaman.
+
+**Root Cause:**
+```typescript
+// Hardcoded 1%
+const interest = Math.round(plafond * 0.01);
+```
+
+Seharusnya menggunakan `interestRate` dari masing-masing pinjaman:
+```typescript
+const rate = Number(loan.interestRate || 1);
+const interest = Math.round(plafond * (rate / 100));
+```
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/page.tsx` (kolom tabel + card potensi bunga)
+
+---
+
+### BUG-IMPORT-006 — Import Pinjaman Tidak Generate LoanSchedule (Semua Pinjaman Dianggap Lunas)
+
+**Tanggal Ditemukan:** 4 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Critical (Seluruh fitur pembayaran angsuran tidak bisa digunakan)
+**URL Terdampak:** `https://www.primkoppol.online/pinjaman/angsuran`
+
+**Gejala:**
+Saat operator membuka halaman bayar angsuran untuk pinjaman hasil import, halaman langsung menampilkan "Pinjaman Sudah Lunas". Semua 275 pinjaman import tidak bisa dibayar angsurannya.
+
+**Root Cause:**
+Route import (`import-update` dan `import-migrasi`) **tidak membuat record `LoanSchedule`**. Halaman bayar angsuran (`angsuran/bayar/page.tsx`) bergantung pada `loan.schedules` untuk menentukan angsuran berikutnya:
+```typescript
+const pendingSchedules = loan.schedules
+    .filter((s) => ["pending", "partial", "overdue"].includes(s.status));
+if (pendingSchedules.length === 0) → tampilkan "Pinjaman Sudah Lunas"
+```
+
+Tanpa schedule records, `pendingSchedules` selalu kosong → semua pinjaman dianggap lunas.
+
+**Verifikasi:**
+- Total active loans: 276
+- With schedules: 1 (hanya pinjaman manual)
+- Without schedules: 275 (semua pinjaman import)
+
+**Solusi 2-Layer:**
+
+#### 1. One-Time Migration (existing data)
+Script pembuatan jadwal untuk 275 pinjaman yang sudah diimport:
+- Hitung `paidInstallments` dari `principalPaid / (principalAmount / tenorMonths)`
+- Generate full schedule dengan status `"paid"` untuk angsuran yang sudah dibayar
+- Status `"pending"` untuk angsuran yang belum dibayar
+
+**Hasil:** 275 pinjaman × rata-rata 40 bulan = ~11,000 record `LoanSchedule` berhasil dibuat.
+
+#### 2. Fix Import Route (future data)
+Route `import-update/route.ts` sekarang juga generate `LoanSchedule` saat membuat loan baru:
+- Setiap loan baru otomatis mendapat jadwal angsuran
+- Installment yang sudah dibayar ditandai `"paid"` berdasarkan data Excel
+- Endpoint `POST /api/loans/generate-schedules` tersedia sebagai fallback
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (tambah schedule generation di kedua loan creation block)
+- `src/app/api/loans/generate-schedules/route.ts` (NEW — migration endpoint)
+
+---
+
+*Diperbarui: 4 Mei 2026*
+*Total bug tercatat modul Pinjaman: 27 | Total fitur baru: 6*

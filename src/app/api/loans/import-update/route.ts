@@ -229,6 +229,34 @@ export async function POST(request: Request) {
                                 });
                                 loanId = loan.id;
 
+                                // Generate LoanSchedule records
+                                const schedBaseDate = applicationDate;
+                                const paidInstallments = taskData.angsuran > 0
+                                    ? Math.round((taskData.pinjam - taskData.sisaSaldo) / taskData.angsuran)
+                                    : 0;
+                                const scheds = [];
+                                for (let j = 1; j <= taskData.selama; j++) {
+                                    const dueDate = new Date(schedBaseDate.getFullYear(), schedBaseDate.getMonth() + j, 1);
+                                    let schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
+                                    let schedInterest = taskData.jasa;
+                                    if (j === taskData.selama) {
+                                        schedPrincipal += (taskData.pinjam - Math.floor(taskData.pinjam / taskData.selama) * taskData.selama);
+                                    }
+                                    const isPaid = j <= paidInstallments;
+                                    scheds.push({
+                                        loanId: loanId!,
+                                        installmentNo: j,
+                                        dueDate,
+                                        principalAmount: schedPrincipal,
+                                        interestAmount: schedInterest,
+                                        totalAmount: schedPrincipal + schedInterest,
+                                        principalPaid: isPaid ? schedPrincipal : 0,
+                                        interestPaid: isPaid ? schedInterest : 0,
+                                        status: isPaid ? "paid" : "pending",
+                                    });
+                                }
+                                await tx.loanSchedule.createMany({ data: scheds });
+
                                 // Create monthly payments
                                 const sysUser = await tx.user.findFirst({ where: { isActive: true } });
                                 const sysUserId = sysUser ? sysUser.id : 1;
@@ -398,6 +426,34 @@ export async function POST(request: Request) {
                                     },
                                 });
                                 loanId = loan.id;
+
+                                // Generate LoanSchedule records for new loan
+                                const schedBaseDate2 = taskData.tglPinjam || new Date();
+                                const paidInst2 = taskData.angsuran > 0
+                                    ? Math.round((taskData.pinjam - taskData.sisaSaldo) / taskData.angsuran)
+                                    : 0;
+                                const scheds2 = [];
+                                for (let j = 1; j <= taskData.selama; j++) {
+                                    const dueDate = new Date(schedBaseDate2.getFullYear(), schedBaseDate2.getMonth() + j, 1);
+                                    let schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
+                                    let schedInterest = taskData.jasa;
+                                    if (j === taskData.selama) {
+                                        schedPrincipal += (taskData.pinjam - Math.floor(taskData.pinjam / taskData.selama) * taskData.selama);
+                                    }
+                                    const isPaid = j <= paidInst2;
+                                    scheds2.push({
+                                        loanId: loanId!,
+                                        installmentNo: j,
+                                        dueDate,
+                                        principalAmount: schedPrincipal,
+                                        interestAmount: schedInterest,
+                                        totalAmount: schedPrincipal + schedInterest,
+                                        principalPaid: isPaid ? schedPrincipal : 0,
+                                        interestPaid: isPaid ? schedInterest : 0,
+                                        status: isPaid ? "paid" : "pending",
+                                    });
+                                }
+                                await tx.loanSchedule.createMany({ data: scheds2 });
                             } else {
                                 // Update existing loan
                                 const updatedPrincipalPaid = taskData.pinjam - taskData.sisaSaldo;
