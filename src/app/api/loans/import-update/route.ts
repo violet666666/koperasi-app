@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         }
 
         // Fixed column mapping for Sheet2 of RINCIAN PIUTANG SP
-        const COL = { NAMA: 1, PANGKAT: 2, NRP: 3, TGL_PINJAM: 4, PINJAM: 5, SELAMA: 6, JASA: 7, ANGSURAN: 8, JAN: 11, PEB: 12, MARET: 13, APRIL: 14, MEI: 15, JUMLAH: 18, SISA_SALDO: 19 };
+        const COL = { NAMA: 1, PANGKAT: 2, NRP: 3, TGL_PINJAM: 4, PINJAM: 5, SELAMA: 6, JASA: 7, ANGSURAN: 8, JAN: 11, PEB: 12, MARET: 13, APRIL: 14, MEI: 15, TERBAYAR: 16, BS: 17, JUMLAH: 18, SISA_SALDO: 19 };
         const MONTHS_2026 = [
             { col: COL.JAN, name: "Januari", month: 0 },
             { col: COL.PEB, name: "Februari", month: 1 },
@@ -93,6 +93,17 @@ export async function POST(request: Request) {
             const sisaSaldo = cleanNumber(row[COL.SISA_SALDO]);
             const tglPinjam = parseExcelDate(row[COL.TGL_PINJAM]);
 
+            // Tenor terbayar: prefer explicit count from Excel, fallback to calculation
+            const terbayarRaw = cleanNumber(row[COL.TERBAYAR]);
+            const terbayar = terbayarRaw > 0
+                ? Math.min(terbayarRaw, selama)
+                : (angsuran > 0 ? Math.round(jumlah / angsuran) : 0);
+
+            // Bayar Sendiri: if BS column has value, deductionSource = "bs", else "gaji"
+            const bsRaw = row[COL.BS];
+            const isBayarSendiri = bsRaw !== undefined && bsRaw !== null && String(bsRaw).trim() !== "" && String(bsRaw).trim() !== "0" && String(bsRaw).trim() !== "-";
+            const deductionSource = isBayarSendiri ? "bs" : "gaji";
+
             // Monthly payments
             const monthlyPayments: { amount: number; month: number; name: string }[] = [];
             for (const m of MONTHS_2026) {
@@ -126,11 +137,12 @@ export async function POST(request: Request) {
                 const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
                 results.push({
                     row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
+                    terbayar, deductionSource,
                     monthlyCount: monthlyPayments.length,
                     newPaymentsCount: monthlyPayments.length,
                     memberId: null, memberName: `[BARU] ${rawNama}`,
                     loanId: null, loanNo: null, currentOutstanding: null,
-                    status: "valid", reason: `Buat baru (anggota baru + pinjaman), ${monthlyPayments.length} pembayaran`,
+                    status: "valid", reason: `Buat baru (anggota baru + pinjaman), ${monthlyPayments.length} pembayaran, ${isBayarSendiri ? 'BS' : 'Gaji'}`,
                     isNewMember: true,
                 });
                 successCount++;
@@ -139,7 +151,7 @@ export async function POST(request: Request) {
                 if (mode === "commit") {
                     const taskMember = null as any;
                     const taskLoan = null;
-                    const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
+                    const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
                     commitTasks.push(async () => {
                         try {
                             await prisma.$transaction(async (tx) => {
@@ -190,7 +202,7 @@ export async function POST(request: Request) {
                                         tenorMonths: taskData.selama,
                                         purpose: "Import Update Pinjaman SP Mei 2026",
                                         status: "disbursed",
-                                        deductionSource: "gaji",
+                                        deductionSource: taskData.deductionSource || "gaji",
                                         createdById: adminId,
                                         createdAt: applicationDate,
                                         approvedAt: applicationDate,
@@ -215,10 +227,10 @@ export async function POST(request: Request) {
                                         interestMethod: product.interestMethod || "flat",
                                         monthlyInstallment: taskData.angsuran + taskData.jasa,
                                         principalPaid: taskData.jumlah,
-                                        interestPaid: taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0,
+                                        interestPaid: taskData.terbayar * taskData.jasa,
                                         lateFeePaid: 0,
                                         principalOutstanding: taskData.sisaSaldo,
-                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0)),
+                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.terbayar * taskData.jasa)),
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
@@ -231,9 +243,7 @@ export async function POST(request: Request) {
 
                                 // Generate LoanSchedule records
                                 const schedBaseDate = applicationDate;
-                                const paidInstallments = taskData.angsuran > 0
-                                    ? Math.round((taskData.pinjam - taskData.sisaSaldo) / taskData.angsuran)
-                                    : 0;
+                                const paidInstallments = taskData.terbayar;
                                 const scheds = [];
                                 for (let j = 1; j <= taskData.selama; j++) {
                                     const dueDate = new Date(schedBaseDate.getFullYear(), schedBaseDate.getMonth() + j, 1);
@@ -316,6 +326,7 @@ export async function POST(request: Request) {
 
             results.push({
                 row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
+                terbayar, deductionSource,
                 monthlyCount: monthlyPayments.length,
                 newPaymentsCount,
                 memberId: member.id, memberName: member.name,
@@ -323,7 +334,7 @@ export async function POST(request: Request) {
                 loanNo: existingLoan?.loanNo || null,
                 currentOutstanding: existingLoan ? Number(existingLoan.principalOutstanding) : null,
                 status: "valid",
-                reason: `${loanAction === "update" ? "Update" : "Buat baru"} pinjaman, ${newPaymentsCount} pembayaran baru`,
+                reason: `${loanAction === "update" ? "Update" : "Buat baru"} pinjaman, ${newPaymentsCount} pembayaran baru, ${isBayarSendiri ? 'BS' : 'Gaji'}`,
                 isNewMember: false,
             });
             successCount++;
@@ -332,7 +343,7 @@ export async function POST(request: Request) {
             if (mode === "commit") {
                 const taskMember = member;
                 const taskLoan = existingLoan;
-                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam };
+                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
 
                 commitTasks.push(async () => {
                     try {
@@ -388,7 +399,7 @@ export async function POST(request: Request) {
                                         tenorMonths: taskData.selama,
                                         purpose: "Import Update Pinjaman SP Mei 2026",
                                         status: "disbursed",
-                                        deductionSource: "gaji",
+                                        deductionSource: taskData.deductionSource || "gaji",
                                         createdById: adminId,
                                         createdAt: applicationDate,
                                         approvedAt: applicationDate,
@@ -413,10 +424,10 @@ export async function POST(request: Request) {
                                         interestMethod: product.interestMethod || "flat",
                                         monthlyInstallment: taskData.angsuran + taskData.jasa,
                                         principalPaid: taskData.jumlah,
-                                        interestPaid: taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0,
+                                        interestPaid: taskData.terbayar * taskData.jasa,
                                         lateFeePaid: 0,
                                         principalOutstanding: taskData.sisaSaldo,
-                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) * taskData.jasa : 0)),
+                                        interestOutstanding: Math.max(0, (taskData.jasa * taskData.selama) - (taskData.terbayar * taskData.jasa)),
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
@@ -429,9 +440,7 @@ export async function POST(request: Request) {
 
                                 // Generate LoanSchedule records for new loan
                                 const schedBaseDate2 = taskData.tglPinjam || new Date();
-                                const paidInst2 = taskData.angsuran > 0
-                                    ? Math.round((taskData.pinjam - taskData.sisaSaldo) / taskData.angsuran)
-                                    : 0;
+                                const paidInst2 = taskData.terbayar;
                                 const scheds2 = [];
                                 for (let j = 1; j <= taskData.selama; j++) {
                                     const dueDate = new Date(schedBaseDate2.getFullYear(), schedBaseDate2.getMonth() + j, 1);
@@ -457,7 +466,7 @@ export async function POST(request: Request) {
                             } else {
                                 // Update existing loan
                                 const updatedPrincipalPaid = taskData.jumlah;
-                                const paidCount = taskData.angsuran > 0 ? Math.round(taskData.jumlah / taskData.angsuran) : 0;
+                                const paidCount = taskData.terbayar;
                                 const updatedInterestPaid = paidCount * taskData.jasa;
                                 const totalInterest = taskData.jasa * taskData.selama;
                                 await tx.loan.update({
