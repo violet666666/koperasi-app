@@ -26,7 +26,15 @@
       "Bash(git status *)",
       "Bash(npx tsx *)",
       "Bash(Select-Object -First 30)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(Select-Object -First 5)",
+      "Bash(mkdir -p \"C:/Users/Acer/Downloads/koperasi-app/src/app/api/payroll/[periodId]\")",
+      "Bash(mkdir -p \"C:/Users/Acer/Downloads/koperasi-app/src/app/api/payroll/[periodId]/slip/[slipId]\")",
+      "Bash(Select-String -Pattern \"gaji|navigation\")",
+      "Bash(findstr \"gaji\")",
+      "Bash(findstr /I \"gaji\\\\|periodId\")",
+      "Bash(Select-String -Pattern \"slip\\\\\\\\\\\\[slipId\\\\]\")",
+      "Bash(Select-String -Pattern \"portal|payroll\")"
     ]
   },
   "enabledPlugins": {

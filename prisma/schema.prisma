@@ -57,6 +57,7 @@ model User {
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
   cashierIdentities       CashierIdentity[]
   notifications           Notification[]
+  payrollPeriods           PayrollPeriod[]
 
   @@map("users")
 }
@@ -268,6 +269,7 @@ model Member {
   tabunganSejahteraHistory TabunganSejahteraHistory[]
   cashBankTransactions CashBankTransaction[] @relation("CashBankMember")
   shuDistributions     ShuDistribution[]
+  payrollSlips         PayrollSlip[]
 
   @@index([status])
   @@index([nrp])
@@ -1216,4 +1218,67 @@ model StockBatch {
 
   @@index([productId, isActive, receivedAt])
   @@map("stock_batches")
+}
+
+// =================================================================
+// PAYROLL (GAJI) — Import & Processing
+// =================================================================
+
+model PayrollPeriod {
+  id            Int      @id @default(autoincrement())
+  periodName    String                          // "Mei 2026"
+  periodMonth   Int                             // 5
+  periodYear    Int                             // 2026
+  sourceFile    String?                         // "5. GAJI MEI 2026 POLRES.xls"
+  sourceType    String   @default("polres")     // polres / polsek
+  status        String   @default("draft")      // draft / processed
+  totalMembers  Int      @default(0)
+  totalGaji     Decimal  @default(0) @db.Decimal(15, 2)
+  totalPotongan Decimal  @default(0) @db.Decimal(15, 2)
+  createdById   Int
+  createdAt     DateTime @default(now())
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  slips         PayrollSlip[]
+
+  @@unique([periodMonth, periodYear, sourceType])
+  @@map("payroll_periods")
+}
+
+model PayrollSlip {
+  id          Int      @id @default(autoincrement())
+  periodId    Int
+  period      PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  memberId    Int?
+  member      Member?  @relation(fields: [memberId], references: [id])
+
+  nrp         String
+  nama        String
+  pangkat     String?
+
+  gajiBersih  Decimal  @db.Decimal(15, 2)
+  tunkin      Decimal  @default(0) @db.Decimal(15, 2)
+
+  potTajib        Decimal @default(0) @db.Decimal(15, 2)
+  potSP           Decimal @default(0) @db.Decimal(15, 2)
+  potBarang       Decimal @default(0) @db.Decimal(15, 2)
+  potSukarela     Decimal @default(0) @db.Decimal(15, 2)
+  potKoperasiLain Decimal @default(0) @db.Decimal(15, 2)
+
+  totalPotKoperasi Decimal @default(0) @db.Decimal(15, 2)
+  sisaGaji         Decimal @default(0) @db.Decimal(15, 2)
+  sisaTunkin       Decimal @default(0) @db.Decimal(15, 2)
+
+  otherDeductions  Json?
+
+  jumlahPotNonBRI  Decimal @default(0) @db.Decimal(15, 2)
+  jumlahPotBRI     Decimal @default(0) @db.Decimal(15, 2)
+  terimaBersih     Decimal @default(0) @db.Decimal(15, 2)
+  sisaRekening     Decimal @default(0) @db.Decimal(15, 2)
+  bisaDiambilATM   Decimal @default(0) @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([periodId, nrp])
+  @@index([memberId])
+  @@map("payroll_slips")
 }
