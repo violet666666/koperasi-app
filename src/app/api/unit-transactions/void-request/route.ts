@@ -24,7 +24,6 @@ const UNIT_ABBR: Record<string, string> = {
 };
 
 // Generate readable request number from original transaction number
-// Format: VOID-(originalTransactionNo)
 function generateVoidRequestNo(originalTxNo: string): string {
     return `VOID-${originalTxNo}`;
 }
@@ -44,6 +43,9 @@ export async function POST(request: Request) {
         }
 
         const currentUserId = parseInt(session.user.id);
+        if (isNaN(currentUserId)) {
+            return NextResponse.json({ message: "Session user ID tidak valid." }, { status: 401 });
+        }
         const isOperator = ["operator", "admin", "super_admin"].includes(session.user.role)
             || session.user.permissions?.includes("manage_all");
         const now = new Date();
@@ -67,16 +69,47 @@ export async function POST(request: Request) {
 
             const metadata: any = storeSale.metadata ? (typeof storeSale.metadata === 'object' ? storeSale.metadata : JSON.parse(storeSale.metadata as string)) : {};
             if (metadata.isVoided) return NextResponse.json({ message: "Transaksi Toko ini sudah dibatalkan." }, { status: 409 });
-            if (metadata.voidPending) return NextResponse.json({ message: "Permintaan void untuk transaksi ini sudah menunggu persetujuan Admin." }, { status: 409 });
+
+            // FIX: Recovery untuk voidPending orphan — jika voidPending=true tapi tidak ada ApprovalRequest,
+            // berarti void sebelumnya gagal di tengah jalan. Reset voidPending agar bisa diajukan ulang.
+            if (metadata.voidPending) {
+                const existingRequest = await prisma.approvalRequest.findUnique({
+                    where: { requestNo: generateVoidRequestNo(storeSale.saleNo) },
+                });
+                if (!existingRequest) {
+                    // Orphan state — reset voidPending
+                    metadata.voidPending = false;
+                    delete metadata.voidPendingReason;
+                    delete metadata.voidRequestedById;
+                    delete metadata.voidRequestedAt;
+                    await prisma.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata },
+                    });
+                } else if (existingRequest.status === "pending") {
+                    return NextResponse.json({ message: "Permintaan void untuk transaksi ini sudah menunggu persetujuan Admin." }, { status: 409 });
+                } else {
+                    // ApprovalRequest already processed (approved/rejected) but voidPending flag not cleared
+                    // This can happen if the reject path in void-approve didn't clear the flag
+                    metadata.voidPending = false;
+                    await prisma.storeSale.update({
+                        where: { id: storeSale.id },
+                        data: { metadata },
+                    });
+                }
+            }
 
             // JALUR A: Operator/Superadmin → Void langsung (bypass approval)
             if (isOperator) {
+                // FIX: Set timeout lebih lama untuk transaksi dengan banyak item
+                // Default Prisma 5 detik, kita naikkan ke 30 detik
                 await prisma.$transaction(async (tx) => {
                     // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
-                            const newStockToko = prod.stockToko + item.quantity;
+                            const qty = Math.abs(item.quantity);
+                            const newStockToko = prod.stockToko + qty;
                             const newStock = newStockToko + prod.stockGdg;
 
                             await tx.storeProduct.update({
@@ -92,7 +125,7 @@ export async function POST(request: Request) {
                                 data: {
                                     productId: item.productId,
                                     type: "in",
-                                    quantity: item.quantity,
+                                    quantity: qty,
                                     reference: `VOID ${storeSale.saleNo}`,
                                     notes: `Pengembalian stok (void operator)`,
                                     operatorId: currentUserId,
@@ -103,6 +136,7 @@ export async function POST(request: Request) {
 
                     // Tandai sebagai voided
                     metadata.isVoided = true;
+                    metadata.voidPending = false;
                     metadata.voidReason = reason;
                     metadata.voidedById = currentUserId;
                     metadata.voidedAt = now.toISOString();
@@ -134,15 +168,17 @@ export async function POST(request: Request) {
                                     createdById: currentUserId,
                                 },
                             });
-                            await tx.journalLine.createMany({
-                                data: originalJournal.lines.map((line: any) => ({
-                                    journalId: reverseJournal.id,
-                                    accountId: line.accountId,
-                                    debit: Number(line.credit),
-                                    credit: Number(line.debit),
-                                    description: `[VOID] ${line.description}`,
-                                })),
-                            });
+                            if (originalJournal.lines.length > 0) {
+                                await tx.journalLine.createMany({
+                                    data: originalJournal.lines.map((line: any) => ({
+                                        journalId: reverseJournal.id,
+                                        accountId: line.accountId,
+                                        debit: Number(line.credit),
+                                        credit: Number(line.debit),
+                                        description: `[VOID] ${line.description || ""}`,
+                                    })),
+                                });
+                            }
                         }
                     }
 
@@ -203,7 +239,7 @@ export async function POST(request: Request) {
                             data: { status: "voided", isPaid: false },
                         });
                     }
-                });
+                }, { timeout: 30000 }); // FIX: 30 detik timeout untuk transaksi dengan banyak item
 
                 return NextResponse.json({
                     message: "Transaksi Toko dibatalkan oleh Operator. Stok telah dikembalikan.",
@@ -212,43 +248,53 @@ export async function POST(request: Request) {
             }
 
             // JALUR B: Kasir/Admin Unit → Buat ApprovalRequest pending
-            // Tandai transaksi bahwa ada permintaan void yang menunggu
-            metadata.voidPending = true;
-            metadata.voidPendingReason = reason;
-            metadata.voidRequestedById = currentUserId;
-            metadata.voidRequestedAt = now.toISOString();
+            // FIX: Wrap dalam $transaction agar StoreSale update dan ApprovalRequest create atomic
+            await prisma.$transaction(async (tx) => {
+                // Tandai transaksi bahwa ada permintaan void yang menunggu
+                metadata.voidPending = true;
+                metadata.voidPendingReason = reason;
+                metadata.voidRequestedById = currentUserId;
+                metadata.voidRequestedAt = now.toISOString();
 
-            await prisma.storeSale.update({
-                where: { id: storeSale.id },
-                data: { metadata: metadata },
-            });
+                await tx.storeSale.update({
+                    where: { id: storeSale.id },
+                    data: { metadata: metadata },
+                });
 
-            // Buat entri approval request — requestNo = VOID-{saleNo} agar mudah dilacak
-            const requestNo = generateVoidRequestNo(storeSale.saleNo);
-            await prisma.approvalRequest.create({
-                data: {
-                    requestNo,
-                    type: "void_store_sale",
-                    referenceType: "store_sale",
-                    referenceId: storeSale.id,
-                    branchId: branchIdToUse,
-                    amount: storeSale.totalAmount,
-                    description: `Pembatalan Transaksi Toko [${storeSale.saleNo}] — ${reason}`,
-                    requestedById: currentUserId,
-                    requestedAt: now,
-                    status: "pending",
-                    metadata: {
-                        saleId: storeSale.id,
-                        saleNo: storeSale.saleNo,
-                        unitType: storeSale.unitType || "toko",
-                        voidReason: reason,
-                        itemCount: storeSale.items.length,
-                        memberName: storeSale.member?.name || (storeSale as any).customerName || "Walk-in",
-                        memberNrp: storeSale.member?.nrp || "-",
-                        kasirName: storeSale.createdBy?.name || "Kasir",
+                // Buat entri approval request — requestNo = VOID-{saleNo} agar mudah dilacak
+                const requestNo = generateVoidRequestNo(storeSale.saleNo);
+
+                // Cek apakah requestNo sudah ada (dedup guard)
+                const existing = await tx.approvalRequest.findUnique({ where: { requestNo } });
+                if (existing) {
+                    throw new Error(`ApprovalRequest dengan nomor ${requestNo} sudah ada (status: ${existing.status}).`);
+                }
+
+                await tx.approvalRequest.create({
+                    data: {
+                        requestNo,
+                        type: "void_store_sale",
+                        referenceType: "store_sale",
+                        referenceId: storeSale.id,
+                        branchId: branchIdToUse,
+                        amount: storeSale.totalAmount,
+                        description: `Pembatalan Transaksi Toko [${storeSale.saleNo}] — ${reason}`,
+                        requestedById: currentUserId,
+                        requestedAt: now,
+                        status: "pending",
+                        metadata: {
+                            saleId: storeSale.id,
+                            saleNo: storeSale.saleNo,
+                            unitType: storeSale.unitType || "toko",
+                            voidReason: reason,
+                            itemCount: storeSale.items.length,
+                            memberName: storeSale.member?.name || (storeSale as any).customerName || "Walk-in",
+                            memberNrp: storeSale.member?.nrp || "-",
+                            kasirName: storeSale.createdBy?.name || "Kasir",
+                        },
                     },
-                },
-            });
+                });
+            }, { timeout: 15000 });
 
             // Notify admins about void request
             try {
@@ -355,15 +401,17 @@ export async function POST(request: Request) {
                                 createdById: currentUserId,
                             },
                         });
-                        await tx.journalLine.createMany({
-                            data: originalJournal.lines.map((line: any) => ({
-                                journalId: reverseJournal.id,
-                                accountId: line.accountId,
-                                debit: Number(line.credit),
-                                credit: Number(line.debit),
-                                description: `[VOID] ${line.description}`,
-                            })),
-                        });
+                        if (originalJournal.lines.length > 0) {
+                            await tx.journalLine.createMany({
+                                data: originalJournal.lines.map((line: any) => ({
+                                    journalId: reverseJournal.id,
+                                    accountId: line.accountId,
+                                    debit: Number(line.credit),
+                                    credit: Number(line.debit),
+                                    description: `[VOID] ${line.description || ""}`,
+                                })),
+                            });
+                        }
                     }
                 }
 
@@ -413,7 +461,7 @@ export async function POST(request: Request) {
                         `;
                     }
                 }
-            });
+            }, { timeout: 30000 });
 
             return NextResponse.json({
                 message: "Permintaan Void berhasil disetujui secara otomatis (Bypass Admin).",
@@ -472,8 +520,33 @@ export async function POST(request: Request) {
             data: { transactionNo: updatedTx.transactionNo, status: updatedTx.status, approvalRequestNo: approvalReq.requestNo },
         }, { status: 201 });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST /api/unit-transactions/void-request error:", error);
-        return NextResponse.json({ message: "Gagal mengajukan void transaksi" }, { status: 500 });
+
+        // FIX: Return actual error message instead of generic message
+        let errorMessage = "Gagal mengajukan void transaksi";
+        let statusCode = 500;
+
+        if (error?.code === "P2024") {
+            // Prisma transaction timeout
+            errorMessage = "Transaksi timeout — terlalu banyak item untuk diproses. Coba lagi atau hubungi administrator.";
+            statusCode = 504;
+        } else if (error?.code === "P2002") {
+            // Unique constraint violation
+            const target = error?.meta?.target as string[] | undefined;
+            errorMessage = `Data duplikat terdeteksi (${target?.join(", ") || "unknown"}). Kemungkinan void sudah pernah diajukan sebelumnya.`;
+            statusCode = 409;
+        } else if (error?.code === "P2003") {
+            // Foreign key constraint
+            errorMessage = "Referensi data tidak valid. Kemungkinan data terkait sudah dihapus.";
+            statusCode = 400;
+        } else if (error?.message) {
+            // Include actual error for debugging (but sanitize in production)
+            errorMessage = error.message.length > 200
+                ? error.message.substring(0, 200) + "..."
+                : error.message;
+        }
+
+        return NextResponse.json({ message: errorMessage }, { status: statusCode });
     }
 }

@@ -243,6 +243,7 @@ export default function RiwayatTransaksiPage() {
     };
 
     const isVoided = (s: Sale) => s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;
+    const isVoidPending = (s: Sale) => s.metadata && typeof s.metadata === "object" && s.metadata.voidPending === true;
 
     return (
         <div className="space-y-6">
@@ -357,6 +358,7 @@ export default function RiwayatTransaksiPage() {
                                     </TableRow>
                                 ) : sales.map(sale => {
                                     const voided = isVoided(sale);
+                                    const pendingVoid = isVoidPending(sale);
                                     return (
                                         <TableRow
                                             key={sale.id}
@@ -366,6 +368,7 @@ export default function RiwayatTransaksiPage() {
                                             <TableCell>
                                                 <span className={`font-mono text-xs ${voided ? "line-through" : ""}`}>{sale.saleNo}</span>
                                                 {voided && <Badge variant="destructive" className="ml-2 text-[10px]">VOID</Badge>}
+                                                {pendingVoid && <Badge variant="outline" className="ml-2 text-[10px] bg-amber-50 text-amber-600 border-amber-200">VOID PENDING</Badge>}
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {new Date(sale.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}

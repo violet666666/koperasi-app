@@ -7,7 +7,9 @@ import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations
 function mapStoreSale(s: Record<string, unknown>) {
     const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata as string) : s.metadata || {};
     const isVoided = (metadataObj as Record<string, unknown>).isVoided === true;
-    const voidReason = (metadataObj as Record<string, unknown>).voidReason || null;
+    const isVoidPending = (metadataObj as Record<string, unknown>).voidPending === true;
+    const voidReason = (metadataObj as Record<string, unknown>).voidReason
+        || (metadataObj as Record<string, unknown>).voidPendingReason || null;
     const voidRequestedAt = (metadataObj as Record<string, unknown>).voidRequestedAt || null;
     const voidRequestedBy = (metadataObj as Record<string, unknown>).voidRequestedBy || null;
     const items = (s.items || []) as Record<string, unknown>[];
@@ -15,12 +17,14 @@ function mapStoreSale(s: Record<string, unknown>) {
     const customerName = s.customerName as string | null;
     const createdAt = s.createdAt as Date;
 
+    const effectiveStatus = isVoided ? "voided" : isVoidPending ? "pending_void" : "completed";
+
     return {
         id: (s.id as number) + 1000000,
         transactionNo: s.saleNo,
         memberId: s.memberId,
         unitType: "toko",
-        description: `Penjualan Toko ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
+        description: `Penjualan Toko ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
         amount: s.totalAmount,
         transactionDate: createdAt,
         isPaid: isVoided ? false : (paymentMethod !== "salary_cut"),
@@ -29,7 +33,7 @@ function mapStoreSale(s: Record<string, unknown>) {
         cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
         changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
         notes: `Total Item: ${items.length}`,
-        status: isVoided ? "voided" : "completed",
+        status: effectiveStatus,
         voidReason,
         voidRequestedAt,
         voidRequestedBy,

@@ -138,7 +138,8 @@ export async function POST(request: Request) {
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
-                            const newStockToko = prod.stockToko + item.quantity;
+                            const qty = Math.abs(item.quantity);
+                            const newStockToko = prod.stockToko + qty;
                             const newStock = newStockToko + prod.stockGdg;
 
                             await tx.storeProduct.update({
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
                                 data: {
                                     productId: item.productId,
                                     type: "in",
-                                    quantity: item.quantity,
+                                    quantity: qty,
                                     reference: `VOID ${storeSale.saleNo}`,
                                     notes: `Pengembalian stok (void disetujui)`,
                                     operatorId: currentUserId,
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
                                     accountId: line.accountId,
                                     debit: Number(line.credit),
                                     credit: Number(line.debit),
-                                    description: `[VOID] ${line.description}`,
+                                    description: `[VOID] ${line.description || ""}`,
                                 })),
                             });
                         }
@@ -427,15 +428,17 @@ export async function POST(request: Request) {
                             createdById: currentUserId,
                         },
                     });
-                    await tx.journalLine.createMany({
-                        data: originalJournal.lines.map((line: any) => ({
-                            journalId: reverseJournal.id,
-                            accountId: line.accountId,
-                            debit: Number(line.credit),
-                            credit: Number(line.debit),
-                            description: `[VOID] ${line.description}`,
-                        })),
-                    });
+                    if (originalJournal.lines.length > 0) {
+                        await tx.journalLine.createMany({
+                            data: originalJournal.lines.map((line: any) => ({
+                                journalId: reverseJournal.id,
+                                accountId: line.accountId,
+                                debit: Number(line.credit),
+                                credit: Number(line.debit),
+                                description: `[VOID] ${line.description || ""}`,
+                            })),
+                        });
+                    }
                 }
 
                 // 5. Reverse CashBankTransaction (untuk tunai/QRIS) — atomic decrement
