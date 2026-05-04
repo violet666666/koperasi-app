@@ -39,7 +39,8 @@ export type AuditModule =
     | "Period"
     | "Tabungan_Sejahtera"
     | "Loan_Migrasi"
-    | "Unit_Layanan";
+    | "Unit_Layanan"
+    | "Payroll";
 
 export interface AuditLogParams {
     // User info
