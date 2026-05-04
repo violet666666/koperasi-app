@@ -35,7 +35,12 @@ export async function GET(request: Request) {
         };
 
         if (!type || type === "unit") {
-            const unitWhere: Record<string, unknown> = { memberId, status: { notIn: ["voided"] } };
+            const unitWhere: Record<string, unknown> = {
+                memberId,
+                status: { notIn: ["voided"] },
+                // Exclude auto-generated salary_cut receivables — StoreSale already represents them
+                notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
+            };
             if (unitType && unitType !== "all") unitWhere.unitType = unitType;
             if (isPaid !== null && isPaid !== undefined && isPaid !== "all") {
                 unitWhere.isPaid = isPaid === "true";

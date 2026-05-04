@@ -164,6 +164,7 @@ export default function PinjamanDetailPage() {
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
     const hasPayments = loan.payments && loan.payments.length > 0;
     const canEdit = isOperator && loan.status === "active" && !hasPayments;
+    const canVoid = isOperator && loan.status === "active";
 
     // Edit helpers
     const openEditDialog = () => {
@@ -279,7 +280,7 @@ export default function PinjamanDetailPage() {
                                 Edit Pinjaman
                             </Button>
                         )}
-                        {canEdit && (
+                        {canVoid && (
                             <Button variant="destructive" onClick={() => setIsVoidDialogOpen(true)}>
                                 <Ban className="mr-2 h-4 w-4" />
                                 Batalkan (VOID)
@@ -437,8 +438,13 @@ export default function PinjamanDetailPage() {
                             Peringatan Bahaya (VOID)
                         </DialogTitle>
                         <DialogDescription className="space-y-3 pt-3 text-base">
-                            Tindakan ini akan <strong>menghapus seketika</strong> jadwal tagihan Piutang pinjaman {loan.loanNo} secara permanen. <br/><br/>
+                            Tindakan ini akan <strong>menghapus seketika</strong> pinjaman {loan.loanNo} secara permanen. <br/><br/>
                             Jurnal Akuntansi dan Saldo Kas Bank yang sebelumnya dikeluarkan untuk menyalurkan pencairan ini akan <strong>DIKEMBALIKAN (+ Tambah)</strong> secara otomatis seolah Pinjaman tidak pernah diajukan.
+                            {hasPayments && (
+                                <span className="block mt-2 text-red-600 font-semibold">
+                                    PERHATIAN: Pinjaman ini memiliki {loan.payments?.length || 0} riwayat pembayaran. Semua data angsuran, jurnal pembayaran, dan saldo kas/bank terkait juga akan di-rollback.
+                                </span>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 py-2">
