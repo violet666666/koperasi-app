@@ -293,14 +293,18 @@ export default function PortalSlipGajiPage() {
                     <div className="border-t border-dashed border-gray-400 my-2" />
 
                     <div className="text-right mt-4">{dateStr}</div>
-                    <div className="flex justify-between mt-8">
-                        <div className="text-center w-[200px]">
+                    <div className="flex justify-between mt-6">
+                        <div className="text-center w-[180px]">
                             <div className="font-bold">Ketua Koperasi</div>
-                            <div style={{ marginTop: "60px" }}>(_________)</div>
+                            <div style={{ marginTop: "50px" }}>(_________)</div>
                         </div>
-                        <div className="text-center w-[200px]">
+                        <div className="text-center w-[180px]">
                             <div className="font-bold">Bendahara</div>
-                            <div style={{ marginTop: "60px" }}>(_________)</div>
+                            <div style={{ marginTop: "50px" }}>(_________)</div>
+                        </div>
+                        <div className="text-center w-[180px]">
+                            <div className="font-bold">Penerima</div>
+                            <div style={{ marginTop: "50px" }}>(_________)</div>
                         </div>
                     </div>
                 </div>
