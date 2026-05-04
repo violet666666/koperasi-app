@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 export async function GET() {
     try {
@@ -55,7 +56,25 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ message: "periodId wajib" }, { status: 400 });
         }
 
+        // Fetch period info before deletion for audit trail
+        const period = await prisma.payrollPeriod.findUnique({
+            where: { id: periodId },
+            select: { periodName: true, totalMembers: true },
+        });
+
         await prisma.payrollPeriod.delete({ where: { id: periodId } });
+
+        try {
+            const reqInfo = extractRequestInfo(request);
+            const userInfo = extractUserFromSession(session);
+            await logAudit({
+                ...userInfo, ...reqInfo,
+                action: "DELETE", module: "Payroll",
+                description: `Hapus periode gaji ${period?.periodName || periodId}: ${period?.totalMembers || 0} anggota`,
+                oldData: { periodId, periodName: period?.periodName },
+            });
+        } catch (e) { /* non-blocking */ }
+
         return NextResponse.json({ message: "Periode gaji berhasil dihapus" });
     } catch (error: unknown) {
         console.error("DELETE /api/payroll error:", error);

@@ -25,7 +25,6 @@ const KOPERASI_FIELDS: Record<string, keyof Pick<SlipData, "potTajib" | "potSP" 
     "SIMPANAN SUKARELA": "potSukarela",
     "SIMPedes KOPERASI": "potKoperasiLain",
     "KOPERASI BHY": "potKoperasiLain",
-    "KANTIN": "potKoperasiLain",
 };
 
 // Summary field keywords (mapped to BRI total fields)
@@ -180,14 +179,19 @@ export async function POST(request: Request) {
         const headerRow = rows[headerRowIdx];
 
         // Build column mapping from header
+        // Priority: summary > koperasi > identity > other
+        // This prevents "JUMLAH GAJI DITERIMA" from matching "JML GAJI" (identity)
         const colMap: Record<number, { type: string; field?: string }> = {};
         for (let col = 0; col < headerRow.length; col++) {
             const header = String(headerRow[col] || "").trim();
             if (!header) continue;
 
-            const identityField = matchKeyword(header, IDENTITY_FIELDS);
-            if (identityField) {
-                colMap[col] = { type: "identity", field: identityField };
+            const normalizedHeader = normalizeHeader(header);
+
+            // Check summary fields FIRST — keywords like "DITERIMA", "POTONGAN", "NON", "KRETAP" indicate totals
+            const summaryField = matchKeyword(header, SUMMARY_FIELDS);
+            if (summaryField) {
+                colMap[col] = { type: "summary", field: summaryField };
                 continue;
             }
 
@@ -197,13 +201,12 @@ export async function POST(request: Request) {
                 continue;
             }
 
-            const summaryField = matchKeyword(header, SUMMARY_FIELDS);
-            if (summaryField) {
-                colMap[col] = { type: "summary", field: summaryField };
+            const identityField = matchKeyword(header, IDENTITY_FIELDS);
+            if (identityField) {
+                colMap[col] = { type: "identity", field: identityField };
                 continue;
             }
 
-            const normalizedHeader = normalizeHeader(header);
             if (normalizedHeader.includes("BRI") || normalizedHeader.includes("SUDIRMAN") || normalizedHeader.includes("CABANG") || normalizedHeader.includes("UNIT LAIN")) {
                 colMap[col] = { type: "bri", field: header };
                 continue;
@@ -237,11 +240,11 @@ export async function POST(request: Request) {
 
         // Parse data rows
         const slips: SlipData[] = [];
-        let failCount = 0;
+        const skippedRows: number[] = [];
 
         for (let i = headerRowIdx + 1; i < rows.length; i++) {
             const row = rows[i];
-            if (!row || row.length < 3) continue;
+            if (!row || row.length < 3) { skippedRows.push(i + 1); continue; }
 
             let nrp = "";
             let nama = "";
@@ -258,9 +261,9 @@ export async function POST(request: Request) {
                 else if (mapping.field === "gajiBersih") gajiBersih = cleanNumber(val);
             }
 
-            if (!nama || nama.toUpperCase() === "NAMA" || nama.toUpperCase().includes("JUMLAH") || nama.toUpperCase().includes("TOTAL")) continue;
-            if (!nrp && !nama) continue;
-            if (/^\d+(\.\d+)?$/.test(nama)) continue;
+            if (!nama || nama.toUpperCase() === "NAMA" || nama.toUpperCase().includes("JUMLAH") || nama.toUpperCase().includes("TOTAL")) { skippedRows.push(i + 1); continue; }
+            if (!nrp && !nama) { skippedRows.push(i + 1); continue; }
+            if (/^\d+(\.\d+)?$/.test(nama)) { skippedRows.push(i + 1); continue; }
 
             const otherDeductions: Record<string, number> = {};
             const slip: SlipData = {
@@ -320,7 +323,7 @@ export async function POST(request: Request) {
                     sourceType,
                     totalRows: slips.length,
                     success: slips.length,
-                    failed: failCount,
+                    failed: skippedRows.length,
                     preview: slips.slice(0, 50).map((s, idx) => ({
                         row: idx + 1,
                         nrp: s.nrp,
@@ -421,7 +424,7 @@ export async function POST(request: Request) {
                 periodName,
                 totalRows: slips.length,
                 success: slips.length,
-                failed: failCount,
+                failed: skippedRows.length,
             },
         });
     } catch (error: unknown) {

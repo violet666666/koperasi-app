@@ -134,9 +134,7 @@ export default function PortalGajiPage() {
 
                                 {/* Action: View Full Slip */}
                                 <Link
-                                    href={`/gaji/${slip.periodId}/slip/${slip.slipId}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    href={`/portal/gaji/${slip.slipId}`}
                                 >
                                     <Button variant="outline" className="w-full" size="sm">
                                         <FileText className="mr-2 h-4 w-4" />
