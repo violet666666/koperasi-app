@@ -365,6 +365,8 @@ export const memberPortalApi = {
 
     transactions: (params?: { type?: string; unitType?: string; isPaid?: string; page?: number }) =>
         api.get<{ data: unknown }>("/member-portal/transactions", { params }),
+
+    payroll: () => api.get<{ data: unknown }>("/member-portal/payroll"),
 };
 
 // ============================================================
