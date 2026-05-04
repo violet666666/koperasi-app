@@ -166,6 +166,7 @@ export async function POST(request: Request) {
                     // Update metadata StoreSale: tandai voided, hapus voidPending
                     metadata.isVoided = true;
                     metadata.voidPending = false;
+                    metadata.voidReason = metadata.voidPendingReason || "Void disetujui oleh admin";
                     metadata.voidApprovedById = currentUserId;
                     metadata.voidApprovedAt = now.toISOString();
 
@@ -200,15 +201,17 @@ export async function POST(request: Request) {
                                     createdById: currentUserId,
                                 },
                             });
-                            await tx.journalLine.createMany({
-                                data: originalJournal.lines.map((line: any) => ({
-                                    journalId: reverseJournal.id,
-                                    accountId: line.accountId,
-                                    debit: Number(line.credit),
-                                    credit: Number(line.debit),
-                                    description: `[VOID] ${line.description || ""}`,
-                                })),
-                            });
+                            if (originalJournal.lines.length > 0) {
+                                await tx.journalLine.createMany({
+                                    data: originalJournal.lines.map((line: any) => ({
+                                        journalId: reverseJournal.id,
+                                        accountId: line.accountId,
+                                        debit: Number(line.credit),
+                                        credit: Number(line.debit),
+                                        description: `[VOID] ${line.description || ""}`,
+                                    })),
+                                });
+                            }
                         }
                     }
 
@@ -225,7 +228,7 @@ export async function POST(request: Request) {
                             });
                             const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                            await tx.cashBankTransaction.create({
+                            const voidCashTx = await tx.cashBankTransaction.create({
                                 data: {
                                     transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
                                     accountId: originalCashTx.accountId,
@@ -241,6 +244,20 @@ export async function POST(request: Request) {
                                     createdById: currentUserId,
                                 },
                             });
+
+                            // Adjust running balance chain for subsequent transactions
+                            const balanceImpact = -voidAmount;
+                            await tx.$executeRaw`
+                                UPDATE "cash_bank_transactions"
+                                SET
+                                    "balance_before" = "balance_before" + ${balanceImpact},
+                                    "balance_after" = "balance_after" + ${balanceImpact}
+                                WHERE "account_id" = ${originalCashTx.accountId}
+                                  AND (
+                                      "transaction_date" > ${now}
+                                      OR ("transaction_date" = ${now} AND "id" > ${voidCashTx.id})
+                                  )
+                            `;
                         }
                     }
 
@@ -454,7 +471,7 @@ export async function POST(request: Request) {
                         });
                         const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
 
-                        await tx.cashBankTransaction.create({
+                        const voidCashTx = await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `VOID-${Date.now().toString(36).toUpperCase()}`,
                                 accountId: originalCashTx.accountId,
@@ -470,6 +487,20 @@ export async function POST(request: Request) {
                                 createdById: currentUserId,
                             },
                         });
+
+                        // Adjust running balance chain for subsequent transactions
+                        const balanceImpact = -voidAmount;
+                        await tx.$executeRaw`
+                            UPDATE "cash_bank_transactions"
+                            SET
+                                "balance_before" = "balance_before" + ${balanceImpact},
+                                "balance_after" = "balance_after" + ${balanceImpact}
+                            WHERE "account_id" = ${originalCashTx.accountId}
+                              AND (
+                                  "transaction_date" > ${now}
+                                  OR ("transaction_date" = ${now} AND "id" > ${voidCashTx.id})
+                              )
+                        `;
                     }
                 }
             }, TX_OPTIONS);
@@ -498,6 +529,15 @@ export async function POST(request: Request) {
         } else {
             // ── REJECTED: Kembalikan status transaksi ke 'completed' ──────
             await prisma.$transaction(async (tx) => {
+                // FIX: Atomic guard — prevent double-processing
+                const claim = await tx.approvalRequest.updateMany({
+                    where: { id: approvalReq.id, status: "pending" },
+                    data: { status: "rejected" },
+                });
+                if (claim.count === 0) {
+                    throw new Error("ALREADY_PROCESSED");
+                }
+
                 await tx.unitTransaction.update({
                     where: { id: originalTx.id },
                     data: {

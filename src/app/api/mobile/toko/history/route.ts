@@ -124,7 +124,8 @@ export async function POST(request: Request) {
                 for (const item of sale.items) {
                     const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                     if (prod && !prod.isService) {
-                        const newStockToko = prod.stockToko + item.quantity;
+                        const qty = Math.abs(item.quantity);
+                        const newStockToko = prod.stockToko + qty;
                         const newStock = newStockToko + prod.stockGdg;
                         await tx.storeProduct.update({
                             where: { id: item.productId },
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
                             data: {
                                 productId: item.productId,
                                 type: "in",
-                                quantity: item.quantity,
+                                quantity: qty,
                                 reference: `VOID ${sale.saleNo}`,
                                 notes: `Pengembalian stok (void operator mobile)`,
                                 operatorId: currentUserId,

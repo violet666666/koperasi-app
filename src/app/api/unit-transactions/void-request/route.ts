@@ -104,6 +104,11 @@ export async function POST(request: Request) {
                 // FIX: Set timeout lebih lama untuk transaksi dengan banyak item
                 // Default Prisma 5 detik, kita naikkan ke 30 detik
                 await prisma.$transaction(async (tx) => {
+                    // FIX: Atomic claim — prevent double-void race condition
+                    const fresh = await tx.storeSale.findUnique({ where: { id: storeSale.id } });
+                    const freshMeta: any = fresh?.metadata ? (typeof fresh.metadata === 'object' ? fresh.metadata : JSON.parse(fresh.metadata as string)) : {};
+                    if (freshMeta.isVoided) throw new Error("ALREADY_VOIDED");
+
                     // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
@@ -348,6 +353,13 @@ export async function POST(request: Request) {
             const securityHash = crypto.createHash("sha256").update(hashInput).digest("hex");
 
             await prisma.$transaction(async (tx) => {
+                // FIX: Atomic claim — prevent double-void race condition
+                const claim = await tx.unitTransaction.updateMany({
+                    where: { id: transaction.id, status: "completed" },
+                    data: { status: "voided", voidReason: reason, voidedById: currentUserId, voidedAt: now },
+                });
+                if (claim.count === 0) throw new Error("ALREADY_VOIDED");
+
                 // 1. Buat Contra-Entry (nilai negatif)
                 await tx.unitTransaction.create({
                     data: {
@@ -370,12 +382,6 @@ export async function POST(request: Request) {
                         securityHash,
                         createdById: currentUserId,
                     },
-                });
-
-                // 2. Update status transaksi asli = voided
-                await tx.unitTransaction.update({
-                    where: { id: transaction.id },
-                    data: { status: "voided", voidReason: reason, voidedById: currentUserId, voidedAt: now },
                 });
 
                 // 3. Reverse Journal entry jika ada
@@ -527,7 +533,9 @@ export async function POST(request: Request) {
         let errorMessage = "Gagal mengajukan void transaksi";
         let statusCode = 500;
 
-        if (error?.code === "P2024") {
+        if (error?.message === "ALREADY_VOIDED") {
+            return NextResponse.json({ message: "Transaksi sudah dibatalkan sebelumnya." }, { status: 409 });
+        } else if (error?.code === "P2024") {
             // Prisma transaction timeout
             errorMessage = "Transaksi timeout — terlalu banyak item untuk diproses. Coba lagi atau hubungi administrator.";
             statusCode = 504;
@@ -540,8 +548,8 @@ export async function POST(request: Request) {
             // Foreign key constraint
             errorMessage = "Referensi data tidak valid. Kemungkinan data terkait sudah dihapus.";
             statusCode = 400;
-        } else if (error?.message) {
-            // Include actual error for debugging (but sanitize in production)
+        } else if (error?.message && process.env.NODE_ENV === "development") {
+            // Only expose raw error messages in development
             errorMessage = error.message.length > 200
                 ? error.message.substring(0, 200) + "..."
                 : error.message;

@@ -362,13 +362,13 @@ export default function RiwayatTransaksiPage() {
                                     return (
                                         <TableRow
                                             key={sale.id}
-                                            className={`cursor-pointer hover:bg-muted/50 transition-colors ${voided ? "opacity-50" : ""}`}
+                                            className={`cursor-pointer hover:bg-muted/50 transition-colors ${voided ? "opacity-50" : pendingVoid ? "opacity-70" : ""}`}
                                             onClick={() => openDetail(sale)}
                                         >
                                             <TableCell>
                                                 <span className={`font-mono text-xs ${voided ? "line-through" : ""}`}>{sale.saleNo}</span>
                                                 {voided && <Badge variant="destructive" className="ml-2 text-[10px]">VOID</Badge>}
-                                                {pendingVoid && <Badge variant="outline" className="ml-2 text-[10px] bg-amber-50 text-amber-600 border-amber-200">VOID PENDING</Badge>}
+                                                {!voided && pendingVoid && <Badge variant="outline" className="ml-2 text-[10px] bg-amber-50 text-amber-600 border-amber-200">VOID PENDING</Badge>}
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {new Date(sale.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
@@ -420,7 +420,7 @@ export default function RiwayatTransaksiPage() {
                                                         onClick={(e) => { e.stopPropagation(); openDetail(sale); }}>
                                                         <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                                                     </Button>
-                                                    {!voided && (
+                                                    {!voided && !pendingVoid && (
                                                         <Button size="icon" variant="ghost" className="h-7 w-7" title="Cetak Ulang Struk"
                                                             onClick={(e) => { e.stopPropagation(); handleReprint(sale); }}>
                                                             <Printer className="h-3.5 w-3.5 text-blue-600" />
@@ -516,6 +516,17 @@ export default function RiwayatTransaksiPage() {
                                         <Badge variant="destructive" className="text-sm">VOID / DIBATALKAN</Badge>
                                     </div>
                                 )}
+                                {!isVoided(selectedSale) && isVoidPending(selectedSale) && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+                                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">MENUNGGU PERSETUJUAN VOID</Badge>
+                                        {selectedSale.metadata?.voidPendingReason && (
+                                            <p className="text-sm text-amber-700">Alasan: {selectedSale.metadata.voidPendingReason}</p>
+                                        )}
+                                        {selectedSale.metadata?.voidRequestedAt && (
+                                            <p className="text-xs text-amber-600">Diajukan: {new Date(selectedSale.metadata.voidRequestedAt as string).toLocaleString("id-ID")}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Items Table */}
@@ -571,7 +582,7 @@ export default function RiwayatTransaksiPage() {
 
                             <div className="flex gap-2">
                                 <Button variant="outline" className="flex-1" onClick={() => setDetailOpen(false)}>Tutup</Button>
-                                {!isVoided(selectedSale) && (
+                                {!isVoided(selectedSale) && !isVoidPending(selectedSale) && (
                                     <Button className="flex-1 gap-2" onClick={() => handleReprint(selectedSale)}>
                                         <Printer className="h-4 w-4" />
                                         Cetak Struk

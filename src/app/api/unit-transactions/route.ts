@@ -11,7 +11,8 @@ function mapStoreSale(s: Record<string, unknown>) {
     const voidReason = (metadataObj as Record<string, unknown>).voidReason
         || (metadataObj as Record<string, unknown>).voidPendingReason || null;
     const voidRequestedAt = (metadataObj as Record<string, unknown>).voidRequestedAt || null;
-    const voidRequestedBy = (metadataObj as Record<string, unknown>).voidRequestedBy || null;
+    const voidRequestedBy = (metadataObj as Record<string, unknown>).voidRequestedById
+        || (metadataObj as Record<string, unknown>).voidRequestedBy || null;
     const items = (s.items || []) as Record<string, unknown>[];
     const paymentMethod = s.paymentMethod as string;
     const customerName = s.customerName as string | null;
@@ -27,8 +28,8 @@ function mapStoreSale(s: Record<string, unknown>) {
         description: `Penjualan Toko ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
         amount: s.totalAmount,
         transactionDate: createdAt,
-        isPaid: isVoided ? false : (paymentMethod !== "salary_cut"),
-        paidDate: paymentMethod !== "salary_cut" && !isVoided ? createdAt : null,
+        isPaid: (isVoided || isVoidPending) ? false : (paymentMethod !== "salary_cut"),
+        paidDate: paymentMethod !== "salary_cut" && !isVoided && !isVoidPending ? createdAt : null,
         paymentMethod,
         cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
         changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
