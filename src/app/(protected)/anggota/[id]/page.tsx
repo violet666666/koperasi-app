@@ -204,6 +204,8 @@ export default function AnggotaDetailPage() {
     const [summary, setSummary] = React.useState<MemberSummary | null>(null);
     const [loanDetails, setLoanDetails] = React.useState<LoanDetail[]>([]);
     const [sejahteraHistory, setSejahteraHistory] = React.useState<any[]>([]);
+    const [bookTransactions, setBookTransactions] = React.useState<any[]>([]);
+    const [bookSummary, setBookSummary] = React.useState<{ totalSimpanan: number; sisaPinjaman: number } | null>(null);
 
     // Piutang Barang state
     const [piutangBarang, setPiutangBarang] = React.useState<{
@@ -312,6 +314,19 @@ export default function AnggotaDetailPage() {
                         setSejahteraHistory(sejData.data || []);
                     }
                 } catch(e) { console.error("Failed to fetch sejahtera:", e); }
+
+                // Fetch Buku Anggota transactions
+                try {
+                    const bookRes = await fetch(`/api/members/${params.id}/transactions`);
+                    if (bookRes.ok) {
+                        const bookData = await bookRes.json();
+                        setBookTransactions(bookData.data?.transactions || []);
+                        setBookSummary({
+                            totalSimpanan: bookData.data?.totalSimpanan || 0,
+                            sisaPinjaman: bookData.data?.sisaPinjaman || 0,
+                        });
+                    }
+                } catch(e) { console.error("Failed to fetch transactions:", e); }
 
             } catch (error) {
                 console.error("Failed to fetch member:", error);
@@ -778,15 +793,50 @@ export default function AnggotaDetailPage() {
                 <TabsContent value="transaksi">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">Riwayat Transaksi</CardTitle>
+                            <CardTitle className="text-lg">Riwayat Transaksi (Buku Anggota)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-center text-muted-foreground py-8">
-                                Lihat riwayat transaksi lengkap di{" "}
-                                <Link href={`/anggota/buku/${member.id}`} className="text-primary hover:underline">
-                                    Buku Anggota
-                                </Link>
-                            </p>
+                            {bookTransactions.length > 0 ? (
+                                <div className="border rounded-md overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted text-muted-foreground">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left font-medium">Tanggal</th>
+                                                <th className="px-3 py-2 text-left font-medium">Jenis</th>
+                                                <th className="px-3 py-2 text-left font-medium">Keterangan</th>
+                                                <th className="px-3 py-2 text-right font-medium">Debit</th>
+                                                <th className="px-3 py-2 text-right font-medium">Kredit</th>
+                                                <th className="px-3 py-2 text-right font-medium">Saldo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {bookTransactions.map((tx: any) => {
+                                                const typeConfig: Record<string, { label: string; class: string }> = {
+                                                    simpanan: { label: "Setoran", class: "bg-emerald-100 text-emerald-700" },
+                                                    penarikan: { label: "Tarik", class: "bg-amber-100 text-amber-700" },
+                                                    pinjaman: { label: "Pinjaman", class: "bg-blue-100 text-blue-700" },
+                                                    angsuran: { label: "Angsuran", class: "bg-red-100 text-red-700" },
+                                                };
+                                                const tc = typeConfig[tx.type] || { label: tx.type, class: "bg-gray-100 text-gray-700" };
+                                                return (
+                                                    <tr key={tx.id} className="hover:bg-muted/50">
+                                                        <td className="px-3 py-2 text-xs">{new Date(tx.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</td>
+                                                        <td className="px-3 py-2"><Badge className={`${tc.class} border-0 text-xs`}>{tc.label}</Badge></td>
+                                                        <td className="px-3 py-2 text-xs">{tx.description}</td>
+                                                        <td className="px-3 py-2 text-right tabular-nums">{tx.debit > 0 ? formatCurrency(tx.debit) : "-"}</td>
+                                                        <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{tx.credit > 0 ? formatCurrency(tx.credit) : "-"}</td>
+                                                        <td className="px-3 py-2 text-right font-medium tabular-nums">{formatCurrency(tx.balance)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">
+                                    Belum ada data transaksi untuk anggota ini.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

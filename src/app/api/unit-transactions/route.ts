@@ -24,8 +24,8 @@ function mapStoreSale(s: Record<string, unknown>) {
         id: (s.id as number) + 1000000,
         transactionNo: s.saleNo,
         memberId: s.memberId,
-        unitType: "toko",
-        description: `Penjualan Toko ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
+        unitType: (s.unitType as string) || "toko",
+        description: `Penjualan ${((s.unitType as string) || "toko").replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())} ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
         amount: s.totalAmount,
         transactionDate: createdAt,
         isPaid: (isVoided || isVoidPending) ? false : (paymentMethod !== "salary_cut"),
@@ -128,6 +128,9 @@ export async function GET(request: Request) {
             ];
         }
 
+        // Exclude auto-generated UnitTransactions from POS sales (they're represented by StoreSale)
+        where.notes = { not: { startsWith: "Auto-generated dari penjualan kasir" } };
+
         // For export mode, skip pagination -- fetch everything with filters applied
         // For paginated mode, fetch with generous limits from both tables, then merge+slice
         const fetchLimit = query.perPage * 3;
@@ -146,14 +149,19 @@ export async function GET(request: Request) {
             prisma.unitTransaction.count({ where }),
         ]);
 
-        // If 'all' or 'toko' units are requested, fetch from StoreSale as well
+        // StoreSale-based units (toko, cafe_lsp, playstation, resto, coffe_latar)
+        const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
+        const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
+
         let storeSales: Record<string, unknown>[] = [];
         let storeCount = 0;
-        const includeStoreSales = !unitType || unitType === "all" || unitType === "toko";
 
         if (includeStoreSales) {
             const storeWhere: Record<string, unknown> = {};
             if (where.memberId) storeWhere.memberId = where.memberId;
+            if (unitType && unitType !== "all") {
+                storeWhere.unitType = unitType;
+            }
             if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
                 // StoreSales are paid unless it is salary_cut
                 if (isPaid === "true") {

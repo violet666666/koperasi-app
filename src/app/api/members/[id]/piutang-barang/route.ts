@@ -21,12 +21,14 @@ export async function GET(request: Request, { params }: Params) {
         }
 
         // Unpaid UnitTransactions (salary_cut receivables)
+        // Exclude auto-generated records from POS (those are already represented by StoreSale)
         const unitPiutang = await prisma.unitTransaction.findMany({
             where: {
                 memberId,
                 paymentMethod: "salary_cut",
                 isPaid: false,
                 status: { in: ["completed", "pending_void"] },
+                notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
             },
             orderBy: { transactionDate: "desc" },
             select: {
