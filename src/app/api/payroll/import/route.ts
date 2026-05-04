@@ -38,7 +38,6 @@ const SUMMARY_FIELDS: Record<string, keyof Pick<SlipData, "jumlahPotNonBRI" | "j
     "JUMLAH GAJI DITERIMA": "terimaBersih",
     "JML GAJI DITERIMA": "terimaBersih",
     "GAJI DITERIMA": "terimaBersih",
-    "DITERIMA": "terimaBersih",
 };
 
 // Identity field keywords
@@ -51,7 +50,6 @@ const IDENTITY_FIELDS: Record<string, "no" | "pangkat" | "nama" | "nrp" | "gajiB
     "NRP/NIP": "nrp",
     "JML GAJI": "gajiBersih",
     "GAJI BERSIH": "gajiBersih",
-    "JUMLAH GAJI": "gajiBersih",
 };
 
 interface SlipData {

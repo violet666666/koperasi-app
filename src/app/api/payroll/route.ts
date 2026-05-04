@@ -52,8 +52,8 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ message: "Hanya admin yang dapat menghapus data gaji" }, { status: 403 });
         }
         const { periodId } = await request.json();
-        if (!periodId) {
-            return NextResponse.json({ message: "periodId wajib" }, { status: 400 });
+        if (!periodId || isNaN(parseInt(periodId))) {
+            return NextResponse.json({ message: "periodId wajib dan harus berupa angka" }, { status: 400 });
         }
 
         // Fetch period info before deletion for audit trail
