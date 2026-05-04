@@ -63,6 +63,14 @@ export async function POST(
 
                 // Reverse each payment's cash/bank and journal entries
                 for (const payment of loan.payments) {
+                    // Delete payment-level CashBankTransaction records
+                    await tx.cashBankTransaction.deleteMany({
+                        where: {
+                            referenceType: "LoanPayment",
+                            referenceId: payment.id,
+                        },
+                    });
+
                     // Reverse cash/bank balance — payment was IN, so SUBTRACT
                     if (payment.cashBankAccountId) {
                         await tx.cashBankAccount.update({

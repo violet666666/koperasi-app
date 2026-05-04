@@ -14,6 +14,15 @@ function generateApplicationNo(): string {
 // GET /api/loans/applications
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pengajuan." }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,
@@ -72,6 +81,10 @@ export async function POST(request: Request) {
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat membuat pengajuan pinjaman." }, { status: 403 });
         }
         const currentUserId = parseInt(session.user.id);
         const body = await request.json();

@@ -17,8 +17,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (roleName !== "super_admin" && roleName !== "admin") {
-            return NextResponse.json({ message: "Hanya super_admin/admin yang dapat menghapus semua data pinjaman" }, { status: 403 });
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat menghapus semua data pinjaman" }, { status: 403 });
         }
 
         // Optional safety: require confirmation param

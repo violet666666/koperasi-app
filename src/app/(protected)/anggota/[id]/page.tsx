@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     Pencil,
     Wallet,
@@ -25,6 +26,8 @@ import {
     User,
     Banknote,
     Award,
+    ShoppingCart,
+    Eye,
 } from "lucide-react";
 import type { Member } from "@/types";
 
@@ -201,6 +204,34 @@ export default function AnggotaDetailPage() {
     const [summary, setSummary] = React.useState<MemberSummary | null>(null);
     const [loanDetails, setLoanDetails] = React.useState<LoanDetail[]>([]);
     const [sejahteraHistory, setSejahteraHistory] = React.useState<any[]>([]);
+
+    // Piutang Barang state
+    const [piutangBarang, setPiutangBarang] = React.useState<{
+        piutang: any[];
+        summary: { totalItems: number; totalAmount: number; byUnitType: Record<string, number> };
+    } | null>(null);
+    const [showPiutangModal, setShowPiutangModal] = React.useState(false);
+    const [loadingPiutang, setLoadingPiutang] = React.useState(false);
+
+    const loadPiutangBarang = async () => {
+        if (piutangBarang) {
+            setShowPiutangModal(true);
+            return;
+        }
+        setLoadingPiutang(true);
+        try {
+            const res = await fetch(`/api/members/${params.id}/piutang-barang`);
+            if (res.ok) {
+                const data = await res.json();
+                setPiutangBarang(data.data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch piutang:", e);
+        } finally {
+            setLoadingPiutang(false);
+            setShowPiutangModal(true);
+        }
+    };
 
     // Data loading
     React.useEffect(() => {
@@ -382,6 +413,22 @@ export default function AnggotaDetailPage() {
                         color={summary.unitPiutang.sisaLimit < 50000 ? "danger" : "success"}
                     />
                 )}
+                {/* Piutang Barang Card */}
+                <Card
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={loadPiutangBarang}
+                >
+                    <CardContent className="flex items-center gap-4 p-4">
+                        <div className="rounded-lg p-3 bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                            <ShoppingCart className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm text-muted-foreground">Piutang Barang</p>
+                            <p className="text-lg font-bold">Lihat Detail</p>
+                        </div>
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Tabs */}
@@ -744,6 +791,89 @@ export default function AnggotaDetailPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Piutang Barang Detail Modal */}
+            <Dialog open={showPiutangModal} onOpenChange={setShowPiutangModal}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ShoppingCart className="h-5 w-5" />
+                            Piutang Barang — {member?.name}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {loadingPiutang ? (
+                        <div className="py-8 text-center text-muted-foreground">Memuat data...</div>
+                    ) : piutangBarang && piutangBarang.piutang.length > 0 ? (
+                        <div className="space-y-4">
+                            {/* Summary */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <Card>
+                                    <CardContent className="p-4">
+                                        <p className="text-sm text-muted-foreground">Total Piutang</p>
+                                        <p className="text-2xl font-bold text-orange-600 tabular-nums">
+                                            {formatCurrency(piutangBarang.summary.totalAmount)}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardContent className="p-4">
+                                        <p className="text-sm text-muted-foreground">Jumlah Transaksi</p>
+                                        <p className="text-2xl font-bold">{piutangBarang.summary.totalItems}</p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Per-unit breakdown */}
+                            {Object.keys(piutangBarang.summary.byUnitType).length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {Object.entries(piutangBarang.summary.byUnitType).map(([unit, amount]) => (
+                                        <Badge key={unit} variant="outline" className="text-xs">
+                                            {unit}: {formatCurrency(amount)}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Transaction list */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-medium">No. Transaksi</th>
+                                            <th className="px-3 py-2 text-left font-medium">Deskripsi</th>
+                                            <th className="px-3 py-2 text-right font-medium">Jumlah</th>
+                                            <th className="px-3 py-2 text-right font-medium">Tanggal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {piutangBarang.piutang.map((p: any) => (
+                                            <tr key={p.id} className="hover:bg-muted/50">
+                                                <td className="px-3 py-2 font-mono text-xs">{p.transactionNo}</td>
+                                                <td className="px-3 py-2">
+                                                    <p className="font-medium text-xs line-clamp-1">{p.description}</p>
+                                                    <p className="text-xs text-muted-foreground capitalize">{p.unitType}</p>
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                                    {formatCurrency(p.amount)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-xs">
+                                                    {new Date(p.transactionDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center text-muted-foreground">
+                            <ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
+                            <p>Tidak ada piutang barang untuk anggota ini.</p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

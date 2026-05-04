@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pinjaman." }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get("limit") || "50");
         const status = searchParams.get("status") || "pending,overdue"; // pending, paid, overdue

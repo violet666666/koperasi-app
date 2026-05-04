@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -8,6 +9,11 @@ interface Params {
 // POST /api/loans/applications/[id]/submit
 export async function POST(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const { id } = await params;
         const application = await prisma.loanApplication.findUnique({
             where: { id: parseInt(id) },

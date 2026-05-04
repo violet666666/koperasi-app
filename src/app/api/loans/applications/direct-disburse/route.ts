@@ -65,13 +65,13 @@ export async function POST(request: Request) {
         // --- Kalkulasi Keuangan ---
         const principalAmount = data.amount;
         const tenorMonths = data.tenorMonths;
-        const interestPerMonth = Math.round(principalAmount * 0.01); // 1% flat/bulan
+        const interestRate = Number(product.interestRate) || 1;
+        const interestPerMonth = Math.round(principalAmount * (interestRate / 100));
         const totalInterest = interestPerMonth * tenorMonths;
         const totalAmount = principalAmount + totalInterest;
         const adminFee = Math.round(principalAmount * 0.02);         // 2% Potongan Resiko
         const disbursedAmount = principalAmount - adminFee;
         const monthlyInstallment = Math.round(principalAmount / tenorMonths) + interestPerMonth;
-        const interestRate = 1; // 1%
 
         // Nomor kwitansi
         const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -113,10 +113,20 @@ export async function POST(request: Request) {
 
             // 2. Buat Loan Aktif
             const loanYear = baseDate.getFullYear().toString();
-            const randomId = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+            const lastLoan = await tx.loan.findFirst({
+                where: { loanNo: { startsWith: `PJM-${loanYear}-` } },
+                orderBy: { loanNo: 'desc' },
+                select: { loanNo: true },
+            });
+            let seq = 1;
+            if (lastLoan) {
+                const match = lastLoan.loanNo.match(/PJM-\d{4}-(\d+)/);
+                if (match) seq = parseInt(match[1], 10) + 1;
+            }
+            const loanNo = `PJM-${loanYear}-${seq.toString().padStart(4, "0")}`;
             const loan = await tx.loan.create({
                 data: {
-                    loanNo: `PJM-${loanYear}-${randomId}`,
+                    loanNo,
                     applicationId: application.id,
                     memberId: data.memberId,
                     branchId: member.branchId,
@@ -165,7 +175,48 @@ export async function POST(request: Request) {
 
             await tx.loanSchedule.createMany({ data: schedules });
 
-            // 4. Buat Kwitansi (Receipt)
+            // 4. Record cash outflow (disbursement)
+            const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true },
+                orderBy: { id: 'asc' },
+            });
+
+            if (cashAccount) {
+                const balBefore = Number(cashAccount.currentBalance);
+                const balAfter = balBefore - disbursedAmount;
+
+                const cbTx = await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `CBM-PJM-${loan.loanNo}`,
+                        accountId: cashAccount.id,
+                        branchId: member.branchId,
+                        type: "out",
+                        category: "pencairan_pinjaman",
+                        amount: disbursedAmount,
+                        balanceBefore: balBefore,
+                        balanceAfter: balAfter,
+                        referenceType: "Loan",
+                        referenceId: loan.id,
+                        unitType: "simpan_pinjam",
+                        description: `Pencairan Pinjaman ${loan.loanNo} untuk ${member.name}`,
+                        transactionDate: baseDate,
+                        memberId: data.memberId,
+                        createdById: currentUserId,
+                    },
+                });
+
+                await tx.cashBankAccount.update({
+                    where: { id: cashAccount.id },
+                    data: { currentBalance: balAfter },
+                });
+
+                await tx.loan.update({
+                    where: { id: loan.id },
+                    data: { disbursementCashBankId: cbTx.id },
+                });
+            }
+
+            // 5. Buat Kwitansi (Receipt)
             const receipt = await tx.receipt.create({
                 data: {
                     receiptNo,

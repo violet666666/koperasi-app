@@ -13,6 +13,11 @@ export async function POST(request: Request, { params }: Params) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat menolak pengajuan pinjaman." }, { status: 403 });
+        }
+
         const { id } = await params;
         const body = await request.json();
         const { reason } = body;

@@ -70,7 +70,7 @@ export function checkOperatorAuth(session: unknown): NextResponse | null {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
   const roleName = s.user.role;
-  if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
+  if (roleName !== "operator") {
     return NextResponse.json(
       { message: "Akses ditolak. Hanya operator." },
       { status: 403 },

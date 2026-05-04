@@ -75,6 +75,10 @@ export async function POST(request: Request) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengimport data pinjaman." }, { status: 403 });
+        }
         const adminId = Number(session.user.id) || 1;
 
         const formData: any = await request.formData();
@@ -459,7 +463,7 @@ export async function POST(request: Request) {
                             }
                         });
 
-                        await tx.loan.create({
+                        const newLoan = await tx.loan.create({
                             data: {
                                 loanNo: applicationNo,
                                 applicationId: app.id,
@@ -485,9 +489,44 @@ export async function POST(request: Request) {
                                 lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + data.tenorMonths, 1),
                                 status: "active",
                                 disbursedById: adminId,
-                                // NO disbursementJournalId = no journal = no cash impact
                             }
                         });
+
+                        // Generate LoanSchedule records
+                        const tenor = data.tenorMonths || 60;
+                        const principal = data.principalAmount;
+                        const paidPrincipal = data.principalPaid;
+                        const principalPerMonth = tenor > 0 ? Math.floor(principal / tenor) : 0;
+                        const paidInstallments = principalPerMonth > 0 ? Math.round(paidPrincipal / principalPerMonth) : 0;
+                        const baseScheduleDate = new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1);
+
+                        const schedules = [];
+                        for (let j = 1; j <= tenor; j++) {
+                            const dueDate = new Date(baseScheduleDate);
+                            dueDate.setMonth(dueDate.getMonth() + (j - 1));
+
+                            let schedPrincipal = Math.floor(principal / tenor);
+                            if (j === tenor) {
+                                const totalSchedPrincipal = Math.floor(principal / tenor) * tenor;
+                                schedPrincipal += (principal - totalSchedPrincipal);
+                            }
+
+                            const isPaid = j <= paidInstallments;
+
+                            schedules.push({
+                                loanId: newLoan.id,
+                                installmentNo: j,
+                                dueDate,
+                                principalAmount: schedPrincipal,
+                                interestAmount: 0,
+                                totalAmount: schedPrincipal,
+                                principalPaid: isPaid ? schedPrincipal : 0,
+                                interestPaid: 0,
+                                status: isPaid ? "paid" : "pending",
+                            });
+                        }
+
+                        await tx.loanSchedule.createMany({ data: schedules });
                     }
                 }, { timeout: 60000 }); // 60 second timeout per batch
                 successCount += batch.length;

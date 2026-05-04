@@ -30,6 +30,15 @@ async function generatePaymentNo(): Promise<string> {
 // GET /api/loans/[id]/payments
 export async function GET(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pembayaran." }, { status: 403 });
+        }
+
         const { id } = await params;
         const payments = await prisma.loanPayment.findMany({
             where: { loanId: parseInt(id) },
@@ -61,6 +70,10 @@ export async function POST(request: Request, { params }: Params) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const userId = Number((session.user as any).id);
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mencatat pembayaran pinjaman." }, { status: 403 });
+        }
 
         const { id } = await params;
         const body = await request.json();
@@ -174,9 +187,22 @@ export async function POST(request: Request, { params }: Params) {
         // ATOMIC TRANSACTION — semua operasi di bawah ini dijamin
         // all-or-nothing (rollback jika salah satu gagal)
         // ══════════════════════════════════════════════════════════════
-        const paymentNo = await generatePaymentNo();
 
         const result = await prisma.$transaction(async (tx) => {
+            // Generate payment number inside transaction for atomicity
+            const pYear = new Date().getFullYear();
+            let paymentNo = '';
+            for (let attempt = 0; attempt < 5; attempt++) {
+                const random = Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
+                paymentNo = `PAY-${pYear}-${random}`;
+                const exists = await tx.loanPayment.findUnique({
+                    where: { paymentNo },
+                    select: { id: true },
+                });
+                if (!exists) break;
+                if (attempt === 4) paymentNo = `PAY-${pYear}-${Date.now().toString().slice(-8)}`;
+            }
+
             // 1. Create payment with allocations
             const payment = await tx.loanPayment.create({
                 data: {

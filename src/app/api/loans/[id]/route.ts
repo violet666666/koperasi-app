@@ -9,6 +9,15 @@ interface Params {
 // GET /api/loans/[id]
 export async function GET(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pinjaman." }, { status: 403 });
+        }
+
         const { id } = await params;
         const loan = await prisma.loan.findUnique({
             where: { id: parseInt(id) },

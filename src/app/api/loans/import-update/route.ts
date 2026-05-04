@@ -16,6 +16,10 @@ export async function POST(request: Request) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
+        if (roleName !== "operator") {
+            return NextResponse.json({ message: "Hanya Operator yang dapat mengimport data pinjaman." }, { status: 403 });
+        }
         const adminId = session.user.id ? Number(session.user.id) : 1;
 
         // Sequential transaction number generator — koperasi standard format
@@ -143,6 +147,15 @@ export async function POST(request: Request) {
             const angsuran = cleanNumber(row[COL.ANGSURAN]) || Math.ceil(pinjam / selama);
             const jumlah = cleanNumber(row[COL.JUMLAH]);
             const sisaSaldo = cleanNumber(row[COL.SISA_SALDO]);
+
+            // Validate financial consistency: sisaSaldo should roughly equal pinjam - jumlah
+            const expectedOutstanding = pinjam - jumlah;
+            if (sisaSaldo > 0 && Math.abs(sisaSaldo - expectedOutstanding) > 10000) {
+                console.warn(`Import: SISA SALDO mismatch for NRP ${nrp}. Excel=${sisaSaldo}, Calculated=${expectedOutstanding}. Using calculated value.`);
+            }
+            const validatedSisaSaldo = sisaSaldo > 0 && Math.abs(sisaSaldo - expectedOutstanding) > 10000
+                ? Math.max(0, expectedOutstanding)
+                : sisaSaldo;
             const tglPinjam = parseExcelDate(row[COL.TGL_PINJAM]);
 
             // Tenor terbayar: prefer explicit count from Excel, fallback to calculation
@@ -189,7 +202,7 @@ export async function POST(request: Request) {
                 const effectiveNrp = nrp || `MBR-${rawNama.replace(/\s+/g, "").substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
                 const resultIdx = results.length;
                 results.push({
-                    row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
+                    row: i + 13, nrp: effectiveNrp, nama: rawNama, pinjam, selama, sisaSaldo: validatedSisaSaldo, jumlah,
                     terbayar, deductionSource,
                     monthlyCount: monthlyPayments.length,
                     newPaymentsCount: monthlyPayments.length,
@@ -202,7 +215,7 @@ export async function POST(request: Request) {
 
                 // Queue commit task even for new members
                 if (mode === "commit") {
-                    const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
+                    const taskData = { nrp: effectiveNrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo: validatedSisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
                     commitTasks.push(async () => {
                         try {
                             // FIX #4: Transaction timeout 30 seconds
@@ -379,7 +392,7 @@ export async function POST(request: Request) {
 
             const resultIdx = results.length;
             results.push({
-                row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo, jumlah,
+                row: i + 13, nrp, nama: rawNama, pinjam, selama, sisaSaldo: validatedSisaSaldo, jumlah,
                 terbayar, deductionSource,
                 monthlyCount: monthlyPayments.length,
                 newPaymentsCount,
@@ -397,7 +410,7 @@ export async function POST(request: Request) {
             if (mode === "commit") {
                 const taskMember = member;
                 const taskLoan = existingLoan;
-                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
+                const taskData = { nrp, rawNama, pinjam, selama, jasa, angsuran, jumlah, sisaSaldo: validatedSisaSaldo, monthlyPayments, tglPinjam, terbayar, deductionSource };
 
                 commitTasks.push(async () => {
                     try {
