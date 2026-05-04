@@ -6,6 +6,11 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 
 export const maxDuration = 300;
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = [".xlsx", ".xls", ".csv"];
+const ALLOWED_SOURCE_TYPES = ["polres", "polsek"];
+const DEFAULT_SISA_REKENING = 100_000; // minimum balance retained in BRI account
+
 // Koperasi-specific deduction keywords (mapped to structured fields)
 const KOPERASI_FIELDS: Record<string, keyof Pick<SlipData, "potTajib" | "potSP" | "potBarang" | "potSukarela" | "potKoperasiLain">> = {
     "TAJIP": "potTajib",
@@ -109,15 +114,34 @@ export async function POST(request: Request) {
         if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
             return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
         }
-        const adminId = session.user.id ? Number(session.user.id) : 1;
+        const adminId = Number(session.user.id);
+        if (!adminId) {
+            return NextResponse.json({ message: "Session tidak valid" }, { status: 401 });
+        }
 
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview";
-        const sourceType = (formData.get("sourceType") as string) || "polres";
+        const sourceType = ((formData.get("sourceType") as string) || "polres").toLowerCase();
 
         if (!file) {
             return NextResponse.json({ message: "File wajib diupload" }, { status: 400 });
+        }
+
+        // File size validation
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({ message: "File terlalu besar (maks 10MB)" }, { status: 400 });
+        }
+
+        // File type validation
+        const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+            return NextResponse.json({ message: "Format file harus .xlsx, .xls, atau .csv" }, { status: 400 });
+        }
+
+        // Source type validation
+        if (!ALLOWED_SOURCE_TYPES.includes(sourceType)) {
+            return NextResponse.json({ message: "sourceType harus 'polres' atau 'polsek'" }, { status: 400 });
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -246,7 +270,7 @@ export async function POST(request: Request) {
                 totalPotKoperasi: 0, sisaGaji: 0, sisaTunkin: 0,
                 otherDeductions,
                 jumlahPotNonBRI: 0, jumlahPotBRI: 0,
-                terimaBersih: 0, sisaRekening: 100000, bisaDiambilATM: 0,
+                terimaBersih: 0, sisaRekening: DEFAULT_SISA_REKENING, bisaDiambilATM: 0,
                 memberId: null,
             };
 
@@ -329,50 +353,53 @@ export async function POST(request: Request) {
             }, { status: 409 });
         }
 
-        const period = await prisma.payrollPeriod.create({
-            data: {
-                periodName,
-                periodMonth,
-                periodYear,
-                sourceFile: fileName,
-                sourceType,
-                status: "processed",
-                totalMembers: slips.length,
-                totalGaji: slips.reduce((sum, s) => sum + s.gajiBersih, 0),
-                totalPotongan: slips.reduce((sum, s) => sum + s.totalPotKoperasi, 0),
-                createdById: adminId,
-            },
-        });
-
-        const BATCH = 100;
-        for (let i = 0; i < slips.length; i += BATCH) {
-            const batch = slips.slice(i, i + BATCH);
-            await prisma.payrollSlip.createMany({
-                data: batch.map(s => ({
-                    periodId: period.id,
-                    memberId: s.memberId,
-                    nrp: s.nrp,
-                    nama: s.nama,
-                    pangkat: s.pangkat,
-                    gajiBersih: s.gajiBersih,
-                    tunkin: s.tunkin,
-                    potTajib: s.potTajib,
-                    potSP: s.potSP,
-                    potBarang: s.potBarang,
-                    potSukarela: s.potSukarela,
-                    potKoperasiLain: s.potKoperasiLain,
-                    totalPotKoperasi: s.totalPotKoperasi,
-                    sisaGaji: s.sisaGaji,
-                    sisaTunkin: s.sisaTunkin,
-                    otherDeductions: s.otherDeductions,
-                    jumlahPotNonBRI: s.jumlahPotNonBRI,
-                    jumlahPotBRI: s.jumlahPotBRI,
-                    terimaBersih: s.terimaBersih,
-                    sisaRekening: s.sisaRekening,
-                    bisaDiambilATM: s.bisaDiambilATM,
-                })),
+        const period = await prisma.$transaction(async (tx) => {
+            const p = await tx.payrollPeriod.create({
+                data: {
+                    periodName,
+                    periodMonth,
+                    periodYear,
+                    sourceFile: fileName,
+                    sourceType,
+                    status: "processed",
+                    totalMembers: slips.length,
+                    totalGaji: slips.reduce((sum, s) => sum + s.gajiBersih, 0),
+                    totalPotongan: slips.reduce((sum, s) => sum + s.totalPotKoperasi, 0),
+                    createdById: adminId,
+                },
             });
-        }
+
+            const BATCH = 100;
+            for (let i = 0; i < slips.length; i += BATCH) {
+                const batch = slips.slice(i, i + BATCH);
+                await tx.payrollSlip.createMany({
+                    data: batch.map(s => ({
+                        periodId: p.id,
+                        memberId: s.memberId,
+                        nrp: s.nrp,
+                        nama: s.nama,
+                        pangkat: s.pangkat,
+                        gajiBersih: s.gajiBersih,
+                        tunkin: s.tunkin,
+                        potTajib: s.potTajib,
+                        potSP: s.potSP,
+                        potBarang: s.potBarang,
+                        potSukarela: s.potSukarela,
+                        potKoperasiLain: s.potKoperasiLain,
+                        totalPotKoperasi: s.totalPotKoperasi,
+                        sisaGaji: s.sisaGaji,
+                        sisaTunkin: s.sisaTunkin,
+                        otherDeductions: s.otherDeductions,
+                        jumlahPotNonBRI: s.jumlahPotNonBRI,
+                        jumlahPotBRI: s.jumlahPotBRI,
+                        terimaBersih: s.terimaBersih,
+                        sisaRekening: s.sisaRekening,
+                        bisaDiambilATM: s.bisaDiambilATM,
+                    })),
+                });
+            }
+            return p;
+        }, { timeout: 60000 });
 
         try {
             const reqInfo = extractRequestInfo(request);
