@@ -169,7 +169,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Rekap Pinjaman", href: "/laporan/rekap-pinjaman" },
                     { title: "Faktur Potongan", href: "/laporan/faktur-potongan" },
                     { title: "Piutang Gabungan", href: "/laporan/piutang-gabungan" },
-                    { title: "Gaji & Slip", href: "/gaji", icon: Banknote, permission: "view_laporan" },
+                    { title: "Gaji & Slip", href: "/gaji", icon: Banknote, roles: ["operator"] },
                 ],
             },
         ],

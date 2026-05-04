@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: Params) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as { name: string })?.name;
-        if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
+        if (roleName !== "operator") {
             return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
         }
         const { periodId, slipId } = await params;
