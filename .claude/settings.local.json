@@ -36,7 +36,8 @@
       "Bash(Select-String -Pattern \"slip\\\\\\\\\\\\[slipId\\\\]\")",
       "Bash(Select-String -Pattern \"portal|payroll\")",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\\\\src\\\\app\\\\api\\\\loans\" -Recurse -Filter \"route.ts\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(eas build *)"
     ]
   },
   "enabledPlugins": {

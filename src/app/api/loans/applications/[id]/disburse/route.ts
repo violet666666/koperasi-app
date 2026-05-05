@@ -172,7 +172,7 @@ export async function POST(request: Request, { params }: Params) {
 
                 await tx.loan.update({
                     where: { id: newLoan.id },
-                    data: { disbursementCashBankId: cbTx.id },
+                    data: { disbursementCashBankId: cashAccount.id },
                 });
             }
 
