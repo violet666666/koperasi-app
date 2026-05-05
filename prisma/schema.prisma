@@ -471,6 +471,7 @@ model Loan {
   disbursementCashBankId Int?      @map("disbursement_cash_bank_id")
   disbursedById          Int?      @map("disbursed_by_id")
   periodId               Int?      @map("period_id")
+  compensatedLoanId      Int?      @map("compensated_loan_id")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -480,6 +481,8 @@ model Loan {
   disbursementJournal  Journal?         @relation(fields: [disbursementJournalId], references: [id])
   disbursementCashBank CashBankAccount? @relation(fields: [disbursementCashBankId], references: [id])
   period               FiscalPeriod?    @relation(fields: [periodId], references: [id])
+  compensatedLoan      Loan?            @relation("LoanKompen", fields: [compensatedLoanId], references: [id], onDelete: SetNull)
+  kompenChildren       Loan[]           @relation("LoanKompen")
   schedules            LoanSchedule[]
   payments             LoanPayment[]
 

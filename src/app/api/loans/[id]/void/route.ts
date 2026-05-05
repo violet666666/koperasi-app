@@ -35,6 +35,9 @@ export async function POST(
                         journalId: true,
                         cashBankAccountId: true,
                         amount: true,
+                        paymentType: true,
+                        earlySettlementFee: true,
+                        principalPortion: true,
                     },
                 },
                 _count: {
@@ -132,9 +135,69 @@ export async function POST(
                 }
             });
 
-            // 6. Delete the loan record
-            await tx.loan.delete({
-                where: { id: loan.id }
+            // 6. Kompen reversal: if this loan compensated an old loan, re-open the old loan
+            if (loan.compensatedLoanId) {
+                const oldLoan = await tx.loan.findUnique({ where: { id: loan.compensatedLoanId } });
+                if (oldLoan) {
+                    // Find the early_settlement payment created by kompen on the old loan
+                    const kompenPayment = await tx.loanPayment.findFirst({
+                        where: {
+                            loanId: oldLoan.id,
+                            paymentType: "early_settlement",
+                            notes: { contains: "KOMPEN" },
+                        },
+                    });
+
+                    if (kompenPayment) {
+                        // Reverse cash/bank for the kompen payment
+                        if (kompenPayment.cashBankAccountId) {
+                            await tx.cashBankAccount.update({
+                                where: { id: kompenPayment.cashBankAccountId },
+                                data: { currentBalance: { decrement: kompenPayment.amount } }
+                            });
+                        }
+                        // Delete kompen payment allocations and payment
+                        await tx.loanPaymentAllocation.deleteMany({ where: { paymentId: kompenPayment.id } });
+                        await tx.cashBankTransaction.deleteMany({
+                            where: { referenceType: "LoanPayment", referenceId: kompenPayment.id },
+                        });
+                        if (kompenPayment.journalId) {
+                            await tx.journalLine.deleteMany({ where: { journalId: kompenPayment.journalId } });
+                            await tx.journal.delete({ where: { id: kompenPayment.journalId } });
+                        }
+                        await tx.loanPayment.delete({ where: { id: kompenPayment.id } });
+                    }
+
+                    // Re-open the old loan
+                    await tx.loan.update({
+                        where: { id: oldLoan.id },
+                        data: {
+                            status: "active",
+                            paidOffDate: null,
+                            principalOutstanding: kompenPayment ? kompenPayment.principalPortion : oldLoan.principalAmount,
+                            interestOutstanding: oldLoan.interestAmount,
+                            principalPaid: kompenPayment
+                                ? Number(oldLoan.principalPaid) - Number(kompenPayment.principalPortion)
+                                : 0,
+                        },
+                    });
+
+                    // Re-open old schedules that were paid by kompen
+                    await tx.loanSchedule.updateMany({
+                        where: {
+                            loanId: oldLoan.id,
+                            status: "paid",
+                            notes: { contains: "KOMPEN" },
+                        },
+                        data: { status: "pending", paidDate: null, notes: null },
+                    });
+                }
+            }
+
+            // 7. Void the loan (set status instead of deleting to preserve kompen linkage)
+            await tx.loan.update({
+                where: { id: loan.id },
+                data: { status: "voided" },
             });
         });
 

@@ -84,6 +84,12 @@ function TambahPengajuanContent() {
     const [amountError, setAmountError] = React.useState<string | null>(null);
     const [tenorError, setTenorError] = React.useState<string | null>(null);
 
+    // Kompen mode state
+    const [isKompenMode, setIsKompenMode] = React.useState(false);
+    const [eligibleLoans, setEligibleLoans] = React.useState<any[]>([]);
+    const [selectedExistingLoanId, setSelectedExistingLoanId] = React.useState("");
+    const [kompenSimulasi, setKompenSimulasi] = React.useState<any>(null);
+
     // Fetch loan products from DB
     React.useEffect(() => {
         const loadProducts = async () => {
@@ -341,6 +347,72 @@ function TambahPengajuanContent() {
         }
     };
 
+    // Fetch eligible loans when member selected in kompen mode
+    React.useEffect(() => {
+        if (isKompenMode && selectedMember) {
+            fetch(`/api/loans/kompen/eligible?memberId=${selectedMember.id}`)
+                .then(r => r.json())
+                .then(j => setEligibleLoans(j.data || []))
+                .catch(() => setEligibleLoans([]));
+        } else {
+            setEligibleLoans([]);
+            setSelectedExistingLoanId("");
+            setKompenSimulasi(null);
+        }
+    }, [isKompenMode, selectedMember]);
+
+    const handleKompenSimulate = async () => {
+        if (!selectedMember || !selectedExistingLoanId || !formData.amount || !formData.product_id || !formData.tenor_months) {
+            toast.error("Lengkapi semua field dan pilih pinjaman yang dikompen");
+            return;
+        }
+        try {
+            const params = new URLSearchParams({
+                memberId: String(selectedMember.id),
+                existingLoanId: selectedExistingLoanId,
+                newAmount: formData.amount,
+                newProductId: formData.product_id,
+                newTenor: formData.tenor_months,
+            });
+            const res = await fetch(`/api/loans/kompen/simulate?${params}`);
+            const json = await res.json();
+            if (res.ok) {
+                setKompenSimulasi(json.data);
+            } else {
+                toast.error(json.message || "Gagal simulasi kompen");
+            }
+        } catch { toast.error("Gagal simulasi kompen"); }
+    };
+
+    const handleKompenDisburse = async () => {
+        if (!selectedMember || !selectedExistingLoanId) { toast.error("Data tidak lengkap"); return; }
+        setIsLoading(true);
+        try {
+            const res = await fetch("/api/loans/kompen/disburse", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    memberId: selectedMember.id,
+                    existingLoanId: parseInt(selectedExistingLoanId),
+                    productId: parseInt(formData.product_id),
+                    amount: parseFloat(formData.amount),
+                    tenorMonths: parseInt(formData.tenor_months),
+                    paymentMethod: "bank_transfer",
+                    cashBankAccountId: 1,
+                    ...(formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
+                }),
+            });
+            const json = await res.json();
+            if (res.ok) {
+                toast.success(`Kompen berhasil! ${json.data.newLoanNo} dicairkan, ${json.data.existingLoanNo} dilunasi.`);
+                router.push("/pinjaman");
+            } else {
+                toast.error(json.message || "Gagal memproses kompen");
+            }
+        } catch { toast.error("Gagal memproses kompen"); }
+        finally { setIsLoading(false); }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -348,6 +420,26 @@ function TambahPengajuanContent() {
                 description="Buat pengajuan pinjaman untuk anggota"
                 backHref="/pinjaman/pengajuan"
             />
+
+            {/* Kompen Toggle */}
+            {isOperator && (
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => { setIsKompenMode(false); setKompenSimulasi(null); setSelectedExistingLoanId(""); }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${!isKompenMode ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                        Mode Normal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsKompenMode(true)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${isKompenMode ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                        <Zap className="h-3.5 w-3.5" /> Mode Kompen
+                    </button>
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -408,6 +500,50 @@ function TambahPengajuanContent() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Kompen: Pinjaman yang dikompen */}
+                        {isKompenMode && selectedMember && (
+                            <Card className="border-violet-200 dark:border-violet-800">
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <Zap className="h-4 w-4 text-violet-600" />
+                                        Pinjaman yang Dikompen
+                                    </CardTitle>
+                                    <CardDescription>Pilih pinjaman aktif yang akan dilunasi dari akad baru</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {eligibleLoans.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground py-2">Tidak ada pinjaman aktif untuk anggota ini</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {eligibleLoans.map((loan: any) => (
+                                                <button
+                                                    key={loan.id}
+                                                    type="button"
+                                                    onClick={() => { setSelectedExistingLoanId(String(loan.id)); setKompenSimulasi(null); }}
+                                                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${selectedExistingLoanId === String(loan.id) ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30" : "border-border hover:border-violet-300"}`}
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <p className="font-medium text-sm">{loan.loanNo}</p>
+                                                            <p className="text-xs text-muted-foreground">{loan.productName}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-semibold">{formatCurrency(loan.principalOutstanding)}</p>
+                                                            <p className="text-xs text-muted-foreground">Sisa pokok</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                                                        <span>Penalti: {formatCurrency(loan.penaltyFee)}</span>
+                                                        <span>Total kompen: {formatCurrency(loan.totalKompen)}</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Loan Product Selection */}
                         <Card>
@@ -728,7 +864,42 @@ function TambahPengajuanContent() {
                 {/* Actions */}
                 <div className="flex flex-col gap-3 pt-4">
                     {/* Tombol Cairkan Langsung — hanya untuk Operator */}
-                    {isOperator && (
+                    {isOperator && isKompenMode && selectedExistingLoanId && (
+                        <div className="rounded-lg border border-violet-300 bg-violet-50 dark:bg-violet-950/20 dark:border-violet-700 p-4 space-y-3">
+                            <div className="flex items-start gap-2">
+                                <Zap className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="text-sm font-semibold text-violet-800 dark:text-violet-400">Mode Kompen: Simulasi & Cairkan</p>
+                                    <p className="text-xs text-violet-700/80 dark:text-violet-500/80 mt-0.5">
+                                        Akad baru akan melunasi pinjaman lama secara otomatis. Anggota menerima selisih setelah dikurangi pelunasan + admin.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {!kompenSimulasi ? (
+                                <Button type="button" onClick={handleKompenSimulate} disabled={!selectedMember || !formData.amount || !formData.product_id || !formData.tenor_months} className="w-full bg-violet-600 hover:bg-violet-700 text-white" size="lg">
+                                    Lihat Simulasi Kompen
+                                </Button>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-2 text-sm">
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Plafon Baru</span><span className="font-medium">{formatCurrency(kompenSimulasi.summary.plafonBaru)}</span></div>
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Total Kompen</span><span className="font-medium text-red-600">− {formatCurrency(kompenSimulasi.summary.totalKompen)}</span></div>
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Biaya Admin</span><span className="font-medium text-red-600">− {formatCurrency(kompenSimulasi.summary.biayaAdmin)}</span></div>
+                                        <Separator />
+                                        <div className="flex justify-between"><span className="font-semibold">Dana Diterima Anggota</span><span className="text-xl font-bold text-emerald-600">{formatCurrency(kompenSimulasi.summary.danaDiterimaAnggota)}</span></div>
+                                        <Separator />
+                                        <div className="flex justify-between text-xs text-muted-foreground"><span>Angsuran/bln ({kompenSimulasi.newLoan.tenorMonths}x)</span><span>{formatCurrency(kompenSimulasi.newLoan.monthlyInstallment)}</span></div>
+                                    </div>
+                                    <Button type="button" onClick={handleKompenDisburse} disabled={isLoading} className="w-full bg-violet-600 hover:bg-violet-700 text-white" size="lg">
+                                        {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses Kompen...</> : <><Zap className="mr-2 h-4 w-4" />Proses Kompen & Cairkan</>}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {isOperator && !isKompenMode && (
                         <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-4 space-y-3">
                             <div className="flex items-start gap-2">
                                 <Zap className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
