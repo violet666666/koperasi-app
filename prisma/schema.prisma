@@ -59,6 +59,8 @@ model User {
   notifications           Notification[]
   payrollPeriods           PayrollPeriod[]
 
+  @@index([roleId])
+  @@index([isActive])
   @@map("users")
 }
 
@@ -274,6 +276,8 @@ model Member {
   @@index([status])
   @@index([nrp])
   @@index([deletedAt])
+  @@index([branchId])
+  @@index([branchId, status])
   @@map("members")
 }
 
@@ -361,6 +365,9 @@ model SavingsAccount {
   transactions SavingsTransaction[]
 
   @@unique([memberId, productId])
+  @@index([memberId])
+  @@index([status])
+  @@index([memberId, status])
   @@map("savings_accounts")
 }
 
@@ -401,6 +408,8 @@ model SavingsTransaction {
   @@index([transactionDate])
   @@index([type, transactionDate])
   @@index([accountId])
+  @@index([memberId])
+  @@index([memberId, status])
   @@map("savings_transactions")
 }
 
@@ -438,6 +447,10 @@ model LoanApplication {
   approvedBy User?       @relation("LoanAppApprovedBy", fields: [approvedById], references: [id])
   loan       Loan?
 
+  @@index([status])
+  @@index([memberId])
+  @@index([branchId])
+  @@index([status, branchId])
   @@map("loan_applications")
 }
 
@@ -627,6 +640,8 @@ model CashBankTransaction {
   createdBy User            @relation("CashBankCreatedBy", fields: [createdById], references: [id])
 
   @@index([unitType])
+  @@index([branchId])
+  @@index([accountId, transactionDate])
   @@map("cash_bank_transactions")
 }
 
@@ -685,6 +700,9 @@ model Journal {
   cashBankTransactions CashBankTransaction[]
   storeSales           StoreSale[]            @relation("StoreSaleJournal")
 
+  @@index([transactionDate])
+  @@index([periodId])
+  @@index([isPosted])
   @@map("journals")
 }
 
@@ -699,6 +717,7 @@ model JournalLine {
   journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id])
 
+  @@index([accountId])
   @@map("journal_lines")
 }
 
@@ -731,6 +750,9 @@ model ApprovalRequest {
   requestedBy User   @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
   approvedBy  User?  @relation("ApprovalApprovedBy", fields: [approvedById], references: [id])
 
+  @@index([status])
+  @@index([type])
+  @@index([type, status])
   @@map("approval_requests")
 }
 
@@ -882,6 +904,7 @@ model StoreSale {
   @@index([createdAt])
   @@index([unitType, createdAt])
   @@index([paymentMethod])
+  @@index([memberId])
   @@map("store_sales")
 }
 
@@ -928,6 +951,8 @@ model Receipt {
   member    Member @relation(fields: [memberId], references: [id])
   createdBy User   @relation("ReceiptCreatedBy", fields: [createdById], references: [id])
 
+  @@index([memberId])
+  @@index([receiptDate])
   @@map("receipts")
 }
 
@@ -1244,6 +1269,7 @@ model PayrollPeriod {
   slips         PayrollSlip[]
 
   @@unique([periodMonth, periodYear, sourceType])
+  @@index([status])
   @@map("payroll_periods")
 }
 
@@ -1282,6 +1308,7 @@ model PayrollSlip {
   createdAt DateTime @default(now())
 
   @@unique([periodId, nrp])
+  @@index([periodId])
   @@index([memberId])
   @@map("payroll_slips")
 }
