@@ -6,10 +6,14 @@ interface Params {
   params: Promise<{ periodId: string }>;
 }
 
-// GET /api/mobile/payroll/[periodId] — Period detail with all slips
+// GET /api/mobile/payroll/[periodId] — Period detail with all slips (operator/admin only)
 export async function GET(request: Request, { params }: Params) {
   const user = getMobileUser(request);
   if (!user) return unauthorizedResponse();
+
+  if (!["operator", "admin", "kasir"].includes(user.role)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const { periodId } = await params;

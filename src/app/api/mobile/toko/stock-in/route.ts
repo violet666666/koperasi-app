@@ -23,51 +23,72 @@ export async function POST(request: Request) {
 
             const oldStock = product.stock || 0;
             const oldCost = Number(product.costPrice) || 0;
-            const newCost = purchasePrice || oldCost;
             const newStock = oldStock + quantity;
 
-            // HPP Moving Average
-            const newCostPrice = (oldStock * oldCost + quantity * newCost) / newStock;
+            if (purchasePrice && purchasePrice > 0) {
+                // HPP Moving Average only when purchase price is provided
+                const newCostPrice = (oldStock * oldCost + quantity * purchasePrice) / newStock;
 
-            await tx.storeProduct.update({
-                where: { id: productId },
-                data: {
-                    stock: newStock,
-                    costPrice: Math.round(newCostPrice),
-                },
-            });
-
-            // Stock movement record
-            await tx.storeStockMovement.create({
-                data: {
-                    productId,
-                    type: "in",
-                    quantity,
-                    unitPrice: newCost,
-                    reason: "stock_in",
-                    reasonNote: `Stok masuk via Mobile oleh ${user.name}`,
-                    costAtTime: Math.round(newCostPrice),
-                    createdById: parseInt(user.id),
-                },
-            });
-
-            // Create batch if batchNo provided
-            if (batchNo) {
-                await tx.stockBatch.create({
+                await tx.storeProduct.update({
+                    where: { id: productId },
                     data: {
-                        productId,
-                        batchNo,
-                        purchasePrice: newCost,
-                        quantity,
-                        expiryDate: expiryDate ? new Date(expiryDate) : null,
-                        supplierName: supplierName || null,
-                        isActive: true,
-                        unitType: product.unitType || "toko",
+                        stock: newStock,
+                        costPrice: Math.round(newCostPrice),
                     },
                 });
-            }
 
-            return { newStock, newCostPrice: Math.round(newCostPrice) };
+                // Stock movement record
+                await tx.storeStockMovement.create({
+                    data: {
+                        productId,
+                        type: "in",
+                        quantity,
+                        reason: "stock_in",
+                        reasonNote: `Stok masuk via Mobile oleh ${user.name}`,
+                        costAtTime: Math.round(newCostPrice),
+                        operatorId: parseInt(user.id),
+                    },
+                });
+
+                // Create batch if batchNo provided
+                if (batchNo) {
+                    await tx.stockBatch.create({
+                        data: {
+                            productId,
+                            batchNo,
+                            purchasePrice,
+                            quantity,
+                            originalQuantity: quantity,
+                            expiryDate: expiryDate ? new Date(expiryDate) : null,
+                            supplierName: supplierName || null,
+                            isActive: true,
+                            unitType: product.unitType || "toko",
+                        },
+                    });
+                }
+
+                return { newStock, newCostPrice: Math.round(newCostPrice) };
+            } else {
+                // No purchase price — just update stock, don't recalculate HPP
+                await tx.storeProduct.update({
+                    where: { id: productId },
+                    data: { stock: newStock },
+                });
+
+                await tx.storeStockMovement.create({
+                    data: {
+                        productId,
+                        type: "in",
+                        quantity,
+                        reason: "stock_in",
+                        reasonNote: `Stok masuk via Mobile oleh ${user.name} (tanpa HPP)`,
+                        costAtTime: oldCost,
+                        operatorId: parseInt(user.id),
+                    },
+                });
+
+                return { newStock, newCostPrice: oldCost };
+            }
         });
 
         return NextResponse.json({ data: result, message: "Stok masuk berhasil" });

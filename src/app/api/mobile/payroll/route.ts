@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 
-// GET /api/mobile/payroll — List all payroll periods
+// GET /api/mobile/payroll — List all payroll periods (operator/admin only)
 export async function GET(request: Request) {
   const user = getMobileUser(request);
   if (!user) return unauthorizedResponse();
+
+  if (!["operator", "admin", "kasir"].includes(user.role)) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const periods = await prisma.payrollPeriod.findMany({

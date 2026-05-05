@@ -8,8 +8,8 @@ interface Params {
 
 // GET /api/mobile/payroll/[periodId]/slip/[slipId] — Individual slip detail
 export async function GET(request: Request, { params }: Params) {
-  const user = getMobileUser(request);
-  if (!user) return unauthorizedResponse();
+  const mobileUser = getMobileUser(request);
+  if (!mobileUser) return unauthorizedResponse();
 
   try {
     const { slipId } = await params;
@@ -38,14 +38,17 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     // Anggota role can only view their own slip
-    if (
-      user.role === "anggota" &&
-      slip.memberId !== parseInt(user.memberId)
-    ) {
-      return NextResponse.json(
-        { message: "Anda tidak memiliki akses ke slip ini" },
-        { status: 403 }
-      );
+    if (mobileUser.role === "anggota") {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: Number(mobileUser.id) },
+        select: { memberId: true },
+      });
+      if (!dbUser?.memberId || slip.memberId !== dbUser.memberId) {
+        return NextResponse.json(
+          { message: "Anda tidak memiliki akses ke slip ini" },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json({ data: slip });

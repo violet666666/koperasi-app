@@ -4,11 +4,16 @@ import { getMobileUser, unauthorizedResponse } from "../../middleware";
 
 // GET /api/mobile/payroll/my-slips — Current member's own slips
 export async function GET(request: Request) {
-  const user = getMobileUser(request);
-  if (!user) return unauthorizedResponse();
+  const mobileUser = getMobileUser(request);
+  if (!mobileUser) return unauthorizedResponse();
 
   try {
-    if (!user.memberId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: Number(mobileUser.id) },
+      select: { memberId: true },
+    });
+
+    if (!dbUser?.memberId) {
       return NextResponse.json(
         { message: "Data anggota tidak ditemukan" },
         { status: 404 }
@@ -16,7 +21,7 @@ export async function GET(request: Request) {
     }
 
     const slips = await prisma.payrollSlip.findMany({
-      where: { memberId: parseInt(user.memberId) },
+      where: { memberId: dbUser.memberId },
       include: {
         period: {
           select: { id: true, periodName: true, periodMonth: true, periodYear: true },

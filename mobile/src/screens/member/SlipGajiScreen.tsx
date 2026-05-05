@@ -56,7 +56,10 @@ export default function SlipGajiScreen({ route, navigation }: any) {
     );
   }
 
-  const otherDeductions = (typeof slip.otherDeductions === 'string' ? JSON.parse(slip.otherDeductions) : slip.otherDeductions) as Record<string, number> | null;
+  let otherDeductions: Record<string, number> | null = null;
+  try {
+    otherDeductions = typeof slip.otherDeductions === 'string' ? JSON.parse(slip.otherDeductions) : slip.otherDeductions;
+  } catch { otherDeductions = null; }
 
   return (
     <View style={styles.container}>
@@ -150,21 +153,21 @@ function Row({ label, value, color, bold }: { label: string; value: string; colo
 
 function generateSlipHTML(slip: any): string {
   const f = (n: number) => (n || 0).toLocaleString('id-ID');
-  const periode = slip.period?.name || slip.period?.periodName || '-';
+  const e = (s: string | undefined | null) => (s || '-').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const periode = e(slip.period?.name || slip.period?.periodName);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body{font-family:monospace;max-width:300px;margin:0 auto;padding:8px;font-size:12px}
     h2{text-align:center;font-size:14px;margin:4px 0}
     .sub{text-align:center;font-size:10px;color:#666;margin-bottom:8px}
-    .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #ccc}
-    .row.total{border-bottom:2px solid #000;font-weight:bold;margin-top:4px}
+    .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #ccc}    .row.total{border-bottom:2px solid #000;font-weight:bold;margin-top:4px}
     .label{flex:1}.val{text-align:right;min-width:100px}
     .section{font-weight:bold;margin-top:8px;border-top:1px solid #000;padding-top:4px}
   </style></head><body>
     <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
     <div class="sub">SLIP GAJI — ${periode}</div>
-    <div class="row"><span class="label">Nama</span><span class="val">${slip.nama || '-'}</span></div>
-    <div class="row"><span class="label">NRP</span><span class="val">${slip.nrp || '-'}</span></div>
-    <div class="row"><span class="label">Pangkat</span><span class="val">${slip.pangkat || '-'}</span></div>
+    <div class="row"><span class="label">Nama</span><span class="val">${e(slip.nama)}</span></div>
+    <div class="row"><span class="label">NRP</span><span class="val">${e(slip.nrp)}</span></div>
+    <div class="row"><span class="label">Pangkat</span><span class="val">${e(slip.pangkat)}</span></div>
     <div class="section">PENERIMAAN</div>
     <div class="row"><span class="label">Gaji Bersih</span><span class="val">Rp ${f(Number(slip.gajiBersih))}</span></div>
     <div class="row"><span class="label">Tunkin</span><span class="val">Rp ${f(Number(slip.tunkin))}</span></div>

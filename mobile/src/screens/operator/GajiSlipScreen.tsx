@@ -44,7 +44,6 @@ export default function GajiSlipScreen({ route, navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
-  // Summary calculations
   const totalGaji = filtered.reduce((s: number, sl: any) => s + (Number(sl.gajiBersih) || 0), 0);
   const totalPotKop = filtered.reduce((s: number, sl: any) => s + (Number(sl.totalPotKoperasi) || 0), 0);
   const totalTerima = filtered.reduce((s: number, sl: any) => s + (Number(sl.terimaBersih) || 0), 0);
@@ -70,78 +69,80 @@ export default function GajiSlipScreen({ route, navigation }: any) {
         </View>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
+      {/* Summary Cards */}
+      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 }}>
+        <View style={[styles.summaryCard, { backgroundColor: '#EFF6FF' }]}>
+          <Text style={styles.summaryLabel}>Total Gaji</Text>
+          <Text style={[styles.summaryValue, { color: '#2563EB' }]}>{formatRp(totalGaji)}</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: '#FEF2F2' }]}>
+          <Text style={styles.summaryLabel}>Total Pot.</Text>
+          <Text style={[styles.summaryValue, { color: '#DC2626' }]}>{formatRp(totalPotKop)}</Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: '#F0FDF4' }]}>
+          <Text style={styles.summaryLabel}>Terima</Text>
+          <Text style={[styles.summaryValue, { color: '#16A34A' }]}>{formatRp(totalTerima)}</Text>
+        </View>
+      </View>
+
+      {/* Search */}
+      <View style={[styles.searchWrap, { marginHorizontal: 16, marginTop: 12 }]}>
+        <Ionicons name="search" size={18} color={C.mutedForeground} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari nama atau NRP..."
+          placeholderTextColor={C.mutedForeground}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
+      {/* Slip List */}
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item: slip }) => (
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('SlipGajiDetail', { slipId: slip.id, periodId })}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.slipName}>{slip.nama || '-'}</Text>
+                <Text style={styles.slipNrp}>NRP: {slip.nrp || '-'} {slip.pangkat ? `· ${slip.pangkat}` : ''}</Text>
+              </View>
+              <Text style={styles.slipAmount}>{formatRp(Number(slip.terimaBersih) || 0)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+              <View>
+                <Text style={styles.detailLabel}>Gaji</Text>
+                <Text style={styles.detailValue}>{formatRp(Number(slip.gajiBersih) || 0)}</Text>
+              </View>
+              <View>
+                <Text style={styles.detailLabel}>Tunkin</Text>
+                <Text style={styles.detailValue}>{formatRp(Number(slip.tunkin) || 0)}</Text>
+              </View>
+              <View>
+                <Text style={styles.detailLabel}>Pot. Kop.</Text>
+                <Text style={[styles.detailValue, { color: '#DC2626' }]}>{formatRp(Number(slip.totalPotKoperasi) || 0)}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.accent]} />}
-      >
-        {/* Summary Cards */}
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-          <View style={[styles.summaryCard, { backgroundColor: '#EFF6FF' }]}>
-            <Text style={styles.summaryLabel}>Total Gaji</Text>
-            <Text style={[styles.summaryValue, { color: '#2563EB' }]}>{formatRp(totalGaji)}</Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#FEF2F2' }]}>
-            <Text style={styles.summaryLabel}>Total Pot.</Text>
-            <Text style={[styles.summaryValue, { color: '#DC2626' }]}>{formatRp(totalPotKop)}</Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#F0FDF4' }]}>
-            <Text style={styles.summaryLabel}>Terima</Text>
-            <Text style={[styles.summaryValue, { color: '#16A34A' }]}>{formatRp(totalTerima)}</Text>
-          </View>
-        </View>
-
-        {/* Search */}
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={C.mutedForeground} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari nama atau NRP..."
-            placeholderTextColor={C.mutedForeground}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-
-        {/* Slip List */}
-        {filtered.length === 0 ? (
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="document-text-outline" size={48} color={C.mutedForeground} />
             <Text style={{ color: C.mutedForeground, marginTop: 12 }}>Tidak ada slip ditemukan</Text>
           </View>
-        ) : (
-          filtered.map((slip: any) => (
-            <TouchableOpacity
-              key={slip.id}
-              style={styles.card}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('SlipGajiDetail', { slipId: slip.id, periodId })}
-            >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.slipName}>{slip.nama || '-'}</Text>
-                  <Text style={styles.slipNrp}>NRP: {slip.nrp || '-'} {slip.pangkat ? `· ${slip.pangkat}` : ''}</Text>
-                </View>
-                <Text style={styles.slipAmount}>{formatRp(Number(slip.terimaBersih) || 0)}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                <View>
-                  <Text style={styles.detailLabel}>Gaji</Text>
-                  <Text style={styles.detailValue}>{formatRp(Number(slip.gajiBersih) || 0)}</Text>
-                </View>
-                <View>
-                  <Text style={styles.detailLabel}>Tunkin</Text>
-                  <Text style={styles.detailValue}>{formatRp(Number(slip.tunkin) || 0)}</Text>
-                </View>
-                <View>
-                  <Text style={styles.detailLabel}>Pot. Kop.</Text>
-                  <Text style={[styles.detailValue, { color: '#DC2626' }]}>{formatRp(Number(slip.totalPotKoperasi) || 0)}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+        }
+        windowSize={10}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={true}
+      />
     </View>
   );
 }
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    marginBottom: 16, borderWidth: 1, borderColor: C.border,
+    marginBottom: 4, borderWidth: 1, borderColor: C.border,
   },
   searchInput: { flex: 1, fontSize: 14, color: C.foreground },
   card: {

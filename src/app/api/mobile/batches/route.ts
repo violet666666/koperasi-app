@@ -7,30 +7,39 @@ export async function GET(request: Request) {
         const user = getMobileUser(request);
         if (!user) return unauthorizedResponse();
 
+        if (!["operator", "admin", "kasir"].includes(user.role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const view = searchParams.get("view") || "active";
         const search = searchParams.get("search");
 
-        const where: any = {};
+        const conditions: any[] = [];
+
+        // View filter
         if (view === "active") {
-            where.isActive = true;
-            where.expiryDate = { gt: new Date() };
+            conditions.push({ isActive: true, expiryDate: { gt: new Date() } });
         } else if (view === "expiring_soon") {
             const ninetyDays = new Date();
             ninetyDays.setDate(ninetyDays.getDate() + 90);
-            where.isActive = true;
-            where.expiryDate = { lte: ninetyDays, gt: new Date() };
+            conditions.push({ isActive: true, expiryDate: { lte: ninetyDays, gt: new Date() } });
         } else if (view === "expired") {
-            where.OR = [{ isActive: false }, { expiryDate: { lte: new Date() } }];
+            conditions.push({ OR: [{ isActive: false }, { expiryDate: { lte: new Date() } }] });
         }
 
+        // Search filter
         if (search) {
-            where.OR = [
-                { batchNo: { contains: search, mode: "insensitive" } },
-                { supplierName: { contains: search, mode: "insensitive" } },
-                { product: { name: { contains: search, mode: "insensitive" } } },
-            ];
+            conditions.push({
+                OR: [
+                    { batchNo: { contains: search, mode: "insensitive" } },
+                    { supplierName: { contains: search, mode: "insensitive" } },
+                    { product: { name: { contains: search, mode: "insensitive" } } },
+                ],
+            });
         }
+
+        const where = conditions.length > 0 ? { AND: conditions } : {};
 
         const batches = await prisma.stockBatch.findMany({
             where,
