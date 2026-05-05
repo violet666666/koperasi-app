@@ -398,7 +398,11 @@ function TambahPengajuanContent() {
                     amount: parseFloat(formData.amount),
                     tenorMonths: parseInt(formData.tenor_months),
                     paymentMethod: "bank_transfer",
-                    cashBankAccountId: 1,
+                    cashBankAccountId: await fetch("/api/cash-bank").then(r => r.json()).then(d => {
+                        const accounts = d.data || d.accounts || [];
+                        const cash = accounts.find((a: any) => a.type === "cash");
+                        return cash?.id || accounts[0]?.id || null;
+                    }).catch(() => null),
                     ...(formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
                 }),
             });

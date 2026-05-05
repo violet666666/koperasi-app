@@ -53,7 +53,9 @@ export async function POST(request: Request) {
             const interestPerMonth = Math.round(amount * (interestRate / 100));
             const totalInterest = interestPerMonth * tenorMonths;
             const totalAmount = amount + totalInterest;
-            const adminFee = Math.round(amount * (Number(product.adminFeeValue) || 0.02));
+            const adminFee = product.adminFeeType === "fixed"
+                ? Number(product.adminFeeValue) || 0
+                : Math.round(amount * (Number(product.adminFeeValue) || 0.02));
             const disbursedToMember = amount - totalKompen - adminFee;
             const monthlyInstallment = Math.round(amount / tenorMonths) + interestPerMonth;
 
@@ -119,7 +121,7 @@ export async function POST(request: Request) {
 
             // 9. Create LoanSchedule for new loan
             const principalPerMonth = Math.floor(amount / tenorMonths);
-            let principalRemainder = amount - principalPerMonth * tenorMonths;
+            const principalRemainder = amount - principalPerMonth * tenorMonths;
             const schedules = [];
             for (let i = 1; i <= tenorMonths; i++) {
                 const dueDate = new Date(firstDue);
@@ -134,8 +136,13 @@ export async function POST(request: Request) {
             await tx.loanSchedule.createMany({ data: schedules });
 
             // 10. Payoff existing loan (early settlement)
+            const preKompenState = JSON.stringify({
+                principalOutstanding: Number(existingLoan.principalOutstanding),
+                interestOutstanding: Number(existingLoan.interestOutstanding),
+                principalPaid: Number(existingLoan.principalPaid),
+            });
             const payNo = `PAY-${year}-${Math.floor(Math.random() * 1000000).toString().padStart(6, "0")}`;
-            await tx.loanPayment.create({
+            const kompenPayment = await tx.loanPayment.create({
                 data: {
                     paymentNo: payNo,
                     loanId: existingLoanId,
@@ -147,7 +154,9 @@ export async function POST(request: Request) {
                     earlySettlementFee: penaltyFee,
                     paymentType: "early_settlement",
                     paymentMethod: paymentMethod || "internal",
+                    cashBankAccountId: cashBankAccountId || null,
                     notes: `[KOMPEN] Pelunasan dari pinjaman baru ${newLoan.loanNo}`,
+                    referenceNo: preKompenState,
                     paymentDate: baseDate,
                     createdById: parseInt(session.user.id),
                 },
@@ -187,6 +196,7 @@ export async function POST(request: Request) {
                         transactionNo: `KK-${cbRandom}/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
                         type: "out", amount: disbursedToMember, balanceBefore: balBefore, balanceAfter: balAfterOut,
                         category: "pencairan_pinjaman",
+                        referenceType: "LoanPayment", referenceId: kompenPayment.id,
                         description: `[KOMPEN] Pencairan selisih ke anggota ${member.name} (${newLoan.loanNo})`,
                         transactionDate: baseDate,
                         createdById: parseInt(session.user.id),
@@ -201,6 +211,7 @@ export async function POST(request: Request) {
                         transactionNo: `KM-${cbRandom}/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
                         type: "in", amount: principalOutstanding, balanceBefore: balAfterOut, balanceAfter: balAfterIn,
                         category: "angsuran_pokok",
+                        referenceType: "LoanPayment", referenceId: kompenPayment.id,
                         description: `[KOMPEN] Pelunasan pokok ${existingLoan.loanNo} dari ${newLoan.loanNo}`,
                         transactionDate: baseDate,
                         createdById: parseInt(session.user.id),
@@ -216,6 +227,7 @@ export async function POST(request: Request) {
                             transactionNo: `KM-${cbRandom}-P/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
                             type: "in", amount: penaltyFee, balanceBefore: balAfterIn, balanceAfter: balAfterPenalty,
                             category: "penalti_pelunasan",
+                            referenceType: "LoanPayment", referenceId: kompenPayment.id,
                             description: `[KOMPEN] Penalti pelunasan ${existingLoan.loanNo}`,
                             transactionDate: baseDate,
                             createdById: parseInt(session.user.id),

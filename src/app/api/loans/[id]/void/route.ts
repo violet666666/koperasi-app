@@ -148,19 +148,35 @@ export async function POST(
                         },
                     });
 
+                    // Parse pre-kompen state stored in referenceNo
+                    let preState: { principalOutstanding: number; interestOutstanding: number; principalPaid: number } | null = null;
+                    if (kompenPayment?.referenceNo) {
+                        try { preState = JSON.parse(kompenPayment.referenceNo); } catch { /* ignore */ }
+                    }
+
                     if (kompenPayment) {
-                        // Reverse cash/bank for the kompen payment
-                        if (kompenPayment.cashBankAccountId) {
-                            await tx.cashBankAccount.update({
-                                where: { id: kompenPayment.cashBankAccountId },
-                                data: { currentBalance: { decrement: kompenPayment.amount } }
-                            });
-                        }
-                        // Delete kompen payment allocations and payment
-                        await tx.loanPaymentAllocation.deleteMany({ where: { paymentId: kompenPayment.id } });
-                        await tx.cashBankTransaction.deleteMany({
+                        // Reverse CashBank transactions linked to this kompen payment
+                        const kompenCbTxns = await tx.cashBankTransaction.findMany({
                             where: { referenceType: "LoanPayment", referenceId: kompenPayment.id },
                         });
+                        for (const cbTx of kompenCbTxns) {
+                            // Reverse balance: IN → decrement, OUT → increment
+                            const balanceDelta = cbTx.type === "in" ? -Number(cbTx.amount) : Number(cbTx.amount);
+                            await tx.cashBankAccount.update({
+                                where: { id: cbTx.accountId },
+                                data: { currentBalance: { increment: balanceDelta > 0 ? balanceDelta : 0 } },
+                            });
+                            if (balanceDelta < 0) {
+                                await tx.cashBankAccount.update({
+                                    where: { id: cbTx.accountId },
+                                    data: { currentBalance: { decrement: Math.abs(balanceDelta) } },
+                                });
+                            }
+                            await tx.cashBankTransaction.delete({ where: { id: cbTx.id } });
+                        }
+
+                        // Delete kompen payment allocations and payment
+                        await tx.loanPaymentAllocation.deleteMany({ where: { paymentId: kompenPayment.id } });
                         if (kompenPayment.journalId) {
                             await tx.journalLine.deleteMany({ where: { journalId: kompenPayment.journalId } });
                             await tx.journal.delete({ where: { id: kompenPayment.journalId } });
@@ -168,28 +184,28 @@ export async function POST(
                         await tx.loanPayment.delete({ where: { id: kompenPayment.id } });
                     }
 
-                    // Re-open the old loan
+                    // Re-open the old loan with pre-kompen state
                     await tx.loan.update({
                         where: { id: oldLoan.id },
                         data: {
                             status: "active",
                             paidOffDate: null,
-                            principalOutstanding: kompenPayment ? kompenPayment.principalPortion : oldLoan.principalAmount,
-                            interestOutstanding: oldLoan.interestAmount,
-                            principalPaid: kompenPayment
-                                ? Number(oldLoan.principalPaid) - Number(kompenPayment.principalPortion)
-                                : 0,
+                            principalOutstanding: preState?.principalOutstanding ?? Number(oldLoan.principalAmount),
+                            interestOutstanding: preState?.interestOutstanding ?? Number(oldLoan.interestAmount),
+                            principalPaid: preState?.principalPaid ?? 0,
                         },
                     });
 
-                    // Re-open old schedules that were paid by kompen
+                    // Re-open old schedules that were batch-marked as paid by kompen
+                    // Kompen marks all pending/partial/overdue schedules as paid on the disbursement date.
+                    // We identify them by: status=paid AND paidDate matches the kompen loan's disbursement date.
                     await tx.loanSchedule.updateMany({
                         where: {
                             loanId: oldLoan.id,
                             status: "paid",
-                            notes: { contains: "KOMPEN" },
+                            paidDate: loan.disbursementDate,
                         },
-                        data: { status: "pending", paidDate: null, notes: null },
+                        data: { status: "pending", paidDate: null },
                     });
                 }
             }

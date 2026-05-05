@@ -44,7 +44,9 @@ export async function POST(request: Request) {
             const interestPerMonth = Math.round(amount * (interestRate / 100));
             const totalInterest = interestPerMonth * tenorMonths;
             const totalAmount = amount + totalInterest;
-            const adminFee = Math.round(amount * (Number(product.adminFeeValue) || 0.02));
+            const adminFee = product.adminFeeType === "fixed"
+                ? Number(product.adminFeeValue) || 0
+                : Math.round(amount * (Number(product.adminFeeValue) || 0.02));
             const disbursedToMember = amount - totalKompen - adminFee;
             const monthlyInstallment = Math.round(amount / tenorMonths) + interestPerMonth;
 
@@ -100,6 +102,11 @@ export async function POST(request: Request) {
             }
             await tx.loanSchedule.createMany({ data: schedules });
 
+            const preKompenState = JSON.stringify({
+                principalOutstanding: Number(existingLoan.principalOutstanding),
+                interestOutstanding: Number(existingLoan.interestOutstanding),
+                principalPaid: Number(existingLoan.principalPaid),
+            });
             const payNo = `PAY-${year}-${Math.floor(Math.random() * 1000000).toString().padStart(6, "0")}`;
             await tx.loanPayment.create({
                 data: {
@@ -107,6 +114,7 @@ export async function POST(request: Request) {
                     amount: totalKompen, principalPortion: principalOutstanding, interestPortion: 0,
                     earlySettlementFee: penaltyFee, paymentType: "early_settlement",
                     notes: `[KOMPEN MOBILE] Pelunasan dari ${newLoan.loanNo}`,
+                    referenceNo: preKompenState,
                     paymentDate: baseDate, createdById: parseInt(user.id),
                 },
             });

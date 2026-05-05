@@ -50,7 +50,9 @@ export async function GET(request: Request) {
         const interestRate = Number(product.interestRate) || 1;
         const interestPerMonth = Math.round(newAmount * (interestRate / 100));
         const totalInterest = interestPerMonth * newTenor;
-        const adminFee = Math.round(newAmount * (Number(product.adminFeeValue) || 0.02));
+        const adminFee = product.adminFeeType === "fixed"
+            ? Number(product.adminFeeValue) || 0
+            : Math.round(newAmount * (Number(product.adminFeeValue) || 0.02));
         const disbursedToMember = newAmount - totalKompen - adminFee;
         const monthlyInstallment = Math.round(newAmount / newTenor) + interestPerMonth;
 
