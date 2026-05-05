@@ -62,6 +62,11 @@ const PengeluaranOperasionalScreen = React.lazy(() => import("./src/screens/oper
 const LaporanCuciMobilScreen = React.lazy(() => import("./src/screens/operator/LaporanCuciMobilScreen"));
 const DirectDisburseScreen = React.lazy(() => import("./src/screens/operator/DirectDisburseScreen"));
 const KwitansiViewerScreen = React.lazy(() => import("./src/screens/common/KwitansiViewerScreen"));
+const NotifikasiScreen = React.lazy(() => import("./src/screens/common/NotifikasiScreen"));
+const GajiPeriodeScreen = React.lazy(() => import("./src/screens/operator/GajiPeriodeScreen"));
+const GajiSlipScreen = React.lazy(() => import("./src/screens/operator/GajiSlipScreen"));
+const SlipGajiScreen = React.lazy(() => import("./src/screens/member/SlipGajiScreen"));
+const BatchManagementScreen = React.lazy(() => import("./src/screens/operator/BatchManagementScreen"));
 
 // Suspense wrapper for lazy screens
 const LS = ({ children }: { children: React.ReactNode }) => (
@@ -252,6 +257,14 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="RiwayatKasir">{() => <LS><RiwayatKasirScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="EditNrp">{() => <LS><EditNrpScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="LaporanCuciMobil">{() => <LS><LaporanCuciMobilScreen /></LS>}</Stack.Screen>
+
+            {/* ====== New Screens (Sprint 8) ====== */}
+            <Stack.Screen name="Notifikasi">{() => <LS><NotifikasiScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="GajiPeriode">{() => <LS><GajiPeriodeScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="GajiSlip">{() => <LS><GajiSlipScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="SlipGajiDetail">{() => <LS><SlipGajiScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="SlipGajiList">{() => <LS><SlipGajiScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="BatchManagement">{() => <LS><BatchManagementScreen /></LS>}</Stack.Screen>
           </>
         )}
       </Stack.Navigator>

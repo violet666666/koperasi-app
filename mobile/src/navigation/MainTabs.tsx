@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { View, Text } from 'react-native';
 import { StorageManager } from '../lib/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import C from '../lib/colors';
+import api from '../lib/api';
 
 // Screens — all roles
 import DashboardScreen from '../screens/common/DashboardScreen';
@@ -26,6 +28,7 @@ const Tab = createBottomTabNavigator();
 
 export default function MainTabs({ setToken }: { setToken: (t: string | null) => void }) {
   const [role, setRole] = useState<string>('member');
+  const [unreadNotif, setUnreadNotif] = useState(0);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -39,6 +42,19 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
 
   const isOperator = ['operator', 'admin', 'superadmin', 'admin_unit'].includes(role);
   const isKasir = role === 'kasir';
+
+  // Poll unread notification count for operators
+  useEffect(() => {
+    if (!isOperator) return;
+    const fetchUnread = () => {
+      api.get('/api/mobile/notifications?unread=true&limit=1')
+        .then(res => setUnreadNotif(res.data?.unreadCount || 0))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [isOperator]);
 
   const bottomPadding = Math.max(insets.bottom, 12);
 
@@ -69,7 +85,23 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
             Stok: focused ? 'cube' : 'cube-outline',
             Profil: focused ? 'person' : 'person-outline',
           };
-          return <Ionicons name={iconMap[route.name] || 'home'} size={size} color={color} />;
+          return (
+            <View>
+              <Ionicons name={iconMap[route.name] || 'home'} size={size} color={color} />
+              {route.name === 'Beranda' && unreadNotif > 0 && isOperator && (
+                <View style={{
+                  position: 'absolute', right: -8, top: -4,
+                  backgroundColor: '#DC2626', borderRadius: 10,
+                  minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
+                  paddingHorizontal: 4,
+                }}>
+                  <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>
+                    {unreadNotif > 99 ? '99+' : unreadNotif}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
         },
       })}
     >

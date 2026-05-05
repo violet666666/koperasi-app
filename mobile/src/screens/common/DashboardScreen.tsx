@@ -251,6 +251,7 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="cash-outline" label="Bayar Angsuran" color={C.success} onPress={() => navigation.navigate("MemberListFull")} />
                         <MenuItem icon="list-outline" label="Daftar Pinjam" color="#7C3AED" onPress={() => navigation.navigate("DaftarPinjaman")} />
                         <MenuItem icon="flash-outline" label="Cairkan Lgsg" color="#EF4444" onPress={() => navigation.navigate("DirectDisburse")} />
+                        <MenuItem icon="document-text-outline" label="Gaji & Payroll" color="#7C3AED" onPress={() => navigation.navigate("GajiPeriode")} />
                     </View>
                 </CollapsibleSection>
 
@@ -264,6 +265,7 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />
                         <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
                         <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
+                        <MenuItem icon="car-wash" label="Lap. Cuci Mobil" color="#0E7490" onPress={() => navigation.navigate("LaporanCuciMobil")} />
                         <MenuItem icon="server-outline" label="Aset PRIMKOPPOL" color="#0891b2" onPress={() => navigation.navigate("AsetList")} />
                     </View>
                 </CollapsibleSection>
@@ -272,6 +274,7 @@ export default function DashboardScreen({ setToken }: any) {
                     <View style={styles.menuGrid}>
                         <MenuItem icon="options" label="Master Data" color="#ea580c" onPress={() => navigation.navigate("MasterDataHub")} />
                         <MenuItem icon="cloud-upload-outline" label="Import Data" color="#16a34a" onPress={() => navigation.navigate("ImportData")} />
+                        <MenuItem icon="notifications-outline" label="Notifikasi" color="#EA580C" onPress={() => navigation.navigate("Notifikasi")} />
                         <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate("Pengumuman")} />
                         <MenuItem icon="list-circle-outline" label="Audit Log" color="#64748B" onPress={() => navigation.navigate("AuditLogFull")} />
                         <MenuItem icon="business-outline" label="Profil Usaha" color="#0F766E" onPress={() => navigation.navigate("ProfilKoperasi")} />

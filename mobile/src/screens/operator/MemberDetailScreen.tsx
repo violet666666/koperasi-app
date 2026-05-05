@@ -29,6 +29,16 @@ export default function MemberDetailScreen({ route, navigation }: any) {
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
+  // Piutang Barang State
+  const [piutang, setPiutang] = useState<any>(null);
+  const [piutangModal, setPiutangModal] = useState(false);
+  const [piutangLoading, setPiutangLoading] = useState(false);
+
+  // Transaction History State
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txExpanded, setTxExpanded] = useState(false);
+
   const loadData = async () => {
     try {
       const res = await api.get(`/api/mobile/members/${memberId}`);
@@ -40,8 +50,38 @@ export default function MemberDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const loadPiutang = async () => {
+    if (!memberId) return;
+    setPiutangLoading(true);
+    try {
+      const res = await api.get(`/api/members/${memberId}/piutang-barang`);
+      setPiutang(res.data.data);
+    } catch (err) {
+      console.log('Failed to load piutang barang:', err);
+    } finally {
+      setPiutangLoading(false);
+    }
+  };
+
+  const loadTransactions = async () => {
+    if (!memberId) return;
+    setTxLoading(true);
+    try {
+      const res = await api.get(`/api/members/${memberId}/transactions`);
+      setTransactions(res.data.data?.transactions || []);
+    } catch (err) {
+      console.log('Failed to load transactions:', err);
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (memberId) loadData();
+    if (memberId) {
+      loadData();
+      loadPiutang();
+      loadTransactions();
+    }
   }, [memberId]);
 
   const openEditModal = () => {
@@ -178,6 +218,131 @@ export default function MemberDetailScreen({ route, navigation }: any) {
             </>
           )}
 
+          {/* Piutang Barang Card */}
+          <Text style={styles.sectionTitle}>Piutang Barang</Text>
+          <TouchableOpacity
+            style={[styles.infoCard, { padding: 16 }]}
+            onPress={() => {
+              if (piutang?.piutang?.length > 0) setPiutangModal(true);
+            }}
+            activeOpacity={piutang?.piutang?.length > 0 ? 0.7 : 1}
+          >
+            {piutangLoading ? (
+              <ActivityIndicator size="small" color={C.accent} />
+            ) : piutang?.summary?.totalItems > 0 ? (
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="cart-outline" size={20} color="#D97706" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>Piutang Belum Lunas</Text>
+                      <Text style={{ fontSize: 12, color: C.mutedForeground }}>{piutang.summary.totalItems} transaksi</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#DC2626' }}>
+                      {formatRp(piutang.summary.totalAmount)}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <Text style={{ fontSize: 11, color: C.accent }}>Lihat Detail</Text>
+                      <Ionicons name="chevron-forward" size={14} color={C.accent} />
+                    </View>
+                  </View>
+                </View>
+                {/* Unit type breakdown */}
+                {Object.entries(piutang.summary.byUnitType || {}).map(([unit, amount]: [string, any]) => (
+                  <View key={unit} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: C.border }}>
+                    <Text style={{ fontSize: 12, color: C.mutedForeground, textTransform: 'capitalize' }}>{unit.replace('_', ' ')}</Text>
+                    <Text style={{ fontSize: 12, color: C.foreground, fontWeight: '500' }}>{formatRp(amount)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={20} color={C.success} />
+                <Text style={{ fontSize: 14, color: C.success, fontWeight: '500' }}>Tidak ada piutang barang</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Transaction History (Buku Anggota) */}
+          <Text style={styles.sectionTitle}>Riwayat Transaksi</Text>
+          <TouchableOpacity
+            style={[styles.infoCard, { padding: 16 }]}
+            onPress={() => setTxExpanded(!txExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="document-text-outline" size={20} color="#2563EB" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.foreground }}>Buku Anggota</Text>
+                  <Text style={{ fontSize: 12, color: C.mutedForeground }}>
+                    {txLoading ? 'Memuat...' : `${transactions.length} transaksi`}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name={txExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={C.mutedForeground} />
+            </View>
+          </TouchableOpacity>
+
+          {txExpanded && (
+            <View style={{ marginTop: 8 }}>
+              {txLoading ? (
+                <ActivityIndicator size="small" color={C.accent} style={{ marginVertical: 16 }} />
+              ) : transactions.length === 0 ? (
+                <Text style={{ fontSize: 13, color: C.mutedForeground, textAlign: 'center', paddingVertical: 16 }}>
+                  Belum ada riwayat transaksi
+                </Text>
+              ) : (
+                <View style={{ backgroundColor: C.card, borderRadius: 12, overflow: 'hidden' }}>
+                  {/* Header */}
+                  <View style={[styles.txHeader, { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12 }]}>
+                    <Text style={[styles.txHeaderText, { flex: 1.2 }]}>Tanggal</Text>
+                    <Text style={[styles.txHeaderText, { flex: 2.5 }]}>Keterangan</Text>
+                    <Text style={[styles.txHeaderText, { flex: 1.2, textAlign: 'right' }]}>Debit</Text>
+                    <Text style={[styles.txHeaderText, { flex: 1.2, textAlign: 'right' }]}>Kredit</Text>
+                    <Text style={[styles.txHeaderText, { flex: 1.2, textAlign: 'right' }]}>Saldo</Text>
+                  </View>
+                  {transactions.slice(0, 30).map((tx: any, idx: number) => {
+                    const typeColor: Record<string, string> = {
+                      simpanan: '#16A34A', penarikan: '#DC2626', pinjaman: '#2563EB', angsuran: '#D97706'
+                    };
+                    return (
+                      <View key={tx.id} style={[styles.txRow, idx % 2 === 0 && { backgroundColor: C.background }]}>
+                        <Text style={[styles.txCell, { flex: 1.2, fontSize: 10 }]}>{tx.date}</Text>
+                        <View style={{ flex: 2.5 }}>
+                          <Text style={[styles.txCell, { fontSize: 11 }]} numberOfLines={1}>{tx.description}</Text>
+                          <Text style={[styles.txBadge, { color: typeColor[tx.type] || C.mutedForeground, fontSize: 9 }]}>
+                            {tx.type?.toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={[styles.txCell, { flex: 1.2, textAlign: 'right', color: tx.debit > 0 ? '#DC2626' : C.mutedForeground }]}>
+                          {tx.debit > 0 ? formatRp(tx.debit) : '-'}
+                        </Text>
+                        <Text style={[styles.txCell, { flex: 1.2, textAlign: 'right', color: tx.credit > 0 ? '#16A34A' : C.mutedForeground }]}>
+                          {tx.credit > 0 ? formatRp(tx.credit) : '-'}
+                        </Text>
+                        <Text style={[styles.txCell, { flex: 1.2, textAlign: 'right', fontWeight: '600' }]}>
+                          {formatRp(tx.balance)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {transactions.length > 30 && (
+                    <Text style={{ fontSize: 11, color: C.mutedForeground, textAlign: 'center', paddingVertical: 8 }}>
+                      Menampilkan 30 dari {transactions.length} transaksi
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Edit Button */}
           <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
             <Ionicons name="create" size={18} color={C.primary} />
@@ -287,6 +452,96 @@ export default function MemberDetailScreen({ route, navigation }: any) {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ═══ Piutang Barang Modal ═══ */}
+      <Modal visible={piutangModal} transparent animationType="slide" onRequestClose={() => setPiutangModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.modalTitle}>🛒 Detail Piutang Barang</Text>
+              <TouchableOpacity onPress={() => setPiutangModal(false)}>
+                <Ionicons name="close" size={24} color={C.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary, marginBottom: 12 }}>
+              {data?.name} — NRP: {data?.nrp}
+            </Text>
+
+            {/* Summary cards */}
+            {piutang?.summary && (
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                <View style={{ flex: 1, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 10, color: '#991B1B', fontWeight: '600' }}>TOTAL PIUTANG</Text>
+                  <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: 'bold' }}>{formatRp(piutang.summary.totalAmount)}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: '#EFF6FF', borderRadius: 10, padding: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 10, color: '#1E40AF', fontWeight: '600' }}>TRANSAKSI</Text>
+                  <Text style={{ fontSize: 14, color: '#2563EB', fontWeight: 'bold' }}>{piutang.summary.totalItems}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Piutang list */}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              {piutang?.piutang?.map((item: any, idx: number) => {
+                const unitLabel = (item.unitType || 'lainnya').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                return (
+                  <View key={item.id} style={{
+                    backgroundColor: idx % 2 === 0 ? C.background : C.card,
+                    borderRadius: 10, padding: 12, marginBottom: 8,
+                  }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: C.foreground }} numberOfLines={2}>
+                          {item.description}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: C.mutedForeground, marginTop: 2 }}>
+                          {item.transactionNo}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626', marginLeft: 8 }}>
+                        {formatRp(item.amount)}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                      <View style={{ backgroundColor: '#DBEAFE', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 10, color: '#1E40AF', fontWeight: '600' }}>{unitLabel}</Text>
+                      </View>
+                      <Text style={{ fontSize: 10, color: C.mutedForeground }}>
+                        {new Date(item.transactionDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </Text>
+                      {item.source === 'store_sale' && item.items?.length > 0 && (
+                        <Text style={{ fontSize: 10, color: C.mutedForeground }} numberOfLines={1}>
+                          ({item.items.length} item)
+                        </Text>
+                      )}
+                    </View>
+                    {/* Show items for store_sale */}
+                    {item.source === 'store_sale' && item.items?.length > 0 && (
+                      <View style={{ marginTop: 8, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.accent }}>
+                        {item.items.map((si: any, siIdx: number) => (
+                          <View key={siIdx} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={{ fontSize: 11, color: C.mutedForeground }}>{si.name} x{si.quantity}</Text>
+                            <Text style={{ fontSize: 11, color: C.foreground }}>{formatRp(si.subtotal)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: C.primary, marginTop: 12 }]}
+              onPress={() => setPiutangModal(false)}
+            >
+              <Text style={{ color: '#FFF', fontWeight: '700' }}>Tutup</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -401,4 +656,9 @@ const styles = StyleSheet.create({
   modalBtn: {
     paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
   },
+  txHeader: { backgroundColor: C.primaryLight, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+  txHeaderText: { fontSize: 10, fontWeight: '700', color: C.primary },
+  txRow: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 12, alignItems: 'flex-start' },
+  txCell: { fontSize: 11, color: C.foreground },
+  txBadge: { fontWeight: '700', textTransform: 'uppercase', marginTop: 1 },
 });

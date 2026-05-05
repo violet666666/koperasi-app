@@ -16,14 +16,14 @@ export default function ImportDataScreen({ navigation }: any) {
   const [fileUri, setFileUri] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);
-  const [type, setType] = useState<"tunkin_only" | "member_full">("member_full");
+  const [type, setType] = useState<"tunkin_only" | "member_full" | "pinjaman_update">("member_full");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportRecordStatus | null>(null);
 
   const pickFile = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
-        type: ["text/csv", "application/vnd.ms-excel"],
+        type: ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
         copyToCacheDirectory: true,
       });
 
@@ -32,14 +32,19 @@ export default function ImportDataScreen({ navigation }: any) {
       const file = res.assets[0];
       setFileUri(file.uri);
       setFileName(file.name);
-      
-      // Parse file locally immediately
-      setLoading(true);
-      const csvString = await FileSystem.readAsStringAsync(file.uri, { encoding: "utf8" });
-      const parsed = parseCSV(csvString);
-      setRecords(parsed);
       setResult(null);
-      setLoading(false);
+
+      if (type === "pinjaman_update") {
+        // XLSX handled server-side, no local parsing
+        setRecords([{ _file: file.name, _note: "File akan diproses oleh server" }]);
+      } else {
+        // CSV parse locally
+        setLoading(true);
+        const csvString = await FileSystem.readAsStringAsync(file.uri, { encoding: "utf8" });
+        const parsed = parseCSV(csvString);
+        setRecords(parsed);
+        setLoading(false);
+      }
     } catch (error) {
        Alert.alert("Gagal", "Aplikasi kesulitan memproses file tersebut.");
        setLoading(false);
@@ -70,15 +75,38 @@ export default function ImportDataScreen({ navigation }: any) {
      if (records.length === 0) {
         return Alert.alert("Kosong", "Tidak ada baris data terdeteksi.");
      }
+     if (!fileUri) {
+        return Alert.alert("Kosong", "Pilih file terlebih dahulu.");
+     }
 
      setLoading(true);
      try {
-       const res = await api.post("/api/mobile/members/import", {
-           type,
-           records
-       });
-       setResult(res.data.data);
-       Alert.alert("Import Selesai", res.data.message);
+       if (type === "pinjaman_update") {
+         const formData = new FormData();
+         const ext = fileName?.toLowerCase().endsWith('.xlsx') ? 'xlsx' : 'xls';
+         const mimeType = ext === 'xlsx'
+           ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+           : 'application/vnd.ms-excel';
+         formData.append('file', {
+           uri: fileUri,
+           type: mimeType,
+           name: fileName || 'import.xlsx',
+         } as any);
+         formData.append('mode', 'commit');
+
+         const res = await api.post("/api/loans/import-update", formData, {
+           headers: { 'Content-Type': 'multipart/form-data' },
+         });
+         setResult(res.data.data || { success: res.data.created || 0, skip: res.data.skipped || 0, errors: res.data.errors || [] });
+         Alert.alert("Import Pinjaman Selesai", res.data.message || "Data pinjaman diperbarui");
+       } else {
+         const res = await api.post("/api/mobile/members/import", {
+             type,
+             records
+         });
+         setResult(res.data.data);
+         Alert.alert("Import Selesai", res.data.message);
+       }
      } catch (error: any) {
        const msg = error.response?.data?.message || "Gagal menghubungi server.";
        Alert.alert("Kesalahan Jaringan", msg);
@@ -104,20 +132,32 @@ export default function ImportDataScreen({ navigation }: any) {
         <Text style={{ fontSize: 14, fontWeight: "bold", color: C.primary, marginBottom: 8, marginLeft: 4 }}>
            Jenis Pembaruan Data
         </Text>
-        <View style={{ flexDirection: "row", marginBottom: 20 }}>
-           <TouchableOpacity 
-              onPress={() => setType("member_full")}
+        <View style={{ flexDirection: "row", marginBottom: 8 }}>
+           <TouchableOpacity
+              onPress={() => { setType("member_full"); setRecords([]); setResult(null); }}
               style={{ flex: 1, backgroundColor: type === "member_full" ? C.accent : "white", padding: 12, borderRadius: 12, marginRight: 8, borderWidth: 1, borderColor: type === "member_full" ? C.accent : "#cbd5e1", alignItems: "center" }}
            >
-              <Text style={{ fontSize: 13, fontWeight: "bold", color: type === "member_full" ? "white" : C.mutedForeground }}>Anggota Baru Lengkap</Text>
+              <Text style={{ fontSize: 13, fontWeight: "bold", color: type === "member_full" ? "white" : C.mutedForeground }}>Anggota Baru</Text>
            </TouchableOpacity>
-           <TouchableOpacity 
-              onPress={() => setType("tunkin_only")}
+           <TouchableOpacity
+              onPress={() => { setType("tunkin_only"); setRecords([]); setResult(null); }}
               style={{ flex: 1, backgroundColor: type === "tunkin_only" ? C.accent : "white", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: type === "tunkin_only" ? C.accent : "#cbd5e1", alignItems: "center" }}
            >
-              <Text style={{ fontSize: 13, fontWeight: "bold", color: type === "tunkin_only" ? "white" : C.mutedForeground }}>Perbarui Tunkin & Gaji Saja</Text>
+              <Text style={{ fontSize: 13, fontWeight: "bold", color: type === "tunkin_only" ? "white" : C.mutedForeground }}>Tunkin & Gaji</Text>
            </TouchableOpacity>
         </View>
+        <TouchableOpacity
+           onPress={() => { setType("pinjaman_update"); setRecords([]); setResult(null); }}
+           style={{ backgroundColor: type === "pinjaman_update" ? C.accent : "white", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: type === "pinjaman_update" ? C.accent : "#cbd5e1", alignItems: "center", marginBottom: 20 }}
+        >
+           <Text style={{ fontSize: 13, fontWeight: "bold", color: type === "pinjaman_update" ? "white" : C.mutedForeground }}>Update Pinjaman SP (XLSX)</Text>
+        </TouchableOpacity>
+
+        {type === "pinjaman_update" && (
+          <View style={{ backgroundColor: "#EFF6FF", borderRadius: 10, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#BFDBFE" }}>
+            <Text style={{ fontSize: 12, color: "#1E40AF" }}>Upload file Rincian Piutang SP (.xlsx). Sheet2 akan diproses untuk update saldo pinjaman dan pembayaran bulanan 2026.</Text>
+          </View>
+        )}
 
         {/* File Picker */}
         <TouchableOpacity 
@@ -137,18 +177,29 @@ export default function ImportDataScreen({ navigation }: any) {
            records.length > 0 && !result && (
               <View style={{ backgroundColor: "#f1f5f9", borderRadius: 12, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: "#e2e8f0" }}>
                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
-                     <Text style={{ fontSize: 14, fontWeight: "bold", color: C.foreground }}>Pratinjau {Math.min(records.length, 50)} dari {records.length} Baris</Text>
+                     <Text style={{ fontSize: 14, fontWeight: "bold", color: C.foreground }}>
+                       {type === "pinjaman_update" ? "File Siap Upload" : `Pratinjau ${Math.min(records.length, 50)} dari ${records.length} Baris`}
+                     </Text>
                  </View>
 
-                 {records.slice(0, 50).map((row, idx) => (
+                 {type === "pinjaman_update" ? (
+                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
+                     <Ionicons name="document-text" size={20} color={C.primary} />
+                     <Text style={{ fontSize: 13, color: C.foreground, fontWeight: "500" }}>{fileName}</Text>
+                   </View>
+                 ) : (
+                 records.slice(0, 50).map((row, idx) => (
                     <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#e2e8f0", paddingVertical: 8 }}>
                         <Text style={{ fontSize: 12, color: C.foreground, fontWeight: "500", flex: 1 }}>{row["nrp"] || row["NRP"] || "TANPA NRP"}</Text>
                         <Text style={{ fontSize: 12, color: C.mutedForeground, flex: 2, textAlign: "right" }}>{row["nama"] || row["NAMA"] || row["tunkin"] || row["TUNKIN"] || "..."}</Text>
                     </View>
-                 ))}
+                 ))
+                 )}
 
                  <TouchableOpacity onPress={submitImport} style={{ backgroundColor: C.primary, padding: 16, borderRadius: 12, alignItems: "center", marginTop: 24, elevation: 2 }}>
-                     <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Mulai Upload Data ({records.length} Baris)</Text>
+                     <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
+                       {type === "pinjaman_update" ? "Upload & Update Pinjaman" : `Mulai Upload Data (${records.length} Baris)`}
+                     </Text>
                  </TouchableOpacity>
               </View>
            )

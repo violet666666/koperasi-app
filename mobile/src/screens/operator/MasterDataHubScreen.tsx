@@ -93,6 +93,10 @@ export default function MasterDataHubScreen({ navigation }: any) {
               borderColor: "#e2e8f0"
             }}
             onPress={() => {
+              if (menu.id === 'announcements') {
+                navigation.navigate('Pengumuman');
+                return;
+              }
               Alert.alert('Segera Hadir', `Fitur "${menu.title}" sedang dalam pengembangan.`);
             }}
           >

@@ -38,34 +38,74 @@ export async function GET(request: Request) {
             take: limit,
         });
 
-        return NextResponse.json({
-            data: sales.map((s) => {
-                const metadata: any = s.metadata && typeof s.metadata === "object" ? s.metadata : {};
-                return {
-                    id: s.id,
-                    saleNo: s.saleNo,
-                    unitType: s.unitType || "toko",
-                    customerName: s.customerName,
-                    member: s.member ? { id: s.member.id, name: s.member.name, memberNo: s.member.memberNo } : null,
-                    totalAmount: Number(s.totalAmount),
-                    paymentMethod: s.paymentMethod,
-                    itemCount: s.items.length,
-                    items: s.items.map((i) => ({
-                        name: i.product?.name || "—",
-                        sku: i.product?.sku || "",
-                        qty: i.quantity,
-                        price: Number(i.unitPrice),
-                        subtotal: Number(i.subtotal),
-                    })),
-                    createdBy: s.createdBy,
-                    createdAt: s.createdAt.toISOString(),
-                    // Void status flags
-                    isVoided: !!metadata.isVoided,
-                    voidPending: !!metadata.voidPending,
-                    voidReason: metadata.voidReason || metadata.voidPendingReason || null,
-                };
-            }),
+        let allTransactions = sales.map((s) => {
+            const metadata: any = s.metadata && typeof s.metadata === "object" ? s.metadata : {};
+            return {
+                id: s.id,
+                source: "store_sale" as const,
+                saleNo: s.saleNo,
+                unitType: s.unitType || "toko",
+                customerName: s.customerName,
+                member: s.member ? { id: s.member.id, name: s.member.name, memberNo: s.member.memberNo } : null,
+                totalAmount: Number(s.totalAmount),
+                paymentMethod: s.paymentMethod,
+                itemCount: s.items.length,
+                items: s.items.map((i) => ({
+                    name: i.product?.name || "—",
+                    sku: i.product?.sku || "",
+                    qty: i.quantity,
+                    price: Number(i.unitPrice),
+                    subtotal: Number(i.subtotal),
+                })),
+                createdBy: s.createdBy,
+                createdAt: s.createdAt.toISOString(),
+                isVoided: !!metadata.isVoided,
+                voidPending: !!metadata.voidPending,
+                voidReason: metadata.voidReason || metadata.voidPendingReason || null,
+            };
         });
+
+        // JALUR 1: Also fetch UnitTransaction for kasir with service-based units
+        if (isKasir && user.unitType && ["cuci_mobil", "barbershop", "fotocopy"].includes(user.unitType)) {
+            const unitTxs = await prisma.unitTransaction.findMany({
+                where: {
+                    unitType: user.unitType,
+                    createdById: Number(user.id),
+                    status: { not: "voided" },
+                    notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
+                },
+                include: {
+                    member: { select: { id: true, name: true, memberNo: true } },
+                },
+                orderBy: { transactionDate: "desc" },
+                take: limit,
+            });
+
+            const mappedUnitTxs = unitTxs.map((ut) => ({
+                id: ut.id + 10_000_000,
+                source: "unit_transaction" as const,
+                saleNo: ut.transactionNo,
+                unitType: ut.unitType,
+                customerName: ut.member?.name || null,
+                member: ut.member ? { id: ut.member.id, name: ut.member.name, memberNo: ut.member.memberNo } : null,
+                totalAmount: Number(ut.amount),
+                paymentMethod: ut.paymentMethod || "cash",
+                itemCount: 0,
+                items: [] as any[],
+                createdBy: { id: Number(ut.createdById), name: "" },
+                createdAt: ut.transactionDate.toISOString(),
+                isVoided: ut.status === "voided",
+                voidPending: ut.status === "pending_void",
+                voidReason: null as string | null,
+                description: ut.description,
+                status: ut.status,
+            }));
+
+            allTransactions = [...allTransactions, ...mappedUnitTxs];
+            allTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+
+        return NextResponse.json({ data: allTransactions });
     } catch (error) {
         console.error("GET /api/mobile/toko/history error:", error);
         return NextResponse.json({ message: "Gagal memuat riwayat transaksi" }, { status: 500 });

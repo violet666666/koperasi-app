@@ -1378,3 +1378,135 @@ Setelah proses build selesai (biasanya memakan waktu 5-10 menit di server Expo),
 | `src/app/api/unit/[slug]/laporan/route.ts` | totalHPP, totalWriteOff, netProfit |
 | `src/lib/shift-schedule.ts` | Fix formatShiftLabel off-by-one |
 | `src/lib/constants/navigation.ts` | Menu "Manajemen Batch" |
+
+---
+
+## 🆕 SPRINT 8 — Mobile Gap Analysis & Bug Fix Pinjaman (4 Mei 2026)
+
+> **Scope:** Deep analysis mobile vs web features, add Piutang Barang + Transaction History to MemberDetailScreen, fix pinjaman bugs (auth, interest rate, numbering, import).
+
+### [x] S8-01 — M-FIX-032: Pinjaman Bug Fix (15 Issues — Auth, Finance, Data)
+**Prioritas:** 🔴 Kritis
+**Status:** ✅ Selesai
+
+8 task implementasi untuk 15 bug yang ditemukan saat code review menyeluruh module pinjaman:
+
+| Fix | Deskripsi | Files |
+|---|---|---|
+| Auth hardening | Tambah session check + operator role ke 13 API routes | `loans/route.ts`, `loans/products/route.ts`, `loans/[id]/route.ts`, `loans/[id]/payments/route.ts`, dll |
+| Interest rate | Gunakan `product.interestRate` dari DB (bukan hardcoded 1%) | `applications/[id]/disburse/route.ts`, `applications/direct-disburse/route.ts` |
+| Cash outflow | Catat CashBankTransaction saat pencairan pinjaman | Kedua disburse routes |
+| Void cleanup | Hapus CashBankTransaction sebelum reversal balance | `loans/[id]/void/route.ts` |
+| Schedule generation | Import-migrasi sekarang generate LoanSchedule | `import-migrasi/route.ts` |
+| Sequential numbering | DB-queried sequential PJM/PAY numbers (bukan Math.random) | Kedua disburse routes, payments route |
+| Import validation | Validasi SISA SALDO vs expected, warn on mismatch | `import-update/route.ts` |
+
+### [x] S8-02 — M-FIX-033: Piutang Barang di MemberDetailScreen
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+**File:** `mobile/src/screens/operator/MemberDetailScreen.tsx`
+
+**Yang Dikerjakan:**
+- [x] Tambah state: `piutang`, `piutangModal`, `piutangLoading`
+- [x] Fetch `/api/members/${memberId}/piutang-barang` saat load
+- [x] Card "Piutang Barang" di bawah Rekening Simpanan:
+  - Total piutang + jumlah transaksi
+  - Breakdown per unit type (toko, cafe_lsp, dll)
+  - Status hijau jika tidak ada piutang
+  - Tap → buka modal detail
+- [x] Modal Piutang Barang:
+  - Summary cards (Total Piutang + Jumlah Transaksi)
+  - List itemized: deskripsi, no transaksi, amount, unit type badge, tanggal
+  - Untuk store_sale: tampilkan detail item (nama, qty, subtotal)
+- [x] ID offset `+ 10000000` untuk store_sale sudah di-handle backend
+
+### [x] S8-03 — M-FIX-034: Riwayat Transaksi (Buku Anggota) di MemberDetailScreen
+**Prioritas:** 🔴 Tinggi
+**Status:** ✅ Selesai
+**File:** `mobile/src/screens/operator/MemberDetailScreen.tsx`
+
+**Yang Dikerjakan:**
+- [x] Tambah state: `transactions`, `txLoading`, `txExpanded`
+- [x] Fetch `/api/members/${memberId}/transactions` saat load
+- [x] Collapsible card "Buku Anggota":
+  - Jumlah transaksi ditampilkan
+  - Tap → expand/collapse tabel transaksi
+- [x] Tabel transaksi (max 30 ditampilkan):
+  - Kolom: Tanggal, Keterangan, Debit, Kredit, Saldo
+  - Type badge berwarna: SIMPANAN (hijau), PENARIKAN (merah), PINJAMAN (biru), ANGSURAN (amber)
+  - Running balance di kolom Saldo
+  - Alternating row colors
+
+### [x] S8-04 — M-FIX-035: Fix Duplikasi Transaksi & Riwayat Transaksi Web
+**Prioritas:** 🔴 Kritis
+**Status:** ✅ Selesai
+
+**3 bug post-deployment yang ditemukan dan diperbaiki:**
+
+| Bug | Masalah | Fix |
+|---|---|---|
+| Riwayat Transaksi tab kosong | Tab "Transaksi" di `/anggota/[id]` hanya placeholder | Buat API `/api/members/[id]/transactions` + render tabel mutasi |
+| Piutang Barang duplikasi | StoreSale + UnitTransaction dual-record untuk salary_cut | Tambah filter `notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } }` |
+| POS duplikasi history | `mapStoreSale` hardcoded `unitType: "toko"` + missing unit filter | Fix `mapStoreSale` dynamic unitType + tambah unitType filter |
+
+### Bug yang Diketahui — Belum Diperbaiki (Mei 2026)
+
+| ID | Deskripsi | Severity | File |
+|---|---|---|---|
+| M-BUG-011 | RiwayatKasirScreen hanya tampil StoreSale (JALUR 2), belum UnitTransaction (JALUR 1) untuk kasir cuci_mobil/barbershop/fotocopy | 🟡 Medium | `RiwayatKasirScreen.tsx` |
+| M-BUG-012 | LaporanCuciMobilScreen terdaftar tapi tidak ada navigasi dari dashboard | 🟢 Low | `App.tsx` + dashboard |
+| M-BUG-013 | MasterDataHubScreen semua menu menampilkan "Segera Hadir" | 🟡 Medium | `MasterDataHubScreen.tsx` |
+| M-BUG-014 | Slip Gaji / Payroll — tidak ada layar apapun di mobile | 🔴 High | N/A (perlu screen baru) |
+| M-BUG-015 | Import Data — hanya member import, belum ada import pinjaman/update | 🟡 Medium | `ImportDataScreen.tsx` |
+| M-BUG-016 | Void request initiation — kasir tidak bisa ajukan void dari mobile (web only) | 🟡 Medium | `RiwayatKasirScreen.tsx` |
+
+### Fitur Web yang Belum Ada di Mobile (Gap Analysis Mei 2026)
+
+| # | Fitur | Web Path | Prioritas | Status |
+|---|---|---|---|---|
+| 1 | Slip Gaji / Payroll management | `/gaji/*` + portal | 🔴 | ❌ MISSING |
+| 2 | Notifikasi Screen (list, filter, mark read) | `/notifikasi` | 🟡 | ❌ MISSING (M-FEAT-027) |
+| 3 | Badge unread count notifikasi | Tab bar / icon | 🟢 | ❌ MISSING (M-FEAT-028) |
+| 4 | Stok Masuk dialog + HPP fields | Web stok masuk form | 🟡 | ❌ MISSING (M-FEAT-029) |
+| 5 | Manajemen Batch screen | `/toko/batch` | 🟡 | ❌ MISSING (M-FEAT-030) |
+| 6 | Import Pinjaman Update | Import data page | 🟡 | ❌ MISSING |
+| 7 | Recipe / HPP management | Product recipe page | 🟢 | ❌ MISSING |
+| 8 | Cafe LSP Queue (antrian) | `/cafe-lsp/antrian` | 🟢 | ❌ MISSING |
+| 9 | Periode SHU distribution | `/periode/shu/*` | 🟢 | ❌ MISSING |
+| 10 | Tutup Buku (close books) | `/periode/tutup-buku` | 🟢 | ❌ MISSING |
+
+### File Mobile yang Diubah
+
+| File | Perubahan |
+|---|---|
+| `mobile/src/screens/operator/MemberDetailScreen.tsx` | Tambah Piutang Barang card + modal, Transaction History tabel, 3 API calls baru |
+
+### File Backend yang Diubah (Web — berlaku otomatis untuk mobile)
+
+| File | Perubahan |
+|---|---|
+| `src/app/api/members/[id]/piutang-barang/route.ts` | **[BARU]** Endpoint piutang barang (dedup, dual source) |
+| `src/app/api/members/[id]/transactions/route.ts` | **[BARU]** Endpoint buku anggota (savings + loans + payments) |
+| `src/app/api/unit-transactions/route.ts` | Fix mapStoreSale + auto-generated exclusion + unit filter |
+| `src/app/api/loans/route.ts` | Auth + operator role |
+| `src/app/api/loans/[id]/payments/route.ts` | Auth + sequential numbering |
+| `src/app/api/loans/applications/[id]/disburse/route.ts` | Interest rate + cash outflow + sequential numbering |
+| `src/app/api/loans/applications/direct-disburse/route.ts` | Interest rate + cash outflow + sequential numbering |
+| `src/app/api/loans/[id]/void/route.ts` | CashBankTransaction cleanup |
+| `src/app/api/loans/import-migrasi/route.ts` | Schedule generation |
+| `src/app/api/loans/import-update/route.ts` | SISA SALDO validation |
+
+### Backlog Terbaru
+
+| ID | Deskripsi | Estimasi | Prioritas |
+|---|---|---|---|
+| M-FEAT-031 | Rekap Jasa Pinjaman — laporan bunga bulanan | 2–3 hari | 🟡 |
+| M-FEAT-032 | Slip Gaji / Payroll viewer untuk anggota & operator | 3–5 hari | 🔴 |
+| M-FEAT-033 | Import Pinjaman Update di mobile ImportDataScreen | 1–2 hari | 🟡 |
+| M-FEAT-034 | Void Request initiation dari RiwayatKasirScreen | 1 hari | 🟡 |
+| M-FEAT-035 | Cafe LSP / Resto antrian screen | 2–3 hari | 🟢 |
+
+---
+
+*Tokumen ini diperbarui setiap sesi kerja. Tandai item dengan `[x]` saat selesai.*
+*Referensi: `BUG-FIX-CURRENT.md` | `UPDATE-FIX-CURRENT.md` | Tanggal: 4 Mei 2026 — Sesi 13*

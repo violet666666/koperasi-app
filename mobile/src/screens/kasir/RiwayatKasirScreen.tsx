@@ -20,6 +20,7 @@ interface SaleItem {
 
 interface Sale {
   id: number;
+  source?: 'store_sale' | 'unit_transaction';
   saleNo: string;
   unitType: string;
   customerName: string | null;
@@ -33,6 +34,8 @@ interface Sale {
   isVoided: boolean;
   voidPending: boolean;
   voidReason: string | null;
+  description?: string;
+  status?: string;
 }
 
 const paymentLabel: Record<string, string> = {
@@ -84,11 +87,21 @@ export default function RiwayatKasirScreen() {
     }
     setVoidSubmitting(true);
     try {
-      const res = await api.post('/api/mobile/toko/history', {
-        saleNo: voidTarget.saleNo,
-        reason: voidReason.trim(),
-      });
-      Alert.alert('Berhasil ✅', res.data.message);
+      if (voidTarget.source === 'unit_transaction') {
+        // Void via UnitTransaction void-request API (strip the offset)
+        const realId = voidTarget.id >= 10_000_000 ? voidTarget.id - 10_000_000 : voidTarget.id;
+        const res = await api.post('/api/unit-transactions/void-request', {
+          transactionId: realId,
+          reason: voidReason.trim(),
+        });
+        Alert.alert('Berhasil ✅', res.data.message || 'Permintaan void telah dikirim');
+      } else {
+        const res = await api.post('/api/mobile/toko/history', {
+          saleNo: voidTarget.saleNo,
+          reason: voidReason.trim(),
+        });
+        Alert.alert('Berhasil ✅', res.data.message);
+      }
       setVoidModal(false);
       fetchHistory();
     } catch (err: any) {
@@ -183,10 +196,27 @@ export default function RiwayatKasirScreen() {
                   </Text>
                 )}
 
-                {/* Items count */}
-                <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>
-                  🛒 {sale.itemCount} item
-                </Text>
+                {/* Items count / description */}
+                {sale.source === 'unit_transaction' && sale.description ? (
+                  <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>
+                    📝 {sale.description}
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 12, color: C.mutedForeground, marginTop: 2 }}>
+                    🛒 {sale.itemCount} item
+                  </Text>
+                )}
+
+                {/* Source badge for JALUR 1 */}
+                {sale.source === 'unit_transaction' && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <View style={{ backgroundColor: '#DBEAFE', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#1E40AF' }}>
+                        {(sale.unitType || 'layanan').replace(/_/g, ' ').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Void reason if pending/voided */}
                 {sale.voidReason && (
