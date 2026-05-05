@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+// In-memory cache for dashboard stats (60 second TTL)
+let cachedStats: { data: any; timestamp: number } | null = null;
+const CACHE_TTL_MS = 60_000;
+
 // GET /api/dashboard-stats - Get aggregated dashboard statistics
 export async function GET() {
     try {
+        const nowMs = Date.now();
+        if (cachedStats && (nowMs - cachedStats.timestamp) < CACHE_TTL_MS) {
+            return NextResponse.json({ data: cachedStats.data, cached: true });
+        }
+
         // Get current date for "today" calculations
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -64,12 +73,14 @@ export async function GET() {
                 where: { status: "submitted" },
             }),
 
-            // Today's store sales (using findMany to easily filter JSON metadata)
-            prisma.storeSale.findMany({
+            // Today's store sales (aggregate for performance)
+            prisma.storeSale.aggregate({
+                _sum: { totalAmount: true },
+                _count: { _all: true },
                 where: {
                     createdAt: { gte: today, lt: tomorrow },
+                    NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
                 },
-                select: { totalAmount: true, metadata: true }
             }),
 
             // Active cash bank accounts for live balances
@@ -220,15 +231,8 @@ export async function GET() {
             todayTransactionsCount: todayTransactions._count._all || 0,
 
             // Store sales today
-            todayStoreSales: todayStoreSales.reduce((acc, sale) => {
-                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
-                if (meta.isVoided) return acc;
-                return acc + Number(sale.totalAmount);
-            }, 0),
-            todayStoreSalesCount: todayStoreSales.filter(sale => {
-                const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
-                return !meta.isVoided;
-            }).length,
+            todayStoreSales: Number(todayStoreSales._sum.totalAmount) || 0,
+            todayStoreSalesCount: todayStoreSales._count._all || 0,
 
             // Pending approvals
             pendingApprovals: pendingApprovals,
@@ -249,6 +253,7 @@ export async function GET() {
             }))
         };
 
+        cachedStats = { data: stats, timestamp: Date.now() };
         return NextResponse.json({ data: stats });
     } catch (error) {
         console.error("GET /api/dashboard-stats error:", error);
