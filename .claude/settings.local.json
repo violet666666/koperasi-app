@@ -39,7 +39,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(eas build *)",
       "Bash(git diff *)",
-      "Bash(Select-String \"disbursementCashBankId\")"
+      "Bash(Select-String \"disbursementCashBankId\")",
+      "Bash(Select-String \"summary\")"
     ]
   },
   "enabledPlugins": {
