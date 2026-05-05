@@ -192,7 +192,7 @@ export async function GET(request: Request) {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoRaw, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myTokoRaw, myUnit, myLoan] = await Promise.all([
+        const [sysTokoRaw, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myTokoRaw, myUnit, myLoan, totalActiveSavBal, myLoanInterestAgg, CARWASH_BONUS_PER_TX, myCarwashTxCount] = await Promise.all([
             // FIX: Use findMany to filter voided sales for SHU calculation
             prisma.storeSale.findMany({ where: { createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, memberId: true, metadata: true } }),
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
@@ -205,7 +205,14 @@ export async function GET(request: Request) {
             prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
             prisma.storeSale.findMany({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, metadata: true } }),
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
-            prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } })
+            prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
+            // SHU Modal: Pokok + Wajib only (exclude Sukarela) sesuai AD-ART Pasal 42
+            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: { in: ["pokok", "wajib"] } } }, _sum: { balance: true } }),
+            // Member's loan interest for SHU Jasa Usaha
+            prisma.loanPayment.aggregate({ where: { memberId, paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
+            // SHU Cuci Mobil: bonus per transaksi
+            Promise.resolve(getCarwashBonusPerTx()),
+            prisma.unitTransaction.count({ where: { memberId, unitType: "cuci_mobil", status: "completed", transactionDate: { gte: startDate, lte: endDate } } }),
         ]);
 
         // Helper: filter out voided StoreSale
@@ -230,9 +237,6 @@ export async function GET(request: Request) {
         // Jasa Simpanan Pool (20%) — from TOTAL surplus with minimum floor
         // Single Source of Truth: SavingsAccount balance only (no legacy tabunganWajib double-add)
         // SHU Modal: hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
-        const totalActiveSavBal = await prisma.savingsAccount.aggregate({
-            where: { status: "active", product: { type: { in: ["pokok", "wajib"] } } }, _sum: { balance: true }
-        });
         const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0);
         const totalSysSav = totalSavingsCapital || 1;
         const surplusBasedPool = totalNetSurplus * 0.20;
@@ -255,26 +259,13 @@ export async function GET(request: Request) {
         const myTokoVolume = myTokoTotal;
         const myUnitVolume = Number(myUnit._sum.amount || 0);
 
-        const myLoanInterestAgg = await prisma.loanPayment.aggregate({
-            where: { memberId, paymentDate: { gte: startDate, lte: endDate } },
-            _sum: { interestPortion: true }
-        });
         const myLoanVolume = Number(myLoanInterestAgg._sum.interestPortion || 0);
         const myTotalVolume = myTokoVolume + myUnitVolume + myLoanVolume;
 
         // My share of the pool = (my volume / total volume) × pool
         const myUsaha = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * jasaUsahaPool : 0;
 
-        // --- SHU Cuci Mobil: Rp 2.000 fix per transaksi anggota ---
-        const CARWASH_BONUS_PER_TX = await getCarwashBonusPerTx();
-        const myCarwashTxCount = await prisma.unitTransaction.count({
-            where: {
-                memberId,
-                unitType: "cuci_mobil",
-                status: "completed",
-                transactionDate: { gte: startDate, lte: endDate },
-            }
-        });
+        // --- SHU Cuci Mobil: bonus per transaksi anggota ---
         const myCarwashBonus = myCarwashTxCount * CARWASH_BONUS_PER_TX;
 
         const estimatedSHU = Math.round(myModal + myUsaha + myCarwashBonus);
