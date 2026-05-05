@@ -55,6 +55,8 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
     }
 
+    let interestTotal = 0;
+
     // 1. Dapatkan Income/Expense dari Jurnal
     const journalLines = await prisma.journalLine.findMany({
         where: {
@@ -87,15 +89,34 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
     } else {
         // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung Gross Margin (Laba Kotor) Langsung
-        const expensesTx = await prisma.cashBankTransaction.findMany({
-            where: { transactionDate: { gte: startDate, lte: endDate }, category: { in: ["biaya_operasional", "beban_operasional_unit"] } }
-        });
+        const [expensesTx, incomeTx, loanInterestAgg, unitTx, storeSalesInc, soldItems] = await Promise.all([
+            prisma.cashBankTransaction.findMany({
+                where: { transactionDate: { gte: startDate, lte: endDate }, category: { in: ["biaya_operasional", "beban_operasional_unit"] } }
+            }),
+            prisma.cashBankTransaction.findMany({
+                where: { transactionDate: { gte: startDate, lte: endDate }, category: "lainnya", type: "in" }
+            }),
+            prisma.loanPayment.aggregate({
+                where: { paymentDate: { gte: startDate, lte: endDate } },
+                _sum: { interestPortion: true }
+            }),
+            prisma.unitTransaction.aggregate({
+                where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed" },
+                _sum: { amount: true }
+            }),
+            prisma.storeSale.aggregate({
+                where: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+                _sum: { totalAmount: true }
+            }),
+            prisma.storeSaleItem.findMany({
+                where: { sale: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any } },
+                include: { product: { select: { costPrice: true } } }
+            }),
+        ]);
+
         expensesTx.forEach(tx => totalExpense += toNum(tx.amount));
         if (totalExpense > 0) expenseAccounts["CB-EXP"] = { code: "CB-EXP", name: "Biaya Operasional (Kas & Unit)", amount: totalExpense };
 
-        const incomeTx = await prisma.cashBankTransaction.findMany({
-            where: { transactionDate: { gte: startDate, lte: endDate }, category: "lainnya", type: "in" }
-        });
         let cbIncomeTotal = 0;
         incomeTx.forEach(tx => {
             const desc = (tx.description || "").toLowerCase();
@@ -106,90 +127,69 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         totalIncome += cbIncomeTotal;
         if (cbIncomeTotal > 0) incomeAccounts["CB-INC"] = { code: "CB-INC", name: "Pendapatan Lainnya (Kas)", amount: cbIncomeTotal };
 
-        // Tambah Pendapatan Pinjaman (Hanya Bunga = Keuntungan)
-        const loanInterest = await prisma.loanPayment.aggregate({
-            where: { paymentDate: { gte: startDate, lte: endDate } },
-            _sum: { interestPortion: true }
-        });
-        const interestTotal = toNum(loanInterest._sum.interestPortion);
+        interestTotal = toNum(loanInterestAgg._sum.interestPortion);
         if (interestTotal > 0) {
             totalIncome += interestTotal;
             incomeAccounts["LN-INC"] = { code: "LN-INC", name: "Pendapatan Jasa Pinjaman", amount: interestTotal };
         }
 
-        // Tambah Pendapatan Jasa Unit (Barbershop, Cuci Mobil dll)
-        const unitTx = await prisma.unitTransaction.aggregate({
-            where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed" },
-            _sum: { amount: true }
-        });
         const unitTxTotal = toNum(unitTx._sum.amount);
         if (unitTxTotal > 0) {
             totalIncome += unitTxTotal;
             incomeAccounts["UT-INC"] = { code: "UT-INC", name: "Pendapatan Usaha Jasa Unit", amount: unitTxTotal };
         }
 
-        try {
-            // Omzet Toko Bruto — gunakan NOT filter agar transaksi tanpa metadata tetap terhitung
-            const storeSalesInc = await prisma.storeSale.aggregate({
-                where: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
-                _sum: { totalAmount: true }
-            });
-            const storeIncTotal = toNum(storeSalesInc._sum.totalAmount);
-            if (storeIncTotal > 0) {
-                totalIncome += storeIncTotal;
-                incomeAccounts["ST-INC"] = { code: "ST-INC", name: "Omzet Bruto Toko", amount: storeIncTotal };
-            }
+        const storeIncTotal = toNum(storeSalesInc._sum.totalAmount);
+        if (storeIncTotal > 0) {
+            totalIncome += storeIncTotal;
+            incomeAccounts["ST-INC"] = { code: "ST-INC", name: "Omzet Bruto Toko", amount: storeIncTotal };
+        }
 
-            // Kurangi dengan Harga Pokok Penjualan (HPP) Toko agar mendapat Margin!
-            const soldItems = await prisma.storeSaleItem.findMany({
-                where: { sale: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any } },
-                include: { product: { select: { costPrice: true } } }
-            });
-            let cogsTotal = 0;
-            soldItems.forEach(item => {
-                cogsTotal += item.quantity * toNum(item.product?.costPrice);
-            });
-            if (cogsTotal > 0) {
-                totalExpense += cogsTotal;
-                expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP Toko (Modal Barang)", amount: cogsTotal };
-            }
-        } catch (e) {
-            console.error("SHU Toko calc error:", e);
+        let cogsTotal = 0;
+        soldItems.forEach(item => {
+            cogsTotal += item.quantity * toNum(item.product?.costPrice);
+        });
+        if (cogsTotal > 0) {
+            totalExpense += cogsTotal;
+            expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP Toko (Modal Barang)", amount: cogsTotal };
         }
     }
 
     const netSurplus = Math.max(0, totalIncome - totalExpense);
 
-    // 2. Hitung Rasio Member vs Non-Member berdasarkan Omzet
+    // 2. Hitung Rasio Member vs Non-Member berdasarkan Omzet (parallel)
     let memberGrossIncome = 0;
     let nonMemberGrossIncome = 0;
-    
-    const storeSalesMember = await prisma.storeSale.aggregate({
-        where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
-        _sum: { totalAmount: true }
-    });
-    const storeSalesNonMember = await prisma.storeSale.aggregate({
-        where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
-        _sum: { totalAmount: true }
-    });
+
+    const [
+        storeSalesMember,
+        storeSalesNonMember,
+        loanInterestRatio,
+        unitTxMember,
+        unitTxNonMember,
+    ] = await Promise.all([
+        prisma.storeSale.aggregate({
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+            _sum: { totalAmount: true }
+        }),
+        prisma.storeSale.aggregate({
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+            _sum: { totalAmount: true }
+        }),
+        Promise.resolve({ _sum: { interestPortion: interestTotal } }),
+        prisma.unitTransaction.aggregate({
+            where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed", memberId: { not: null } },
+            _sum: { amount: true }
+        }),
+        prisma.unitTransaction.aggregate({
+            where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed", memberId: null },
+            _sum: { amount: true }
+        }),
+    ]);
+
     memberGrossIncome += toNum(storeSalesMember._sum.totalAmount);
     nonMemberGrossIncome += toNum(storeSalesNonMember._sum.totalAmount);
-
-    // Bunga Angsuran Pinjaman pasti angggota
-    const loanInterest = await prisma.loanPayment.aggregate({
-        where: { paymentDate: { gte: startDate, lte: endDate } },
-        _sum: { interestPortion: true }
-    });
-    memberGrossIncome += toNum(loanInterest._sum.interestPortion);
-
-    const unitTxMember = await prisma.unitTransaction.aggregate({
-        where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed", memberId: { not: null } },
-        _sum: { amount: true }
-    });
-    const unitTxNonMember = await prisma.unitTransaction.aggregate({
-        where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: "completed", memberId: null },
-        _sum: { amount: true }
-    });
+    memberGrossIncome += toNum(loanInterestRatio._sum.interestPortion);
     memberGrossIncome += toNum(unitTxMember._sum.amount);
     nonMemberGrossIncome += toNum(unitTxNonMember._sum.amount);
 
