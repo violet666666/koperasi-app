@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
-import * as XLSX from "xlsx";
 
 type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "update_pinjaman" | "potongan" | "buku_kas" | "toko_history";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
@@ -67,7 +66,8 @@ const ITEMS_PER_PAGE = 50;
 // ============================================================
 // Smart Sheet Detector: scans all sheets for matching columns
 // ============================================================
-function findBestSheet(workbook: any, type: ImportType): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findBestSheet(XLSX: any, workbook: any, type: ImportType): string {
     const requiredKeywords: Record<ImportType, string[][]> = {
         tunkin: [["tunkin", "sisa_tunkin", "sisa tunkin", "tunjangan", "tunles", "bersih"]],
         gaji: [["gaji", "diterima", "bersih", "salary"]],
@@ -126,19 +126,21 @@ function findBestSheet(workbook: any, type: ImportType): string {
     return sheetNames[sheetNames.length - 1];
 }
 
-function convertWorkbookToCSV(workbook: any, type: ImportType, originalName: string): File {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function convertWorkbookToCSV(XLSX: any, workbook: any, type: ImportType, originalName: string): File {
     if (type === "potongan" || type === "toko_history") {
         // Multi-sheet merge: combine all sheets into one CSV with BULAN column
-        return mergeMultiSheetToCSV(workbook, originalName, type);
+        return mergeMultiSheetToCSV(XLSX, workbook, originalName, type);
     }
-    const sheetName = findBestSheet(workbook, type);
+    const sheetName = findBestSheet(XLSX, workbook, type);
     const worksheet = workbook.Sheets[sheetName];
     const csvString = XLSX.utils.sheet_to_csv(worksheet);
     const newFileName = originalName.replace(/\.[^/.]+$/, "") + "_converted.csv";
     return new File([csvString], newFileName, { type: "text/csv" });
 }
 
-function mergeMultiSheetToCSV(workbook: any, originalName: string, type: ImportType): File {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mergeMultiSheetToCSV(XLSX: any, workbook: any, originalName: string, type: ImportType): File {
     // Robust month mapping to catch full names and abbreviations
     const monthMap: Record<string, string> = {
         '1': '1', 'januari': '1', 'jan': '1', 'january': '1',
@@ -231,9 +233,10 @@ export default function ImportDataPage() {
             if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'toko_history') {
                 processedFile = file; // These APIs read .xlsx natively
             } else {
+                const XLSX = await import("xlsx");
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                processedFile = convertWorkbookToCSV(workbook, importType, file.name);
+                processedFile = convertWorkbookToCSV(XLSX, workbook, importType, file.name);
             }
 
             const formData = new FormData();
@@ -297,9 +300,10 @@ export default function ImportDataPage() {
             if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'potongan') {
                 processedFile = file;
             } else {
+                const XLSX = await import("xlsx");
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                processedFile = convertWorkbookToCSV(workbook, importType, file.name);
+                processedFile = convertWorkbookToCSV(XLSX, workbook, importType, file.name);
             }
 
             const formData = new FormData();

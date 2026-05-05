@@ -20,7 +20,6 @@ import {
     Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import * as XLSX from "xlsx";
 import Link from "next/link";
 
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
@@ -77,7 +76,8 @@ export default function TokoProdukImportPage() {
 
     const processFileAndUpload = async (mode: "preview" | "commit") => {
         if (!file) return;
-        
+
+        const XLSX = await import("xlsx");
         const isPreview = mode === "preview";
         setStatus(isPreview ? "uploading" : "importing");
         if (isPreview) {

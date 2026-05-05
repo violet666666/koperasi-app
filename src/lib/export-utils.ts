@@ -4,7 +4,6 @@
  * Uses SheetJS (xlsx) for Excel and jsPDF for PDF.
  */
 
-import * as XLSX from "xlsx";
 import { terbilang } from "./terbilang";
 
 function escapeHtml(str: string | number | undefined | null): string {
@@ -29,7 +28,7 @@ function resolveKey(obj: Record<string, unknown>, key: string): unknown {
 
 // ─── Excel Export ────────────────────────────────────────────────────────────
 
-export function exportToExcel(
+export async function exportToExcel(
     data: Record<string, unknown>[],
     columns: ExportColumn[],
     fileName: string,
@@ -39,6 +38,8 @@ export function exportToExcel(
         console.warn("Tidak ada data untuk diekspor.");
         return;
     }
+
+    const XLSX = await import("xlsx");
 
     // Build header row
     const headers = columns.map((c) => c.header);
