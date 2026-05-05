@@ -161,12 +161,15 @@ export async function GET() {
             }),
 
             // Cash flow for the last 7 months (Chart Data)
-            prisma.cashBankTransaction.groupBy({
-                by: ["type", "transactionDate"],
-                where: { transactionDate: { gte: sevenMonthsAgo } },
-                _sum: { amount: true },
-                orderBy: { transactionDate: "asc" }
-            }),
+            prisma.$queryRaw<Array<{ type: string; month: Date; total: bigint }>>`
+                SELECT type,
+                       DATE_TRUNC('month', transaction_date) as month,
+                       SUM(amount) as total
+                FROM cash_bank_transactions
+                WHERE transaction_date >= ${sevenMonthsAgo}::timestamp
+                GROUP BY type, DATE_TRUNC('month', transaction_date)
+                ORDER BY month ASC
+            `,
         ]);
 
         // Process cash flow data into monthly buckets
@@ -186,13 +189,14 @@ export async function GET() {
             });
         }
 
-        cashFlowTxRaw.forEach(tx => {
-            const txDate = new Date(tx.transactionDate);
+        (cashFlowTxRaw as any[]).forEach(tx => {
+            const txDate = new Date(tx.month);
             const key = `${txDate.getFullYear()}-${txDate.getMonth()}`;
             if (monthlyDataMap.has(key)) {
                 const data = monthlyDataMap.get(key)!;
-                if (tx.type === "in") data.simpanan += Number(tx._sum.amount || 0);
-                if (tx.type === "out") data.pencairan += Number(tx._sum.amount || 0);
+                const total = Number(tx.total || 0);
+                if (tx.type === "in") data.simpanan += total;
+                if (tx.type === "out") data.pencairan += total;
             }
         });
         
