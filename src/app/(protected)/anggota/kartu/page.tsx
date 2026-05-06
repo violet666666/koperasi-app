@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { Loader2, Search, Printer } from "lucide-react";
 import { memberLookupApi } from "@/lib/api/services";
 import JsBarcode from "jsbarcode";
-import jsPDF from "jspdf";
 
 interface MemberDetail {
     id: number;
@@ -95,6 +94,7 @@ export default function KartuAnggotaPage() {
                 img.src = src;
             });
 
+            const { default: jsPDF } = await import("jspdf");
             const doc = new jsPDF({
                 orientation: "landscape",
                 unit: "mm",

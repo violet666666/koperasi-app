@@ -63,32 +63,28 @@ export async function GET(request: Request) {
 
         const memberIds = members.map((m) => m.id);
 
-        // 2. Piutang Toko — StoreSale salary_cut, not voided
-        const storeSales = await prisma.storeSale.findMany({
-            where: {
-                memberId: { in: memberIds },
-                paymentMethod: "salary_cut",
-            },
-            select: {
-                memberId: true,
-                totalAmount: true,
-                metadata: true,
-            },
-        });
+        // 2. Piutang Toko — SUM via SQL instead of loading all rows
+        const tokoAgg = await prisma.$queryRaw<
+            { member_id: number; total: number }[]
+        >`
+            SELECT member_id, SUM(total_amount)::float as total
+            FROM store_sales
+            WHERE member_id = ANY(${memberIds}::int[])
+              AND payment_method = 'salary_cut'
+              AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
+            GROUP BY member_id
+        `;
 
-        // 3. Piutang Unit — UnitTransaction salary_cut, unpaid
-        const unitTransactions = await prisma.unitTransaction.findMany({
+        // 3. Piutang Unit — aggregate instead of loading all rows
+        const unitAgg = await prisma.unitTransaction.groupBy({
+            by: ["memberId"],
             where: {
                 memberId: { in: memberIds },
                 paymentMethod: "salary_cut",
                 isPaid: false,
                 status: "completed",
             },
-            select: {
-                memberId: true,
-                amount: true,
-                unitType: true,
-            },
+            _sum: { amount: true },
         });
 
         // 4. Piutang SP — Active loans with outstanding balance
@@ -118,16 +114,14 @@ export async function GET(request: Request) {
         const unitMap = new Map<number, number>();
         const spMap = new Map<number, { pokok: number; jasa: number; angsuranKe: string; loanCount: number }>();
 
-        for (const sale of storeSales) {
-            if (!sale.memberId) continue;
-            const meta = typeof sale.metadata === "string" ? JSON.parse(sale.metadata) : sale.metadata || {};
-            if (meta.isVoided) continue;
-            tokoMap.set(sale.memberId, (tokoMap.get(sale.memberId) || 0) + Number(sale.totalAmount));
+        for (const row of tokoAgg) {
+            tokoMap.set(row.member_id, row.total);
         }
 
-        for (const tx of unitTransactions) {
-            if (!tx.memberId) continue;
-            unitMap.set(tx.memberId, (unitMap.get(tx.memberId) || 0) + Number(tx.amount));
+        for (const row of unitAgg) {
+            if (row.memberId) {
+                unitMap.set(row.memberId, Number(row._sum.amount || 0));
+            }
         }
 
         for (const loan of activeLoans) {

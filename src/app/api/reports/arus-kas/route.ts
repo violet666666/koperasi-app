@@ -33,46 +33,37 @@ export async function GET(request: Request) {
         const periodStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
         const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
-        // ── 1. Opening Balance: sum of all CashBankTransaction net before period start ──
-        const prePeriodTxs = await prisma.cashBankTransaction.findMany({
-            where: {
-                transactionDate: { lt: periodStart },
-                account: { isActive: true },
-            },
-            select: { type: true, amount: true },
-        });
+        // ── 1. Opening Balance via SQL SUM (was: load all pre-period transactions into JS) ──
+        const openingResult = await prisma.$queryRaw<{ opening: number }[]>`
+            SELECT COALESCE(
+                SUM(CASE WHEN cbt.type = 'in' THEN cbt.amount ELSE -cbt.amount END),
+                0
+            )::float as opening
+            FROM cash_bank_transactions cbt
+            JOIN cash_bank_accounts cba ON cbt.account_id = cba.id
+            WHERE cbt.transaction_date < ${periodStart}
+              AND cba.is_active = true
+        `;
+        const openingBalance = Number(openingResult[0]?.opening ?? 0);
 
-        let openingBalance = 0;
-        for (const tx of prePeriodTxs) {
-            if (tx.type === "in") {
-                openingBalance += toNum(tx.amount);
-            } else {
-                openingBalance -= toNum(tx.amount);
-            }
-        }
+        // ── 2. Period transactions grouped by category + type via SQL ──
+        const periodAgg = await prisma.$queryRaw<
+            { category: string | null; type: string; total: number }[]
+        >`
+            SELECT cbt.category, cbt.type,
+                   SUM(cbt.amount)::float as total
+            FROM cash_bank_transactions cbt
+            JOIN cash_bank_accounts cba ON cbt.account_id = cba.id
+            WHERE cbt.transaction_date >= ${periodStart}
+              AND cbt.transaction_date <= ${periodEnd}
+              AND cba.is_active = true
+              AND (cbt.category IS NULL OR cbt.category <> 'transfer')
+            GROUP BY cbt.category, cbt.type
+        `;
 
-        // ── 2. Period transactions grouped by category + type ──
-        const periodTxs = await prisma.cashBankTransaction.findMany({
-            where: {
-                transactionDate: { gte: periodStart, lte: periodEnd },
-                account: { isActive: true },
-                category: { not: "transfer" }, // Exclude internal transfers
-            },
-            select: {
-                type: true,
-                category: true,
-                amount: true,
-                description: true,
-            },
-        });
-
-        // Aggregate into operating, investing, financing
         const opIn: Record<string, number> = {};
         const opOut: Record<string, number> = {};
-        const finIn: Record<string, number> = {};
         const finOut: Record<string, number> = {};
-        const invIn: Record<string, number> = {};
-        const invOut: Record<string, number> = {};
 
         const categoryLabels: Record<string, { inflow: string; outflow: string }> = {
             simpanan_pokok: { inflow: "Setoran Simpanan Pokok", outflow: "Penarikan Simpanan Pokok" },
@@ -90,19 +81,17 @@ export async function GET(request: Request) {
             lainnya: { inflow: "Pendapatan Lain-lain", outflow: "Pengeluaran Lain-lain" },
         };
 
-        for (const tx of periodTxs) {
-            const cat = tx.category || "lainnya";
-            const amount = toNum(tx.amount);
+        for (const row of periodAgg) {
+            const cat = row.category || "lainnya";
+            const amount = row.total;
             const labels = categoryLabels[cat] || { inflow: `Penerimaan (${cat})`, outflow: `Pengeluaran (${cat})` };
 
             if (cat === "pencairan_pinjaman") {
-                // Financing: loan disbursements
-                if (tx.type === "out") {
+                if (row.type === "out") {
                     finOut[labels.outflow] = (finOut[labels.outflow] || 0) + amount;
                 }
             } else {
-                // Operating: everything else
-                if (tx.type === "in") {
+                if (row.type === "in") {
                     opIn[labels.inflow] = (opIn[labels.inflow] || 0) + amount;
                 } else {
                     opOut[labels.outflow] = (opOut[labels.outflow] || 0) + amount;
@@ -110,7 +99,7 @@ export async function GET(request: Request) {
             }
         }
 
-        // Also check for investing via journal lines hitting fixed_asset accounts
+        // Investing via journal lines (same as before — typically very few rows)
         const investLines = await prisma.journalLine.findMany({
             where: {
                 journal: {
@@ -127,15 +116,16 @@ export async function GET(request: Request) {
             },
         });
 
+        const invIn: Record<string, number> = {};
+        const invOut: Record<string, number> = {};
+
         for (const line of investLines) {
             const credit = toNum(line.credit);
             const debit = toNum(line.debit);
             if (credit > 0) {
-                // Asset decreasing = cash inflow from sale
                 invIn[`Penjualan ${line.account.name}`] = (invIn[`Penjualan ${line.account.name}`] || 0) + credit;
             }
             if (debit > 0) {
-                // Asset increasing = cash outflow for purchase
                 invOut[`Pembelian ${line.account.name}`] = (invOut[`Pembelian ${line.account.name}`] || 0) + debit;
             }
         }
@@ -154,7 +144,7 @@ export async function GET(request: Request) {
         const invOutflowItems = toItems(invOut);
         const netInv = invInflowItems.reduce((s, i) => s + i.amount, 0) - invOutflowItems.reduce((s, i) => s + i.amount, 0);
 
-        const finInflowItems = toItems(finIn);
+        const finInflowItems: CashFlowItem[] = [];
         const finOutflowItems = toItems(finOut);
         const netFin = finInflowItems.reduce((s, i) => s + i.amount, 0) - finOutflowItems.reduce((s, i) => s + i.amount, 0);
 

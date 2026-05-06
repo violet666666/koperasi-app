@@ -206,6 +206,7 @@ model Account {
   cashBankAccounts CashBankAccount[]
   journalLines     JournalLine[]
 
+  @@index([type])
   @@map("accounts")
 }
 
@@ -526,6 +527,8 @@ model LoanSchedule {
   allocations LoanPaymentAllocation[]
 
   @@unique([loanId, installmentNo])
+  @@index([status])
+  @@index([dueDate])
   @@map("loan_schedules")
 }
 
@@ -562,6 +565,7 @@ model LoanPayment {
 
   @@index([paymentDate])
   @@index([loanId])
+  @@index([memberId])
   @@map("loan_payments")
 }
 
@@ -608,6 +612,8 @@ model CashBankAccount {
   loanDisbursements   Loan[]
   loanPayments        LoanPayment[]
 
+  @@index([isActive])
+  @@index([unitType])
   @@map("cash_bank_accounts")
 }
 
@@ -642,6 +648,8 @@ model CashBankTransaction {
   @@index([unitType])
   @@index([branchId])
   @@index([accountId, transactionDate])
+  @@index([transactionDate])
+  @@index([category])
   @@map("cash_bank_transactions")
 }
 
@@ -670,6 +678,7 @@ model FiscalPeriod {
   storeSales            StoreSale[]
 
   @@unique([year, month])
+  @@index([status])
   @@map("fiscal_periods")
 }
 
@@ -828,6 +837,9 @@ model StoreProduct {
   stockBatches   StockBatch[]
   recipes        ProductRecipe[]
 
+  @@index([unitType])
+  @@index([unitType, isActive])
+  @@index([category])
   @@map("store_products")
 }
 
@@ -953,6 +965,7 @@ model Receipt {
 
   @@index([memberId])
   @@index([receiptDate])
+  @@index([type])
   @@map("receipts")
 }
 
@@ -1003,6 +1016,8 @@ model Announcement {
 
   author User @relation("AnnouncementAuthor", fields: [authorId], references: [id])
 
+  @@index([status])
+  @@index([category])
   @@map("announcements")
 }
 
@@ -1165,6 +1180,9 @@ model CashierShift {
   cashierIdentity CashierIdentity? @relation(fields: [cashierIdentityId], references: [id])
   storeSales StoreSale[]
 
+  @@index([unitType])
+  @@index([status])
+  @@index([userId])
   @@map("cashier_shifts")
 }
 

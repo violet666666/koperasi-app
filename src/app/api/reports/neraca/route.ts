@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
 import { auth } from "@/lib/auth";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
 
-function toNum(d: Decimal | number): number {
-    return typeof d === "number" ? d : Number(d);
+interface AccountRow {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
+    category: string | null;
+    normal_balance: string;
+    level: number;
+    is_detail: boolean;
+    balance: number;
 }
 
-// GET /api/reports/neraca - Balance Sheet from real journal aggregation
+// GET /api/reports/neraca - Balance Sheet via SQL aggregation
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -20,91 +27,44 @@ export async function GET(request: Request) {
         const asOfDate = searchParams.get("asOfDate") || new Date().toISOString().split("T")[0];
         const endDate = new Date(asOfDate + "T23:59:59.999Z");
 
-        // Get all journal lines up to asOfDate
-        const journalLines = await prisma.journalLine.findMany({
-            where: {
-                journal: {
-                    transactionDate: { lte: endDate },
-                    isPosted: true,
-                },
-            },
-            include: {
-                account: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        type: true,
-                        category: true,
-                        normalBalance: true,
-                        level: true,
-                        isDetail: true,
-                    },
-                },
-            },
-        });
-
-        // Aggregate balances per account
-        const accountBalances: Record<
-            number,
-            {
-                code: string;
-                name: string;
-                type: string;
-                category: string | null;
-                normalBalance: string;
-                level: number;
-                isDetail: boolean;
-                balance: number;
-            }
-        > = {};
-
-        for (const line of journalLines) {
-            const { account } = line;
-            if (!accountBalances[account.id]) {
-                accountBalances[account.id] = {
-                    code: account.code,
-                    name: account.name,
-                    type: account.type,
-                    category: account.category,
-                    normalBalance: account.normalBalance,
-                    level: account.level,
-                    isDetail: account.isDetail,
-                    balance: 0,
-                };
-            }
-
-            const debit = toNum(line.debit);
-            const credit = toNum(line.credit);
-
-            // Calculate balance based on normal balance direction
-            if (account.normalBalance === "debit") {
-                accountBalances[account.id].balance += debit - credit;
-            } else {
-                accountBalances[account.id].balance += credit - debit;
-            }
-        }
-
-        // Group accounts by type and category
-        const detailAccounts = Object.values(accountBalances).filter((a) => a.isDetail && a.balance !== 0);
+        // Single SQL query with GROUP BY — replaces loading all journal lines into JS
+        const results = await prisma.$queryRaw<AccountRow[]>`
+            SELECT a.id, a.code, a.name, a.type, a.category, a.normal_balance,
+                   a.level, a.is_detail,
+                   SUM(CASE
+                       WHEN a.normal_balance = 'debit' THEN jl.debit - jl.credit
+                       ELSE jl.credit - jl.debit
+                   END)::float as balance
+            FROM journal_lines jl
+            JOIN journals j ON jl.journal_id = j.id
+            JOIN accounts a ON jl.account_id = a.id
+            WHERE j.transaction_date <= ${endDate}
+              AND j.is_posted = true
+              AND a.is_detail = true
+            GROUP BY a.id, a.code, a.name, a.type, a.category, a.normal_balance,
+                     a.level, a.is_detail
+            HAVING SUM(CASE
+                       WHEN a.normal_balance = 'debit' THEN jl.debit - jl.credit
+                       ELSE jl.credit - jl.debit
+                   END) <> 0
+            ORDER BY a.code
+        `;
 
         // Assets
-        const currentAssets = detailAccounts
+        const currentAssets = results
             .filter((a) => a.type === "asset" && a.category === "current_asset")
-            .sort((a, b) => a.code.localeCompare(b.code))
             .map((a) => ({
                 code: a.code,
                 name: a.name,
-                amount: a.normalBalance === "credit" ? -a.balance : a.balance,
+                amount: a.normal_balance === "credit" ? -a.balance : a.balance,
             }));
 
-        const fixedAssets = detailAccounts
+        const fixedAssets = results
             .filter((a) => a.type === "asset" && a.category === "fixed_asset")
-            .sort((a, b) => a.code.localeCompare(b.code))
             .map((a) => ({
                 code: a.code,
                 name: a.name,
-                amount: a.normalBalance === "credit" ? -a.balance : a.balance,
+                amount: a.normal_balance === "credit" ? -a.balance : a.balance,
             }));
 
         const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + a.amount, 0);
@@ -112,29 +72,26 @@ export async function GET(request: Request) {
         const totalAssets = totalCurrentAssets + totalFixedAssets;
 
         // Liabilities
-        const currentLiabilities = detailAccounts
+        const currentLiabilities = results
             .filter((a) => a.type === "liability" && a.category === "current_liability")
-            .sort((a, b) => a.code.localeCompare(b.code))
             .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
 
         const totalLiabilities = currentLiabilities.reduce((sum, a) => sum + a.amount, 0);
 
         // Equity
-        const equityItems = detailAccounts
+        const equityItems = results
             .filter((a) => a.type === "equity")
-            .sort((a, b) => a.code.localeCompare(b.code))
             .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
 
-        // Calculate SHU Tahun Berjalan (net income) for equity
-        const incomeTotal = detailAccounts
+        // SHU Tahun Berjalan (net income) for equity
+        const incomeTotal = results
             .filter((a) => a.type === "income")
             .reduce((sum, a) => sum + a.balance, 0);
-        const expenseTotal = detailAccounts
+        const expenseTotal = results
             .filter((a) => a.type === "expense")
             .reduce((sum, a) => sum + a.balance, 0);
         const netIncome = incomeTotal - expenseTotal;
 
-        // Check if SHU Tahun Berjalan account already exists in equity
         const hasShuAccount = equityItems.some((e) => e.code === "3103");
         if (!hasShuAccount && netIncome !== 0) {
             equityItems.push({ code: "3103", name: "SHU Tahun Berjalan", amount: netIncome });
@@ -161,7 +118,7 @@ export async function GET(request: Request) {
                 totalEquity,
             },
             totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
-            isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 1, // floating point tolerance
+            isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 1,
         };
 
         return NextResponse.json({ data: balanceSheet });

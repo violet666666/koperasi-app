@@ -185,62 +185,82 @@ export async function GET() {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoRaw, sysUnit, sysLoanInt, myTokoRaw, myUnit, myLoan] = await Promise.all([
-            // FIX: Use findMany to filter voided sales for SHU calculation
-            prisma.storeSale.findMany({ where: { createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, memberId: true, metadata: true } }),
+        // Optimized: Use SQL aggregation instead of loading all sales into memory
+        const [sysTokoAgg, sysUnit, sysLoanInt, myTokoAgg, myUnit, myLoan] = await Promise.all([
+            // System-wide toko: SUM of non-voided sales
+            prisma.$queryRaw<{ member_total: number; non_member_total: number }[]>`
+                SELECT
+                    COALESCE(SUM(CASE WHEN member_id IS NOT NULL THEN total_amount ELSE 0 END), 0)::float as member_total,
+                    COALESCE(SUM(CASE WHEN member_id IS NULL THEN total_amount ELSE 0 END), 0)::float as non_member_total
+                FROM store_sales
+                WHERE created_at >= ${startDate} AND created_at <= ${endDate}
+                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
+            `,
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            // My contributions
-            prisma.storeSale.findMany({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, metadata: true } }),
+            // My toko contributions
+            prisma.$queryRaw<{ total: number }[]>`
+                SELECT COALESCE(SUM(total_amount), 0)::float as total
+                FROM store_sales
+                WHERE member_id = ${memberId}
+                  AND created_at >= ${startDate} AND created_at <= ${endDate}
+                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
+            `,
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
         ]);
 
-        // Helper: filter out voided StoreSale
-        const filterActiveSales = (sales: any[]) => sales.filter((s: any) => {
-            if (!s.metadata) return true;
-            const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
-            return !meta.isVoided;
-        });
-
-        const activeSysTokoAll = filterActiveSales(sysTokoRaw);
-        const sysTokoMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId !== null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
-        const sysTokoNonMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId === null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
-        const myTokoTotal = filterActiveSales(myTokoRaw).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+        const sysTokoMemberTotal = sysTokoAgg[0]?.member_total ?? 0;
+        const sysTokoNonMemberTotal = sysTokoAgg[0]?.non_member_total ?? 0;
+        const myTokoTotal = myTokoAgg[0]?.total ?? 0;
 
         // Income calculation
         const memberIncome = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
         const nonMemberIncome = sysTokoNonMemberTotal;
         const totalIncome = memberIncome + nonMemberIncome;
-        const totalExpense = totalIncome * 0.4; // Estimated 40% operating expenses
-        const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
+        const totalExpense = totalIncome * 0.4;
+        const totalNetSurplus = totalIncome - totalExpense;
 
-        // --- Calculate System-Wide Savings Capital ---
-        // To prevent double counting between legacy `tabunganWajib` and new `savingsAccounts`
-        const allRelevantMembers = await prisma.member.findMany({
-            where: { status: "active", deletedAt: null },
-            select: { id: true, tabunganWajib: true, savingsAccounts: { select: { balance: true, product: { select: { type: true } } } } }
-        });
-        
-        let totalSysSavings = 0;
-        let mySavCont = 0;
+        // --- System-Wide Savings Capital via SQL (replaces loading ALL members into JS) ---
+        const [savingsCapitalAgg, legacyWajibAgg, mySavingsAgg] = await Promise.all([
+            // Total pokok + wajib from savings_accounts
+            prisma.$queryRaw<{ total: number }[]>`
+                SELECT COALESCE(SUM(sa.balance), 0)::float as total
+                FROM savings_accounts sa
+                JOIN savings_products sp ON sa.product_id = sp.id
+                WHERE sa.status = 'active'
+                  AND sp.type IN ('pokok', 'wajib')
+            `,
+            // Legacy tabungan_wajib for members WITHOUT imported wajib savings account
+            prisma.$queryRaw<{ total: number }[]>`
+                SELECT COALESCE(SUM(m.tabungan_wajib), 0)::float as total
+                FROM members m
+                WHERE m.status = 'active' AND m.deleted_at IS NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM savings_accounts sa
+                    JOIN savings_products sp ON sa.product_id = sp.id
+                    WHERE sa.member_id = m.id AND sp.type = 'wajib'
+                  )
+                  AND m.tabungan_wajib > 0
+            `,
+            // This member's pokok + wajib savings
+            prisma.$queryRaw<{ total: number; has_wajib: boolean }[]>`
+                SELECT
+                    COALESCE(SUM(sa.balance), 0)::float as total,
+                    BOOL_OR(sp.type = 'wajib') as has_wajib
+                FROM savings_accounts sa
+                JOIN savings_products sp ON sa.product_id = sp.id
+                WHERE sa.member_id = ${memberId}
+                  AND sa.status = 'active'
+                  AND sp.type IN ('pokok', 'wajib')
+            `,
+        ]);
 
-        for (const m of allRelevantMembers) {
-            let mSav = 0;
-            let hasImportedWajib = false;
-            for (const acc of m.savingsAccounts) {
-                // SHU Jasa Modal ONLY applies to Pokok and Wajib (Sukarela is excluded by definition)
-                if (acc.product.type === "pokok" || acc.product.type === "wajib") {
-                    mSav += Number(acc.balance);
-                }
-                // FIXED: Cek keberadaan rekening saja, bukan balance > 0.
-                // Saldo 0 setelah koreksi tetap berarti rekening sudah ada.
-                if (acc.product.type === "wajib") hasImportedWajib = true;
-            }
-            if (!hasImportedWajib) mSav += Number(m.tabunganWajib || 0); // Legacy fallback
-            
-            totalSysSavings += mSav;
-            if (m.id === memberId) mySavCont = mSav;
+        let totalSysSavings = (savingsCapitalAgg[0]?.total ?? 0) + (legacyWajibAgg[0]?.total ?? 0);
+        let mySavCont = mySavingsAgg[0]?.total ?? 0;
+        // Legacy fallback: if member has no imported wajib account, use tabunganWajib
+        if (!mySavingsAgg[0]?.has_wajib && member.tabunganWajib) {
+            mySavCont += Number(member.tabunganWajib);
         }
 
         totalSysSavings = totalSysSavings || 1;
@@ -258,7 +278,6 @@ export async function GET() {
         const myModal = (mySavCont / totalSysSavings) * jasaModalPool;
 
         // 2. Calculate Jasa Usaha (Pool Method: proportional by transaction volume)
-        // System-wide member transaction volume = all member toko sales + all unit transactions + all loan interest
         const totalMemberTxVolume = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
 
         // My transaction volume
