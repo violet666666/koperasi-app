@@ -301,7 +301,7 @@ export async function POST(request: Request) {
             slip.tunkin = member?.tunlesKinerja ? Number(member.tunlesKinerja) : 0;
 
             slip.totalPotKoperasi = slip.potTajib + slip.potSP + slip.potBarang + slip.potSukarela + slip.potKoperasiLain;
-            slip.sisaGaji = Math.max(0, slip.gajiBersih - slip.totalPotKoperasi);
+            slip.sisaGaji = slip.terimaBersih; // JUMLAH GAJI DITERIMA dari Excel — sudah memperhitungkan semua potongan
             slip.sisaTunkin = Math.max(0, slip.tunkin);
             slip.bisaDiambilATM = Math.max(0, slip.terimaBersih - slip.sisaRekening);
 
