@@ -43,7 +43,13 @@
       "Bash(Select-String \"summary\")",
       "Bash(Select-String -Pattern \"route\\\\.ts\")",
       "Bash(npx ts-node *)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\" -Filter \"schema.prisma\" -Recurse -ErrorAction SilentlyContinue)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\" -Filter \"schema.prisma\" -Recurse -ErrorAction SilentlyContinue)",
+      "Bash(Select-String -Pattern \"Deduct stock|stockToko|stockGdg|stockBatch|findUnique|findMany\" -Context 2)",
+      "Bash(Out-String -Width 300)",
+      "Bash(findstr /n \"metadata\")",
+      "Bash(Select-String \"metadata\")",
+      "Bash(npm install *)",
+      "Bash(npm ls *)"
     ]
   },
   "enabledPlugins": {
