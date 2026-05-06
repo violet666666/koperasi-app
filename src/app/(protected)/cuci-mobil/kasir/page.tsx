@@ -176,9 +176,15 @@ export default function CuciMobilKasirPage() {
                 vehiclePlate,
             };
             
-            // Selalu kirim memberId jika anggota terpilih, apapun metode bayarnya
-            if (selectedMember?.id) body.memberId = selectedMember.id;
-            else if (selectedCustomerObj?.id) body.memberId = selectedCustomerObj.id;
+            // memberId hanya boleh dikirim jika:
+            // 1. Potong gaji: WAJIB dari dialog kredit (selectedMember)
+            // 2. Tunai/QRIS: opsional, dari autocomplete pelanggan (selectedCustomerObj)
+            if (method === "salary_cut") {
+                if (!selectedMember?.id) { toast.error("Pilih anggota dari dialog Potong Gaji"); setIsProcessing(false); return; }
+                body.memberId = selectedMember.id;
+            } else if (selectedCustomerObj?.id) {
+                body.memberId = selectedCustomerObj.id;
+            }
 
             // Kirim tanggal transaksi jika diisi (untuk input transaksi lama)
             if (transactionDate) body.transactionDate = transactionDate;
