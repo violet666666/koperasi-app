@@ -10,9 +10,9 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        // Only Operator (Super Admin) can view audit logs
+        // Only Operator (Super Admin) and admin_sp can view audit logs
         const userRole = session.user.role;
-        if (userRole !== "operator") {
+        if (userRole !== "operator" && userRole !== "admin_sp") {
             return NextResponse.json({ message: "Forbidden: Hanya Operator yang dapat melihat audit log" }, { status: 403 });
         }
 
@@ -26,6 +26,8 @@ export async function GET(request: Request) {
         const status = searchParams.get("status") || undefined;
         const dateFrom = searchParams.get("dateFrom") || undefined;
         const dateTo = searchParams.get("dateTo") || undefined;
+        const unitType = searchParams.get("unitType") || undefined;
+        const filterUserRole = searchParams.get("userRole") || undefined;
 
         const where: any = {};
 
@@ -33,6 +35,8 @@ export async function GET(request: Request) {
         if (action) where.action = action;
         if (userId) where.userId = userId;
         if (status) where.status = status;
+        if (unitType) where.unitType = unitType;
+        if (filterUserRole) where.userRole = filterUserRole;
 
         if (search) {
             where.OR = [
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
                 { userName: { contains: search, mode: "insensitive" } },
                 { ipAddress: { contains: search, mode: "insensitive" } },
                 { targetType: { contains: search, mode: "insensitive" } },
+                { unitType: { contains: search, mode: "insensitive" } },
             ];
         }
 
@@ -83,6 +88,7 @@ export async function GET(request: Request) {
                 errorMessage: log.errorMessage,
                 duration: log.duration,
                 metadata: log.metadata,
+                unitType: log.unitType,
             })),
             pagination: {
                 page,

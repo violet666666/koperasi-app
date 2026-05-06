@@ -35,6 +35,7 @@ interface AuditLog {
     requestMethod: string | null; requestUrl: string | null;
     status: string; errorMessage: string | null;
     duration: number | null; metadata: string | null;
+    unitType: string | null;
 }
 
 interface Pagination { page: number; limit: number; total: number; totalPages: number; }
@@ -173,6 +174,8 @@ export default function AuditLogPage() {
     const [searchQuery, setSearchQuery] = React.useState<string>("");
     const [dateFrom, setDateFrom] = React.useState<string>("");
     const [dateTo, setDateTo] = React.useState<string>("");
+    const [filterUnitType, setFilterUnitType] = React.useState<string>("all");
+    const [filterUserRole, setFilterUserRole] = React.useState<string>("all");
     const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null);
 
     const fetchLogs = React.useCallback(async (page = 1) => {
@@ -185,6 +188,8 @@ export default function AuditLogPage() {
             if (searchQuery) params.set("search", searchQuery);
             if (dateFrom) params.set("dateFrom", dateFrom);
             if (dateTo) params.set("dateTo", dateTo);
+            if (filterUnitType !== "all") params.set("unitType", filterUnitType);
+            if (filterUserRole !== "all") params.set("userRole", filterUserRole);
 
             const res = await fetch(`/api/audit-logs?${params}`);
             if (!res.ok) throw new Error("Failed");
@@ -197,7 +202,7 @@ export default function AuditLogPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [filterModule, filterAction, filterStatus, searchQuery, dateFrom, dateTo]);
+    }, [filterModule, filterAction, filterStatus, searchQuery, dateFrom, dateTo, filterUnitType, filterUserRole]);
 
     React.useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -213,8 +218,10 @@ export default function AuditLogPage() {
         };
     }, [logs, pagination.total]);
 
-    const MODULES = ["Auth", "Anggota", "Simpanan", "Pinjaman", "Toko", "Jurnal", "Kas", "Aset", "Laporan", "Master", "User", "Pengumuman", "System", "Period"];
+    const MODULES = ["Auth", "Anggota", "Simpanan", "Pinjaman", "Toko", "Jurnal", "Kas", "Aset", "Laporan", "Master", "User", "Pengumuman", "System", "Period", "Tabungan_Sejahtera", "Loan_Migrasi", "Unit_Layanan", "Payroll"];
     const ACTIONS = ["LOGIN", "LOGOUT", "LOGIN_FAILED", "CREATE", "UPDATE", "DELETE", "VIEW", "EXPORT", "APPROVE", "REJECT", "IMPORT", "PASSWORD_CHANGE"];
+    const UNIT_TYPES = ["toko", "cuci_mobil", "barbershop", "play_station", "fitness", "coffe_latar", "resto_cafe", "resto", "laundry", "simpan_pinjam", "cafe_lsp"];
+    const USER_ROLES = ["operator", "admin", "admin_sp", "admin_unit", "kasir", "anggota"];
 
     const columns: ColumnDef<AuditLog>[] = [
         {
@@ -247,6 +254,13 @@ export default function AuditLogPage() {
         {
             accessorKey: "module", header: "Modul",
             cell: ({ row }) => <Badge variant="secondary">{row.getValue("module")}</Badge>,
+        },
+        {
+            accessorKey: "unitType", header: "Unit",
+            cell: ({ row }) => {
+                const ut = row.getValue("unitType") as string | null;
+                return ut ? <Badge variant="outline" className="text-xs">{ut.replace(/_/g, " ")}</Badge> : <span className="text-muted-foreground text-xs">-</span>;
+            },
         },
         {
             accessorKey: "description", header: "Deskripsi",
@@ -309,7 +323,7 @@ export default function AuditLogPage() {
             <Card>
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Filter className="h-4 w-4" /> Filter & Pencarian</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-6">
                         <div className="space-y-1">
                             <Label className="text-xs">Cari</Label>
                             <div className="relative">
@@ -344,6 +358,26 @@ export default function AuditLogPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Unit</Label>
+                            <Select value={filterUnitType} onValueChange={setFilterUnitType}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Unit</SelectItem>
+                                    {UNIT_TYPES.map(u => <SelectItem key={u} value={u}>{u.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Role</Label>
+                            <Select value={filterUserRole} onValueChange={setFilterUserRole}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Role</SelectItem>
+                                    {USER_ROLES.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 mt-4">
                         <div className="space-y-1">
@@ -358,6 +392,7 @@ export default function AuditLogPage() {
                             <Button variant="outline" size="sm" onClick={() => {
                                 setFilterModule("all"); setFilterAction("all"); setFilterStatus("all");
                                 setSearchQuery(""); setDateFrom(""); setDateTo("");
+                                setFilterUnitType("all"); setFilterUserRole("all");
                             }}>Reset Filter</Button>
                         </div>
                     </div>
