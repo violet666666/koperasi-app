@@ -42,7 +42,8 @@
       "Bash(Select-String \"disbursementCashBankId\")",
       "Bash(Select-String \"summary\")",
       "Bash(Select-String -Pattern \"route\\\\.ts\")",
-      "Bash(npx ts-node *)"
+      "Bash(npx ts-node *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\" -Filter \"schema.prisma\" -Recurse -ErrorAction SilentlyContinue)"
     ]
   },
   "enabledPlugins": {
