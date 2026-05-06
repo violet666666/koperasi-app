@@ -1040,6 +1040,9 @@ model AuditLog {
   requestMethod String?   @map("request_method")
   requestUrl    String?   @map("request_url") @db.Text
 
+  // Unit context — which business unit this action belongs to
+  unitType      String?   @map("unit_type")
+
   // Result
   status        String    @default("success")  // success, failed, warning
   errorMessage  String?   @map("error_message") @db.Text
@@ -1056,6 +1059,7 @@ model AuditLog {
   @@index([module])
   @@index([action])
   @@index([targetType, targetId])
+  @@index([unitType])
   @@map("audit_logs")
 }
 

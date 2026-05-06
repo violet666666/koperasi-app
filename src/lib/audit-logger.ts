@@ -76,6 +76,9 @@ export interface AuditLogParams {
     // Additional metadata
     duration?: number | null;
     metadata?: Record<string, any> | null;
+
+    // Unit context
+    unitType?: string | null;
 }
 
 /**
@@ -160,6 +163,7 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
 
                 duration: params.duration || null,
                 metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+                unitType: params.unitType || null,
             },
         });
     } catch (error) {
