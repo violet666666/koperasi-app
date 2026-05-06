@@ -112,6 +112,12 @@ export default function DashboardScreen({ setToken }: any) {
 
   const isOperator = data?.type === "operator";
   const isKasir = data?.type === "kasir";
+  const userRole = React.useMemo(() => {
+    const ud = StorageManager.getFastString("userData");
+    if (ud) { const p = JSON.parse(ud); return typeof p.role === "object" ? p.role?.name : p.role; }
+    return "";
+  }, []);
+  const isAdminSp = userRole === "admin_sp";
 
   return (
     <View style={styles.container}>
@@ -236,12 +242,14 @@ export default function DashboardScreen({ setToken }: any) {
 
             {/* ACCORDION MENUS */}
             <View style={{ marginTop: 24 }}>
+                {!isAdminSp && (
                 <CollapsibleSection title="Pusat Kasir & Toko" icon="storefront" defaultExpanded={false}>
                     <View style={styles.menuGrid}>
                         <MenuItem icon="cart-outline" label="Kasir POS" color="#F59E0B" onPress={() => navigation.navigate("KasirFull")} />
                         <MenuItem icon="cube-outline" label="Stok Barang" color="#0284c7" onPress={() => navigation.navigate("StokFull")} />
                     </View>
                 </CollapsibleSection>
+                )}
 
                 <CollapsibleSection title="Anggota & Simpan-Pinjam" icon="people" defaultExpanded={true}>
                     <View style={styles.menuGrid}>
@@ -252,7 +260,9 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="list-outline" label="Daftar Pinjam" color="#7C3AED" onPress={() => navigation.navigate("DaftarPinjaman")} />
                         <MenuItem icon="flash-outline" label="Cairkan Lgsg" color="#EF4444" onPress={() => navigation.navigate("DirectDisburse")} />
                         <MenuItem icon="swap-horizontal-outline" label="Kompen" color="#7C3AED" onPress={() => navigation.navigate("Kompen")} />
+                        {!isAdminSp && (
                         <MenuItem icon="document-text-outline" label="Gaji & Payroll" color="#7C3AED" onPress={() => navigation.navigate("GajiPeriode")} />
+                        )}
                     </View>
                 </CollapsibleSection>
 
@@ -266,19 +276,31 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />
                         <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
                         <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
+                        {!isAdminSp && (
+                        <>
                         <MenuItem icon="car-wash" label="Lap. Cuci Mobil" color="#0E7490" onPress={() => navigation.navigate("LaporanCuciMobil")} />
                         <MenuItem icon="server-outline" label="Aset PRIMKOPPOL" color="#0891b2" onPress={() => navigation.navigate("AsetList")} />
+                        </>
+                        )}
                     </View>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Administrasi Sistem" icon="settings" defaultExpanded={false}>
                     <View style={styles.menuGrid}>
+                        {!isAdminSp && (
+                        <>
                         <MenuItem icon="options" label="Master Data" color="#ea580c" onPress={() => navigation.navigate("MasterDataHub")} />
                         <MenuItem icon="cloud-upload-outline" label="Import Data" color="#16a34a" onPress={() => navigation.navigate("ImportData")} />
+                        </>
+                        )}
                         <MenuItem icon="notifications-outline" label="Notifikasi" color="#EA580C" onPress={() => navigation.navigate("Notifikasi")} />
                         <MenuItem icon="megaphone-outline" label="Pengumuman" color="#F59E0B" onPress={() => navigation.navigate("Pengumuman")} />
+                        {!isAdminSp && (
+                        <>
                         <MenuItem icon="list-circle-outline" label="Audit Log" color="#64748B" onPress={() => navigation.navigate("AuditLogFull")} />
                         <MenuItem icon="business-outline" label="Profil Usaha" color="#0F766E" onPress={() => navigation.navigate("ProfilKoperasi")} />
+                        </>
+                        )}
                         <MenuItem icon="key-outline" label="Ganti Sandi" color="#6B7280" onPress={() => navigation.navigate("ChangePassword")} />
                     </View>
                 </CollapsibleSection>

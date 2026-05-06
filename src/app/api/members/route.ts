@@ -5,9 +5,15 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+
 // GET /api/members - List all members
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,

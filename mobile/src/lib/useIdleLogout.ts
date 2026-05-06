@@ -30,7 +30,7 @@ export function useIdleLogout({ onLogout }: { onLogout: () => void }) {
     try {
       const user = JSON.parse(userDataStr);
       if (user.role === 'kasir') return -1; // Nonaktif untuk kasir
-      if (['operator', 'admin', 'superadmin', 'admin_unit'].includes(user.role)) {
+      if (['operator', 'admin', 'superadmin', 'admin_unit', 'admin_sp'].includes(user.role)) {
         return 30 * 60 * 1000; // 30 menit
       }
       return 15 * 60 * 1000; // 15 menit (Anggota)

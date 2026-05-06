@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
-    if (user.role !== "operator" && user.role !== "admin" && user.role !== "superadmin") {
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "superadmin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 

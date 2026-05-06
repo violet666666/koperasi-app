@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { auth } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
 
 function toNum(d: Decimal | number): number {
     return typeof d === "number" ? d : Number(d);
@@ -9,6 +12,10 @@ function toNum(d: Decimal | number): number {
 // GET /api/reports/laba-rugi - Income Statement from real journal aggregation
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const periodFrom =
             searchParams.get("periodFrom") ||

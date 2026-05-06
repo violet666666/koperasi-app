@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+
 // Helper: map StoreSale into UnitTransaction shape
 function mapStoreSale(s: Record<string, unknown>) {
     const metadataObj = typeof s.metadata === "string" ? JSON.parse(s.metadata as string) : s.metadata || {};
@@ -63,7 +65,7 @@ function mapStoreSale(s: Record<string, unknown>) {
 export async function GET(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user) {
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
@@ -271,8 +273,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        // Only admin roles can create unit transactions
-        if (session.user.role === "anggota") {
+        // Only admin/operator/admin_sp roles can create unit transactions
+        if (!ALLOWED_ROLES.includes(session.user.role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

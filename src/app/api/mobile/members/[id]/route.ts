@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Hanya operator, admin, kasir yang bisa melihat data member lain
     const role = (user as any).role;
-    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin") {
+    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin" && role !== "admin_sp") {
       return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 
@@ -98,7 +98,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
-    if (user.role !== 'operator' && user.role !== 'admin') {
+    if (user.role !== 'operator' && user.role !== 'admin' && user.role !== 'admin_sp') {
       return NextResponse.json({ message: 'Hanya Operator/Admin yang dapat mengedit data anggota' }, { status: 403 });
     }
 

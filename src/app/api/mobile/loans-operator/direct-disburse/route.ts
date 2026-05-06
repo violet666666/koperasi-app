@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
         // Hanya Operator yang boleh menggunakan endpoint ini
         // Note: Check permissions array if available, otherwise check role
-        const isOperator = user.role === "operator" || user.role === "admin" || user.role === "superadmin" || user.permissions?.includes("manage_all");
+        const isOperator = user.role === "operator" || user.role === "admin" || user.role === "superadmin" || user.role === "admin_sp" || user.permissions?.includes("manage_all");
         if (!isOperator) {
             return NextResponse.json(
                 { message: "Endpoint ini hanya untuk Operator. Gunakan alur pengajuan normal." },

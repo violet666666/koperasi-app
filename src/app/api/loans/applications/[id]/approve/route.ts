@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: Params) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-        const allowedRoles = ["operator"];
+        const allowedRoles = ["operator", "admin_sp"];
         if (!allowedRoles.includes(session.user.role)) {
             return NextResponse.json({ message: "Tidak ada izin menyetujui pengajuan" }, { status: 403 });
         }

@@ -48,6 +48,10 @@ const ROLES = [
         permissions: ["view_anggota", "manage_simpanan", "view_simpanan", "view_pinjaman", "manage_kas_bank", "manage_toko", "manage_unit_transactions"],
     },
     {
+        name: "admin_sp", displayName: "Admin Simpan Pinjam", description: "Admin khusus Simpan Pinjam — akses simpanan, pinjaman, anggota, kas-bank, jurnal, laporan", isSystem: true,
+        permissions: ["view_dashboard", "manage_anggota", "view_anggota", "manage_simpanan", "view_simpanan", "manage_pinjaman", "view_pinjaman", "approve_pinjaman", "manage_kas_bank", "view_jurnal", "view_laporan", "approve_transactions", "manage_unit_transactions", "manage_pengumuman"],
+    },
+    {
         name: "anggota", displayName: "Anggota", description: "Member", isSystem: true,
         permissions: ["view_own_data"],
     },
@@ -286,6 +290,21 @@ async function main() {
             isActive: true,
         },
     });
+
+    // Admin Simpan Pinjam
+    if (roleMap["admin_sp"]) {
+        await prisma.user.create({
+            data: {
+                name: "Admin Simpan Pinjam",
+                email: "adminsp@koperasi.com",
+                password: defaultPassword,
+                roleId: roleMap["admin_sp"],
+                branchId,
+                unitType: "simpan_pinjam",
+                isActive: true,
+            },
+        });
+    }
 
     const UNIT_STAFF = [
         { unit: "simpan_pinjam", label: "Simpan Pinjam", emailKey: "sp" },

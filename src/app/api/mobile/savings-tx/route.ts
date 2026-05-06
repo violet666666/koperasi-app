@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit-logger";
 export async function POST(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
-    if (user.role !== "operator" && user.role !== "admin") {
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 
@@ -125,7 +125,7 @@ export async function GET(request: Request) {
 
     // Hanya operator, admin, kasir yang bisa melihat saldo akun simpanan
     const role = (user as any).role;
-    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin") {
+    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin" && role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 

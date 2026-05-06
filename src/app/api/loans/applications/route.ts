@@ -19,7 +19,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (roleName !== "operator") {
+        if (!["operator", "admin_sp"].includes(roleName)) {
             return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pengajuan." }, { status: 403 });
         }
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (roleName !== "operator") {
+        if (!["operator", "admin_sp"].includes(roleName)) {
             return NextResponse.json({ message: "Hanya Operator yang dapat membuat pengajuan pinjaman." }, { status: 403 });
         }
         const currentUserId = parseInt(session.user.id);

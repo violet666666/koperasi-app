@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   // Hanya operator, admin yang bisa melihat laporan keuangan unit
   const role = (user as any).role;
-  if (role !== "operator" && role !== "admin" && role !== "super_admin") {
+  if (role !== "operator" && role !== "admin" && role !== "super_admin" && role !== "admin_sp") {
     return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
   }
 

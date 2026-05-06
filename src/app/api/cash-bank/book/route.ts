@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+
 // Check if a description represents an opening balance row
 function isOpeningBalanceDescription(desc: string): boolean {
     const lower = (desc || "").toLowerCase();
@@ -20,7 +22,7 @@ function isOpeningBalanceDescription(desc: string): boolean {
 export async function GET(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user) {
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 

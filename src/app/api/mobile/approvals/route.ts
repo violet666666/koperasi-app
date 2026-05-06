@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
-    if (user.role !== "operator" && user.role !== "admin") {
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
-    if (user.role !== "operator" && user.role !== "admin") {
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 

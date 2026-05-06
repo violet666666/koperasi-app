@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: Params) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (roleName !== "operator") {
+        if (!["operator", "admin_sp"].includes(roleName)) {
             return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pinjaman." }, { status: 403 });
         }
 
@@ -66,7 +66,7 @@ export async function PUT(request: Request, { params }: Params) {
             ? session.user.role
             : (session.user.role as any)?.name;
 
-        if (roleName !== "operator") {
+        if (!["operator", "admin_sp"].includes(roleName)) {
             return NextResponse.json(
                 { message: "Hanya Operator yang diizinkan mengedit data pinjaman." },
                 { status: 403 }

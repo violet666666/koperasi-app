@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     try {
         const session = await auth();
         if (!session?.user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-        const isOperator = (session.user as any).permissions?.includes("manage_all");
+        const isOperator = (session.user as any).permissions?.includes("manage_all") || session.user.role === "admin_sp";
         if (!isOperator) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
         const body = await request.json();

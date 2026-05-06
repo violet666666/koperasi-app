@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { paginationSchema } from "@/lib/validations";
+import { auth } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
 
 // GET /api/cash-bank/accounts
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
         const type = searchParams.get("type"); // cash or bank

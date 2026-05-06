@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "25", 10)));
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
-        const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
+        const isOperator = roleName === "operator" || roleName === "admin_sp" || session.user.permissions?.includes("manage_all");
         
         const isSimpanPinjamAdmin = roleName === "admin" && userUnitType === "simpan_pinjam";
         const isUnitAdmin = roleName === "admin" && userUnitType && userUnitType !== "simpan_pinjam";

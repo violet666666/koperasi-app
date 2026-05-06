@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
 
 // GET /api/journals - List journal entries with server-side pagination
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const period = searchParams.get("period"); // "current", "last", "year", "all"
         const adjustment = searchParams.get("adjustment"); // "true" to filter only adjustments

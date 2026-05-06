@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { createCashBankTransactionSchema, paginationSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
 
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+
 // Helper to generate transaction number
 function generateTransactionNo(type: string): string {
     const date = new Date();
@@ -15,6 +17,10 @@ function generateTransactionNo(type: string): string {
 // GET /api/cash-bank/transactions
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,

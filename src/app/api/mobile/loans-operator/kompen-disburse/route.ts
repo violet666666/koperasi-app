@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     try {
         const user = getMobileUser(request);
         if (!user) return unauthorizedResponse();
-        if (!["operator", "admin"].includes(user.role)) {
+        if (!["operator", "admin", "admin_sp"].includes(user.role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

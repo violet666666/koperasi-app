@@ -447,7 +447,124 @@ export const adminUnitNavigation: (NavItem | NavGroup)[] = [
 ];
 
 // ============================================================
-// KASIR RESTO NAVIGATION — kasir unit "resto_cafe", POS denah meja
+// ADMIN SIMPAN PINJAM NAVIGATION — role "admin_sp"
+// Akses: simpanan, pinjaman, anggota, kas-bank, jurnal, laporan, kwitansi, approval
+// Tidak: master data, user management, payroll, periode/SHU, toko, unit layanan
+// ============================================================
+export const adminSpNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+
+    {
+        title: "OPERASIONAL",
+        items: [
+            {
+                title: "Anggota", href: "/anggota", icon: Users,
+                permission: "manage_anggota",
+                children: [
+                    { title: "Daftar Anggota", href: "/anggota" },
+                    { title: "Kartu Anggota", href: "/anggota/kartu" },
+                    { title: "Buku Anggota", href: "/anggota/buku" },
+                ],
+            },
+            {
+                title: "Simpanan", href: "/simpanan", icon: Wallet,
+                permission: "manage_simpanan",
+                children: [
+                    { title: "Rekening Anggota", href: "/simpanan/rekening" },
+                    { title: "Transaksi Simpanan", href: "/simpanan/transaksi" },
+                    { title: "Rekap Simpanan", href: "/simpanan/rekap" },
+                ],
+            },
+            {
+                title: "Pinjaman", href: "/pinjaman", icon: CreditCard,
+                permission: "manage_pinjaman",
+                children: [
+                    { title: "Pengajuan", href: "/pinjaman/pengajuan" },
+                    { title: "Daftar Pinjaman", href: "/pinjaman" },
+                    { title: "Angsuran", href: "/pinjaman/angsuran" },
+                    { title: "Jadwal Angsuran", href: "/pinjaman/jadwal" },
+                    { title: "Laporan Jasa", href: "/pinjaman/laporan-jasa" },
+                ],
+            },
+            {
+                title: "Kas & Bank", href: "/kas-bank", icon: Building,
+                permission: "manage_kas_bank",
+                children: [
+                    { title: "Buku Kas", href: "/kas-bank/buku-kas" },
+                    { title: "Transaksi Kas", href: "/kas-bank/kas" },
+                    { title: "Transaksi Bank", href: "/kas-bank/bank" },
+                    { title: "Transfer", href: "/kas-bank/transfer" },
+                ],
+            },
+            {
+                title: "Non Simpan Pinjam", href: "/non-sp", icon: ArrowLeftRight,
+                permission: "manage_kas_bank",
+                children: [
+                    { title: "Penerimaan", href: "/non-sp/penerimaan" },
+                    { title: "Pengeluaran", href: "/non-sp/pengeluaran" },
+                ],
+            },
+            {
+                title: "Kwitansi", href: "/kwitansi", icon: Receipt,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+
+    {
+        title: "AKUNTANSI",
+        items: [
+            {
+                title: "Jurnal", href: "/jurnal/umum", icon: BookOpen,
+                permission: "view_jurnal",
+                children: [
+                    { title: "Buku Besar", href: "/jurnal/buku-besar" },
+                    { title: "Jurnal Umum", href: "/jurnal/umum" },
+                    { title: "Jurnal Penyesuaian", href: "/jurnal/penyesuaian" },
+                ],
+            },
+            {
+                title: "Laporan", href: "/laporan", icon: FileText,
+                permission: "view_laporan",
+                children: [
+                    { title: "Neraca", href: "/laporan/neraca" },
+                    { title: "Laba Rugi", href: "/laporan/laba-rugi" },
+                    { title: "Arus Kas", href: "/laporan/arus-kas" },
+                    { title: "SHU", href: "/laporan/shu" },
+                    { title: "Rekap Simpanan", href: "/laporan/rekap-simpanan" },
+                    { title: "Rekap Pinjaman", href: "/laporan/rekap-pinjaman" },
+                    { title: "Faktur Potongan", href: "/laporan/faktur-potongan" },
+                    { title: "Piutang Gabungan", href: "/laporan/piutang-gabungan" },
+                ],
+            },
+        ],
+    },
+
+    {
+        title: "KOMUNIKASI",
+        items: [
+            { title: "Pengumuman", href: "/pengumuman", icon: Megaphone, permission: "manage_pengumuman" },
+        ],
+    },
+
+    {
+        title: "APPROVAL",
+        items: [
+            {
+                title: "Inbox Approval", href: "/approval", icon: CheckSquare,
+                permission: "approve_transactions",
+            },
+        ],
+    },
+
+    {
+        title: "PENGATURAN",
+        items: [
+            { title: "Pengaturan", href: "/settings", icon: Settings },
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
 // ============================================================
 export const kasirRestoNavigation: (NavItem | NavGroup)[] = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -1184,6 +1301,10 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     // Admin unit Jasa Cepat (fallback ke generic)
     else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp", "cafe_lsp"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminUnitNavigation, user);
+    }
+    // Admin Simpan Pinjam — akses simpanan, pinjaman, anggota, kas-bank, jurnal, laporan
+    else if (user.roleName === "admin_sp") {
+        finalNav = filterNavigationByUser(adminSpNavigation, user);
     }
     // Default: operator koperasi pusat atau admin pusat (tanpa unitType)
     else {

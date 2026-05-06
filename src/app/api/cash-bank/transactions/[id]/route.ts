@@ -27,8 +27,8 @@ async function isAuthorizedOperator() {
         include: { role: true },
     });
 
-    // We allow Operator or Admin.
-    if (!user || (user.role.name !== "operator" && user.role.name !== "admin")) {
+    // We allow Operator, Admin, or Admin SP.
+    if (!user || (user.role.name !== "operator" && user.role.name !== "admin" && user.role.name !== "admin_sp")) {
         return false;
     }
     return true;

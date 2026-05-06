@@ -59,6 +59,15 @@ function isPathAllowed(pathname: string, allowedPrefixes: string[]): boolean {
     return allowedPrefixes.some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"));
 }
 
+const ADMIN_SP_ALLOWED_ROUTES = [
+    "/dashboard", "/profil", "/settings", "/pengumuman",
+    "/simpanan", "/pinjaman", "/anggota",
+    "/kas-bank", "/non-sp",
+    "/unit", "/transaksi-unit",
+    "/kwitansi", "/jurnal", "/laporan",
+    "/approval",
+];
+
 function ProtectedContent({ children }: { children: React.ReactNode }) {
     const { user, logout, isLoading } = useAuth();
     const pathname = usePathname();
@@ -107,7 +116,16 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // 5. Fallback — role tidak dikenal, boleh akses common routes saja
+        // 5. Admin Simpan Pinjam — akses simpan pinjam + keuangan
+        if (roleName === "admin_sp") {
+            if (!isPathAllowed(pathname, ADMIN_SP_ALLOWED_ROUTES)) {
+                toast.error("Halaman ini tidak tersedia untuk role Admin Simpan Pinjam");
+                router.replace("/dashboard");
+            }
+            return;
+        }
+
+        // 6. Fallback — role tidak dikenal, boleh akses common routes saja
         if (!isPathAllowed(pathname, COMMON_ROUTES)) {
             router.replace("/dashboard");
         }

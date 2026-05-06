@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { updateMemberSchema } from "@/lib/validations";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+
 interface Params {
     params: Promise<{ id: string }>;
 }
@@ -11,6 +13,11 @@ interface Params {
 // GET /api/members/[id]
 export async function GET(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const { id } = await params;
         const member = await prisma.member.findUnique({
             where: { id: parseInt(id), deletedAt: null },
@@ -307,7 +314,7 @@ export async function PUT(request: Request, { params }: Params) {
         const { overrideSavings, roleId, ...memberData } = data;
 
         // Proteksi plafonPiutang — hanya Operator/Admin yang boleh mengubah
-        const operatorRoles = ["operator", "admin", "super_admin"];
+        const operatorRoles = ["operator", "admin", "admin_sp", "super_admin"];
         if (memberData.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
             return NextResponse.json(
                 { message: "Hanya Operator yang dapat mengubah Plafon Piutang anggota." },

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
         const role = session.user.role;
         const perms = session.user.permissions || [];
-        const isOperator = role === "operator" || perms.includes("manage_all");
+        const isOperator = role === "operator" || perms.includes("manage_all") || role === "admin_sp";
         if (!isOperator) {
             return NextResponse.json(
                 { message: "Hanya Operator yang dapat mengakses laporan ini" },
