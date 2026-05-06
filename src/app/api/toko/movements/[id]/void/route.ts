@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logAuditFromRequest } from "@/lib/audit-logger";
 
 /**
  * POST /api/toko/movements/[id]/void
@@ -38,7 +39,7 @@ export async function POST(
         // Cari entry
         const movement = await prisma.storeStockMovement.findUnique({
             where: { id: movementId },
-            include: { product: { select: { id: true, name: true, stock: true, stockGdg: true, stockToko: true } } },
+            include: { product: { select: { id: true, name: true, stock: true, stockGdg: true, stockToko: true, unitType: true } } },
         });
 
         if (!movement) {
@@ -117,6 +118,21 @@ export async function POST(
                 data: { stock: resultNewStock, stockGdg: resultNewStockGdg, stockToko: resultNewStockToko },
             });
         });
+
+        // Audit log
+        try {
+            await logAuditFromRequest(request, session, {
+                action: "UPDATE",
+                module: "Toko",
+                description: `VOID mutasi stok #${movementId} — ${reason || "Tidak ada alasan"}`,
+                targetId: movementId,
+                targetType: "StoreStockMovement",
+                oldData: { movementId, type: movement.type, quantity: movement.quantity, productId: movement.productId },
+                newData: { newStock: resultNewStock, newStockGdg: resultNewStockGdg, newStockToko: resultNewStockToko },
+                metadata: { voidReason: reason, restoredStock: true },
+                unitType: movement.product?.unitType || "toko",
+            });
+        } catch (e) { /* audit failure must not break response */ }
 
         return NextResponse.json({
             message: `Mutasi stok "${movement.type === "in" ? "Masuk" : "Keluar"}" sebanyak ${movement.quantity} untuk ${movement.product.name} berhasil dibatalkan. Stok dikembalikan.`,
