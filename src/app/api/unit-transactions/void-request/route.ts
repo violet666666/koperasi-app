@@ -565,6 +565,19 @@ export async function POST(request: Request) {
             }
         } catch (e) { /* notification failure must not break response */ }
 
+        // Audit log
+        try {
+            await logAuditFromRequest(request, session, {
+                action: "UPDATE",
+                module: "Unit_Layanan",
+                description: `VOID REQUEST transaksi ${transaction.transactionNo} (${transaction.unitType}) oleh ${session.user.name} — ${reason}`,
+                targetId: transaction.id,
+                targetType: "UnitTransaction",
+                metadata: { voidReason: reason, status: "pending_approval", unitType: transaction.unitType },
+                unitType: transaction.unitType,
+            });
+        } catch (e) { /* audit failure must not break response */ }
+
         return NextResponse.json({
             message: "Permintaan void berhasil diajukan. Menunggu persetujuan Admin Unit.",
             data: { transactionNo: updatedTx.transactionNo, status: updatedTx.status, approvalRequestNo: approvalReq.requestNo },

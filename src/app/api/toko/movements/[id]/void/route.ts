@@ -127,7 +127,7 @@ export async function POST(
                 description: `VOID mutasi stok #${movementId} — ${reason || "Tidak ada alasan"}`,
                 targetId: movementId,
                 targetType: "StoreStockMovement",
-                oldData: { movementId, type: movement.type, quantity: movement.quantity, productId: movement.productId },
+                oldData: { movementId, type: movement.type, quantity: movement.quantity, productId: movement.productId, stockBefore: movement.product.stock, stockGdgBefore: movement.product.stockGdg, stockTokoBefore: movement.product.stockToko },
                 newData: { newStock: resultNewStock, newStockGdg: resultNewStockGdg, newStockToko: resultNewStockToko },
                 metadata: { voidReason: reason, restoredStock: true },
                 unitType: movement.product?.unitType || "toko",

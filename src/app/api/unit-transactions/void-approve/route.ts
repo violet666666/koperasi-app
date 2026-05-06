@@ -351,6 +351,19 @@ export async function POST(request: Request) {
                     }
                 } catch (e) { console.error("Push failed:", e); }
 
+                // Audit log
+                try {
+                    await logAuditFromRequest(request, session, {
+                        action: "REJECT",
+                        module: "Toko",
+                        description: `VOID REJECT transaksi toko ${storeSale.saleNo}${notes ? ` — ${notes}` : ""}`,
+                        targetId: storeSale.id,
+                        targetType: "StoreSale",
+                        metadata: { rejectedBy: currentUserId, rejectionReason: notes },
+                        unitType: storeSale.unitType || "toko",
+                    });
+                } catch (e) { /* audit failure must not break response */ }
+
                 return NextResponse.json({
                     message: `Permintaan void ditolak. Transaksi Toko [${storeSale.saleNo}] tetap aktif.`,
                     data: { saleNo: storeSale.saleNo, action: "rejected" },
@@ -599,6 +612,19 @@ export async function POST(request: Request) {
                     });
                 }
             } catch (e) { console.error("Push failed:", e); }
+
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "REJECT",
+                    module: "Unit_Layanan",
+                    description: `VOID REJECT transaksi ${originalTx.transactionNo} (${originalTx.unitType})${notes ? ` — ${notes}` : ""}`,
+                    targetId: originalTx.id,
+                    targetType: "UnitTransaction",
+                    metadata: { rejectedBy: currentUserId, rejectionReason: notes },
+                    unitType: originalTx.unitType,
+                });
+            } catch (e) { /* audit failure must not break response */ }
 
             return NextResponse.json({
                 message: `Permintaan void ditolak. Transaksi [${originalTx.transactionNo}] kembali aktif.`,

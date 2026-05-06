@@ -220,7 +220,7 @@ export default function AuditLogPage() {
 
     const MODULES = ["Auth", "Anggota", "Simpanan", "Pinjaman", "Toko", "Jurnal", "Kas", "Aset", "Laporan", "Master", "User", "Pengumuman", "System", "Period", "Tabungan_Sejahtera", "Loan_Migrasi", "Unit_Layanan", "Payroll"];
     const ACTIONS = ["LOGIN", "LOGOUT", "LOGIN_FAILED", "CREATE", "UPDATE", "DELETE", "VIEW", "EXPORT", "APPROVE", "REJECT", "IMPORT", "PASSWORD_CHANGE"];
-    const UNIT_TYPES = ["toko", "cuci_mobil", "barbershop", "play_station", "fitness", "coffe_latar", "resto_cafe", "resto", "laundry", "simpan_pinjam", "cafe_lsp"];
+    const UNIT_TYPES = ["toko", "cuci_mobil", "barbershop", "play_station", "fitness", "coffe_latar", "resto_cafe", "resto", "laundry", "simpan_pinjam", "cafe_lsp", "fotocopy", "aset"];
     const USER_ROLES = ["operator", "admin", "admin_sp", "admin_unit", "kasir", "anggota"];
 
     const columns: ColumnDef<AuditLog>[] = [
