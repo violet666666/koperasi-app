@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
+import { logAuditFromRequest } from "@/lib/audit-logger";
 import { Prisma } from "@prisma/client";
 
 export async function POST(
@@ -93,6 +94,21 @@ export async function POST(
                 });
                 return updated;
             });
+
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "UPDATE",
+                    module: "Toko",
+                    description: `Transfer stok ${qty} unit ${product.name} (${from === "gudang" ? "Gudang → Toko" : "Toko → Gudang"})`,
+                    targetId: productId,
+                    targetType: "StoreProduct",
+                    oldData: { stock: effectiveStock, stockGdg: product.stockGdg, stockToko: product.stockToko },
+                    newData: { stock: newStock, stockGdg: newStockGdg, stockToko: newStockToko },
+                    metadata: { type: "transfer", quantity: qty, from, to, notes: notes || null },
+                    unitType: product.unitType,
+                });
+            } catch (e) { /* audit failure must not break response */ }
 
             return NextResponse.json({
                 data: { productId, sku: updatedProduct.sku, name: updatedProduct.name, previousStock: effectiveStock, currentStock: newStock, stockGdg: newStockGdg, stockToko: newStockToko, change: 0, type: "transfer", from, to, notes: notes || null, updatedBy: userId, updatedAt: new Date().toISOString() },
@@ -232,6 +248,21 @@ export async function POST(
                 }
             } catch (e) { /* non-critical */ }
 
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "UPDATE",
+                    module: "Toko",
+                    description: `Stok masuk +${qty} unit ${product.name} (${stockLocation})${hargaBeli ? `, HPP: Rp ${Math.round(result.newCostPrice).toLocaleString()}` : ""}`,
+                    targetId: productId,
+                    targetType: "StoreProduct",
+                    oldData: { stock: result.freshEffectiveStock, stockGdg: product.stockGdg, stockToko: product.stockToko, costPrice: Number(product.costPrice) },
+                    newData: { stock: result.freshNewStock, stockGdg: result.freshStockGdg, stockToko: result.freshStockToko, costPrice: Math.round(result.newCostPrice) },
+                    metadata: { type: "stock_in", quantity: qty, location: stockLocation, purchasePrice: hargaBeli || null, batchNo: result.batch.batchNo, supplierName: supplierName || null },
+                    unitType: product.unitType,
+                });
+            } catch (e) { /* audit failure must not break response */ }
+
             return NextResponse.json({
                 data: {
                     productId, sku: result.updated.sku, name: result.updated.name,
@@ -332,6 +363,25 @@ export async function POST(
                 }
             }
         } catch (e) { /* notification failure must not break response */ }
+
+        // Audit log
+        try {
+            const auditAction = type === "out_writeoff" ? "DELETE" : "UPDATE";
+            const auditDesc = type === "out_writeoff"
+                ? `Stok keluar -${qty} unit ${product.name} (${reasonLabel(reason)}, ${stockLocation})`
+                : `Pengurangan stok -${qty} unit ${product.name} (${stockLocation})`;
+            await logAuditFromRequest(request, session, {
+                action: auditAction,
+                module: "Toko",
+                description: auditDesc,
+                targetId: productId,
+                targetType: "StoreProduct",
+                oldData: { stock: updatedProduct.freshEffectiveStock, stockGdg: product.stockGdg, stockToko: product.stockToko },
+                newData: { stock: updatedProduct.freshNewStock, stockGdg: updatedProduct.freshStockGdg, stockToko: updatedProduct.freshStockToko },
+                metadata: { type: type, quantity: qty, location: stockLocation, reason: movementReason, reasonNotes: movementReasonNote || null },
+                unitType: product.unitType,
+            });
+        } catch (e) { /* audit failure must not break response */ }
 
         return NextResponse.json({
             data: {
