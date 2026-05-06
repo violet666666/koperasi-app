@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { logAudit } from "@/lib/audit-logger";
 
 export async function POST(request: Request) {
     try {
@@ -94,6 +95,23 @@ export async function POST(request: Request) {
                 return { newStock, newCostPrice: oldCost };
             }
         });
+
+        // Audit log
+        try {
+            await logAudit({
+                userId: parseInt(user.id),
+                userName: user.name,
+                userRole: user.role,
+                action: "UPDATE",
+                module: "Toko",
+                description: `Stok masuk (Mobile) +${quantity} unit produk #${productId}${purchasePrice ? `, HPP: Rp ${purchasePrice.toLocaleString()}` : ""}`,
+                targetId: productId,
+                targetType: "StoreProduct",
+                newData: { newStock: result.newStock, costPrice: result.newCostPrice },
+                metadata: { type: "stock_in", source: "mobile", quantity, productId, purchasePrice: purchasePrice || null, batchNo: batchNo || null },
+                unitType: "toko",
+            });
+        } catch (e) { /* audit failure must not break response */ }
 
         return NextResponse.json({ data: result, message: "Stok masuk berhasil" });
     } catch (error) {
