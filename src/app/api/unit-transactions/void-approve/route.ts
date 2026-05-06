@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
 import { sendPushNotification } from "@/lib/expo-push";
+import { logAuditFromRequest } from "@/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -288,6 +289,19 @@ export async function POST(request: Request) {
                     }
                 } catch (e) { console.error("Push failed:", e); }
 
+                // Audit log
+                try {
+                    await logAuditFromRequest(request, session, {
+                        action: "DELETE",
+                        module: "Toko",
+                        description: `VOID APPROVE transaksi toko ${storeSale.saleNo} — ${metadata.voidPendingReason || notes || "Void disetujui"}`,
+                        targetId: storeSale.id,
+                        targetType: "StoreSale",
+                        metadata: { approvedBy: currentUserId, itemCount: storeSale.items.length },
+                        unitType: storeSale.unitType || "toko",
+                    });
+                } catch (e) { /* audit failure must not break response */ }
+
                 return NextResponse.json({
                     message: `Void Toko disetujui. Transaksi [${storeSale.saleNo}] dibatalkan dan stok telah dikembalikan.`,
                     data: { saleNo: storeSale.saleNo, action: "approved" },
@@ -519,6 +533,19 @@ export async function POST(request: Request) {
                     });
                 }
             } catch (e) { console.error("Push failed:", e); }
+
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "DELETE",
+                    module: "Unit_Layanan",
+                    description: `VOID APPROVE transaksi ${originalTx.transactionNo} (${originalTx.unitType})`,
+                    targetId: originalTx.id,
+                    targetType: "UnitTransaction",
+                    metadata: { contraEntryNo: contraNo, approvedBy: currentUserId },
+                    unitType: originalTx.unitType,
+                });
+            } catch (e) { /* audit failure must not break response */ }
 
             return NextResponse.json({
                 message: `Void disetujui. Contra-Entry [${contraNo}] berhasil dibuat. Limit anggota telah dipulihkan.`,

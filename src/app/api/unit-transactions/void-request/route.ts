@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import crypto from "crypto";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
+import { logAuditFromRequest } from "@/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -248,6 +249,20 @@ export async function POST(request: Request) {
                     }
                 }, { timeout: 30000 }); // FIX: 30 detik timeout untuk transaksi dengan banyak item
 
+                // Audit log
+                try {
+                    await logAuditFromRequest(request, session, {
+                        action: "DELETE",
+                        module: "Toko",
+                        description: `VOID transaksi toko ${storeSale.saleNo} oleh Operator — ${reason}`,
+                        targetId: storeSale.id,
+                        targetType: "StoreSale",
+                        oldData: { saleNo: storeSale.saleNo, totalAmount: Number(storeSale.totalAmount), paymentMethod: storeSale.paymentMethod },
+                        metadata: { voidReason: reason, itemCount: storeSale.items.length, memberName: storeSale.member?.name || "Walk-in" },
+                        unitType: storeSale.unitType || "toko",
+                    });
+                } catch (e) { /* audit failure must not break response */ }
+
                 return NextResponse.json({
                     message: "Transaksi Toko dibatalkan oleh Operator. Stok telah dikembalikan.",
                     data: { transactionNo: storeSale.saleNo, status: "voided" },
@@ -316,6 +331,19 @@ export async function POST(request: Request) {
                     });
                 }
             } catch (e) { /* notification failure must not break response */ }
+
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "UPDATE",
+                    module: "Toko",
+                    description: `VOID REQUEST transaksi toko ${storeSale.saleNo} oleh ${session.user.name} — ${reason}`,
+                    targetId: storeSale.id,
+                    targetType: "StoreSale",
+                    metadata: { voidReason: reason, status: "pending_approval", itemCount: storeSale.items.length },
+                    unitType: storeSale.unitType || "toko",
+                });
+            } catch (e) { /* audit failure must not break response */ }
 
             return NextResponse.json({
                 message: `Permintaan void untuk transaksi ${transactionNo} telah dikirim ke Admin. Menunggu persetujuan.`,
@@ -470,6 +498,20 @@ export async function POST(request: Request) {
                     }
                 }
             }, { timeout: 30000 });
+
+            // Audit log
+            try {
+                await logAuditFromRequest(request, session, {
+                    action: "DELETE",
+                    module: "Unit_Layanan",
+                    description: `VOID transaksi ${transaction.transactionNo} (${transaction.unitType}) oleh Operator — ${reason}`,
+                    targetId: transaction.id,
+                    targetType: "UnitTransaction",
+                    oldData: { transactionNo: transaction.transactionNo, amount: Number(transaction.amount), unitType: transaction.unitType },
+                    metadata: { voidReason: reason, contraEntryNo: contraNo },
+                    unitType: transaction.unitType,
+                });
+            } catch (e) { /* audit failure must not break response */ }
 
             return NextResponse.json({
                 message: "Permintaan Void berhasil disetujui secara otomatis (Bypass Admin).",
