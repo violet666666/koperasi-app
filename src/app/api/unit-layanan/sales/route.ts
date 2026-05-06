@@ -306,6 +306,7 @@ export async function POST(request: Request) {
                 description: `Kasir Cepat ${method}: ${ut.trxNo} - Rp ${totalAmount.toLocaleString()}`,
                 targetId: String(ut.unitTx.id), targetType: "UnitTransaction",
                 newData: { transactionNo: ut.trxNo, amount: totalAmount, paymentMethod: method },
+                unitType: unitType,
             });
         } catch (e) {}
 

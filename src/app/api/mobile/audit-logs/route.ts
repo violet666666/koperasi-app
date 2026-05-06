@@ -7,14 +7,15 @@ export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
 
-    // Pastikan hanya operator/admin/superadmin yang bisa melihat audit log
-    if (user.role !== "operator" && user.role !== "admin" && user.role !== "superadmin") {
+    // Pastikan hanya operator/admin/superadmin/admin_sp yang bisa melihat audit log
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "superadmin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 
     try {
         const url = new URL(request.url);
         const search = url.searchParams.get("search") || "";
+        const unitType = url.searchParams.get("unitType") || "";
         const limitStr = url.searchParams.get("limit");
         const limit = Math.min(limitStr ? parseInt(limitStr, 10) : 50, 100);
 
@@ -25,6 +26,9 @@ export async function GET(request: Request) {
                 { description: { contains: search, mode: "insensitive" } },
                 { module: { contains: search, mode: "insensitive" } },
             ];
+        }
+        if (unitType) {
+            where.unitType = unitType;
         }
 
         const logs = await prisma.auditLog.findMany({
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
                 userRole: true,
                 status: true,
                 timestamp: true,
+                unitType: true,
             },
         });
 
@@ -53,6 +58,7 @@ export async function GET(request: Request) {
                 userRole: log.userRole,
                 status: log.status,
                 timestamp: log.timestamp.toISOString(),
+                unitType: log.unitType,
             })),
         });
     } catch (error: any) {
