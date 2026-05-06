@@ -15,8 +15,9 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const productId = searchParams.get("productId");
         const filterType = searchParams.get("type") || null;
+        const searchQuery = searchParams.get("search")?.trim() || null;
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-        const perPage = Math.min(200, Math.max(1, parseInt(searchParams.get("perPage") || "50")));
+        const perPage = Math.min(500, Math.max(1, parseInt(searchParams.get("perPage") || "50")));
 
         const whereClause: Record<string, unknown> = {};
         if (productId) {
@@ -24,6 +25,14 @@ export async function GET(request: Request) {
         }
         if (filterType && filterType !== "all") {
             whereClause.type = filterType;
+        }
+        if (searchQuery) {
+            whereClause.OR = [
+                { product: { name: { contains: searchQuery, mode: "insensitive" } } },
+                { product: { sku: { contains: searchQuery, mode: "insensitive" } } },
+                { reference: { contains: searchQuery, mode: "insensitive" } } as any,
+                { notes: { contains: searchQuery, mode: "insensitive" } } as any,
+            ];
         }
 
         // ── 1) Coba ambil dari tabel StoreStockMovement ───────────────

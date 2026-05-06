@@ -109,18 +109,20 @@ export async function POST(request: Request) {
                     const freshMeta: any = fresh?.metadata ? (typeof fresh.metadata === 'object' ? fresh.metadata : JSON.parse(fresh.metadata as string)) : {};
                     if (freshMeta.isVoided) throw new Error("ALREADY_VOIDED");
 
-                    // Kembalikan Stok — FIX: Gunakan absolute value agar stock = stockToko + stockGdg
+                    // Kembalikan Stok — FIX: Restore to stockGdg (warehouse) not stockToko.
+                    // Original sale deducts stockToko first then stockGdg (spillover).
+                    // Void should return items to warehouse (stockGdg) to prevent stockToko inflation.
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
                             const qty = Math.abs(item.quantity);
-                            const newStockToko = prod.stockToko + qty;
-                            const newStock = newStockToko + prod.stockGdg;
+                            const newStockGdg = prod.stockGdg + qty;
+                            const newStock = prod.stockToko + newStockGdg;
 
                             await tx.storeProduct.update({
                                 where: { id: item.productId },
                                 data: {
-                                    stockToko: newStockToko,
+                                    stockGdg: newStockGdg,
                                     stock: newStock,
                                 },
                             });

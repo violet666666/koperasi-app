@@ -144,6 +144,7 @@ export default function PersediaanPage() {
 
     // Filter state
     const [filterType, setFilterType] = React.useState<string>("all");
+    const [searchTerm, setSearchTerm] = React.useState("");
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -158,6 +159,7 @@ export default function PersediaanPage() {
         try {
             const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
             if (filterType && filterType !== "all") params.set("type", filterType);
+            if (searchTerm.trim()) params.set("search", searchTerm.trim());
             // Fetch stock movements from DB with pagination
             const [movementsRes, productsRes] = await Promise.all([
                 fetch(`/api/toko/movements?${params}`),
@@ -177,7 +179,7 @@ export default function PersediaanPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, perPage, filterType, productUnitType]);
+    }, [page, perPage, filterType, searchTerm, productUnitType]);
 
     React.useEffect(() => {
         fetchMovements();
@@ -186,7 +188,7 @@ export default function PersediaanPage() {
     // Reset page when filter or perPage changes
     React.useEffect(() => {
         setPage(1);
-    }, [filterType, perPage]);
+    }, [filterType, perPage, searchTerm]);
 
     // Void handler
     const handleVoidClick = (id: number) => {
@@ -420,7 +422,13 @@ export default function PersediaanPage() {
                     )}
                     
                     <div className="space-y-4">
-                        <div className="flex justify-start mb-2">
+                        <div className="flex justify-start mb-2 gap-2 flex-wrap">
+                            <Input
+                                placeholder="Cari produk, SKU, atau referensi..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="h-10 w-full sm:w-[280px]"
+                            />
                             <select
                                 className="flex h-10 w-full sm:w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 value={filterType}

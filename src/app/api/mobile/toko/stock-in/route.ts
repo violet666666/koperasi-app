@@ -32,6 +32,7 @@ export async function POST(request: Request) {
                 await tx.storeProduct.update({
                     where: { id: productId },
                     data: {
+                        stockGdg: { increment: quantity },
                         stock: newStock,
                         costPrice: Math.round(newCostPrice),
                     },
@@ -72,7 +73,10 @@ export async function POST(request: Request) {
                 // No purchase price — just update stock, don't recalculate HPP
                 await tx.storeProduct.update({
                     where: { id: productId },
-                    data: { stock: newStock },
+                    data: {
+                        stockGdg: { increment: quantity },
+                        stock: newStock,
+                    },
                 });
 
                 await tx.storeStockMovement.create({
