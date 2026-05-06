@@ -145,6 +145,17 @@ export default function PersediaanPage() {
     // Filter state
     const [filterType, setFilterType] = React.useState<string>("all");
     const [searchTerm, setSearchTerm] = React.useState("");
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
+    const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Debounce search: wait 400ms after user stops typing before triggering API call
+    const handleSearchChange = React.useCallback((value: string) => {
+        setSearchTerm(value);
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+            setDebouncedSearch(value);
+        }, 400);
+    }, []);
 
     const stats = React.useMemo(() => {
         const today = new Date().toDateString();
@@ -159,7 +170,7 @@ export default function PersediaanPage() {
         try {
             const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
             if (filterType && filterType !== "all") params.set("type", filterType);
-            if (searchTerm.trim()) params.set("search", searchTerm.trim());
+            if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
             // Fetch stock movements from DB with pagination
             const [movementsRes, productsRes] = await Promise.all([
                 fetch(`/api/toko/movements?${params}`),
@@ -179,7 +190,7 @@ export default function PersediaanPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, perPage, filterType, searchTerm, productUnitType]);
+    }, [page, perPage, filterType, debouncedSearch, productUnitType]);
 
     React.useEffect(() => {
         fetchMovements();
@@ -188,7 +199,7 @@ export default function PersediaanPage() {
     // Reset page when filter or perPage changes
     React.useEffect(() => {
         setPage(1);
-    }, [filterType, perPage, searchTerm]);
+    }, [filterType, perPage, debouncedSearch]);
 
     // Void handler
     const handleVoidClick = (id: number) => {
@@ -426,7 +437,7 @@ export default function PersediaanPage() {
                             <Input
                                 placeholder="Cari produk, SKU, atau referensi..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => handleSearchChange(e.target.value)}
                                 className="h-10 w-full sm:w-[280px]"
                             />
                             <select

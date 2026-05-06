@@ -102,6 +102,33 @@ export function DataTable<TData, TValue>({
     const [globalFilter, setGlobalFilter] = React.useState("");
     const [expanded, setExpanded] = React.useState<ExpandedState>({});
 
+    // When manualFiltering is true, debounce the callback to avoid API calls on every keystroke
+    const [localFilterInput, setLocalFilterInput] = React.useState(
+        globalFilterValue !== undefined ? globalFilterValue : ""
+    );
+    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Sync external filter value back to local input
+    React.useEffect(() => {
+        if (globalFilterValue !== undefined) setLocalFilterInput(globalFilterValue);
+    }, [globalFilterValue]);
+
+    const handleFilterInput = React.useCallback((value: string) => {
+        setLocalFilterInput(value);
+        if (manualFiltering && onGlobalFilterChange) {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => onGlobalFilterChange(value), 400);
+        } else if (onGlobalFilterChange) {
+            onGlobalFilterChange(value);
+        } else {
+            setGlobalFilter(value);
+        }
+    }, [manualFiltering, onGlobalFilterChange]);
+
+    React.useEffect(() => {
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, []);
+
     const table = useReactTable({
         data,
         columns,
@@ -114,7 +141,7 @@ export function DataTable<TData, TValue>({
         getExpandedRowModel: getExpandedRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        onGlobalFilterChange: onGlobalFilterChange || setGlobalFilter,
+        onGlobalFilterChange: handleFilterInput,
         globalFilterFn: "includesString",
         onExpandedChange: setExpanded,
         getRowCanExpand: getRowCanExpand ? (row) => getRowCanExpand({ original: row.original }) : undefined,
@@ -165,15 +192,13 @@ export function DataTable<TData, TValue>({
                         placeholder={searchPlaceholder}
                         value={searchColumn
                             ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""
-                            : (globalFilterValue !== undefined ? globalFilterValue : globalFilter)
+                            : localFilterInput
                         }
                         onChange={(event) => {
                             if (searchColumn) {
                                 table.getColumn(searchColumn)?.setFilterValue(event.target.value);
-                            } else if (onGlobalFilterChange) {
-                                onGlobalFilterChange(event.target.value);
                             } else {
-                                setGlobalFilter(event.target.value);
+                                handleFilterInput(event.target.value);
                             }
                         }}
                         onKeyDown={(e) => {
@@ -183,15 +208,13 @@ export function DataTable<TData, TValue>({
                         }}
                         className="pl-9 pr-9"
                     />
-                    {((globalFilterValue !== undefined ? globalFilterValue : globalFilter) || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (
+                    {(localFilterInput || (searchColumn && !!table.getColumn(searchColumn)?.getFilterValue())) && (
                         <button
                             onClick={() => {
                                 if (searchColumn) {
                                     table.getColumn(searchColumn)?.setFilterValue("");
-                                } else if (onGlobalFilterChange) {
-                                    onGlobalFilterChange("");
                                 } else {
-                                    setGlobalFilter("");
+                                    handleFilterInput("");
                                 }
                             }}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
