@@ -61,8 +61,11 @@ export default function CuciMobilKasirPage() {
     const handlePotongGaji = async () => {
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
         if (selectedCustomerObj?.id) {
-            // Anggota sudah dipilih di autocomplete → langsung proses
-            setSelectedMember(selectedCustomerObj);
+            if (!selectedCustomerObj.nrp) {
+                toast.error("Data anggota tidak valid (NRP kosong). Gunakan dialog pencarian manual.");
+                setShowCreditDialog(true);
+                return;
+            }
             // Validasi limit dulu
             setIsValidatingLimit(true);
             try {
@@ -81,7 +84,8 @@ export default function CuciMobilKasirPage() {
                 toast.error("Gagal mengecek sisa limit plafon anggota.");
                 return;
             } finally { setIsValidatingLimit(false); }
-            await processPayment("salary_cut");
+            // Pass member explicitly — avoids React 18 batching race condition
+            await processPayment("salary_cut", selectedCustomerObj);
         } else {
             // Belum ada anggota → buka dialog cari
             setShowCreditDialog(true);
@@ -185,7 +189,7 @@ export default function CuciMobilKasirPage() {
         else setLimitInfo(null);
     }, [selectedMember, subtotal]);
 
-    const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
+    const processPayment = async (method: "cash" | "qris" | "salary_cut", memberOverride?: MemberResult) => {
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
         const invalidItem = cart.find(item => !item.quantity || isNaN(item.quantity) || item.quantity <= 0);
         if (invalidItem) { toast.error(`Jumlah "${invalidItem.product.name}" tidak valid (harus > 0)`); return; }
@@ -193,7 +197,10 @@ export default function CuciMobilKasirPage() {
         if (overMaxItem) { toast.error(`Jumlah "${overMaxItem.product.name}" melebihi batas maksimal (${MAX_QTY})`); return; }
         if (!vehiclePlate) { toast.error("Plat Nomor kendaraan wajib diisi!"); return; }
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kurang"); return; }
-        if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
+
+        // Resolve member for salary_cut: explicit override > dialog-selected > none
+        const salaryMember = memberOverride || selectedMember;
+        if (method === "salary_cut" && !salaryMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 
         setIsProcessing(true);
         try {
@@ -206,12 +213,11 @@ export default function CuciMobilKasirPage() {
                 customerName: vehiclePlate || "Walk-in",
                 vehiclePlate,
             };
-            
+
             // memberId: potong gaji WAJIB punya member, tunai/QRIS opsional
             if (method === "salary_cut") {
-                // selectedMember bisa dari dialog kredit ATAU dari autocomplete (handlePotongGaji)
-                if (!selectedMember?.id) { toast.error("Pilih anggota terlebih dahulu"); setIsProcessing(false); return; }
-                body.memberId = selectedMember.id;
+                if (!salaryMember?.id) { toast.error("Pilih anggota terlebih dahulu"); setIsProcessing(false); return; }
+                body.memberId = salaryMember.id;
             } else if (selectedCustomerObj?.id) {
                 body.memberId = selectedCustomerObj.id;
             }
@@ -232,8 +238,8 @@ export default function CuciMobilKasirPage() {
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.transactionNo,
                 tanggal: transactionDate ? new Date(transactionDate).toLocaleString("id-ID") : new Date().toLocaleString("id-ID"),
-                nrpNip: selectedMember?.nrp || selectedCustomerObj?.nrp || "-",
-                namaAnggota: selectedMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
+                nrpNip: salaryMember?.nrp || selectedCustomerObj?.nrp || "-",
+                namaAnggota: salaryMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
                 kesatuan: "-",
                 keterangan: `Cuci Mobil [Nopol: ${vehiclePlate}] - Pencuci: ${washerName || "Tim"}`,
                 total: subtotal,
