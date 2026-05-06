@@ -57,6 +57,37 @@ export default function CuciMobilKasirPage() {
     const selectCustomer = (m: MemberResult) => { setSelectedCustomerObj(m); setCustomerQuery(m.name); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
     const clearCustomer = () => { setSelectedCustomerObj(null); setCustomerQuery(""); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
 
+    // Potong Gaji handler — langsung proses jika anggota sudah dipilih, buka dialog jika belum
+    const handlePotongGaji = async () => {
+        if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
+        if (selectedCustomerObj?.id) {
+            // Anggota sudah dipilih di autocomplete → langsung proses
+            setSelectedMember(selectedCustomerObj);
+            // Validasi limit dulu
+            setIsValidatingLimit(true);
+            try {
+                const res = await fetch("/api/unit-transactions/validate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nrp: selectedCustomerObj.nrp, amount: subtotal, unitType: "cuci_mobil" }),
+                });
+                const limit = await res.json();
+                setLimitInfo(limit);
+                if (!limit.allowed) {
+                    toast.error(`Limit plafon tidak cukup! Sisa: ${formatCurrency(limit.sisaLimit)}`);
+                    return;
+                }
+            } catch {
+                toast.error("Gagal mengecek sisa limit plafon anggota.");
+                return;
+            } finally { setIsValidatingLimit(false); }
+            await processPayment("salary_cut");
+        } else {
+            // Belum ada anggota → buka dialog cari
+            setShowCreditDialog(true);
+        }
+    };
+
     React.useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (customerRef.current && !customerRef.current.contains(e.target as Node)) setShowCustomerDropdown(false);
@@ -176,11 +207,10 @@ export default function CuciMobilKasirPage() {
                 vehiclePlate,
             };
             
-            // memberId hanya boleh dikirim jika:
-            // 1. Potong gaji: WAJIB dari dialog kredit (selectedMember)
-            // 2. Tunai/QRIS: opsional, dari autocomplete pelanggan (selectedCustomerObj)
+            // memberId: potong gaji WAJIB punya member, tunai/QRIS opsional
             if (method === "salary_cut") {
-                if (!selectedMember?.id) { toast.error("Pilih anggota dari dialog Potong Gaji"); setIsProcessing(false); return; }
+                // selectedMember bisa dari dialog kredit ATAU dari autocomplete (handlePotongGaji)
+                if (!selectedMember?.id) { toast.error("Pilih anggota terlebih dahulu"); setIsProcessing(false); return; }
                 body.memberId = selectedMember.id;
             } else if (selectedCustomerObj?.id) {
                 body.memberId = selectedCustomerObj.id;
@@ -389,9 +419,10 @@ export default function CuciMobilKasirPage() {
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />} QRIS
                                 </Button>
                             </div>
-                            <Button variant="outline" size="lg" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 mt-2" 
-                                disabled={cart.length === 0} onClick={() => setShowCreditDialog(true)}>
-                                <User className="mr-2 h-4 w-4" /> Via Potong Gaji (Kredit)
+                            <Button variant="outline" size="lg" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 mt-2"
+                                disabled={cart.length === 0 || isProcessing || isValidatingLimit} onClick={handlePotongGaji}>
+                                {isValidatingLimit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <User className="mr-2 h-4 w-4" />}
+                                Via Potong Gaji {selectedCustomerObj ? `(→ ${selectedCustomerObj.name})` : "(Kredit)"}
                             </Button>
                         </CardContent>
                     </Card>
