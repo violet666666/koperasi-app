@@ -99,12 +99,16 @@ export async function POST(request: Request) {
             });
             shiftId = openShift?.id || null;
 
-            // Validate stock and calculate total
+            // Batch fetch all products at once instead of N individual lookups
             let totalAmount = 0;
             const validatedItems: { productId: number; quantity: number; unitPrice: number; subtotal: number; discount: number; costPrice: number }[] = [];
 
+            const productIds = items.map((item: any) => item.productId);
+            const productRows = await tx.storeProduct.findMany({ where: { id: { in: productIds } } });
+            const productMap = new Map(productRows.map(p => [p.id, p]));
+
             for (const item of items) {
-                const product = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                const product = productMap.get(item.productId);
                 if (!product || !product.isActive || product.deletedAt) {
                     throw new Error(`Produk ID ${item.productId} tidak ditemukan atau tidak aktif`);
                 }
@@ -233,54 +237,69 @@ export async function POST(request: Request) {
                 },
             });
 
-            // Deduct stock — proper 3-field update (stockToko/stockGdg/stock), same as web POS
+            // Deduct stock — pre-fetch all batches + track running stock to eliminate N+1
+            const allBatches = await tx.stockBatch.findMany({
+                where: { productId: { in: productIds }, isActive: true, quantity: { gt: 0 } },
+                orderBy: { receivedAt: "asc" },
+            });
+            const batchesByProduct = new Map<number, typeof allBatches>();
+            for (const b of allBatches) {
+                if (!batchesByProduct.has(b.productId)) batchesByProduct.set(b.productId, []);
+                batchesByProduct.get(b.productId)!.push(b);
+            }
+
+            const runningStock = new Map(productRows.map(p => [p.id, { toko: Number(p.stockToko), gdg: Number(p.stockGdg) }]));
+            const stockMovements: any[] = [];
+
             for (const vi of validatedItems) {
-                const prod = await tx.storeProduct.findUnique({ where: { id: vi.productId } });
-                if (prod && !prod.isService) {
-                    let newStockToko = prod.stockToko;
-                    let newStockGdg = prod.stockGdg;
+                const prod = productMap.get(vi.productId);
+                if (!prod || prod.isService) continue;
 
-                    if (prod.stockToko >= vi.quantity) {
-                        newStockToko = prod.stockToko - vi.quantity;
-                    } else {
-                        const sisaFromToko = prod.stockToko;
-                        const kurangDariGdg = vi.quantity - sisaFromToko;
-                        newStockToko = 0;
-                        newStockGdg = Math.max(0, prod.stockGdg - kurangDariGdg);
-                    }
+                const stock = runningStock.get(vi.productId)!;
+                let newStockToko = stock.toko;
+                let newStockGdg = stock.gdg;
 
-                    await tx.storeProduct.update({
-                        where: { id: vi.productId },
-                        data: { stockToko: newStockToko, stockGdg: newStockGdg, stock: newStockToko + newStockGdg },
-                    });
-
-                    // Stock movement log
-                    await tx.storeStockMovement.create({
-                        data: {
-                            productId: vi.productId, type: "out", quantity: vi.quantity,
-                            reference: `Penjualan Mobile ${saleNo}`,
-                            notes: `Terjual Mobile (${method})`, operatorId: userId,
-                            costAtTime: vi.costPrice, reason: "sale",
-                        },
-                    });
-
-                    // FIFO batch deduction — consume oldest active batches first
-                    let remainingToDeduct = vi.quantity;
-                    const batches = await tx.stockBatch.findMany({
-                        where: { productId: vi.productId, isActive: true, quantity: { gt: 0 } },
-                        orderBy: { receivedAt: "asc" },
-                    });
-                    for (const batch of batches) {
-                        if (remainingToDeduct <= 0) break;
-                        const deduct = Math.min(batch.quantity, remainingToDeduct);
-                        const newQty = batch.quantity - deduct;
-                        await tx.stockBatch.update({
-                            where: { id: batch.id },
-                            data: { quantity: newQty, isActive: newQty > 0 },
-                        });
-                        remainingToDeduct -= deduct;
-                    }
+                if (stock.toko >= vi.quantity) {
+                    newStockToko = stock.toko - vi.quantity;
+                } else {
+                    const sisaFromToko = stock.toko;
+                    const kurangDariGdg = vi.quantity - sisaFromToko;
+                    newStockToko = 0;
+                    newStockGdg = Math.max(0, stock.gdg - kurangDariGdg);
                 }
+
+                runningStock.set(vi.productId, { toko: newStockToko, gdg: newStockGdg });
+
+                await tx.storeProduct.update({
+                    where: { id: vi.productId },
+                    data: { stockToko: newStockToko, stockGdg: newStockGdg, stock: newStockToko + newStockGdg },
+                });
+
+                stockMovements.push({
+                    productId: vi.productId, type: "out", quantity: vi.quantity,
+                    reference: `Penjualan Mobile ${saleNo}`,
+                    notes: `Terjual Mobile (${method})`, operatorId: userId,
+                    costAtTime: vi.costPrice, reason: "sale",
+                });
+
+                // FIFO batch deduction — use pre-fetched batches
+                let remainingToDeduct = vi.quantity;
+                const batches = batchesByProduct.get(vi.productId) || [];
+                for (const batch of batches) {
+                    if (remainingToDeduct <= 0) break;
+                    const deduct = Math.min(batch.quantity, remainingToDeduct);
+                    const newQty = batch.quantity - deduct;
+                    await tx.stockBatch.update({
+                        where: { id: batch.id },
+                        data: { quantity: newQty, isActive: newQty > 0 },
+                    });
+                    batch.quantity = newQty;
+                    remainingToDeduct -= deduct;
+                }
+            }
+
+            if (stockMovements.length > 0) {
+                await tx.storeStockMovement.createMany({ data: stockMovements });
             }
 
             // Cash/bank sync (inside transaction — atomic)

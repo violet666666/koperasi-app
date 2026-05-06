@@ -222,7 +222,7 @@ function NavItemComponent({
     // Expanded mode without children
     if (!hasChildren) {
         return (
-            <Link href={item.href}>
+            <Link href={item.href} prefetch={true}>
                 <Button
                     variant="ghost"
                     className={cn(

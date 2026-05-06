@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,11 +20,23 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 import { membersApi, loansApi, approvalsApi } from "@/lib/api";
 import { InfoCardWrapper } from "@/components/patterns/info-card-wrapper";
-import { DashboardUnitChart, DashboardDailyKasChart } from "@/components/patterns/dashboard-charts";
 import { DashboardBankAccounts } from "@/components/patterns/dashboard-bank-accounts";
 import { ApprovalDialog, ApprovalItem as FullApprovalItem } from "@/components/patterns/approval-dialog";
-import { KasirDashboard } from "@/components/patterns/kasir-dashboard";
 import { useAuth } from "@/lib/hooks";
+
+// Dynamic imports for recharts-heavy components (~200KB saved from initial bundle)
+const DashboardUnitChart = dynamic(
+    () => import("@/components/patterns/dashboard-charts").then(m => ({ default: m.DashboardUnitChart })),
+    { ssr: false, loading: () => <Skeleton className="h-[300px]" /> },
+);
+const DashboardDailyKasChart = dynamic(
+    () => import("@/components/patterns/dashboard-charts").then(m => ({ default: m.DashboardDailyKasChart })),
+    { ssr: false, loading: () => <Skeleton className="h-[300px]" /> },
+);
+const KasirDashboard = dynamic(
+    () => import("@/components/patterns/kasir-dashboard").then(m => ({ default: m.KasirDashboard })),
+    { ssr: false, loading: () => <Skeleton className="h-[400px]" /> },
+);
 
 interface DashboardStats {
     totalAnggota: number;

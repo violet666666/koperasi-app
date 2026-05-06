@@ -458,3 +458,42 @@ Jika ingin control penuh dengan budget serupa:
 4. **Second quick win:** Verifikasi Neon pooler URL sudah benar di `.env` production (15 menit).
 
 5. **Long-term win:** Ganti JS aggregation ke SQL di report routes. Ini mengurangi memory usage dan response time secara signifikan.
+
+---
+
+## IMPLEMENTATION LOG
+
+### Round 1 — Completed (07 Mei 2026)
+
+- [x] **1.2 Database indexes** — 13 new `@@index` declarations added to schema, applied via `prisma db push`
+- [x] **1.3 Laba-rugi** — Replaced `findMany` + JS reduce with `$queryRaw` GROUP BY
+- [x] **1.3 Neraca** — Same SQL aggregation pattern
+- [x] **1.3 Arus-kas** — Opening balance SQL SUM + period aggregation SQL GROUP BY
+- [x] **1.3 Member-portal/summary SHU** — Replaced load-all-members with 3 targeted SQL aggregates
+- [x] **1.3 Piutang-gabungan** — StoreSales raw SQL SUM + UnitTransactions groupBy
+- [x] **2.3 In-memory cache** — Created `src/lib/cache.ts` (getCached + invalidateCache)
+- [x] **3.1 Dynamic import jsPDF** — Changed to `await import("jspdf")` in kartu page
+- [x] **3.2 Search debounce** — 400ms debounce in persediaan page + DataTable component
+- [x] **4.1 vercel.json** — Static asset cache headers (immutable, 1 year)
+- [x] **4.2 Neon pooler** — Verified already using `-pooler` hostname in production
+
+### Round 2 — Completed (07 Mei 2026)
+
+Deep audit found additional critical performance issues across mobile API, sale creation, and product listing:
+
+- [x] **Mobile summary SHU** (`api/mobile/summary`) — Same load-all-members pattern as member-portal. Fixed with 2 raw SQL queries for system-wide and member-specific toko totals
+- [x] **Mobile financial report** (`api/mobile/reports/financial`) — Loaded ALL posted journal lines into JS memory. Replaced with single `$queryRaw` with conditional aggregation (all-time balance + YTD balance in one pass)
+- [x] **Toko sale creation N+1** (`api/toko/sales` + `api/mobile/toko`) — 3N+B sequential queries per cart. Fixed with: batch product `findMany`, pre-fetched all stock batches, running stock Map, `createMany` for stock movements
+- [x] **Toko products double-scan** (`api/toko/products`) — Two queries (aggregate + findMany) loading all products for stats. Replaced with single SQL aggregate computing totalProducts, totalStock, totalValue, outOfStock, lowStock
+
+### Round 3 — Completed (07 Mei 2026)
+
+- [x] **2.3 Cache integration** — Wired `cache.ts` into chart of accounts route (`/api/master/accounts`) with 5min TTL + invalidation on account creation
+- [x] **3.1 Chart dynamic imports** — Converted `DashboardUnitChart`, `DashboardDailyKasChart`, `KasirDashboard` to `next/dynamic` with `ssr:false` and Skeleton loading fallbacks (~200KB saved from initial bundle)
+- [x] **3.3 Prefetch sidebar** — Added explicit `prefetch={true}` to sidebar navigation Link components
+
+### Remaining Items (Future)
+
+- [ ] **1.1 Neon HTTP adapter** — Requires dual PrismaClient (HTTP for reads, TCP for writes)
+- [ ] **2.2 Report pagination** — Cursor-based pagination for heavy report routes
+- [ ] **Mobile React Query** — Replace manual fetch patterns with `@tanstack/react-query` for automatic caching/refetching

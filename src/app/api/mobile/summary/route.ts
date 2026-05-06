@@ -192,40 +192,42 @@ export async function GET(request: Request) {
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-        const [sysTokoRaw, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myTokoRaw, myUnit, myLoan, totalActiveSavBal, myLoanInterestAgg, CARWASH_BONUS_PER_TX, myCarwashTxCount] = await Promise.all([
-            // FIX: Use findMany to filter voided sales for SHU calculation
-            prisma.storeSale.findMany({ where: { createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, memberId: true, metadata: true } }),
+        const [sysTokoAgg, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myTokoAgg, myUnit, myLoan, totalActiveSavBal, myLoanInterestAgg, CARWASH_BONUS_PER_TX, myCarwashTxCount] = await Promise.all([
+            // System-wide toko: SQL SUM instead of loading all rows into memory
+            prisma.$queryRaw<{ member_total: number; non_member_total: number }[]>`
+                SELECT
+                    COALESCE(SUM(CASE WHEN member_id IS NOT NULL THEN total_amount ELSE 0 END), 0)::float as member_total,
+                    COALESCE(SUM(CASE WHEN member_id IS NULL THEN total_amount ELSE 0 END), 0)::float as non_member_total
+                FROM store_sales
+                WHERE created_at >= ${startDate} AND created_at <= ${endDate}
+                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
+            `,
             prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
             prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            // System total Simpanan Wajib & Simpanan Pokok (all active members)
             prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
             prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
-            
+
             prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            prisma.storeSale.findMany({ where: { memberId, createdAt: { gte: startDate, lte: endDate } }, select: { totalAmount: true, metadata: true } }),
+            // My toko: SQL SUM instead of loading all rows
+            prisma.$queryRaw<{ total: number }[]>`
+                SELECT COALESCE(SUM(total_amount), 0)::float as total
+                FROM store_sales
+                WHERE member_id = ${memberId}
+                  AND created_at >= ${startDate} AND created_at <= ${endDate}
+                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
+            `,
             prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
             prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
-            // SHU Modal: Pokok + Wajib only (exclude Sukarela) sesuai AD-ART Pasal 42
             prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: { in: ["pokok", "wajib"] } } }, _sum: { balance: true } }),
-            // Member's loan interest for SHU Jasa Usaha
             prisma.loanPayment.aggregate({ where: { memberId, paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            // SHU Cuci Mobil: bonus per transaksi
             Promise.resolve(getCarwashBonusPerTx()),
             prisma.unitTransaction.count({ where: { memberId, unitType: "cuci_mobil", status: "completed", transactionDate: { gte: startDate, lte: endDate } } }),
         ]);
 
-        // Helper: filter out voided StoreSale
-        const filterActiveSales = (sales: any[]) => sales.filter((s: any) => {
-            if (!s.metadata) return true;
-            const meta = typeof s.metadata === "object" ? s.metadata : JSON.parse(s.metadata as string);
-            return !meta.isVoided;
-        });
-
-        const activeSysTokoAll = filterActiveSales(sysTokoRaw);
-        const sysTokoMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId !== null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
-        const sysTokoNonMemberTotal = activeSysTokoAll.filter((s: any) => s.memberId === null).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
-        const myTokoTotal = filterActiveSales(myTokoRaw).reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0);
+        const sysTokoMemberTotal = sysTokoAgg[0]?.member_total ?? 0;
+        const sysTokoNonMemberTotal = sysTokoAgg[0]?.non_member_total ?? 0;
+        const myTokoTotal = myTokoAgg[0]?.total ?? 0;
 
         const memberIncome = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
         const nonMemberIncome = sysTokoNonMemberTotal;
