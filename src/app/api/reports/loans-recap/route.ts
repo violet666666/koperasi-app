@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 interface ProductLoanSummary {
     product_id: number;
@@ -13,6 +14,10 @@ interface ProductLoanSummary {
 // GET /api/reports/loans-recap
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
         const yearParam = searchParams.get("year");

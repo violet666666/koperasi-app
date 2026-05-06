@@ -73,6 +73,7 @@ export async function GET(request: Request) {
             jasa_pinjaman: { inflow: "Penerimaan Jasa Pinjaman", outflow: "Pengembalian Jasa Pinjaman" },
             penalti_pelunasan: { inflow: "Penerimaan Penalti Pelunasan", outflow: "" },
             pendapatan_unit: { inflow: "Pendapatan Usaha Unit", outflow: "" },
+            pendapatan_toko: { inflow: "Pendapatan Toko", outflow: "" },
             pencairan_pinjaman: { inflow: "", outflow: "Pencairan Pinjaman Anggota" },
             biaya_operasional: { inflow: "", outflow: "Biaya Operasional" },
             beban_unit: { inflow: "", outflow: "Beban Unit Usaha" },

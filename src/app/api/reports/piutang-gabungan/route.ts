@@ -63,21 +63,11 @@ export async function GET(request: Request) {
 
         const memberIds = members.map((m) => m.id);
 
-        // 2. Piutang Toko — SUM via SQL instead of loading all rows
-        const tokoAgg = await prisma.$queryRaw<
-            { member_id: number; total: number }[]
-        >`
-            SELECT member_id, SUM(total_amount)::float as total
-            FROM store_sales
-            WHERE member_id = ANY(${memberIds}::int[])
-              AND payment_method = 'salary_cut'
-              AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
-            GROUP BY member_id
-        `;
-
-        // 3. Piutang Unit — aggregate instead of loading all rows
-        const unitAgg = await prisma.unitTransaction.groupBy({
-            by: ["memberId"],
+        // 2. Piutang Toko + Unit — Single source of truth: UnitTransaction with isPaid tracking
+        // Every salary_cut sale creates a UnitTransaction. StoreSale has no isPaid field,
+        // so using it causes double-counting. Group by unitType to split toko vs other units.
+        const unitAllAgg = await prisma.unitTransaction.groupBy({
+            by: ["memberId", "unitType"],
             where: {
                 memberId: { in: memberIds },
                 paymentMethod: "salary_cut",
@@ -109,18 +99,19 @@ export async function GET(request: Request) {
             },
         });
 
-        // Aggregate per member using Maps
+        // Aggregate per member using Maps — split toko vs other units
+        const tokoUnitTypes = ["toko", "playstation", "cafe_lsp", "resto_cafe", "coffe_latar"];
         const tokoMap = new Map<number, number>();
         const unitMap = new Map<number, number>();
         const spMap = new Map<number, { pokok: number; jasa: number; angsuranKe: string; loanCount: number }>();
 
-        for (const row of tokoAgg) {
-            tokoMap.set(row.member_id, row.total);
-        }
-
-        for (const row of unitAgg) {
-            if (row.memberId) {
-                unitMap.set(row.memberId, Number(row._sum.amount || 0));
+        for (const row of unitAllAgg) {
+            if (!row.memberId) continue;
+            const amount = Number(row._sum.amount || 0);
+            if (tokoUnitTypes.includes(row.unitType || "")) {
+                tokoMap.set(row.memberId, (tokoMap.get(row.memberId) || 0) + amount);
+            } else {
+                unitMap.set(row.memberId, (unitMap.get(row.memberId) || 0) + amount);
             }
         }
 

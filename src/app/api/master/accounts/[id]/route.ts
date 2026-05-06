@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { invalidateCache } from "@/lib/cache";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -99,6 +100,7 @@ export async function PUT(request: Request, { params }: Params) {
             },
         });
 
+        invalidateCache("accounts:");
         return NextResponse.json({ data: updated });
     } catch (error) {
         console.error("PUT /api/master/accounts/[id] error:", error);
@@ -150,6 +152,7 @@ export async function DELETE(request: Request, { params }: Params) {
             data: { deletedAt: new Date() },
         });
 
+        invalidateCache("accounts:");
         return NextResponse.json({ message: "Akun berhasil dihapus" });
     } catch (error) {
         console.error("DELETE /api/master/accounts/[id] error:", error);
