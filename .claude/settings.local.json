@@ -40,7 +40,9 @@
       "Bash(eas build *)",
       "Bash(git diff *)",
       "Bash(Select-String \"disbursementCashBankId\")",
-      "Bash(Select-String \"summary\")"
+      "Bash(Select-String \"summary\")",
+      "Bash(Select-String -Pattern \"route\\\\.ts\")",
+      "Bash(npx ts-node *)"
     ]
   },
   "enabledPlugins": {
