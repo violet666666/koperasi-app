@@ -492,8 +492,11 @@ Deep audit found additional critical performance issues across mobile API, sale 
 - [x] **3.1 Chart dynamic imports** — Converted `DashboardUnitChart`, `DashboardDailyKasChart`, `KasirDashboard` to `next/dynamic` with `ssr:false` and Skeleton loading fallbacks (~200KB saved from initial bundle)
 - [x] **3.3 Prefetch sidebar** — Added explicit `prefetch={true}` to sidebar navigation Link components
 
+### Round 4 — Completed (07 Mei 2026)
+
+- [x] **1.1 Neon HTTP adapter** — Dual PrismaClient: `prismaRead` (HTTP adapter, Vercel only) for pure ORM reads, `prisma` (TCP) for $transaction and $queryRaw. Wired into accounts GET and products GET ORM queries.
+- [x] **2.2 Report optimization** — Replaced loans-recap `findMany` + JS reduce with SQL GROUP BY aggregation (same pattern as laba-rugi/neraca/arus-kas)
+
 ### Remaining Items (Future)
 
-- [ ] **1.1 Neon HTTP adapter** — Requires dual PrismaClient (HTTP for reads, TCP for writes)
-- [ ] **2.2 Report pagination** — Cursor-based pagination for heavy report routes
-- [ ] **Mobile React Query** — Replace manual fetch patterns with `@tanstack/react-query` for automatic caching/refetching
+- [ ] **Mobile React Query** — Replace manual fetch patterns with `@tanstack/react-query` for automatic caching/refetching (separate mobile Expo codebase)

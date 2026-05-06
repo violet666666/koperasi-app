@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { prismaRead } from "@/lib/prisma";
 import { createAccountSchema, paginationSchema } from "@/lib/validations";
 import { getCached, invalidateCache } from "@/lib/cache";
 
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
                 ...(type && { type }),
             };
 
-            const accounts = await prisma.account.findMany({
+            const accounts = await prismaRead.account.findMany({
                 where,
                 orderBy: { code: "asc" },
             });

@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+interface ProductLoanSummary {
+    product_id: number;
+    total_loans: number;
+    total_disbursed: number;
+    total_outstanding: number;
+    total_paid: number;
+    total_principal: number;
+}
+
 // GET /api/reports/loans-recap
 export async function GET(request: Request) {
     try {
@@ -8,63 +17,38 @@ export async function GET(request: Request) {
         const branchId = searchParams.get("branchId");
         const yearParam = searchParams.get("year");
 
-        // Build date range if year is specified
-        const yearFilter = yearParam
-            ? { createdAt: { gte: new Date(`${yearParam}-01-01`), lte: new Date(`${yearParam}-12-31`) } }
-            : {};
+        const branchIdInt = branchId ? parseInt(branchId) : null;
+        const startDate = yearParam ? new Date(`${yearParam}-01-01`) : null;
+        const endDate = yearParam ? new Date(`${yearParam}-12-31T23:59:59.999Z`) : null;
 
-        // 1. Get all loan products
-        const loanProducts = await prisma.loanProduct.findMany({
-            where: { isActive: true },
-            select: { id: true, code: true, name: true, interestRate: true },
-        });
+        const [loanProducts, loanAgg] = await Promise.all([
+            prisma.loanProduct.findMany({
+                where: { isActive: true },
+                select: { id: true, code: true, name: true, interestRate: true },
+            }),
+            prisma.$queryRaw<ProductLoanSummary[]>`
+                SELECT
+                    la.product_id,
+                    COUNT(l.id)::int as total_loans,
+                    COALESCE(SUM(COALESCE(l.disbursed_amount, l.principal_amount)), 0)::float as total_disbursed,
+                    COALESCE(SUM(l.principal_outstanding), 0)::float as total_outstanding,
+                    COALESCE(SUM(l.principal_paid), 0)::float as total_paid,
+                    COALESCE(SUM(l.principal_amount), 0)::float as total_principal
+                FROM loans l
+                JOIN loan_applications la ON l.application_id = la.id
+                WHERE (${branchIdInt}::int IS NULL OR l.branch_id = ${branchIdInt})
+                  AND (${startDate}::date IS NULL OR l.created_at >= ${startDate})
+                  AND (${endDate}::date IS NULL OR l.created_at <= ${endDate})
+                GROUP BY la.product_id
+            `,
+        ]);
 
-        // 2. Get all loans joined with their application to know the productId
-        const loans = await prisma.loan.findMany({
-            where: {
-                ...(branchId && { branchId: parseInt(branchId) }),
-                ...yearFilter,
-            },
-            select: {
-                id: true,
-                principalAmount: true,
-                principalOutstanding: true,
-                principalPaid: true,
-                disbursedAmount: true,
-                status: true,
-                application: {
-                    select: { productId: true },
-                },
-            },
-        });
+        const aggMap = new Map(loanAgg.map(r => [r.product_id, r]));
 
-        // 3. Group loans by productId
-        const loansByProduct: Record<number, typeof loans> = {};
-        for (const loan of loans) {
-            const pid = loan.application.productId;
-            if (!loansByProduct[pid]) loansByProduct[pid] = [];
-            loansByProduct[pid].push(loan);
-        }
-
-        // 4. Build per-product summary
         const productSummary = loanProducts.map((product) => {
-            const productLoans = loansByProduct[product.id] || [];
-            
-            const totalLoans = productLoans.length;
-            const totalDisbursed = productLoans.reduce(
-                (sum, l) => sum + Number(l.disbursedAmount || l.principalAmount || 0), 0
-            );
-            const totalOutstanding = productLoans.reduce(
-                (sum, l) => sum + Number(l.principalOutstanding || 0), 0
-            );
-            const totalPaid = productLoans.reduce(
-                (sum, l) => sum + Number(l.principalPaid || 0), 0
-            );
-
-            // Collectibility ratio: principalPaid / principalAmount * 100
-            const totalPrincipal = productLoans.reduce(
-                (sum, l) => sum + Number(l.principalAmount || 0), 0
-            );
+            const agg = aggMap.get(product.id);
+            const totalPaid = agg?.total_paid || 0;
+            const totalPrincipal = agg?.total_principal || 0;
             const collectibilityRatio = totalPrincipal > 0
                 ? Math.round((totalPaid / totalPrincipal) * 100)
                 : 0;
@@ -73,9 +57,9 @@ export async function GET(request: Request) {
                 productCode: product.code,
                 productName: product.name,
                 interestRate: Number(product.interestRate),
-                totalLoans,
-                totalDisbursed,
-                totalOutstanding,
+                totalLoans: agg?.total_loans || 0,
+                totalDisbursed: agg?.total_disbursed || 0,
+                totalOutstanding: agg?.total_outstanding || 0,
                 totalPaid,
                 collectibilityRatio,
             };

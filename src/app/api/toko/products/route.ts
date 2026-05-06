@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 // GET /api/toko/products - List store products (with server-side pagination)
@@ -40,8 +40,8 @@ export async function GET(request: Request) {
         };
 
         const [products, totalCount] = await Promise.all([
-            prisma.storeProduct.findMany(queryOptions),
-            isPaginated ? prisma.storeProduct.count({ where }) : Promise.resolve(0),
+            prismaRead.storeProduct.findMany(queryOptions),
+            isPaginated ? prismaRead.storeProduct.count({ where }) : Promise.resolve(0),
         ]);
 
         // Single SQL aggregate replaces two queries (aggregate + findMany for stats)
