@@ -53,7 +53,12 @@
       "Bash(grep -oP '\"content\":\"[^\"]{0,300}')",
       "Bash(grep -oP '\"content\":\"[^\"]{0,500}')",
       "Bash(grep -oP '\"content\":\"[^\"]{0,600}')",
-      "Bash(xxd \"src/components/layout/sidebar.tsx\")"
+      "Bash(xxd \"src/components/layout/sidebar.tsx\")",
+      "Bash(curl -s \"http://localhost:3000/api/toko/products?unitType=toko&page=1&perPage=5\")",
+      "Bash(git fetch *)",
+      "Bash(gh api *)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
     ]
   },
   "enabledPlugins": {
