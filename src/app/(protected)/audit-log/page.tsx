@@ -164,7 +164,7 @@ function DetailDialog({ log }: { log: AuditLog }) {
 
 export default function AuditLogPage() {
     const [logs, setLogs] = React.useState<AuditLog[]>([]);
-    const [pagination, setPagination] = React.useState<Pagination>({ page: 1, limit: 50, total: 0, totalPages: 0 });
+    const [pagination, setPagination] = React.useState<Pagination>({ page: 1, limit: 200, total: 0, totalPages: 0 });
     const [isLoading, setIsLoading] = React.useState(true);
 
     // Filters
@@ -181,7 +181,7 @@ export default function AuditLogPage() {
     const fetchLogs = React.useCallback(async (page = 1) => {
         setIsLoading(true);
         try {
-            const params = new URLSearchParams({ page: String(page), limit: "50" });
+            const params = new URLSearchParams({ page: String(page), limit: "200" });
             if (filterModule !== "all") params.set("module", filterModule);
             if (filterAction !== "all") params.set("action", filterAction);
             if (filterStatus !== "all") params.set("status", filterStatus);
@@ -407,13 +407,26 @@ export default function AuditLogPage() {
                     {pagination.totalPages > 1 && (
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Halaman {pagination.page} dari {pagination.totalPages} ({pagination.total} records)
+                                Halaman {pagination.page} dari {pagination.totalPages} ({pagination.total.toLocaleString()} records)
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
+                                <Button variant="outline" size="sm" disabled={pagination.page <= 1}
+                                    onClick={() => fetchLogs(1)}>Awal</Button>
                                 <Button variant="outline" size="sm" disabled={pagination.page <= 1}
                                     onClick={() => fetchLogs(pagination.page - 1)}>Sebelumnya</Button>
+                                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                                    const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4));
+                                    const p = start + i;
+                                    if (p > pagination.totalPages) return null;
+                                    return (
+                                        <Button key={p} variant={p === pagination.page ? "default" : "outline"} size="sm"
+                                            onClick={() => fetchLogs(p)}>{p}</Button>
+                                    );
+                                })}
                                 <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages}
                                     onClick={() => fetchLogs(pagination.page + 1)}>Selanjutnya</Button>
+                                <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages}
+                                    onClick={() => fetchLogs(pagination.totalPages)}>Akhir</Button>
                             </div>
                         </div>
                     )}
