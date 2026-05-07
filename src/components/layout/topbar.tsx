@@ -21,7 +21,8 @@ import {
     User,
     Settings,
     LogOut,
-
+    PanelLeft,
+    PanelLeftClose,
     ChevronRight,
     Home,
 } from "lucide-react";
@@ -31,6 +32,8 @@ import type { User as UserType } from "@/types";
 interface TopbarProps {
     user?: UserType | null;
     onMenuClick?: () => void;
+    onToggleSidebar?: () => void;
+    sidebarCollapsed?: boolean;
     onLogout?: () => void;
     className?: string;
 }
@@ -38,6 +41,8 @@ interface TopbarProps {
 export function Topbar({
     user,
     onMenuClick,
+    onToggleSidebar,
+    sidebarCollapsed,
     onLogout,
     className,
 }: TopbarProps) {
@@ -61,6 +66,23 @@ export function Topbar({
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle menu</span>
             </Button>
+
+            {/* Desktop sidebar toggle */}
+            {onToggleSidebar && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hidden lg:flex h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={onToggleSidebar}
+                >
+                    {sidebarCollapsed ? (
+                        <PanelLeft className="h-4 w-4" />
+                    ) : (
+                        <PanelLeftClose className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">{sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}</span>
+                </Button>
+            )}
 
             {/* Breadcrumbs */}
             <nav className="hidden flex-1 items-center space-x-1 text-sm lg:flex">
@@ -191,7 +213,6 @@ function generateBreadcrumbs(pathname: string): { label: string; href: string }[
         neraca: "Neraca",
         "laba-rugi": "Laba Rugi",
         shu: "SHU",
-
         "produk-simpanan": "Produk Simpanan",
         "produk-pinjaman": "Produk Pinjaman",
         coa: "Bagan Akun",

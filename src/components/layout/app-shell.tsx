@@ -22,6 +22,7 @@ export function AppShell({
 }: AppShellProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+    const toggleSidebar = React.useCallback(() => setSidebarCollapsed(prev => !prev), []);
 
     return (
         <div className="relative flex min-h-[100dvh]">
@@ -29,7 +30,7 @@ export function AppShell({
             <div className="hidden lg:block">
                 <Sidebar
                     isCollapsed={sidebarCollapsed}
-                    onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    onToggle={toggleSidebar}
                     className="fixed inset-y-0 left-0 z-30"
                 />
             </div>
@@ -58,6 +59,8 @@ export function AppShell({
                 <Topbar
                     user={user}
                     onMenuClick={() => setMobileMenuOpen(true)}
+                    onToggleSidebar={toggleSidebar}
+                    sidebarCollapsed={sidebarCollapsed}
                     onLogout={onLogout}
                 />
 
