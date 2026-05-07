@@ -113,6 +113,7 @@ export default function KasirPage() {
     const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
     const [selectedCustomerObj, setSelectedCustomerObj] = React.useState<MemberResult | null>(null);
     const customerRef = React.useRef<HTMLDivElement>(null);
+    const searchInputRef = React.useRef<HTMLInputElement>(null);
 
     // Close dropdown on outside click
     React.useEffect(() => {
@@ -247,6 +248,8 @@ export default function KasirPage() {
             }
             return [...prev, { product, quantity: 1 }];
         });
+        // Return focus to search input so subsequent barcode scans go to the right target
+        searchInputRef.current?.focus();
     };
 
     const updateQuantity = (productId: number, delta: number) => {
@@ -517,7 +520,7 @@ export default function KasirPage() {
                         <CardHeader className="pb-3">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input placeholder="Cari produk atau scan barcode..." value={searchQuery}
+                                <Input ref={searchInputRef} placeholder="Cari produk atau scan barcode..." value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter" && searchQuery.trim() !== "") {
@@ -722,7 +725,7 @@ export default function KasirPage() {
                                                 value={(item.quantity as any) === "" ? "" : item.quantity}
                                                 onChange={(e) => setItemQuantity(item.product.id, e.target.value.replace(/[^0-9]/g, ""))}
                                                 onBlur={() => handleQuantityBlur(item.product.id)}
-                                                onClick={(e) => e.currentTarget.select()}
+                                                onFocus={(e) => e.currentTarget.select()}
                                             />
                                             <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product.id, 1)}><Plus className="h-4 w-4" /></Button>
                                             <Button size="icon" variant="ghost" className="h-9 w-9 min-h-[44px] min-w-[44px] text-red-600" onClick={() => removeFromCart(item.product.id)}><Trash2 className="h-4 w-4" /></Button>
