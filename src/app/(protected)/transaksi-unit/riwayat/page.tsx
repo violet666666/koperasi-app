@@ -24,6 +24,7 @@ import { DatePeriodFilter, type DateRange } from "@/components/patterns/date-per
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/hooks";
+import { useSearchParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 
 // Extended type to include items from StoreSale mapping
@@ -69,7 +70,9 @@ const txExportColumns: ExportColumn[] = [
 ];
 
 export default function RiwayatTransaksiUnitPage() {
-    const { user } = useAuth();
+    const { user, isLoading: authLoading } = useAuth();
+    const searchParams = useSearchParams();
+    const urlUnitType = searchParams.get("unitType");
     const userUnitType = (user as any)?.unitType as string | null | undefined;
     const _roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const isOperator = _roleName === "operator" || user?.permissions?.includes("manage_all");
@@ -77,7 +80,8 @@ export default function RiwayatTransaksiUnitPage() {
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(25);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
-    const [filterUnit, setFilterUnit] = React.useState<string>(userUnitType || "all");
+    // Priority: URL param > auth unitType > "all"
+    const [filterUnit, setFilterUnit] = React.useState<string>(urlUnitType || userUnitType || "all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
 
     const queryClient = useQueryClient();
@@ -186,6 +190,7 @@ export default function RiwayatTransaksiUnitPage() {
     const { data: response, isLoading } = useQuery({
         queryKey: ["unit-transactions", apiParams],
         queryFn: () => unitTransactionsApi.list(apiParams as Parameters<typeof unitTransactionsApi.list>[0]),
+        enabled: !authLoading,
     });
 
     const paginationMeta = response?.meta;
@@ -214,10 +219,13 @@ export default function RiwayatTransaksiUnitPage() {
     }, [response, filterStatus]);
 
     React.useEffect(() => {
-        if (userUnitType && !isOperator) {
+        // If URL specifies a unit, respect it; otherwise use auth unitType for non-operators
+        if (urlUnitType) {
+            setFilterUnit(urlUnitType);
+        } else if (userUnitType && !isOperator) {
             setFilterUnit(userUnitType);
         }
-    }, [userUnitType, isOperator]);
+    }, [urlUnitType, userUnitType, isOperator]);
 
     // Reset to page 1 when any filter changes
     React.useEffect(() => {
@@ -234,6 +242,8 @@ export default function RiwayatTransaksiUnitPage() {
             barbershop: "Barbershop",
             playstation: "Play Station",
             laundry: "Laundry",
+            resto: "Resto",
+            cafe_lsp: "Cafe LSP",
             resto_cafe: "Resto & Cafe",
             coffe_latar: "Coffe Latar",
         };
@@ -781,13 +791,15 @@ export default function RiwayatTransaksiUnitPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Semua Unit</SelectItem>
+                                        <SelectItem value="toko">Toko</SelectItem>
+                                        <SelectItem value="resto">Resto</SelectItem>
+                                        <SelectItem value="cafe_lsp">Cafe LSP</SelectItem>
                                         <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
                                         <SelectItem value="barbershop">Barbershop</SelectItem>
                                         <SelectItem value="playstation">Play Station</SelectItem>
                                         <SelectItem value="fitness">Fitness</SelectItem>
                                         <SelectItem value="laundry">Laundry</SelectItem>
-                                        <SelectItem value="resto_cafe">Resto &amp; Cafe</SelectItem>
-                                        <SelectItem value="toko">Toko</SelectItem>
+                                        <SelectItem value="fotocopy">FotoCopy</SelectItem>
                                     </SelectContent>
                                 </Select>
                             ) : (

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 
@@ -137,19 +137,30 @@ export async function GET(request: Request) {
         // For paginated mode, fetch with generous limits from both tables, then merge+slice
         const fetchLimit = query.perPage * 3;
 
-        // Fetch unitTransactions
-        const [unitTransactions, unitCount] = await Promise.all([
-            prisma.unitTransaction.findMany({
-                where,
-                include: {
-                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
-                    createdBy: { select: { id: true, name: true } },
-                },
-                orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder },
-                ...(isExport ? {} : { take: fetchLimit }),
-            }),
-            prisma.unitTransaction.count({ where }),
-        ]);
+        // Fetch unitTransactions (with Neon HTTP fallback for resilience)
+        let unitTransactions: any[];
+        let unitCount: number;
+        const unitTxQuery = {
+            where,
+            include: {
+                member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                createdBy: { select: { id: true, name: true } },
+            },
+            orderBy: { [query.sortBy || "transactionDate"]: query.sortOrder } as any,
+            ...(isExport ? {} : { take: fetchLimit }),
+        };
+        try {
+            [unitTransactions, unitCount] = await Promise.all([
+                prismaRead.unitTransaction.findMany(unitTxQuery as any),
+                prismaRead.unitTransaction.count({ where }),
+            ]);
+        } catch (readError) {
+            console.warn("[UnitTx GET] prismaRead failed, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+            [unitTransactions, unitCount] = await Promise.all([
+                prisma.unitTransaction.findMany(unitTxQuery as any),
+                prisma.unitTransaction.count({ where }),
+            ]);
+        }
 
         // StoreSale-based units (toko, cafe_lsp, playstation, resto, coffe_latar)
         const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
@@ -199,21 +210,30 @@ export async function GET(request: Request) {
                 ];
             }
 
-            [storeSales, storeCount] = await Promise.all([
-                prisma.storeSale.findMany({
-                    where: storeWhere,
-                    include: {
-                        member: { select: { id: true, memberNo: true, nrp: true, name: true } },
-                        createdBy: { select: { id: true, name: true } },
-                        items: {
-                            include: { product: { select: { id: true, sku: true, name: true, category: true } } },
-                        },
+            const storeSaleQuery = {
+                where: storeWhere,
+                include: {
+                    member: { select: { id: true, memberNo: true, nrp: true, name: true } },
+                    createdBy: { select: { id: true, name: true } },
+                    items: {
+                        include: { product: { select: { id: true, sku: true, name: true, category: true } } },
                     },
-                    orderBy: { createdAt: query.sortOrder },
-                    ...(isExport ? {} : { take: fetchLimit }),
-                }),
-                prisma.storeSale.count({ where: storeWhere }),
-            ]);
+                },
+                orderBy: { createdAt: query.sortOrder },
+                ...(isExport ? {} : { take: fetchLimit }),
+            };
+            try {
+                [storeSales, storeCount] = await Promise.all([
+                    prismaRead.storeSale.findMany(storeSaleQuery as any),
+                    prismaRead.storeSale.count({ where: storeWhere }),
+                ]);
+            } catch (readError) {
+                console.warn("[UnitTx GET] prismaRead failed for storeSales, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+                [storeSales, storeCount] = await Promise.all([
+                    prisma.storeSale.findMany(storeSaleQuery as any),
+                    prisma.storeSale.count({ where: storeWhere }),
+                ]);
+            }
         }
 
         const mappedStoreSales = storeSales.map(mapStoreSale);
