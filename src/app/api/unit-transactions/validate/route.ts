@@ -77,20 +77,11 @@ export async function POST(request: Request) {
         // ── Lapis 3: Kalkulasi Sisa Limit ──────────────────────────────
         let plafonPiutang = Number(member.plafonPiutang);
 
-        // FITUR OTOMATIS: Jika plafonPiutang masih 0 (belum diset operator), hitung limit kelayakan dari Sisa Gaji
+        // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung dari SISA GAJI (net take-home pay)
         if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-            const activeLoans = await prisma.loan.findMany({
-                where: { memberId: member.id, status: { in: ["active", "overdue"] } },
-                select: { monthlyInstallment: true }
-            });
-            const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-            
-            const salary = Number(member.salary || 0);
-            const tunkin = Number(member.tunlesKinerja || 0);
-            const sisaBersih = salary + tunkin - totalAngsuran;
-            
-            // Limit piutang = 50% dari sisa bersih gaji (setelah potongan angsuran)
-            plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
+            // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
+            // Limit piutang = 50% dari sisa gaji
+            plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
         }
 
         // Sumber: UnitTransaction (semua unit, karena Toko juga buat UnitTransaction untuk piutangnya)

@@ -150,13 +150,8 @@ export async function POST(request: Request) {
                 let plafonPiutang = Number(member.plafonPiutang || 0);
 
                 if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-                    const activeLoans = await tx.loan.findMany({
-                        where: { memberId: member.id, status: { in: ["active", "overdue"] } },
-                        select: { monthlyInstallment: true },
-                    });
-                    const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-                    const sisaBersih = Number(member.salary || 0) + Number(member.tunlesKinerja || 0) - totalAngsuran;
-                    plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
+                    // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
+                    plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
                 }
 
                 if (totalAmount > plafonPiutang - totalTagihan) {

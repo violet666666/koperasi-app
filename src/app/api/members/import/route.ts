@@ -700,7 +700,10 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
 async function processGajiImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip"));
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
-    const gajiIdx = headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary") || h.includes("diterima"));
+    // Prioritize "DITERIMA" (SISA GAJI = JUMLAH GAJI DITERIMA, col AK) over generic "GAJI" (col 3 GAJI POKOK)
+    const gajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
+    const gajiFallbackIdx = gajiIdx === -1 ? headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary")) : gajiIdx;
+    const finalGajiIdx = gajiIdx !== -1 ? gajiIdx : gajiFallbackIdx;
 
     if (namaIdx === -1) {
         return {
@@ -710,7 +713,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         };
     }
 
-    if (gajiIdx === -1) {
+    if (finalGajiIdx === -1) {
         return {
             success: 0, failed: 0,
             error: "Kolom Gaji (cth: DITERIMA / BERSIH) tidak ditemukan di header file.",
@@ -737,7 +740,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
         if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama
 
-        const gaji = cleanNumber(row[gajiIdx] || 0);
+        const gaji = cleanNumber(row[finalGajiIdx] || 0);
         const csvCleanName = cleanNameForMatch(rawNama);
 
         let matches: any[] = [];
@@ -812,14 +815,14 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 // ==========================================
 async function processGajiUraianImport(dataRows: string[][], mode: string) {
     // Fixed column mapping for "uraian gaji" sheet:
-    // C=2 PANGKAT, D=3 NAMA, E=4 NRP, G=6 NO REKENING, H=7 GAJI BERSIH
-    const PANGKAT = 2, NAMA = 3, NRP = 4, REKENING = 6, GAJI = 7;
+    // C=2 PANGKAT, D=3 NAMA, E=4 NRP, G=6 NO REKENING, H=7 GAJI BERSIH, AK=36 JUMLAH GAJI DITERIMA (SISA GAJI)
+    const PANGKAT = 2, NAMA = 3, NRP = 4, REKENING = 6, GAJI = 7, SISA_GAJI = 36;
 
     // Filter valid data rows (skip header rows: empty NRP, numeric nama, etc.)
     const validRows: { idx: number; row: string[] }[] = [];
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        if (row.length <= GAJI) continue;
+        if (row.length <= NRP) continue;
 
         const rawNama = String(row[NAMA] || '').trim();
         const rawNrp = String(row[NRP] || '').trim();
@@ -854,7 +857,10 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
         const pangkat = String(row[PANGKAT] || '').trim().toUpperCase();
         const rawRekening = String(row[REKENING] || '').trim();
         const rekening = rawRekening.replace(/['\- ]/g, '');
-        const gaji = cleanNumber(row[GAJI] || 0);
+        // Prefer SISA GAJI (JUMLAH GAJI DITERIMA, col AK=36) over GAJI BERSIH (col H=7)
+        const sisaGaji = row.length > SISA_GAJI ? cleanNumber(row[SISA_GAJI] || 0) : 0;
+        const gajiBersih = cleanNumber(row[GAJI] || 0);
+        const gaji = sisaGaji > 0 ? sisaGaji : gajiBersih;
 
         // Match by NRP
         let member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
@@ -884,9 +890,10 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                     allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary, pangkat, noRekening: rekening });
 
                     results.push({
-                        row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+                        row: idx + 2, nrp, nama: rawNama, gaji, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                         memberId: newMember.id, memberName: newMember.name,
                         status: 'valid', reason: null, isNewMember: true,
+                        salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
                     });
                     successCount++;
                 } catch (err) {
@@ -898,9 +905,10 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                 }
             } else {
                 results.push({
-                    row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+                    row: idx + 2, nrp, nama: rawNama, gaji, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                     memberId: null, memberName: `[BARU] ${rawNama}`,
                     status: 'valid', reason: null, isNewMember: true,
+                    salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
                 });
                 successCount++;
             }
@@ -920,9 +928,10 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
         }
 
         results.push({
-            row: idx + 2, nrp, nama: rawNama, gaji, pangkat, rekening,
+            row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null, isNewMember: false,
+            salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
             currentGaji: member.salary ? Number(member.salary) : null,
         });
         successCount++;

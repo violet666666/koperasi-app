@@ -115,16 +115,8 @@ export async function POST(request: Request) {
             let plafonPiutang = Number(memberForValidation.plafonPiutang || 0);
 
             if (plafonPiutang === 0 && Number(memberForValidation.salary || 0) > 0) {
-                const activeLoans = await prisma.loan.findMany({
-                    where: { memberId: memberForValidation.id, status: { in: ["active", "overdue"] } },
-                    select: { monthlyInstallment: true }
-                });
-                const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-                const salary = Number(memberForValidation.salary || 0);
-                const tunkin = Number(memberForValidation.tunlesKinerja || 0);
-                const sisaBersih = salary + tunkin - totalAngsuran;
-                const batasAman = 2000000;
-                plafonPiutang = Math.max(0, sisaBersih - batasAman);
+                // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
+                plafonPiutang = Math.max(0, Math.floor(Number(memberForValidation.salary) * 0.5));
             }
 
             const sisaLimit = plafonPiutang - totalTagihan;

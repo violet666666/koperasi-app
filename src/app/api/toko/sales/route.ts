@@ -285,15 +285,8 @@ export async function POST(request: Request) {
                 let plafonPiutang = Number(preValidatedMember?.plafonPiutang || 0);
 
                 if (plafonPiutang === 0 && Number(preValidatedMember?.salary || 0) > 0) {
-                    const activeLoans = await tx.loan.findMany({
-                        where: { memberId: memberId, status: { in: ["active", "overdue"] } },
-                        select: { monthlyInstallment: true },
-                    });
-                    const totalAngsuran = activeLoans.reduce((sum, loan) => sum + Number(loan.monthlyInstallment || 0), 0);
-                    const salary = Number(preValidatedMember.salary || 0);
-                    const tunkin = Number(preValidatedMember.tunlesKinerja || 0);
-                    const sisaBersih = salary + tunkin - totalAngsuran;
-                    plafonPiutang = Math.max(0, Math.floor(sisaBersih * 0.5));
+                    // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
+                    plafonPiutang = Math.max(0, Math.floor(Number(preValidatedMember.salary) * 0.5));
                 }
 
                 const sisaLimit = plafonPiutang - totalTagihan;
