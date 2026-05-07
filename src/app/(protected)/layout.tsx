@@ -62,7 +62,6 @@ function isPathAllowed(pathname: string, allowedPrefixes: string[]): boolean {
 const ADMIN_SP_ALLOWED_ROUTES = [
     "/dashboard", "/profil", "/settings", "/pengumuman",
     "/simpanan", "/pinjaman", "/anggota",
-    "/kas-bank", "/non-sp",
     "/unit", "/transaksi-unit",
     "/kwitansi", "/jurnal", "/laporan",
     "/approval",

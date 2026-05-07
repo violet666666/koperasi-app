@@ -487,24 +487,6 @@ export const adminSpNavigation: (NavItem | NavGroup)[] = [
                 ],
             },
             {
-                title: "Kas & Bank", href: "/kas-bank", icon: Building,
-                permission: "manage_kas_bank",
-                children: [
-                    { title: "Buku Kas", href: "/kas-bank/buku-kas" },
-                    { title: "Transaksi Kas", href: "/kas-bank/kas" },
-                    { title: "Transaksi Bank", href: "/kas-bank/bank" },
-                    { title: "Transfer", href: "/kas-bank/transfer" },
-                ],
-            },
-            {
-                title: "Non Simpan Pinjam", href: "/non-sp", icon: ArrowLeftRight,
-                permission: "manage_kas_bank",
-                children: [
-                    { title: "Penerimaan", href: "/non-sp/penerimaan" },
-                    { title: "Pengeluaran", href: "/non-sp/pengeluaran" },
-                ],
-            },
-            {
                 title: "Kwitansi", href: "/kwitansi", icon: Receipt,
                 permission: "manage_unit_transactions",
             },

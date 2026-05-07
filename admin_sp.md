@@ -68,16 +68,6 @@
 
 ## Fitur Tambahan (tersedia di navigasi)
 
-### Kas & Bank
-| Sub-fitur | Route |
-|-----------|-------|
-| Buku Kas | `/kas-bank/buku-kas` |
-| Transaksi Kas | `/kas-bank/transaksi-kas` |
-| Transaksi Bank | `/kas-bank/transaksi-bank` |
-| Transfer | `/kas-bank/transfer` |
-| Non SP (Penerimaan) | `/non-sp/penerimaan` |
-| Non SP (Pengeluaran) | `/non-sp/pengeluaran` |
-
 ### Akuntansi
 | Sub-fitur | Route |
 |-----------|-------|
@@ -119,6 +109,7 @@
 | `/master/*` (Import Data, User Management) | Operator only |
 | `/gaji` (Payroll) | Operator only |
 | `/toko`, `/cuci-mobil`, dsb. (POS Unit) | Unit isolation |
+| `/kas-bank`, `/non-sp` (Kas & Bank, Non SP) | Dihapus dari navigasi Mei 2026 — operator only |
 | `/audit-log` | Sebelumnya operator only — **sudah ditambahkan** (commit `cd95122`) |
 | `/periode` (Periode/SHU) | Operator only |
 
