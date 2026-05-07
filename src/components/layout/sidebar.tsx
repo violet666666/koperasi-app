@@ -263,26 +263,39 @@ function NavItemComponent({
         );
     }
 
-    // Expanded mode with children (collapsible)
+    // Expanded mode with children — clickable link + collapsible chevron
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CollapsibleTrigger asChild>
-                <Button
-                    variant="ghost"
-                    className={cn(
-                        "w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
-                    )}
-                >
-                    {Icon && <Icon className="h-5 w-5 shrink-0" />}
-                    <span className="truncate flex-1 text-left">{item.title}</span>
-                    {isOpen ? (
-                        <ChevronDown className="h-4 w-4 shrink-0" />
-                    ) : (
-                        <ChevronRight className="h-4 w-4 shrink-0" />
-                    )}
-                </Button>
-            </CollapsibleTrigger>
+            <div className="flex items-center">
+                <Link href={item.href} className="flex-1 min-w-0">
+                    <Button
+                        variant="ghost"
+                        className={cn(
+                            "w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
+                        )}
+                    >
+                        {Icon && <Icon className="h-5 w-5 shrink-0" />}
+                        <span className="truncate flex-1 text-left">{item.title}</span>
+                    </Button>
+                </Link>
+                <CollapsibleTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-10 w-8 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            isActive && "text-sidebar-accent-foreground"
+                        )}
+                    >
+                        {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4" />
+                        )}
+                    </Button>
+                </CollapsibleTrigger>
+            </div>
             <CollapsibleContent className="space-y-1 pt-1">
                 {item.children?.map((child, index) => (
                     <NavItemComponent
