@@ -427,7 +427,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     React.useEffect(() => {
         fetchLaporan(1);
-    }, [period, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [period, dateFrom, dateTo, hasAccess]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Reset page to 1 when period or date range changes
     React.useEffect(() => {

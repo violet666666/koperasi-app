@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -136,33 +136,52 @@ export async function GET(
             ];
         }
 
-        unitTransactions = await prisma.unitTransaction.findMany({
-            where: unitTxWhere,
-            include: {
-                member: { select: { id: true, name: true, nrp: true, memberNo: true } },
-            },
-            orderBy: { transactionDate: "desc" },
-        });
+        // Try prismaRead (Neon HTTP) first, fall back to prisma (TCP) for resilience
+        try {
+            unitTransactions = await prismaRead.unitTransaction.findMany({
+                where: unitTxWhere,
+                include: {
+                    member: { select: { id: true, name: true, nrp: true, memberNo: true } },
+                },
+                orderBy: { transactionDate: "desc" },
+            });
+        } catch (readError) {
+            console.warn("[Laporan API] prismaRead failed for unitTx, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+            unitTransactions = await prisma.unitTransaction.findMany({
+                where: unitTxWhere,
+                include: {
+                    member: { select: { id: true, name: true, nrp: true, memberNo: true } },
+                },
+                orderBy: { transactionDate: "desc" },
+            });
+        }
 
         // ── Fetch StoreSale (all units using store_sales) ──────────────────────
         let storeSales: any[] = [];
         if (usesStoreSales) {
-            const rawStoreSales = await prisma.storeSale.findMany({
+            const storeSaleQuery = {
                 where: {
                     unitType,
-                    createdAt: { gte: dateFrom, lte: dateTo }, // StoreSale uses Timestamptz
+                    createdAt: { gte: dateFrom, lte: dateTo },
                 },
                 include: {
                     member: { select: { id: true, name: true, nrp: true } },
                     items: { include: { product: { select: { name: true } } } },
                 },
-                orderBy: { createdAt: "desc" },
-            });
+                orderBy: { createdAt: "desc" } as const,
+            };
+            let rawStoreSales: any[];
+            try {
+                rawStoreSales = await prismaRead.storeSale.findMany(storeSaleQuery);
+            } catch (readError) {
+                console.warn("[Laporan API] prismaRead failed for storeSales, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+                rawStoreSales = await prisma.storeSale.findMany(storeSaleQuery);
+            }
             storeSales = rawStoreSales.filter(sale => {
                 try {
                     const meta = typeof sale.metadata === 'string' ? JSON.parse(sale.metadata) : sale.metadata || {};
                     return !meta.isVoided;
-                } catch { return true; } // include if metadata is malformed
+                } catch { return true; }
             });
         }
 
