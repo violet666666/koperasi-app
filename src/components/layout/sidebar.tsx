@@ -25,7 +25,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, PanelLeftClose, PanelLeft } from "lucide-react";
 
 interface SidebarProps {
     isCollapsed?: boolean;
@@ -33,10 +33,9 @@ interface SidebarProps {
     className?: string;
 }
 
-export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
+export function Sidebar({ isCollapsed = false, onToggle, className }: SidebarProps) {
     const pathname = usePathname();
     const { user } = useAuth();
-    // Read unitType directly from JWT session — guaranteed accurate
     const { data: session } = useSession();
     const filteredNavigation = getNavigationForUser({
         permissions: user?.permissions || [],
@@ -68,6 +67,17 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
                         <span className="font-bold text-[15px] leading-tight">PRIMKOPPOL<br />LUMAJANG</span>
                     )}
                 </Link>
+                {onToggle && !isCollapsed && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-auto h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+                        onClick={onToggle}
+                    >
+                        <PanelLeftClose className="h-4 w-4" />
+                        <span className="sr-only">Tutup sidebar</span>
+                    </Button>
+                )}
             </div>
 
             {/* Navigation */}
@@ -97,13 +107,28 @@ export function Sidebar({ isCollapsed = false, className }: SidebarProps) {
             </div>
 
             {/* Footer */}
-            {!isCollapsed && (
-                <div className="border-t border-sidebar-border p-4">
-                    <p className="text-xs text-sidebar-foreground/60">
-                        © 2025 PRIMKOPPOL RESOR LUMAJANG
-                    </p>
-                </div>
-            )}
+            <div className="border-t border-sidebar-border">
+                {onToggle && isCollapsed && (
+                    <div className="flex justify-center py-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                            onClick={onToggle}
+                        >
+                            <PanelLeft className="h-4 w-4" />
+                            <span className="sr-only">Buka sidebar</span>
+                        </Button>
+                    </div>
+                )}
+                {!isCollapsed && (
+                    <div className="p-4">
+                        <p className="text-xs text-sidebar-foreground/60">
+                            &copy; 2025 PRIMKOPPOL RESOR LUMAJANG
+                        </p>
+                    </div>
+                )}
+            </div>
         </aside>
     );
 }
