@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
@@ -74,24 +74,35 @@ export async function GET(request: Request) {
             ];
         }
 
-        const [sales, total] = await Promise.all([
-            prisma.storeSale.findMany({
-                where: where as any,
-                include: {
-                    items: {
-                        include: { product: { select: { id: true, sku: true, name: true } } },
-                    },
-                    createdBy: { select: { id: true, name: true } },
-                    member: { select: { id: true, name: true, memberNo: true } },
-                    shift: { select: { id: true, shiftName: true, status: true } },
-                    cashierIdentity: { select: { id: true, displayName: true } },
+        const salesQuery = {
+            where: where as any,
+            include: {
+                items: {
+                    include: { product: { select: { id: true, sku: true, name: true } } },
                 },
-                orderBy: { createdAt: "desc" },
-                skip: (page - 1) * perPage,
-                take: perPage,
-            }),
-            prisma.storeSale.count({ where: where as any }),
-        ]);
+                createdBy: { select: { id: true, name: true } },
+                member: { select: { id: true, name: true, memberNo: true } },
+                shift: { select: { id: true, shiftName: true, status: true } },
+                cashierIdentity: { select: { id: true, displayName: true } },
+            },
+            orderBy: { createdAt: "desc" } as const,
+            skip: (page - 1) * perPage,
+            take: perPage,
+        };
+        let sales: any[];
+        let total: number;
+        try {
+            [sales, total] = await Promise.all([
+                prismaRead.storeSale.findMany(salesQuery),
+                prismaRead.storeSale.count({ where: where as any }),
+            ]);
+        } catch (readError) {
+            console.warn("[Sales GET] prismaRead failed, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+            [sales, total] = await Promise.all([
+                prisma.storeSale.findMany(salesQuery),
+                prisma.storeSale.count({ where: where as any }),
+            ]);
+        }
 
         const totalPages = Math.max(1, Math.ceil(total / perPage));
 

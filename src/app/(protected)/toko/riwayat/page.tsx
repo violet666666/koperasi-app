@@ -93,7 +93,7 @@ interface StatsData {
 }
 
 export default function RiwayatTransaksiPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const unitType = session?.user?.unitType as string || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
 
@@ -138,8 +138,9 @@ export default function RiwayatTransaksiPage() {
         setPage(1);
     }, [debouncedSearch, methodFilters, showVoided, shiftFilter]);
 
-    // Fetch stats once on mount
+    // Fetch stats once on mount (after session loads)
     React.useEffect(() => {
+        if (status === "loading") return;
         async function fetchStats() {
             try {
                 const res = await fetch(`/api/toko/stats?unitType=${unitType}`);
@@ -156,10 +157,11 @@ export default function RiwayatTransaksiPage() {
             } catch { /* non-critical */ }
         }
         fetchStats();
-    }, [unitType]);
+    }, [unitType, status]);
 
-    // Fetch shifts once on mount
+    // Fetch shifts once on mount (after session loads)
     React.useEffect(() => {
+        if (status === "loading") return;
         async function fetchShifts() {
             try {
                 const res = await fetch(`/api/toko/shifts?unitType=${unitType}&limit=50`);
@@ -175,10 +177,11 @@ export default function RiwayatTransaksiPage() {
             } catch { /* non-critical */ }
         }
         fetchShifts();
-    }, [unitType]);
+    }, [unitType, status]);
 
     // Fetch paginated sales whenever page or filters change
     React.useEffect(() => {
+        if (status === "loading") return;
         async function fetchSales() {
             setIsLoading(true);
             try {
@@ -204,7 +207,7 @@ export default function RiwayatTransaksiPage() {
             }
         }
         fetchSales();
-    }, [unitType, page, debouncedSearch, methodFilters, showVoided, shiftFilter]);
+    }, [unitType, page, debouncedSearch, methodFilters, showVoided, shiftFilter, status]);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {

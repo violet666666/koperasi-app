@@ -49,17 +49,22 @@ export async function GET(request: Request) {
             // Also fetch StoreSale for Toko (when no unitType filter, or filter is "toko")
             const includeToko = !unitType || unitType === "all" || unitType === "toko";
 
+            const fetchLimit = type === "unit" ? Math.max(query.perPage * 3, query.perPage + (query.page * query.perPage)) : 10;
+
             const [unitTxns, unitCount, storeSales] = await Promise.all([
                 prisma.unitTransaction.findMany({
                     where: unitWhere,
                     orderBy: { transactionDate: "desc" },
-                    take: type === "unit" ? query.perPage * 2 : 10, // fetch more to merge + paginate
+                    take: fetchLimit,
                 }),
                 prisma.unitTransaction.count({ where: unitWhere }),
                 includeToko ? prisma.storeSale.findMany({
-                    where: { memberId },
+                    where: {
+                        memberId,
+                        NOT: { metadata: { path: ["isVoided"], equals: true } },
+                    },
                     orderBy: { createdAt: "desc" },
-                    take: type === "unit" ? query.perPage * 2 : 10,
+                    take: fetchLimit,
                     select: {
                         id: true, saleNo: true, totalAmount: true,
                         paymentMethod: true, customerName: true, createdAt: true,
@@ -70,18 +75,15 @@ export async function GET(request: Request) {
                 }) : Promise.resolve([]),
             ]);
 
-            // Count StoreSales excluding voided (metadata.isVoided !== true)
-            let storeCount = 0;
-            if (includeToko) {
-                const allSaleIds = await prisma.storeSale.findMany({
-                    where: { memberId },
-                    select: { id: true, metadata: true },
-                });
-                storeCount = allSaleIds.filter((s) => {
-                    const meta = (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata) as Record<string, unknown> | null;
-                    return !meta?.isVoided;
-                }).length;
-            }
+            // Count non-voided StoreSales at DB level
+            const storeCount = includeToko
+                ? await prisma.storeSale.count({
+                    where: {
+                        memberId,
+                        NOT: { metadata: { path: ["isVoided"], equals: true } },
+                    },
+                })
+                : 0;
 
             const mappedUnitTxns = unitTxns.map((t) => ({
                 id: t.id,
@@ -96,16 +98,11 @@ export async function GET(request: Request) {
                 status: t.status,
             }));
 
-            const mappedStoreSales = storeSales
-                .filter((s) => {
-                    const meta = (typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata) as Record<string, unknown> | null;
-                    return !meta?.isVoided;
-                })
-                .map((s: any) => {
+            const mappedStoreSales = storeSales.map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                     const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
                     return {
-                        id: s.id + 10000000,
+                        id: `SS-${s.id}`,
                         saleId: s.id,
                         transactionNo: s.saleNo,
                         unitType: "toko",
@@ -134,7 +131,7 @@ export async function GET(request: Request) {
             // Apply pagination after merge
             const startIdx = type === "unit" ? (query.page - 1) * query.perPage : 0;
             const endIdx = type === "unit" ? startIdx + query.perPage : 5;
-            result.unitTransactions = allUnitTxns.slice(startIdx, startIdx === 0 ? endIdx : endIdx);
+            result.unitTransactions = allUnitTxns.slice(startIdx, endIdx);
             if (type === "unit") result.meta.total = unitCount + storeCount;
         }
 
