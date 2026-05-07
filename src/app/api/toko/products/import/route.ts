@@ -235,7 +235,7 @@ export async function POST(request: Request) {
                 const userInfo = extractUserFromSession(session);
                 await logAudit({
                     ...userInfo, ...reqInfo,
-                    action: "IMPORT", module: "Toko",
+                    action: "IMPORT", module: "Toko", unitType: "toko",
                     description: `Import produk toko: ${successCount} berhasil, ${failCount} gagal`,
                     newData: { mode, totalRows: finalResults.length, success: successCount, failed: failCount },
                 });

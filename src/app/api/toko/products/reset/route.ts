@@ -59,7 +59,7 @@ export async function DELETE(request: Request) {
             const userInfo = extractUserFromSession(session);
             await logAudit({
                 ...userInfo, ...reqInfo,
-                action: "DELETE", module: "Toko",
+                action: "DELETE", module: "Toko", unitType: "toko",
                 description: `Reset semua produk toko: ${count} produk dihapus.`,
                 newData: { deleted: count, method: productsWithSales > 0 ? "soft_delete" : "hard_delete" },
             });

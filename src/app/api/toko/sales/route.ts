@@ -550,7 +550,7 @@ export async function POST(request: Request) {
             const userInfo = extractUserFromSession(session);
             await logAudit({
                 ...userInfo, ...reqInfo,
-                action: "CREATE", module: "Toko",
+                action: "CREATE", module: "Toko", unitType: "toko",
                 description: `Penjualan ${method}: ${result.saleNo} - Rp ${result.totalAmount.toLocaleString()}`,
                 targetId: String(result.sale.id), targetType: "StoreSale",
                 newData: { saleNo: result.saleNo, totalAmount: result.totalAmount, paymentMethod: method, memberId: body.memberId || null, unitType },

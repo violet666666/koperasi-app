@@ -212,7 +212,7 @@ export async function POST(request: Request) {
                 const userInfo = extractUserFromSession(session);
                 await logAudit({
                     ...userInfo, ...reqInfo,
-                    action: "IMPORT", module: "Toko",
+                    action: "IMPORT", module: "Toko", unitType: "toko",
                     description: `Import Beban Belanja Toko: ${memberSalesMap.size} anggota dari Excel Multi-sheet.`,
                     newData: { memberCount: memberSalesMap.size },
                 });

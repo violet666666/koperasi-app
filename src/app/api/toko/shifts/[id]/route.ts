@@ -70,7 +70,7 @@ export async function PUT(
             await logAudit({
                 ...userInfo, ...reqInfo,
                 action: "UPDATE",
-                module: "Toko",
+                module: "Toko", unitType: "toko",
                 description: `Edit closingCash shift #${shiftId}: ${Number(shift.closingCash)} → ${newClosingCash}`,
                 newData: { shiftId, oldClosingCash: Number(shift.closingCash), newClosingCash, newCashDifference },
             });
