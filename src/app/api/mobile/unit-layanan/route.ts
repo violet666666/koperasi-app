@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         if (method === "salary_cut" && memberId) {
             const member = await prisma.member.findUnique({
                 where: { id: Number(memberId) },
-                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true, tunlesKinerja: true },
+                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true },
             });
 
             if (!member) {

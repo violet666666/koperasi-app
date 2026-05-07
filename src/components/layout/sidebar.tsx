@@ -25,7 +25,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, PanelLeftClose, PanelLeft } from "lucide-react";
+import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeft } from "lucide-react";
 
 interface SidebarProps {
     isCollapsed?: boolean;

@@ -42,7 +42,6 @@ export async function POST(request: Request) {
                 pangkat: true,
                 plafonPiutang: true,
                 salary: true,
-                tunlesKinerja: true,
             },
         });
 

@@ -702,8 +702,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
     // Prioritize "DITERIMA" (SISA GAJI = JUMLAH GAJI DITERIMA, col AK) over generic "GAJI" (col 3 GAJI POKOK)
     const gajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
-    const gajiFallbackIdx = gajiIdx === -1 ? headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary")) : gajiIdx;
-    const finalGajiIdx = gajiIdx !== -1 ? gajiIdx : gajiFallbackIdx;
+    const finalGajiIdx = gajiIdx !== -1 ? gajiIdx : headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary"));
 
     if (namaIdx === -1) {
         return {
@@ -890,7 +889,7 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                     allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary, pangkat, noRekening: rekening });
 
                     results.push({
-                        row: idx + 2, nrp, nama: rawNama, gaji, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
+                        row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                         memberId: newMember.id, memberName: newMember.name,
                         status: 'valid', reason: null, isNewMember: true,
                         salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
@@ -905,7 +904,7 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                 }
             } else {
                 results.push({
-                    row: idx + 2, nrp, nama: rawNama, gaji, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
+                    row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                     memberId: null, memberName: `[BARU] ${rawNama}`,
                     status: 'valid', reason: null, isNewMember: true,
                     salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
@@ -952,7 +951,8 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
 async function processAkunAnggotaImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
-    const gajiIdx = headers.findIndex(h => h.includes("jumlah gaji") || h.includes("gaji diterima") || h.includes("gaji") || h.includes("diterima") || h.includes("bersih") || h.includes("salary"));
+    const gajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
+    const gajiFallbackIdx = gajiIdx !== -1 ? gajiIdx : headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary"));
 
     if (nrpIdx === -1) {
         return {
@@ -985,7 +985,7 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
 
         const nrp = cleanNrp(row[nrpIdx] || '');
         const rawNama = String(row[namaIdx] || '').trim();
-        const gaji = gajiIdx >= 0 ? cleanNumber(row[gajiIdx] || 0) : 0;
+        const gaji = gajiFallbackIdx >= 0 ? cleanNumber(row[gajiFallbackIdx] || 0) : 0;
 
         if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
         if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
@@ -1053,6 +1053,6 @@ async function processAkunAnggotaImport(headers: string[], dataRows: string[][],
         totalRows: results.length,
         success: successCount, failed: failCount,
         preview: results,
-        hasGaji: gajiIdx >= 0,
+        hasGaji: gajiFallbackIdx >= 0,
     };
 }
