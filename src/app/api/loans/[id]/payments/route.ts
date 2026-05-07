@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createLoanPaymentSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { ZodError } from "zod";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -35,7 +36,7 @@ export async function GET(request: Request, { params }: Params) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (!["operator", "admin_sp"].includes(roleName)) {
+        if (!["operator", "admin_sp", "admin"].includes(roleName)) {
             return NextResponse.json({ message: "Hanya Operator yang dapat mengakses data pembayaran." }, { status: 403 });
         }
 
@@ -71,7 +72,7 @@ export async function POST(request: Request, { params }: Params) {
         }
         const userId = Number((session.user as any).id);
         const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-        if (!["operator", "admin_sp"].includes(roleName)) {
+        if (!["operator", "admin_sp", "admin"].includes(roleName)) {
             return NextResponse.json({ message: "Hanya Operator yang dapat mencatat pembayaran pinjaman." }, { status: 403 });
         }
 
@@ -427,7 +428,7 @@ export async function POST(request: Request, { params }: Params) {
             }
 
             return payment;
-        });
+        }, { timeout: 30000 });
         // ══════════════════════════════════════════════════════════════
 
         return NextResponse.json({
@@ -438,14 +439,15 @@ export async function POST(request: Request, { params }: Params) {
         }, { status: 201 });
     } catch (error) {
         console.error("POST /api/loans/[id]/payments error:", error);
-        if (error instanceof Error && error.name === "ZodError") {
+        if (error instanceof ZodError) {
             return NextResponse.json(
-                { message: "Validation error", errors: error },
+                { message: "Validation error", errors: error.flatten() },
                 { status: 400 }
             );
         }
+        const detail = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { message: "Failed to create payment" },
+            { message: `Gagal mencatat pembayaran: ${detail}` },
             { status: 500 }
         );
     }
