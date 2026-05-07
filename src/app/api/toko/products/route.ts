@@ -39,10 +39,23 @@ export async function GET(request: Request) {
             ...(isPaginated && { skip: (page - 1) * perPage, take: perPage }),
         };
 
-        const [products, totalCount] = await Promise.all([
-            prismaRead.storeProduct.findMany(queryOptions),
-            isPaginated ? prismaRead.storeProduct.count({ where }) : Promise.resolve(0),
-        ]);
+        // Try prismaRead (Neon HTTP) first, fall back to prisma (TCP) if it fails
+        let products: any[];
+        let totalCount: number;
+        try {
+            [products, totalCount] = await Promise.all([
+                prismaRead.storeProduct.findMany(queryOptions),
+                isPaginated ? prismaRead.storeProduct.count({ where }) : Promise.resolve(0),
+            ]);
+        } catch (readError) {
+            console.warn("[Products API] prismaRead failed, falling back to TCP:", readError instanceof Error ? readError.message : readError);
+            [products, totalCount] = await Promise.all([
+                prisma.storeProduct.findMany(queryOptions),
+                isPaginated ? prisma.storeProduct.count({ where }) : Promise.resolve(0),
+            ]);
+        }
+
+        console.log(`[Products API] unitType=${unitType} search="${search}" found=${products.length} total=${totalCount} isPaginated=${isPaginated}`);
 
         // Single SQL aggregate replaces two queries (aggregate + findMany for stats)
         const filterUnitType = unitType || null;
@@ -105,8 +118,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ data: mapped });
     } catch (error) {
         console.error("GET /api/toko/products error:", error);
+        console.error("Error details:", error instanceof Error ? { message: error.message, stack: error.stack } : error);
         return NextResponse.json(
-            { message: "Failed to fetch products" },
+            { message: "Failed to fetch products", error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }
         );
     }
