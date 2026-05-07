@@ -3,7 +3,7 @@ import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
 
 // Helper: map StoreSale into UnitTransaction shape
 function mapStoreSale(s: Record<string, unknown>) {
@@ -87,6 +87,11 @@ export async function GET(request: Request) {
         const dateTo = searchParams.get("dateTo");
         const paymentMethod = searchParams.get("paymentMethod");
 
+        // Kasir can only see their own unit's data
+        const effectiveUnitType = session.user.role === "kasir"
+            ? (session.user as any).unitType || unitType
+            : unitType;
+
         const where: Record<string, unknown> = {};
 
         // If anggota role, only show own transactions
@@ -96,8 +101,8 @@ export async function GET(request: Request) {
             where.memberId = parseInt(memberId);
         }
 
-        if (unitType && unitType !== "all") {
-            where.unitType = unitType;
+        if (effectiveUnitType && effectiveUnitType !== "all") {
+            where.unitType = effectiveUnitType;
         }
 
         if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
@@ -164,7 +169,7 @@ export async function GET(request: Request) {
 
         // StoreSale-based units (toko, cafe_lsp, playstation, resto, coffe_latar)
         const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
-        const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
+        const includeStoreSales = !effectiveUnitType || effectiveUnitType === "all" || storeBasedUnits.includes(effectiveUnitType);
 
         let storeSales: Record<string, unknown>[] = [];
         let storeCount = 0;
@@ -172,8 +177,8 @@ export async function GET(request: Request) {
         if (includeStoreSales) {
             const storeWhere: Record<string, unknown> = {};
             if (where.memberId) storeWhere.memberId = where.memberId;
-            if (unitType && unitType !== "all") {
-                storeWhere.unitType = unitType;
+            if (effectiveUnitType && effectiveUnitType !== "all") {
+                storeWhere.unitType = effectiveUnitType;
             }
             if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
                 // StoreSales are paid unless it is salary_cut
