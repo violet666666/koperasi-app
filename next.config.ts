@@ -1,5 +1,4 @@
 const nextConfig = {
-  output: "standalone",
   reactCompiler: true,
   typescript: {
     ignoreBuildErrors: true,
