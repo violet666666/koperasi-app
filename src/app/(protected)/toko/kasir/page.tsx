@@ -414,13 +414,16 @@ export default function KasirPage() {
             clearCustomer();
             setSelectedMember(null);
             setShowCreditDialog(false);
+            setIsProcessing(false);
 
-            const productsRes = await fetch("/api/toko/products?unitType=toko");
-            const productsJson = await productsRes.json();
-            setProducts(productsJson.data || []);
+            fetch("/api/toko/products?unitType=toko")
+                .then((r) => r.json())
+                .then((j) => { if (j.data) setProducts(j.data); })
+                .catch(() => {});
         } catch {
             toast.error("Gagal memproses pembayaran");
-        } finally { setIsProcessing(false); }
+            setIsProcessing(false);
+        }
     };
 
     if (shiftLoading) {

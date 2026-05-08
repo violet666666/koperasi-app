@@ -9,6 +9,7 @@
 ## 1. Latar Belakang
 
 ### Masalah Saat Ini
+
 - Vercel charge CPU time per serverless function invocation
 - App ini punya **50+ API routes** → masing-masing adalah function terpisah
 - Setiap cold start: spawn Node.js + Prisma TCP connection ke NeonDB (2-5 detik)
@@ -16,6 +17,7 @@
 - Tagihan Vercel meledak karena akumulasi ms × CPU dari ratusan function calls per hari
 
 ### Kenapa Railway Lebih Cocok
+
 | Aspek | Vercel (Sekarang) | Railway (Target) |
 |-------|-------------------|------------------|
 | Model | Serverless (per function) | Persistent server (1 proses) |
@@ -76,6 +78,7 @@
 ## 4. File yang Perlu Dibuat/Dimodifikasi
 
 ### 4.1 BARU: `next.config.ts` (modifikasi)
+
 Tambahkan `output: "standalone"` agar Next.js build sebagai standalone server.
 
 ```
@@ -94,6 +97,7 @@ const nextConfig = {
 ```
 
 ### 4.2 BARU: `nixpacks.toml`
+
 Konfigurasi build untuk Railway (Nixpacks auto-detect Next.js).
 
 ```toml
@@ -108,13 +112,16 @@ cmd = "node .next/standalone/server.js"
 ```
 
 ### 4.3 BARU: `public` symlink fix (jika diperlukan)
+
 Standalone build tidak include `public/` folder. Perlu copy ke `.next/standalone/public/`.
 
 ### 4.4 MODIFIKASI: `src/lib/prisma.ts`
+
 Hapus `prismaRead` (Neon HTTP adapter) karena tidak lagi diperlukan di Railway.
 Di persistent server, TCP connection pool sudah efisien — tidak perlu HTTP adapter.
 
 ### 4.5 MODIFIKASI: Semua file yang import `prismaRead`
+
 Hapus fallback pattern `try prismaRead → catch prisma` karena tinggal gunakan `prisma` saja.
 
 ---
@@ -126,6 +133,7 @@ Hapus fallback pattern `try prismaRead → catch prisma` karena tinggal gunakan 
 - [ ] **1.1** Login ke [railway.app](https://railway.app) dengan GitHub
 - [ ] **1.2** Buat New Project → "Deploy from GitHub repo" → pilih `koperasi-app`
 - [ ] **1.3** Set Environment Variables di Railway:
+
   ```
   DATABASE_URL=postgresql://neondb_owner:...@ep-xxx.us-east-2.aws.neon.tech/koperasi_db?sslmode=require
   DIRECT_URL=postgresql://neondb_owner:...@ep-xxx.us-east-2.aws.neon.tech/koperasi_db?sslmode=require
@@ -133,6 +141,7 @@ Hapus fallback pattern `try prismaRead → catch prisma` karena tinggal gunakan 
   NEXTAUTH_URL=https://primkoppol.online
   NODE_ENV=production
   ```
+
   > Copy nilai dari Vercel Dashboard → Settings → Environment Variables
 
 - [ ] **1.4** Buat branch `railway-migration` di repo lokal
@@ -160,7 +169,7 @@ Hapus fallback pattern `try prismaRead → catch prisma` karena tinggal gunakan 
 
 ### Fase 3: Verifikasi (15 menit)
 
-- [ ] **3.1** Buka https://primkoppol.online → harus load
+- [ ] **3.1** Buka <https://primkoppol.online> → harus load
 - [ ] **3.2** Login sebagai operator → cek dashboard
 - [ ] **3.3** Test transaksi Toko (buat 1 transaksi kecil)
 - [ ] **3.4** Test laporan Toko → harus muncul data
@@ -191,22 +200,26 @@ Jika Railway bermasalah dalam 1 jam pertama:
 ## 7. Catatan Teknis
 
 ### Kenapa Hapus prismaRead?
+
 - `prismaRead` (Neon HTTP adapter) diciptakan untuk mengatasi cold start di Vercel serverless
 - Di Railway, server persisten → TCP connection pool sudah efisien
 - Menghapus `prismaRead` menyederhanakan kode dan menghilangkan fallback complexity
 - Semua 7+ file yang punya pattern `try prismaRead → catch prisma` akan disederhanakan
 
 ### Kenapa `output: "standalone"`?
+
 - Railway butuh Node.js server yang berjalan terus, bukan serverless function
 - Standalone mode menghasilkan `.next/standalone/` folder yang bisa dijalankan dengan `node server.js`
 - Ukuran bundle lebih kecil, startup lebih cepat
 
 ### Mobile App
+
 - Mobile app (Expo) mengakses API via `https://primkoppol.online/api/*`
 - Setelah DNS switch, mobile app otomatis mengarah ke Railway
 - Tidak perlu update APK/IPA — domain tetap sama
 
 ### SSL/HTTPS
+
 - Railway otomatis menyediakan SSL certificate untuk custom domain
 - Tidak perlu konfigurasi manual seperti Let's Encrypt
 
