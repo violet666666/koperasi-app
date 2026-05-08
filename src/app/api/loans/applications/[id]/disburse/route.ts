@@ -141,7 +141,11 @@ export async function POST(request: Request, { params }: Params) {
                 orderBy: { id: 'asc' },
             });
 
-            if (cashAccount) {
+            if (!cashAccount) {
+                throw new Error("Tidak ada akun Kas/Bank aktif untuk branch ini. Pencairan pinjaman gagal — hubungi admin untuk mengaktifkan akun Kas/Bank terlebih dahulu.");
+            }
+
+            {
                 const balBefore = Number(cashAccount.currentBalance);
                 const balAfter = balBefore - disbursedAmount;
 

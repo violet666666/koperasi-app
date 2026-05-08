@@ -215,8 +215,8 @@ export default function TambahSimpananPage() {
         if (!selectedMember) { toast.error("Pilih anggota terlebih dahulu"); return; }
         if (!formData.productId) { toast.error("Pilih produk simpanan"); return; }
         if (!formData.amount || Number(formData.amount) <= 0) { toast.error("Masukkan jumlah yang valid"); return; }
-        if (formData.type === "withdrawal" && !formData.cashBankAccountId) {
-            toast.error("Pilih akun Kas/Bank untuk transaksi penarikan ini");
+        if (!formData.cashBankAccountId) {
+            toast.error("Pilih akun Kas/Bank untuk transaksi ini");
             return;
         }
 
@@ -227,8 +227,8 @@ export default function TambahSimpananPage() {
                 productId: Number(formData.productId),
                 type: formData.type,
                 amount: Number(formData.amount),
-                paymentMethod: formData.type === "withdrawal" ? formData.paymentMethod : undefined,
-                cashBankAccountId: formData.type === "withdrawal" && formData.cashBankAccountId ? Number(formData.cashBankAccountId) : undefined,
+                paymentMethod: formData.paymentMethod || undefined,
+                cashBankAccountId: formData.cashBankAccountId ? Number(formData.cashBankAccountId) : undefined,
                 referenceNo: formData.referenceNo || undefined,
                 notes: formData.notes || undefined,
                 transactionDate: formData.transactionDate,
@@ -469,71 +469,69 @@ export default function TambahSimpananPage() {
                         </div>
 
                         {/* Metode Pembayaran */}
-                        {formData.type === "withdrawal" && (
-                            <div>
-                                <Label htmlFor="paymentMethod">Metode Pembayaran *</Label>
-                                <Select
-                                    value={formData.paymentMethod}
-                                    onValueChange={(value) => handleSelectChange("paymentMethod", value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih metode" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="cash">
-                                            <span className="flex items-center gap-2">
-                                                <Banknote className="h-4 w-4" /> Tunai
-                                            </span>
-                                        </SelectItem>
-                                        <SelectItem value="bank_transfer">
-                                            <span className="flex items-center gap-2">
-                                                <Building2 className="h-4 w-4" /> Transfer Bank
-                                            </span>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
+                        <div>
+                            <Label htmlFor="paymentMethod">Metode Pembayaran *</Label>
+                            <Select
+                                value={formData.paymentMethod}
+                                onValueChange={(value) => handleSelectChange("paymentMethod", value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih metode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cash">
+                                        <span className="flex items-center gap-2">
+                                            <Banknote className="h-4 w-4" /> Tunai
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="bank_transfer">
+                                        <span className="flex items-center gap-2">
+                                            <Building2 className="h-4 w-4" /> Transfer Bank
+                                        </span>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         {/* Akun Kas / Bank */}
-                        {formData.type === "withdrawal" && (
-                            <div>
-                                <Label htmlFor="cashBankAccountId">
-                                    {formData.paymentMethod === "bank_transfer" ? "Rekening Bank Koperasi *" : "Kas Koperasi *"}
-                                </Label>
-                                <Select
-                                    value={formData.cashBankAccountId}
-                                    onValueChange={(value) => handleSelectChange("cashBankAccountId", value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue
-                                            placeholder={
-                                                relevantCashBankAccounts.length === 0
-                                                    ? "Memuat akun..."
-                                                    : formData.paymentMethod === "bank_transfer"
-                                                        ? "Pilih rekening bank"
-                                                        : "Pilih kas tunai"
-                                            }
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {relevantCashBankAccounts.map((acc) => (
-                                            <SelectItem key={acc.id} value={String(acc.id)}>
-                                                <span className="flex flex-col">
-                                                    <span className="font-medium text-sm">{acc.name}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Saldo: {formatCurrency(Number(acc.currentBalance))}
-                                                    </span>
+                        <div>
+                            <Label htmlFor="cashBankAccountId">
+                                {formData.paymentMethod === "bank_transfer" ? "Rekening Bank Koperasi *" : "Kas Koperasi *"}
+                            </Label>
+                            <Select
+                                value={formData.cashBankAccountId}
+                                onValueChange={(value) => handleSelectChange("cashBankAccountId", value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue
+                                        placeholder={
+                                            relevantCashBankAccounts.length === 0
+                                                ? "Memuat akun..."
+                                                : formData.paymentMethod === "bank_transfer"
+                                                    ? "Pilih rekening bank"
+                                                    : "Pilih kas tunai"
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {relevantCashBankAccounts.map((acc) => (
+                                        <SelectItem key={acc.id} value={String(acc.id)}>
+                                            <span className="flex flex-col">
+                                                <span className="font-medium text-sm">{acc.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    Saldo: {formatCurrency(Number(acc.currentBalance))}
                                                 </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Mutasi kas koperasi akan otomatis diperbarui
-                                </p>
-                            </div>
-                        )}
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {formData.type === "deposit"
+                                    ? "Uang masuk akan otomatis dicatat di kas/bank terpilih"
+                                    : "Mutasi kas koperasi akan otomatis diperbarui"}
+                            </p>
+                        </div>
 
                         {/* Tanggal */}
                         <div>
