@@ -524,9 +524,31 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 exportData.push(row);
             });
             exportData.push([]);
-            exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", allData.summary.totalPendapatan, ""]);
-            exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", allData.summary.totalPengeluaran, ""]);
-            exportData.push(["", "", "", "LABA BERSIH", "", "", allData.summary.laba, ""]);
+            if (isCuciMobil) {
+                const expBagiKaryawan = Math.floor(allData.summary.totalPendapatan * 0.5);
+                const expBagianKoperasiKotor = allData.summary.totalPendapatan - expBagiKaryawan;
+                const expPotonganSHU = allData.summary.potonganSHUMember;
+                const expLabaBersih = expBagianKoperasiKotor - allData.summary.totalPengeluaran - expPotonganSHU + allData.summary.totalPemasukan;
+
+                exportData.push(["", "", "", "TOTAL PENDAPATAN KOTOR", "", "", allData.summary.totalPendapatan, ""]);
+                exportData.push(["", "", "", "  ├ Tunai", "", "", allData.summary.tunai, ""]);
+                exportData.push(["", "", "", "  ├ QRIS", "", "", allData.summary.qris, ""]);
+                exportData.push(["", "", "", "  └ Potong Gaji", "", "", allData.summary.potongGaji, ""]);
+                exportData.push(["", "", "", "BAGI HASIL KARYAWAN (50%)", "", "", -expBagiKaryawan, ""]);
+                exportData.push(["", "", "", "BAGIAN KOPERASI (KOTOR)", "", "", expBagianKoperasiKotor, ""]);
+                if (allData.summary.totalPemasukan > 0) {
+                    exportData.push(["", "", "", "PEMASUKAN OPERASIONAL", "", "", allData.summary.totalPemasukan, ""]);
+                }
+                exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", -allData.summary.totalPengeluaran, ""]);
+                if (expPotonganSHU > 0) {
+                    exportData.push(["", "", "", `POTONGAN SHU LANGSUNG (${allData.summary.jumlahCuciAnggota} cuci × Rp${allData.summary.shuPerCuci.toLocaleString("id-ID")})`, "", "", -expPotonganSHU, ""]);
+                }
+                exportData.push(["", "", "", "LABA BERSIH KOPERASI", "", "", expLabaBersih, ""]);
+            } else {
+                exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", allData.summary.totalPendapatan, ""]);
+                exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", allData.summary.totalPengeluaran, ""]);
+                exportData.push(["", "", "", "LABA BERSIH", "", "", allData.summary.laba, ""]);
+            }
 
             const ws = ExcelJS.utils.aoa_to_sheet(exportData);
             const wb = ExcelJS.utils.book_new();
@@ -1053,24 +1075,56 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 {transactions.length > 0 && summary && (
                                     <TableFooter className="print:hidden">
                                         <TableRow className="bg-muted/60 font-bold print:break-inside-avoid">
-                                            <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENDAPATAN</TableCell>
+                                            <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENDAPATAN KOTOR</TableCell>
                                             <TableCell className="text-right tabular-nums text-emerald-600">
                                                 {formatCurrency(summary.totalPendapatan)}
                                             </TableCell>
                                         </TableRow>
-                                        {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
+                                        {isCuciMobil && (
                                             <>
+                                                <TableRow className="bg-muted/30 text-xs print:break-inside-avoid">
+                                                    <TableCell colSpan={7} className="text-right pl-8">├ Tunai</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-emerald-600">{formatCurrency(summary.tunai)}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="bg-muted/30 text-xs print:break-inside-avoid">
+                                                    <TableCell colSpan={7} className="text-right pl-8">├ QRIS</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-emerald-600">{formatCurrency(summary.qris)}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="bg-muted/30 text-xs print:break-inside-avoid">
+                                                    <TableCell colSpan={7} className="text-right pl-8">└ Potong Gaji</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-emerald-600">{formatCurrency(summary.potongGaji)}</TableCell>
+                                                </TableRow>
+                                                <TableRow className="bg-amber-50/50 font-medium text-amber-700 print:break-inside-avoid">
+                                                    <TableCell colSpan={7} className="text-right">BAGI HASIL KARYAWAN (50%)</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-amber-600">
+                                                        ({formatCurrency(bagiHasilKaryawan)})
+                                                    </TableCell>
+                                                </TableRow>
+                                                <TableRow className="bg-emerald-50/30 font-medium text-emerald-700 print:break-inside-avoid">
+                                                    <TableCell colSpan={7} className="text-right">BAGIAN KOPERASI (KOTOR)</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-emerald-600">
+                                                        {formatCurrency(bagianKoperasiKotor)}
+                                                    </TableCell>
+                                                </TableRow>
+                                                {summary.totalPemasukan > 0 && (
+                                                    <TableRow className="bg-cyan-50/50 font-medium text-cyan-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={7} className="text-right">PEMASUKAN OPERASIONAL</TableCell>
+                                                        <TableCell className="text-right tabular-nums text-cyan-600">
+                                                            {formatCurrency(summary.totalPemasukan)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                                 {summary.totalPengeluaran > 0 && (
                                                     <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
-                                                        <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                                        <TableCell colSpan={7} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
                                                         <TableCell className="text-right tabular-nums text-red-600">
                                                             ({formatCurrency(summary.totalPengeluaran)})
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
-                                                {isCuciMobil && summary.potonganSHUMember > 0 && (
+                                                {summary.potonganSHUMember > 0 && (
                                                     <TableRow className="bg-purple-50/50 font-medium text-purple-700 print:break-inside-avoid">
-                                                        <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">
+                                                        <TableCell colSpan={7} className="text-right">
                                                             POTONGAN SHU LANGSUNG ({summary.jumlahCuciAnggota} cuci × Rp{(summary.shuPerCuci).toLocaleString("id-ID")})
                                                         </TableCell>
                                                         <TableCell className="text-right tabular-nums text-purple-600">
@@ -1079,11 +1133,31 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                     </TableRow>
                                                 )}
                                                 <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
-                                                    <TableCell colSpan={isCuciMobil ? 7 : 6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
-                                                    <TableCell className={`text-right tabular-nums font-bold ${summary.laba >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                                                        {formatCurrency(summary.laba)}
+                                                    <TableCell colSpan={7} className="text-right">LABA BERSIH KOPERASI</TableCell>
+                                                    <TableCell className={`text-right tabular-nums font-bold ${bagianKoperasiBersih >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                        {formatCurrency(bagianKoperasiBersih)}
                                                     </TableCell>
                                                 </TableRow>
+                                            </>
+                                        )}
+                                        {!isCuciMobil && (
+                                            <>
+                                                {summary.totalPengeluaran > 0 && (
+                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                                        <TableCell className="text-right tabular-nums text-red-600">
+                                                            ({formatCurrency(summary.totalPengeluaran)})
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                                {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
+                                                    <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
+                                                        <TableCell colSpan={6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
+                                                        <TableCell className={`text-right tabular-nums font-bold ${summary.laba >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                            {formatCurrency(summary.laba)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                             </>
                                         )}
                                     </TableFooter>
@@ -1152,9 +1226,71 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <table className="w-full text-sm">
                         <tbody>
                             <tr className="font-bold">
-                                <td className="py-1 text-right pr-4">TOTAL PENDAPATAN</td>
+                                <td className="py-1 text-right pr-4">TOTAL PENDAPATAN KOTOR</td>
                                 <td className="py-1 text-right tabular-nums">{formatCurrency(summary.totalPendapatan)}</td>
                             </tr>
+                            {isCuciMobil && (
+                                <>
+                                    <tr className="text-xs">
+                                        <td className="py-0.5 text-right pr-4 pl-6">├ Tunai</td>
+                                        <td className="py-0.5 text-right tabular-nums">{formatCurrency(summary.tunai)}</td>
+                                    </tr>
+                                    <tr className="text-xs">
+                                        <td className="py-0.5 text-right pr-4 pl-6">├ QRIS</td>
+                                        <td className="py-0.5 text-right tabular-nums">{formatCurrency(summary.qris)}</td>
+                                    </tr>
+                                    <tr className="text-xs">
+                                        <td className="py-0.5 text-right pr-4 pl-6">└ Potong Gaji</td>
+                                        <td className="py-0.5 text-right tabular-nums">{formatCurrency(summary.potongGaji)}</td>
+                                    </tr>
+                                    <tr className="font-medium">
+                                        <td className="py-1 text-right pr-4">BAGI HASIL KARYAWAN (50%)</td>
+                                        <td className="py-1 text-right tabular-nums">({formatCurrency(bagiHasilKaryawan)})</td>
+                                    </tr>
+                                    <tr className="font-medium">
+                                        <td className="py-1 text-right pr-4">BAGIAN KOPERASI (KOTOR)</td>
+                                        <td className="py-1 text-right tabular-nums">{formatCurrency(bagianKoperasiKotor)}</td>
+                                    </tr>
+                                    {summary.totalPemasukan > 0 && (
+                                        <tr>
+                                            <td className="py-1 text-right pr-4">PEMASUKAN OPERASIONAL</td>
+                                            <td className="py-1 text-right tabular-nums">+ {formatCurrency(summary.totalPemasukan)}</td>
+                                        </tr>
+                                    )}
+                                    {summary.totalPengeluaran > 0 && (
+                                        <tr className="text-red-800">
+                                            <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
+                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalPengeluaran)})</td>
+                                        </tr>
+                                    )}
+                                    {potonganSHU > 0 && (
+                                        <tr className="text-purple-800">
+                                            <td className="py-1 text-right pr-4">POTONGAN SHU LANGSUNG ({summary.jumlahCuciAnggota} cuci × Rp{summary.shuPerCuci.toLocaleString("id-ID")})</td>
+                                            <td className="py-1 text-right tabular-nums">({formatCurrency(potonganSHU)})</td>
+                                        </tr>
+                                    )}
+                                    <tr className="font-bold border-t-2 border-gray-600">
+                                        <td className="py-1.5 text-right pr-4">LABA BERSIH KOPERASI</td>
+                                        <td className="py-1.5 text-right tabular-nums">{formatCurrency(bagianKoperasiBersih)}</td>
+                                    </tr>
+                                </>
+                            )}
+                            {!isCuciMobil && (
+                                <>
+                                    {summary.totalPengeluaran > 0 && (
+                                        <tr className="text-red-800">
+                                            <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
+                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalPengeluaran)})</td>
+                                        </tr>
+                                    )}
+                                    {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
+                                        <tr className="font-bold border-t-2 border-gray-600">
+                                            <td className="py-1.5 text-right pr-4">LABA BERSIH ESTIMASI</td>
+                                            <td className="py-1.5 text-right tabular-nums">{formatCurrency(summary.laba)}</td>
+                                        </tr>
+                                    )}
+                                </>
+                            )}
                         </tbody>
                     </table>
                 </div>
