@@ -256,12 +256,12 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(data.receiptNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; width: 280px; margin: auto; padding: 8px; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; color: #000; width: 280px; margin: auto; padding: 8px; }
   .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
   .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .label { color: #666; }
+  .label { color: #000; }
   .amount-row { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin: 6px 0; display: flex; justify-content: space-between; font-weight: bold; }
-  .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #666; }
+  .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #000; }
   @media print {
     @page { size: 80mm auto; margin: 0; }
     html, body {
@@ -374,15 +374,15 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <html><head><meta charset="utf-8"><title>Struk ${escapeHtml(data.saleNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
   .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.2; }
-  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #444; line-height: 1.2; }
+  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #000; line-height: 1.2; }
   table { width: 100%; border-collapse: collapse; }
   th { border-bottom: 1px solid #000; padding: 1px 0; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; }
   td { padding: 1px 0; line-height: 1.3; }
   .total-row td { border-top: 1px dashed #000; padding-top: 3px; font-weight: bold; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #666; line-height: 1.3; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #000; line-height: 1.3; }
   @media print {
     @page { size: ${pageWidth} auto; margin: 0; }
     html, body {
@@ -507,7 +507,7 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
 <html><head><meta charset="utf-8"><title>Rekap Shift ${escapeHtml(data.shiftName)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
   .header h2 { font-size: ${paperSize === "58mm" ? "12px" : "14px"}; font-weight: bold; line-height: 1.2; }
   .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; line-height: 1.2; }
@@ -516,7 +516,7 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
   .bold { font-weight: bold; }
   table { width: 100%; border-collapse: collapse; }
   th { border-bottom: 1px solid #000; padding: 1px 0; font-size: 9px; text-align: left; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #666; line-height: 1.3; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #000; line-height: 1.3; }
   @media print {
     @page { size: ${paperSize} auto; margin: 0; }
     html, body {
@@ -551,7 +551,7 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
 <div class="row"><span>Potong Gaji</span><span>${formatRp(data.totalCredit)}</span></div>
 <div class="divider"></div>
 <div class="row bold"><span>TOTAL PENDAPATAN</span><span>${formatRp(data.totalRevenue)}</span></div>
-${data.voidedSales > 0 ? `<div class="row" style="color:#999;"><span>Dibatalkan (Void)</span><span>${data.voidedSales} trx</span></div>` : ""}
+${data.voidedSales > 0 ? `<div class="row" style="color:#000;"><span>Dibatalkan (Void)</span><span>${data.voidedSales} trx</span></div>` : ""}
 
 ${data.expectedCash != null ? `
 <div class="divider"></div>
