@@ -59,7 +59,9 @@
       "Bash(gh api *)",
       "Bash(git remote *)",
       "Bash(git push *)",
-      "Bash(Select-String \"export-utils\")"
+      "Bash(Select-String \"export-utils\")",
+      "Bash(powershell *)",
+      "Bash(python *)"
     ]
   },
   "enabledPlugins": {

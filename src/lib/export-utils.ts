@@ -256,12 +256,12 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(data.receiptNo)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; color: #000; width: 280px; margin: auto; padding: 8px; }
+  body { font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; color: #000; letter-spacing: 0.3px; line-height: 1.4; width: 280px; margin: auto; padding: 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
   .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
   .label { color: #000; }
   .amount-row { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin: 6px 0; display: flex; justify-content: space-between; font-weight: bold; }
-  .footer { text-align: center; margin-top: 8px; font-size: 10px; color: #000; }
+  .footer { text-align: center; margin-top: 8px; font-size: 11px; color: #000; }
   @media print {
     @page { size: 80mm auto; margin: 0; }
     html, body {
@@ -342,9 +342,10 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 
     // Adaptif sizing berdasarkan paperSize
     const bodyWidth = paperSize === "58mm" ? "200px" : "280px";
-    const fontSize = paperSize === "58mm" ? "10px" : "11px";
-    const headerFontSize = paperSize === "58mm" ? "12px" : "14px";
-    const windowWidth = paperSize === "58mm" ? "240" : "320";
+    const fontSize = paperSize === "58mm" ? "12px" : "13px";
+    const headerFontSize = paperSize === "58mm" ? "14px" : "16px";
+    const smallFontSize = paperSize === "58mm" ? "11px" : "12px";
+    const windowWidth = paperSize === "58mm" ? "260" : "340";
     const pageWidth = paperSize;
 
     const itemRows = data.items
@@ -373,16 +374,16 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Struk ${escapeHtml(data.saleNo)}</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; letter-spacing: 0.3px; line-height: 1.4; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
-  .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.2; }
-  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #000; line-height: 1.2; }
+  .header h2 { font-size: ${headerFontSize}; font-weight: bold; line-height: 1.3; }
+  .header p { font-size: ${smallFontSize}; color: #000; line-height: 1.3; }
   table { width: 100%; border-collapse: collapse; }
-  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; }
-  td { padding: 1px 0; line-height: 1.3; }
+  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: ${smallFontSize}; font-weight: bold; }
+  td { padding: 1px 0; line-height: 1.4; }
   .total-row td { border-top: 1px dashed #000; padding-top: 3px; font-weight: bold; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${paperSize === "58mm" ? "9px" : "10px"}; color: #000; line-height: 1.3; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: ${smallFontSize}; color: #000; line-height: 1.4; }
   @media print {
     @page { size: ${pageWidth} auto; margin: 0; }
     html, body {
@@ -507,16 +508,17 @@ export function generateShiftRecapPDF(data: ShiftRecapData, paperSize: "58mm" | 
 <html><head><meta charset="utf-8"><title>Rekap Shift ${escapeHtml(data.shiftName)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+  body { font-family: 'Courier New', monospace; font-size: ${fontSize}; font-weight: bold; color: #000; letter-spacing: 0.3px; line-height: 1.4; width: ${bodyWidth}; margin: 0 auto; padding: 4px 6px; }
   .header { text-align: center; margin-bottom: 3px; border-bottom: 1px dashed #000; padding-bottom: 3px; }
-  .header h2 { font-size: ${paperSize === "58mm" ? "12px" : "14px"}; font-weight: bold; line-height: 1.2; }
-  .header p { font-size: ${paperSize === "58mm" ? "9px" : "10px"}; line-height: 1.2; }
+  .header h2 { font-size: ${paperSize === "58mm" ? "14px" : "16px"}; font-weight: bold; line-height: 1.3; }
+  .header p { font-size: ${paperSize === "58mm" ? "11px" : "12px"}; line-height: 1.3; }
   .row { display: flex; justify-content: space-between; margin: 1px 0; }
   .divider { border-top: 1px dashed #000; margin: 3px 0; }
   .bold { font-weight: bold; }
   table { width: 100%; border-collapse: collapse; }
-  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: 9px; text-align: left; }
-  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 9px; color: #000; line-height: 1.3; }
+  th { border-bottom: 1px solid #000; padding: 1px 0; font-size: 11px; text-align: left; font-weight: bold; }
+  .footer { text-align: center; border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px; font-size: 11px; color: #000; line-height: 1.4; }
   @media print {
     @page { size: ${paperSize} auto; margin: 0; }
     html, body {

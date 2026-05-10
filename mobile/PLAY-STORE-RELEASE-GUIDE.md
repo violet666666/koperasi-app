@@ -424,4 +424,154 @@ Major.Minor.Patch
 
 ---
 
-*Dokumentasi ini dibuat berdasarkan panduan resmi Google Play Developer Documentation. Terakhir diperbarui: April 2026.*
+*Dokumentasi ini dibuat berdasarkan panduan resmi Google Play Developer Documentation. Terakhir diperbarui: Mei 2026.*
+
+---
+
+## 11. Store Listing — Konten Siap Pakai
+
+> Bagian ini berisi konten yang sudah disiapkan untuk diisi ke Google Play Console → Store presence → Store listing.
+
+### Aset yang Sudah Dibuat
+
+| File | Lokasi | Resolusi | Ukuran | Status |
+|------|--------|----------|--------|--------|
+| App Icon | `store-listing/icon-512x512.png` | 512x512 px | ~248 KB | Siap upload |
+| Feature Graphic | `store-listing/feature-graphic-1024x500.png` | 1024x500 px | ~116 KB | Siap upload |
+
+File berada di: `mobile/store-listing/`
+
+> **Catatan:** Feature graphic dibuat secara otomatis dari logo yang ada. Jika ingin tampilan yang lebih profesional, bisa dibuat ulang menggunakan Canva/Figma dengan template Google Play Feature Graphic.
+
+### Deskripsi Singkat (Short Description) — 79/80 karakter
+
+```
+Koperasi PRIMKOPPOL Polres Lumajang — layanan toko, simpanan & pinjaman anggota
+```
+
+Copy-paste langsung ke field **Short description** di Play Console.
+
+### Deskripsi Lengkap (Full Description) — 2.130/4.000 karakter
+
+```
+PRIMKOPPOL RESOR LUMAJANG
+Aplikasi Koperasi Digital Polres Lumajang
+
+Aplikasi resmi Koperasi PRIMKOPPOL Polres Lumajang untuk layanan manajemen koperasi digital terpadu. Dirancang khusus untuk anggota koperasi dan pengelola unit usaha di lingkungan Polres Lumajang.
+
+FITUR UTAMA:
+
+KASIR & POINT OF SALE (POS)
+Sistem POS lengkap untuk 10 jenis unit usaha: toko, cafe, laundry, barbershop, fitness, playstation, dan lainnya. Mendukung pembayaran tunai, QRIS, dan potong gaji. Cetak struk langsung ke printer thermal 58mm dan 80mm. Manajemen shift kasir dengan rekonsiliasi kas otomatis, riwayat transaksi lengkap dengan detail per item, serta manajemen stok produk dan resep/HPP untuk unit makanan dan minuman.
+
+SIMPANAN ANGGOTA
+Tiga jenis simpanan: Pokok, Wajib, dan Sukarela. Pencatatan transaksi real-time dengan sistem akuntansi double-entry. Buku simpanan digital yang bisa diakses kapan saja. Override saldo oleh admin untuk penyesuaian, serta impor data simpanan wajib (TAJIB) secara massal.
+
+PINJAMAN
+Pinjaman Reguler dan Khusus dengan perhitungan angsuran otomatis. Jadwal angsuran terstruktur dan transparan. Pelunasan dipercepat (early settlement) dengan perhitungan pro-rata. Laporan jasa pinjaman bulanan dan integrasi dengan kas/bank untuk pembayaran angsuran.
+
+DASHBOARD & LAPORAN
+Dashboard operasional unit dengan data real-time. Laporan keuangan dan LPJ (Laporan Pertanggungjawaban). Rekap piutang gabungan per anggota yang menggabungkan data toko, unit, dan simpanan pinjaman. Laporan hasil usaha unit dengan ekspor ke PDF dan Excel.
+
+MANAJEMEN ANGGOTA
+Database anggota lengkap dengan klasifikasi pangkat, golongan, dan kesatuan. Profil anggota terintegrasi dengan semua layanan koperasi. Pencarian anggota berdasarkan NRP/NIP atau nama.
+
+KEAMANAN & AKSES
+Sistem login dengan NRP/NIP. Kontrol akses berbasis peran (admin, kasir, pengelola unit). Validasi transaksi multi-layer untuk mencegah kesalahan. Operasi atomik untuk menjaga konsistensi data.
+
+Aplikasi ini dikembangkan untuk meningkatkan efisiensi pengelolaan koperasi dan memberikan kemudahan akses layanan bagi seluruh anggota PRIMKOPPOL Polres Lumajang.
+```
+
+### Store Listing — Checklist Status
+
+#### Yang SUDAH SIAP (bisa langsung diisi):
+
+- [x] App icon 512x512 PNG → `store-listing/icon-512x512.png`
+- [x] Feature graphic 1024x500 PNG → `store-listing/feature-graphic-1024x500.png`
+- [x] App name: `PRIMKOPPOL RESOR LUMAJANG`
+- [x] Short description (79 karakter)
+- [x] Full description (2.130 karakter)
+- [x] Category: `Business` atau `Finance`
+
+#### Yang PERLU DILAKUKAN MANUAL:
+
+- [ ] **Screenshot Ponsel (wajib, min 2, max 8)**
+  - Format: PNG atau JPEG, max 8 MB per file
+  - Rasio: 16:9 atau 9:16
+  - Resolusi: 320 px – 3840 px per sisi
+  - **Cara:** Jalankan app di device/emulator Android, lalu screenshot setiap screen utama:
+    1. Login screen
+    2. Dashboard utama
+    3. Kasir/POS screen (dengan item di keranjang)
+    4. Riwayat transaksi
+    5. Simpanan (buku simpanan)
+    6. Pinjaman (daftar pinjaman)
+    7. Profil anggota
+    8. Laporan/dashboard admin
+  - Simpan ke `store-listing/screenshots-phone/`
+
+- [ ] **Screenshot Tablet 7 inci (opsional, max 8)**
+  - Format: PNG/JPEG, max 8 MB
+  - Rasio: 16:9 atau 9:16
+  - Resolusi: 320 px – 3840 px per sisi
+  - **Cara:** Sama seperti phone screenshot, tapi ambil di tablet 7" atau emulator tablet 7"
+  - Simpan ke `store-listing/screenshots-tablet-7/`
+
+- [ ] **Screenshot Tablet 10 inci (opsional, max 8)**
+  - Format: PNG/JPEG, max 8 MB
+  - Rasio: 16:9 atau 9:16
+  - Resolusi: 1080 px – 7680 px per sisi
+  - **Cara:** Ambil di tablet 10" atau emulator tablet 10"
+  - Simpan ke `store-listing/screenshots-tablet-10/`
+
+- [ ] **Content Rating** — Isi kuesioner IARC di Play Console → Store presence → Content rating
+
+- [ ] **Data Safety Form** — Play Console → App content → Data safety → Deklarasi pengumpulan data
+
+- [ ] **Target Audience** — Play Console → App content → Target audience → Pilih rentang usia
+
+- [ ] **Privacy Policy URL** — URL kebijakan privasi (wajib). Perlu disiapkan/dihosting terpisah
+
+### Panduan Ambil Screenshot
+
+Untuk mendapatkan screenshot berkualitas tinggi:
+
+**Opsi 1: Emulator Android Studio**
+```bash
+# Buka Android Studio → Virtual Device Manager
+# Buat device: Pixel 7 (phone), Nexus 7 (tablet 7"), Pixel Tablet (tablet 10")
+# Jalankan app, lalu klik camera icon di toolbar emulator
+```
+
+**Opsi 2: Device Fisik**
+```bash
+# Di device Android: tekan Power + Volume Down secara bersamaan
+# Screenshot tersimpan di gallery
+# Transfer ke komputer
+```
+
+**Opsi 3: ADB Screenshot**
+```bash
+# Dari terminal, dengan device terhubung via USB debugging:
+adb shell screencap -p /sdcard/screenshot.png
+adb pull /sdcard/screenshot.png ./store-listing/screenshots-phone/
+```
+
+### Struktur Folder Store Listing
+
+```
+mobile/store-listing/
+├── icon-512x512.png                          ← Siap
+├── feature-graphic-1024x500.png              ← Siap
+├── screenshots-phone/                        ← Manual (min 2, max 8)
+│   ├── 01-login.png
+│   ├── 02-dashboard.png
+│   ├── 03-kasir.png
+│   ├── 04-riwayat.png
+│   ├── 05-simpanan.png
+│   ├── 06-pinjaman.png
+│   ├── 07-profil.png
+│   └── 08-laporan.png
+├── screenshots-tablet-7/                     ← Manual (opsional)
+└── screenshots-tablet-10/                    ← Manual (opsional)
+```
