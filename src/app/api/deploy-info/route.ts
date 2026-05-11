@@ -6,7 +6,7 @@ export async function GET() {
     return NextResponse.json({
         deployBranch: "railway-migration",
         deployTime: new Date().toISOString(),
-        version: "2025-05-11-v2",
+        version: "2025-05-11-v3",
         features: {
             storeSaleQuery: true,
             salaryCutDedup: true,
