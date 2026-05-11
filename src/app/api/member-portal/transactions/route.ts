@@ -38,16 +38,28 @@ export async function GET(request: Request) {
             const unitWhere: Record<string, unknown> = {
                 memberId,
                 status: { notIn: ["voided"] },
-                // Exclude auto-generated salary_cut receivables — StoreSale already represents them
-                notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
             };
             if (unitType && unitType !== "all") unitWhere.unitType = unitType;
             if (isPaid !== null && isPaid !== undefined && isPaid !== "all") {
                 unitWhere.isPaid = isPaid === "true";
             }
 
-            // Also fetch StoreSale for Toko (when no unitType filter, or filter is "toko")
-            const includeToko = !unitType || unitType === "all" || unitType === "toko";
+            // Fetch StoreSale for store-based units (toko, cafe_lsp, playstation, resto, coffe_latar)
+            const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
+            const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
+
+            // Build StoreSale where clause with isPaid + unitType filters
+            const storeWhere: Record<string, unknown> = {
+                memberId,
+                NOT: { metadata: { path: ["isVoided"], equals: true } },
+            };
+            if (unitType && unitType !== "all" && storeBasedUnits.includes(unitType)) {
+                storeWhere.unitType = unitType;
+            }
+            // isPaid filter for StoreSales: salary_cut = unpaid, others = paid
+            if (isPaid !== null && isPaid !== undefined && isPaid !== "all") {
+                storeWhere.paymentMethod = isPaid === "true" ? { not: "salary_cut" } : "salary_cut";
+            }
 
             const fetchLimit = type === "unit" ? Math.max(query.perPage * 3, query.perPage + (query.page * query.perPage)) : 10;
 
@@ -58,11 +70,8 @@ export async function GET(request: Request) {
                     take: fetchLimit,
                 }),
                 prisma.unitTransaction.count({ where: unitWhere }),
-                includeToko ? prisma.storeSale.findMany({
-                    where: {
-                        memberId,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } },
-                    },
+                includeStoreSales ? prisma.storeSale.findMany({
+                    where: storeWhere,
                     orderBy: { createdAt: "desc" },
                     take: fetchLimit,
                     select: {
@@ -75,28 +84,33 @@ export async function GET(request: Request) {
                 }) : Promise.resolve([]),
             ]);
 
-            // Count non-voided StoreSales at DB level
-            const storeCount = includeToko
-                ? await prisma.storeSale.count({
-                    where: {
-                        memberId,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } },
-                    },
-                })
+            // Count StoreSales with same filters
+            const storeCount = includeStoreSales
+                ? await prisma.storeSale.count({ where: storeWhere })
                 : 0;
 
-            const mappedUnitTxns = unitTxns.map((t) => ({
-                id: t.id,
-                transactionNo: t.transactionNo,
-                unitType: t.unitType,
-                description: t.description,
-                amount: Number(t.amount),
-                paymentMethod: t.paymentMethod,
-                transactionDate: t.transactionDate,
-                isPaid: t.isPaid,
-                category: "unit",
-                status: t.status,
-            }));
+            const mappedUnitTxns = unitTxns
+                .filter((t) => {
+                    // Exclude auto-generated salary_cut piutang — StoreSale already represents them
+                    if (t.paymentMethod === "salary_cut" && t.notes?.startsWith("Auto-generated dari penjualan kasir")) {
+                        return false;
+                    }
+                    return true;
+                })
+                .map((t) => ({
+                    id: t.id,
+                    transactionNo: t.transactionNo,
+                    unitType: t.unitType,
+                    description: t.description,
+                    amount: Number(t.amount),
+                    paymentMethod: t.paymentMethod,
+                    paymentMethodLabel: t.paymentMethod === "salary_cut" ? "Potong Gaji" : t.paymentMethod === "qris" ? "QRIS" : t.paymentMethod === "cash" ? "Tunai" : t.paymentMethod,
+                    transactionDate: t.transactionDate,
+                    isPaid: t.isPaid,
+                    paidDate: t.paidDate,
+                    category: "unit",
+                    status: t.status,
+                }));
 
             const mappedStoreSales = storeSales.map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
@@ -105,8 +119,8 @@ export async function GET(request: Request) {
                         id: `SS-${s.id}`,
                         saleId: s.id,
                         transactionNo: s.saleNo,
-                        unitType: "toko",
-                        description: itemDesc || `Pembelian Toko PRIMKOPPOL`,
+                        unitType: s.unitType || "toko",
+                        description: itemDesc || `Pembelian ${s.unitType || "Toko"} PRIMKOPPOL`,
                         amount: Number(s.totalAmount),
                         paymentMethod: s.paymentMethod,
                         paymentMethodLabel: paymentLabels[s.paymentMethod] || s.paymentMethod,
@@ -132,7 +146,12 @@ export async function GET(request: Request) {
             const startIdx = type === "unit" ? (query.page - 1) * query.perPage : 0;
             const endIdx = type === "unit" ? startIdx + query.perPage : 5;
             result.unitTransactions = allUnitTxns.slice(startIdx, endIdx);
-            if (type === "unit") result.meta.total = unitCount + storeCount;
+            // Accurate count: DB count already excludes auto-generated via Prisma filter for unitWhere,
+            // but we also do in-memory filter. Use mapped length ratio for accurate adjustment.
+            const filteredTotal = unitCount > 0 && unitTxns.length > 0
+                ? Math.round(unitCount * (mappedUnitTxns.length / unitTxns.length))
+                : Math.max(0, unitCount - (unitTxns.length - mappedUnitTxns.length));
+            if (type === "unit") result.meta.total = filteredTotal + storeCount;
         }
 
         if (!type || type === "savings") {

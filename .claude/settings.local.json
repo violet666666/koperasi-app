@@ -59,7 +59,19 @@
       "Bash(gh api *)",
       "Bash(git remote *)",
       "Bash(git push *)",
-      "Bash(git checkout *)"
+      "Bash(Select-String \"export-utils\")",
+      "Bash(powershell *)",
+      "Bash(python *)",
+      "Skill(railway:use-railway)",
+      "Bash(railway whoami *)",
+      "Bash(railway status *)",
+      "Bash(railway project *)",
+      "Bash(railway variable *)",
+      "Bash(railway link *)",
+      "Bash(railway add *)",
+      "Bash(railway service *)",
+      "Bash(railway login *)",
+      "Bash(curl *)"
     ]
   },
   "enabledPlugins": {

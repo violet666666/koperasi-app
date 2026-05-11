@@ -58,27 +58,80 @@ export async function GET(request: Request) {
 
         // Unit transactions (Kredit Toko/Jasa)
         if (type === "unit") {
-            const [transactions, total] = await Promise.all([
+            const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
+
+            // Fetch UnitTransactions (service units + non-auto-generated store records)
+            const [unitTxns, unitCount, storeSales] = await Promise.all([
                 prisma.unitTransaction.findMany({
                     where: { memberId },
                     orderBy: { createdAt: "desc" },
-                    skip: (page - 1) * limit,
-                    take: limit,
+                    take: limit * 2,
                 }),
                 prisma.unitTransaction.count({ where: { memberId } }),
+                // Also fetch StoreSales for store-based units
+                prisma.storeSale.findMany({
+                    where: {
+                        memberId,
+                        NOT: { metadata: { path: ["isVoided"], equals: true } },
+                    },
+                    orderBy: { createdAt: "desc" },
+                    take: limit,
+                    select: {
+                        id: true, saleNo: true, totalAmount: true,
+                        paymentMethod: true, createdAt: true, unitType: true,
+                        items: { select: { product: { select: { name: true } }, quantity: true, unitPrice: true, subtotal: true } },
+                    },
+                }),
             ]);
 
+            // Filter out auto-generated salary_cut UnitTransactions (StoreSale already represents them)
+            const filteredUnitTxns = unitTxns.filter((t) => {
+                if (t.paymentMethod === "salary_cut" && t.notes?.startsWith("Auto-generated dari penjualan kasir")) {
+                    return false;
+                }
+                return true;
+            });
+
+            const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
+
+            const mappedStoreSales = storeSales.map((s: any) => ({
+                id: `SS-${s.id}`,
+                type: s.unitType || "toko",
+                amount: Number(s.totalAmount),
+                description: s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ') || `Pembelian ${s.unitType || "Toko"}`,
+                transactionDate: s.createdAt,
+                createdAt: s.createdAt.toISOString(),
+                isPaid: s.paymentMethod !== "salary_cut",
+                status: "completed",
+                paymentMethod: s.paymentMethod,
+                paymentMethodLabel: paymentLabels[s.paymentMethod] || s.paymentMethod,
+            }));
+
+            const mappedUnitTxns = filteredUnitTxns.map((t) => ({
+                id: t.id,
+                type: t.unitType,
+                amount: Number(t.amount),
+                description: t.description,
+                transactionDate: t.transactionDate,
+                createdAt: t.createdAt.toISOString(),
+                isPaid: t.isPaid,
+                status: t.status,
+                paymentMethod: t.paymentMethod,
+                paymentMethodLabel: paymentLabels[t.paymentMethod] || t.paymentMethod,
+            }));
+
+            // Merge and sort by date
+            const allTxns = [...mappedUnitTxns, ...mappedStoreSales]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+            const excludedCount = unitTxns.length - filteredUnitTxns.length;
+            const total = Math.max(0, unitCount - excludedCount) + storeSales.length;
+
+            const startIdx = (page - 1) * limit;
+            const paginated = allTxns.slice(startIdx, startIdx + limit);
+
             return NextResponse.json({
-                data: transactions.map((t) => ({
-                    id: t.id,
-                    type: t.unitType,
-                    amount: Number(t.amount),
-                    description: t.description,
-                    transactionDate: t.transactionDate,
-                    createdAt: t.createdAt.toISOString(), // S1-06: jam akurat
-                    isPaid: t.isPaid,
-                    status: t.status, // S2-03: untuk filter (pending_void, voided, completed)
-                })),
+                data: paginated,
                 meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
             });
         }
