@@ -71,7 +71,9 @@
       "Bash(railway add *)",
       "Bash(railway service *)",
       "Bash(railway login *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(git checkout *)",
+      "Bash(git stash *)"
     ]
   },
   "enabledPlugins": {
