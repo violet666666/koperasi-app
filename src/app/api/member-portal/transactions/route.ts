@@ -48,6 +48,19 @@ export async function GET(request: Request) {
             const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
             const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
 
+            // Build StoreSale where clause with isPaid + unitType filters
+            const storeWhere: Record<string, unknown> = {
+                memberId,
+                NOT: { metadata: { path: ["isVoided"], equals: true } },
+            };
+            if (unitType && unitType !== "all" && storeBasedUnits.includes(unitType)) {
+                storeWhere.unitType = unitType;
+            }
+            // isPaid filter for StoreSales: salary_cut = unpaid, others = paid
+            if (isPaid !== null && isPaid !== undefined && isPaid !== "all") {
+                storeWhere.paymentMethod = isPaid === "true" ? { not: "salary_cut" } : "salary_cut";
+            }
+
             const fetchLimit = type === "unit" ? Math.max(query.perPage * 3, query.perPage + (query.page * query.perPage)) : 10;
 
             const [unitTxns, unitCount, storeSales] = await Promise.all([
@@ -58,10 +71,7 @@ export async function GET(request: Request) {
                 }),
                 prisma.unitTransaction.count({ where: unitWhere }),
                 includeStoreSales ? prisma.storeSale.findMany({
-                    where: {
-                        memberId,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } },
-                    },
+                    where: storeWhere,
                     orderBy: { createdAt: "desc" },
                     take: fetchLimit,
                     select: {
@@ -74,14 +84,9 @@ export async function GET(request: Request) {
                 }) : Promise.resolve([]),
             ]);
 
-            // Count non-voided StoreSales at DB level
+            // Count StoreSales with same filters
             const storeCount = includeStoreSales
-                ? await prisma.storeSale.count({
-                    where: {
-                        memberId,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } },
-                    },
-                })
+                ? await prisma.storeSale.count({ where: storeWhere })
                 : 0;
 
             const mappedUnitTxns = unitTxns
@@ -102,6 +107,7 @@ export async function GET(request: Request) {
                     paymentMethodLabel: t.paymentMethod === "salary_cut" ? "Potong Gaji" : t.paymentMethod === "qris" ? "QRIS" : t.paymentMethod === "cash" ? "Tunai" : t.paymentMethod,
                     transactionDate: t.transactionDate,
                     isPaid: t.isPaid,
+                    paidDate: t.paidDate,
                     category: "unit",
                     status: t.status,
                 }));
@@ -140,9 +146,12 @@ export async function GET(request: Request) {
             const startIdx = type === "unit" ? (query.page - 1) * query.perPage : 0;
             const endIdx = type === "unit" ? startIdx + query.perPage : 5;
             result.unitTransactions = allUnitTxns.slice(startIdx, endIdx);
-            // Adjust count: subtract auto-generated UnitTransactions excluded by in-memory filter
-            const excludedCount = unitTxns.length - mappedUnitTxns.length;
-            if (type === "unit") result.meta.total = Math.max(0, unitCount - excludedCount) + storeCount;
+            // Accurate count: DB count already excludes auto-generated via Prisma filter for unitWhere,
+            // but we also do in-memory filter. Use mapped length ratio for accurate adjustment.
+            const filteredTotal = unitCount > 0 && unitTxns.length > 0
+                ? Math.round(unitCount * (mappedUnitTxns.length / unitTxns.length))
+                : Math.max(0, unitCount - (unitTxns.length - mappedUnitTxns.length));
+            if (type === "unit") result.meta.total = filteredTotal + storeCount;
         }
 
         if (!type || type === "savings") {

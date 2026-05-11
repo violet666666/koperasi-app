@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 function getUnitName(unitType: string) {
     const types: Record<string, string> = {
         toko: "Toko Retail",
+        cafe_lsp: "Cafe LSP",
         simpan_pinjam: "Simpan Pinjam",
         fotocopy: "FotoCopy & ATK",
         cuci_mobil: "Cuci Mobil",
@@ -28,6 +29,7 @@ function getUnitName(unitType: string) {
         barbershop: "Barbershop",
         playstation: "PlayStation",
         resto: "Resto & Cafe",
+        coffe_latar: "Coffe Latar",
     };
     return types[unitType] || unitType;
 }
@@ -74,14 +76,16 @@ export default function TransaksiPortalPage() {
                                     <SelectContent>
                                         <SelectItem value="all">Semua Unit Layanan</SelectItem>
                                         <SelectItem value="toko">Toko Retail</SelectItem>
+                                        <SelectItem value="cafe_lsp">Cafe LSP</SelectItem>
                                         <SelectItem value="resto">Resto & Cafe</SelectItem>
+                                        <SelectItem value="coffe_latar">Coffe Latar</SelectItem>
+                                        <SelectItem value="playstation">PlayStation</SelectItem>
                                         <SelectItem value="simpan_pinjam">Simpan Pinjam</SelectItem>
                                         <SelectItem value="fotocopy">FotoCopy & ATK</SelectItem>
                                         <SelectItem value="cuci_mobil">Cuci Mobil</SelectItem>
                                         <SelectItem value="fitness">Fitness Center</SelectItem>
                                         <SelectItem value="laundry">Laundry</SelectItem>
                                         <SelectItem value="barbershop">Barbershop</SelectItem>
-                                        <SelectItem value="playstation">PlayStation</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
