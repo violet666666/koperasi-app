@@ -48,10 +48,11 @@ export async function GET(request: Request) {
             const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
             const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
 
-            // Build StoreSale where clause with isPaid + unitType filters
+            // Build StoreSale where clause — do NOT use Prisma JSON filter for isVoided
+            // because it excludes rows where metadata is NULL (most sales have null metadata).
+            // Instead, filter voided sales in JS after fetching.
             const storeWhere: Record<string, unknown> = {
                 memberId,
-                NOT: { metadata: { path: ["isVoided"], equals: true } },
             };
             if (unitType && unitType !== "all" && storeBasedUnits.includes(unitType)) {
                 storeWhere.unitType = unitType;
@@ -131,7 +132,9 @@ export async function GET(request: Request) {
                     status: t.status,
                 }));
 
-            const mappedStoreSales = storeSales.map((s: any) => {
+            const mappedStoreSales = storeSales
+                .filter((s: any) => !(s.metadata?.isVoided === true))
+                .map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                     const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
                     return {

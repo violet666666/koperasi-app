@@ -102,20 +102,19 @@ export async function GET() {
             return true;
         });
 
-        // Also fetch StoreSale for dashboard history (non-voided only)
-        const storeSaleTxs = await prisma.storeSale.findMany({
-            where: {
-                memberId,
-                NOT: { metadata: { path: ["isVoided"], equals: true } },
-            },
+        // Fetch StoreSale for dashboard history (filter voided in JS — Prisma JSON filter
+        // excludes rows where metadata is null, which is most sales)
+        const storeSaleTxsRaw = await prisma.storeSale.findMany({
+            where: { memberId },
             orderBy: { createdAt: "desc" },
-            take: 10,
+            take: 15,
             select: {
                 id: true, saleNo: true, unitType: true, totalAmount: true,
-                createdAt: true, paymentMethod: true,
+                createdAt: true, paymentMethod: true, metadata: true,
                 items: { select: { product: { select: { name: true } }, quantity: true } },
             },
         });
+        const storeSaleTxs = storeSaleTxsRaw.filter(s => !(s.metadata?.isVoided === true));
 
         const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
 
@@ -210,19 +209,17 @@ export async function GET() {
             _count: { id: true },
         });
 
-        // Also count salary_cut StoreSales as unpaid piutang
-        const unpaidStoreTotal = await prisma.storeSale.aggregate({
-            where: {
-                memberId,
-                paymentMethod: "salary_cut",
-                NOT: { metadata: { path: ["isVoided"], equals: true } },
-            },
-            _sum: { totalAmount: true },
-            _count: { id: true },
+        // Count salary_cut StoreSales as unpaid piutang (filter voided in JS)
+        const unpaidStoreSalesRaw = await prisma.storeSale.findMany({
+            where: { memberId, paymentMethod: "salary_cut" },
+            select: { totalAmount: true, metadata: true },
         });
+        const unpaidStoreSales = unpaidStoreSalesRaw.filter(s => !(s.metadata?.isVoided === true));
+        const unpaidStoreAmount = unpaidStoreSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+        const unpaidStoreCount = unpaidStoreSales.length;
 
-        const totalUnpaidAmount = Number(unpaidUnitTotal._sum.amount || 0) + Number(unpaidStoreTotal._sum.totalAmount || 0);
-        const totalUnpaidCount = unpaidUnitTotal._count.id + unpaidStoreTotal._count.id;
+        const totalUnpaidAmount = Number(unpaidUnitTotal._sum.amount || 0) + unpaidStoreAmount;
+        const totalUnpaidCount = unpaidUnitTotal._count.id + unpaidStoreCount;
         const year = new Date().getFullYear();
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
