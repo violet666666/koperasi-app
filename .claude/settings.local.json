@@ -73,7 +73,12 @@
       "Bash(railway login *)",
       "Bash(curl *)",
       "Bash(git checkout *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(railway logs *)",
+      "Bash(railway deploy *)",
+      "Bash(railway up *)",
+      "Bash(timeout 120 bash *)",
+      "Bash(railway variables *)"
     ]
   },
   "enabledPlugins": {
