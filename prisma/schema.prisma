@@ -840,6 +840,7 @@ model StoreProduct {
   @@index([unitType])
   @@index([unitType, isActive])
   @@index([category])
+  @@index([deletedAt])
   @@map("store_products")
 }
 

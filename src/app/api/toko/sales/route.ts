@@ -412,7 +412,7 @@ export async function POST(request: Request) {
                 include: { items: { include: { product: true } } },
             });
 
-            // Deduct stock — pre-fetch all batches + track running stock to eliminate N+1
+            // Deduct stock — batched operations to minimize DB round-trips
             const allBatches = await tx.stockBatch.findMany({
                 where: { productId: { in: productIds }, isActive: true, quantity: { gt: 0 } },
                 orderBy: { receivedAt: "asc" },
@@ -423,8 +423,10 @@ export async function POST(request: Request) {
                 batchesByProduct.get(b.productId)!.push(b);
             }
 
+            // Compute all new stock values in-memory first (no DB calls in loop)
             const runningStock = new Map(productRows.map(p => [p.id, { toko: Number(p.stockToko), gdg: Number(p.stockGdg) }]));
             const stockMovements: any[] = [];
+            const batchUpdates: { id: number; newQty: number }[] = [];
 
             for (const vi of validatedItems) {
                 const prod = productMap.get(vi.productId);
@@ -445,15 +447,6 @@ export async function POST(request: Request) {
 
                 runningStock.set(vi.productId, { toko: newStockToko, gdg: newStockGdg });
 
-                await tx.storeProduct.update({
-                    where: { id: vi.productId },
-                    data: {
-                        stockToko: newStockToko,
-                        stockGdg: newStockGdg,
-                        stock: newStockToko + newStockGdg,
-                    },
-                });
-
                 stockMovements.push({
                     productId: vi.productId,
                     type: "out",
@@ -465,23 +458,61 @@ export async function POST(request: Request) {
                     reason: "sale",
                 });
 
-                // FIFO batch deduction — use pre-fetched batches
+                // FIFO batch deduction — compute in-memory, apply batch update later
                 let remainingToDeduct = vi.quantity;
                 const batches = batchesByProduct.get(vi.productId) || [];
                 for (const batch of batches) {
                     if (remainingToDeduct <= 0) break;
                     const deduct = Math.min(batch.quantity, remainingToDeduct);
                     const newQty = batch.quantity - deduct;
-                    await tx.stockBatch.update({
-                        where: { id: batch.id },
-                        data: { quantity: newQty, isActive: newQty > 0 },
-                    });
+                    batchUpdates.push({ id: batch.id, newQty });
                     batch.quantity = newQty;
                     remainingToDeduct -= deduct;
                 }
             }
 
+            // Batch 1: Update all product stocks with a single raw SQL statement
             if (stockMovements.length > 0) {
+                const productStockCases = Array.from(runningStock.entries())
+                    .filter(([id]) => stockMovements.some(m => m.productId === id))
+                    .map(([id, s]) => `WHEN ${id} THEN ${s.toko + s.gdg}`)
+                    .join(" ");
+                const tokoCases = Array.from(runningStock.entries())
+                    .filter(([id]) => stockMovements.some(m => m.productId === id))
+                    .map(([id, s]) => `WHEN ${id} THEN ${s.toko}`)
+                    .join(" ");
+                const gdgCases = Array.from(runningStock.entries())
+                    .filter(([id]) => stockMovements.some(m => m.productId === id))
+                    .map(([id, s]) => `WHEN ${id} THEN ${s.gdg}`)
+                    .join(" ");
+                const productIdsToUpdate = Array.from(runningStock.entries())
+                    .filter(([id]) => stockMovements.some(m => m.productId === id))
+                    .map(([id]) => id)
+                    .join(",");
+
+                await tx.$executeRawUnsafe(`
+                    UPDATE store_products
+                    SET stock = CASE id ${productStockCases} END,
+                        stock_toko = CASE id ${tokoCases} END,
+                        stock_gdg = CASE id ${gdgCases} END
+                    WHERE id IN (${productIdsToUpdate})
+                `);
+
+                // Batch 2: Update all stock batches with a single raw SQL statement
+                if (batchUpdates.length > 0) {
+                    const qtyCases = batchUpdates.map(b => `WHEN ${b.id} THEN ${b.newQty}`).join(" ");
+                    const activeCases = batchUpdates.map(b => `WHEN ${b.id} THEN ${b.newQty > 0}`).join(" ");
+                    const batchIds = batchUpdates.map(b => b.id).join(",");
+
+                    await tx.$executeRawUnsafe(`
+                        UPDATE stock_batches
+                        SET quantity = CASE id ${qtyCases} END,
+                            is_active = CASE id ${activeCases} END
+                        WHERE id IN (${batchIds})
+                    `);
+                }
+
+                // Batch 3: Create all stock movements in one statement
                 await tx.storeStockMovement.createMany({ data: stockMovements });
             }
 
