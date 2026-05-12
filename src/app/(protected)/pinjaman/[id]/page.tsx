@@ -92,6 +92,8 @@ export default function PinjamanDetailPage() {
         principalAmount: "",
         tenorMonths: "",
         interestRate: "",
+        principalPaid: "",
+        interestPaid: "",
         disbursementDate: "",
         firstDueDate: "",
         notes: "",
@@ -176,6 +178,8 @@ export default function PinjamanDetailPage() {
             principalAmount: String(Number(loan.principalAmount)),
             tenorMonths: String(loan.tenorMonths),
             interestRate: String(Number(loan.interestRate)),
+            principalPaid: String(Number(loan.principalPaid)),
+            interestPaid: String(Number(loan.interestPaid)),
             disbursementDate: fmtDate(loan.disbursementDate),
             firstDueDate: fmtDate(loan.firstDueDate),
             notes: loan.notes || "",
@@ -187,6 +191,8 @@ export default function PinjamanDetailPage() {
     const editPrincipal = Number(editForm.principalAmount) || 0;
     const editTenor = Number(editForm.tenorMonths) || 1;
     const editRate = Number(editForm.interestRate) || 0;
+    const editPrincipalPaid = Number(editForm.principalPaid) || 0;
+    const editInterestPaid = Number(editForm.interestPaid) || 0;
     const editInterestPerMonth = Math.round(editPrincipal * (editRate / 100));
     const editTotalInterest = editInterestPerMonth * editTenor;
     const editTotalAmount = editPrincipal + editTotalInterest;
@@ -222,6 +228,8 @@ export default function PinjamanDetailPage() {
             payload.principalAmount = Number(editForm.principalAmount);
             payload.tenorMonths = Number(editForm.tenorMonths);
             payload.interestRate = Number(editForm.interestRate);
+            payload.principalPaid = Number(editForm.principalPaid);
+            payload.interestPaid = Number(editForm.interestPaid);
             payload.disbursementDate = editForm.disbursementDate;
             payload.firstDueDate = editForm.firstDueDate;
 
@@ -352,6 +360,30 @@ export default function PinjamanDetailPage() {
                             </div>
                         </div>
 
+                        {/* Pokok Terbayar + Bunga Terbayar */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Pokok Terbayar</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.principalPaid}
+                                    onChange={(e) => setEditForm({...editForm, principalPaid: e.target.value})}
+                                    min={0}
+                                />
+                                <p className="text-xs text-muted-foreground">Sisa: {formatCurrency(Math.max(0, editPrincipal - editPrincipalPaid))}</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Bunga Terbayar</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.interestPaid}
+                                    onChange={(e) => setEditForm({...editForm, interestPaid: e.target.value})}
+                                    min={0}
+                                />
+                                <p className="text-xs text-muted-foreground">Sisa: {formatCurrency(Math.max(0, editTotalInterest - editInterestPaid))}</p>
+                            </div>
+                        </div>
+
                         {/* Tanggal Cair + Jatuh Tempo */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
@@ -385,31 +417,6 @@ export default function PinjamanDetailPage() {
 
                         {/* ── Live Preview ──────────────────────────── */}
                         <Separator />
-
-                        {/* Show existing payment progress (preserved during edit) */}
-                        {(Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) && (
-                            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-3">
-                                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1.5">Riwayat Pembayaran (dipertahankan)</p>
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-blue-600 dark:text-blue-400">Pokok Terbayar</span>
-                                        <span className="font-medium tabular-nums">{formatCurrency(Number(loan.principalPaid))}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-blue-600 dark:text-blue-400">Bunga Terbayar</span>
-                                        <span className="font-medium tabular-nums">{formatCurrency(Number(loan.interestPaid))}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-blue-600 dark:text-blue-400">Sisa Pokok Baru</span>
-                                        <span className="font-bold tabular-nums">{formatCurrency(Math.max(0, editPrincipal - Number(loan.principalPaid)))}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-blue-600 dark:text-blue-400">Sisa Bunga Baru</span>
-                                        <span className="font-bold tabular-nums">{formatCurrency(Math.max(0, editTotalInterest - Number(loan.interestPaid)))}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
                             <p className="text-sm font-semibold text-muted-foreground mb-2">📊 Preview Kalkulasi</p>

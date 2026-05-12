@@ -117,6 +117,10 @@ export async function PUT(request: Request, { params }: Params) {
         const newFirstDueDate = body.firstDueDate ? new Date(body.firstDueDate) : loan.firstDueDate;
         const newNotes = body.notes !== undefined ? body.notes : null;
 
+        // Allow operator to adjust paid amounts directly (for imported loans with baked-in data)
+        const newPrincipalPaid = body.principalPaid !== undefined ? Number(body.principalPaid) : Number(loan.principalPaid);
+        const newInterestPaid = body.interestPaid !== undefined ? Number(body.interestPaid) : Number(loan.interestPaid);
+
         // 5. Validations
         if (newPrincipal <= 0) {
             return NextResponse.json({ message: "Pokok Pinjaman harus lebih besar dari 0." }, { status: 400 });
@@ -133,6 +137,15 @@ export async function PUT(request: Request, { params }: Params) {
         if (isNaN(newFirstDueDate.getTime())) {
             return NextResponse.json({ message: "Jatuh Tempo Pertama tidak valid." }, { status: 400 });
         }
+        if (newPrincipalPaid < 0) {
+            return NextResponse.json({ message: "Pokok Terbayar tidak boleh negatif." }, { status: 400 });
+        }
+        if (newInterestPaid < 0) {
+            return NextResponse.json({ message: "Bunga Terbayar tidak boleh negatif." }, { status: 400 });
+        }
+        if (newPrincipalPaid > newPrincipal) {
+            return NextResponse.json({ message: `Pokok Terbayar (${newPrincipalPaid.toLocaleString("id-ID")}) tidak boleh melebihi Pokok Pinjaman (${newPrincipal.toLocaleString("id-ID")}).` }, { status: 400 });
+        }
 
         // 6. Recalculate financials (flat interest method)
         const adminFeePercent = 0.02; // 2% Potongan Resiko
@@ -143,16 +156,14 @@ export async function PUT(request: Request, { params }: Params) {
         const monthlyInstallment = Math.round(newPrincipal / newTenor) + interestPerMonth;
         const disbursedAmount = newPrincipal - adminFee;
 
-        // Preserve existing paid amounts from import — don't reset to 0
-        const existingPrincipalPaid = Number(loan.principalPaid) || 0;
-        const existingInterestPaid = Number(loan.interestPaid) || 0;
+        // Use operator-provided paid amounts (preserves imported payment progress)
         const existingLateFeePaid = Number(loan.lateFeePaid) || 0;
-        const newPrincipalOutstanding = Math.max(0, newPrincipal - existingPrincipalPaid);
-        const newInterestOutstanding = Math.max(0, totalInterest - existingInterestPaid);
+        const newPrincipalOutstanding = Math.max(0, newPrincipal - newPrincipalPaid);
+        const newInterestOutstanding = Math.max(0, totalInterest - newInterestPaid);
 
-        // Calculate how many installments are already "paid" based on existing data
+        // Calculate how many installments are already "paid" based on paid amounts
         const monthlyPrincipal = Math.floor(newPrincipal / newTenor);
-        const paidInstallmentCount = monthlyPrincipal > 0 ? Math.min(newTenor, Math.floor(existingPrincipalPaid / monthlyPrincipal)) : 0;
+        const paidInstallmentCount = monthlyPrincipal > 0 ? Math.min(newTenor, Math.floor(newPrincipalPaid / monthlyPrincipal)) : 0;
 
         // Calculate lastDueDate from firstDueDate
         const lastDueDate = new Date(newFirstDueDate);
@@ -181,8 +192,8 @@ export async function PUT(request: Request, { params }: Params) {
                     monthlyInstallment,
                     principalOutstanding: newPrincipalOutstanding,
                     interestOutstanding: newInterestOutstanding,
-                    principalPaid: existingPrincipalPaid,
-                    interestPaid: existingInterestPaid,
+                    principalPaid: newPrincipalPaid,
+                    interestPaid: newInterestPaid,
                     lateFeePaid: existingLateFeePaid,
                     disbursementDate: newDisbursementDate,
                     firstDueDate: newFirstDueDate,
