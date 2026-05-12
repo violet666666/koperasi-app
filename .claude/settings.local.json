@@ -78,7 +78,9 @@
       "Bash(railway deploy *)",
       "Bash(railway up *)",
       "Bash(timeout 120 bash *)",
-      "Bash(railway variables *)"
+      "Bash(railway variables *)",
+      "mcp__plugin_prisma_Prisma-Local__migrate-dev",
+      "PowerShell(gh api *)"
     ]
   },
   "enabledPlugins": {
