@@ -44,6 +44,7 @@ import {
     Layers,
     Coffee,
     Banknote,
+    SearchCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -205,6 +206,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                     { title: "Manajemen Kasir", href: "/toko/kasir-manajemen" },
                     { title: "Shift Kasir", href: "/toko/shift" },
                     { title: "Persediaan", href: "/toko/persediaan" },
+                    { title: "Stock Tracking", href: "/toko/stock-tracking" },
                 ],
             },
         ],
@@ -355,6 +357,11 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             {
                 title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
                 permission: "manage_toko",
+            },
+            {
+                title: "Stock Tracking", href: "/toko/stock-tracking", icon: SearchCheck,
+                permission: "manage_toko",
+                roles: ["admin", "operator"],
             },
             {
                 title: "Manajemen Batch", href: "/toko/batch", icon: Layers,
