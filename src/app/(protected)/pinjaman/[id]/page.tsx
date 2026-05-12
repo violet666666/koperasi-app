@@ -307,7 +307,10 @@ export default function PinjamanDetailPage() {
                             Edit Pinjaman {loan.loanNo}
                         </DialogTitle>
                         <DialogDescription>
-                            Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan otomatis di-regenerasi setelah perubahan disimpan.
+                            Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan di-regenerasi.
+                            {(Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) && (
+                                <span className="text-blue-600 dark:text-blue-400"> Riwayat pembayaran yang sudah tercatat akan dipertahankan.</span>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -382,6 +385,32 @@ export default function PinjamanDetailPage() {
 
                         {/* ── Live Preview ──────────────────────────── */}
                         <Separator />
+
+                        {/* Show existing payment progress (preserved during edit) */}
+                        {(Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) && (
+                            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-3">
+                                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1.5">Riwayat Pembayaran (dipertahankan)</p>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-blue-600 dark:text-blue-400">Pokok Terbayar</span>
+                                        <span className="font-medium tabular-nums">{formatCurrency(Number(loan.principalPaid))}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-blue-600 dark:text-blue-400">Bunga Terbayar</span>
+                                        <span className="font-medium tabular-nums">{formatCurrency(Number(loan.interestPaid))}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-blue-600 dark:text-blue-400">Sisa Pokok Baru</span>
+                                        <span className="font-bold tabular-nums">{formatCurrency(Math.max(0, editPrincipal - Number(loan.principalPaid)))}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-blue-600 dark:text-blue-400">Sisa Bunga Baru</span>
+                                        <span className="font-bold tabular-nums">{formatCurrency(Math.max(0, editTotalInterest - Number(loan.interestPaid)))}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
                             <p className="text-sm font-semibold text-muted-foreground mb-2">📊 Preview Kalkulasi</p>
                             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">

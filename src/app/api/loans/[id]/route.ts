@@ -143,6 +143,17 @@ export async function PUT(request: Request, { params }: Params) {
         const monthlyInstallment = Math.round(newPrincipal / newTenor) + interestPerMonth;
         const disbursedAmount = newPrincipal - adminFee;
 
+        // Preserve existing paid amounts from import — don't reset to 0
+        const existingPrincipalPaid = Number(loan.principalPaid) || 0;
+        const existingInterestPaid = Number(loan.interestPaid) || 0;
+        const existingLateFeePaid = Number(loan.lateFeePaid) || 0;
+        const newPrincipalOutstanding = Math.max(0, newPrincipal - existingPrincipalPaid);
+        const newInterestOutstanding = Math.max(0, totalInterest - existingInterestPaid);
+
+        // Calculate how many installments are already "paid" based on existing data
+        const monthlyPrincipal = Math.floor(newPrincipal / newTenor);
+        const paidInstallmentCount = monthlyPrincipal > 0 ? Math.min(newTenor, Math.floor(existingPrincipalPaid / monthlyPrincipal)) : 0;
+
         // Calculate lastDueDate from firstDueDate
         const lastDueDate = new Date(newFirstDueDate);
         lastDueDate.setMonth(lastDueDate.getMonth() + newTenor - 1);
@@ -156,7 +167,7 @@ export async function PUT(request: Request, { params }: Params) {
                 where: { loanId },
             });
 
-            // 7b. Update loan record
+            // 7b. Update loan record — preserve paid amounts, recalculate outstanding
             const updatedLoan = await tx.loan.update({
                 where: { id: loanId },
                 data: {
@@ -168,11 +179,11 @@ export async function PUT(request: Request, { params }: Params) {
                     tenorMonths: newTenor,
                     interestRate: newRate,
                     monthlyInstallment,
-                    principalOutstanding: newPrincipal,
-                    interestOutstanding: totalInterest,
-                    principalPaid: 0,
-                    interestPaid: 0,
-                    lateFeePaid: 0,
+                    principalOutstanding: newPrincipalOutstanding,
+                    interestOutstanding: newInterestOutstanding,
+                    principalPaid: existingPrincipalPaid,
+                    interestPaid: existingInterestPaid,
+                    lateFeePaid: existingLateFeePaid,
                     disbursementDate: newDisbursementDate,
                     firstDueDate: newFirstDueDate,
                     lastDueDate,
@@ -183,7 +194,7 @@ export async function PUT(request: Request, { params }: Params) {
                 },
             });
 
-            // 7c. Generate new schedules
+            // 7c. Generate new schedules — mark already-paid installments
             const schedules = [];
             for (let i = 1; i <= newTenor; i++) {
                 const dueDate = new Date(newFirstDueDate);
@@ -196,7 +207,7 @@ export async function PUT(request: Request, { params }: Params) {
                     principalAmount: Math.floor(newPrincipal / newTenor),
                     interestAmount: Math.floor(totalInterest / newTenor),
                     totalAmount: Math.floor(totalAmount / newTenor),
-                    status: "pending",
+                    status: i <= paidInstallmentCount ? "paid" as const : "pending" as const,
                 });
             }
 
