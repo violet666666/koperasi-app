@@ -45,6 +45,9 @@ import {
     Coffee,
     Banknote,
     SearchCheck,
+    Monitor,
+    Grid3x3,
+    Settings2,
 } from "lucide-react";
 
 export interface NavItem {
@@ -608,6 +611,22 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Manajemen Batch", href: "/resto/batch", icon: Layers,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kitchen Display", href: "/resto/kds", icon: Monitor,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Denah Meja", href: "/resto/floor-plan", icon: Grid3x3,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Modifier & Add-on", href: "/resto/modifiers", icon: Settings2,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Shift Kasir", href: "/resto/shift", icon: Timer,
                 permission: "manage_unit_transactions",
             },
@@ -621,7 +640,7 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
         title: "LAPORAN & KEUANGAN",
         items: [
             {
-                title: "Laporan Penjualan", href: "/unit/resto-cafe/laporan", icon: BarChart2,
+                title: "Laporan Penjualan", href: "/resto/laporan", icon: BarChart2,
                 permission: "manage_unit_transactions",
             },
         ],
@@ -1085,6 +1104,14 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/cafe-lsp/persediaan", icon: Boxes,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Batch", href: "/cafe-lsp/batch", icon: Layers,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kitchen Display", href: "/cafe-lsp/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
             {

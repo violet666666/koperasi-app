@@ -33,6 +33,7 @@ interface RestoState {
     setCustomer: (tableId: string, name: string) => void;
     clearTable: (tableId: string) => void;
     addTakeaway: () => void;
+    setFloorPlanTables: (labels: { id: string; label: string }[]) => void;
 }
 
 const DEFAULT_TABLES: RestoTable[] = Array.from({ length: 12 }, (_, i) => ({
@@ -77,14 +78,23 @@ const useRestoStore = create<RestoState>()(
                 const takes = state.tables.filter(t => t.type === "takeaway");
                 const newId = `T${takes.length + 1}`;
                 return { tables: [...state.tables, { id: newId, label: `Takeaway ${takes.length + 1}`, type: "takeaway", cart: [], customerName: "" }] };
-            })
+            }),
+            setFloorPlanTables: (labels) => set((state) => {
+                const takeawayTables = state.tables.filter(t => t.type === "takeaway");
+                const existingCarts = new Map(state.tables.map(t => [t.id, t]));
+                const dineInTables = labels.map(l => {
+                    const existing = existingCarts.get(l.id);
+                    return { id: l.id, label: l.label, type: "dine_in" as const, cart: existing?.cart || [], customerName: existing?.customerName || "" };
+                });
+                return { tables: [...dineInTables, ...takeawayTables] };
+            }),
         }),
         { name: "resto-pos-storage" }
     )
 );
 
 export default function RestoKasirPage() {
-    const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway } = useRestoStore();
+    const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway, setFloorPlanTables } = useRestoStore();
     const activeTable = tables.find(t => t.id === activeTableId);
     const { user } = useAuth();
 
@@ -112,6 +122,10 @@ export default function RestoKasirPage() {
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
     const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
 
+    // Split Bill
+    const [showSplitDialog, setShowSplitDialog] = React.useState(false);
+    const [splitPayments, setSplitPayments] = React.useState<{ method: string; amount: number }[]>([]);
+
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
     const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
@@ -126,6 +140,20 @@ export default function RestoKasirPage() {
             } catch { toast.error("Gagal memuat menu resto"); } finally { setIsLoading(false); }
         }
         fetchProducts();
+    }, []);
+
+    // Load dynamic floor plan tables
+    React.useEffect(() => {
+        async function loadFloorPlan() {
+            try {
+                const res = await fetch("/api/toko/floor-plan?unitType=resto");
+                const json = await res.json();
+                if (json.plan?.tables) {
+                    setFloorPlanTables(json.plan.tables.map((t: any) => ({ id: t.id, label: t.label })));
+                }
+            } catch { /* fallback to hardcoded DEFAULT_TABLES from zustand */ }
+        }
+        loadFloorPlan();
     }, []);
 
     // Lazy-load QRIS on-demand when the dialog opens
@@ -560,6 +588,9 @@ export default function RestoKasirPage() {
                             <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowCreditDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
+                            <Button variant="outline" className="h-10 col-span-2 border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setSplitPayments([{ method: "cash", amount: 0 }, { method: "qris", amount: 0 }]); setShowSplitDialog(true); }} disabled={cart.length === 0 || isProcessing}>
+                                <CreditCard className="mr-2 h-4 w-4" /> Split Bill (Gabung Bayar)
+                            </Button>
                         </div>
                     </div>
                 </Card>
@@ -648,6 +679,104 @@ export default function RestoKasirPage() {
                         <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setShowQrisDialog(false); processPayment("qris"); }} disabled={!qrisUrl || isProcessing}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                             Pelanggan Sudah Bayar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Split Bill Dialog */}
+            <Dialog open={showSplitDialog} onOpenChange={setShowSplitDialog}>
+                <DialogContent className="sm:max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Split Bill — Gabung Bayar</DialogTitle>
+                        <DialogDescription>Bagi total ke beberapa metode pembayaran.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <p className="text-sm text-slate-500">Total Pesanan</p>
+                            <p className="text-xl sm:text-2xl font-black text-slate-800">{formatCurrency(subtotal)}</p>
+                        </div>
+                        {splitPayments.map((sp, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                <select
+                                    className="h-10 rounded-md border border-slate-200 px-3 text-sm bg-white w-full sm:w-auto touch-target"
+                                    value={sp.method}
+                                    onChange={e => {
+                                        const updated = [...splitPayments];
+                                        updated[idx] = { ...updated[idx], method: e.target.value };
+                                        setSplitPayments(updated);
+                                    }}
+                                >
+                                    <option value="cash">Tunai</option>
+                                    <option value="qris">QRIS</option>
+                                    <option value="salary_cut">Potong Gaji</option>
+                                </select>
+                                <Input
+                                    type="number"
+                                    placeholder="Nominal..."
+                                    className="h-10 text-sm font-mono touch-target"
+                                    value={sp.amount || ""}
+                                    onChange={e => {
+                                        const updated = [...splitPayments];
+                                        updated[idx] = { ...updated[idx], amount: Number(e.target.value) || 0 };
+                                        setSplitPayments(updated);
+                                    }}
+                                />
+                                {splitPayments.length > 2 && (
+                                    <Button size="icon" variant="ghost" className="text-red-500 h-10 w-10 shrink-0 self-end sm:self-auto touch-target" onClick={() => setSplitPayments(prev => prev.filter((_, i) => i !== idx))}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        <div className="flex items-center justify-between">
+                            <Button size="sm" variant="outline" onClick={() => setSplitPayments(prev => [...prev, { method: "cash", amount: 0 }])}>
+                                <Plus className="h-4 w-4 mr-2" /> Tambah Metode
+                            </Button>
+                            {(() => {
+                                const paidTotal = splitPayments.reduce((s, p) => s + p.amount, 0);
+                                const remaining = subtotal - paidTotal;
+                                return (
+                                    <span className={`text-sm font-semibold ${remaining === 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                        {remaining === 0 ? "Lunas ✓" : `Kurang: ${formatCurrency(remaining)}`}
+                                    </span>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowSplitDialog(false)}>Batal</Button>
+                        <Button
+                            disabled={splitPayments.reduce((s, p) => s + p.amount, 0) !== subtotal || isProcessing}
+                            onClick={async () => {
+                                setIsProcessing(true);
+                                try {
+                                    const res = await fetch("/api/toko/split-bill", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
+                                            payments: splitPayments.map(p => ({ method: p.method, amount: p.amount })),
+                                            unitType: "resto",
+                                            customerName: activeTable.customerName || "Tamu",
+                                            tableNo: activeTable.label,
+                                            shiftId: activeShiftId || undefined,
+                                        }),
+                                    });
+                                    const json = await res.json();
+                                    if (!res.ok) throw new Error(json.message);
+                                    toast.success(`Split Bill lunas! ${json.totalSales} transaksi dibuat.`);
+                                    clearTable(activeTable.id);
+                                    setActiveTable(null);
+                                    setShowSplitDialog(false);
+                                    setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false);
+                                } catch (error: any) {
+                                    toast.error(error.message || "Gagal memproses split bill");
+                                } finally { setIsProcessing(false); }
+                            }}
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                            Proses Split Bill
                         </Button>
                     </DialogFooter>
                 </DialogContent>

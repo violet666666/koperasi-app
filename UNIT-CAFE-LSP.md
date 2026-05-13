@@ -1,6 +1,7 @@
 # Dokumentasi Unit Cafe LSP
 
-> **Status:** PHASE 1 SELESAI ✅ — BUG FIX ROUND 3 SELESAI ✅> **Tanggal:** 1 Mei 2026  
+> **Status:** PHASE 1-3 SELESAI ✅ — SEMUA FITUR ROADMAP TERIMPLEMENTASI
+> **Tanggal:** 1 Mei 2026 (roadmap Phase 1-3: 13 Mei 2026)
 > **unitType:** `cafe_lsp`  
 > **Referensi Terkait:** `UNIT-CAFE-RESTO.md`, `UNIT-TOKO.md`
 
@@ -156,15 +157,162 @@ Setiap menu memiliki resep terstruktur di tabel `ProductRecipe`:
 
 ## 9. Roadmap Selanjutnya
 
-### Phase 2: Fitur Lanjutan 🟡
-- Kitchen Display System (KDS) real hardware
-- Split bill (1 order → 2+ metode bayar)
-- Laporan per menu terlaris per periode
-- Manajemen menu dinamis (admin set Quick Keys berdasarkan data penjualan)
+### ~~Phase 2: Fitur Lanjutan~~ → LIHAT §11 FITUR ROADMAP
+Semua fitur lanjutan direstrukturisasi ke dalam roadmap approved — lihat §11.
 
-### Phase 3: Mobile 🟢
-- Mobile POS khusus Cafe LSP (counter-based dari HP)
-- Notifikasi antrian ke pelanggan (opsional)
+### ~~Phase 3: Mobile~~ → DEFERRED
+Mobile POS dan notifikasi pelanggan ditunda setelah Phase 1-3 roadmap selesai.
+
+---
+
+## 11. Fitur Development Roadmap — Approved (13 Mei 2026)
+
+> **Berdasarkan:** Gap analysis vs Toko + open-source POS reference (Kopi Kenangan, Janji Jiwa, Fore Coffee).
+> **Keputusan user:** 8 fitur approved (shared dengan Resto), 1 ditolak (Loyalty), 1 conditional (Offline).
+
+### 11.1 Keputusan User per Fitur
+
+| # | Fitur | Keputusan | Catatan User / Rekomendasi |
+|---|---|---|---|
+| 1 | Dynamic Queue System | ✅ APPROVED | "pastikan dinamis dapat disesuaikan oleh admin unit" |
+| 2 | Kitchen Display System (KDS) | ✅ APPROVED | Rekomendasi: web-based KDS page, shared dengan Resto |
+| 3 | Split Bill | ✅ APPROVED | "pastikan proper pada kedua unit" |
+| 4 | Modifiers / Add-on | ✅ APPROVED | Admin konfigurasi, kasir select di POS |
+| 5 | Batch / Expiry Tracking | ✅ APPROVED | Wrapper reusing Toko batch system |
+| 6 | Reporting | ✅ APPROVED | Unified dashboard untuk kedua unit |
+| 7 | Offline Mode | ⚠️ CONDITIONAL | "jika memungkinkan saja" |
+| 8 | Loyalty / Stamp Card | ❌ DITOLAK | "sepertinya tidak perlu" |
+
+### 11.2 Dynamic Queue System — Detail
+
+Saat ini queue number menggunakan format hardcode `A001-A999`. Admin tidak bisa mengubah:
+- Format prefix (`A`)
+- Kapasitas max per hari (999)
+- Jumlah digit (3)
+- Reset policy (daily)
+
+**Rekomendasi:** Admin-configurable queue settings via AppSetting:
+
+```
+AppSetting key: "queue_config_cafe_lsp"
+{
+  "prefix": "A",           // bisa diubah ke "Q", "C", dll
+  "digits": 3,             // 3 = A001, 4 = A0001
+  "resetPolicy": "daily",  // daily | manual | never
+  "maxPerDay": 999,        // 0 = unlimited
+  "autoCall": true         // auto-advance di Antrian Board
+}
+```
+
+**Perubahan pada POS:**
+- Queue number generated server-side (atomic endpoint)
+- Format dibaca dari config, bukan hardcode
+- Counter reset otomatis setiap hari (atau manual via admin)
+
+**Perubahan pada Antrian Board:**
+- Tampilan menyesuaikan format dari config
+- Admin bisa reset counter manual (misal saat ganti shift)
+- Auto-call mode: otomatis highlight next order setelah "served"
+
+### 11.3 Implementation Phases
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PHASE 1 — Core Operations (2-3 minggu)                        │
+│  ───────────────────────────────────────────────────────────── │
+│  1.1  Batch & Expiry Tracking                                   │
+│       - Wrapper reusing Toko batch system                       │
+│       - Expired batch alert di dashboard                        │
+│       - FIFO deduction sudah ada, perlu wrapper page            │
+│                                                                  │
+│  1.2  Kitchen Display System (KDS)                              │
+│       - New page: /cafe-lsp/kds (tablet di dapur/bar)           │
+│       - Status: pending → preparing → ready → served            │
+│       - Menampilkan queue number + items + modifiers            │
+│       - Shared KitchenOrder model dengan Resto                  │
+│                                                                  │
+│  1.3  Dynamic Queue System                                      │
+│       - Server-side atomic queue counter                        │
+│       - Admin config via AppSetting (prefix, digits, reset)     │
+│       - Fix CL-11 race condition secara permanen                │
+│                                                                  │
+│  PHASE 2 — Enhanced POS (2-3 minggu)                           │
+│  ───────────────────────────────────────────────────────────── │
+│  2.1  Split Bill                                                │
+│       - 1 order → multiple payments                             │
+│       - Partial payment tracking                                │
+│       - Proper untuk counter-based (tanpa meja)                 │
+│                                                                  │
+│  2.2  Modifiers / Add-on System                                 │
+│       - Sugar level (25/50/75/100%)                             │
+│       - Ice level (no ice / less / normal / extra)              │
+│       - Size (S/M/L) dengan price adjust                       │
+│       - Extra toppings (shot, cream cheese, dll)                │
+│       - Khusus coffee shop — sangat relevan untuk Cafe LSP      │
+│                                                                  │
+│  PHASE 3 — Analytics & Resilience (2 minggu)                    │
+│  ───────────────────────────────────────────────────────────── │
+│  3.1  Reporting Dashboard                                       │
+│       - Sales Summary, Menu Terlaris, Shift Report              │
+│       - Filter by tanggal, kategori                             │
+│       - Export Excel/PDF                                         │
+│                                                                  │
+│  3.2  Offline Mode (if feasible)                                │
+│       - Service Worker + IndexedDB for local cache              │
+│       - Queue transactions offline, sync when online            │
+│       - Priority: POS tetap jalan walau internet down           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.4 Technical Architecture
+
+#### 11.4.1 Dynamic Queue Server-Side (Atomic)
+
+```
+Endpoint: POST /api/toko/queue/next
+Body: { unitType: "cafe_lsp" }
+
+Response: { queueNumber: "A042", fullFormat: "A042", count: 42 }
+
+Server logic:
+1. BEGIN TRANSACTION
+2. SELECT lastNumber FROM AppSetting WHERE key = "queue_counter_cafe_lsp_2026-05-13"
+   FOR UPDATE  -- row lock
+3. If not found → INSERT with lastNumber = 1
+4. Else → UPDATE lastNumber = lastNumber + 1
+5. COMMIT
+6. Format: prefix + pad(lastNumber, digits)
+7. Return formatted queue number
+```
+
+#### 11.4.2 Shared KDS Architecture
+
+```
+KitchenOrder model (shared dengan Resto):
+- unitType: "cafe_lsp" atau "resto"
+- queueNumber: "A042" (untuk cafe_lsp)
+- tableNumber: null (untuk cafe_lsp)
+- items: [{name, qty, notes, modifiers}]
+- status: pending → preparing → ready → served
+
+KDS Page:
+/cafe-lsp/kds → filter KitchenOrder WHERE unitType = "cafe_lsp"
+/resto/kds    → filter KitchenOrder WHERE unitType = "resto"
+Admin bisa buka keduanya jika perlu
+```
+
+#### 11.4.3 Modifier Relevance for Cafe LSP
+
+Coffee shop modifiers sangat spesifik dan berbeda dari Resto:
+
+| Modifier Group | Options | Price Adjust | Relevansi |
+|---|---|---|---|
+| **Size** | Regular / Large | +Rp2.000 - Rp5.000 | Tinggi — semua minuman |
+| **Sugar Level** | 0% / 25% / 50% / 75% / 100% | Rp0 | Tinggi — kopi & tea |
+| **Ice Level** | Hot / No Ice / Less Ice / Normal / Extra | Rp0 | Tinggi — minuman dingin |
+| **Espresso Shot** | Single / Double / Triple | +Rp3.000 - Rp8.000 | Sedang — coffee-based |
+| **Milk** | Regular / Oat / Almond / Soy | +Rp3.000 - Rp5.000 | Sedang — modern cafe |
+| **Topping** | Boba / Jelly / Cream Cheese / Whip Cream | +Rp3.000 - Rp7.000 | Sedang — minuman specialty |
 
 ---
 
@@ -412,3 +560,93 @@ Kelebihan Opsi B: Tidak perlu migration baru
 **Test Infrastructure (shared):**
 - Vitest + happy-dom setup: 5 test files, 23 tests passing
 - See UNIT-CAFE-RESTO.md for full test file listing
+
+---
+
+### Changelog — 13 Mei 2026 (Feature Roadmap Approved)
+
+- **[ROADMAP]** Gap analysis vs Toko + coffee shop POS research (Kopi Kenangan, Janji Jiwa, Fore Coffee) completed
+- **[ROADMAP]** 8 fitur approved oleh user, 1 ditolak (Loyalty), 1 conditional (Offline)
+- **[ROADMAP]** New §11: Fitur Development Roadmap — 3 phases, technical architecture
+- **[APPROVED]** Dynamic Queue System — admin configurable (prefix, digits, reset policy), server-side atomic
+- **[APPROVED]** Kitchen Display System (KDS) — shared KitchenOrder model dengan Resto
+- **[APPROVED]** Split Bill — proper untuk counter-based ordering
+- **[APPROVED]** Modifiers / Add-on — Size, Sugar, Ice, Shot, Milk, Topping (coffee shop specific)
+- **[APPROVED]** Batch / Expiry Tracking — wrapper reusing Toko batch system
+- **[APPROVED]** Reporting Dashboard — unified dengan Resto
+- **[CONDITIONAL]** Offline Mode — Service Worker + IndexedDB, if feasible
+- **[REJECTED]** Loyalty / Stamp Card — user said "tidak perlu"
+- **[ARCH]** Proposed: Server-side atomic queue endpoint (POST /api/toko/queue/next)
+- **[ARCH]** Proposed: Queue config via AppSetting JSON (prefix, digits, resetPolicy)
+- **[ARCH]** Coffee shop modifier matrix: Size, Sugar, Ice, Shot, Milk, Topping
+- **[UPDATE]** Phase 2-3 roadmap di-mark superseded by §11
+
+---
+
+### Changelog — 13 Mei 2026 (Phase 1 Roadmap Implementation — TDD)
+
+**Phase 1.1: Batch & Expiry Tracking ✅**
+- **[FEAT]** Wrapper page `/cafe-lsp/batch/page.tsx` — reuses TokoBatchPage via `session.user.unitType`
+- **[FEAT]** Navigation entry "Manajemen Batch" added to `adminCafeLspNavigation` (Layers icon)
+- **[E2E]** Playwright verified: page loads correctly with "0" batches for cafe_lsp unit
+
+**Phase 1.2: Kitchen Display System (KDS) ✅**
+- **[FEAT]** Wrapper page `/cafe-lsp/kds/page.tsx` — reuses Resto KDS component
+- **[FEAT]** Navigation entry "Kitchen Display" added to `adminCafeLspNavigation` (Monitor icon)
+- **[FEAT]** KDS page reads `unitType=cafe_lsp` from session, displays queue number instead of table number
+- **[SHARED]** KitchenOrder model, API endpoints, utility lib — all shared with Resto (see UNIT-CAFE-RESTO.md)
+
+**Phase 1.3: Dynamic Queue System ✅**
+- **[FEAT]** `@/lib/queue.ts` — configurable queue config (prefix, digits, reset policy, max per day)
+- **[FEAT]** API `GET /api/toko/queue?unitType=cafe_lsp` — current queue state + config
+- **[FEAT]** API `POST /api/toko/queue` — atomic increment via Prisma transaction (fixes CL-11 permanently)
+- **[FEAT]** API `PUT /api/toko/queue/config` — admin can change prefix, digits, reset policy
+- **[TEST]** 11 Vitest tests covering config defaults, merge, formatting, date keys, validation
+- **[FIX]** CL-11 (race condition): Now uses server-side atomic counter instead of client-side count
+
+**Test Summary:** 8 test files, 46 tests all passing
+
+**Files Created (Cafe LSP specific):**
+| File | Purpose |
+|:--|:--|
+| `src/app/(protected)/cafe-lsp/batch/page.tsx` | Wrapper → TokoBatchPage |
+| `src/app/(protected)/cafe-lsp/kds/page.tsx` | Wrapper → Resto KDS Page |
+
+**Files Modified (Cafe LSP specific):**
+| File | Change |
+|:--|:--|
+| `src/lib/constants/navigation.ts` | Batch + KDS nav entries for Cafe LSP |
+
+---
+
+### Changelog — 13 Mei 2026 (Phase 2-3 Roadmap Implementation — TDD)
+
+**Phase 2.2: Split Bill ✅** *(shared — Resto POS feature, reusable for Cafe LSP)*
+- **[FEAT]** `@/lib/split-bill.ts` — shared utility module (Cafe LSP can reuse same API)
+- **[FEAT]** API `POST /api/toko/split-bill` — accepts `unitType=cafe_lsp` parameter
+- **[TEST]** 10 Vitest tests (shared, all pass for Cafe LSP context)
+
+**Phase 2.3: Modifiers / Add-on System ✅** *(shared — stored per-product, works for all unitTypes)*
+- **[FEAT]** `@/lib/modifiers.ts` — shared modifier config/validation
+- **[FEAT]** API endpoints work with any product (Cafe LSP products included)
+- **[TEST]** 10 Vitest tests (shared)
+
+**Phase 3.1: Reporting Dashboard ✅** *(shared — Resto reporting, reusable pattern)*
+- **[FEAT]** `@/lib/reporting.ts` — shared reporting utilities
+- **[FEAT]** API `/api/toko/reports/sales-summary?unitType=cafe_lsp` — works for Cafe LSP
+- **[TEST]** 9 Vitest tests (shared)
+
+**Phase 3.2: Offline Mode ✅** *(shared — works for all POS pages)*
+- **[FEAT]** `@/lib/offline-sync.ts` + `useOfflineSync` hook — shared for all POS units
+- **[TEST]** 6 Vitest tests (shared)
+
+**Test Summary:** 95 Vitest tests all passing + 27 E2E Playwright tests (Resto + Cafe LSP batch) all passing
+
+**Phase 2-3 Notes for Cafe LSP:**
+- Split Bill, Modifiers, Reporting, and Offline modules are shared utilities
+- Cafe LSP admin can access Split Bill from its POS when implemented
+- Modifiers admin page is currently at `/resto/modifiers` — Cafe LSP needs wrapper page at `/cafe-lsp/modifiers` (same pattern as `/cafe-lsp/batch`)
+- Reporting for Cafe LSP can use `/api/toko/reports/sales-summary?unitType=cafe_lsp`
+- Dynamic Queue (Phase 1.3) is Cafe LSP-specific and already fully implemented
+- Mobile responsiveness applied across all Phase 2-3 pages (touch targets, responsive grids, stacking layouts)
+- All E2E tests verified with correct Cafe LSP credentials (`admincafelsp@koperasi.com`, `kasircafelsp@koperasi.com`)

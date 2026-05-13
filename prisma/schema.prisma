@@ -1272,6 +1272,29 @@ model StockBatch {
 }
 
 // =================================================================
+// KITCHEN DISPLAY SYSTEM (KDS) — Order Queue for Kitchen
+// =================================================================
+
+model KitchenOrder {
+  id              String    @id @default(cuid())
+  unitType        String    @map("unit_type") // "resto", "cafe_lsp", "resto_cafe", "coffe_latar"
+  saleId          String?   @map("sale_id")   // link to StoreSale (set after checkout)
+  tableNumber     Int?      @map("table_number")
+  queueNumber     String?   @map("queue_number")
+  status          String    @default("pending") // pending | preparing | ready | served
+  items           Json      // [{name, qty, notes, modifiers}]
+  notes           String?   // overall order notes
+  createdAt       DateTime  @default(now()) @map("created_at")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  servedAt        DateTime? @map("served_at")
+
+  @@index([unitType, status, createdAt])
+  @@index([saleId])
+  @@map("kitchen_orders")
+}
+
+// =================================================================
 // PAYROLL (GAJI) — Import & Processing
 // =================================================================
 
