@@ -268,3 +268,121 @@ Setiap menu memiliki resep terstruktur di tabel `ProductRecipe`:
 | `src/app/(protected)/toko/produk/page.tsx` | Dynamic Quick Key toggle (★ button), dynamic links |
 | `src/app/(protected)/toko/produk/tambah/page.tsx` | Dynamic backHref |
 | `src/app/(protected)/toko/produk/import/page.tsx` | Dynamic back link |
+
+---
+
+## 10. Audit Mendalam — 13 Mei 2026
+
+> **Metode:** Systematic code review — setiap file POS, Antrian Board, API, navigasi, dan route guard diperiksa line-by-line.
+> **Scope:** Admin Cafe LSP + Kasir Cafe LSP perspectives.
+
+### 10.1 Bug Ditemukan
+
+| # | Severity | Bug | Lokasi | Detail |
+|---|---|---|---|---|
+| CL-11 | 🔴 **CRITICAL** | Queue number race condition (client-side) | `cafe-lsp/kasir/page.tsx:154-166` | Queue number di-fetch SEKALI saat mount (`useEffect([], [])`). Jika 2 kasir buka POS bersamaan, keduanya mendapat nomor antrian sama (misal A005). Increment lokal (L257) hanya di client masing-masing — tidak ter-sync antar kasir. **Impact:** Duplikasi nomor antrian di transaksi concurrent. Perlu server-side atomic counter. |
+| CL-12 | 🟡 **MEDIUM** | Queue cap di 999 tanpa reset | `cafe-lsp/kasir/page.tsx:257` | `Math.min(nextNum, 999)` — setelah 999 transaksi, nomor antrian stuck di `A999`. Tidak ada reset harian di increment lokal. Sebenarnya fetch awal sudah pakai daily count (fix CL-6), tapi increment lokal tidak mempertimbangkan date change. **Impact:** Jika POS dibuka lebih dari sehari tanpa refresh, nomor antrian melampaui 999 tanpa reset. |
+| CL-13 | 🟡 **MEDIUM** | Voided sales tidak adjust queue counter | `cafe-lsp/kasir/page.tsx:154-166` | Saat sale di-void, `pagination.total` berkurang tapi counter lokal tidak di-update (increment hanya di `processPayment`). Voided sale tetap dihitung sebagai "slot" antrian yang sudah dipakai. **Impact:** Ada gap di nomor antrian (A003, A004, A006 — A005 di-void). Bukan blocker, tapi confusing untuk pelanggan. |
+| CL-14 | 🟡 **MEDIUM** | `setInterval` captures stale `readyIds` | `cafe-lsp/antrian/page.tsx:39-43` | `fetchOrders` di setInterval menggunakan `readyIds` dari initial render (closure). Setelah `markReady` dipanggil, `readyIds` state berubah tapi interval masih pakai versi lama. **Impact:** Order yang di-mark "ready" bisa kembali ke "waiting" saat interval trigger. Solusi: pakai `useRef` untuk readyIds atau move fetchOrders ke dependency. |
+| CL-15 | 🟡 **MEDIUM** | localStorage `readyIds` loaded setelah initial fetch | `cafe-lsp/antrian/page.tsx:45-48` | `useEffect([], [])` untuk fetchOrders jalan sebelum `useEffect([], [])` untuk load localStorage `readyIds`. Race condition: orders pertama di-fetch semua sebagai "waiting" karena `readyIds` masih kosong, lalu localStorage load → tapi tidak trigger re-fetch. **Impact:** On first load, semua order tampil "waiting" meski sebelumnya di-mark "ready". Perlu re-fetch setelah localStorage load. |
+| CL-16 | 🟡 **MEDIUM** | `perPage=50` cap di Antrian Board | `cafe-lsp/antrian/page.tsx:29` | Jika lebih dari 50 transaksi per hari, order di atas 50 tidak ditampilkan. **Impact:** Order baru tidak muncul di board saat hari sibuk. |
+| CL-17 | 🟢 **LOW** | Shift check tanpa unitType filter | `cafe-lsp/kasir/page.tsx:144` | Sama seperti R-1, `fetch("/api/toko/shifts?status=open")` tanpa `unitType=cafe_lsp`. **Impact:** Lebih ringan karena Cafe LSP sudah punya checkout lock, tapi warning banner bisa salah state. |
+
+### 10.2 Shared API Bug (Mempengaruhi Cafe LSP)
+
+Bug yang sama dengan Resto (detail di §9.2 UNIT-CAFE-RESTO.md):
+
+| # | Severity | Bug | Impact pada Cafe LSP |
+|---|---|---|---|
+| S-1 | 🟡 MEDIUM | Product lookup tanpa unitType | Kasir cafe_lsp bisa checkout produk toko/resto jika tahu productId |
+| S-2 | 🟡 MEDIUM | FIFO batch tanpa unitType filter | Batch dari unit lain bisa terdeduct untuk transaksi cafe_lsp |
+| S-3 | 🟡 MEDIUM | Audit log hardcoded `"toko"` | Transaksi cafe_lsp tercatat sebagai "toko" |
+| S-4 | 🟢 LOW | Low stock notification hardcoded `"toko"` | Admin cafe_lsp tidak terima notifikasi stok rendah |
+| S-5 | 🟢 LOW | Duplicate shift check tanpa unitType | Kasir yang punya shift open di toko tidak bisa buka shift cafe_lsp |
+| S-6 | 🟢 LOW | Movements API tanpa unitType filter | Admin cafe_lsp lihat movements dari semua unit |
+
+### 10.3 Ringkasan Prioritas
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  🔴 FIX SEGERA (Critical)                                    │
+│  ──────────────────────────────────────────────────────────── │
+│  CL-11. Server-side atomic queue number                      │
+│                                                               │
+│  🟡 FIX SELANJUTNYA (Medium)                                 │
+│  ──────────────────────────────────────────────────────────── │
+│  CL-12. Queue cap 999 + daily reset logic                    │
+│  CL-13. Voided sales → re-fetch queue count                  │
+│  CL-14. Antrian stale readyIds → useRef fix                  │
+│  CL-15. Antrian localStorage → load before fetch              │
+│  CL-16. Antrian perPage → increase atau pagination           │
+│  CL-17. Shift check + unitType=cafe_lsp                      │
+│  S-1 s/d S-3. Shared API fixes                               │
+│                                                               │
+│  🟢 NICE-TO-FIX (Low)                                        │
+│  ──────────────────────────────────────────────────────────── │
+│  S-4 s/d S-6. Shared API minor fixes                         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 10.4 Saran & Rekomendasi Fitur
+
+Berdasarkan analisis sistem cafe counter POS modern (Kopi Kenangan, Janji Jiwa,Fore Coffee):
+
+| Prioritas | Fitur | Deskripsi | Referensi |
+|---|---|---|---|
+| 🔴 Tinggi | **Server-side Atomic Queue** | Queue number generate di server via dedicated endpoint. Gunakan `findAndLock` atau database sequence. Return nomor antrian di response POST checkout. | Kopi Kenangan menggunakan server-side queue dengan atomic increment. Mencegah duplikasi 100%. |
+| 🟡 Sedang | **Kitchen Display System (KDS)** | Monitor di dapur menampilkan queue real-time. Kasir mark "served" saat pesanan diambil pelanggan. Ganti localStorage `readyIds` yang rapuh. | Fore Coffee menggunakan KDS dengan status visual: waiting → preparing → ready → served. |
+| 🟡 Sedang | **Modifiers / Add-on Terstruktur** | Pilihan gula (25/50/75/100%), ukuran (S/M/L), topping (extra shot, cream cheese), es/panas. DB-driven, bukan text notes. Harga bisa berbeda per modifier. | Janji Jiwa punya sistem modifier lengkap (size, sugar, ice level, topping). Setiap modifier bisa adjust harga. Implementasi via tabel `ProductModifier` + `ModifierOption`. |
+| 🟡 Sedang | **Menu Terlaris Report** | Dashboard per periode: ranking menu by qty & revenue. Filter by kategori, waktu, kasir. Penting untuk menu engineering dan Quick Keys optimization. | Standard di semua POS modern. Gunakan data yang sudah ada di StoreSaleItem. |
+| 🟡 Sedang | **Split Bill** | 1 order → 2+ metode bayar. Contoh: total Rp45.000 → Tunai Rp25.000 + QRIS Rp20.000. | Umum di cafe yang melayani group. Perlu partial payment tracking. |
+| 🟡 Sedang | **Dynamic Quick Keys v2** | Admin set Quick Keys dari data penjualan aktual (auto-suggest top 12). Saat ini manual toggle. | Moka POS auto-suggest best sellers untuk quick keys berdasarkan data penjualan 30 hari. |
+| 🟢 Rendah | **Loyalty / Stamp Card Digital** | Beli 10 gratis 1. Track per member (anggota koperasi). Tampilkan stamp progress di struk. | Efektif untuk retention di cafe koperasi. Integrasi natural dengan data anggota yang sudah ada. |
+| 🟢 Rendah | **Mobile Ordering (QR)** | Pelanggan scan QR di meja/counter → order dari HP → masuk antrian → bayar via e-wallet. Tanpa perlu ke kasir. | Kopi Kenangan app ordering sangat populer. Versi simple: QR → web form → masuk queue. |
+| 🟢 Rendah | **Time-based Promotions** | Happy hour pricing (diskon 20% jam 14-16), buy 1 get 1 periode tertentu. Otomatis apply di POS. | Umum di coffee shop untuk meningkatkan off-peak traffic. |
+| 🟢 Rendah | **Inventory Alert Threshold** | Notifikasi real-time ke admin ketika bahan baku di bawah minimum. Integrasi dengan Recipe HPP. | Saat ini notifikasi hardcoded "toko". Perlu fix + threshold per bahan baku. |
+| 🟢 Rendah | **Nutritional / Allergen Info** | Label kalori, alergen (nuts, dairy, gluten), caffeine level di menu. Info tampil di POS dan struk. | Trend growing di Indonesia. Bisa jadi differentiator untuk cafe koperasi. |
+
+### 10.5 Arsitektur: Rekomendasi Atomic Queue
+
+Solusi untuk CL-11 (queue number race condition):
+
+```
+Opsi A: Database Sequence (Recommended)
+─────────────────────────────────────────
+1. Buat tabel QueueCounter { id, unitType, date, lastNumber }
+2. Saat checkout:
+   a. BEGIN TRANSACTION
+   b. SELECT lastNumber FROM QueueCounter
+      WHERE unitType='cafe_lsp' AND date=TODAY
+      FOR UPDATE  -- row lock
+   c. INSERT/UPDATE lastNumber = lastNumber + 1
+   d. COMMIT
+   e. Return queueNumber = "A" + pad(lastNumber, 3)
+3. Jika row tidak ada → INSERT dengan lastNumber = 1
+
+Opsi B: AppSetting + Prisma Transaction
+─────────────────────────────────────────
+1. Simpan counter di AppSetting key="queue_counter_cafe_lsp"
+2. Gunakan prisma.$transaction dengan interactive mode
+3. Lock row via $queryRaw SELECT FOR UPDATE
+4. Increment dan return dalam satu transaction
+
+Kelebihan Opsi A: Purpose-built table, clean separation
+Kelebihan Opsi B: Tidak perlu migration baru
+```
+
+---
+
+### Changelog — 13 Mei 2026 (Deep Audit)
+- **[AUDIT]** Deep audit seluruh codebase Cafe LSP — POS, Antrian Board, API, navigasi
+- **[BUG-CL11] CRITICAL**: Queue number race condition — client-side count, dua kasir concurrent bisa dapat nomor sama
+- **[BUG-CL12] MEDIUM**: Queue cap 999 tanpa daily reset di increment lokal
+- **[BUG-CL13] MEDIUM**: Voided sales tidak adjust queue counter → gap nomor antrian
+- **[BUG-CL14] MEDIUM**: Antrian Board `setInterval` captures stale `readyIds` via closure
+- **[BUG-CL15] MEDIUM**: Antrian Board localStorage loaded setelah initial fetch → orders salah status
+- **[BUG-CL16] MEDIUM**: Antrian Board `perPage=50` cap → order baru tidak muncul saat sibuk
+- **[BUG-CL17] LOW**: Shift check tanpa `unitType=cafe_lsp` filter
+- **[BUG-S1-S6]** Shared API bugs sama dengan Resto (detail di UNIT-CAFE-RESTO.md §9.2)
+- **[RECOMMEND]** 11 rekomendasi fitur: Atomic Queue, KDS, Modifiers, Loyalty, Mobile Ordering, dll
+- **[ARCH]** Rekomendasi Atomic Queue: Database Sequence vs AppSetting approach

@@ -295,3 +295,136 @@ Semua sub-page `/resto/*` adalah thin wrapper yang mengimpor komponen Toko:
 - **[FEATURE] Checkout tidak di-lock**: Kasir bisa bayar meski shift belum dibuka (hanya warning banner)
 - **[UPDATE]** Phase 2 (gambar menu + kategori) dicoret dari roadmap — sudah terimplementasi
 - **[UPDATE]** Roadmap diurutkan ulang: Phase 3 = fix bug shift, Phase 4 = KOT fisik, Phase 5 = fitur lanjutan
+
+---
+
+## 9. Audit Mendalam — 13 Mei 2026
+
+> **Metode:** Systematic code review — setiap file POS, API, navigasi, dan route guard diperiksa line-by-line.
+> **Scope:** Admin Resto + Kasir Resto perspectives.
+
+### 9.1 Bug Ditemukan
+
+| # | Severity | Bug | Lokasi | Detail |
+|---|---|---|---|---|
+| R-1 | 🔴 **CRITICAL** | Shift check tanpa `unitType=resto` | `resto/kasir/page.tsx:148` | `fetch("/api/toko/shifts?status=open")` tidak kirim `unitType=resto`. Jika kasir toko sudah buka shift, resto mendeteksi `shiftOpen=true` padahal shift resto belum buka. Sebaliknya, jika shift resto buka tapi toko belum, resto salah menampilkan "Shift belum dibuka". **Impact:** Transaksi bisa lolos tanpa shift aktif yang benar, atau shift warning muncul tanpa alasan. |
+| R-2 | 🔴 **CRITICAL** | `shiftId` tidak dikirim saat checkout | `resto/kasir/page.tsx:214-221` | Body checkout tidak menyertakan `shiftId` maupun `cashierIdentityId`. API `/api/toko/sales` auto-detect shift via `reqShiftId` (L163), tapi karena tidak dikirim, API fallback ke cookie-based detection — bisa salah match jika multi-unit kasir aktif. **Impact:** Transaksi tidak tercatat di shift yang benar, rekap shift kosong/incomplete. |
+| R-3 | 🔴 **CRITICAL** | `salePrefixMap` tidak ada entry `"resto"` | `api/toko/sales/route.ts:165` | `salePrefixMap` punya `resto_cafe: "RC"` dan `coffe_latar: "CL"`, tapi Resto POS mengirim `unitType: "resto"` → fallback ke prefix `"TK"`. Nomor nota resto berformat `TK-xxx` bukan `RC-xxx`. **Impact:** Transaksi resto tidak bisa dibedakan dari toko berdasarkan prefix nota. |
+| R-4 | 🟡 **MEDIUM** | Link "Buka Shift" ke `/toko/shift` | `resto/kasir/page.tsx:292` | Hardcode `href="/toko/shift"` padahal navigasi kasir resto punya `/resto/shift`. Kasir dikirim ke halaman shift toko. **Impact:** UX confusing, tapi wrapper page me-reuse komponen sama sehingga secara fungsional bisa jalan. |
+| R-5 | 🟡 **MEDIUM** | Checkout tidak di-lock saat shift null | `resto/kasir/page.tsx:200` | Tidak ada guard `if (shiftOpen === false) return`. Warning banner ditampilkan tapi checkout tetap bisa dilanjutkan. Bandingkan dengan Cafe LSP yang punya guard `if (shiftOpen === false) { toast.error(...); return; }`. **Impact:** Transaksi bisa tercatat tanpa shiftId. |
+| R-6 | 🟡 **MEDIUM** | Notes per item tidak dikirim ke backend | `resto/kasir/page.tsx:215` | `items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity }))` — field `notes` diabaikan. Catatan seperti "tanpa MSG", "pedas level 3" hilang saat disimpan. **Impact:** KOT dan struk tidak menampilkan notes pelanggan. |
+| R-7 | 🟡 **MEDIUM** | `cashierIdentityId` tidak dikirim | `resto/kasir/page.tsx:214-221` | Body tidak menyertakan `cashierIdentityId`. API coba detect via cookie, tapi jika tidak ada → transaksi tidak terhubung ke identitas kasir spesifik. **Impact:** Audit trail kasir tidak lengkap. |
+| R-8 | 🟢 **LOW** | Hardcoded kasir name `"Kasir Resto"` | `resto/kasir/page.tsx:244` | Receipt struk menampilkan `kasir: "Kasir Resto"` bukan nama user login. **Impact:** Struk tidak menunjukkan kasir yang sebenarnya. |
+| R-9 | 🟢 **LOW** | `KASIR_ALLOWED_ROUTES` tidak ada entry `resto` | `layout.tsx:21-32` | Ada `resto_cafe` tapi tidak ada `resto`. Jika ada user dengan `unitType="resto"` (bukan `resto_cafe`), route guard akan block. **Impact:** Saat ini aman karena user DB pakai `resto_cafe`, tapi akan break jika ada user `resto`. |
+| R-10 | 🟢 **LOW** | `ADMIN_ALLOWED_ROUTES` tidak ada entry `resto` | `layout.tsx:48` | Sama seperti R-9, hanya `resto_cafe` yang ada. Admin dengan `unitType="resto"` akan terblock. |
+
+### 9.2 Shared API Bug (Mempengaruhi Resto)
+
+| # | Severity | Bug | Lokasi | Detail |
+|---|---|---|---|---|
+| S-1 | 🟡 **MEDIUM** | Product lookup tidak validasi unitType | `api/toko/sales/route.ts:243` | `findMany({ where: { id: { in: productIds } } })` tidak filter `unitType`. Kasir resto bisa checkout produk milik toko/cafe_lsp jika tahu productId. **Impact:** Cross-unit product injection. |
+| S-2 | 🟡 **MEDIUM** | FIFO batch tidak filter unitType | `api/toko/sales/route.ts:416-418` | `stockBatch.findMany` tidak filter `unitType` atau lokasi batch. Batch dari toko bisa dikurangi untuk transaksi resto. **Impact:** Stok batch salah unit terdeduct. |
+| S-3 | 🟡 **MEDIUM** | Audit log hardcoded `unitType: "toko"` | `api/toko/sales/route.ts:595` | `logAudit({ ..., unitType: "toko", ... })` — seharusnya pakai `unitType` variabel. Semua transaksi resto dicatat sebagai "toko" di audit trail. **Impact:** Audit trail misleading. |
+| S-4 | 🟢 **LOW** | Low stock notification hardcoded `"toko"` | `api/toko/sales/route.ts:611` | `getNotificationRecipients("toko")` — admin resto tidak dapat notifikasi stok rendah. **Impact:** Admin resto tidak aware jika stok menu hampir habis. |
+| S-5 | 🟢 **LOW** | Duplicate shift check tidak filter unitType | `api/toko/shifts/route.ts:170-172` | `findFirst({ where: { userId, status: "open" } })` tanpa filter unitType. Kasir yang punya shift open di toko tidak bisa buka shift resto. **Impact:** Multi-unit kasir diblock dari shift kedua. |
+| S-6 | 🟢 **LOW** | Movements API tanpa unitType filter | `api/toko/movements/route.ts:22-36` | WHERE clause tidak ada `product.unitType` filter. Admin resto melihat movements dari semua unit. **Impact:** Data isolation tidak terjaga di halaman Persediaan. |
+
+### 9.3 Ringkasan Prioritas
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  🔴 FIX SEGERA (Critical Bugs)                               │
+│  ──────────────────────────────────────────────────────────── │
+│  R-1. Shift check + unitType=resto filter                    │
+│  R-2. shiftId + cashierIdentityId di checkout payload        │
+│  R-3. salePrefixMap tambah entry "resto" → "RS" atau "RC"   │
+│                                                               │
+│  🟡 FIX SELANJUTNYA (Medium Bugs)                            │
+│  ──────────────────────────────────────────────────────────── │
+│  R-4. Link Buka Shift → /resto/shift                         │
+│  R-5. Lock checkout jika shift belum buka                    │
+│  R-6. Kirim notes per item ke backend (metadata.itemNotes)   │
+│  R-7. cashierIdentityId di payload                           │
+│  S-1. Product lookup validasi unitType                        │
+│  S-2. FIFO batch filter unitType                              │
+│  S-3. Audit log pakai unitType variabel                      │
+│                                                               │
+│  🟢 NICE-TO-FIX (Low Bugs)                                   │
+│  ──────────────────────────────────────────────────────────── │
+│  R-8.  Kasir name dari session                               │
+│  R-9/10. Route guard entries untuk "resto"                   │
+│  S-4. Low stock notification per unitType                     │
+│  S-5. Duplicate shift check filter unitType                  │
+│  S-6. Movements API filter unitType                           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 9.4 Saran & Rekomendasi Fitur
+
+Berdasarkan analisis sistem cafe/restaurant POS modern (Moka POS, Pawoon, Olsera):
+
+| Prioritas | Fitur | Deskripsi | Referensi |
+|---|---|---|---|
+| 🔴 Tinggi | **Shift Lock Enforcement** | Blokir checkout jika shift belum buka. Cafe LSP sudah implementasi ini, Resto belum. | Moka POS mengharuskan shift aktif untuk semua transaksi. |
+| 🔴 Tinggi | **Per-item Notes di KOT** | Catatan pelanggan harus muncul di KOT dapur. Simpan di `StoreSaleItem.metadata.notes` dan tampil di struk. | Standar KOT modern mencantumkan notes (alergi, preference). |
+| 🟡 Sedang | **Kitchen Display System (KDS)** | Monitor/tablet di dapur menampilkan order queue real-time (meja + item + notes). Lebih baik dari print KOT karena bisa update status. | Pawoon dan Moka menyediakan KDS sebagai module terpisah. Implementasi via WebSocket/SSE + dedicated page. |
+| 🟡 Sedang | **Dynamic Table Management** | Admin bisa konfigurasi jumlah meja + layout via UI, bukan hardcode 12. Simpan di `AppSetting` per unit. | Olsera memungkinkan custom floor plan. |
+| 🟡 Sedang | **Menu Terlaris Report** | Dashboard per periode: ranking menu by qty & revenue, filter by kategori/meja/shift. | Penting untuk inventory planning dan menu engineering. |
+| 🟡 Sedang | **Split Bill** | 1 meja → 2+ pembayaran terpisah. Contoh: 4 orang, 2 bayar tunai, 2 potong gaji. | Standard di POS resto modern. Perlu partial payment tracking di StoreSale. |
+| 🟡 Sedang | **Course Management** | Urutan sajian: appetizer → main → dessert. Kitchen hanya terima order per course, bukan semua sekaligus. | Fine dining standard. Implementasi via `metadata.course` di sale items. |
+| 🟢 Rendah | **Modifier & Add-on** | Pilihan ukuran (S/M/L), level pedas, extra topping. Terstruktur di DB, bukan text notes. | Harga bisa berbeda per modifier (L = +Rp5.000). |
+| 🟢 Rendah | **Reservasi Meja** | Booking meja di waktu tertentu, integrate dengan denah meja (status: available/reserved/occupied). | Olsera menyediakan reservasi dengan deposit. |
+| 🟢 Rendah | **Mobile POS Resto** | Denah meja + order dari tablet/HP. Manfaatkan responsive layout yang sudah ada. | Moka POS mobile sangat populer di resto Indonesia. |
+| 🟢 Rendah | **Table Transfer** | Pindah pesanan dari meja A ke meja B (pelanggan pindah meja). | Sering terjadi di restoran besar. |
+| 🟢 Rendah | **Happy Hour / Time-based Pricing** | Harga berbeda di jam sibuk vs sepi. Misal diskon 20% jam 14:00-16:00. | Umum di cafe & resto untuk meningkatkan off-peak traffic. |
+| 🟢 Rendah | **Loyalty / Stamp Card** | Beli 10 gratis 1, track per member. Integrasi dengan data anggota koperasi. | Efektif untuk repeat customers di cafe koperasi. |
+
+### 9.5 Arsitektur: Rekomendasi Shared API Fix
+
+Untuk mengatasi bug S-1 sampai S-6 secara sistematis:
+
+```
+Rekomendasi: Central Unit Validation Middleware
+
+1. Buat helper validateUnitAccess(productIds, unitType):
+   - Verifikasi semua productIds memiliki product.unitType === unitType
+   - Gunakan di POST /api/toko/sales sebelum proses checkout
+
+2. Fix salePrefixMap:
+   - Tambah: resto: "RS", coffe_latar: "CL" (atau gabung ke resto_cafe: "RC")
+
+3. Audit log fix:
+   - Ganti hardcoded "toko" → variabel unitType
+
+4. Notification fix:
+   - Ganti hardcoded "toko" → unitType dari produk
+
+5. Shift duplicate check fix:
+   - Tambah filter unitType di where clause
+
+6. Movements API fix:
+   - Join product table dan filter by unitType
+```
+
+---
+
+### Changelog — 13 Mei 2026 (Deep Audit)
+- **[AUDIT]** Deep audit seluruh codebase Resto — POS, API, navigasi, route guard
+- **[BUG-R1] CRITICAL**: Shift check tanpa `unitType=resto` filter → salah deteksi
+- **[BUG-R2] CRITICAL**: `shiftId` + `cashierIdentityId` tidak dikirim saat checkout → rekap shift kosong
+- **[BUG-R3] CRITICAL**: `salePrefixMap` tidak ada entry `"resto"` → nota berformat `TK-xxx`
+- **[BUG-R4] MEDIUM**: Link "Buka Shift" ke `/toko/shift` (salah rute)
+- **[BUG-R5] MEDIUM**: Checkout tidak di-lock saat shift belum buka
+- **[BUG-R6] MEDIUM**: Notes per item tidak dikirim ke backend
+- **[BUG-R7] MEDIUM**: `cashierIdentityId` tidak dikirim ke API
+- **[BUG-R8] LOW**: Hardcoded kasir name "Kasir Resto" di struk
+- **[BUG-R9] LOW**: `KASIR_ALLOWED_ROUTES` tidak ada entry `resto`
+- **[BUG-R10] LOW**: `ADMIN_ALLOWED_ROUTES` tidak ada entry `resto`
+- **[BUG-S1] MEDIUM**: Product lookup tidak validasi unitType (cross-unit injection)
+- **[BUG-S2] MEDIUM**: FIFO batch tidak filter unitType (stok salah unit)
+- **[BUG-S3] MEDIUM**: Audit log hardcoded `unitType: "toko"`
+- **[BUG-S4] LOW**: Low stock notification hardcoded `"toko"`
+- **[BUG-S5] LOW**: Duplicate shift check tidak filter unitType
+- **[BUG-S6] LOW**: Movements API tanpa unitType filter
+- **[RECOMMEND]** 13 rekomendasi fitur: Shift Lock, KDS, Dynamic Table, Split Bill, Modifier, dll
+- **[ARCH]** Rekomendasi central unit validation middleware untuk fix S-1 s/d S-6
