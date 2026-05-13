@@ -151,19 +151,19 @@ export default function CafeLspKasirPage() {
         checkShift();
     }, []);
 
-    React.useEffect(() => {
-        async function fetchQueueCount() {
-            try {
-                const today = new Date();
-                const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1&from=${startOfDay}`);
-                const json = await res.json();
-                const total = json.pagination?.total || 0;
-                setNextQueueNumber(`A${String(total + 1).padStart(3, "0")}`);
-            } catch { setNextQueueNumber("A001"); }
-        }
-        fetchQueueCount();
+    const fetchQueueCount = React.useCallback(async () => {
+        try {
+            const today = new Date();
+            const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1&from=${startOfDay}`);
+            const json = await res.json();
+            const total = json.pagination?.total || 0;
+            const num = total + 1;
+            setNextQueueNumber(`A${String(num).padStart(3, "0")}`);
+        } catch { setNextQueueNumber("A001"); }
     }, []);
+
+    React.useEffect(() => { fetchQueueCount(); }, [fetchQueueCount]);
 
     const categories = React.useMemo(() => {
         const cats = new Set<string>();
@@ -252,9 +252,8 @@ export default function CafeLspKasirPage() {
             const currentQueue = nextQueueNumber;
             toast.success(`Antrian ${currentQueue} Lunas!`);
 
-            // Increment queue number locally for next order
-            const nextNum = parseInt(currentQueue.slice(1)) + 1;
-            setNextQueueNumber(`A${String(Math.min(nextNum, 999)).padStart(3, "0")}`);
+            // Re-fetch queue count from server for accurate next number
+            fetchQueueCount();
 
             addQueueOrder({
                 id: `order-${Date.now()}`,

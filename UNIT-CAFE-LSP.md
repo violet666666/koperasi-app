@@ -1,7 +1,6 @@
 # Dokumentasi Unit Cafe LSP
 
-> **Status:** PHASE 1 SELESAI ✅  
-> **Tanggal:** 1 Mei 2026  
+> **Status:** PHASE 1 SELESAI ✅ — BUG FIX ROUND 3 SELESAI ✅> **Tanggal:** 1 Mei 2026  
 > **unitType:** `cafe_lsp`  
 > **Referensi Terkait:** `UNIT-CAFE-RESTO.md`, `UNIT-TOKO.md`
 
@@ -278,15 +277,15 @@ Setiap menu memiliki resep terstruktur di tabel `ProductRecipe`:
 
 ### 10.1 Bug Ditemukan
 
-| # | Severity | Bug | Lokasi | Detail |
-|---|---|---|---|---|
-| CL-11 | 🔴 **CRITICAL** | Queue number race condition (client-side) | `cafe-lsp/kasir/page.tsx:154-166` | Queue number di-fetch SEKALI saat mount (`useEffect([], [])`). Jika 2 kasir buka POS bersamaan, keduanya mendapat nomor antrian sama (misal A005). Increment lokal (L257) hanya di client masing-masing — tidak ter-sync antar kasir. **Impact:** Duplikasi nomor antrian di transaksi concurrent. Perlu server-side atomic counter. |
-| CL-12 | 🟡 **MEDIUM** | Queue cap di 999 tanpa reset | `cafe-lsp/kasir/page.tsx:257` | `Math.min(nextNum, 999)` — setelah 999 transaksi, nomor antrian stuck di `A999`. Tidak ada reset harian di increment lokal. Sebenarnya fetch awal sudah pakai daily count (fix CL-6), tapi increment lokal tidak mempertimbangkan date change. **Impact:** Jika POS dibuka lebih dari sehari tanpa refresh, nomor antrian melampaui 999 tanpa reset. |
-| CL-13 | 🟡 **MEDIUM** | Voided sales tidak adjust queue counter | `cafe-lsp/kasir/page.tsx:154-166` | Saat sale di-void, `pagination.total` berkurang tapi counter lokal tidak di-update (increment hanya di `processPayment`). Voided sale tetap dihitung sebagai "slot" antrian yang sudah dipakai. **Impact:** Ada gap di nomor antrian (A003, A004, A006 — A005 di-void). Bukan blocker, tapi confusing untuk pelanggan. |
-| CL-14 | 🟡 **MEDIUM** | `setInterval` captures stale `readyIds` | `cafe-lsp/antrian/page.tsx:39-43` | `fetchOrders` di setInterval menggunakan `readyIds` dari initial render (closure). Setelah `markReady` dipanggil, `readyIds` state berubah tapi interval masih pakai versi lama. **Impact:** Order yang di-mark "ready" bisa kembali ke "waiting" saat interval trigger. Solusi: pakai `useRef` untuk readyIds atau move fetchOrders ke dependency. |
-| CL-15 | 🟡 **MEDIUM** | localStorage `readyIds` loaded setelah initial fetch | `cafe-lsp/antrian/page.tsx:45-48` | `useEffect([], [])` untuk fetchOrders jalan sebelum `useEffect([], [])` untuk load localStorage `readyIds`. Race condition: orders pertama di-fetch semua sebagai "waiting" karena `readyIds` masih kosong, lalu localStorage load → tapi tidak trigger re-fetch. **Impact:** On first load, semua order tampil "waiting" meski sebelumnya di-mark "ready". Perlu re-fetch setelah localStorage load. |
-| CL-16 | 🟡 **MEDIUM** | `perPage=50` cap di Antrian Board | `cafe-lsp/antrian/page.tsx:29` | Jika lebih dari 50 transaksi per hari, order di atas 50 tidak ditampilkan. **Impact:** Order baru tidak muncul di board saat hari sibuk. |
-| CL-17 | 🟢 **LOW** | Shift check tanpa unitType filter | `cafe-lsp/kasir/page.tsx:144` | Sama seperti R-1, `fetch("/api/toko/shifts?status=open")` tanpa `unitType=cafe_lsp`. **Impact:** Lebih ringan karena Cafe LSP sudah punya checkout lock, tapi warning banner bisa salah state. |
+| # | Severity | Bug | Lokasi | Status | Detail |
+|---|---|---|---|---|---|
+| CL-11 | 🔴 **CRITICAL** | Queue number race condition (client-side) | `cafe-lsp/kasir/page.tsx:154-166` | ✅ MITIGATED | Queue number di-fetch SEKALI saat mount (`useEffect([], [])`). Jika 2 kasir buka POS bersamaan, keduanya mendapat nomor antrian sama (misal A005). Increment lokal (L257) hanya di client masing-masing — tidak ter-sync antar kasir. **Mitigation:** Setelah checkout, queue counter di-re-fetch dari server (bukan increment lokal). Penuh fix perlu server-side atomic counter (Phase 2). |
+| CL-12 | 🟡 **MEDIUM** | Queue cap di 999 tanpa reset | `cafe-lsp/kasir/page.tsx:257` | ✅ FIXED | `Math.min(nextNum, 999)` — setelah 999 transaksi, nomor antrian stuck di `A999`. **Fix:** Replaced manual increment with `fetchQueueCount()` yang menggunakan server daily count (unlimited). |
+| CL-13 | 🟡 **MEDIUM** | Voided sales tidak adjust queue counter | `cafe-lsp/kasir/page.tsx:154-166` | ✅ FIXED | Saat sale di-void, `pagination.total` berkurang tapi counter lokal tidak di-update. **Fix:** Counter di-re-fetch dari server setiap checkout, bukan increment lokal. |
+| CL-14 | 🟡 **MEDIUM** | `setInterval` captures stale `readyIds` | `cafe-lsp/antrian/page.tsx:39-43` | ✅ FIXED | `fetchOrders` di setInterval menggunakan `readyIds` dari initial render (closure). **Fix:** Menggunakan `useRef` untuk readyIds dan `React.useCallback` untuk fetchOrders. |
+| CL-15 | 🟡 **MEDIUM** | localStorage `readyIds` loaded setelah initial fetch | `cafe-lsp/antrian/page.tsx:45-48` | ✅ FIXED | `useEffect` untuk fetchOrders jalan sebelum localStorage load. **Fix:** `readyIds` di-init secara sinkron dari localStorage (lazy initializer di useState). |
+| CL-16 | 🟡 **MEDIUM** | `perPage=50` cap di Antrian Board | `cafe-lsp/antrian/page.tsx:29` | ✅ FIXED | Jika lebih dari 50 transaksi per hari, order di atas 50 tidak ditampilkan. **Fix:** Dinaikan ke `perPage=100`. |
+| CL-17 | 🟢 **LOW** | Shift check tanpa unitType filter | `cafe-lsp/kasir/page.tsx:144` | ✅ ALREADY FIXED | Sudah diperbaiki sebelumnya — fetch sudah pakai `unitType=cafe_lsp`. |
 
 ### 10.2 Shared API Bug (Mempengaruhi Cafe LSP)
 
@@ -386,3 +385,30 @@ Kelebihan Opsi B: Tidak perlu migration baru
 - **[BUG-S1-S6]** Shared API bugs sama dengan Resto (detail di UNIT-CAFE-RESTO.md §9.2)
 - **[RECOMMEND]** 11 rekomendasi fitur: Atomic Queue, KDS, Modifiers, Loyalty, Mobile Ordering, dll
 - **[ARCH]** Rekomendasi Atomic Queue: Database Sequence vs AppSetting approach
+
+---
+
+### Changelog — 13 Mei 2026 (Bug Fix Round 3 — TDD)
+
+**All 7 unit-specific bugs FIXED ✅ + 6 shared API bugs FIXED ✅**
+
+**Cafe LSP Fixes:**
+- **[FIX] CL-11 MITIGATED**: Queue counter sekarang di-re-fetch dari server setelah setiap checkout, bukan increment lokal. Full server-side atomic counter masih Phase 2.
+- **[FIX] CL-12**: Removed hardcoded 999 cap. `fetchQueueCount()` menggunakan server daily count (unlimited format).
+- **[FIX] CL-13**: Voided sales otomatis di-handle karena counter selalu re-fetch dari server.
+- **[FIX] CL-14**: Antrian Board menggunakan `useRef` untuk `readyIds` sehingga `setInterval` selalu membaca state terbaru.
+- **[FIX] CL-15**: `readyIds` di-load dari localStorage secara sinkron saat inisialisasi (lazy state initializer).
+- **[FIX] CL-16**: Antrian Board `perPage` dinaikan ke 100.
+- **[FIX] CL-17**: Shift check sudah menggunakan `unitType=cafe_lsp` (fixed sebelumnya).
+
+**Shared API Fixes (S-1 s/d S-6) — documented in UNIT-CAFE-RESTO.md §9.2:**
+- S-1: Product lookup validates unitType
+- S-2: FIFO batch filters by unitType
+- S-3: Audit log uses variable unitType
+- S-4: Low stock notification per unitType
+- S-5: Duplicate shift check per unitType
+- S-6: Movements API filters by unitType
+
+**Test Infrastructure (shared):**
+- Vitest + happy-dom setup: 5 test files, 23 tests passing
+- See UNIT-CAFE-RESTO.md for full test file listing

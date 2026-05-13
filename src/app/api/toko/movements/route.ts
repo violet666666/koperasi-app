@@ -18,8 +18,11 @@ export async function GET(request: Request) {
         const searchQuery = searchParams.get("search")?.trim() || null;
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
         const perPage = Math.min(500, Math.max(1, parseInt(searchParams.get("perPage") || "50")));
+        const unitType = (session.user.unitType as string) || "toko";
 
-        const whereClause: Record<string, unknown> = {};
+        const whereClause: Record<string, unknown> = {
+            product: { unitType },
+        };
         if (productId) {
             whereClause.productId = parseInt(productId);
         }

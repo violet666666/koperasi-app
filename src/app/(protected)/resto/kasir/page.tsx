@@ -4,6 +4,7 @@ import * as React from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,6 +86,7 @@ const useRestoStore = create<RestoState>()(
 export default function RestoKasirPage() {
     const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway } = useRestoStore();
     const activeTable = tables.find(t => t.id === activeTableId);
+    const { user } = useAuth();
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -112,6 +114,7 @@ export default function RestoKasirPage() {
 
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
+    const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -145,10 +148,11 @@ export default function RestoKasirPage() {
     React.useEffect(() => {
         async function checkShift() {
             try {
-                const res = await fetch("/api/toko/shifts?status=open");
+                const res = await fetch("/api/toko/shifts?status=open&unitType=resto");
                 const json = await res.json();
                 const shifts = json.data || [];
                 setShiftOpen(shifts.length > 0);
+                if (shifts.length > 0) setActiveShiftId(shifts[0].id);
             } catch { setShiftOpen(false); }
         }
         checkShift();
@@ -199,6 +203,7 @@ export default function RestoKasirPage() {
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+        if (shiftOpen === false) { toast.error("Buka shift terlebih dahulu!"); return; }
         // Validate stock availability before sending to API
         for (const item of cart) {
             if (item.product.stock !== undefined && item.product.stock !== null && item.quantity > item.product.stock) {
@@ -217,7 +222,16 @@ export default function RestoKasirPage() {
                 paymentMethod: method,
                 unitType: "resto",
                 memberId: selectedMember?.id || undefined,
-                metadata: { tableNo: activeTable.label, orderType: activeTable.type, guestName: activeTable.customerName }
+                shiftId: activeShiftId || undefined,
+                metadata: {
+                    tableNo: activeTable.label,
+                    orderType: activeTable.type,
+                    guestName: activeTable.customerName,
+                    itemNotes: cart.reduce((acc, item) => {
+                        if (item.notes) acc[String(item.product.id)] = item.notes;
+                        return acc;
+                    }, {} as Record<string, string>),
+                },
             };
             
             if (method === "cash") body.cashReceived = Number(paymentAmount);
@@ -241,7 +255,7 @@ export default function RestoKasirPage() {
                 keterangan: `Restoran / Latar Cafe - ${activeTable.type === "dine_in" ? "Dine In" : "Takeaway"} [${activeTable.label}]`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Resto",
+                kasir: user?.name || "Kasir Resto",
                 unitType: "resto",
                 items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
@@ -289,7 +303,7 @@ export default function RestoKasirPage() {
                                 <p className="font-semibold text-sm">Shift Kasir Belum Dibuka</p>
                                 <p className="text-xs mt-0.5">Buka shift terlebih dahulu agar transaksi tercatat di rekap shift kasir.</p>
                             </div>
-                            <Link href="/toko/shift">
+                            <Link href="/resto/shift">
                                 <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100">Buka Shift</Button>
                             </Link>
                         </div>

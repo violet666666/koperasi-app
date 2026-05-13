@@ -162,7 +162,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId } = body;
         const unitType = reqUnitType || "toko";
-        const salePrefixMap: Record<string, string> = { toko: "TK", playstation: "PS", cafe_lsp: "CF", resto_cafe: "RC", coffe_latar: "CL" };
+        const salePrefixMap: Record<string, string> = { toko: "TK", playstation: "PS", cafe_lsp: "CF", resto_cafe: "RC", resto: "RS", coffe_latar: "CL" };
         const unitPrefix = salePrefixMap[unitType] || "TK";
 
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -250,6 +250,9 @@ export async function POST(request: Request) {
                 }
                 if (!product.isActive || product.deletedAt) {
                     throw new Error(`Produk "${product.name}" tidak aktif atau sudah dihapus`);
+                }
+                if (product.unitType !== unitType) {
+                    throw new Error(`Produk "${product.name}" bukan milik unit ${unitType}`);
                 }
 
                 // Check stock for physical products
@@ -414,7 +417,7 @@ export async function POST(request: Request) {
 
             // Deduct stock — batched operations to minimize DB round-trips
             const allBatches = await tx.stockBatch.findMany({
-                where: { productId: { in: productIds }, isActive: true, quantity: { gt: 0 } },
+                where: { productId: { in: productIds }, isActive: true, quantity: { gt: 0 }, unitType },
                 orderBy: { receivedAt: "asc" },
             });
             const batchesByProduct = new Map<number, typeof allBatches>();
@@ -592,7 +595,7 @@ export async function POST(request: Request) {
             const userInfo = extractUserFromSession(session);
             await logAudit({
                 ...userInfo, ...reqInfo,
-                action: "CREATE", module: "Toko", unitType: "toko",
+                action: "CREATE", module: "Toko", unitType,
                 description: `Penjualan ${method}: ${result.saleNo} - Rp ${result.totalAmount.toLocaleString()}`,
                 targetId: String(result.sale.id), targetType: "StoreSale",
                 newData: { saleNo: result.saleNo, totalAmount: result.totalAmount, paymentMethod: method, memberId: body.memberId || null, unitType },
@@ -608,16 +611,20 @@ export async function POST(request: Request) {
             });
             const lowStockProducts = soldProducts.filter((p) => p.stockToko <= p.minStock);
             if (lowStockProducts.length > 0) {
-                const adminIds = await getNotificationRecipients("toko");
-                if (adminIds.length > 0) {
-                    for (const prod of lowStockProducts) {
-                        await createNotification({
-                            userId: adminIds,
-                            type: "low_stock",
-                            title: "Stok Rendah",
-                            message: `${prod.name}: sisa ${prod.stockToko} ${prod.minStock ? `(min: ${prod.minStock})` : ""}`,
-                            data: { productId: prod.id, unitType: prod.unitType },
-                        });
+                const uniqueUnits = [...new Set(lowStockProducts.map((p) => p.unitType))];
+                for (const prodUnitType of uniqueUnits) {
+                    const adminIds = await getNotificationRecipients(prodUnitType);
+                    if (adminIds.length > 0) {
+                        const unitProducts = lowStockProducts.filter((p) => p.unitType === prodUnitType);
+                        for (const prod of unitProducts) {
+                            await createNotification({
+                                userId: adminIds,
+                                type: "low_stock",
+                                title: "Stok Rendah",
+                                message: `${prod.name}: sisa ${prod.stockToko} ${prod.minStock ? `(min: ${prod.minStock})` : ""}`,
+                                data: { productId: prod.id, unitType: prod.unitType },
+                            });
+                        }
                     }
                 }
             }

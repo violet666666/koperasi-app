@@ -20,32 +20,40 @@ interface QueueOrder {
 export default function CafeLspAntrianPage() {
     const [orders, setOrders] = React.useState<QueueOrder[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [readyIds, setReadyIds] = React.useState<Set<number>>(new Set());
+    const [readyIds, setReadyIds] = React.useState<Set<number>>(() => {
+        // CL-15 fix: Load from localStorage synchronously during initialization
+        if (typeof window !== "undefined") {
+            try {
+                const stored = localStorage.getItem("cafe-lsp-ready-ids");
+                if (stored) return new Set(JSON.parse(stored));
+            } catch {}
+        }
+        return new Set();
+    });
+    // CL-14 fix: Use ref so interval callback always reads latest readyIds
+    const readyIdsRef = React.useRef(readyIds);
+    React.useEffect(() => { readyIdsRef.current = readyIds; }, [readyIds]);
 
-    const fetchOrders = async () => {
+    const fetchOrders = React.useCallback(async () => {
         try {
             const today = new Date();
             const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=50&from=${startOfDay}`);
+            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=100&from=${startOfDay}`);
             const json = await res.json();
+            const currentReady = readyIdsRef.current;
             const sales = (json.data || []).map((s: any) => ({
                 ...s,
-                status: readyIds.has(s.id) ? "ready" as const : "waiting" as const,
+                status: currentReady.has(s.id) ? "ready" as const : "waiting" as const,
             }));
             setOrders(sales);
         } catch {} finally { setIsLoading(false); }
-    };
+    }, []);
 
     React.useEffect(() => {
         fetchOrders();
         const interval = setInterval(fetchOrders, 30000);
         return () => clearInterval(interval);
-    }, []);
-
-    React.useEffect(() => {
-        const stored = localStorage.getItem("cafe-lsp-ready-ids");
-        if (stored) setReadyIds(new Set(JSON.parse(stored)));
-    }, []);
+    }, [fetchOrders]);
 
     const markReady = (id: number) => {
         setReadyIds(prev => {
