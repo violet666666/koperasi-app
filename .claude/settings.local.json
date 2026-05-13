@@ -80,7 +80,18 @@
       "Bash(timeout 120 bash *)",
       "Bash(railway variables *)",
       "mcp__plugin_prisma_Prisma-Local__migrate-dev",
-      "PowerShell(gh api *)"
+      "PowerShell(gh api *)",
+      "Bash(npx vitest *)",
+      "Bash(npx playwright *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(timeout 60)",
+      "Bash(Get-ChildItem -Path \"e2e\" -Filter \"*.spec.ts\")",
+      "Bash(Select-Object Name)"
     ]
   },
   "enabledPlugins": {
