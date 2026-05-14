@@ -621,7 +621,7 @@ export default function RestoKasirPage() {
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
                             <Button variant="outline" className="h-10 col-span-2 border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setSplitPayments([{ method: "cash", amount: 0 }, { method: "qris", amount: 0 }]); setShowSplitDialog(true); }} disabled={cart.length === 0 || isProcessing}>
-                                <CreditCard className="mr-2 h-4 w-4" /> Split Bill (Gabung Bayar)
+                                <CreditCard className="mr-2 h-4 w-4" /> Split Bill (Pisah Bayar)
                             </Button>
                         </div>
                     </div>
@@ -720,7 +720,7 @@ export default function RestoKasirPage() {
             <Dialog open={showSplitDialog} onOpenChange={setShowSplitDialog}>
                 <DialogContent className="sm:max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Split Bill — Gabung Bayar</DialogTitle>
+                        <DialogTitle>Split Bill — Pisah Bayar</DialogTitle>
                         <DialogDescription>Bagi total ke beberapa metode pembayaran.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
