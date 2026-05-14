@@ -120,29 +120,62 @@ export async function POST(request: Request) {
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
+                            const isRacikan = prod.productType === "finished" && prod.trackStock === false;
                             const qty = Math.abs(item.quantity);
-                            const newStockGdg = prod.stockGdg + qty;
-                            const newStock = prod.stockToko + newStockGdg;
 
-                            await tx.storeProduct.update({
-                                where: { id: item.productId },
-                                data: {
-                                    stockGdg: newStockGdg,
-                                    stock: newStock,
-                                },
-                            });
+                            if (isRacikan) {
+                                // Racikan: restore ingredient stock instead of product stock
+                                const recipes = await tx.productRecipe.findMany({
+                                    where: { productId: prod.id, ingredientProductId: { not: null } },
+                                });
+                                for (const recipe of recipes) {
+                                    if (!recipe.ingredientProductId) continue;
+                                    const ingredient = await tx.storeProduct.findUnique({
+                                        where: { id: recipe.ingredientProductId },
+                                    });
+                                    if (!ingredient) continue;
+                                    const restoreQty = Math.ceil(Number(recipe.quantity) * qty);
+                                    const newGdg = ingredient.stockGdg + restoreQty;
+                                    const newStock = ingredient.stockToko + newGdg;
+                                    await tx.storeProduct.update({
+                                        where: { id: ingredient.id },
+                                        data: { stockGdg: newGdg, stock: newStock },
+                                    });
+                                    await tx.storeStockMovement.create({
+                                        data: {
+                                            productId: ingredient.id,
+                                            type: "in",
+                                            quantity: restoreQty,
+                                            reference: `VOID ${storeSale.saleNo}`,
+                                            notes: `Pengembalian bahan baku (void racikan)`,
+                                            operatorId: currentUserId,
+                                        },
+                                    });
+                                }
+                            } else {
+                                // Retail: restore product stock (existing behavior)
+                                const newStockGdg = prod.stockGdg + qty;
+                                const newStock = prod.stockToko + newStockGdg;
 
-                            // Insert log mutasi pengembalian stok
-                            await tx.storeStockMovement.create({
-                                data: {
-                                    productId: item.productId,
-                                    type: "in",
-                                    quantity: qty,
-                                    reference: `VOID ${storeSale.saleNo}`,
-                                    notes: `Pengembalian stok (void operator)`,
-                                    operatorId: currentUserId,
-                                },
-                            });
+                                await tx.storeProduct.update({
+                                    where: { id: item.productId },
+                                    data: {
+                                        stockGdg: newStockGdg,
+                                        stock: newStock,
+                                    },
+                                });
+
+                                await tx.storeStockMovement.create({
+                                    data: {
+                                        productId: item.productId,
+                                        type: "in",
+                                        quantity: qty,
+                                        reference: `VOID ${storeSale.saleNo}`,
+                                        notes: `Pengembalian stok (void operator)`,
+                                        operatorId: currentUserId,
+                                    },
+                                });
+                            }
                         }
                     }
 

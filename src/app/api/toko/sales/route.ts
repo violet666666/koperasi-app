@@ -256,11 +256,30 @@ export async function POST(request: Request) {
                     throw new Error(`Produk "${product.name}" bukan milik unit ${unitType}`);
                 }
 
-                // Check stock for physical products
+                // Hybrid stock check: racikan products check ingredient stock, retail checks product stock
+                const isRacikan = product.productType === "finished" && product.trackStock === false;
                 if (!product.isService) {
-                    const effectiveStock = product.stockToko + product.stockGdg;
-                    if (effectiveStock < item.quantity) {
-                        throw new Error(`Stok ${product.name} tidak mencukupi (sisa: ${effectiveStock})`);
+                    if (isRacikan) {
+                        // Check ingredient stock for racikan products
+                        const recipes = await tx.productRecipe.findMany({
+                            where: { productId: product.id, ingredientProductId: { not: null } },
+                        });
+                        for (const recipe of recipes) {
+                            const ingredient = await tx.storeProduct.findUnique({
+                                where: { id: recipe.ingredientProductId! },
+                            });
+                            if (!ingredient) continue;
+                            const needed = Math.ceil(Number(recipe.quantity) * item.quantity);
+                            const available = ingredient.stock + ingredient.stockGdg;
+                            if (available < needed) {
+                                throw new Error(`Bahan baku ${ingredient.name} tidak mencukupi untuk ${product.name} (sisa: ${available}, dibutuhkan: ${needed})`);
+                            }
+                        }
+                    } else {
+                        const effectiveStock = product.stockToko + product.stockGdg;
+                        if (effectiveStock < item.quantity) {
+                            throw new Error(`Stok ${product.name} tidak mencukupi (sisa: ${effectiveStock})`);
+                        }
                     }
                 }
 
@@ -432,46 +451,164 @@ export async function POST(request: Request) {
             const stockMovements: any[] = [];
             const batchUpdates: { id: number; newQty: number }[] = [];
 
+            // Track ingredient deductions for racikan products
+            const ingredientDeductions = new Map<number, number>(); // ingredientId -> total deduct
+            const ingredientMovements: any[] = [];
+            const ingredientBatchUpdates: { id: number; newQty: number }[] = [];
+
             for (const vi of validatedItems) {
                 const prod = productMap.get(vi.productId);
                 if (!prod || prod.isService) continue;
 
-                const stock = runningStock.get(vi.productId)!;
-                let newStockToko = stock.toko;
-                let newStockGdg = stock.gdg;
+                const isRacikan = prod.productType === "finished" && prod.trackStock === false;
 
-                if (stock.toko >= vi.quantity) {
-                    newStockToko = stock.toko - vi.quantity;
+                if (isRacikan) {
+                    // Racikan: deduct ingredient stock instead of product stock
+                    const recipes = await tx.productRecipe.findMany({
+                        where: { productId: prod.id, ingredientProductId: { not: null } },
+                    });
+
+                    // Fetch all needed ingredient batches for FIFO
+                    const ingredientIds = recipes.map(r => r.ingredientProductId!).filter(Boolean);
+                    if (ingredientIds.length > 0) {
+                        const ingBatches = await tx.stockBatch.findMany({
+                            where: { productId: { in: ingredientIds }, isActive: true, quantity: { gt: 0 }, unitType },
+                            orderBy: { receivedAt: "asc" },
+                        });
+                        const ingBatchesByProduct = new Map<number, typeof ingBatches>();
+                        for (const ib of ingBatches) {
+                            if (!ingBatchesByProduct.has(ib.productId)) ingBatchesByProduct.set(ib.productId, []);
+                            ingBatchesByProduct.get(ib.productId)!.push(ib);
+                        }
+
+                        for (const recipe of recipes) {
+                            if (!recipe.ingredientProductId) continue;
+                            const needed = Math.ceil(Number(recipe.quantity) * vi.quantity);
+
+                            // Accumulate deduction per ingredient
+                            ingredientDeductions.set(
+                                recipe.ingredientProductId,
+                                (ingredientDeductions.get(recipe.ingredientProductId) || 0) + needed
+                            );
+
+                            // FIFO batch deduction for ingredient
+                            let remaining = needed;
+                            const ingBatchesList = ingBatchesByProduct.get(recipe.ingredientProductId) || [];
+                            for (const ib of ingBatchesList) {
+                                if (remaining <= 0) break;
+                                const deduct = Math.min(ib.quantity, remaining);
+                                const newQty = ib.quantity - deduct;
+                                ingredientBatchUpdates.push({ id: ib.id, newQty });
+                                ib.quantity = newQty;
+                                remaining -= deduct;
+                            }
+                        }
+                    }
                 } else {
-                    const sisaFromToko = stock.toko;
-                    const kurangDariGdg = vi.quantity - sisaFromToko;
-                    newStockToko = 0;
-                    newStockGdg = Math.max(0, stock.gdg - kurangDariGdg);
+                    // Retail: deduct product stock (existing behavior)
+                    const stock = runningStock.get(vi.productId)!;
+                    let newStockToko = stock.toko;
+                    let newStockGdg = stock.gdg;
+
+                    if (stock.toko >= vi.quantity) {
+                        newStockToko = stock.toko - vi.quantity;
+                    } else {
+                        const sisaFromToko = stock.toko;
+                        const kurangDariGdg = vi.quantity - sisaFromToko;
+                        newStockToko = 0;
+                        newStockGdg = Math.max(0, stock.gdg - kurangDariGdg);
+                    }
+
+                    runningStock.set(vi.productId, { toko: newStockToko, gdg: newStockGdg });
+
+                    stockMovements.push({
+                        productId: vi.productId,
+                        type: "out",
+                        quantity: vi.quantity,
+                        reference: `Penjualan ${saleNo}`,
+                        notes: `Terjual (${method})`,
+                        operatorId: userId,
+                        costAtTime: vi.costPrice,
+                        reason: "sale",
+                    });
+
+                    // FIFO batch deduction — compute in-memory, apply batch update later
+                    let remainingToDeduct = vi.quantity;
+                    const batches = batchesByProduct.get(vi.productId) || [];
+                    for (const batch of batches) {
+                        if (remainingToDeduct <= 0) break;
+                        const deduct = Math.min(batch.quantity, remainingToDeduct);
+                        const newQty = batch.quantity - deduct;
+                        batchUpdates.push({ id: batch.id, newQty });
+                        batch.quantity = newQty;
+                        remainingToDeduct -= deduct;
+                    }
+                }
+            }
+
+            // Process ingredient stock deductions for racikan items
+            if (ingredientDeductions.size > 0) {
+                const ingredientIds = [...ingredientDeductions.keys()];
+                const ingredientProducts = await tx.storeProduct.findMany({
+                    where: { id: { in: ingredientIds } },
+                });
+                const ingStockMap = new Map(ingredientProducts.map(ip => [ip.id, { gdg: Number(ip.stockGdg), stock: Number(ip.stock) }]));
+
+                for (const [ingId, deductQty] of ingredientDeductions) {
+                    const ingStock = ingStockMap.get(ingId);
+                    if (!ingStock) continue;
+                    const newGdg = Math.max(0, ingStock.gdg - deductQty);
+                    const newStock = Math.max(0, ingStock.stock - deductQty);
+                    ingStockMap.set(ingId, { gdg: newGdg, stock: newStock });
+
+                    ingredientMovements.push({
+                        productId: ingId,
+                        type: "out",
+                        quantity: deductQty,
+                        reference: `Produksi ${saleNo}`,
+                        notes: `Digunakan untuk racikan`,
+                        operatorId: userId,
+                        reason: "production",
+                    });
                 }
 
-                runningStock.set(vi.productId, { toko: newStockToko, gdg: newStockGdg });
+                // Update ingredient product stocks
+                const ingStockCases = Array.from(ingStockMap.entries())
+                    .map(([id, s]) => `WHEN ${id} THEN ${s.stock}`)
+                    .join(" ");
+                const ingGdgCases = Array.from(ingStockMap.entries())
+                    .map(([id, s]) => `WHEN ${id} THEN ${s.gdg}`)
+                    .join(" ");
+                const ingTokoCases = Array.from(ingStockMap.entries())
+                    .map(([id]) => `WHEN ${id} THEN 0`)
+                    .join(" ");
+                const ingIdsStr = ingredientIds.join(",");
 
-                stockMovements.push({
-                    productId: vi.productId,
-                    type: "out",
-                    quantity: vi.quantity,
-                    reference: `Penjualan ${saleNo}`,
-                    notes: `Terjual (${method})`,
-                    operatorId: userId,
-                    costAtTime: vi.costPrice,
-                    reason: "sale",
-                });
+                await tx.$executeRawUnsafe(`
+                    UPDATE store_products
+                    SET stock = CASE id ${ingStockCases} END,
+                        stock_toko = CASE id ${ingTokoCases} END,
+                        stock_gdg = CASE id ${ingGdgCases} END
+                    WHERE id IN (${ingIdsStr})
+                `);
 
-                // FIFO batch deduction — compute in-memory, apply batch update later
-                let remainingToDeduct = vi.quantity;
-                const batches = batchesByProduct.get(vi.productId) || [];
-                for (const batch of batches) {
-                    if (remainingToDeduct <= 0) break;
-                    const deduct = Math.min(batch.quantity, remainingToDeduct);
-                    const newQty = batch.quantity - deduct;
-                    batchUpdates.push({ id: batch.id, newQty });
-                    batch.quantity = newQty;
-                    remainingToDeduct -= deduct;
+                // Update ingredient batch quantities
+                if (ingredientBatchUpdates.length > 0) {
+                    const ingQtyCases = ingredientBatchUpdates.map(b => `WHEN ${b.id} THEN ${b.newQty}`).join(" ");
+                    const ingActiveCases = ingredientBatchUpdates.map(b => `WHEN ${b.id} THEN ${b.newQty > 0}`).join(" ");
+                    const ingBatchIds = ingredientBatchUpdates.map(b => b.id).join(",");
+
+                    await tx.$executeRawUnsafe(`
+                        UPDATE stock_batches
+                        SET quantity = CASE id ${ingQtyCases} END,
+                            is_active = CASE id ${ingActiveCases} END
+                        WHERE id IN (${ingBatchIds})
+                    `);
+                }
+
+                // Insert ingredient stock movements
+                if (ingredientMovements.length > 0) {
+                    await tx.storeStockMovement.createMany({ data: ingredientMovements });
                 }
             }
 
@@ -584,7 +721,7 @@ export async function POST(request: Request) {
                 });
             }
 
-            return { sale, totalAmount: Number(sale.totalAmount), saleNo: sale.saleNo };
+            return { sale, totalAmount: Number(sale.totalAmount), saleNo: sale.saleNo, deductedIngredientIds: [...ingredientDeductions.keys()] };
         }, {
             maxWait: 15000,
             timeout: 60000,
@@ -625,6 +762,34 @@ export async function POST(request: Request) {
                                 message: `${prod.name}: sisa ${prod.stockToko} ${prod.minStock ? `(min: ${prod.minStock})` : ""}`,
                                 data: { productId: prod.id, unitType: prod.unitType },
                             });
+                        }
+                    }
+                }
+            }
+
+            // Ingredient low stock alerts for racikan products
+            const deductedIngredientIds = (result as any).deductedIngredientIds as number[] | undefined;
+            if (deductedIngredientIds && deductedIngredientIds.length > 0) {
+                const ingredients = await prisma.storeProduct.findMany({
+                    where: { id: { in: deductedIngredientIds }, minStock: { gt: 0 }, productType: "ingredient" },
+                    select: { id: true, name: true, stockGdg: true, minStock: true, unit: true, unitType: true },
+                });
+                const lowStockIngredients = ingredients.filter((i) => i.stockGdg <= i.minStock);
+                if (lowStockIngredients.length > 0) {
+                    const uniqueUnits = [...new Set(lowStockIngredients.map((i) => i.unitType))];
+                    for (const ingUnitType of uniqueUnits) {
+                        const adminIds = await getNotificationRecipients(ingUnitType);
+                        if (adminIds.length > 0) {
+                            const unitIngs = lowStockIngredients.filter((i) => i.unitType === ingUnitType);
+                            for (const ing of unitIngs) {
+                                await createNotification({
+                                    userId: adminIds,
+                                    type: "low_stock",
+                                    title: "Bahan Baku Menipis",
+                                    message: `Bahan Baku ${ing.name}: sisa ${ing.stockGdg} ${ing.unit} (min: ${ing.minStock})`,
+                                    data: { productId: ing.id, unitType: ing.unitType, isIngredient: true },
+                                });
+                            }
                         }
                     }
                 }

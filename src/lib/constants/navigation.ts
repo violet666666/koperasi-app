@@ -48,6 +48,7 @@ import {
     Monitor,
     Grid3x3,
     Settings2,
+    FlaskConical,
 } from "lucide-react";
 
 export interface NavItem {
@@ -611,6 +612,10 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Bahan Baku", href: "/resto/bahan-baku", icon: FlaskConical,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Manajemen Batch", href: "/resto/batch", icon: Layers,
                 permission: "manage_unit_transactions",
             },
@@ -1104,6 +1109,10 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/cafe-lsp/persediaan", icon: Boxes,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Bahan Baku", href: "/cafe-lsp/bahan-baku", icon: FlaskConical,
                 permission: "manage_unit_transactions",
             },
             {

@@ -14,6 +14,7 @@ export async function GET(request: Request) {
         const search = searchParams.get("search") || "";
         const unitType = searchParams.get("unitType") || null;
         const category = searchParams.get("category") || null;
+        const productType = searchParams.get("productType") || "finished";
         const pageParam = searchParams.get("page");
         const perPageParam = searchParams.get("perPage");
         const isPaginated = !!pageParam || !!perPageParam;
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
         const where = {
             deletedAt: null,
             isActive: true,
+            productType,
             ...(unitType && { unitType: unitType }),
             ...(category && category !== "all" && { category }),
             ...(search && {

@@ -690,6 +690,7 @@ export default function PersediaanPage() {
                                     { value: "damaged", label: "Rusak / Hilang", icon: "🗑️" },
                                     { value: "expired", label: "Kadaluarsa", icon: "📅" },
                                     { value: "internal_use", label: "Pemakaian Internal", icon: "🏢" },
+                                    { value: "waste", label: "Waste / Spill", icon: "☕" },
                                     { value: "other", label: "Lainnya", icon: "📝" },
                                 ].map((r) => (
                                     <Button

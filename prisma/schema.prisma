@@ -826,16 +826,19 @@ model StoreProduct {
   stockToko Int       @default(0) @map("stock_toko")
   minStock  Int       @default(5) @map("min_stock")
   unit      String    @default("pcs")
-  isService Boolean   @default(false) @map("is_service") // True for haircuts, generic washes, etc.
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  isService   Boolean   @default(false) @map("is_service") // True for haircuts, generic washes, etc.
+  productType String    @default("finished") @map("product_type") // "finished" | "ingredient"
+  trackStock  Boolean   @default(true) @map("track_stock") // false = racikan (deduct ingredients instead)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 
-  saleItems      StoreSaleItem[]
-  stockMovements StoreStockMovement[]
-  stockBatches   StockBatch[]
-  recipes        ProductRecipe[]
+  saleItems         StoreSaleItem[]
+  stockMovements    StoreStockMovement[]
+  stockBatches      StockBatch[]
+  recipes           ProductRecipe[]
+  recipeIngredients ProductRecipe[] @relation("IngredientProduct")
 
   @@index([unitType])
   @@index([unitType, isActive])
@@ -855,8 +858,11 @@ model ProductRecipe {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  product StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product             StoreProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientProductId Int?          @map("ingredient_product_id")
+  ingredientProduct   StoreProduct? @relation("IngredientProduct", fields: [ingredientProductId], references: [id])
 
+  @@index([ingredientProductId])
   @@map("product_recipes")
 }
 

@@ -406,6 +406,7 @@ function reasonLabel(reason: string): string {
         damaged: "Rusak / Hilang",
         expired: "Kadaluarsa",
         internal_use: "Pemakaian Internal",
+        waste: "Waste / Spill",
         other: "Lainnya",
     };
     return labels[reason] || reason;
