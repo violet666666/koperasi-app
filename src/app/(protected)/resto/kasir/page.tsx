@@ -97,6 +97,7 @@ export default function RestoKasirPage() {
     const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway, setFloorPlanTables } = useRestoStore();
     const activeTable = tables.find(t => t.id === activeTableId);
     const { user } = useAuth();
+    const sessionUnitType = user?.unitType || "resto_cafe";
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -162,7 +163,7 @@ export default function RestoKasirPage() {
         let cancelled = false;
         const fetchQris = async () => {
             try {
-                const res = await fetch("/api/unit-layanan/qris?unitType=resto");
+                const res = await fetch(`/api/unit-layanan/qris?unitType=${sessionUnitType}`);
                 if (!res.ok) return;
                 const json = await res.json();
                 if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
@@ -176,7 +177,7 @@ export default function RestoKasirPage() {
     React.useEffect(() => {
         async function checkShift() {
             try {
-                const res = await fetch("/api/toko/shifts?status=open&unitType=resto");
+                const res = await fetch(`/api/toko/shifts?status=open&unitType=${sessionUnitType}`);
                 const json = await res.json();
                 const shifts = json.data || [];
                 setShiftOpen(shifts.length > 0);
@@ -219,7 +220,7 @@ export default function RestoKasirPage() {
             try {
                 const res = await fetch("/api/unit-transactions/validate", {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: "resto" }),
+                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: sessionUnitType }),
                 });
                 setLimitInfo(await res.json());
             } catch { toast.error("Gagal mengecek sisa limit plafon anggota."); } finally { setIsValidatingLimit(false); }
@@ -248,7 +249,7 @@ export default function RestoKasirPage() {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                 customerName: activeTable.customerName || (method === "salary_cut" ? selectedMember?.name : "Tamu"),
                 paymentMethod: method,
-                unitType: "resto",
+                unitType: sessionUnitType,
                 memberId: selectedMember?.id || undefined,
                 shiftId: activeShiftId || undefined,
                 metadata: {
@@ -284,7 +285,7 @@ export default function RestoKasirPage() {
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
                 kasir: user?.name || "Kasir Resto",
-                unitType: "resto",
+                unitType: sessionUnitType,
                 items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
@@ -789,7 +790,7 @@ export default function RestoKasirPage() {
                                         body: JSON.stringify({
                                             items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
                                             payments: splitPayments.map(p => ({ method: p.method, amount: p.amount })),
-                                            unitType: "resto",
+                                            unitType: sessionUnitType,
                                             customerName: activeTable.customerName || "Tamu",
                                             tableNo: activeTable.label,
                                             shiftId: activeShiftId || undefined,
