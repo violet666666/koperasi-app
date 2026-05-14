@@ -58,9 +58,13 @@ export async function POST(request: Request) {
         }
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
-        // Prefix TK-, POS-, TS- bisa berasal dari StoreSale (Toko POS Tunai) ATAU UnitTransaction (Potong Gaji Toko)
-        // Kita coba cari di StoreSale dulu; jika tidak ada, fall-through ke UnitTransaction di bawah
-        if (String(transactionNo).startsWith("POS-") || String(transactionNo).startsWith("TK-") || String(transactionNo).startsWith("TS-") ) {
+        // StoreSale uses unit-specific prefixes: TK (Toko), RS (Resto), CF (Cafe LSP), PS (PlayStation),
+        // CL (Coffe Latar), RC (Resto Cafe). Legacy: POS-, TS-.
+        // Also UnitTransaction can use TK-/TS- prefixes for Potong Gaji.
+        // We try StoreSale first; if not found, fall-through to UnitTransaction below.
+        const STORE_SALE_PREFIXES = ["POS-", "TK-", "TS-", "RS-", "PS-", "CF-", "CL-", "RC-"];
+        const isStoreSaleCandidate = STORE_SALE_PREFIXES.some(p => String(transactionNo).startsWith(p));
+        if (isStoreSaleCandidate) {
             const storeSale = await prisma.storeSale.findUnique({
                 where: { saleNo: String(transactionNo) },
                 include: { member: true, createdBy: true, items: true },

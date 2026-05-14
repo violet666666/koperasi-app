@@ -77,11 +77,17 @@ export default function RiwayatTransaksiUnitPage() {
     const _roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const isOperator = _roleName === "operator" || user?.permissions?.includes("manage_all");
 
+    // Normalize dual unitType: resto_cafe/coffe_latar admins see "resto" transactions
+    const normalizeUnitType = (ut: string | null | undefined) => {
+        if (ut === "resto_cafe" || ut === "coffe_latar") return "resto";
+        return ut;
+    };
+
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(25);
     const [dateRange, setDateRange] = React.useState<DateRange>({ start: null, end: null, mode: "all", label: "Semua Data" });
     // Priority: URL param > auth unitType > "all"
-    const [filterUnit, setFilterUnit] = React.useState<string>(urlUnitType || userUnitType || "all");
+    const [filterUnit, setFilterUnit] = React.useState<string>(normalizeUnitType(urlUnitType) || normalizeUnitType(userUnitType) || "all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
 
     const queryClient = useQueryClient();
