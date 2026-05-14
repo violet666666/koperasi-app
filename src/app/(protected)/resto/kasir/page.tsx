@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
+import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -400,12 +400,17 @@ export default function RestoKasirPage() {
                 <div className="flex items-center gap-3 w-1/3 relative">
                     <div className="relative flex-1">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input 
+                        <Input
                             placeholder="Cari nama / NRP anggota..."
-                            className="pl-9"
+                            className={`pl-9 ${
+                                selectedMember
+                                    ? "border-emerald-500 bg-emerald-50/50 pr-8"
+                                    : ""
+                            }`}
                             value={activeTable.customerName}
                             onChange={e => {
                                 const val = e.target.value;
+                                if (selectedMember) { setSelectedMember(null); setLimitInfo(null); }
                                 setCustomer(activeTable.id, val);
                                 // Debounced member search
                                 if (val.length >= 2) {
@@ -422,27 +427,51 @@ export default function RestoKasirPage() {
                                 }
                             }}
                             onFocus={() => {
-                                if (activeTable.customerName.length >= 2) {
-                                    // Re-trigger search on focus
+                                if (activeTable.customerName.length >= 2 && !selectedMember) {
                                     fetch(`/api/members/lookup?q=${encodeURIComponent(activeTable.customerName)}`)
                                         .then(r => r.json()).then(j => setMemberResults(j.data || [])).catch(() => {});
                                 }
                             }}
+                            autoComplete="off"
                         />
+                        {/* Clear / selected indicator */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {selectedMember && (
+                                <button type="button"
+                                    onClick={() => {
+                                        setSelectedMember(null); setLimitInfo(null);
+                                        setCustomer(activeTable.id, "");
+                                        setMemberResults([]);
+                                    }}
+                                    className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-600" title="Hapus pilihan">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
                         {/* Member Search Dropdown */}
-                        {memberResults.length > 0 && activeTable.customerName.length >= 2 && (
+                        {memberResults.length > 0 && activeTable.customerName.length >= 2 && !selectedMember && (
                             <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                                <div className="px-3 py-1.5 bg-muted/50 border-b">
+                                    <p className="text-[10px] text-muted-foreground font-medium">
+                                        {memberResults.length} anggota ditemukan
+                                    </p>
+                                </div>
                                 {memberResults.map(m => (
                                     <button key={m.id} type="button"
-                                        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 border-b last:border-0 transition-colors"
+                                        className="w-full flex items-center gap-3 text-left px-3 py-2.5 hover:bg-sky-50 border-b last:border-0 transition-colors"
                                         onClick={() => {
                                             setCustomer(activeTable.id, m.name);
                                             setSelectedMember(m);
                                             setMemberResults([]);
                                         }}
                                     >
-                                        <p className="font-semibold text-sm text-slate-800">{m.name}</p>
-                                        <p className="text-[11px] text-slate-500">NRP: {m.nrp || "-"} • No: {m.memberNo}</p>
+                                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">
+                                            {m.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-sm text-slate-800 truncate">{m.name}</p>
+                                            <p className="text-[10px] text-slate-500">NRP: {m.nrp || "-"} • No: {m.memberNo}</p>
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -585,7 +614,10 @@ export default function RestoKasirPage() {
                             <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
-                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowCreditDialog(true); }} disabled={cart.length === 0 || isProcessing}>
+                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => {
+                                if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+                                if (selectedMember) { processPayment("salary_cut"); } else { setShowCreditDialog(true); }
+                            }} disabled={cart.length === 0 || isProcessing}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
                             <Button variant="outline" className="h-10 col-span-2 border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setSplitPayments([{ method: "cash", amount: 0 }, { method: "qris", amount: 0 }]); setShowSplitDialog(true); }} disabled={cart.length === 0 || isProcessing}>
