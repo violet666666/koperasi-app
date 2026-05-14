@@ -160,8 +160,9 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId } = body;
+        const { items, customerName, paymentMethod, cashReceived, memberId, unitType: reqUnitType, metadata, shiftId: reqShiftId, cashierIdentityId, shiftUnitType } = body;
         const unitType = reqUnitType || "toko";
+        const shiftUnit = shiftUnitType || unitType;
         const salePrefixMap: Record<string, string> = { toko: "TK", playstation: "PS", cafe_lsp: "CF", resto_cafe: "RC", resto: "RS", coffe_latar: "CL" };
         const unitPrefix = salePrefixMap[unitType] || "TK";
 
@@ -221,7 +222,7 @@ export async function POST(request: Request) {
             let shiftId: number | null = reqShiftId ? Number(reqShiftId) : null;
             if (!shiftId) {
                 const openShift = await tx.cashierShift.findFirst({
-                    where: { userId, status: "open", unitType },
+                    where: { userId, status: "open", unitType: shiftUnit },
                 });
                 shiftId = openShift?.id || null;
             } else {
@@ -230,7 +231,7 @@ export async function POST(request: Request) {
                 if (!shift || shift.status !== "open") {
                     throw new Error("Shift tidak valid atau sudah ditutup");
                 }
-                if (shift.unitType !== unitType) {
+                if (shift.unitType !== shiftUnit) {
                     throw new Error("Shift tidak sesuai dengan unit");
                 }
             }

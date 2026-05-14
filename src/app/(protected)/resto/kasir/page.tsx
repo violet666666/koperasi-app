@@ -249,9 +249,10 @@ export default function RestoKasirPage() {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                 customerName: activeTable.customerName || (method === "salary_cut" ? selectedMember?.name : "Tamu"),
                 paymentMethod: method,
-                unitType: sessionUnitType,
+                unitType: "resto",
                 memberId: selectedMember?.id || undefined,
                 shiftId: activeShiftId || undefined,
+                shiftUnitType: sessionUnitType,
                 metadata: {
                     tableNo: activeTable.label,
                     orderType: activeTable.type,
@@ -790,7 +791,8 @@ export default function RestoKasirPage() {
                                         body: JSON.stringify({
                                             items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
                                             payments: splitPayments.map(p => ({ method: p.method, amount: p.amount })),
-                                            unitType: sessionUnitType,
+                                            unitType: "resto",
+                                            shiftUnitType: sessionUnitType,
                                             customerName: activeTable.customerName || "Tamu",
                                             tableNo: activeTable.label,
                                             shiftId: activeShiftId || undefined,
