@@ -52,7 +52,10 @@ export default function TokoProdukPage() {
     // Dynamic unit type for API calls — use actual unitType instead of hardcoding
     const productUnitType = isResto ? "resto" : unitType;
     const isKasir = userRole === "kasir";
-    const produkBaseRoute = unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk";
+    const produkBaseRoute = unitType === "cafe_lsp" ? "/cafe-lsp/produk"
+        : ["resto_cafe", "resto", "coffe_latar"].includes(unitType) ? "/resto/produk"
+        : unitType === "playstation" ? "/play-station/pengaturan"
+        : "/toko/produk";
 
     // Dynamic labels
     const UNIT_PRODUCT_LABELS: Record<string, { title: string; desc: string; itemName: string }> = {

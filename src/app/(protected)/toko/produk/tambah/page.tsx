@@ -168,7 +168,12 @@ export default function TambahProdukPage() {
             } else {
                 toast.success("Produk berhasil ditambahkan!");
             }
-            router.push(unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk");
+            router.push(
+                unitType === "cafe_lsp" ? "/cafe-lsp/produk"
+                : ["resto_cafe", "resto", "coffe_latar"].includes(unitType) ? "/resto/produk"
+                : unitType === "playstation" ? "/play-station/pengaturan"
+                : "/toko/produk"
+            );
         } catch (error) {
             console.error("Submit error:", error);
             toast.error("Gagal menambahkan produk. Periksa koneksi internet Anda.");
@@ -182,7 +187,12 @@ export default function TambahProdukPage() {
             <PageHeader
                 title={isResto ? "Tambah Menu" : `Tambah ${unitType === "toko" ? "Produk" : "Layanan/Produk"}`}
                 description={isResto ? "Tambah menu baru ke daftar menu Resto" : `Tambah item baru untuk unit ${unitType.replace(/_/g, " ")}`}
-                backHref={unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk"}
+                backHref={
+                    unitType === "cafe_lsp" ? "/cafe-lsp/produk"
+                    : ["resto_cafe", "resto", "coffe_latar"].includes(unitType) ? "/resto/produk"
+                    : unitType === "playstation" ? "/play-station/pengaturan"
+                    : "/toko/produk"
+                }
             />
 
             <form onSubmit={handleSubmit}>
@@ -366,7 +376,12 @@ export default function TambahProdukPage() {
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Simpan Produk
                             </Button>
-                            <Button type="button" variant="outline" onClick={() => router.push(unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk")}>
+                            <Button type="button" variant="outline" onClick={() => router.push(
+                                unitType === "cafe_lsp" ? "/cafe-lsp/produk"
+                                : ["resto_cafe", "resto", "coffe_latar"].includes(unitType) ? "/resto/produk"
+                                : unitType === "playstation" ? "/play-station/pengaturan"
+                                : "/toko/produk"
+                            )}>
                                 Batal
                             </Button>
                         </div>
