@@ -91,7 +91,9 @@
       "mcp__plugin_playwright_playwright__browser_wait_for",
       "Bash(timeout 60)",
       "Bash(Get-ChildItem -Path \"e2e\" -Filter \"*.spec.ts\")",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(mkdir -p \"C:/Users/Acer/Downloads/koperasi-app/src/app/\\(protected\\)/cafe-lsp/produk/[id]\")",
+      "Bash(mkdir -p \"C:/Users/Acer/Downloads/koperasi-app/src/app/\\(protected\\)/resto/produk/[id]\")"
     ]
   },
   "enabledPlugins": {

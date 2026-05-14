@@ -23,7 +23,7 @@ import {
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
-    Star,
+    Star, ImagePlus, Camera,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -40,6 +40,7 @@ interface Product {
     unit: string;
     minStock: number;
     isActive?: boolean;
+    imageUrl?: string | null;
 }
 
 export default function TokoProdukPage() {
@@ -117,6 +118,15 @@ export default function TokoProdukPage() {
     const [recipeTotalCost, setRecipeTotalCost] = React.useState(0);
     const [isRecipeSaving, setIsRecipeSaving] = React.useState(false);
     const [isRecipeLoading, setIsRecipeLoading] = React.useState(false);
+
+    // Image edit state
+    const [showImageDialog, setShowImageDialog] = React.useState(false);
+    const [imageProductId, setImageProductId] = React.useState<number | null>(null);
+    const [imageProductName, setImageProductName] = React.useState("");
+    const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+    const [imageFile, setImageFile] = React.useState<string>("");
+    const [isImageSaving, setIsImageSaving] = React.useState(false);
+    const imageFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Quick Keys state
     const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
@@ -667,6 +677,56 @@ export default function TokoProdukPage() {
         }
     };
 
+    // ── Image Edit ──
+    const openImageDialog = (product: Product) => {
+        setImageProductId(product.id);
+        setImageProductName(product.name);
+        setImagePreview(product.imageUrl || null);
+        setImageFile("");
+        setShowImageDialog(true);
+    };
+
+    const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 1 * 1024 * 1024) { toast.error("Ukuran gambar maksimal 1MB"); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = reader.result as string;
+            setImageFile(base64);
+            setImagePreview(base64);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeImagePreview = () => {
+        setImageFile("");
+        setImagePreview(null);
+        if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+    };
+
+    const saveImage = async () => {
+        if (!imageProductId) return;
+        setIsImageSaving(true);
+        try {
+            const imageUrlValue = imageFile === "REMOVE" ? null : (imageFile || null);
+            const res = await fetch(`/api/toko/products/${imageProductId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imageUrl: imageUrlValue }),
+            });
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message || "Gagal menyimpan gambar"); return; }
+            toast.success(imageUrlValue ? `Gambar "${imageProductName}" berhasil diperbarui` : `Gambar "${imageProductName}" berhasil dihapus`);
+            setShowImageDialog(false);
+            await fetchProducts();
+        } catch {
+            toast.error("Gagal menyimpan gambar");
+        } finally {
+            setIsImageSaving(false);
+        }
+    };
+
     // ── Render ──
     return (
         <div className="space-y-6">
@@ -959,6 +1019,9 @@ export default function TokoProdukPage() {
                                                                     <BookOpen className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             )}
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openImageDialog(p)} title="Edit Gambar">
+                                                                <Camera className="h-3.5 w-3.5" />
+                                                            </Button>
                                                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)} title="Edit Produk">
                                                                 <Pencil className="h-3.5 w-3.5" />
                                                             </Button>
@@ -1304,6 +1367,64 @@ export default function TokoProdukPage() {
                         <Button onClick={saveRecipe} disabled={isRecipeSaving}>
                             {isRecipeSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                             Simpan Resep
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Image Edit Dialog */}
+            <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Camera className="h-5 w-5 text-blue-500" />
+                            Gambar Menu
+                        </DialogTitle>
+                        <DialogDescription>
+                            {imageProductName}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <input
+                            ref={imageFileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            className="hidden"
+                            onChange={handleImageFileSelect}
+                        />
+                        {imagePreview ? (
+                            <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-blue-200 shadow-sm">
+                                <img src={imagePreview} alt={imageProductName} className="w-full h-full object-cover" />
+                                <button type="button" onClick={removeImagePreview}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => imageFileInputRef.current?.click()}
+                                className="w-full h-48 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors flex flex-col items-center justify-center text-slate-400 hover:text-blue-600">
+                                <ImagePlus className="h-10 w-10 mb-2" />
+                                <span className="text-sm font-medium">Upload Gambar</span>
+                                <span className="text-xs mt-1">PNG, JPG, WebP (maks 1MB)</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setShowImageDialog(false)}>Batal</Button>
+                        {imagePreview && imageFile === "" && (
+                            <Button variant="destructive" onClick={async () => {
+                                setImageFile("REMOVE");
+                                setImagePreview(null);
+                                if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+                            }} disabled={isImageSaving}>
+                                Hapus Gambar
+                            </Button>
+                        )}
+                        <Button onClick={saveImage} disabled={isImageSaving || (!imageFile && !imagePreview)}>
+                            {isImageSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {imageFile === "REMOVE" ? "Hapus Gambar" : imageFile && imageFile !== "REMOVE" ? "Simpan Gambar" : "Simpan"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

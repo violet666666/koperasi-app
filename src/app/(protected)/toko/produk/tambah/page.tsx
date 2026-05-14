@@ -168,7 +168,7 @@ export default function TambahProdukPage() {
             } else {
                 toast.success("Produk berhasil ditambahkan!");
             }
-            router.push("/toko/produk");
+            router.push(unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk");
         } catch (error) {
             console.error("Submit error:", error);
             toast.error("Gagal menambahkan produk. Periksa koneksi internet Anda.");
@@ -366,7 +366,7 @@ export default function TambahProdukPage() {
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Simpan Produk
                             </Button>
-                            <Button type="button" variant="outline" onClick={() => router.push("/toko/produk")}>
+                            <Button type="button" variant="outline" onClick={() => router.push(unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk")}>
                                 Batal
                             </Button>
                         </div>
