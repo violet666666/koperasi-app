@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
 
 // GET /api/members - List all members
 export async function GET(request: Request) {

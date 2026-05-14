@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { updateMemberSchema } from "@/lib/validations";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
 
 interface Params {
     params: Promise<{ id: string }>;

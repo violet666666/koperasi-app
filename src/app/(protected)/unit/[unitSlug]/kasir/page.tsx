@@ -86,6 +86,11 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
             setIsSearchingCustomer(true);
             try {
                 const res = await fetch(`/api/members?search=${encodeURIComponent(customerName)}&limit=8`);
+                if (!res.ok) {
+                    setCustomerSearchResults([]);
+                    setShowCustomerDropdown(false);
+                    return;
+                }
                 const json = await res.json();
                 const results = json.data || [];
                 setCustomerSearchResults(results);
