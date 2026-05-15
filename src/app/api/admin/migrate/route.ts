@@ -68,6 +68,40 @@ export async function POST(request: Request) {
     }
 }
 
+// GET /api/admin/migrate — Diagnostic: check product counts
+export async function GET(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id || !["admin", "super_admin"].includes(session.user.role as string)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
+        const [total, byType, byActive, byDeleted] = await Promise.all([
+            prisma.$queryRaw<{ count: bigint }[]>`SELECT COUNT(*)::int as count FROM store_products`,
+            prisma.$queryRaw<{ unit_type: string; count: bigint }[]>`
+                SELECT unit_type, COUNT(*)::int as count FROM store_products GROUP BY unit_type
+            `,
+            prisma.$queryRaw<{ is_active: boolean; count: bigint }[]>`
+                SELECT is_active, COUNT(*)::int as count FROM store_products GROUP BY is_active
+            `,
+            prisma.$queryRaw<{ deleted: string; count: bigint }[]>`
+                SELECT CASE WHEN deleted_at IS NULL THEN 'active' ELSE 'deleted' END as deleted, COUNT(*)::int as count
+                FROM store_products GROUP BY CASE WHEN deleted_at IS NULL THEN 'active' ELSE 'deleted' END
+            `,
+        ]);
+
+        return NextResponse.json({
+            totalProducts: Number(total[0].count),
+            byUnitType: Object.fromEntries(byType.map(r => [r.unit_type, Number(r.count)])),
+            byActive: Object.fromEntries(byActive.map(r => [String(r.is_active), Number(r.count)])),
+            byDeleted: Object.fromEntries(byDeleted.map(r => [r.deleted, Number(r.count)])),
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
+}
+
 async function columnExists(table: string, column: string): Promise<boolean> {
     const result = await prisma.$queryRaw<{ exists: boolean }[]>`
         SELECT EXISTS (
