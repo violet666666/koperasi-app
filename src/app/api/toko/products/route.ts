@@ -21,15 +21,13 @@ export async function GET(request: Request) {
         const page = Math.max(1, parseInt(pageParam || "1"));
         const perPage = Math.min(200, Math.max(1, parseInt(perPageParam || "50")));
 
-        // When no explicit filter, exclude "ingredient" but include "finished" and NULL (pre-migration rows)
-        const productTypeCondition = productTypeParam
-            ? { productType: productTypeParam }
-            : { OR: [{ productType: "finished" }, { productType: null }] };
+        // Default to "finished" — migration set all existing rows to 'finished'
+        const productType = productTypeParam || "finished";
 
         const where = {
             deletedAt: null,
             isActive: true,
-            ...productTypeCondition,
+            productType,
             ...(unitType && { unitType: unitType }),
             ...(category && category !== "all" && { category }),
             ...(search && {
@@ -68,8 +66,7 @@ export async function GET(request: Request) {
         const filterUnitType = unitType || null;
         const filterCategory = (category && category !== "all") ? category : null;
         const filterSearch = search || null;
-        // Stats: exclude ingredients by default, include when explicitly filtering
-        const filterProductType = productTypeParam || null;
+        const filterProductType = productType;
         const agStats = isPaginated ? await prisma.$queryRaw<{
             total_products: number; total_stock: number; total_value: number; out_of_stock: number; low_stock: number;
         }[]>`
@@ -81,8 +78,7 @@ export async function GET(request: Request) {
                 SUM(CASE WHEN stock_gdg + stock_toko > 0 AND stock_gdg + stock_toko <= min_stock THEN 1 ELSE 0 END)::int as low_stock
             FROM store_products
             WHERE deleted_at IS NULL AND is_active = true
-              AND (${filterProductType}::text IS NOT NULL AND product_type = ${filterProductType}
-                   OR ${filterProductType}::text IS NULL AND (product_type = 'finished' OR product_type IS NULL))
+              AND product_type = ${filterProductType}
               AND (${filterUnitType}::text IS NULL OR unit_type = ${filterUnitType})
               AND (${filterCategory}::text IS NULL OR category = ${filterCategory})
               AND (${filterSearch}::text IS NULL OR name ILIKE '%' || ${filterSearch} || '%' OR sku ILIKE '%' || ${filterSearch} || '%')
