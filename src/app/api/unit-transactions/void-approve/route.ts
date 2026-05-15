@@ -141,7 +141,7 @@ export async function POST(request: Request) {
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
-                            const isRacikan = prod.productType === "finished" && prod.trackStock === false;
+                            const isRacikan = prod.trackStock === false;
                             const qty = Math.abs(item.quantity);
 
                             if (isRacikan) {

@@ -257,7 +257,7 @@ export async function POST(request: Request) {
                 }
 
                 // Hybrid stock check: racikan products check ingredient stock, retail checks product stock
-                const isRacikan = product.productType === "finished" && product.trackStock === false;
+                const isRacikan = product.trackStock === false;
                 if (!product.isService) {
                     if (isRacikan) {
                         // Check ingredient stock for racikan products
@@ -460,7 +460,7 @@ export async function POST(request: Request) {
                 const prod = productMap.get(vi.productId);
                 if (!prod || prod.isService) continue;
 
-                const isRacikan = prod.productType === "finished" && prod.trackStock === false;
+                const isRacikan = prod.trackStock === false;
 
                 if (isRacikan) {
                     // Racikan: deduct ingredient stock instead of product stock

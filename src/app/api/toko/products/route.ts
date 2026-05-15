@@ -14,17 +14,22 @@ export async function GET(request: Request) {
         const search = searchParams.get("search") || "";
         const unitType = searchParams.get("unitType") || null;
         const category = searchParams.get("category") || null;
-        const productType = searchParams.get("productType") || "finished";
+        const productTypeParam = searchParams.get("productType");
         const pageParam = searchParams.get("page");
         const perPageParam = searchParams.get("perPage");
         const isPaginated = !!pageParam || !!perPageParam;
         const page = Math.max(1, parseInt(pageParam || "1"));
         const perPage = Math.min(200, Math.max(1, parseInt(perPageParam || "50")));
 
+        // When no explicit filter, include both "finished" and NULL (pre-migration rows)
+        const productTypeFilter = productTypeParam
+            ? productTypeParam
+            : { in: ["finished", null] };
+
         const where = {
             deletedAt: null,
             isActive: true,
-            productType,
+            productType: productTypeFilter,
             ...(unitType && { unitType: unitType }),
             ...(category && category !== "all" && { category }),
             ...(search && {
@@ -63,6 +68,8 @@ export async function GET(request: Request) {
         const filterUnitType = unitType || null;
         const filterCategory = (category && category !== "all") ? category : null;
         const filterSearch = search || null;
+        // Match the Prisma productType filter: include NULL rows when no explicit filter
+        const filterProductType = productTypeParam || null;
         const agStats = isPaginated ? await prisma.$queryRaw<{
             total_products: number; total_stock: number; total_value: number; out_of_stock: number; low_stock: number;
         }[]>`
@@ -74,6 +81,7 @@ export async function GET(request: Request) {
                 SUM(CASE WHEN stock_gdg + stock_toko > 0 AND stock_gdg + stock_toko <= min_stock THEN 1 ELSE 0 END)::int as low_stock
             FROM store_products
             WHERE deleted_at IS NULL AND is_active = true
+              AND (${filterProductType}::text IS NULL OR product_type = ${filterProductType} OR (${filterProductType}::text IS NULL AND product_type IS NULL))
               AND (${filterUnitType}::text IS NULL OR unit_type = ${filterUnitType})
               AND (${filterCategory}::text IS NULL OR category = ${filterCategory})
               AND (${filterSearch}::text IS NULL OR name ILIKE '%' || ${filterSearch} || '%' OR sku ILIKE '%' || ${filterSearch} || '%')
