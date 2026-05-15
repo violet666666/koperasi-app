@@ -63,7 +63,8 @@ export default function TokoBahanBakuPage() {
             const res = await fetch(`/api/toko/products?${params}`);
             if (res.ok) {
                 const data = await res.json();
-                setIngredients(data.products || data.data || []);
+                const list = data.data?.products || data.products || data.data || [];
+                setIngredients(Array.isArray(list) ? list : []);
             }
         } catch { /* ignore */ } finally {
             setLoading(false);
@@ -80,7 +81,7 @@ export default function TokoBahanBakuPage() {
                 const res = await fetch(`/api/toko/products?${params}`);
                 if (!res.ok) return;
                 const data = await res.json();
-                const products = data.products || data.data || [];
+                const products = data.data?.products || data.products || data.data || [];
                 const racikanProducts = products.filter((p: any) => p.trackStock === false);
                 const estimates: { productName: string; cups: number; limitIngredient: string }[] = [];
 

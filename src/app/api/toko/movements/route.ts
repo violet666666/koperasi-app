@@ -79,6 +79,7 @@ export async function GET(request: Request) {
             try {
                 const sales = await prisma.storeSale.findMany({
                     where: {
+                        unitType,
                         ...(productId ? { items: { some: { productId: parseInt(productId) } } } : {}),
                     },
                     include: {

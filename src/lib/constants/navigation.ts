@@ -49,6 +49,7 @@ import {
     Grid3x3,
     Settings2,
     FlaskConical,
+    ClipboardCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -620,6 +621,10 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Opname Stok", href: "/resto/opname", icon: ClipboardCheck,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Kitchen Display", href: "/resto/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
@@ -1117,6 +1122,10 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Manajemen Batch", href: "/cafe-lsp/batch", icon: Layers,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Opname Stok", href: "/cafe-lsp/opname", icon: ClipboardCheck,
                 permission: "manage_unit_transactions",
             },
             {
