@@ -197,20 +197,15 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
     },
 
     {
-        title: "TOKO",
-        roles: ["operator", "admin"],
+        title: "MANAJEMEN UNIT",
+        roles: ["operator"],
         items: [
             {
-                title: "Toko PRIMKOPPOL", href: "/toko", icon: ShoppingBag,
-                permission: "manage_toko",
+                title: "Manajemen Unit", href: "/manajemen-unit", icon: Layers,
+                permission: "manage_all",
                 children: [
-                    { title: "Produk", href: "/toko/produk" },
-                    { title: "Manajemen Harga", href: "/toko/manajemen-harga" },
-                    { title: "Kasir / POS", href: "/toko/kasir" },
-                    { title: "Manajemen Kasir", href: "/toko/kasir-manajemen" },
-                    { title: "Shift Kasir", href: "/toko/shift" },
-                    { title: "Persediaan", href: "/toko/persediaan" },
-                    { title: "Stock Tracking", href: "/toko/stock-tracking" },
+                    { title: "Dashboard Unit", href: "/manajemen-unit" },
+                    { title: "Pengaturan Unit", href: "/manajemen-unit/pengaturan" },
                 ],
             },
         ],

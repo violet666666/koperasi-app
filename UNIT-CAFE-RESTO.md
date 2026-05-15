@@ -437,6 +437,19 @@ Value: JSON blob
 
 ---
 
+## Mei 2026 — Fix: Stock Hilang Pasca Hybrid Inventory Migration
+
+**Masalah:** Setelah deploy hybrid inventory (Opsi 3), data stock Resto tidak muncul di kasir.
+
+**Root cause:** Kolom `product_type` dan `track_stock` belum ada di NeonDB produksi. API gagal dengan error "column does not exist".
+
+**Fix:** Migration endpoint `POST /api/admin/migrate` menjalankan ALTER TABLE untuk menambah kolom. Semua 2 produk Resto kembali terlihat.
+
+**Status saat ini:**
+- Hybrid inventory schema: DEPLOYED
+- Bahan baku Resto: BELUM di-seed di produksi
+- Kasir: BERFUNGSI normal
+
 ### Changelog — 26 April 2026
 - **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
 - **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi

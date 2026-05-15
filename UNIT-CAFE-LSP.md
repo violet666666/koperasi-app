@@ -320,6 +320,22 @@ Coffee shop modifiers sangat spesifik dan berbeda dari Resto:
 
 ---
 
+### Changelog — 15 Mei 2026 (Fix: Stock Hilang Pasca Hybrid Inventory Migration)
+
+**Masalah:** Setelah deploy hybrid inventory (Opsi 3), semua data stock Cafe LSP hilang dari kasir — 48 produk tidak muncul.
+
+**Root cause:** Kolom `product_type` dan `track_stock` belum ada di NeonDB produksi. API memfilter berdasarkan kolom yang tidak ada → error "column does not exist".
+
+**Fix:** Migration endpoint `POST /api/admin/migrate` menjalankan ALTER TABLE untuk menambah kolom. PostgreSQL DEFAULT otomatis mengisi semua baris yang ada. Semua 48 produk Cafe LSP kembali terlihat.
+
+**Status saat ini:**
+- Hybrid inventory schema: DEPLOYED (product_type, track_stock, ingredient_product_id)
+- Bahan baku seed (45 ingredients): BELUM dijalankan di produksi
+- Recipe linking (ingredientProductId): BELUM dilakukan di produksi
+- Kasir: BERFUNGSI normal (semua 48 menu muncul dengan stock)
+
+---
+
 ### Changelog — 1 Mei 2026
 - **[INIT]** Unit Cafe LSP dibuat — dedicated counter-based POS
 - **[POS]** Grid visual menu + filter kategori + search + foto

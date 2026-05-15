@@ -1,0 +1,351 @@
+"use client";
+
+import * as React from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowLeft,
+  Package,
+  TrendingUp,
+  ShoppingCart,
+  BarChart3,
+  AlertTriangle,
+  Store,
+  Coffee,
+  UtensilsCrossed,
+  Car,
+  Scissors,
+  Dumbbell,
+  Gamepad2,
+  Printer,
+  Shirt,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/constants";
+import { getUnitBySlug, UNIT_TYPES } from "@/lib/constants/units";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Store, Coffee, UtensilsCrossed, Car, Scissors,
+  Dumbbell, Gamepad2, Printer, Shirt,
+};
+
+interface UnitDetailStats {
+  productCount: number;
+  activeProductCount: number;
+  totalStock: number;
+  lowStockCount: number;
+  todayTransactions: number;
+  todayRevenue: number;
+  avgTransactionValue: number;
+  weekRevenue: { date: string; revenue: number; transactions: number }[];
+}
+
+interface Product {
+  id: number;
+  name: string;
+  sellPrice: number;
+  costPrice: number;
+  stock: number;
+  stockGdg: number;
+  isActive: boolean;
+  productType: string;
+  trackStock: boolean;
+  category: string | null;
+}
+
+interface Transaction {
+  id: number;
+  transactionNo: string;
+  amount: number;
+  paymentMethod: string;
+  date: string;
+  type: "pos" | "service";
+  items?: { productName: string; quantity: number; price: number }[];
+  description?: string;
+  memberName?: string;
+}
+
+export default function UnitDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const unitSlug = params.unitSlug as string;
+  const unitConfig = getUnitBySlug(unitSlug);
+
+  const [stats, setStats] = React.useState<UnitDetailStats | null>(null);
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [productPage, setProductPage] = React.useState(1);
+  const [txPage, setTxPage] = React.useState(1);
+  const [productTotal, setProductTotal] = React.useState(0);
+  const [txTotal, setTxTotal] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!unitConfig) return;
+    const unitType = Object.entries(UNIT_TYPES).find(([, v]) => v.slug === unitSlug)?.[0];
+
+    async function fetchData() {
+      try {
+        const [statsRes, prodRes, txRes] = await Promise.all([
+          fetch(`/api/manajemen-unit/${unitSlug}/stats`),
+          fetch(`/api/manajemen-unit/${unitSlug}/products?page=1&limit=50`),
+          fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25`),
+        ]);
+
+        const [statsJson, prodJson, txJson] = await Promise.all([
+          statsRes.json(),
+          prodRes.json(),
+          txRes.json(),
+        ]);
+
+        if (statsJson.data) setStats(statsJson.data);
+        if (prodJson.data) {
+          setProducts(prodJson.data);
+          setProductTotal(prodJson.pagination?.total ?? 0);
+        }
+        if (txJson.data) {
+          setTransactions(txJson.data);
+          setTxTotal(txJson.pagination?.total ?? 0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch unit detail:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [unitSlug, unitConfig]);
+
+  if (!unitConfig) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-3">
+          <h2 className="text-xl font-semibold">Unit tidak ditemukan</h2>
+          <Button variant="outline" onClick={() => router.push("/manajemen-unit")}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const Icon = ICON_MAP[unitConfig.icon] ?? Store;
+  const weekTotal = stats?.weekRevenue.reduce((s, d) => s + d.revenue, 0) ?? 0;
+  const maxRevenue = Math.max(...(stats?.weekRevenue.map((d) => d.revenue) ?? [1]), 1);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.push("/manajemen-unit")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-lg ${
+            unitConfig.category === "store"
+              ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30"
+              : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30"
+          }`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">{unitConfig.label}</h1>
+            <Badge variant="outline" className="text-xs">
+              {unitConfig.category === "store" ? "Unit Toko/POS" : "Unit Layanan"}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Produk" value={stats?.productCount ?? 0} icon={Package} sub={`${stats?.activeProductCount ?? 0} aktif`} />
+        <StatCard title="Transaksi Hari Ini" value={stats?.todayTransactions ?? 0} icon={ShoppingCart} />
+        <StatCard title="Pendapatan Hari Ini" value={formatCurrency(stats?.todayRevenue ?? 0)} icon={TrendingUp} />
+        <StatCard title="Rata-rata Transaksi" value={formatCurrency(stats?.avgTransactionValue ?? 0)} icon={BarChart3} />
+      </div>
+
+      {stats && stats.lowStockCount > 0 && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
+          <AlertTriangle className="h-4 w-4" />
+          <span>{stats.lowStockCount} produk dengan stok menipis (≤ 5)</span>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <Tabs defaultValue="ringkasan">
+        <TabsList>
+          <TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
+          <TabsTrigger value="produk">Produk ({productTotal})</TabsTrigger>
+          <TabsTrigger value="transaksi">Transaksi ({txTotal})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ringkasan" className="mt-4">
+          <Card>
+            <CardContent className="p-5">
+              <h3 className="font-semibold mb-4">Pendapatan 7 Hari Terakhir</h3>
+              {loading ? (
+                <div className="h-40 bg-muted rounded animate-pulse" />
+              ) : (
+                <>
+                  <div className="flex items-end gap-1 h-40">
+                    {stats?.weekRevenue.map((day) => (
+                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatCurrency(day.revenue).replace("Rp", "").trim()}
+                        </span>
+                        <div
+                          className="w-full bg-primary/80 rounded-t"
+                          style={{ height: `${Math.max((day.revenue / maxRevenue) * 100, 2)}%` }}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(day.date).toLocaleDateString("id-ID", { weekday: "short" })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t text-sm text-muted-foreground">
+                    Total minggu ini: <span className="font-semibold text-foreground">{formatCurrency(weekTotal)}</span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Summary detail */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="font-semibold mb-2">Stok</h3>
+                <div className="text-2xl font-bold">{stats?.totalStock ?? 0}</div>
+                <p className="text-sm text-muted-foreground">Total stok gudang</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="font-semibold mb-2">Metode Pembayaran</h3>
+                <div className="text-sm text-muted-foreground">
+                  Data detail metode pembayaran tersedia di tab Transaksi
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="produk" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {products.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  {loading ? "Memuat produk..." : "Tidak ada produk untuk unit ini"}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead className="text-right">Harga</TableHead>
+                      <TableHead className="text-right">Stok</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.category ?? "-"}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(p.sellPrice))}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={p.stock <= 5 ? "text-red-600 font-medium" : ""}>{p.stock}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={p.isActive ? "default" : "secondary"} className="text-xs">
+                            {p.isActive ? "Aktif" : "Nonaktif"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="transaksi" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {transactions.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  {loading ? "Memuat transaksi..." : "Tidak ada transaksi hari ini"}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>No. Transaksi</TableHead>
+                      <TableHead className="text-right">Jumlah</TableHead>
+                      <TableHead>Metode</TableHead>
+                      <TableHead>Waktu</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="font-mono text-xs">{tx.transactionNo}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(tx.amount)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{tx.paymentMethod}</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {new Date(tx.date).toLocaleString("id-ID")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  sub,
+}: {
+  title: string;
+  value: number | string;
+  icon: React.ElementType;
+  sub?: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{title}</span>
+        </div>
+        <p className="text-lg font-bold">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}

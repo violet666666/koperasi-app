@@ -650,4 +650,31 @@ Format: `BATCH-YYYYMMDD-XXXX` (contoh: `BATCH-20260430-0001`)
 | `src/lib/constants/navigation.ts` | Menu "Manajemen Batch" dengan Layers icon |
 
 ---
+
+## Mei 2026 — Fix: Stock Data Hilang Pasca Schema Migration
+
+**Masalah:** Setelah penambahan kolom `product_type`, `track_stock`, dan `ingredient_product_id` di Prisma schema, data stock tidak muncul di kasir dan transaksi tidak bisa dilakukan.
+
+**Root cause (2 layer):**
+1. Kolom `product_type` dan `track_stock` belum terbuat di NeonDB produksi — `prisma db push` hanya dijalankan lokal, tidak di produksi
+2. API products route.ts memfilter `WHERE productType = 'finished'` tapi kolom tersebut belum ada di database
+
+**Fix yang diterapkan:**
+- Buat migration endpoint `POST /api/admin/migrate` yang menjalankan ALTER TABLE untuk menambah kolom yang hilang
+- Endpoint juga menjalankan backfill: set `product_type = 'finished'` dan `track_stock = true` untuk baris yang NULL
+- Simplifikasi pengecekan `isRacikan` dari `productType === "finished" && trackStock === false` menjadi `trackStock === false` di sales route dan void routes
+- `prisma db push` di build step Railway dihapus karena timeout — gunakan migration endpoint sebagai gantinya
+
+**Files changed:**
+- `src/app/api/toko/products/route.ts` — productType filter fix
+- `src/app/api/toko/sales/route.ts` — simplified isRacikan check
+- `src/app/api/unit-transactions/void-approve/route.ts` — simplified isRacikan
+- `src/app/api/unit-transactions/void-request/route.ts` — simplified isRacikan
+- `src/app/api/admin/migrate/route.ts` — new migration endpoint
+- `prisma/backfill-product-types.ts` — backfill script
+- `package.json` — reverted build script (removed prisma db push)
+
+**Hasil:** Stock data kembali muncul, kasir bisa transaksi normal. DB produksi: 2,173 products (toko: 2,118 | cafe_lsp: 48 | resto: 2 | cuci_mobil: 5).
+
+---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*
