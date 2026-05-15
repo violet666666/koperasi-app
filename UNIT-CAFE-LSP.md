@@ -650,3 +650,109 @@ Kelebihan Opsi B: Tidak perlu migration baru
 - Dynamic Queue (Phase 1.3) is Cafe LSP-specific and already fully implemented
 - Mobile responsiveness applied across all Phase 2-3 pages (touch targets, responsive grids, stacking layouts)
 - All E2E tests verified with correct Cafe LSP credentials (`admincafelsp@koperasi.com`, `kasircafelsp@koperasi.com`)
+
+---
+
+### Changelog — 15 Mei 2026 (Hybrid Inventory System — Opsi 3)
+
+**Sistem Inventori Hybrid diimplementasikan — Cafe LSP & Resto mendukung produk racikan + retail.**
+
+**Schema Changes:**
+- **[SCHEMA]** `StoreProduct` — add `productType` ("finished"|"ingredient"), `trackStock` (boolean, false = racikan)
+- **[SCHEMA]** `ProductRecipe` — add `ingredientProductId` FK → `StoreProduct.id` (nullable, backward compatible)
+- **[SCHEMA]** Index on `ingredientProductId` for query performance
+- **[SEED]** 46 bahan baku Cafe LSP di-seed (`prisma/seed-raw-materials.ts`) — 96/96 recipe rows linked
+
+**New Pages:**
+| Page | File |
+|:--|:--|
+| Bahan Baku (mobile-first card + desktop table) | `cafe-lsp/bahan-baku/page.tsx` |
+| Wrapper (reuses TokoBahanBakuPage) | `cafe-lsp/bahan-baku/page.tsx` |
+
+**New Navigation:**
+- "Bahan Baku" (FlaskConical icon) added to `adminCafeLspNavigation` — link: `/cafe-lsp/bahan-baku`
+
+**API Changes:**
+| API | Change |
+|:--|:--|
+| `GET /api/toko/products` | Filter by `productType` (default: "finished") — ingredients excluded from product list |
+| `GET /api/toko/products/[id]/recipe` | Returns `ingredientProductId` in response |
+| `POST /api/toko/products/[id]/recipe` | Accepts `ingredientProductId` per ingredient, validates FK |
+| `PUT /api/toko/products/[id]` | Accepts `trackStock` field |
+| `POST /api/toko/products` | Creates ingredient products with `productType: "ingredient"` |
+| `POST /api/toko/sales` | Hybrid checkout: racikan deducts ingredients via FIFO, retail deducts product stock |
+| `POST /api/toko/products/[id]/stock` | Added "waste" reason label |
+
+**Checkout Logic (Hybrid):**
+- Products with `trackStock=false`: validate & deduct ingredient stock (FIFO batches), skip product stock deduction
+- Products with `trackStock=true` (default): unchanged — deduct product stock
+- Mixed cart supported: some racikan + some retail items in same transaction
+- Ingredient stock deducted from `stockGdg` with `StoreStockMovement` reason "production"
+- FIFO batch deduction for ingredients (same pattern as retail products)
+
+**Void Reversal:**
+- Racikan sale void: restores ingredient stock (not product stock) — creates "in" movements
+- Retail sale void: unchanged behavior
+
+**Bahan Baku Page Features:**
+- Mobile-first card layout (each ingredient as a compact card with stock indicators)
+- Desktop table layout with responsive column hiding
+- Stats summary (Total/Aman/Stok Rendah) in 3-column grid
+- Cup estimation section: calculates ~cups per menu based on limiting ingredient (Liebig's Law)
+- Low stock alert section: shows ingredients below minimum with red indicators
+- Add/Edit dialog: name, SKU, unit (gr/ml/pcs), category, costPrice, minStock
+- Unit conversion at input time: kg→gr (×1000), ltr→ml (×1000)
+
+**Recipe Dialog Upgrade:**
+- Ingredient linking dropdown: select from registered bahan baku to auto-fill unit & costPrice
+- Shows linked ingredient stock info (warehouse stock) for reference
+- Link counter: "X/Y bahan terhubung" display
+- Empty state: link to Bahan Baku page when no ingredients registered
+
+**trackStock Toggle:**
+- BookOpen button in product action column: orange = racikan, gray = retail
+- Click toggles between modes with confirmation toast
+
+**Waste/Spill Tracking:**
+- "Waste / Spill" option added to stock write-off reason dropdown (Persediaan page)
+
+**Ingredient Low Stock Notifications:**
+- After checkout, if any ingredient falls below minStock, notification sent to admin
+- Notification type: "Bahan Baku Menipis" with ingredient name and stock level
+
+**Tests:**
+- 19 Vitest business logic tests (`hybrid-inventory.test.ts`) — all passing
+- 114 total Vitest tests — all passing
+- 10 E2E Playwright tests against live site (`primkoppol.site`) — all passing:
+  - Admin Cafe LSP sees Bahan Baku in sidebar ✅
+  - Admin Cafe LSP navigates to /cafe-lsp/bahan-baku ✅
+  - Bahan Baku page shows add button and search ✅
+  - Add dialog opens and closes ✅
+  - Mobile card layout renders correctly ✅
+  - Ingredient data loads ✅
+  - Recipe dialog page loads ✅
+
+**Files Created:**
+| File | Purpose |
+|:--|:--|
+| `prisma/seed-raw-materials.ts` | Seed 46 bahan baku + link 96 recipes |
+| `src/app/(protected)/cafe-lsp/bahan-baku/page.tsx` | Bahan baku wrapper page |
+| `src/app/(protected)/toko/bahan-baku/page.tsx` | Bahan baku management page (mobile-first) |
+| `src/__tests__/hybrid-inventory.test.ts` | 19 business logic tests |
+
+**Files Modified:**
+| File | Change |
+|:--|:--|
+| `prisma/schema.prisma` | productType, trackStock, ingredientProductId fields |
+| `src/lib/constants/navigation.ts` | Bahan Baku nav entry + FlaskConical import |
+| `src/app/api/toko/products/route.ts` | productType filter |
+| `src/app/api/toko/products/[id]/route.ts` | trackStock support |
+| `src/app/api/toko/products/[id]/recipe/route.ts` | ingredientProductId in CRUD |
+| `src/app/api/toko/products/[id]/stock/route.ts` | waste reason label |
+| `src/app/api/toko/sales/route.ts` | Hybrid checkout + ingredient alerts + deductedIngredientIds |
+| `src/app/api/unit-transactions/void-request/route.ts` | Racikan void reversal |
+| `src/app/api/unit-transactions/void-approve/route.ts` | Racikan void reversal |
+| `src/app/(protected)/toko/produk/page.tsx` | Recipe dialog ingredient linking + trackStock toggle |
+| `src/app/(protected)/toko/persediaan/page.tsx` | Waste reason option |
+
+**No Bugs Found During E2E Testing ✅**

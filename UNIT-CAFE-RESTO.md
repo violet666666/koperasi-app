@@ -791,3 +791,45 @@ Rekomendasi: Central Unit Validation Middleware
 | `src/lib/constants/navigation.ts` | Added Grid3x3, Settings2 icons; Denah Meja, Modifier, Laporan nav entries |
 | `e2e/batch-pages.spec.ts` | Fixed login selectors, email credentials, updated kasir access tests (prefix-based RBAC) |
 | `e2e/floor-plan.spec.ts` | Updated selectors for responsive CSS classes |
+
+---
+
+### Changelog — 15 Mei 2026 (Hybrid Inventory System — Opsi 3)
+
+**Sistem Inventori Hybrid diimplementasikan — Resto mendukung produk racikan + retail.**
+
+**New Pages:**
+| Page | File |
+|:--|:--|
+| Bahan Baku (mobile-first card + desktop table) | `resto/bahan-baku/page.tsx` |
+| Wrapper (reuses TokoBahanBakuPage) | `resto/bahan-baku/page.tsx` |
+
+**New Navigation:**
+- "Bahan Baku" (FlaskConical icon) added to `adminRestoNavigation` — link: `/resto/bahan-baku`
+
+**Resto-Specific Notes:**
+- Resto unit maps to `unitType: "resto"` via `session.user.unitType` (resto_cafe → resto)
+- Bahan baku page shows Resto-specific ingredients (when seeded)
+- Recipe dialog in Manajemen Menu links ingredients with `unitType: "resto"` filter
+- trackStock toggle available on all Resto products (BookOpen button in action column)
+- Hybrid checkout applies to both Resto and Cafe LSP using same API (`/api/toko/sales`)
+
+**trackStock Toggle for Resto Products:**
+- Products with `trackStock=false` = racikan (potong stok bahan baku saat checkout)
+- Products with `trackStock=true` (default) = retail (potong stok produk langsung)
+- Toggle via BookOpen icon in product table — orange = racikan, gray = retail
+- Resto-specific: menu items like nasi goreng, bebek goreng can be racikan (recipe-based deduction)
+- Retail items like air mineral botolan, kerupuk use direct stock deduction
+
+**E2E Testing Results (Live Site — primkoppol.site):**
+- Admin Resto sees Bahan Baku in sidebar ✅
+- Admin Resto navigates to /resto/bahan-baku ✅
+- Bahan Baku page shows add button and search ✅
+- Add dialog opens and closes correctly ✅
+- Mobile card layout renders properly on 375px viewport ✅
+- Manajemen Menu page loads with recipe buttons ✅
+- All 10 tests passed on both runs (stable)
+
+**See UNIT-CAFE-LSP.md §15 Mei 2026 changelog for full technical details** (schema, API changes, checkout logic, void reversal, waste tracking — shared between both units).
+
+**No Bugs Found During E2E Testing ✅**
