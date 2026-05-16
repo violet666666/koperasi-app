@@ -269,6 +269,7 @@ export default function AnggotaDetailPage() {
                     updated_at: apiData.updatedAt || apiData.updated_at,
                     salary: apiData.salary ? Number(apiData.salary) : undefined,
                     tunles_kinerja: apiData.tunlesKinerja ? Number(apiData.tunlesKinerja) : undefined,
+                    sisa_gaji: apiData.sisaGaji ? Number(apiData.sisaGaji) : undefined,
                 };
                 setMember(memberData);
 
@@ -552,6 +553,11 @@ export default function AnggotaDetailPage() {
                                 icon={Award}
                                 label="Tunjangan Kinerja (Tunkin)"
                                 value={member.tunles_kinerja ? formatCurrency(member.tunles_kinerja) : "-"}
+                            />
+                            <InfoItem
+                                icon={Banknote}
+                                label="Sisa Gaji (Setelah Potongan)"
+                                value={member.sisa_gaji ? formatCurrency(member.sisa_gaji) : "-"}
                             />
                         </CardContent>
                     </Card>

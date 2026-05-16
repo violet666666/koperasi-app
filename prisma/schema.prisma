@@ -248,6 +248,7 @@ model Member {
   noRekening        String?   @map("no_rekening")    // No rekening BRI untuk mass debet
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
   tunlesKinerja     Decimal?  @map("tunles_kinerja") @db.Decimal(15, 2) // Tunjangan Kinerja (Tunkin)
+  sisaGaji          Decimal?  @map("sisa_gaji") @db.Decimal(15, 2) // Sisa gaji setelah potongan koperasi (editable oleh operator)
   tabunganWajib     Decimal?  @map("tabungan_wajib") @db.Decimal(15, 2) // Tabungan Wajib per bulan
   plafonPiutang     Decimal   @default(0) @map("plafon_piutang") @db.Decimal(15, 2) // Limit piutang di unit usaha — hanya bisa diubah Operator
   status            String    @default("active") // active, inactive, resigned

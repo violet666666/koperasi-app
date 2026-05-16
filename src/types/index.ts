@@ -69,6 +69,7 @@ export interface Member {
     status: 'active' | 'inactive' | 'resigned';
     salary?: number;
     tunles_kinerja?: number;
+    sisa_gaji?: number;
     photo_url?: string;
     created_at: string;
     updated_at: string;

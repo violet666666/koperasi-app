@@ -45,6 +45,7 @@ export default function EditAnggotaPage() {
         category: "",
         salary: "",
         tunlesKinerja: "",
+        sisaGaji: "",
         tabunganWajib: "",
         birthPlace: "",
         birthDate: "",
@@ -94,6 +95,7 @@ export default function EditAnggotaPage() {
                     category: mData.category || "",
                     salary: mData.salary ? String(mData.salary) : "",
                     tunlesKinerja: mData.tunlesKinerja ? String(mData.tunlesKinerja) : "",
+                    sisaGaji: mData.sisaGaji ? String(mData.sisaGaji) : "",
                     tabunganWajib: mData.tabunganWajib ? String(mData.tabunganWajib) : "",
                     birthPlace: mData.birthPlace || "",
                     birthDate: mData.birthDate ? mData.birthDate.split("T")[0] : "",
@@ -431,6 +433,11 @@ export default function EditAnggotaPage() {
                         <div>
                             <Label htmlFor="tunlesKinerja">Tunles / Tunkin (Per Bulan)</Label>
                             <Input id="tunlesKinerja" name="tunlesKinerja" type="number" min="0" value={formData.tunlesKinerja} onChange={handleChange} placeholder="Rp" />
+                        </div>
+                        <div>
+                            <Label htmlFor="sisaGaji">Sisa Gaji (Setelah Potongan)</Label>
+                            <Input id="sisaGaji" name="sisaGaji" type="number" min="0" value={formData.sisaGaji} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Sisa gaji bersih setelah potongan koperasi (simpanan, angsuran, piutang).</p>
                         </div>
                         <div>
                             <Label htmlFor="tabunganWajib">Target Setoran Wajib Per Bulan</Label>

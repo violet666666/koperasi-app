@@ -114,6 +114,7 @@ export const createMemberSchema = z.object({
     category: z.string().optional().nullable(),
     salary: z.coerce.number().nonnegative().optional().nullable(),
     tunlesKinerja: z.coerce.number().nonnegative().optional().nullable(),
+    sisaGaji: z.coerce.number().nonnegative().optional().nullable(),
     plafonPiutang: z.coerce.number().nonnegative().optional(),
     tabunganWajib: z.coerce.number().nonnegative().optional().nullable(),
     status: z.enum(["active", "inactive", "resigned"]).default("active"),
