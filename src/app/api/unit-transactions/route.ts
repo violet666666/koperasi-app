@@ -333,6 +333,8 @@ export async function POST(request: Request) {
                 description: data.description,
                 amount: data.amount,
                 transactionDate: data.transactionDate,
+                paymentMethod: data.paymentMethod,
+                status: "completed",
                 isPaid: data.isPaid,
                 paidDate: data.isPaid ? new Date() : null,
                 notes: data.notes,
