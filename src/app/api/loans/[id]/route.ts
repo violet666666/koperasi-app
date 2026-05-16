@@ -210,6 +210,7 @@ export async function PUT(request: Request, { params }: Params) {
             for (let i = 1; i <= newTenor; i++) {
                 const dueDate = new Date(newFirstDueDate);
                 dueDate.setMonth(dueDate.getMonth() + (i - 1));
+                const isPaid = i <= paidInstallmentCount;
 
                 schedules.push({
                     loanId,
@@ -218,7 +219,10 @@ export async function PUT(request: Request, { params }: Params) {
                     principalAmount: Math.floor(newPrincipal / newTenor),
                     interestAmount: Math.floor(totalInterest / newTenor),
                     totalAmount: Math.floor(totalAmount / newTenor),
-                    status: i <= paidInstallmentCount ? "paid" as const : "pending" as const,
+                    principalPaid: isPaid ? Math.floor(newPrincipal / newTenor) : 0,
+                    interestPaid: isPaid ? Math.floor(totalInterest / newTenor) : 0,
+                    status: isPaid ? "paid" as const : "pending" as const,
+                    paidDate: isPaid ? dueDate : null,
                 });
             }
 

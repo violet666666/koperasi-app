@@ -14,6 +14,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
     Pencil,
     Wallet,
     CreditCard,
@@ -28,6 +39,8 @@ import {
     Award,
     ShoppingCart,
     Eye,
+    Trash2,
+    KeyRound,
 } from "lucide-react";
 import type { Member } from "@/types";
 
@@ -215,6 +228,49 @@ export default function AnggotaDetailPage() {
     const [showPiutangModal, setShowPiutangModal] = React.useState(false);
     const [loadingPiutang, setLoadingPiutang] = React.useState(false);
 
+    // Delete & Reset Password state
+    const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+    const [showResetDialog, setShowResetDialog] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+    const [isResetting, setIsResetting] = React.useState(false);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            const res = await fetch(`/api/members/${params.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Anggota berhasil dihapus");
+                router.push("/anggota");
+            } else {
+                toast.error(data.message || "Gagal menghapus anggota");
+            }
+        } catch {
+            toast.error("Gagal menghapus anggota");
+        } finally {
+            setIsDeleting(false);
+            setShowDeleteDialog(false);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        setIsResetting(true);
+        try {
+            const res = await fetch(`/api/members/${params.id}/reset-password`, { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(`Password direset ke NRP: ${data.data?.password}`);
+            } else {
+                toast.error(data.message || "Gagal reset password");
+            }
+        } catch {
+            toast.error("Gagal reset password");
+        } finally {
+            setIsResetting(false);
+            setShowResetDialog(false);
+        }
+    };
+
     const loadPiutangBarang = async () => {
         if (piutangBarang) {
             setShowPiutangModal(true);
@@ -375,12 +431,24 @@ export default function AnggotaDetailPage() {
                 description={`NRP: ${member.member_no}`}
                 backHref="/anggota"
                 actions={
-                    <Button asChild>
-                        <Link href={`/anggota/${member.id}/edit`}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setShowResetDialog(true)}>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Reset Password
+                        </Button>
+                        <Button size="sm" asChild>
+                            <Link href={`/anggota/${member.id}/edit`}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                            </Link>
+                        </Button>
+                        {member.status === "active" && summary.loans.active_count === 0 && (
+                            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Hapus
+                            </Button>
+                        )}
+                    </div>
                 }
             />
 
@@ -746,7 +814,7 @@ export default function AnggotaDetailPage() {
                         </Button>
                         {summary.loans.active_count > 0 && (
                             <Button asChild>
-                                <Link href={`/pinjaman/angsuran/bayar?member_id=${member.id}`}>
+                                <Link href={`/pinjaman/angsuran/bayar?loan_id=${loanDetails.find(l => l.status === 'active')?.id || ''}`}>
                                     Bayar Angsuran
                                 </Link>
                             </Button>
@@ -930,6 +998,52 @@ export default function AnggotaDetailPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Anggota</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Apakah Anda yakin ingin menghapus anggota <strong>{member?.name}</strong>?
+                            Akun login anggota juga akan dinonaktifkan. Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                        >
+                            {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Reset Password Confirmation Dialog */}
+            <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Password</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Password anggota <strong>{member?.name}</strong> akan direset ke NRP mereka
+                            (<strong>{member?.member_no}</strong>). Setelah reset, anggota bisa login dengan:
+                            <br /><br />
+                            Username: <code className="bg-muted px-1 rounded">{member?.member_no}</code>
+                            <br />
+                            Password: <code className="bg-muted px-1 rounded">{member?.member_no}</code>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetPassword} disabled={isResetting}>
+                            {isResetting ? "Mereset..." : "Ya, Reset Password"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

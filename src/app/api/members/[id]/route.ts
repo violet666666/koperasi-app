@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 import { updateMemberSchema } from "@/lib/validations";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
@@ -148,6 +149,15 @@ export async function GET(request: Request, { params }: Params) {
         }
 
         // Compute per-loan detail with installment info
+        // Pre-fetch paid schedule counts for accurate installment progress
+        const loanIds = member.loans.map(l => l.id);
+        const scheduleCounts = await prisma.loanSchedule.groupBy({
+            by: ['loanId'],
+            where: { loanId: { in: loanIds }, status: 'paid' },
+            _count: { status: true },
+        });
+        const paidCountMap = new Map(scheduleCounts.map(s => [s.loanId, s._count.status]));
+
         const loanDetails = member.loans.map((loan) => {
             const principalAmount = Number(loan.principalAmount);
             const principalPaid = Number(loan.principalPaid);
@@ -156,13 +166,14 @@ export async function GET(request: Request, { params }: Params) {
             const monthlyInstallment = Number(loan.monthlyInstallment);
             const tenorMonths = loan.tenorMonths;
 
-            // Calculate installment progress
-            let paidInstallments = 0;
+            // Calculate installment progress — prefer schedule count over formula
+            let paidInstallments = paidCountMap.get(loan.id) || 0;
             let remainingInstallments = tenorMonths;
-            if (monthlyInstallment > 0) {
+            if (paidInstallments === 0 && monthlyInstallment > 0) {
+                // Fallback for loans without schedules (legacy/import)
                 paidInstallments = Math.round(principalPaid / (principalAmount / tenorMonths));
-                remainingInstallments = Math.max(0, tenorMonths - paidInstallments);
             }
+            remainingInstallments = Math.max(0, tenorMonths - paidInstallments);
             // If loan is paid off
             if (loan.status === "paid_off") {
                 paidInstallments = tenorMonths;
@@ -348,6 +359,21 @@ export async function PUT(request: Request, { params }: Params) {
         }
 
         const updated = await prisma.$transaction(async (tx) => {
+            // Sync NRP jika memberNo berubah
+            if (memberData.memberNo && memberData.memberNo !== member.memberNo) {
+                memberData.nrp = memberData.memberNo;
+                if (member.userAccount) {
+                    const hashedPassword = await bcrypt.hash(memberData.memberNo, 10);
+                    await tx.user.update({
+                        where: { id: member.userAccount.id },
+                        data: {
+                            email: `${memberData.memberNo}@koperasi.local`,
+                            password: hashedPassword,
+                        },
+                    });
+                }
+            }
+
             // Lakukan pemotongan/koreksi saldo (Override)
             if (overrideSavings && Object.keys(overrideSavings).length > 0) {
                 for (const [sType, sAmount] of Object.entries(overrideSavings)) {
@@ -446,12 +472,20 @@ export async function PUT(request: Request, { params }: Params) {
     }
 }
 
-// DELETE /api/members/[id] - Soft delete
+// DELETE /api/members/[id] - Soft delete + deactivate User
 export async function DELETE(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
         const { id } = await params;
+        const memberId = parseInt(id);
+
         const member = await prisma.member.findUnique({
-            where: { id: parseInt(id), deletedAt: null },
+            where: { id: memberId, deletedAt: null },
+            include: { userAccount: true },
         });
 
         if (!member) {
@@ -461,22 +495,29 @@ export async function DELETE(request: Request, { params }: Params) {
             );
         }
 
-        // Check for active loans
         const activeLoans = await prisma.loan.count({
-            where: { memberId: parseInt(id), status: "active" },
+            where: { memberId, status: "active" },
         });
 
         if (activeLoans > 0) {
             return NextResponse.json(
-                { message: "Anggota masih memiliki pinjaman aktif" },
+                { message: "Anggota masih memiliki pinjaman aktif. Lunasi pinjaman terlebih dahulu." },
                 { status: 400 }
             );
         }
 
-        // Soft delete
-        await prisma.member.update({
-            where: { id: parseInt(id) },
-            data: { deletedAt: new Date(), status: "resigned" },
+        await prisma.$transaction(async (tx) => {
+            await tx.member.update({
+                where: { id: memberId },
+                data: { deletedAt: new Date(), status: "resigned" },
+            });
+
+            if (member.userAccount) {
+                await tx.user.update({
+                    where: { id: member.userAccount.id },
+                    data: { isActive: false, deletedAt: new Date() },
+                });
+            }
         });
 
         return NextResponse.json({ message: "Anggota berhasil dihapus" });
