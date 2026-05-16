@@ -116,7 +116,7 @@ export async function GET(request: Request, { params }: Params) {
                 nextInstallment = {
                     loan_id: schedule.loanId,
                     due_date: schedule.dueDate.toISOString(),
-                    amount: Number(schedule.principalAmount) + Number(schedule.interestAmount),
+                    amount: (Number(schedule.principalAmount) - Number(schedule.principalPaid)) + (Number(schedule.interestAmount) - Number(schedule.interestPaid)),
                 };
             } else {
                 // Fallback: compute from loan data when no schedule exists (migration loans)
