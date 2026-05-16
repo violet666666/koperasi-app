@@ -149,7 +149,7 @@ export async function POST(request: Request) {
         const userId = parseInt(session.user.id);
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock } = body;
 
         if (!sku || !name || sellPrice === undefined || sellPrice === null) {
             return NextResponse.json(
@@ -190,6 +190,8 @@ export async function POST(request: Request) {
                         unit: unit || "pcs",
                         unitType: unitType || "toko",
                         isService: isService || false,
+                        productType: productType || "finished",
+                        trackStock: trackStock !== undefined ? trackStock : true,
                         isActive: true,
                         deletedAt: null,
                     },
@@ -219,6 +221,8 @@ export async function POST(request: Request) {
                 unit: unit || "pcs",
                 unitType: unitType || "toko",
                 isService: isService || false,
+                productType: productType || "finished",
+                trackStock: trackStock !== undefined ? trackStock : true,
             },
         });
 
