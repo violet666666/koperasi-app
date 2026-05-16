@@ -94,6 +94,16 @@ export async function POST(request: Request) {
                     }
 
                     await tx.loanSchedule.createMany({ data: schedules });
+
+                    // Sync monthlyInstallment with actual schedule amounts
+                    const firstSchedTotal = schedules[0]?.totalAmount || 0;
+                    if (firstSchedTotal > 0 && Math.abs(firstSchedTotal - Number(loan.monthlyInstallment)) > 1000) {
+                        await tx.loan.update({
+                            where: { id: loan.id },
+                            data: { monthlyInstallment: firstSchedTotal },
+                        });
+                    }
+
                     generated++;
                 }
             }, { timeout: 60000 });

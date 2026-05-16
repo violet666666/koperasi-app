@@ -148,18 +148,19 @@ export default function TagihanPage() {
       }
     >();
     for (const item of period.billingItems) {
+      const amt = Number(item.amount);
       const existing = map.get(item.memberId);
       if (existing) {
-        existing.totalAmount += item.amount;
-        if (item.isMarkedPaid) existing.markedPaidAmount += item.amount;
+        existing.totalAmount += amt;
+        if (item.isMarkedPaid) existing.markedPaidAmount += amt;
         existing.itemIds.push(item.id);
       } else {
         map.set(item.memberId, {
           memberId: item.memberId,
           name: item.memberName,
           nrp: item.memberNrp,
-          totalAmount: item.amount,
-          markedPaidAmount: item.isMarkedPaid ? item.amount : 0,
+          totalAmount: amt,
+          markedPaidAmount: item.isMarkedPaid ? amt : 0,
           itemIds: [item.id],
         });
       }
@@ -170,7 +171,7 @@ export default function TagihanPage() {
   }, [period]);
 
   const totalMarked = period
-    ? period.billingItems.filter((i) => i.isMarkedPaid).reduce((s, i) => s + i.amount, 0)
+    ? period.billingItems.filter((i) => i.isMarkedPaid).reduce((s, i) => s + Number(i.amount), 0)
     : 0;
 
   if (loading) {

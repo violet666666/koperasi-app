@@ -37,36 +37,25 @@ export async function POST() {
     const startUTC = periodStart;
     const endUTC = new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-    // Fetch unpaid salary_cut transactions in period
-    const [unitTransactions, storeSales] = await Promise.all([
-      prisma.unitTransaction.findMany({
-        where: {
-          paymentMethod: "salary_cut",
-          isPaid: false,
-          status: "completed",
-          transactionDate: { gte: startUTC, lte: endUTC },
-          memberId: { not: null },
-        },
-        select: {
-          id: true, memberId: true, unitType: true, description: true,
-          amount: true, member: { select: { name: true, nrp: true } },
-        },
-      }),
-      prisma.storeSale.findMany({
-        where: {
-          paymentMethod: "salary_cut",
-          unitType: { in: ["toko", "resto", "cafe_lsp", "playstation"] },
-          createdAt: { gte: startUTC, lte: endUTC },
-          NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
-        },
-        select: {
-          id: true, unitType: true, totalAmount: true, memberId: true,
-          member: { select: { name: true, nrp: true } },
-        },
-      }),
-    ]);
+    // Fetch ALL unpaid salary_cut UnitTransactions up to end of period.
+    // Only use UnitTransaction — NOT StoreSale — because toko POS already
+    // creates a UnitTransaction (piutang) for every salary_cut StoreSale.
+    // Querying both would cause double-counting.
+    const unitTransactions = await prisma.unitTransaction.findMany({
+      where: {
+        paymentMethod: "salary_cut",
+        isPaid: false,
+        status: "completed",
+        transactionDate: { lte: endUTC },
+        memberId: { not: null },
+      },
+      select: {
+        id: true, memberId: true, unitType: true, description: true,
+        amount: true, member: { select: { name: true, nrp: true } },
+      },
+    });
 
-    if (unitTransactions.length === 0 && storeSales.length === 0) {
+    if (unitTransactions.length === 0) {
       return NextResponse.json(
         { message: "Tidak ada transaksi piutang untuk periode ini" },
         { status: 400 }
@@ -96,20 +85,6 @@ export async function POST() {
         transactionSource: "unit_transaction",
         description: tx.description,
         amount: Number(tx.amount),
-      });
-    }
-
-    for (const sale of storeSales) {
-      if (!sale.memberId) continue;
-      items.push({
-        memberId: sale.memberId,
-        memberName: sale.member?.name ?? "Unknown",
-        memberNrp: sale.member?.nrp ?? null,
-        unitType: sale.unitType,
-        transactionId: sale.id,
-        transactionSource: "store_sale",
-        description: `Penjualan ${sale.unitType}`,
-        amount: Number(sale.totalAmount),
       });
     }
 
