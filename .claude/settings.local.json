@@ -104,7 +104,9 @@
       "Bash(Get-Content \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\\\\src\\\\app\\\\\\(protected\\)\\\\toko\\\\bahan-baku\\\\page.tsx\")",
       "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list)",
       "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list --timeout=60000)",
-      "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list --timeout=60000 --retries=0)"
+      "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list --timeout=60000 --retries=0)",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:brainstorming)"
     ]
   },
   "enabledPlugins": {
