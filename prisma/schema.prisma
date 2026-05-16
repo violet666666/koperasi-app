@@ -57,6 +57,8 @@ model User {
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
   cashierIdentities       CashierIdentity[]
   notifications           Notification[]
+  billingPeriodsProcessed BillingPeriod[]        @relation("BillingProcessedBy")
+  billingItemsPaid        BillingItem[]          @relation("BillingItemPaidBy")
   payrollPeriods           PayrollPeriod[]
 
   @@index([roleId])
@@ -273,6 +275,7 @@ model Member {
   cashBankTransactions CashBankTransaction[] @relation("CashBankMember")
   shuDistributions     ShuDistribution[]
   payrollSlips         PayrollSlip[]
+  billingItems         BillingItem[]
 
   @@index([status])
   @@index([nrp])
@@ -1363,4 +1366,54 @@ model PayrollSlip {
   @@index([periodId])
   @@index([memberId])
   @@map("payroll_slips")
+}
+
+// =================================================================
+// BILLING PERIOD (Tagihan Piutang 16-15)
+// =================================================================
+
+model BillingPeriod {
+  id              Int       @id @default(autoincrement())
+  periodStart     DateTime  @map("period_start") @db.Date
+  periodEnd       DateTime  @map("period_end") @db.Date
+  periodLabel     String    @map("period_label")
+  status          String    @default("draft")              // draft | processed
+  totalMembers    Int       @default(0) @map("total_members")
+  totalAmount     Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
+  processedById   Int?      @map("processed_by_id")
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  billingItems  BillingItem[]
+  processedBy   User?       @relation("BillingProcessedBy", fields: [processedById], references: [id])
+
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("billing_periods")
+}
+
+model BillingItem {
+  id                Int       @id @default(autoincrement())
+  billingPeriodId   Int       @map("billing_period_id")
+  memberId          Int       @map("member_id")
+  memberName        String    @map("member_name")
+  memberNrp         String?   @map("member_nrp")
+  unitType          String?   @map("unit_type")
+  transactionId     Int?      @map("transaction_id")
+  transactionSource String?   @map("transaction_source")   // "unit_transaction" | "store_sale"
+  description       String?
+  amount            Decimal   @db.Decimal(15, 2)
+  isMarkedPaid      Boolean   @default(false) @map("is_marked_paid")
+  paidAt            DateTime? @map("paid_at")
+  paidById          Int?      @map("paid_by_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  billingPeriod BillingPeriod @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+  member        Member        @relation(fields: [memberId], references: [id])
+  paidBy        User?         @relation("BillingItemPaidBy", fields: [paidById], references: [id])
+
+  @@index([billingPeriodId, memberId])
+  @@index([memberId])
+  @@map("billing_items")
 }

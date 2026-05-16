@@ -143,6 +143,21 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
     },
 
     {
+        title: "TAGIHAN",
+        roles: ["operator"],
+        items: [
+            {
+                title: "Tagihan Piutang", href: "/tagihan", icon: ClipboardCheck,
+                permission: "manage_all",
+                children: [
+                    { title: "Rekap Piutang", href: "/tagihan" },
+                    { title: "Riwayat Tagihan", href: "/tagihan/riwayat" },
+                ],
+            },
+        ],
+    },
+
+    {
         title: "AKUNTANSI",
         roles: ["operator", "admin"],
         items: [
