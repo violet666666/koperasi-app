@@ -84,6 +84,58 @@ export async function POST(request: Request) {
             }
         }
 
+        // ── Billing tables (if missing) ────────────────────────────────
+        const billingPeriodExists = await tableExists("billing_periods");
+        if (!billingPeriodExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE billing_periods (
+                    id SERIAL PRIMARY KEY,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL,
+                    period_label TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    total_members INTEGER NOT NULL DEFAULT 0,
+                    total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+                    processed_by_id INTEGER,
+                    processed_at TIMESTAMP(3),
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP(3) NOT NULL DEFAULT NOW()
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_billing_periods_status ON billing_periods(status)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_billing_periods_dates ON billing_periods(period_start, period_end)`);
+            results.push("Created billing_periods table");
+        } else {
+            results.push("billing_periods table already exists");
+        }
+
+        const billingItemsExists = await tableExists("billing_items");
+        if (!billingItemsExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE billing_items (
+                    id SERIAL PRIMARY KEY,
+                    billing_period_id INTEGER NOT NULL REFERENCES billing_periods(id) ON DELETE CASCADE,
+                    member_id INTEGER NOT NULL REFERENCES members(id),
+                    member_name TEXT NOT NULL,
+                    member_nrp TEXT,
+                    unit_type TEXT,
+                    transaction_id INTEGER,
+                    transaction_source TEXT,
+                    description TEXT,
+                    amount DECIMAL(15,2) NOT NULL,
+                    is_marked_paid BOOLEAN NOT NULL DEFAULT false,
+                    paid_at TIMESTAMP(3),
+                    paid_by_id INTEGER,
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW()
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_billing_items_period_member ON billing_items(billing_period_id, member_id)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_billing_items_member ON billing_items(member_id)`);
+            results.push("Created billing_items table");
+        } else {
+            results.push("billing_items table already exists");
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -130,6 +182,16 @@ async function columnExists(table: string, column: string): Promise<boolean> {
         SELECT EXISTS (
             SELECT 1 FROM information_schema.columns
             WHERE table_name = ${table} AND column_name = ${column}
+        ) as exists
+    `;
+    return result[0].exists;
+}
+
+async function tableExists(table: string): Promise<boolean> {
+    const result = await prisma.$queryRaw<{ exists: boolean }[]>`
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_name = ${table}
         ) as exists
     `;
     return result[0].exists;
