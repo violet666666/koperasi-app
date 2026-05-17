@@ -106,7 +106,18 @@
       "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list --timeout=60000)",
       "Bash(E2E_BASE_URL=https://www.primkoppol.site npx playwright test e2e/hybrid-inventory.spec.ts --reporter=list --timeout=60000 --retries=0)",
       "Skill(superpowers:systematic-debugging)",
-      "Skill(superpowers:brainstorming)"
+      "Skill(superpowers:brainstorming)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\Acer\\\\Downloads\\\\koperasi-app\\\\src\\\\app\\\\\\(protected\\)\" -Directory)",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_run_code_unsafe",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(Get-ChildItem -Path . -Filter \"PINJAMAN-FEATURE.md\" -Recurse -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process *)",
+      "Skill(systematic-debugging)",
+      "Skill(superpowers:using-superpowers)",
+      "Bash(Select-String -Pattern \"error|Error|✓|Build\")",
+      "Bash(Select-Object -Last 15)"
     ]
   },
   "enabledPlugins": {
