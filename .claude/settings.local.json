@@ -117,7 +117,8 @@
       "Skill(systematic-debugging)",
       "Skill(superpowers:using-superpowers)",
       "Bash(Select-String -Pattern \"error|Error|✓|Build\")",
-      "Bash(Select-Object -Last 15)"
+      "Bash(Select-Object -Last 15)",
+      "Bash(tasklist /FI \"WINDOWTITLE eq *next*\")"
     ]
   },
   "enabledPlugins": {
