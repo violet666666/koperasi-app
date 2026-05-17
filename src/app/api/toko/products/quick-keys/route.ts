@@ -32,7 +32,7 @@ export async function PUT(request: Request) {
         }
 
         const role = session.user.role as string;
-        if (!["admin", "operator", "super_admin"].includes(role)) {
+        if (!["admin", "operator"].includes(role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

@@ -5,7 +5,7 @@ import { isValidStatusTransition, validateKitchenOrder } from "@/lib/kds";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_KDS_ROLES = ["admin", "operator", "super_admin", "kasir"];
+const ALLOWED_KDS_ROLES = ["admin", "operator", "kasir"];
 
 // GET /api/kitchen-orders — List orders for KDS display
 // Query params: unitType, status, limit

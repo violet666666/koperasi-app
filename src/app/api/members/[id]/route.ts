@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { updateMemberSchema } from "@/lib/validations";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -325,7 +325,7 @@ export async function PUT(request: Request, { params }: Params) {
         const { overrideSavings, roleId, ...memberData } = data;
 
         // Proteksi plafonPiutang — hanya Operator/Admin yang boleh mengubah
-        const operatorRoles = ["operator", "admin", "admin_sp", "super_admin"];
+        const operatorRoles = ["operator", "admin", "admin_sp"];
         if (memberData.plafonPiutang !== undefined && !operatorRoles.includes(session.user.role)) {
             return NextResponse.json(
                 { message: "Hanya Operator yang dapat mengubah Plafon Piutang anggota." },

@@ -21,7 +21,7 @@ export async function processDataReset(options: {
       return { success: false, error: "Unauthorized. Silakan login kembali." };
     }
     const roleName = typeof session.user.role === "string" ? session.user.role : (session.user.role as any)?.name;
-    if (roleName !== "operator" && roleName !== "admin" && roleName !== "super_admin") {
+    if (roleName !== "operator" && roleName !== "admin") {
       return { success: false, error: "Akses ditolak. Hanya admin/operator yang dapat reset data." };
     }
 

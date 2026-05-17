@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { paginationSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
 
 // GET /api/cash-bank/accounts
 export async function GET(request: Request) {

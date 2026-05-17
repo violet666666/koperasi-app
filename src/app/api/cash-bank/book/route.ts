@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
 
 // Check if a description represents an opening balance row
 function isOpeningBalanceDescription(desc: string): boolean {

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     if (!user) return unauthorizedResponse();
 
     // Pastikan hanya operator/admin/superadmin/admin_sp yang bisa melihat audit log
-    if (user.role !== "operator" && user.role !== "admin" && user.role !== "superadmin" && user.role !== "admin_sp") {
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 

@@ -5,7 +5,7 @@ import { isValidStatusTransition } from "@/lib/kds";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_KDS_ROLES = ["admin", "operator", "super_admin", "kasir"];
+const ALLOWED_KDS_ROLES = ["admin", "operator", "kasir"];
 
 // PATCH /api/kitchen-orders/[id] — Update order status
 export async function PATCH(

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         }
 
         // Hanya Admin Unit dan Operator yang bisa approve
-        const allowedRoles = ["operator", "admin", "super_admin", "admin_unit"];
+        const allowedRoles = ["operator", "admin", "admin_unit"];
         if (!allowedRoles.includes(session.user.role)) {
             return NextResponse.json(
                 { message: "Anda tidak memiliki izin untuk menyetujui/menolak void." },

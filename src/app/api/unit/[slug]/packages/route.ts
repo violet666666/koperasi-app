@@ -32,8 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-
-        if (session.user.role !== "admin" && session.user.role !== "operator" && session.user.role !== "superadmin") {
+        if (!["operator", "admin"].includes(session.user.role)) {
             return NextResponse.json({ message: "Hanya Admin Unit yang dapat menambah paket layanan" }, { status: 403 });
         }
 

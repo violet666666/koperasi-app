@@ -6,7 +6,7 @@ import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin", "kasir"];
+const ALLOWED_ROLES = ["admin", "operator", "kasir"];
 
 // POST /api/toko/split-bill — Process split payment with full accounting
 export async function POST(req: Request) {

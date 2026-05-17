@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest) {
 
         const user = session.user as any;
         const role = typeof user.role === "string" ? user.role : user.role?.name || "";
-        if (!["admin", "operator", "super_admin"].includes(role)) {
+        if (!["admin", "operator"].includes(role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

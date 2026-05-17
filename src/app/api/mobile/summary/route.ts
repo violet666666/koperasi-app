@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
         const memberId = user.memberId;
         const roleName = user.role.name;
-        const isOperator = ["operator", "admin", "superadmin", "admin_sp"].includes(roleName);
+        const isOperator = ["operator", "admin", "admin_sp"].includes(roleName);
         const isKasir = roleName === "kasir";
 
         const todayStart = new Date();

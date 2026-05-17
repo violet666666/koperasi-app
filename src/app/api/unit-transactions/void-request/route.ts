@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         if (isNaN(currentUserId)) {
             return NextResponse.json({ message: "Session user ID tidak valid." }, { status: 401 });
         }
-        const isOperator = ["operator", "admin", "super_admin"].includes(session.user.role)
+        const isOperator = ["operator", "admin"].includes(session.user.role)
             || session.user.permissions?.includes("manage_all");
         const now = new Date();
 

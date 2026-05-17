@@ -10,12 +10,12 @@ import type { Prisma } from "@prisma/client";
 export async function getNotificationRecipients(unitType: string): Promise<number[]> {
     const admins = await prisma.user.findMany({
         where: {
-            role: { name: { in: ["admin", "operator", "super_admin"] } },
+            role: { name: { in: ["admin", "operator"] } },
             isActive: true,
             OR: [
                 { unitType },
                 { unitType: null },
-                { role: { name: { in: ["operator", "super_admin"] } } },
+                { role: { name: { in: ["operator"] } } },
             ],
         },
         select: { id: true },

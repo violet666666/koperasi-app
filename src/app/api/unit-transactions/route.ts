@@ -3,7 +3,7 @@ import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
 // Helper: map StoreSale into UnitTransaction shape
 function mapStoreSale(s: Record<string, unknown>) {

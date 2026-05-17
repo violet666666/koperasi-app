@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_ROLES = ["admin", "operator"];
 const MAX_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
 
 /**

@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { createCashBankTransactionSchema, paginationSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
 
 // Helper to generate transaction number
 function generateTransactionNo(type: string): string {

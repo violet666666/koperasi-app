@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 
-const ALLOWED_SALES_ROLES = ["admin", "operator", "super_admin", "kasir"];
+const ALLOWED_SALES_ROLES = ["admin", "operator", "kasir"];
 
 // GET /api/toko/sales - List sales with items (server-side pagination + filters)
 export async function GET(request: Request) {

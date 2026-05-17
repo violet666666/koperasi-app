@@ -11,7 +11,7 @@ interface Params {
 export async function POST(request: Request, { params }: Params) {
     try {
         const session = await auth();
-        if (!session?.user || !["operator", "admin", "admin_sp", "super_admin"].includes(session.user.role)) {
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 

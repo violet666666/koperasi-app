@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_ROLES = ["admin", "operator"];
 
 async function validateUnitAccess(session: any, productId: number): Promise<Response | null> {
-    if (["operator", "super_admin"].includes(session.user.role as string)) return null;
+    if (["operator"].includes(session.user.role as string)) return null;
     const user = await prisma.user.findUnique({
         where: { id: Number(session.user.id) },
         select: { unitType: true },

@@ -74,7 +74,7 @@ export default function ShiftKasirPage() {
     const { data: session } = useSession();
     const unitType = session?.user?.unitType || "toko";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType as string);
-    const isAdmin = ["admin", "operator", "super_admin"].includes(session?.user?.role as string);
+    const isAdmin = ["admin", "operator"].includes(session?.user?.role as string);
 
     const [loading, setLoading] = React.useState(true);
     const [activeShift, setActiveShift] = React.useState<ShiftData | null>(null);

@@ -37,7 +37,6 @@ export async function GET(
         const isKasir = role === "kasir";
         const isAdmin = role === "admin";
         const isOperator = role === "operator";
-        const isSuperAdmin = role === "super_admin";
         const isOwner = shift.userId === Number(session.user.id);
 
         if (isKasir && !isOwner) {
@@ -46,7 +45,7 @@ export async function GET(
         if (isAdmin && shift.unitType !== sessionUser?.unitType) {
             return NextResponse.json({ message: "Anda tidak memiliki akses" }, { status: 403 });
         }
-        if (!isKasir && !isAdmin && !isOperator && !isSuperAdmin) {
+        if (!isKasir && !isAdmin && !isOperator) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

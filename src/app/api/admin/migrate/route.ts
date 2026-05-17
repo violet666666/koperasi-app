@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// POST /api/admin/migrate — One-time migration to add hybrid inventory columns
+// POST /api/admin/migrate — Schema sync: add missing columns to NeonDB
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user?.id || !["admin", "super_admin"].includes(session.user.role as string)) {
-            return NextResponse.json({ message: "Forbidden — super_admin only" }, { status: 403 });
+        if (!session?.user?.id || !["operator", "admin"].includes(session.user.role as string)) {
+            return NextResponse.json({ message: "Forbidden — operator/admin only" }, { status: 403 });
         }
 
         const results: string[] = [];
@@ -61,6 +61,29 @@ export async function POST(request: Request) {
         `;
         results.push(`Backfilled track_stock for ${backfillStock} rows`);
 
+        // ── Member table columns ──────────────────────────────────────
+        const memberColumns: [string, string][] = [
+            ["occupation", "TEXT"],
+            ["golongan", "TEXT"],
+            ["kesatuan", "TEXT"],
+            ["employee_type", "TEXT"],
+            ["no_rekening", "TEXT"],
+            ["salary", "DECIMAL(15,2)"],
+            ["tunles_kinerja", "DECIMAL(15,2)"],
+            ["sisa_gaji", "DECIMAL(15,2)"],
+            ["tabungan_wajib", "DECIMAL(15,2)"],
+            ["plafon_piutang", "DECIMAL(15,2) DEFAULT 0"],
+        ];
+        for (const [col, type] of memberColumns) {
+            const exists = await columnExists("members", col);
+            if (!exists) {
+                await prisma.$executeRawUnsafe(`ALTER TABLE members ADD COLUMN ${col} ${type}`);
+                results.push(`Added members.${col} (${type})`);
+            } else {
+                results.push(`members.${col} already exists`);
+            }
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -72,7 +95,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user?.id || !["admin", "super_admin"].includes(session.user.role as string)) {
+        if (!session?.user?.id || !["operator", "admin"].includes(session.user.role as string)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

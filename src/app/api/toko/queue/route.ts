@@ -5,8 +5,8 @@ import { getQueueDateKey, getDefaultQueueConfig, formatQueueNumber, mergeQueueCo
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_QUEUE_ROLES = ["admin", "operator", "super_admin", "kasir"];
-const ALLOWED_QUEUE_ADMIN_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_QUEUE_ROLES = ["admin", "operator", "kasir"];
+const ALLOWED_QUEUE_ADMIN_ROLES = ["admin", "operator"];
 
 // GET /api/toko/queue/next — Get current queue count (for display)
 // Query params: unitType

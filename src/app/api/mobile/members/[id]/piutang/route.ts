@@ -19,7 +19,7 @@ export async function GET(
 
   // Hanya kasir, operator, admin yang bisa cek plafon piutang
   const role = (user as any).role;
-  if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "super_admin" && role !== "admin_sp") {
+  if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "admin_sp") {
     return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
   }
 
