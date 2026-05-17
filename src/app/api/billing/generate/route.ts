@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { calculateBillingPeriod } from "@/lib/services/billing";
 
 // POST /api/billing/generate — Generate draft billing period
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -16,7 +16,37 @@ export async function POST() {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const { periodStart, periodEnd, periodLabel } = calculateBillingPeriod(new Date());
+    // Accept optional custom date range from request body
+    let periodStart: Date;
+    let periodEnd: Date;
+    let periodLabel: string;
+
+    try {
+      const body = await request.json();
+      if (body.periodStart && body.periodEnd) {
+        periodStart = new Date(body.periodStart);
+        periodEnd = new Date(body.periodEnd);
+        if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+          return NextResponse.json({ message: "Format tanggal tidak valid" }, { status: 400 });
+        }
+        if (periodStart > periodEnd) {
+          return NextResponse.json({ message: "Tanggal mulai harus sebelum tanggal akhir" }, { status: 400 });
+        }
+        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        periodLabel = `${periodStart.getDate()} ${months[periodStart.getMonth()].substring(0, 3)} - ${periodEnd.getDate()} ${months[periodEnd.getMonth()].substring(0, 3)} ${periodEnd.getFullYear()}`;
+      } else {
+        const calc = calculateBillingPeriod(new Date());
+        periodStart = calc.periodStart;
+        periodEnd = calc.periodEnd;
+        periodLabel = calc.periodLabel;
+      }
+    } catch {
+      // No body or invalid JSON — use default calculation
+      const calc = calculateBillingPeriod(new Date());
+      periodStart = calc.periodStart;
+      periodEnd = calc.periodEnd;
+      periodLabel = calc.periodLabel;
+    }
 
     // Check if draft already exists for this period
     const existing = await prisma.billingPeriod.findFirst({

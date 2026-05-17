@@ -57,6 +57,9 @@ export default function TagihanPage() {
   const [generating, setGenerating] = React.useState(false);
   const [processing, setProcessing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showCustomDate, setShowCustomDate] = React.useState(false);
+  const [customStart, setCustomStart] = React.useState("");
+  const [customEnd, setCustomEnd] = React.useState("");
 
   const fetchCurrent = React.useCallback(async () => {
     try {
@@ -78,7 +81,16 @@ export default function TagihanPage() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch("/api/billing/generate", { method: "POST" });
+      const body: Record<string, string> = {};
+      if (showCustomDate && customStart && customEnd) {
+        body.periodStart = customStart;
+        body.periodEnd = customEnd;
+      }
+      const res = await fetch("/api/billing/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+      });
       const json = await res.json();
       if (!res.ok) {
         setError(json.message || "Gagal generate tagihan");
@@ -264,16 +276,62 @@ export default function TagihanPage() {
       )}
 
       {!period ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">Belum Ada Tagihan</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Klik &quot;Generate Tagihan&quot; untuk membuat rekap piutang potongan gaji
-              periode saat ini.
-            </p>
-          </CardContent>
-        </Card>
+        <>
+          {showCustomDate && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Tanggal Mulai</label>
+                    <input
+                      type="date"
+                      value={customStart}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Tanggal Akhir</label>
+                    <input
+                      type="date"
+                      value={customEnd}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowCustomDate(false); setCustomStart(""); setCustomEnd(""); }}
+                  >
+                    Reset ke Otomatis
+                  </Button>
+                </div>
+                {customStart && customEnd && customStart > customEnd && (
+                  <p className="text-xs text-destructive mt-2">Tanggal mulai harus sebelum tanggal akhir</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {!showCustomDate && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowCustomDate(true)}>
+                <Calendar className="mr-2 h-4 w-4" />
+                Atur Rentang Tanggal
+              </Button>
+            </div>
+          )}
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold">Belum Ada Tagihan</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                Klik &quot;Generate Tagihan&quot; untuk membuat rekap piutang potongan gaji
+                periode{showCustomDate && customStart && customEnd ? " yang dipilih" : " saat ini"}.
+              </p>
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <>
           {/* Period info */}
