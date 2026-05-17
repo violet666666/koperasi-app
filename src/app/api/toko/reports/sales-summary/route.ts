@@ -23,8 +23,11 @@ export async function GET(req: Request) {
             if (from) where.createdAt.gte = new Date(from);
             if (to) where.createdAt.lte = new Date(new Date(to).setHours(23, 59, 59, 999));
         }
-        // Exclude voided sales
-        where.NOT = { metadata: { path: ["isVoided"], equals: true } };
+        // Exclude voided sales (use OR to include rows with null metadata or no isVoided key)
+        where.OR = [
+            { metadata: { equals: null } },
+            { NOT: { metadata: { path: ["isVoided"], equals: true } } },
+        ];
 
         const sales = await prisma.storeSale.findMany({
             where,

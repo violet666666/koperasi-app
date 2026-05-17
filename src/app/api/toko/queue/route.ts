@@ -151,10 +151,10 @@ async function incrementCounter(dateKey: string): Promise<number> {
         if (rows.length > 0) {
             const currentVal = parseInt(rows[0].value, 10) || 0;
             const newVal = currentVal + 1;
-            await tx.$executeRaw`UPDATE app_settings SET value = ${String(newVal)} WHERE key = ${dateKey}`;
+            await tx.$executeRaw`UPDATE app_settings SET value = ${String(newVal)}, updated_at = NOW() WHERE key = ${dateKey}`;
             return newVal;
         } else {
-            await tx.$executeRaw`INSERT INTO app_settings (key, value) VALUES (${dateKey}, '1')`;
+            await tx.$executeRaw`INSERT INTO app_settings (key, value, updated_at) VALUES (${dateKey}, '1', NOW())`;
             return 1;
         }
     });
