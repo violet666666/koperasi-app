@@ -92,6 +92,24 @@ export default function TagihanPage() {
     }
   };
 
+  const handleDeleteDraft = async () => {
+    if (!period) return;
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/billing/${period.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPeriod(null);
+      } else {
+        const json = await res.json();
+        setError(json.message || "Gagal menghapus draft");
+      }
+    } catch {
+      setError("Gagal menghapus draft");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleToggleItem = async (itemId: number) => {
     if (!period || period.status !== "draft") return;
     const res = await fetch(
@@ -207,6 +225,14 @@ export default function TagihanPage() {
                   Riwayat
                 </Button>
               </Link>
+              <Button
+                onClick={handleDeleteDraft}
+                disabled={processing}
+                variant="destructive"
+                size="sm"
+              >
+                Hapus Draft
+              </Button>
               <Button
                 onClick={handleProcess}
                 disabled={processing}

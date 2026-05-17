@@ -110,8 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Logout function
     const logout = React.useCallback(async () => {
-        await signOut({ redirect: false });
-        // Use window.location for full page reload to ensure session is cleared
+        try {
+            await signOut({ redirect: false });
+        } catch {
+            // signOut may fail during dev hot-reload — still redirect to clear session
+        }
         window.location.href = "/login";
     }, []);
 

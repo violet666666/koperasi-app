@@ -63,8 +63,9 @@ export function NotificationBell() {
         setUnreadCount(json.unreadCount || 0);
       }
     } catch (error) {
+      // Silently ignore AbortError and network errors (common during dev hot-reload)
       if (error instanceof DOMException && error.name === "AbortError") return;
-      console.error("[NotificationBell]", error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") return;
     }
   }, []);
 
@@ -88,8 +89,8 @@ export function NotificationBell() {
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-    } catch (error) {
-      console.error("[NotificationBell]", error);
+    } catch {
+      // Silently ignore network errors (dev hot-reload, offline)
     }
   };
 
@@ -100,8 +101,8 @@ export function NotificationBell() {
         setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         setUnreadCount(0);
       }
-    } catch (error) {
-      console.error("[NotificationBell]", error);
+    } catch {
+      // Silently ignore network errors
     }
   };
 
