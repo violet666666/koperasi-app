@@ -46,6 +46,8 @@ export async function GET(
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
         const perPage = Math.min(200, Math.max(1, parseInt(searchParams.get("perPage") || "50", 10)) || 50);
         const isExport = searchParams.get("export") === "true";
+        const sortBy = searchParams.get("sortBy") || "transactionDate";
+        const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
         // Compute date range with WIB (+7) timezone
         const now = new Date();
@@ -143,7 +145,7 @@ export async function GET(
                 include: {
                     member: { select: { id: true, name: true, nrp: true, memberNo: true } },
                 },
-                orderBy: { transactionDate: "desc" },
+                orderBy: { [sortBy]: sortOrder },
             });
         } catch (readError) {
             console.warn("[Laporan API] prismaRead failed for unitTx, falling back to TCP:", readError instanceof Error ? readError.message : readError);
@@ -152,7 +154,7 @@ export async function GET(
                 include: {
                     member: { select: { id: true, name: true, nrp: true, memberNo: true } },
                 },
-                orderBy: { transactionDate: "desc" },
+                orderBy: { [sortBy]: sortOrder },
             });
         }
 
@@ -168,7 +170,7 @@ export async function GET(
                     member: { select: { id: true, name: true, nrp: true } },
                     items: { include: { product: { select: { name: true } } } },
                 },
-                orderBy: { createdAt: "desc" } as const,
+                orderBy: { [sortBy === "transactionDate" ? "createdAt" : sortBy]: sortOrder },
             };
             let rawStoreSales: any[];
             try {
@@ -286,9 +288,24 @@ export async function GET(
             vehiclePlate: null,
         }));
 
-        // Merge & sort
+        // Merge & sort — respect sortBy/sortOrder from query params
+        const getSortValue = (item: typeof unitTxRows[number], field: string): string | number => {
+            switch (field) {
+                case "transactionDate": return new Date(item.date).getTime();
+                case "transactionNo": return item.no;
+                case "amount": return item.amount;
+                default: return new Date(item.date).getTime();
+            }
+        };
         const allTransactions = [...(usesStoreSales ? storeSaleRows : []), ...unitTxRows]
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .sort((a, b) => {
+                const va = getSortValue(a, sortBy);
+                const vb = getSortValue(b, sortBy);
+                const cmp = typeof va === "number" && typeof vb === "number"
+                    ? va - vb
+                    : String(va).localeCompare(String(vb));
+                return sortOrder === "asc" ? cmp : -cmp;
+            });
 
         // Pagination: slice transactions unless export mode
         const totalTransactions = allTransactions.length;

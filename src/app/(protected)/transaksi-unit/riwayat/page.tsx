@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car, ChevronDown, ChevronRight, Eye, Receipt, Package, Tag, User, Clock, CreditCard, AlertTriangle, ShoppingBag } from "lucide-react";
+import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car, ChevronDown, ChevronRight, Eye, Receipt, Package, Tag, User, Clock, CreditCard, AlertTriangle, ShoppingBag, ChevronsUpDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +89,19 @@ export default function RiwayatTransaksiUnitPage() {
     // Priority: URL param > auth unitType > "all"
     const [filterUnit, setFilterUnit] = React.useState<string>(normalizeUnitType(urlUnitType) || normalizeUnitType(userUnitType) || "all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
+
+    // Sort state
+    const [sortField, setSortField] = React.useState("transactionDate");
+    const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc");
+
+    const toggleSort = (field: string) => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortOrder("desc");
+        }
+    };
 
     const queryClient = useQueryClient();
     const [isVoidModalOpen, setIsVoidModalOpen] = React.useState(false);
@@ -183,7 +196,7 @@ export default function RiwayatTransaksiUnitPage() {
 
     // Build API query params from current filters
     const apiParams = React.useMemo(() => {
-        const params: Record<string, unknown> = { page, perPage };
+        const params: Record<string, unknown> = { page, perPage, sortBy: sortField, sortOrder };
         if (filterUnit !== "all") params.unitType = filterUnit;
         if (dateRange.start) params.dateFrom = format(dateRange.start, "yyyy-MM-dd");
         if (dateRange.end) params.dateTo = format(dateRange.end, "yyyy-MM-dd");
@@ -191,7 +204,7 @@ export default function RiwayatTransaksiUnitPage() {
         if (filterStatus === "lunas") params.isPaid = "true";
         else if (filterStatus === "belum_lunas") params.isPaid = "false";
         return params;
-    }, [page, perPage, filterUnit, dateRange, filterStatus]);
+    }, [page, perPage, filterUnit, dateRange, filterStatus, sortField, sortOrder]);
 
     const { data: response, isLoading } = useQuery({
         queryKey: ["unit-transactions", apiParams],
@@ -236,7 +249,7 @@ export default function RiwayatTransaksiUnitPage() {
     // Reset to page 1 when any filter changes
     React.useEffect(() => {
         setPage(1);
-    }, [filterUnit, filterStatus, dateRange, perPage]);
+    }, [filterUnit, filterStatus, dateRange, perPage, sortField, sortOrder]);
 
     const getUnitName = (type: string) => {
         const types: Record<string, string> = {
@@ -279,6 +292,21 @@ export default function RiwayatTransaksiUnitPage() {
     const isTokoView = filterUnit === "toko";
 
     const columns: ColumnDef<EnrichedTransaction>[] = React.useMemo(() => {
+        // Sortable header helper for DataTable columns
+        const sortableHeader = (label: string, field: string) => (
+            <button
+                className="flex items-center gap-1 hover:text-foreground transition-colors select-none"
+                onClick={() => toggleSort(field)}
+            >
+                {label}
+                {sortField === field ? (
+                    sortOrder === "asc" ? <ChevronUp className="h-3.5 w-3.5 text-primary" /> : <ChevronDown className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                    <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50" />
+                )}
+            </button>
+        );
+
         // Common status renderer
         const renderStatus = (tx: EnrichedTransaction) => {
             const baseStatus = (tx as any).status || "completed";
@@ -342,7 +370,7 @@ export default function RiwayatTransaksiUnitPage() {
                     size: 40,
                 },
                 {
-                    header: "Waktu",
+                    header: () => sortableHeader("Waktu", "transactionDate"),
                     accessorKey: "transactionDate",
                     cell: ({ row }: { row: any }) => {
                         const tx = row.original as EnrichedTransaction;
@@ -356,7 +384,7 @@ export default function RiwayatTransaksiUnitPage() {
                     },
                 },
                 {
-                    header: "No. Transaksi",
+                    header: () => sortableHeader("No. Transaksi", "transactionNo"),
                     accessorKey: "transactionNo",
                     cell: ({ row }: { row: any }) => {
                         const tx = row.original as EnrichedTransaction;
@@ -418,7 +446,7 @@ export default function RiwayatTransaksiUnitPage() {
                     },
                 },
                 {
-                    header: "Nominal",
+                    header: () => sortableHeader("Nominal", "amount"),
                     accessorKey: "amount",
                     cell: ({ row }: { row: any }) => <div className="font-semibold tabular-nums">{formatCurrency((row.original as EnrichedTransaction).amount)}</div>,
                 },
@@ -458,9 +486,9 @@ export default function RiwayatTransaksiUnitPage() {
                 },
                 size: 40,
             },
-            { header: "No. Transaksi", accessorKey: "transactionNo", cell: ({ row }: { row: any }) => <div className="font-medium text-primary">{(row.original as EnrichedTransaction).transactionNo}</div> },
+            { header: () => sortableHeader("No. Transaksi", "transactionNo"), accessorKey: "transactionNo", cell: ({ row }: { row: any }) => <div className="font-medium text-primary">{(row.original as EnrichedTransaction).transactionNo}</div> },
             {
-                header: "Tanggal", accessorKey: "transactionDate",
+                header: () => sortableHeader("Tanggal", "transactionDate"), accessorKey: "transactionDate",
                 cell: ({ row }: { row: any }) => {
                     const tx = row.original as EnrichedTransaction;
                     const dateObj = new Date((tx as any).createdAt || tx.transactionDate);
@@ -494,12 +522,12 @@ export default function RiwayatTransaksiUnitPage() {
                 },
             },
             ...(filterUnit === "cuci_mobil" ? [{ header: "Plat Nomor", id: "platNomor", cell: ({ row }: { row: any }) => { const plat = parsePlat((row.original as any).notes); return plat ? <Badge variant="outline" className="font-mono text-xs bg-slate-50 border-slate-300 text-slate-700 tracking-wider">{plat}</Badge> : <span className="text-muted-foreground text-xs">-</span>; } } as ColumnDef<EnrichedTransaction>] : []),
-            { header: "Nominal", accessorKey: "amount", cell: ({ row }: { row: any }) => <div className="font-medium">{formatCurrency((row.original as EnrichedTransaction).amount)}</div> },
+            { header: () => sortableHeader("Nominal", "amount"), accessorKey: "amount", cell: ({ row }: { row: any }) => <div className="font-medium">{formatCurrency((row.original as EnrichedTransaction).amount)}</div> },
             { header: "Status", accessorKey: "status", cell: ({ row }: { row: any }) => renderStatus(row.original as EnrichedTransaction) },
             { header: "Metode", accessorKey: "paymentMethod", cell: ({ row }: { row: any }) => { const method = (row.original as EnrichedTransaction).paymentMethod; return <Badge variant="outline" className={`text-[10px] ${getPaymentColor(method)}`}>{getPaymentLabel(method)}</Badge>; } },
             { header: "Aksi", id: "actions", cell: ({ row }: { row: any }) => renderActions(row.original as EnrichedTransaction) },
         ] as ColumnDef<EnrichedTransaction>[];
-    }, [isTokoView, isOperator, isAdmin, filterUnit]);
+    }, [isTokoView, isOperator, isAdmin, filterUnit, sortField, sortOrder]);
 
     // Expanded row renderer
     const renderExpandedRow = React.useCallback(({ original: tx }: { original: EnrichedTransaction }) => {
@@ -620,8 +648,8 @@ export default function RiwayatTransaksiUnitPage() {
             : "Dibatalkan";
         const periodLabel = dateRange.label || "Semua Data";
 
-        // Fetch ALL data for export (respecting filters)
-        const exportParams: Record<string, unknown> = { export: true };
+        // Fetch ALL data for export (respecting filters + sort)
+        const exportParams: Record<string, unknown> = { export: true, sortBy: sortField, sortOrder };
         if (filterUnit !== "all") exportParams.unitType = filterUnit;
         if (dateRange.start) exportParams.dateFrom = format(dateRange.start, "yyyy-MM-dd");
         if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");
@@ -713,7 +741,7 @@ export default function RiwayatTransaksiUnitPage() {
     const [isExporting, setIsExporting] = React.useState(false);
 
     const fetchExportData = React.useCallback(async (): Promise<EnrichedTransaction[]> => {
-        const exportParams: Record<string, unknown> = { export: true };
+        const exportParams: Record<string, unknown> = { export: true, sortBy: sortField, sortOrder };
         if (filterUnit !== "all") exportParams.unitType = filterUnit;
         if (dateRange.start) exportParams.dateFrom = format(dateRange.start, "yyyy-MM-dd");
         if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");

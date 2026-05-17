@@ -59,7 +59,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     const [selectedMember, setSelectedMember] = React.useState<any | null>(null);
     
     // Limit piutang check
-    const [limitInfo, setLimitInfo] = React.useState<{ sisaLimit: number; plafonPiutang: number; totalTagihan: number } | null>(null);
+    const [limitInfo, setLimitInfo] = React.useState<{ allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string | null } | null>(null);
     const [isLoadingLimit, setIsLoadingLimit] = React.useState(false);
     
     // Token intercept
@@ -205,15 +205,23 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
         setLimitInfo(null);
         setIsLoadingLimit(true);
         try {
-            const res = await fetch(`/api/unit-transactions/validate?memberId=${member.id}&amount=${Number(amount) || 0}`);
+            const res = await fetch("/api/unit-transactions/validate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    nrp: member.nrp,
+                    amount: Number(amount) || 0,
+                    unitType,
+                }),
+            });
             const json = await res.json();
-            if (json.data) {
-                setLimitInfo({
-                    sisaLimit: json.data.sisaLimit ?? 0,
-                    plafonPiutang: json.data.plafonPiutang ?? 0,
-                    totalTagihan: json.data.totalTagihan ?? 0,
-                });
-            }
+            setLimitInfo({
+                allowed: json.allowed ?? true,
+                sisaLimit: json.sisaLimit ?? 0,
+                plafonPiutang: json.plafonPiutang ?? 0,
+                totalTagihan: json.totalTagihan ?? 0,
+                reason: json.reason ?? null,
+            });
         } catch {
             // If validate API fails, let server block it
         } finally {
@@ -661,7 +669,7 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Memeriksa limit piutang...</div>
                                 ) : limitInfo ? (
                                     <div className={`p-2 rounded text-xs space-y-1 border ${
-                                        limitInfo.sisaLimit >= Number(amount)
+                                        limitInfo.allowed
                                             ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                                             : "bg-red-50 border-red-200 text-red-800"
                                     }`}>
@@ -669,12 +677,12 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                                         <div className="flex justify-between"><span>Tagihan Aktif:</span><strong>{formatCurrency(limitInfo.totalTagihan)}</strong></div>
                                         <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
                                             <span>Sisa Limit:</span>
-                                            <strong className={limitInfo.sisaLimit >= Number(amount) ? "text-emerald-700" : "text-red-700"}>
+                                            <strong className={limitInfo.allowed ? "text-emerald-700" : "text-red-700"}>
                                                 {formatCurrency(limitInfo.sisaLimit)}
                                             </strong>
                                         </div>
-                                        {limitInfo.sisaLimit < Number(amount) && (
-                                            <p className="text-red-700 font-semibold pt-1">⚠️ Sisa limit tidak mencukupi untuk transaksi ini!</p>
+                                        {!limitInfo.allowed && (
+                                            <p className="text-red-700 font-semibold pt-1">⚠️ {limitInfo.reason || "Sisa limit tidak mencukupi untuk transaksi ini!"}</p>
                                         )}
                                     </div>
                                 ) : null}
@@ -683,8 +691,8 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { setShowCreditDialog(false); setLimitInfo(null); }}>Batal</Button>
-                        <Button 
-                            disabled={!selectedMember || isProcessing || isLoadingLimit || (limitInfo !== null && limitInfo.sisaLimit < Number(amount))} 
+                        <Button
+                            disabled={!selectedMember || isProcessing || isLoadingLimit || (limitInfo !== null && !limitInfo.allowed)}
                             onClick={() => processPayment("salary_cut")}
                         >
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}

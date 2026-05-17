@@ -16,6 +16,8 @@ export async function GET(req: Request) {
         const unitType = searchParams.get("unitType") || "resto";
         const from = searchParams.get("from");
         const to = searchParams.get("to");
+        const sortBy = searchParams.get("sortBy") || "createdAt";
+        const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
         const where: any = { unitType };
         if (from || to) {
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
         const sales = await prisma.storeSale.findMany({
             where,
             include: { items: { include: { product: true } } },
-            orderBy: { createdAt: "desc" },
+            orderBy: { [sortBy]: sortOrder },
         });
 
         // Summary

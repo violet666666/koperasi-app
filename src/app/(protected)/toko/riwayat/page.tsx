@@ -23,6 +23,7 @@ import {
 import { formatCurrency } from "@/lib/constants";
 import { useSession } from "next-auth/react";
 import { generateKasirReceiptPDF, type KasirReceiptData } from "@/lib/export-utils";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 interface SaleItem {
     id: number;
@@ -122,6 +123,19 @@ export default function RiwayatTransaksiPage() {
     const [shiftFilter, setShiftFilter] = React.useState<string>("all");
     const [availableShifts, setAvailableShifts] = React.useState<{ id: number; shiftName: string; startedAt: string; status: string }[]>([]);
 
+    // Sort state
+    const [sortField, setSortField] = React.useState("createdAt");
+    const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc");
+
+    const toggleSort = (field: string) => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortOrder("desc");
+        }
+    };
+
     const [selectedSale, setSelectedSale] = React.useState<Sale | null>(null);
     const [detailOpen, setDetailOpen] = React.useState(false);
 
@@ -136,7 +150,7 @@ export default function RiwayatTransaksiPage() {
     // Reset to page 1 when filters change
     React.useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, methodFilters, showVoided, shiftFilter]);
+    }, [debouncedSearch, methodFilters, showVoided, shiftFilter, sortField, sortOrder]);
 
     // Fetch stats once on mount (after session loads)
     React.useEffect(() => {
@@ -190,6 +204,8 @@ export default function RiwayatTransaksiPage() {
                     unitType,
                     page: String(page),
                     perPage: String(perPage),
+                    sortBy: sortField,
+                    sortOrder,
                     ...(debouncedSearch && { search: debouncedSearch }),
                     ...(methods && { paymentMethods: methods }),
                     ...(!showVoided && { showVoided: "false" }),
@@ -207,7 +223,7 @@ export default function RiwayatTransaksiPage() {
             }
         }
         fetchSales();
-    }, [unitType, page, debouncedSearch, methodFilters, showVoided, shiftFilter, status]);
+    }, [unitType, page, debouncedSearch, methodFilters, showVoided, shiftFilter, sortField, sortOrder, status]);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {
@@ -340,12 +356,12 @@ export default function RiwayatTransaksiPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>No. Transaksi</TableHead>
-                                    <TableHead>Tanggal</TableHead>
+                                    <SortableHeader label="No. Transaksi" field="saleNo" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} />
+                                    <SortableHeader label="Tanggal" field="createdAt" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} />
                                     <TableHead>Pelanggan</TableHead>
                                     <TableHead className="text-center">Item</TableHead>
                                     <TableHead className="text-center">Pembayaran</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
+                                    <SortableHeader label="Total" field="totalAmount" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} align="right" />
                                     <TableHead>Kasir</TableHead>
                                     <TableHead className="text-center">Shift</TableHead>
                                     <TableHead className="text-center w-[80px]">Aksi</TableHead>

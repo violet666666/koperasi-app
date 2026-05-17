@@ -29,6 +29,8 @@ export async function GET(request: Request) {
         const shiftId = searchParams.get("shiftId") || null;
         const fromDate = searchParams.get("from") ? new Date(searchParams.get("from")!) : null;
         const toDate = searchParams.get("to") ? new Date(searchParams.get("to")!) : null;
+        const sortBy = searchParams.get("sortBy") || "createdAt";
+        const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
         // Build where clause
         const where: Record<string, unknown> = {
@@ -85,7 +87,7 @@ export async function GET(request: Request) {
                 shift: { select: { id: true, shiftName: true, status: true } },
                 cashierIdentity: { select: { id: true, displayName: true } },
             },
-            orderBy: { createdAt: "desc" } as const,
+            orderBy: { [sortBy]: sortOrder } as any,
             skip: (page - 1) * perPage,
             take: perPage,
         };
