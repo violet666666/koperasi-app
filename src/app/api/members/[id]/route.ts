@@ -374,6 +374,39 @@ export async function PUT(request: Request, { params }: Params) {
                 }
             }
 
+            // Sync credentials when NRP changes (independent of memberNo)
+            if (memberData.nrp !== undefined && memberData.nrp !== member.nrp) {
+                const newNrp = memberData.nrp.trim();
+                const oldNrp = member.nrp;
+
+                // Check for duplicate NRP
+                if (newNrp) {
+                    const existingNrp = await tx.member.findFirst({
+                        where: { nrp: newNrp, id: { not: member.id }, deletedAt: null },
+                    });
+                    if (existingNrp) {
+                        throw new Error("NRP sudah digunakan oleh anggota lain.");
+                    }
+                }
+
+                // Update User email + password to match new NRP
+                if (member.userAccount && newNrp) {
+                    const hashedPassword = await bcrypt.hash(newNrp, 10);
+                    await tx.user.update({
+                        where: { id: member.userAccount.id },
+                        data: {
+                            email: `${newNrp}@koperasi.local`,
+                            password: hashedPassword,
+                        },
+                    });
+                }
+
+                // Sync memberNo if it was equal to old NRP
+                if (oldNrp && member.memberNo === oldNrp) {
+                    memberData.memberNo = newNrp;
+                }
+            }
+
             // Lakukan pemotongan/koreksi saldo (Override)
             if (overrideSavings && Object.keys(overrideSavings).length > 0) {
                 for (const [sType, sAmount] of Object.entries(overrideSavings)) {
@@ -495,9 +528,13 @@ export async function DELETE(request: Request, { params }: Params) {
             );
         }
 
-        const activeLoans = await prisma.loan.count({
-            where: { memberId, status: "active" },
-        });
+        // Enhanced pre-deletion checks
+        const [activeLoans, savingsAgg, pendingBilling, pendingUnitTx] = await Promise.all([
+            prisma.loan.count({ where: { memberId, status: "active" } }),
+            prisma.savingsAccount.aggregate({ where: { memberId }, _sum: { balance: true } }),
+            prisma.billingItem.count({ where: { memberId, isMarkedPaid: false, billingPeriod: { status: "draft" } } }),
+            prisma.unitTransaction.count({ where: { memberId, isPaid: false, status: { in: ["completed", "pending_void"] } } }),
+        ]);
 
         if (activeLoans > 0) {
             return NextResponse.json(
@@ -505,11 +542,38 @@ export async function DELETE(request: Request, { params }: Params) {
                 { status: 400 }
             );
         }
+        const savingsBalance = Number(savingsAgg._sum.balance || 0);
+        if (savingsBalance > 0) {
+            return NextResponse.json(
+                { message: `Anggota masih memiliki saldo simpanan (${savingsBalance.toLocaleString("id-ID")}). Tarik atau transfer terlebih dahulu.` },
+                { status: 400 }
+            );
+        }
+        if (pendingBilling > 0) {
+            return NextResponse.json(
+                { message: "Anggota masih memiliki tagihan billing yang belum dibayar." },
+                { status: 400 }
+            );
+        }
+        if (pendingUnitTx > 0) {
+            return NextResponse.json(
+                { message: "Anggota masih memiliki transaksi unit yang belum dibayar." },
+                { status: 400 }
+            );
+        }
 
+        const ts = Date.now();
         await prisma.$transaction(async (tx) => {
+            // Free unique constraints so identifiers can be reused
             await tx.member.update({
                 where: { id: memberId },
-                data: { deletedAt: new Date(), status: "resigned" },
+                data: {
+                    deletedAt: new Date(),
+                    status: "resigned",
+                    memberNo: `${member.memberNo}_deleted_${memberId}_${ts}`,
+                    nrp: member.nrp ? null : undefined,
+                    nik: member.nik ? null : undefined,
+                },
             });
 
             if (member.userAccount) {

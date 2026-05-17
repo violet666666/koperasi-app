@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS, INSTALLMENT_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
+import { addMonths } from "@/lib/date-helpers";
 
 
 // Info item component
@@ -96,14 +97,13 @@ export default function PinjamanDetailPage() {
         interestPaid: "",
         disbursementDate: "",
         firstDueDate: "",
-        notes: "",
     });
 
     // Role Check — operator & admin boleh edit/void
     const roleName = typeof session?.user?.role === "string" 
          ? session.user.role 
          : (session?.user?.role as any)?.name ?? "";
-    const isOperator = roleName === "operator";
+    const isOperator = roleName === "operator" || roleName === "admin_sp";
 
     React.useEffect(() => {
         async function fetchLoanData() {
@@ -182,7 +182,6 @@ export default function PinjamanDetailPage() {
             interestPaid: String(Number(loan.interestPaid)),
             disbursementDate: fmtDate(loan.disbursementDate),
             firstDueDate: fmtDate(loan.firstDueDate),
-            notes: loan.notes || "",
         });
         setIsEditDialogOpen(true);
     };
@@ -202,8 +201,7 @@ export default function PinjamanDetailPage() {
     const editLastDueDate = (() => {
         if (!editForm.firstDueDate) return "-";
         const d = new Date(editForm.firstDueDate);
-        d.setMonth(d.getMonth() + editTenor - 1);
-        return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+        return addMonths(d, editTenor - 1).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
     })();
 
     const executeEdit = async () => {
@@ -215,7 +213,6 @@ export default function PinjamanDetailPage() {
             if (editForm.interestRate !== String(Number(loan.interestRate))) payload.interestRate = Number(editForm.interestRate);
             if (editForm.disbursementDate && editForm.disbursementDate !== new Date(loan.disbursementDate).toISOString().split("T")[0]) payload.disbursementDate = editForm.disbursementDate;
             if (editForm.firstDueDate && editForm.firstDueDate !== new Date(loan.firstDueDate).toISOString().split("T")[0]) payload.firstDueDate = editForm.firstDueDate;
-            if (editForm.notes !== (loan.notes || "")) payload.notes = editForm.notes;
 
             // Always send at least the core fields to trigger regeneration
             if (Object.keys(payload).length === 0) {
@@ -317,7 +314,7 @@ export default function PinjamanDetailPage() {
                         <DialogDescription>
                             Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan di-regenerasi.
                             {(Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) && (
-                                <span className="text-blue-600 dark:text-blue-400"> Riwayat pembayaran yang sudah tercatat akan dipertahankan.</span>
+                                <span className="text-blue-600 dark:text-blue-400"> Data pembayaran dari import (pokok terbayar, bunga terbayar) akan disesuaikan dengan perhitungan baru. Jadwal angsuran akan di-regenerasi otomatis.</span>
                             )}
                         </DialogDescription>
                     </DialogHeader>
@@ -402,17 +399,6 @@ export default function PinjamanDetailPage() {
                                     onChange={(e) => setEditForm({...editForm, firstDueDate: e.target.value})}
                                 />
                             </div>
-                        </div>
-
-                        {/* Catatan */}
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Catatan <span className="text-muted-foreground">(opsional)</span></label>
-                            <Textarea
-                                value={editForm.notes}
-                                onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
-                                placeholder="Catatan perubahan..."
-                                rows={2}
-                            />
                         </div>
 
                         {/* ── Live Preview ──────────────────────────── */}

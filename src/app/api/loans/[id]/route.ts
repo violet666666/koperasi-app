@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { addMonths } from "@/lib/date-helpers";
+import { logAuditFromRequest } from "@/lib/audit-logger";
+
+// Note: Import pipeline (import-update) intentionally bypasses the payment-count guard for data migration purposes.
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -115,8 +119,6 @@ export async function PUT(request: Request, { params }: Params) {
         const newRate = body.interestRate !== undefined ? Number(body.interestRate) : Number(loan.interestRate);
         const newDisbursementDate = body.disbursementDate ? new Date(body.disbursementDate) : loan.disbursementDate;
         const newFirstDueDate = body.firstDueDate ? new Date(body.firstDueDate) : loan.firstDueDate;
-        const newNotes = body.notes !== undefined ? body.notes : null;
-
         // Allow operator to adjust paid amounts directly (for imported loans with baked-in data)
         const newPrincipalPaid = body.principalPaid !== undefined ? Number(body.principalPaid) : Number(loan.principalPaid);
         const newInterestPaid = body.interestPaid !== undefined ? Number(body.interestPaid) : Number(loan.interestPaid);
@@ -165,9 +167,8 @@ export async function PUT(request: Request, { params }: Params) {
         const monthlyPrincipal = Math.floor(newPrincipal / newTenor);
         const paidInstallmentCount = monthlyPrincipal > 0 ? Math.min(newTenor, Math.floor(newPrincipalPaid / monthlyPrincipal)) : 0;
 
-        // Calculate lastDueDate from firstDueDate
-        const lastDueDate = new Date(newFirstDueDate);
-        lastDueDate.setMonth(lastDueDate.getMonth() + newTenor - 1);
+        // Calculate lastDueDate from firstDueDate (safe month arithmetic)
+        const lastDueDate = addMonths(newFirstDueDate, newTenor - 1);
 
         // 7. Atomic Transaction — update loan + regenerate schedules
         const userId = Number((session.user as any).id);
@@ -208,8 +209,7 @@ export async function PUT(request: Request, { params }: Params) {
             // 7c. Generate new schedules — mark already-paid installments
             const schedules = [];
             for (let i = 1; i <= newTenor; i++) {
-                const dueDate = new Date(newFirstDueDate);
-                dueDate.setMonth(dueDate.getMonth() + (i - 1));
+                const dueDate = addMonths(newFirstDueDate, i - 1);
                 const isPaid = i <= paidInstallmentCount;
 
                 schedules.push({
@@ -260,9 +260,19 @@ export async function PUT(request: Request, { params }: Params) {
         if (body.interestRate !== undefined) changes.push(`Bunga: ${loan.interestRate}% → ${newRate}%`);
         if (body.disbursementDate) changes.push(`Tgl Cair: diperbarui`);
         if (body.firstDueDate) changes.push(`Jatuh Tempo Pertama: diperbarui`);
-        if (body.notes !== undefined) changes.push(`Catatan: diperbarui`);
 
         console.log(`[LOAN-EDIT] Loan ${loan.loanNo} edited by User #${userId}. Changes: ${changes.join(", ")}`);
+
+        // Audit trail
+        await logAuditFromRequest(request, session, {
+            action: "UPDATE",
+            module: "Pinjaman",
+            description: `Pinjaman ${loan.loanNo} edited. Changes: ${changes.join(", ")}`,
+            targetId: loanId,
+            targetType: "loan",
+            oldData: { principalAmount: Number(loan.principalAmount), tenorMonths: loan.tenorMonths, interestRate: Number(loan.interestRate) },
+            newData: { principalAmount: newPrincipal, tenorMonths: newTenor, interestRate: newRate },
+        });
 
         return NextResponse.json({
             data: result,
