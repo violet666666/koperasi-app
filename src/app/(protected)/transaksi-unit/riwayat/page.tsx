@@ -322,7 +322,7 @@ export default function RiwayatTransaksiUnitPage() {
         const renderActions = (tx: EnrichedTransaction) => {
             const baseStatus = (tx as any).status || "completed";
             const isVoidable = baseStatus === "completed";
-            const canEditNrp = (isAdmin || isOperator) && !tx.memberId;
+            const canEditNrp = (isAdmin || isOperator) && baseStatus !== "voided";
             const canEditDetails = (isAdmin || isOperator) && baseStatus !== "voided" && tx.unitType === "cuci_mobil";
             return (
                 <div className="flex gap-1">
@@ -1147,17 +1147,23 @@ export default function RiwayatTransaksiUnitPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Edit NRP Dialog (Admin Only) */}
+            {/* Edit NRP Dialog (Admin/Operator) */}
             <Dialog open={isEditNrpOpen} onOpenChange={(open) => { setIsEditNrpOpen(open); if (!open) { setNrpInput(""); setEditMemberFound(null); }}}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Edit Anggota Transaksi</DialogTitle>
                         <DialogDescription>
                             Tambahkan/ubah NRP anggota untuk transaksi <strong>{editTx?.transactionNo}</strong>.
-                            Hanya Admin Unit yang dapat melakukan ini.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
+                        {editTx?.member && (
+                            <div className="p-3 border rounded-lg bg-blue-50 border-blue-200">
+                                <p className="text-xs text-blue-600 font-medium mb-1">Anggota Saat Ini</p>
+                                <p className="text-sm font-semibold text-blue-900">{editTx.member.name}</p>
+                                <p className="text-xs text-blue-700">{editTx.member.nrp || editTx.member.memberNo}</p>
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label>Masukkan NRP atau Nomor Anggota</Label>
                             <div className="flex gap-2">
