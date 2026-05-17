@@ -118,7 +118,10 @@
       "Skill(superpowers:using-superpowers)",
       "Bash(Select-String -Pattern \"error|Error|✓|Build\")",
       "Bash(Select-Object -Last 15)",
-      "Bash(tasklist /FI \"WINDOWTITLE eq *next*\")"
+      "Bash(tasklist /FI \"WINDOWTITLE eq *next*\")",
+      "Bash(npm i *)",
+      "Skill(using-superpowers)",
+      "Skill(superpowers:writing-plans)"
     ]
   },
   "enabledPlugins": {

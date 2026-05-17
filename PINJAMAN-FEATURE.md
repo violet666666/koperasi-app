@@ -627,3 +627,164 @@ for (const task of commitTasks) {
 
 *Diperbarui: 4 Mei 2026*
 *Total bug tercatat modul Pinjaman: 29 | Total fitur baru: 6*
+
+---
+
+## 🔴 BUG AUDIT MODULE — 17 Mei 2026 (Loan Audit 6 Fix + Billing Delete)
+
+### BUG-AUDIT-001 — monthlyInstallment Divergence antara Import dan Jadwal Angsuran
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (Cicilan per bulan berbeda antara field loan dan jadwal aktual)
+
+**Gejala:**
+Pinjaman hasil import menunjukkan `monthlyInstallment` berbeda dari total angsuran di `LoanSchedule`. Contoh NRP "83111012": `monthlyInstallment = 2.667.000` tapi jadwal menunjukkan `floor(100.000.000/60) + 1.000.000 = 2.666.667`. Selisih Rp 333 per bulan × 60 bulan = Rp 19.980 per pinjaman.
+
+**Root Cause:**
+Route import menghitung `monthlyInstallment = angsuran + jasa` (menggunakan `angsuran` dari Excel = `floor(pinjam/selama)`). Namun saat generate `LoanSchedule`, system menghitung `floor(pinjam/selama)` secara independen. Kedua rounding bisa berbeda jika Excel `angsuran` ≠ `Math.floor(pinjam/selama)`.
+
+**Fix:**
+Kedua creation path di `import-update/route.ts` sekarang menggunakan formula yang sama: `monthlyInstallment = Math.floor(pinjam / selama) + jasa`.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (kedua loan creation block)
+
+---
+
+### BUG-AUDIT-002 — Import UPDATE Path Tidak Sinkronisasi Semua Field Pinjaman
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (Pinjaman yang sudah ada tidak ter-update dengan data Excel terbaru)
+
+**Gejala:**
+Saat import update menemukan pinjaman yang sudah ada (match by NRP), hanya field `principalPaid`, `interestPaid`, `interestOutstanding`, `outstandingAmount` yang di-update. Field `principalAmount`, `tenorMonths`, `interestRate`, `monthlyInstallment`, dan `totalAmount` tetap menggunakan nilai lama.
+
+**Root Cause:**
+UPDATE path di `import-update/route.ts` hanya memperbarui paid/outstanding fields, bukan data utama pinjaman. Selain itu, `LoanSchedule` lama tidak di-regenerasi, menyebabkan jadwal tidak sesuai dengan data Excel terbaru.
+
+**Fix:**
+UPDATE path sekarang memperbarui SEMUA field pinjaman (principal, interest, tenor, rate, monthlyInstallment, totalAmount, disbursedAmount, adminFee) dan menghapus+regenerasi seluruh `LoanSchedule`.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (UPDATE path)
+
+---
+
+### BUG-AUDIT-003 — Jadwal Angsuran Regenerasi Tidak Menyertakan paidDate
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Jadwal angsuran yang sudah dibayar tidak memiliki tanggal pembayaran)
+
+**Gejala:**
+Saat operator mengedit pinjaman (PUT `/api/loans/[id]`), jadwal angsuran di-regenerasi namun angsuran yang sudah dibayar (`status: "paid"`) tidak memiliki `paidDate`. Ini menyebabkan riwayat pembayaran tidak menampilkan kapan angsuran dibayar.
+
+**Root Cause:**
+PUT handler di `loans/[id]/route.ts` membuat schedule baru tanpa mengisi `paidDate`, `principalPaid`, dan `interestPaid` untuk angsuran yang sudah dibayar (status = paid).
+
+**Fix:**
+Regenerated schedules sekarang menyertakan `paidDate: dueDate`, `principalPaid`, `interestPaid` untuk angsuran yang sudah dibayar.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/route.ts` (PUT handler schedule generation)
+
+---
+
+### BUG-AUDIT-004 — paidInstallments Menggunakan Formula Tidak Akurat
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Kolom "Angsuran Ke" di detail anggota menampilkan angka salah)
+
+**Gejala:**
+API `/api/members/[id]` menampilkan `paidInstallments` yang berbeda dari jumlah `LoanSchedule` berstatus "paid". Formula `Math.round(principalPaid / monthlyInstallment)` menghasilkan angka yang terlalu kecil karena `monthlyInstallment` = pokok + bunga, bukan hanya porsi pokok.
+
+**Root Cause:**
+Perhitungan paid installments membagi total pokok terbayar oleh cicilan bulanan (pokok+bunga), bukan oleh porsi pokok per bulan. Contoh: 25.005.000 / 2.667.000 = 9, padahal seharusnya 25.005.000 / 1.666.667 = 15.
+
+**Fix:**
+Pre-fetch paid schedule counts via `prisma.loanSchedule.groupBy()` sebelum mapping, gunakan schedule count sebagai sumber utama, formula hanya sebagai fallback.
+
+**File yang Diperbaiki:**
+- `src/app/api/members/[id]/route.ts` (paidInstallments calculation)
+
+---
+
+### BUG-AUDIT-005 — Bayar Angsuran Tidak Menghitung lateFee
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Denda keterlambatan tidak termasuk di total tagihan angsuran)
+
+**Gejala:**
+Halaman bayar angsuran tidak menampilkan denda keterlambatan (`lateFee`) sebagai bagian dari total yang harus dibayar, meskipun field `lateFee` tersedia di model `LoanSchedule`.
+
+**Root Cause:**
+Function `calcScheduleDue()` di `angsuran/bayar/page.tsx` hanya menghitung `principalDue` dan `interestDue`, tanpa menyertakan `lateFee - lateFeePaid`.
+
+**Fix:**
+Menambahkan `lateFeeDue` ke interface `ScheduleDue` dan kalkulasi `totalDue = principalDue + interestDue + lateFeeDue`.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/angsuran/bayar/page.tsx` (calcScheduleDue function)
+
+---
+
+### BUG-AUDIT-006 — Console Error "Failed to fetch" pada NotificationBell dan signOut
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Low (Error konsol yang tidak mempengaruhi fungsi, namun mengganggu debugging)
+
+**Gejala:**
+Next.js dev mode menampilkan TypeError "Failed to fetch" di console dari:
+1. `NotificationBell` — polling `/api/notifications` setiap 30 detik
+2. `signOut` di `use-auth.tsx` — NextAuth signOut gagal saat dev server restart
+
+**Root Cause:**
+Saat Next.js dev server hot-reload atau restart, request fetch yang sedang berjalan akan gagal dengan TypeError "Failed to fetch". Ini adalah expected behavior di dev mode, bukan bug di aplikasi.
+
+**Fix:**
+Error di-ignore secara silent (AbortError dan "Failed to fetch" TypeError), tanpa `console.error` yang mengganggu debugging.
+
+**File yang Diperbaiki:**
+- `src/components/patterns/notification-bell.tsx` (fetchNotifications, markAsRead, markAllRead)
+- `src/lib/hooks/use-auth.tsx` (logout function)
+
+---
+
+## 🟢 FITUR BARU — Tagihan Piutang: Hapus Draft
+
+### FEAT-TAGIHAN-001 — Delete Draft Billing Period
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** Feature (Operator perlu bisa menghapus draft billing yang salah generate)
+
+**Deskripsi:**
+Operator dapat menghapus draft billing period yang sudah di-generate (sebelum di-proses), sehingga bisa generate ulang untuk periode yang sama. Endpoint `DELETE /api/billing/[periodId]` hanya mengizinkan penghapusan period dengan status "draft". UI menambahkan tombol merah "Hapus Draft" di halaman `/tagihan`.
+
+**File yang Diperbaiki:**
+- `src/app/api/billing/[periodId]/route.ts` (DELETE handler)
+- `src/app/(protected)/tagihan/page.tsx` (UI "Hapus Draft" button)
+
+---
+
+## 🟢 FITUR BARU — Member Management Enhancement
+
+### FEAT-MEMBER-001 — Salary Fields pada Form Tambah Anggota
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Deskripsi:**
+Form "Tambah Anggota Baru" (`/anggota/tambah`) sekarang menyertakan section "Setoran Bulanan (Gaji & Tabungan)" dengan 4 field: Gaji Bersih, Tunles/Tunkin, Sisa Gaji, dan Plafon Piutang. Sebelumnya field ini hanya bisa diisi melalui Edit Anggota atau Import Gaji.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/anggota/tambah/page.tsx`
+
+---
+
+*Diperbarui: 17 Mei 2026*
+*Total bug tercatat modul Pinjaman: 35 | Total fitur baru: 8*

@@ -67,6 +67,15 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 - Pembayaran Tunai atau Kredit (Potong Gaji)
 - Manajemen stok & persediaan
 - Import produk massal
+- 8+ jenis unit: Toko, Resto, Cafe, Laundry, Fitness, Playstation, Cuci Mobil, Cafe LSP
+
+### 📋 Tagihan Piutang (Billing Receivables)
+- Siklus penagihan bulanan (16 - 15)
+- Generate rekap piutang otomatis dari transaksi kredit
+- Toggle per item/anggota sebelum settle
+- Proses & settle: update status pembayaran massal
+- Hapus draft & regenerate untuk periode yang sama
+- Riwayat tagihan per periode
 
 ### 📱 Mobile App (Expo / React Native)
 - Fitur paritas 100% dengan web untuk setiap role
@@ -209,11 +218,11 @@ npx prisma studio
 | Metric | Count |
 |--------|-------|
 | Web Pages | 160+ |
-| API Endpoints | 90+ |
+| API Endpoints | 120+ |
 | Mobile Screens | 40+ |
 | Database Models | 25+ |
 | Total Routes | 250+ |
-| Unit Usaha | 8 |
+| Unit Usaha | 8+ |
 
 ## 🤝 Contributing
 
