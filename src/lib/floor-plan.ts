@@ -65,6 +65,9 @@ export function validateFloorPlan(data: Partial<FloorPlan>): { valid: boolean; e
             errors.push("each table must have id and label");
             continue;
         }
+        if (!/^t\d{1,4}$/.test(table.id)) {
+            errors.push(`table id "${table.id}" must match format t{1-9999}, e.g. t1, t12`);
+        }
         if (typeof table.x !== "number" || typeof table.y !== "number") {
             errors.push(`table ${table.id}: x and y must be numbers`);
         }

@@ -45,6 +45,10 @@ export async function PUT(req: Request) {
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const role = session.user.role as string;
+        if (!["admin", "operator", "super_admin"].includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
 
         const body = await req.json();
         const { productId, groups } = body;

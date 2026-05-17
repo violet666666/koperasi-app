@@ -5,6 +5,8 @@ import { isValidStatusTransition } from "@/lib/kds";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_KDS_ROLES = ["admin", "operator", "super_admin", "kasir"];
+
 // PATCH /api/kitchen-orders/[id] — Update order status
 export async function PATCH(
     req: Request,
@@ -14,6 +16,10 @@ export async function PATCH(
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const role = session.user.role as string;
+        if (!ALLOWED_KDS_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         const { id } = await params;

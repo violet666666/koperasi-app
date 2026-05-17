@@ -58,7 +58,10 @@ const useCafeLspStore = create<CafeLspState>()(
                 queueOrders: state.queueOrders.map(o => o.id === id ? { ...o, status } : o),
             })),
         }),
-        { name: "cafe-lsp-pos-storage" }
+        {
+            name: "cafe-lsp-pos-storage",
+            partialize: (state) => ({ cart: state.cart } as CafeLspState),
+        }
     )
 );
 
@@ -159,19 +162,28 @@ export default function CafeLspKasirPage() {
         checkShift();
     }, []);
 
+    // Fetch current queue state from server (atomic counter)
     const fetchQueueCount = React.useCallback(async () => {
         try {
-            const today = new Date();
-            const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-            const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1&from=${startOfDay}`);
+            const res = await fetch("/api/toko/queue?unitType=cafe_lsp");
             const json = await res.json();
-            const total = json.pagination?.total || 0;
-            const num = total + 1;
-            setNextQueueNumber(`A${String(num).padStart(3, "0")}`);
+            if (json.queueNumber) {
+                // Show next number (current + 1)
+                const num = json.currentCount + 1;
+                setNextQueueNumber(`A${String(num).padStart(3, "0")}`);
+            } else {
+                setNextQueueNumber("A001");
+            }
         } catch { setNextQueueNumber("A001"); }
     }, []);
 
     React.useEffect(() => { fetchQueueCount(); }, [fetchQueueCount]);
+
+    // Clear stale cart/queue data from previous sessions
+    React.useEffect(() => {
+        clearCart();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Auto-detect member by NRP/name for all payment methods
     React.useEffect(() => {
@@ -282,6 +294,20 @@ export default function CafeLspKasirPage() {
 
         setIsProcessing(true);
         try {
+            // Get atomic queue number from server
+            let queueNum = nextQueueNumber;
+            try {
+                const queueRes = await fetch("/api/toko/queue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ unitType: "cafe_lsp" }),
+                });
+                if (queueRes.ok) {
+                    const queueJson = await queueRes.json();
+                    queueNum = queueJson.queueNumber || nextQueueNumber;
+                }
+            } catch {}
+
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                 customerName: selectedMember?.name || "Tamu",
@@ -290,7 +316,7 @@ export default function CafeLspKasirPage() {
                 memberId: selectedMember?.id || undefined,
                 shiftId: activeShiftId || undefined,
                 metadata: {
-                    queueNumber: nextQueueNumber,
+                    queueNumber: queueNum,
                     orderType: "counter",
                     itemNotes: cart.reduce((acc, item) => {
                         if (item.notes) acc[String(item.product.id)] = item.notes;
@@ -309,14 +335,14 @@ export default function CafeLspKasirPage() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
 
-            const currentQueue = nextQueueNumber;
+            const currentQueue = queueNum;
             toast.success(`Antrian ${currentQueue} Lunas!`);
 
             // Re-fetch queue count from server for accurate next number
             fetchQueueCount();
 
             addQueueOrder({
-                id: `order-${Date.now()}`,
+                id: `CL-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 queueNumber: currentQueue,
                 items: cart.map(i => `${i.quantity}x ${i.product.name}`).join(", "),
                 time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),

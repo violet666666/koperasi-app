@@ -40,16 +40,6 @@ export function validateSplitBill(request: SplitBillRequest): { valid: boolean; 
         }
     }
 
-    // Check for duplicate payment methods
-    const methods = new Set<string>();
-    for (const payment of request.payments) {
-        if (methods.has(payment.method)) {
-            errors.push(`duplicate payment method: ${payment.method}`);
-            break;
-        }
-        methods.add(payment.method);
-    }
-
     // Check total matches
     const total = calculateSplitTotal(request.items);
     const paymentsTotal = request.payments.reduce((sum, p) => sum + p.amount, 0);
@@ -69,8 +59,6 @@ export function calculateRemaining(total: number, paidPayments: SplitPayment[]):
     return Math.max(0, total - paid);
 }
 
-let splitCounter = 0;
 export function generateSplitGroupId(): string {
-    splitCounter++;
-    return `split_${Date.now()}_${splitCounter}`;
+    return `SB-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 }

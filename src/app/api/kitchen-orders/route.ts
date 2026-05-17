@@ -5,6 +5,8 @@ import { isValidStatusTransition, validateKitchenOrder } from "@/lib/kds";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_KDS_ROLES = ["admin", "operator", "super_admin", "kasir"];
+
 // GET /api/kitchen-orders — List orders for KDS display
 // Query params: unitType, status, limit
 export async function GET(req: Request) {
@@ -12,6 +14,10 @@ export async function GET(req: Request) {
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const role = session.user.role as string;
+        if (!ALLOWED_KDS_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);
@@ -42,6 +48,10 @@ export async function POST(req: Request) {
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const role = session.user.role as string;
+        if (!ALLOWED_KDS_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         const body = await req.json();
