@@ -6,6 +6,8 @@
 |-------|----------|------|------|------------|
 | operator@koperasi.com | password123 | operator | — | Akses penuh semua fitur (manage_all) |
 | admintoko@koperasi.com | password123 | admin | toko | Admin unit toko |
+| admincafe@koperasi.com | password123 | admin | resto_cafe | Admin unit Resto & Cafe (Latar) |
+| admincafelsp@koperasi.com | password123 | admin | cafe_lsp | Admin unit Cafe LSP |
 
 ## Akun Kasir (dari data transaksi)
 
