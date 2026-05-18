@@ -162,6 +162,212 @@ function formatDateForFile(): string {
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ─── Faktur Piutang PDF ────────────────────────────────────────────────────
+
+export interface FakturPiutangMember {
+    name: string;
+    nrp: string | null;
+    unitBreakdown: { unitType: string; amount: number; count: number }[];
+    totalAmount: number;
+}
+
+export interface FakturPiutangData {
+    periodLabel: string;
+    periodStart: string;
+    periodEnd: string;
+    status: "draft" | "processed";
+    processedByName: string | null;
+    processedAt: string | null;
+    members: FakturPiutangMember[];
+    totalAmount: number;
+    totalMembers: number;
+    totalTransactions: number;
+    unitSummary: { unitType: string; amount: number; count: number }[];
+}
+
+const FAKTUR_UNIT_LABELS: Record<string, string> = {
+    toko: "Toko",
+    carwash: "Cuci Mobil",
+    resto: "Resto",
+    coffe_latar: "Cafe Latar",
+    cafe_lsp: "Cafe LSP",
+    barbershop: "Barbershop",
+    fitness: "Fitness",
+    play_station: "PlayStation",
+    properti: "Properti",
+    simpan_pinjam: "Simpan Pinjam",
+};
+
+export function generateFakturPiutangPDF(data: FakturPiutangData) {
+    const printDate = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    const startDate = new Date(data.periodStart).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    const endDate = new Date(data.periodEnd).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    const statusLabel = data.status === "processed" ? "DIKONFIRMASI" : "DRAFT";
+
+    // Member rows
+    const memberRows = data.members.map((m, i) => {
+        const unitDetail = m.unitBreakdown
+            .map((u) => `${FAKTUR_UNIT_LABELS[u.unitType] || u.unitType} ${formatCurrencyExport(u.amount)}`)
+            .join("; ");
+        return `<tr>
+            <td style="padding:6px 10px;border:1px solid #d1d5db;text-align:center;font-size:11px;">${i + 1}</td>
+            <td style="padding:6px 10px;border:1px solid #d1d5db;font-size:11px;">${escapeHtml(m.name)}</td>
+            <td style="padding:6px 10px;border:1px solid #d1d5db;text-align:center;font-size:11px;">${escapeHtml(m.nrp || "-")}</td>
+            <td style="padding:6px 10px;border:1px solid #d1d5db;font-size:10px;color:#4b5563;">${escapeHtml(unitDetail)}</td>
+            <td style="padding:6px 10px;border:1px solid #d1d5db;text-align:right;font-size:11px;font-weight:600;white-space:nowrap;">Rp ${m.totalAmount.toLocaleString("id-ID")}</td>
+        </tr>`;
+    }).join("");
+
+    // Unit summary
+    const unitSummaryRows = data.unitSummary.map((u) => {
+        return `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid #e5e7eb;border-radius:4px;margin:2px 4px 2px 0;font-size:10px;">
+            <span style="font-weight:600;">${escapeHtml(FAKTUR_UNIT_LABELS[u.unitType] || u.unitType)}</span>
+            <span>Rp ${u.amount.toLocaleString("id-ID")}</span>
+            <span style="color:#9ca3af;">(${u.count} tx)</span>
+        </div>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Faktur Piutang - ${escapeHtml(data.periodLabel)}</title>
+<style>
+  @page { size: A4; margin: 15mm 18mm; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; color: #111; font-size: 12px; }
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .logo-box { background: #1a1a2e; border-radius: 10px; padding: 6px; line-height: 0; }
+  .org-name { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .org-sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
+  .divider { border-top: 3px double #1a1a2e; border-bottom: 1px solid #1a1a2e; padding: 1px 0; margin: 10px 0 20px; }
+  .doc-title-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .doc-title { font-size: 18px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #1a1a2e; }
+  .doc-badge { padding: 4px 14px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .badge-confirmed { background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+  .badge-draft { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+  .info-grid { display: grid; grid-template-columns: 120px 8px 1fr; row-gap: 4px; margin-bottom: 16px; font-size: 11px; }
+  .info-label { color: #6b7280; }
+  .info-value { font-weight: 500; }
+  .section-title { font-size: 12px; font-weight: 700; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #e5e7eb; text-transform: uppercase; letter-spacing: 1px; color: #374151; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 8px 10px; background: #1a1a2e; color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+  thead th:last-child { text-align: right; }
+  thead th:first-child { text-align: center; width: 36px; }
+  thead th:nth-child(3) { text-align: center; }
+  tbody tr:nth-child(even) td { background: #f9fafb; }
+  tfoot td { padding: 10px; border: 1px solid #d1d5db; font-weight: 700; background: #f3f4f6; }
+  tfoot .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  tfoot .total-amount { text-align: right; font-size: 14px; white-space: nowrap; }
+  .unit-summary { margin: 12px 0; }
+  .ttd-area { display: flex; justify-content: space-between; margin-top: 48px; }
+  .ttd-box { text-align: center; min-width: 160px; }
+  .ttd-line { height: 60px; border-bottom: 1px dashed #9ca3af; }
+  .ttd-name { margin-top: 4px; font-weight: 600; font-size: 11px; }
+  .ttd-role { font-size: 10px; color: #6b7280; }
+  .footer { margin-top: 32px; text-align: center; font-size: 9px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+  @media print {
+    button { display: none; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Kop Surat -->
+<div class="header">
+  <div class="logo-box">
+    <img src="/LogoPrimkoppol.png" width="48" height="48" style="object-fit:contain;display:block;" />
+  </div>
+  <div>
+    <div class="org-name">PRIMKOPPOL Resor Lumajang</div>
+    <div class="org-sub">Jl. Jend Panjaitan 46, Lumajang, Jawa Timur &middot; (0334) 881110</div>
+  </div>
+</div>
+<div class="divider"></div>
+
+<!-- Document Title -->
+<div class="doc-title-area">
+  <div class="doc-title">Faktur Piutang</div>
+  <div class="doc-badge ${data.status === "processed" ? "badge-confirmed" : "badge-draft"}">${statusLabel}</div>
+</div>
+
+// Document Info
+<div class="info-grid">
+  <span class="info-label">Periode</span><span>:</span><span class="info-value">${escapeHtml(data.periodLabel)}</span>
+  <span class="info-label">Rentang Tanggal</span><span>:</span><span class="info-value">${startDate} s/d ${endDate}</span>
+  <span class="info-label">Jumlah Anggota</span><span>:</span><span class="info-value">${data.totalMembers} orang &middot; ${data.totalTransactions} transaksi</span>
+  ${data.processedByName ? `<span class="info-label">Diproses Oleh</span><span>:</span><span class="info-value">${escapeHtml(data.processedByName)}${data.processedAt ? " &mdash; " + new Date(data.processedAt).toLocaleString("id-ID") : ""}</span>` : ""}
+  <span class="info-label">Dicetak</span><span>:</span><span class="info-value">${printDate}</span>
+</div>
+
+// Unit Summary
+<div class="unit-summary">
+  <div style="font-size:10px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Ringkasan per Unit</div>
+  ${unitSummaryRows}
+</div>
+
+// Detail Table
+<table>
+  <thead>
+    <tr>
+      <th>No</th>
+      <th>Nama Anggota</th>
+      <th>NRP</th>
+      <th>Detail Unit</th>
+      <th>Total Piutang</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${memberRows}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="4" class="total-label">Total Piutang</td>
+      <td class="total-amount">Rp ${data.totalAmount.toLocaleString("id-ID")}</td>
+    </tr>
+  </tfoot>
+</table>
+
+// Signature Area
+<div class="ttd-area">
+  <div class="ttd-box">
+    <p style="font-size:11px;margin-bottom:4px;color:#6b7280;">Mengetahui,</p>
+    <p style="font-size:11px;font-weight:600;">Kepala Unit Simpan Pinjam</p>
+    <div class="ttd-line"></div>
+    <div class="ttd-name">(........................................)</div>
+  </div>
+  <div class="ttd-box">
+    <p style="font-size:11px;margin-bottom:4px;color:#6b7280;">Lumajang, ${printDate}</p>
+    <p style="font-size:11px;font-weight:600;">Operator</p>
+    <div class="ttd-line"></div>
+    <div class="ttd-name">${escapeHtml(data.processedByName || "........................................")}</div>
+  </div>
+</div>
+
+// Footer
+<div class="footer">
+  Dokumen ini dicetak secara otomatis oleh Sistem Informasi PRIMKOPPOL Resor Lumajang &middot; Sah dan berlaku sebagai bukti tagihan piutang resmi.
+</div>
+
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 400);
+  };
+</script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+    }
+}
+
+function formatCurrencyExport(n: number): string {
+    return "Rp " + n.toLocaleString("id-ID");
+}
+
 // ─── Kwitansi A4 Official Receipt ───────────────────────────────────────────────
 
 export interface ReceiptData {

@@ -31,6 +31,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { generateFakturPiutangPDF, type FakturPiutangData } from "@/lib/export-utils";
 
 const UNIT_LABELS: Record<string, string> = {
   toko: "Toko",
@@ -216,7 +217,28 @@ export default function TagihanPage() {
     }
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    if (!period) return;
+    const fakturData: FakturPiutangData = {
+      periodLabel: period.periodLabel,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      status: period.status,
+      processedByName: period.processedBy?.name ?? null,
+      processedAt: period.processedAt,
+      members: memberRows.map((m) => ({
+        name: m.name,
+        nrp: m.nrp,
+        unitBreakdown: m.unitBreakdown,
+        totalAmount: m.totalAmount,
+      })),
+      totalAmount: totalPiutang,
+      totalMembers: memberRows.length,
+      totalTransactions: period.billingItems.length,
+      unitSummary: totalUnitBreakdown,
+    };
+    generateFakturPiutangPDF(fakturData);
+  };
 
   const toggleMember = (memberId: number) => {
     setSelectedMembers((prev) => {
@@ -301,12 +323,12 @@ export default function TagihanPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 print:m-4">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Tagihan Piutang"
         description="Rekap piutang potongan gaji anggota per unit"
         actions={
-          <div className="flex items-center gap-1.5 sm:gap-2 print:hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {period && (
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 sm:mr-2" />
@@ -332,7 +354,7 @@ export default function TagihanPage() {
       />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive print:hidden">
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive ">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -340,7 +362,7 @@ export default function TagihanPage() {
 
       {/* Period selector */}
       {periods.length > 0 && (
-        <Card className="print:hidden">
+        <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-sm font-medium">Periode:</span>
@@ -421,15 +443,6 @@ export default function TagihanPage() {
         </Card>
       ) : (
         <>
-          {/* Print header */}
-          <div className="hidden print:block print:mb-4">
-            <h1 className="text-xl font-bold">Tagihan Piutang - {period.periodLabel}</h1>
-            <p className="text-sm">
-              {new Date(period.periodStart).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} s/d{" "}
-              {new Date(period.periodEnd).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-            </p>
-            <p className="text-sm">Dicetak: {new Date().toLocaleString("id-ID")}</p>
-          </div>
 
           {/* Summary cards — 2x2 on mobile, 4-col on md+ */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -508,7 +521,7 @@ export default function TagihanPage() {
 
           {/* Bulk actions for draft */}
           {isDraft && unsettledRows.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <div className="flex flex-wrap items-center gap-2 ">
               <Button onClick={() => handleSettle(unsettledRows.map((m) => m.memberId))} disabled={processing} size="sm">
                 {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                 Lunaskan Semua ({unsettledRows.length})
@@ -540,7 +553,7 @@ export default function TagihanPage() {
                   <TableHeader>
                     <TableRow>
                       {isDraft && unsettledRows.length > 0 && (
-                        <TableHead className="w-10 print:hidden">
+                        <TableHead className="w-10 ">
                           <Checkbox
                             checked={selectedMembers.size === unsettledRows.length && unsettledRows.length > 0}
                             onCheckedChange={() => {
@@ -570,7 +583,7 @@ export default function TagihanPage() {
                             onClick={() => toggleExpand(m.memberId)}
                           >
                             {isDraft && unsettledRows.length > 0 && (
-                              <TableCell className="print:hidden" onClick={(e) => e.stopPropagation()}>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
                                 {!m.isPaid && (
                                   <Checkbox
                                     checked={selectedMembers.has(m.memberId)}
@@ -618,7 +631,7 @@ export default function TagihanPage() {
                           {isExpanded && (
                             m.unitBreakdown.map((u) => (
                               <TableRow key={`${m.memberId}-${u.unitType}`} className="bg-muted/30">
-                                {isDraft && unsettledRows.length > 0 && <TableCell className="print:hidden" />}
+                                {isDraft && unsettledRows.length > 0 && <TableCell />}
                                 <TableCell />
                                 <TableCell />
                                 <TableCell className="hidden sm:table-cell" />
@@ -637,7 +650,7 @@ export default function TagihanPage() {
                     })}
                     {/* Totals row */}
                     <TableRow className="font-bold border-t-2">
-                      {isDraft && unsettledRows.length > 0 && <TableCell className="print:hidden" />}
+                      {isDraft && unsettledRows.length > 0 && <TableCell />}
                       <TableCell />
                       <TableCell colSpan={2}>TOTAL</TableCell>
                       <TableCell className="hidden md:table-cell">
