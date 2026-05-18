@@ -280,7 +280,7 @@ export function generateFakturPiutangPDF(data: FakturPiutangData) {
   </div>
   <div>
     <div class="org-name">PRIMKOPPOL Resor Lumajang</div>
-    <div class="org-sub">Jl. Jend Panjaitan 46, Lumajang, Jawa Timur &middot; (0334) 881110</div>
+    <div class="org-sub">Jl. Alun-Alun Utara No. 11, Rogotrunan, Kec. Lumajang, Kabupaten Lumajang, Jawa Timur 67316 &middot; Telp. (0334) 881110</div>
   </div>
 </div>
 <div class="divider"></div>
@@ -368,6 +368,134 @@ function formatCurrencyExport(n: number): string {
     return "Rp " + n.toLocaleString("id-ID");
 }
 
+// ─── Faktur Piutang Excel Export ───────────────────────────────────────────
+
+export async function exportFakturPiutangExcel(data: FakturPiutangData) {
+    if (!data.members || data.members.length === 0) {
+        console.warn("Tidak ada data untuk diekspor.");
+        return;
+    }
+
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    // ── Sheet 1: Detail per Anggota ──────────────────────────────────────
+    const detailRows: Record<string, unknown>[] = [];
+    let no = 1;
+    for (const m of data.members) {
+        // One row per unit breakdown, with member info repeated
+        for (const u of m.unitBreakdown) {
+            detailRows.push({
+                "No": no++,
+                "Nama Anggota": m.name,
+                "NRP": m.nrp || "-",
+                "Unit": FAKTUR_UNIT_LABELS[u.unitType] || u.unitType,
+                "Jumlah Transaksi": u.count,
+                "Piutang per Unit": u.amount,
+            });
+        }
+    }
+
+    // Summary row
+    detailRows.push({});
+    detailRows.push({
+        "No": "",
+        "Nama Anggota": "TOTAL",
+        "NRP": "",
+        "Unit": `${data.totalMembers} anggota · ${data.totalTransactions} transaksi`,
+        "Jumlah Transaksi": "",
+        "Piutang per Unit": data.totalAmount,
+    });
+
+    const ws1 = XLSX.utils.json_to_sheet(detailRows);
+
+    // Column widths
+    ws1["!cols"] = [
+        { wch: 5 },   // No
+        { wch: 28 },  // Nama Anggota
+        { wch: 14 },  // NRP
+        { wch: 18 },  // Unit
+        { wch: 12 },  // Jumlah Transaksi
+        { wch: 20 },  // Piutang per Unit
+    ];
+
+    // Format currency column (F) as number
+    const range = XLSX.utils.decode_range(ws1["!ref"] || "A1");
+    for (let R = range.s.r; R <= range.e.r; R++) {
+        const cell = ws1[XLSX.utils.encode_cell({ r: R, c: 5 })]; // Column F
+        if (cell && typeof cell.v === "number") {
+            cell.z = '#,##0';
+        }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Detail Anggota");
+
+    // ── Sheet 2: Ringkasan per Unit ──────────────────────────────────────
+    const unitRows = data.unitSummary.map((u) => ({
+        "Unit": FAKTUR_UNIT_LABELS[u.unitType] || u.unitType,
+        "Jumlah Transaksi": u.count,
+        "Total Piutang": u.amount,
+    }));
+
+    unitRows.push({});
+    unitRows.push({
+        "Unit": "TOTAL",
+        "Jumlah Transaksi": data.unitSummary.reduce((s, u) => s + u.count, 0),
+        "Total Piutang": data.totalAmount,
+    });
+
+    const ws2 = XLSX.utils.json_to_sheet(unitRows);
+    ws2["!cols"] = [
+        { wch: 20 },  // Unit
+        { wch: 18 },  // Jumlah Transaksi
+        { wch: 22 },  // Total Piutang
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws2, "Ringkasan Unit");
+
+    // ── Sheet 3: Rekap per Anggota (one row per member with total) ──────
+    const rekapRows = data.members.map((m, i) => {
+        const unitDetail = m.unitBreakdown
+            .map((u) => `${FAKTUR_UNIT_LABELS[u.unitType] || u.unitType}: Rp ${u.amount.toLocaleString("id-ID")}`)
+            .join("; ");
+        return {
+            "No": i + 1,
+            "Nama Anggota": m.name,
+            "NRP": m.nrp || "-",
+            "Jumlah Unit": m.unitBreakdown.length,
+            "Detail Unit": unitDetail,
+            "Total Piutang": m.totalAmount,
+        };
+    });
+
+    rekapRows.push({});
+    rekapRows.push({
+        "No": "",
+        "Nama Anggota": "TOTAL",
+        "NRP": "",
+        "Jumlah Unit": "",
+        "Detail Unit": "",
+        "Total Piutang": data.totalAmount,
+    });
+
+    const ws3 = XLSX.utils.json_to_sheet(rekapRows);
+    ws3["!cols"] = [
+        { wch: 5 },   // No
+        { wch: 28 },  // Nama Anggota
+        { wch: 14 },  // NRP
+        { wch: 12 },  // Jumlah Unit
+        { wch: 45 },  // Detail Unit
+        { wch: 20 },  // Total Piutang
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws3, "Rekap Anggota");
+
+    // ── Save ─────────────────────────────────────────────────────────────
+    const startDate = new Date(data.periodStart);
+    const periodSuffix = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+    XLSX.writeFile(wb, `Faktur_Piutang_${data.periodLabel.replace(/\s+/g, "_")}_${periodSuffix}.xlsx`);
+}
+
 // ─── Kwitansi A4 Official Receipt ───────────────────────────────────────────────
 
 export interface ReceiptData {
@@ -421,7 +549,7 @@ export function generateReceiptPDF(data: ReceiptData) {
   </div>
   <div>
     <div class="org-name">PRIMKOPPOL Resor Lumajang</div>
-    <div style="font-size:10px;color:#666;">Jl. Jend Panjaitan 46, Lumajang, Jawa Timur</div>
+    <div style="font-size:10px;color:#666;">Jl. Alun-Alun Utara No. 11, Rogotrunan, Kec. Lumajang, Kabupaten Lumajang, Jawa Timur 67316</div>
   </div>
 </div>
 <div class="divider"></div>

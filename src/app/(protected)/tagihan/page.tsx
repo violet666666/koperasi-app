@@ -29,9 +29,10 @@ import {
   ChevronRight,
   Trash2,
   CheckCircle2,
+  Download,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { generateFakturPiutangPDF, type FakturPiutangData } from "@/lib/export-utils";
+import { generateFakturPiutangPDF, exportFakturPiutangExcel, type FakturPiutangData } from "@/lib/export-utils";
 
 const UNIT_LABELS: Record<string, string> = {
   toko: "Toko",
@@ -240,6 +241,29 @@ export default function TagihanPage() {
     generateFakturPiutangPDF(fakturData);
   };
 
+  const handleExportExcel = () => {
+    if (!period) return;
+    const fakturData: FakturPiutangData = {
+      periodLabel: period.periodLabel,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      status: period.status,
+      processedByName: period.processedBy?.name ?? null,
+      processedAt: period.processedAt,
+      members: memberRows.map((m) => ({
+        name: m.name,
+        nrp: m.nrp,
+        unitBreakdown: m.unitBreakdown,
+        totalAmount: m.totalAmount,
+      })),
+      totalAmount: totalPiutang,
+      totalMembers: memberRows.length,
+      totalTransactions: period.billingItems.length,
+      unitSummary: totalUnitBreakdown,
+    };
+    exportFakturPiutangExcel(fakturData);
+  };
+
   const toggleMember = (memberId: number) => {
     setSelectedMembers((prev) => {
       const next = new Set(prev);
@@ -332,7 +356,13 @@ export default function TagihanPage() {
             {period && (
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Cetak</span>
+                <span className="hidden sm:inline">Cetak PDF</span>
+              </Button>
+            )}
+            {period && (
+              <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Excel</span>
               </Button>
             )}
             {period && (
