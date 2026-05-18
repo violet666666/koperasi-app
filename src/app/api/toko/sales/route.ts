@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
         const userUnitType = (session.user as { unitType?: string }).unitType || null;
         const unitType = searchParams.get("unitType") || userUnitType || null;
         // Non-operator users can only see their own unit
-        if (role !== "operator" && userUnitType && unitType && unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && unitType && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));

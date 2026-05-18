@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { isValidStatusTransition, validateKitchenOrder } from "@/lib/kds";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const userUnitType = (session.user as { unitType?: string }).unitType || null;
         const unitType = searchParams.get("unitType") || userUnitType;
-        if (role !== "operator" && userUnitType && unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const status = searchParams.get("status");

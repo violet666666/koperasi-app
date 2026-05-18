@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // PATCH /api/toko/products/[id]/discount — Update discount for a product
 export async function PATCH(
@@ -55,7 +56,7 @@ export async function PATCH(
         }
 
         const userUnitType = (session.user as { unitType?: string }).unitType;
-        if (role !== "operator" && userUnitType && product.unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && !isSameUnit(product.unitType, userUnitType)) {
             return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
         }
 

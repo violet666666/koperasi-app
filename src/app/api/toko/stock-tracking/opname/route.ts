@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { validateOpnameItems } from "@/lib/stock-opname";
 
 // POST /api/toko/stock-tracking/opname
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
             unitType?: string;
         };
         const unitType = bodyUnitType || userUnitType || "toko";
-        if (userRole !== "operator" && userUnitType && unitType !== userUnitType) {
+        if (userRole !== "operator" && userUnitType && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

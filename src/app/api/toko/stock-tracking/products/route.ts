@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // GET /api/toko/stock-tracking/products
 // Fetch products by scope for stock tracking/opname
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const userUnitType = (session.user.unitType as string) || null;
         const unitType = searchParams.get("unitType") || userUnitType || "toko";
-        if (userRole !== "operator" && userUnitType && unitType !== userUnitType) {
+        if (userRole !== "operator" && userUnitType && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const scope = searchParams.get("scope") || "all";

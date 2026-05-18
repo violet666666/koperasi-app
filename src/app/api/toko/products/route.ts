@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // GET /api/toko/products - List store products (with server-side pagination)
 export async function GET(request: Request) {
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
         const userUnitType = (session.user as { unitType?: string }).unitType || null;
         const unitType = searchParams.get("unitType") || userUnitType || null;
         const role = session.user.role as string;
-        if (role !== "operator" && userUnitType && unitType && unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && unitType && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const category = searchParams.get("category") || null;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { validateModifierGroup } from "@/lib/modifiers";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
         }
         const userUnitType = (session.user as { unitType?: string }).unitType;
-        if ((session.user.role as string) !== "operator" && userUnitType && product.unitType !== userUnitType) {
+        if ((session.user.role as string) !== "operator" && userUnitType && !isSameUnit(product.unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
@@ -71,7 +72,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
         }
         const userUnitType = (session.user as { unitType?: string }).unitType;
-        if (role !== "operator" && userUnitType && product.unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && !isSameUnit(product.unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 

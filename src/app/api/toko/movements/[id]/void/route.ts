@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { logAuditFromRequest } from "@/lib/audit-logger";
 
 /**
@@ -47,7 +48,7 @@ export async function POST(
         }
 
         const userUnitType = (session.user as { unitType?: string }).unitType;
-        if (role !== "operator" && userUnitType && movement.product.unitType !== userUnitType) {
+        if (role !== "operator" && userUnitType && !isSameUnit(movement.product.unitType, userUnitType)) {
             return NextResponse.json({ message: "Anda tidak memiliki akses ke mutasi stok unit ini" }, { status: 403 });
         }
 
