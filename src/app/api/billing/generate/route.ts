@@ -96,21 +96,29 @@ export async function POST(request: Request) {
       if (match) coveredSaleNos.add(match[1]);
     }
 
-    // Source 2: StoreSales without matching piutang UnitTransaction
-    const uncoveredStoreSales = await prisma.storeSale.findMany({
+    // Source 2: StoreSales without matching piutang UnitTransaction.
+    // StoreSale uses `createdAt` for date, void info is in metadata.isVoided.
+    // Query without Prisma JSON NOT filter (it can exclude null metadata rows),
+    // then filter voided in JavaScript.
+    const allStoreSales = await prisma.storeSale.findMany({
       where: {
         paymentMethod: "salary_cut",
-        status: { not: "voided" },
         memberId: { not: null },
-        transactionDate: { lte: endUTC },
+        createdAt: { lte: endUTC },
       },
       select: {
         id: true, saleNo: true, memberId: true, totalAmount: true,
-        transactionDate: true, member: { select: { name: true, nrp: true } },
+        createdAt: true, metadata: true,
+        member: { select: { name: true, nrp: true } },
       },
     });
 
-    // Filter to only StoreSales not already covered by UnitTransactions
+    const uncoveredStoreSales = allStoreSales.filter((ss) => {
+      const meta = ss.metadata as Record<string, unknown> | null;
+      return !meta?.isVoided;
+    });
+
+    // Only StoreSales not already covered by UnitTransactions
     const gapStoreSales = uncoveredStoreSales.filter(
       (ss) => !coveredSaleNos.has(ss.saleNo)
     );
