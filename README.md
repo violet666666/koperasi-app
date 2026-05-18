@@ -70,12 +70,14 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 - 8+ jenis unit: Toko, Resto, Cafe, Laundry, Fitness, Playstation, Cuci Mobil, Cafe LSP
 
 ### 📋 Tagihan Piutang (Billing Receivables)
-- Siklus penagihan bulanan (16 - 15)
+- Siklus penagihan bulanan (16 - 15) atau custom date range
 - Generate rekap piutang otomatis dari transaksi kredit
 - Toggle per item/anggota sebelum settle
-- Proses & settle: update status pembayaran massal
+- Proses & settle: update status pembayaran massal (partial supported)
 - Hapus draft & regenerate untuk periode yang sama
 - Riwayat tagihan per periode
+- Export PDF profesional (A4 kop surat) & Excel (3 sheets)
+- Member portal: halaman Faktur untuk anggota lihat tagihan sendiri
 
 ### 📱 Mobile App (Expo / React Native)
 - Fitur paritas 100% dengan web untuk setiap role

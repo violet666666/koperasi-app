@@ -216,4 +216,11 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 
 ---
 
+## Changelog — 18 Mei 2026
+
+- **[Riwayat] Edit NRP Fix:** Tombol "Tambah NRP Anggota" di `/transaksi-unit/riwayat?unitType=cafe_lsp` sekarang tampil untuk semua transaksi non-voided. Dialog menampilkan "Anggota Saat Ini" jika sudah ada member. Berlaku untuk semua unit. File: `transaksi-unit/riwayat/page.tsx`
+- **[Role] Operator Hierarchy:** Dihapus referensi `superadmin`/`super_admin` dari seluruh codebase. Operator = role tertinggi. Admin Cafe LSP tetap akses unit `cafe_lsp` saja.
+
+---
+
 *Dokumen ini adalah referensi utama untuk Unit Cafe LSP. Untuk Cafe & Resto Latar, lihat `UNIT-CAFE-RESTO.md`. Untuk Toko, lihat `UNIT-TOKO.md`.*

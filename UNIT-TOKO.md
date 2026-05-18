@@ -677,4 +677,42 @@ Format: `BATCH-YYYYMMDD-XXXX` (contoh: `BATCH-20260430-0001`)
 **Hasil:** Stock data kembali muncul, kasir bisa transaksi normal. DB produksi: 2,173 products (toko: 2,118 | cafe_lsp: 48 | resto: 2 | cuci_mobil: 5).
 
 ---
+
+## Changelog — 18 Mei 2026 (Role Cleanup + Tagihan + Edit NRP)
+
+### Fitur Baru
+
+- **[Tagihan] Custom Date Range:** Operator dapat memilih rentang tanggal kustom saat generate billing period, tidak hanya periode otomatis 16-15. UI date picker di `/tagihan`, dikirim ke API generate. File: `tagihan/page.tsx`, `billing/generate/route.ts`
+- **[Tagihan] Delete Draft:** Tombol "Hapus Draft" merah untuk menghapus billing period yang belum diproses. Hanya berlaku untuk status `draft`. File: `billing/[periodId]/route.ts`, `tagihan/page.tsx`
+- **[Tagihan] Riwayat:** Halaman `/tagihan/riwayat` menampilkan semua billing period (draft + processed). Link ke detail per period. File: `tagihan/riwayat/page.tsx`
+- **[Tagihan] Detail Period:** Halaman `/tagihan/[periodId]` menampilkan rekap per anggota, toggle lunas per item, proses & settle. File: `tagihan/[periodId]/page.tsx`
+
+### Bug Fix
+
+- **[Riwayat] Edit NRP Tidak Berfungsi:** Tombol "Tambah NRP Anggota" hanya muncul untuk transaksi tanpa member (`!tx.memberId`). Diubah ke `baseStatus !== "voided"` sehingga operator bisa edit NRP pada transaksi manapun yang belum di-void. Dialog juga menampilkan "Anggota Saat Ini" jika transaksi sudah punya member. Dihapus teks "Hanya Admin Unit". File: `transaksi-unit/riwayat/page.tsx`
+- **[Tagihan] 500 Error:** Tabel `billing_periods` dan `billing_items` belum ada di NeonDB produksi. Ditambahkan CREATE TABLE di migration endpoint (`admin/migrate/route.ts`). File: `admin/migrate/route.ts`
+- **[Role] Operator Hierarchy:** Dihapus semua referensi `superadmin`/`super_admin` dari 59 file. Operator = role tertinggi (satu-satunya `manage_all`). File: 59 files across the codebase
+- **[DB] Member Columns:** Kolom `sisa_gaji` ditambahkan ke NeonDB via migration endpoint. Kolom lain (`employee_type`, `pangkat`, `golongan`, `kesatuan`, `no_rekening`) sudah ada sebelumnya. File: `admin/migrate/route.ts`
+
+### File Terkait
+
+| File | Perubahan |
+|---|---|
+| `src/app/(protected)/transaksi-unit/riwayat/page.tsx` | Fix canEditNrp + dialog improvements |
+| `src/app/(protected)/tagihan/page.tsx` | Custom date range + delete draft UI |
+| `src/app/api/billing/generate/route.ts` | Accept custom periodStart/periodEnd |
+| `src/app/api/billing/[periodId]/route.ts` | DELETE handler for draft |
+| `src/app/api/admin/migrate/route.ts` | billing_periods/billing_items table creation + member columns |
+| `akun-primkoppol.md` | Production test accounts documentation |
+
+### Production Test Results
+
+| Fitur | Status | Catatan |
+|---|---|---|
+| Potong Gaji (NRP 88110655) | ✅ WORKING | Transaksi berhasil, stok berkurang |
+| Edit NRP riwayat toko | ✅ WORKING | PATCH API 200, table refresh OK |
+| Generate tagihan | ✅ WORKING | Custom date range OK |
+| Halaman /anggota | ✅ WORKING | Data muncul setelah migration |
+
+---
 *Dokumentasi ini adalah Single Source of Truth terbaru untuk operasional modul Toko (Supermarket/Retail). Apabila terdapat kendala teknis atau feature-request di masa depan terkait Toko Prima Pagi, harap referensikan ke file ini.*

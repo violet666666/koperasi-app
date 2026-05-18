@@ -121,7 +121,8 @@
       "Bash(tasklist /FI \"WINDOWTITLE eq *next*\")",
       "Bash(npm i *)",
       "Skill(using-superpowers)",
-      "Skill(superpowers:writing-plans)"
+      "Skill(superpowers:writing-plans)",
+      "mcp__plugin_playwright_playwright__browser_close"
     ]
   },
   "enabledPlugins": {

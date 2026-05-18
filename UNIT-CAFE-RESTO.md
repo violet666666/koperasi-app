@@ -247,4 +247,11 @@ Produk `trackStock=true` = retail (potong stok langsung). `trackStock=false` = r
 
 ---
 
+## Changelog — 18 Mei 2026
+
+- **[Riwayat] Edit NRP Fix:** Tombol "Tambah NRP Anggota" di `/transaksi-unit/riwayat` sekarang tampil untuk semua transaksi non-voided (sebelumnya hanya untuk transaksi tanpa member). Dialog menampilkan "Anggota Saat Ini" jika sudah ada member. Berlaku untuk semua unit termasuk Resto. File: `transaksi-unit/riwayat/page.tsx`
+- **[Role] Operator Hierarchy:** Dihapus referensi `superadmin`/`super_admin` dari seluruh codebase. Operator = role tertinggi. Admin Resto tetap akses unit `resto_cafe`/`resto`/`coffe_latar` saja.
+
+---
+
 *Dokumen ini adalah referensi utama untuk Unit Cafe & Resto (Latar). Untuk Unit Toko, lihat `UNIT-TOKO.md`.*
