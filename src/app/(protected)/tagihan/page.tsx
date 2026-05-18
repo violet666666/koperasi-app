@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -22,8 +24,26 @@ import {
   Calendar,
   Loader2,
   AlertCircle,
+  Printer,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+
+const UNIT_LABELS: Record<string, string> = {
+  toko: "Toko",
+  carwash: "Cuci Mobil",
+  resto: "Resto",
+  coffe_latar: "Cafe Latar",
+  cafe_lsp: "Cafe LSP",
+  barbershop: "Barbershop",
+  fitness: "Fitness",
+  play_station: "PlayStation",
+  properti: "Properti",
+  simpan_pinjam: "Simpan Pinjam",
+};
 
 interface BillingItem {
   id: number;
@@ -51,8 +71,28 @@ interface BillingPeriod {
   billingItems: BillingItem[];
 }
 
+interface PeriodOption {
+  id: number;
+  periodLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+}
+
+interface MemberRow {
+  memberId: number;
+  name: string;
+  nrp: string | null;
+  totalAmount: number;
+  items: BillingItem[];
+  unitBreakdown: { unitType: string; amount: number; count: number }[];
+}
+
 export default function TagihanPage() {
+  const searchParams = useSearchParams();
   const [period, setPeriod] = React.useState<BillingPeriod | null>(null);
+  const [periods, setPeriods] = React.useState<PeriodOption[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [processing, setProcessing] = React.useState(false);
@@ -60,12 +100,25 @@ export default function TagihanPage() {
   const [showCustomDate, setShowCustomDate] = React.useState(false);
   const [customStart, setCustomStart] = React.useState("");
   const [customEnd, setCustomEnd] = React.useState("");
+  const [selectedMembers, setSelectedMembers] = React.useState<Set<number>>(new Set());
+  const [expandedMembers, setExpandedMembers] = React.useState<Set<number>>(new Set());
 
-  const fetchCurrent = React.useCallback(async () => {
+  const fetchPeriods = React.useCallback(async () => {
     try {
-      const res = await fetch("/api/billing/current");
+      const res = await fetch("/api/billing/riwayat");
+      const json = await res.json();
+      setPeriods(json.data ?? []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchPeriod = React.useCallback(async (id?: number) => {
+    try {
+      setLoading(true);
+      const url = id ? `/api/billing/${id}` : "/api/billing/current";
+      const res = await fetch(url);
       const json = await res.json();
       setPeriod(json.data ?? null);
+      if (json.data) setSelectedPeriodId(json.data.id);
     } catch {
       setError("Gagal memuat data tagihan");
     } finally {
@@ -74,8 +127,14 @@ export default function TagihanPage() {
   }, []);
 
   React.useEffect(() => {
-    fetchCurrent();
-  }, [fetchCurrent]);
+    const periodIdParam = searchParams.get("periodId");
+    if (periodIdParam) {
+      fetchPeriod(Number(periodIdParam));
+    } else {
+      fetchPeriod();
+    }
+    fetchPeriods();
+  }, [fetchPeriod, fetchPeriods, searchParams]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -97,6 +156,8 @@ export default function TagihanPage() {
         return;
       }
       setPeriod(json.data);
+      setSelectedPeriodId(json.data.id);
+      fetchPeriods();
     } catch {
       setError("Gagal generate tagihan");
     } finally {
@@ -104,110 +165,140 @@ export default function TagihanPage() {
     }
   };
 
-  const handleDeleteDraft = async () => {
+  const handleDelete = async () => {
     if (!period) return;
+    const label = period.status === "draft" ? "draft" : "riwayat";
+    if (!confirm(`Hapus ${label} tagihan ${period.periodLabel}?${period.status === "processed" ? "\n\nPerhatian: Status isPaid pada transaksi sumber akan dikembalikan ke false." : ""}`)) return;
     setProcessing(true);
     try {
       const res = await fetch(`/api/billing/${period.id}`, { method: "DELETE" });
       if (res.ok) {
         setPeriod(null);
+        setSelectedPeriodId(null);
+        fetchPeriods();
       } else {
         const json = await res.json();
-        setError(json.message || "Gagal menghapus draft");
+        setError(json.message || "Gagal menghapus");
       }
     } catch {
-      setError("Gagal menghapus draft");
+      setError("Gagal menghapus");
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleToggleItem = async (itemId: number) => {
-    if (!period || period.status !== "draft") return;
-    const res = await fetch(
-      `/api/billing/${period.id}/items/${itemId}/toggle`,
-      { method: "PATCH" }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      setPeriod((prev) =>
-        prev
-          ? {
-              ...prev,
-              billingItems: prev.billingItems.map((item) =>
-                item.id === itemId ? json.data : item
-              ),
-            }
-          : prev
-      );
-    }
-  };
-
-  const handleProcess = async () => {
+  const handleSettle = async (memberIds?: number[]) => {
     if (!period) return;
+    const target = memberIds ?? Array.from(selectedMembers);
+    const isAll = !memberIds || memberIds.length === memberRows.length;
+    if (!confirm(isAll
+      ? `Lunaskan SEMUA ${memberRows.length} anggota (${period.billingItems.length} transaksi)?`
+      : `Lunaskan ${target.length} anggota terpilih?`
+    )) return;
     setProcessing(true);
     try {
       const res = await fetch(`/api/billing/${period.id}/process`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberIds: isAll ? undefined : target }),
       });
+      const json = await res.json();
       if (res.ok) {
-        await fetchCurrent();
+        setSelectedMembers(new Set());
+        if (json.isFullSettle) {
+          await fetchPeriod(period.id);
+        } else {
+          await fetchPeriod(period.id);
+        }
+        fetchPeriods();
       } else {
-        const json = await res.json();
-        setError(json.message || "Gagal memproses tagihan");
+        setError(json.message || "Gagal memproses");
       }
     } catch {
-      setError("Gagal memproses tagihan");
+      setError("Gagal memproses");
     } finally {
       setProcessing(false);
     }
   };
 
-  // Group items by member
-  const memberSummary = React.useMemo(() => {
+  const handlePrint = () => window.print();
+
+  const toggleMember = (memberId: number) => {
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedMembers.size === memberRows.length) {
+      setSelectedMembers(new Set());
+    } else {
+      setSelectedMembers(new Set(memberRows.map((m) => m.memberId)));
+    }
+  };
+
+  const toggleExpand = (memberId: number) => {
+    setExpandedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
+
+  // Group items by member with unit breakdown
+  const memberRows: MemberRow[] = React.useMemo(() => {
     if (!period) return [];
-    const map = new Map<
-      number,
-      {
-        memberId: number;
-        name: string;
-        nrp: string | null;
-        totalAmount: number;
-        markedPaidAmount: number;
-        itemIds: number[];
-      }
-    >();
+    const map = new Map<number, MemberRow>();
     for (const item of period.billingItems) {
       const amt = Number(item.amount);
       const existing = map.get(item.memberId);
       if (existing) {
         existing.totalAmount += amt;
-        if (item.isMarkedPaid) existing.markedPaidAmount += amt;
-        existing.itemIds.push(item.id);
+        existing.items.push(item);
+        const ut = item.unitType || "lainnya";
+        const ub = existing.unitBreakdown.find((u) => u.unitType === ut);
+        if (ub) { ub.amount += amt; ub.count++; }
+        else existing.unitBreakdown.push({ unitType: ut, amount: amt, count: 1 });
       } else {
+        const ut = item.unitType || "lainnya";
         map.set(item.memberId, {
           memberId: item.memberId,
           name: item.memberName,
           nrp: item.memberNrp,
           totalAmount: amt,
-          markedPaidAmount: item.isMarkedPaid ? amt : 0,
-          itemIds: [item.id],
+          items: [item],
+          unitBreakdown: [{ unitType: ut, amount: amt, count: 1 }],
         });
       }
     }
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [period]);
 
-  const totalMarked = period
-    ? period.billingItems.filter((i) => i.isMarkedPaid).reduce((s, i) => s + Number(i.amount), 0)
-    : 0;
+  const totalPiutang = period ? period.billingItems.reduce((s, i) => s + Number(i.amount), 0) : 0;
+  const totalUnitBreakdown = React.useMemo(() => {
+    const map = new Map<string, { amount: number; count: number }>();
+    for (const row of memberRows) {
+      for (const u of row.unitBreakdown) {
+        const existing = map.get(u.unitType);
+        if (existing) { existing.amount += u.amount; existing.count += u.count; }
+        else map.set(u.unitType, { amount: u.amount, count: u.count });
+      }
+    }
+    return Array.from(map.entries())
+      .map(([unitType, data]) => ({ unitType, ...data }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [memberRows]);
+
+  const isDraft = period?.status === "draft";
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Tagihan Piutang" description="Periode 16 - 15" />
+        <PageHeader title="Tagihan Piutang" description="Memuat..." />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -216,313 +307,327 @@ export default function TagihanPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:m-4">
       <PageHeader
         title="Tagihan Piutang"
-        description="Periode penagihan piutang potongan gaji (16 - 15)"
+        description="Rekap piutang potongan gaji anggota per unit"
         actions={
-          !period ? (
-            <Button onClick={handleGenerate} disabled={generating}>
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              Generate Tagihan
-            </Button>
-          ) : period.status === "draft" ? (
-            <div className="flex items-center gap-2">
-              <Link href="/tagihan/riwayat">
-                <Button variant="outline" size="sm">
-                  Riwayat
-                </Button>
-              </Link>
+          <div className="flex items-center gap-2 print:hidden">
+            {period && (
+              <Button variant="outline" size="sm" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Cetak
+              </Button>
+            )}
+            {period && (
               <Button
-                onClick={handleDeleteDraft}
+                onClick={handleDelete}
                 disabled={processing}
                 variant="destructive"
                 size="sm"
               >
-                Hapus Draft
+                <Trash2 className="mr-2 h-4 w-4" />
+                Hapus
               </Button>
-              <Button
-                onClick={handleProcess}
-                disabled={processing}
-                variant="default"
-              >
-                {processing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
-                )}
-                Proses & Settle
-              </Button>
-            </div>
-          ) : (
+            )}
             <Link href="/tagihan/riwayat">
-              <Button variant="outline" size="sm">
-                Riwayat
-              </Button>
+              <Button variant="outline" size="sm">Riwayat</Button>
             </Link>
-          )
+          </div>
         }
       />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive print:hidden">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {!period ? (
-        <>
-          {showCustomDate && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Tanggal Mulai</label>
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Tanggal Akhir</label>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setShowCustomDate(false); setCustomStart(""); setCustomEnd(""); }}
-                  >
-                    Reset ke Otomatis
-                  </Button>
-                </div>
-                {customStart && customEnd && customStart > customEnd && (
-                  <p className="text-xs text-destructive mt-2">Tanggal mulai harus sebelum tanggal akhir</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          {!showCustomDate && (
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setShowCustomDate(true)}>
+      {/* Period selector */}
+      {periods.length > 0 && (
+        <Card className="print:hidden">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium">Periode:</span>
+              <select
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={selectedPeriodId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setPeriod(null);
+                    setSelectedPeriodId(null);
+                  } else {
+                    fetchPeriod(Number(val));
+                  }
+                }}
+              >
+                <option value="">— Pilih Periode —</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.periodLabel} ({p.status === "draft" ? "Draft" : "Diproses"})
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">atau</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomDate(!showCustomDate)}
+              >
                 <Calendar className="mr-2 h-4 w-4" />
-                Atur Rentang Tanggal
+                {showCustomDate ? "Sembunyikan" : "Rentang Custom"}
               </Button>
             </div>
-          )}
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">Belum Ada Tagihan</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                Klik &quot;Generate Tagihan&quot; untuk membuat rekap piutang potongan gaji
-                periode{showCustomDate && customStart && customEnd ? " yang dipilih" : " saat ini"}.
-              </p>
-            </CardContent>
-          </Card>
-        </>
+            {showCustomDate && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 mt-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Dari</label>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Sampai</label>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  />
+                </div>
+                <Button onClick={handleGenerate} disabled={generating} size="sm">
+                  {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                  Generate
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!period ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold">Belum Ada Tagihan Aktif</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md">
+              Pilih periode dari dropdown di atas, atau generate tagihan baru.
+            </p>
+            {periods.length === 0 && (
+              <Button className="mt-4" onClick={handleGenerate} disabled={generating}>
+                {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Generate Tagihan
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
-          {/* Period info */}
+          {/* Print header */}
+          <div className="hidden print:block print:mb-4">
+            <h1 className="text-xl font-bold">Tagihan Piutang - {period.periodLabel}</h1>
+            <p className="text-sm">
+              {new Date(period.periodStart).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} s/d{" "}
+              {new Date(period.periodEnd).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+            <p className="text-sm">Dicetak: {new Date().toLocaleString("id-ID")}</p>
+          </div>
+
+          {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  Periode
+                  <Calendar className="h-4 w-4" />Periode
                 </div>
                 <p className="text-lg font-semibold mt-1">{period.periodLabel}</p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(period.periodStart).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}{" "}
-                  -{" "}
-                  {new Date(period.periodEnd).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {new Date(period.periodStart).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} -{" "}
+                  {new Date(period.periodEnd).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
-                  Anggota
+                  <Users className="h-4 w-4" />Anggota
                 </div>
-                <p className="text-lg font-semibold mt-1">
-                  {memberSummary.length}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {period.billingItems.length} transaksi
-                </p>
+                <p className="text-lg font-semibold mt-1">{memberRows.length}</p>
+                <p className="text-xs text-muted-foreground">{period.billingItems.length} transaksi</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <TrendingUp className="h-4 w-4" />
-                  Total Piutang
+                  <TrendingUp className="h-4 w-4" />Total Piutang
                 </div>
-                <p className="text-lg font-semibold mt-1">
-                  {formatCurrency(period.totalAmount)}
-                </p>
+                <p className="text-lg font-semibold mt-1">{formatCurrency(totalPiutang)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <ClipboardCheck className="h-4 w-4" />
-                  Status
+                  <ClipboardCheck className="h-4 w-4" />Status
                 </div>
                 <div className="mt-1">
-                  <Badge
-                    variant={
-                      period.status === "draft" ? "outline" : "default"
-                    }
-                  >
-                    {period.status === "draft" ? "Draft" : "Diproses"}
+                  <Badge variant={isDraft ? "outline" : "default"}>
+                    {isDraft ? "Draft" : "Diproses"}
                   </Badge>
                 </div>
-                {period.status === "draft" && (
+                {period.processedBy && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatCurrency(totalMarked)} ditandai lunas
+                    oleh {period.processedBy.name}
+                    {period.processedAt && ` ${new Date(period.processedAt).toLocaleString("id-ID")}`}
                   </p>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Member summary table */}
-          {period.status === "draft" ? (
+          {/* Unit breakdown summary */}
+          {totalUnitBreakdown.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Rekap per Anggota
-                </CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Ringkasan per Unit</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>NRP</TableHead>
-                      <TableHead className="text-right">Total Piutang</TableHead>
-                      <TableHead className="text-right">Ditandai Lunas</TableHead>
-                      <TableHead className="text-right">Sisa</TableHead>
-                      <TableHead className="text-center">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {memberSummary.map((m) => (
-                      <TableRow key={m.memberId}>
-                        <TableCell className="font-medium">
-                          {m.name}
-                        </TableCell>
-                        <TableCell>{m.nrp || "-"}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.totalAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.markedPaidAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.totalAmount - m.markedPaidAmount)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant={
-                              m.markedPaidAmount === m.totalAmount
-                                ? "default"
-                                : "outline"
-                            }
-                            onClick={() => {
-                              // Toggle all items for this member
-                              const allPaid =
-                                m.markedPaidAmount === m.totalAmount;
-                              m.itemIds.forEach((id) => {
-                                if (!allPaid) {
-                                  handleToggleItem(id);
-                                } else {
-                                  handleToggleItem(id);
-                                }
-                              });
-                            }}
-                          >
-                            {m.markedPaidAmount === m.totalAmount
-                              ? "Batal"
-                              : "Lunas"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Rekap per Anggota — Diproses
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>NRP</TableHead>
-                      <TableHead className="text-right">Total Piutang</TableHead>
-                      <TableHead className="text-right">Dibayar</TableHead>
-                      <TableHead className="text-right">Sisa</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {memberSummary.map((m) => (
-                      <TableRow key={m.memberId}>
-                        <TableCell className="font-medium">
-                          {m.name}
-                        </TableCell>
-                        <TableCell>{m.nrp || "-"}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.totalAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.markedPaidAmount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(m.totalAmount - m.markedPaidAmount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {period.processedBy && (
-                  <p className="text-xs text-muted-foreground mt-4">
-                    Diproses oleh {period.processedBy.name}
-                    {period.processedAt &&
-                      ` pada ${new Date(period.processedAt).toLocaleString("id-ID")}`}
-                  </p>
-                )}
+                <div className="flex flex-wrap gap-3">
+                  {totalUnitBreakdown.map((u) => (
+                    <div key={u.unitType} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {UNIT_LABELS[u.unitType] || u.unitType}
+                      </Badge>
+                      <span className="text-sm font-semibold">{formatCurrency(u.amount)}</span>
+                      <span className="text-xs text-muted-foreground">({u.count} tx)</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Bulk actions for draft */}
+          {isDraft && memberRows.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <Button onClick={() => handleSettle()} disabled={processing}>
+                {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                Lunaskan Semua ({memberRows.length} anggota)
+              </Button>
+              {selectedMembers.size > 0 && (
+                <Button onClick={() => handleSettle(Array.from(selectedMembers))} disabled={processing} variant="outline">
+                  {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  Lunaskan Terpilih ({selectedMembers.size})
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Main table */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Detail Piutang per Anggota
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {isDraft && (
+                        <TableHead className="w-10 print:hidden">
+                          <Checkbox
+                            checked={selectedMembers.size === memberRows.length && memberRows.length > 0}
+                            onCheckedChange={toggleAll}
+                          />
+                        </TableHead>
+                      )}
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead>Nama</TableHead>
+                      <TableHead>NRP</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead className="text-right">Total Piutang</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {memberRows.map((m) => {
+                      const isExpanded = expandedMembers.has(m.memberId);
+                      return (
+                        <React.Fragment key={m.memberId}>
+                          <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(m.memberId)}>
+                            {isDraft && (
+                              <TableCell className="print:hidden" onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={selectedMembers.has(m.memberId)}
+                                  onCheckedChange={() => toggleMember(m.memberId)}
+                                />
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              {isExpanded
+                                ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell className="font-medium">{m.name}</TableCell>
+                            <TableCell className="text-sm">{m.nrp || "-"}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {m.unitBreakdown.map((u) => (
+                                  <Badge key={u.unitType} variant="outline" className="text-xs">
+                                    {UNIT_LABELS[u.unitType] || u.unitType}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(m.totalAmount)}</TableCell>
+                          </TableRow>
+                          {/* Expanded unit breakdown */}
+                          {isExpanded && (
+                            m.unitBreakdown.map((u) => (
+                              <TableRow key={`${m.memberId}-${u.unitType}`} className="bg-muted/30">
+                                {isDraft && <TableCell className="print:hidden" />}
+                                <TableCell />
+                                <TableCell />
+                                <TableCell />
+                                <TableCell className="pl-8">
+                                  <span className="text-sm text-muted-foreground">
+                                    {UNIT_LABELS[u.unitType] || u.unitType}
+                                  </span>
+                                  <span className="ml-2 text-xs text-muted-foreground">({u.count} transaksi)</span>
+                                </TableCell>
+                                <TableCell className="text-right text-sm">{formatCurrency(u.amount)}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {/* Totals row */}
+                    <TableRow className="font-bold border-t-2">
+                      {isDraft && <TableCell className="print:hidden" />}
+                      <TableCell />
+                      <TableCell colSpan={2}>TOTAL</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {totalUnitBreakdown.map((u) => (
+                            <span key={u.unitType} className="text-xs">
+                              {(UNIT_LABELS[u.unitType] || u.unitType)}: {formatCurrency(u.amount)}
+                            </span>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(totalPiutang)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

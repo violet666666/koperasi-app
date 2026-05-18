@@ -33,7 +33,8 @@ export async function GET(
   }
 }
 
-// DELETE /api/billing/[periodId] — Delete draft billing period (cascade deletes items)
+// DELETE /api/billing/[periodId] — Delete billing period (draft or processed)
+// For processed periods, reverses the isPaid status on source transactions.
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ periodId: string }> }
@@ -51,20 +52,32 @@ export async function DELETE(
     const { periodId } = await params;
     const id = parseInt(periodId);
 
-    const period = await prisma.billingPeriod.findUnique({ where: { id } });
+    const period = await prisma.billingPeriod.findUnique({
+      where: { id },
+      include: { billingItems: true },
+    });
     if (!period) {
       return NextResponse.json({ message: "Period tidak ditemukan" }, { status: 404 });
     }
-    if (period.status !== "draft") {
-      return NextResponse.json(
-        { message: "Hanya draft yang bisa dihapus. Period sudah diproses." },
-        { status: 400 }
-      );
+
+    // If processed, reverse the isPaid flags on source transactions before deleting
+    if (period.status === "processed") {
+      await prisma.$transaction(async (tx) => {
+        for (const item of period.billingItems) {
+          if (item.transactionSource === "unit_transaction" && item.transactionId) {
+            await tx.unitTransaction.update({
+              where: { id: item.transactionId },
+              data: { isPaid: false, paidDate: null },
+            });
+          }
+        }
+        await tx.billingPeriod.delete({ where: { id } });
+      });
+    } else {
+      await prisma.billingPeriod.delete({ where: { id } });
     }
 
-    await prisma.billingPeriod.delete({ where: { id } });
-
-    return NextResponse.json({ message: "Draft billing period berhasil dihapus" });
+    return NextResponse.json({ message: `Billing period berhasil dihapus (${period.billingItems.length} item)` });
   } catch (error) {
     console.error("DELETE /api/billing/[periodId] error:", error);
     return NextResponse.json({ message: "Failed to delete period" }, { status: 500 });
