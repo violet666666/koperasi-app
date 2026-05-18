@@ -84,6 +84,7 @@ interface MemberRow {
   name: string;
   nrp: string | null;
   totalAmount: number;
+  isPaid: boolean;
   items: BillingItem[];
   unitBreakdown: { unitType: string; amount: number; count: number }[];
 }
@@ -167,8 +168,11 @@ export default function TagihanPage() {
 
   const handleDelete = async () => {
     if (!period) return;
-    const label = period.status === "draft" ? "draft" : "riwayat";
-    if (!confirm(`Hapus ${label} tagihan ${period.periodLabel}?${period.status === "processed" ? "\n\nPerhatian: Status isPaid pada transaksi sumber akan dikembalikan ke false." : ""}`)) return;
+    const paidCount = period.billingItems.filter((i) => i.isMarkedPaid).length;
+    const msg = period.status === "processed"
+      ? `Hapus riwayat tagihan ${period.periodLabel}?\n\nPerhatian: Status isPaid pada ${paidCount} transaksi sumber akan dikembalikan ke belum bayar.`
+      : `Hapus draft tagihan ${period.periodLabel}?${paidCount > 0 ? `\n\nPerhatian: ${paidCount} transaksi yang sudah dilunaskan akan dikembalikan ke belum bayar.` : ""}`;
+    if (!confirm(msg)) return;
     setProcessing(true);
     try {
       const res = await fetch(`/api/billing/${period.id}`, { method: "DELETE" });
@@ -187,29 +191,20 @@ export default function TagihanPage() {
     }
   };
 
-  const handleSettle = async (memberIds?: number[]) => {
-    if (!period) return;
-    const target = memberIds ?? Array.from(selectedMembers);
-    const isAll = !memberIds || memberIds.length === memberRows.length;
-    if (!confirm(isAll
-      ? `Lunaskan SEMUA ${memberRows.length} anggota (${period.billingItems.length} transaksi)?`
-      : `Lunaskan ${target.length} anggota terpilih?`
-    )) return;
+  const handleSettle = async (memberIds: number[]) => {
+    if (!period || memberIds.length === 0) return;
+    if (!confirm(`Lunaskan ${memberIds.length} anggota terpilih?`)) return;
     setProcessing(true);
     try {
       const res = await fetch(`/api/billing/${period.id}/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberIds: isAll ? undefined : target }),
+        body: JSON.stringify({ memberIds }),
       });
       const json = await res.json();
       if (res.ok) {
         setSelectedMembers(new Set());
-        if (json.isFullSettle) {
-          await fetchPeriod(period.id);
-        } else {
-          await fetchPeriod(period.id);
-        }
+        await fetchPeriod(period.id);
         fetchPeriods();
       } else {
         setError(json.message || "Gagal memproses");
@@ -232,14 +227,6 @@ export default function TagihanPage() {
     });
   };
 
-  const toggleAll = () => {
-    if (selectedMembers.size === memberRows.length) {
-      setSelectedMembers(new Set());
-    } else {
-      setSelectedMembers(new Set(memberRows.map((m) => m.memberId)));
-    }
-  };
-
   const toggleExpand = (memberId: number) => {
     setExpandedMembers((prev) => {
       const next = new Set(prev);
@@ -259,6 +246,7 @@ export default function TagihanPage() {
       if (existing) {
         existing.totalAmount += amt;
         existing.items.push(item);
+        if (item.isMarkedPaid) existing.isPaid = true;
         const ut = item.unitType || "lainnya";
         const ub = existing.unitBreakdown.find((u) => u.unitType === ut);
         if (ub) { ub.amount += amt; ub.count++; }
@@ -270,15 +258,21 @@ export default function TagihanPage() {
           name: item.memberName,
           nrp: item.memberNrp,
           totalAmount: amt,
+          isPaid: item.isMarkedPaid,
           items: [item],
           unitBreakdown: [{ unitType: ut, amount: amt, count: 1 }],
         });
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
   }, [period]);
 
   const totalPiutang = period ? period.billingItems.reduce((s, i) => s + Number(i.amount), 0) : 0;
+  const unsettledRows = memberRows.filter((m) => !m.isPaid);
+  const settledCount = memberRows.length - unsettledRows.length;
   const totalUnitBreakdown = React.useMemo(() => {
     const map = new Map<string, { amount: number; count: number }>();
     for (const row of memberRows) {
@@ -307,16 +301,16 @@ export default function TagihanPage() {
   }
 
   return (
-    <div className="space-y-6 print:m-4">
+    <div className="space-y-4 sm:space-y-6 print:m-4">
       <PageHeader
         title="Tagihan Piutang"
         description="Rekap piutang potongan gaji anggota per unit"
         actions={
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 print:hidden">
             {period && (
               <Button variant="outline" size="sm" onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" />
-                Cetak
+                <Printer className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Cetak</span>
               </Button>
             )}
             {period && (
@@ -326,8 +320,8 @@ export default function TagihanPage() {
                 variant="destructive"
                 size="sm"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Hapus
+                <Trash2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Hapus</span>
               </Button>
             )}
             <Link href="/tagihan/riwayat">
@@ -347,11 +341,11 @@ export default function TagihanPage() {
       {/* Period selector */}
       {periods.length > 0 && (
         <Card className="print:hidden">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-sm font-medium">Periode:</span>
               <select
-                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm min-w-0"
                 value={selectedPeriodId ?? ""}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -363,26 +357,25 @@ export default function TagihanPage() {
                   }
                 }}
               >
-                <option value="">— Pilih Periode —</option>
+                <option value="">— Pilih —</option>
                 {periods.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.periodLabel} ({p.status === "draft" ? "Draft" : "Diproses"})
                   </option>
                 ))}
               </select>
-              <span className="text-xs text-muted-foreground">atau</span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowCustomDate(!showCustomDate)}
               >
-                <Calendar className="mr-2 h-4 w-4" />
-                {showCustomDate ? "Sembunyikan" : "Rentang Custom"}
+                <Calendar className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{showCustomDate ? "Sembunyikan" : "Rentang Custom"}</span>
               </Button>
             </div>
             {showCustomDate && (
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 mt-3">
-                <div className="space-y-1">
+                <div className="space-y-1 w-full sm:w-auto">
                   <label className="text-sm font-medium">Dari</label>
                   <input
                     type="date"
@@ -391,7 +384,7 @@ export default function TagihanPage() {
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 w-full sm:w-auto">
                   <label className="text-sm font-medium">Sampai</label>
                   <input
                     type="date"
@@ -400,7 +393,7 @@ export default function TagihanPage() {
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   />
                 </div>
-                <Button onClick={handleGenerate} disabled={generating} size="sm">
+                <Button onClick={handleGenerate} disabled={generating} size="sm" className="w-full sm:w-auto">
                   {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                   Generate
                 </Button>
@@ -438,40 +431,43 @@ export default function TagihanPage() {
             <p className="text-sm">Dicetak: {new Date().toLocaleString("id-ID")}</p>
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Summary cards — 2x2 on mobile, 4-col on md+ */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />Periode
                 </div>
-                <p className="text-lg font-semibold mt-1">{period.periodLabel}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base sm:text-lg font-semibold mt-1">{period.periodLabel}</p>
+                <p className="text-xs text-muted-foreground hidden sm:block">
                   {new Date(period.periodStart).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} -{" "}
                   {new Date(period.periodEnd).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />Anggota
                 </div>
-                <p className="text-lg font-semibold mt-1">{memberRows.length}</p>
-                <p className="text-xs text-muted-foreground">{period.billingItems.length} transaksi</p>
+                <p className="text-base sm:text-lg font-semibold mt-1">{memberRows.length}</p>
+                <p className="text-xs text-muted-foreground">
+                  {period.billingItems.length} transaksi
+                  {settledCount > 0 && ` · ${settledCount} lunas`}
+                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <TrendingUp className="h-4 w-4" />Total Piutang
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <TrendingUp className="h-4 w-4" />Piutang
                 </div>
-                <p className="text-lg font-semibold mt-1">{formatCurrency(totalPiutang)}</p>
+                <p className="text-base sm:text-lg font-semibold mt-1">{formatCurrency(totalPiutang)}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <ClipboardCheck className="h-4 w-4" />Status
                 </div>
                 <div className="mt-1">
@@ -480,7 +476,7 @@ export default function TagihanPage() {
                   </Badge>
                 </div>
                 {period.processedBy && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 hidden sm:block">
                     oleh {period.processedBy.name}
                     {period.processedAt && ` ${new Date(period.processedAt).toLocaleString("id-ID")}`}
                   </p>
@@ -493,17 +489,16 @@ export default function TagihanPage() {
           {totalUnitBreakdown.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Ringkasan per Unit</CardTitle>
+                <CardTitle className="text-sm sm:text-base">Ringkasan per Unit</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3">
                   {totalUnitBreakdown.map((u) => (
-                    <div key={u.unitType} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                    <div key={u.unitType} className="flex items-center gap-1.5 sm:gap-2 rounded-md border px-2 sm:px-3 py-1.5 sm:py-2">
                       <Badge variant="secondary" className="text-xs">
                         {UNIT_LABELS[u.unitType] || u.unitType}
                       </Badge>
-                      <span className="text-sm font-semibold">{formatCurrency(u.amount)}</span>
-                      <span className="text-xs text-muted-foreground">({u.count} tx)</span>
+                      <span className="text-xs sm:text-sm font-semibold">{formatCurrency(u.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -512,17 +507,22 @@ export default function TagihanPage() {
           )}
 
           {/* Bulk actions for draft */}
-          {isDraft && memberRows.length > 0 && (
+          {isDraft && unsettledRows.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 print:hidden">
-              <Button onClick={() => handleSettle()} disabled={processing}>
+              <Button onClick={() => handleSettle(unsettledRows.map((m) => m.memberId))} disabled={processing} size="sm">
                 {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                Lunaskan Semua ({memberRows.length} anggota)
+                Lunaskan Semua ({unsettledRows.length})
               </Button>
               {selectedMembers.size > 0 && (
-                <Button onClick={() => handleSettle(Array.from(selectedMembers))} disabled={processing} variant="outline">
+                <Button onClick={() => handleSettle(Array.from(selectedMembers))} disabled={processing} variant="outline" size="sm">
                   {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                   Lunaskan Terpilih ({selectedMembers.size})
                 </Button>
+              )}
+              {settledCount > 0 && (
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  {settledCount} sudah lunas
+                </span>
               )}
             </div>
           )}
@@ -530,28 +530,34 @@ export default function TagihanPage() {
           {/* Main table */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">
+              <CardTitle className="text-sm sm:text-base">
                 Detail Piutang per Anggota
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
+            <CardContent className="p-2 sm:p-6">
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {isDraft && (
+                      {isDraft && unsettledRows.length > 0 && (
                         <TableHead className="w-10 print:hidden">
                           <Checkbox
-                            checked={selectedMembers.size === memberRows.length && memberRows.length > 0}
-                            onCheckedChange={toggleAll}
+                            checked={selectedMembers.size === unsettledRows.length && unsettledRows.length > 0}
+                            onCheckedChange={() => {
+                              if (selectedMembers.size === unsettledRows.length) {
+                                setSelectedMembers(new Set());
+                              } else {
+                                setSelectedMembers(new Set(unsettledRows.map((m) => m.memberId)));
+                              }
+                            }}
                           />
                         </TableHead>
                       )}
                       <TableHead className="w-8"></TableHead>
                       <TableHead>Nama</TableHead>
-                      <TableHead>NRP</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Total Piutang</TableHead>
+                      <TableHead className="hidden sm:table-cell">NRP</TableHead>
+                      <TableHead className="hidden md:table-cell">Unit</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -559,13 +565,18 @@ export default function TagihanPage() {
                       const isExpanded = expandedMembers.has(m.memberId);
                       return (
                         <React.Fragment key={m.memberId}>
-                          <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleExpand(m.memberId)}>
-                            {isDraft && (
+                          <TableRow
+                            className={`cursor-pointer hover:bg-muted/50 ${m.isPaid ? "opacity-60" : ""}`}
+                            onClick={() => toggleExpand(m.memberId)}
+                          >
+                            {isDraft && unsettledRows.length > 0 && (
                               <TableCell className="print:hidden" onClick={(e) => e.stopPropagation()}>
-                                <Checkbox
-                                  checked={selectedMembers.has(m.memberId)}
-                                  onCheckedChange={() => toggleMember(m.memberId)}
-                                />
+                                {!m.isPaid && (
+                                  <Checkbox
+                                    checked={selectedMembers.has(m.memberId)}
+                                    onCheckedChange={() => toggleMember(m.memberId)}
+                                  />
+                                )}
                               </TableCell>
                             )}
                             <TableCell>
@@ -573,9 +584,24 @@ export default function TagihanPage() {
                                 ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                 : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </TableCell>
-                            <TableCell className="font-medium">{m.name}</TableCell>
-                            <TableCell className="text-sm">{m.nrp || "-"}</TableCell>
                             <TableCell>
+                              <div className="font-medium text-sm sm:text-base">{m.name}</div>
+                              {/* Show NRP below name on mobile */}
+                              <div className="sm:hidden text-xs text-muted-foreground">{m.nrp || "-"}</div>
+                              {/* Show unit badges below name on mobile */}
+                              <div className="md:hidden flex flex-wrap gap-1 mt-0.5">
+                                {m.unitBreakdown.map((u) => (
+                                  <span key={u.unitType} className="text-xs text-muted-foreground">
+                                    {UNIT_LABELS[u.unitType] || u.unitType} {formatCurrency(u.amount)}
+                                  </span>
+                                ))}
+                              </div>
+                              {m.isPaid && (
+                                <Badge variant="secondary" className="text-xs ml-2">Lunas</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell text-sm">{m.nrp || "-"}</TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <div className="flex flex-wrap gap-1">
                                 {m.unitBreakdown.map((u) => (
                                   <Badge key={u.unitType} variant="outline" className="text-xs">
@@ -584,23 +610,25 @@ export default function TagihanPage() {
                                 ))}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(m.totalAmount)}</TableCell>
+                            <TableCell className="text-right font-semibold text-sm sm:text-base whitespace-nowrap">
+                              {formatCurrency(m.totalAmount)}
+                            </TableCell>
                           </TableRow>
                           {/* Expanded unit breakdown */}
                           {isExpanded && (
                             m.unitBreakdown.map((u) => (
                               <TableRow key={`${m.memberId}-${u.unitType}`} className="bg-muted/30">
-                                {isDraft && <TableCell className="print:hidden" />}
+                                {isDraft && unsettledRows.length > 0 && <TableCell className="print:hidden" />}
                                 <TableCell />
                                 <TableCell />
-                                <TableCell />
-                                <TableCell className="pl-8">
+                                <TableCell className="hidden sm:table-cell" />
+                                <TableCell className="pl-4 sm:pl-8">
                                   <span className="text-sm text-muted-foreground">
                                     {UNIT_LABELS[u.unitType] || u.unitType}
                                   </span>
-                                  <span className="ml-2 text-xs text-muted-foreground">({u.count} transaksi)</span>
+                                  <span className="ml-2 text-xs text-muted-foreground">({u.count} tx)</span>
                                 </TableCell>
-                                <TableCell className="text-right text-sm">{formatCurrency(u.amount)}</TableCell>
+                                <TableCell className="text-right text-sm whitespace-nowrap">{formatCurrency(u.amount)}</TableCell>
                               </TableRow>
                             ))
                           )}
@@ -609,10 +637,10 @@ export default function TagihanPage() {
                     })}
                     {/* Totals row */}
                     <TableRow className="font-bold border-t-2">
-                      {isDraft && <TableCell className="print:hidden" />}
+                      {isDraft && unsettledRows.length > 0 && <TableCell className="print:hidden" />}
                       <TableCell />
                       <TableCell colSpan={2}>TOTAL</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {totalUnitBreakdown.map((u) => (
                             <span key={u.unitType} className="text-xs">
@@ -621,7 +649,7 @@ export default function TagihanPage() {
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrency(totalPiutang)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCurrency(totalPiutang)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

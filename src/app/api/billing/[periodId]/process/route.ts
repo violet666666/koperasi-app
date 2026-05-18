@@ -69,6 +69,8 @@ export async function POST(
       }
 
       // 3. Update period status
+      const uniqueMemberCount = new Set(period.billingItems.map((i) => i.memberId)).size;
+
       if (isFullSettle) {
         await tx.billingPeriod.update({
           where: { id: period.id },
@@ -76,20 +78,23 @@ export async function POST(
             status: "processed",
             processedById: userId,
             processedAt: new Date(),
-            totalMembers: period.billingItems.length,
+            totalMembers: uniqueMemberCount,
             totalAmount: settledAmount,
           },
         });
       } else {
-        // Partial settle: update totals but keep as draft for remaining items
-        const remainingItems = period.billingItems.filter(
-          (item) => !selectedMemberIds!.includes(item.memberId)
-        );
+        // Partial settle: calculate cumulative totals from ALL paid items
+        const allPaidItems = await tx.billingItem.findMany({
+          where: { billingPeriodId: period.id, isMarkedPaid: true },
+        });
+        const cumulativeAmount = allPaidItems.reduce((sum, i) => sum + Number(i.amount), 0);
+        const cumulativeMembers = new Set(allPaidItems.map((i) => i.memberId)).size;
+
         await tx.billingPeriod.update({
           where: { id: period.id },
           data: {
-            totalMembers: period.billingItems.length,
-            totalAmount: settledAmount,
+            totalMembers: cumulativeMembers,
+            totalAmount: cumulativeAmount,
           },
         });
       }

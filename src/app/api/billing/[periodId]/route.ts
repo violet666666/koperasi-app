@@ -12,6 +12,10 @@ export async function GET(
     if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+    const permissions = (session.user as { permissions?: string[] }).permissions ?? [];
+    if (!permissions.includes("manage_all")) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
 
     const { periodId } = await params;
     const period = await prisma.billingPeriod.findUnique({
@@ -60,11 +64,12 @@ export async function DELETE(
       return NextResponse.json({ message: "Period tidak ditemukan" }, { status: 404 });
     }
 
-    // If processed, reverse the isPaid flags on source transactions before deleting
-    if (period.status === "processed") {
+    // Reverse isPaid flags on any settled items (processed period OR partially-settled draft)
+    const hasPaidItems = period.billingItems.some((i) => i.isMarkedPaid);
+    if (period.status === "processed" || hasPaidItems) {
       await prisma.$transaction(async (tx) => {
         for (const item of period.billingItems) {
-          if (item.transactionSource === "unit_transaction" && item.transactionId) {
+          if (item.isMarkedPaid && item.transactionSource === "unit_transaction" && item.transactionId) {
             await tx.unitTransaction.update({
               where: { id: item.transactionId },
               data: { isPaid: false, paidDate: null },
