@@ -67,6 +67,56 @@ export async function POST(request: Request) {
     const startUTC = periodStart;
     const endUTC = new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1);
 
+    // Backfill missing piutang UnitTransactions for salary_cut StoreSales.
+    // Some older sales may not have piutang records if the POS code was
+    // deployed mid-day. Find StoreSales without matching piutang and create them.
+    const storeSales = await prisma.storeSale.findMany({
+      where: {
+        paymentMethod: "salary_cut",
+        status: { not: "voided" },
+        memberId: { not: null },
+        transactionDate: { lte: endUTC },
+      },
+      select: { id: true, saleNo: true, memberId: true, member: { select: { name: true } }, totalAmount: true, transactionDate: true, createdById: true },
+    });
+
+    if (storeSales.length > 0) {
+      const existingPiutang = await prisma.unitTransaction.findMany({
+        where: {
+          paymentMethod: "salary_cut",
+          status: { in: ["completed", "pending"] },
+          notes: { startsWith: "Auto-generated dari penjualan kasir" },
+        },
+        select: { description: true },
+      });
+      const coveredSaleNos = new Set(existingPiutang.map((ut) => {
+        const match = ut.description?.match(/(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/);
+        return match ? match[1] : null;
+      }).filter(Boolean));
+
+      const missingSales = storeSales.filter((ss) => !coveredSaleNos.has(ss.saleNo));
+      if (missingSales.length > 0) {
+        await prisma.$transaction(async (tx) => {
+          for (const ss of missingSales) {
+            await tx.unitTransaction.create({
+              data: {
+                transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}-${ss.id}`,
+                memberId: ss.memberId!,
+                unitType: "toko",
+                description: `Piutang toko (Potongan Gaji) - ${ss.saleNo}`,
+                amount: ss.totalAmount,
+                transactionDate: ss.transactionDate,
+                paymentMethod: "salary_cut",
+                isPaid: false,
+                notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${ss.saleNo}`,
+                createdById: ss.createdById,
+              },
+            });
+          }
+        });
+      }
+    }
+
     // Fetch ALL unpaid salary_cut UnitTransactions up to end of period.
     // Only use UnitTransaction — NOT StoreSale — because toko POS already
     // creates a UnitTransaction (piutang) for every salary_cut StoreSale.
