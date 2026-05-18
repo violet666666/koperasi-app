@@ -74,13 +74,13 @@ export async function POST(request: Request) {
 
     const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
 
-    // Source 1: Existing piutang UnitTransactions
+    // Source 1: Existing piutang UnitTransactions within period
     const unitTransactions = await prisma.unitTransaction.findMany({
       where: {
         paymentMethod: "salary_cut",
         isPaid: false,
         status: "completed",
-        transactionDate: { lte: endUTC },
+        transactionDate: { gte: startUTC, lte: endUTC },
         memberId: { not: null },
       },
       select: {
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       where: {
         paymentMethod: "salary_cut",
         memberId: { not: null },
-        createdAt: { lte: endUTC },
+        createdAt: { gte: startUTC, lte: endUTC },
       },
       select: {
         id: true, saleNo: true, memberId: true, totalAmount: true,
