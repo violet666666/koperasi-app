@@ -67,13 +67,15 @@ export default function TokoOpnamePage() {
         summary: any;
     }>({ open: false, results: [], summary: null });
 
-    const unitType = (user as any)?.unitType || "toko";
+    const rawUnitType = (user as any)?.unitType || "toko";
+    const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(rawUnitType);
+    const unitType = isResto ? "resto" : rawUnitType;
 
     const fetchProducts = useCallback(async () => {
         setStatus("loading");
         try {
             const res = await fetch(
-                `/api/toko/stock-tracking/products?scope=all&location=${location}`
+                `/api/toko/stock-tracking/products?scope=all&location=${location}&unitType=${unitType}`
             );
             if (!res.ok) throw new Error("Failed to fetch products");
             const data = await res.json();
@@ -143,7 +145,7 @@ export default function TokoOpnamePage() {
             const res = await fetch("/api/toko/stock-tracking/opname", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ items, location }),
+                body: JSON.stringify({ items, location, unitType }),
             });
 
             if (!res.ok) {

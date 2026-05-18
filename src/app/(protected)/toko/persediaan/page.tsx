@@ -173,7 +173,7 @@ export default function PersediaanPage() {
             if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
             // Fetch stock movements from DB with pagination
             const [movementsRes, productsRes] = await Promise.all([
-                fetch(`/api/toko/movements?${params}`),
+                fetch(`/api/toko/movements?unitType=${productUnitType}&${params}`),
                 fetch(`/api/toko/products?unitType=${productUnitType}`),
             ]);
 

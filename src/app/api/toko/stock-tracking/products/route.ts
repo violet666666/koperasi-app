@@ -19,8 +19,12 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
-        const unitType = (session.user.unitType as string) || "toko";
         const { searchParams } = new URL(request.url);
+        const userUnitType = (session.user.unitType as string) || null;
+        const unitType = searchParams.get("unitType") || userUnitType || "toko";
+        if (userRole !== "operator" && userUnitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const scope = searchParams.get("scope") || "all";
         const location = searchParams.get("location") || "toko";
         const categories = searchParams.get("categories")?.split(",").filter(Boolean) || [];

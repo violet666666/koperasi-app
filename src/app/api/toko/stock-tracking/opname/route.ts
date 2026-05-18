@@ -21,13 +21,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
-        const unitType = (session.user.unitType as string) || "toko";
+        const userUnitType = (session.user.unitType as string) || null;
         const userId = parseInt(session.user.id);
         const body = await request.json();
-        const { items, location } = body as {
+        const { items, location, unitType: bodyUnitType } = body as {
             items: { productId: number; physicalStock: number }[];
             location: string;
+            unitType?: string;
         };
+        const unitType = bodyUnitType || userUnitType || "toko";
+        if (userRole !== "operator" && userUnitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
 
         const validation = validateOpnameItems(items);
         if (!validation.valid) {
