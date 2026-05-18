@@ -20,7 +20,12 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const unitType = searchParams.get("unitType") || null;
+        const userUnitType = (session.user as { unitType?: string }).unitType || null;
+        const unitType = searchParams.get("unitType") || userUnitType || null;
+        // Non-operator users can only see their own unit
+        if (role !== "operator" && userUnitType && unitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
         const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "25")));
         const search = searchParams.get("search")?.trim() || null;
@@ -810,6 +815,12 @@ export async function POST(request: Request) {
         }, { status: 201 });
     } catch (error: any) {
         console.error("POST /api/toko/sales error:", error);
+        if (error?.code === "P2002") {
+            return NextResponse.json(
+                { message: "Nomor transaksi bentrok, silakan coba lagi" },
+                { status: 409 }
+            );
+        }
         const errMsg = error?.message || String(error);
         // Distinguish user-facing validation errors from system errors
         const status = errMsg.includes("tidak ditemukan") || errMsg.includes("tidak mencukupi") || errMsg.includes("kurang") || errMsg.includes("ditolak") || errMsg.includes("tidak aktif") || errMsg.includes("lebih dari 0")

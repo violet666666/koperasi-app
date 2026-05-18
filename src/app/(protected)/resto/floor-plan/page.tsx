@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,7 +31,6 @@ function useIsMobile(breakpoint = 768) {
 }
 
 export default function FloorPlanEditorPage() {
-    const { user } = useAuth();
     const [plan, setPlan] = React.useState<FloorPlan>({ tables: [], areas: [] });
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);

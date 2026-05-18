@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +21,6 @@ import { getDefaultModifierGroup, getDefaultModifierOption, validateModifierGrou
 interface Product { id: number; name: string; price: number; category?: string; }
 
 export default function ModifiersAdminPage() {
-    const { user } = useAuth();
     const [products, setProducts] = React.useState<Product[]>([]);
     const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
     const [groups, setGroups] = React.useState<ModifierGroup[]>([]);

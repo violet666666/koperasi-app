@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+function checkUnitAccess(session: any, product: { unitType: string | null }): boolean {
+    const role = session.user.role as string;
+    if (role === "operator") return true;
+    const userUnitType = (session.user as { unitType?: string }).unitType;
+    if (!userUnitType) return true;
+    return product.unitType === userUnitType;
+}
+
 // GET single product
 export async function GET(
     request: Request,
@@ -20,6 +28,10 @@ export async function GET(
         const product = await prisma.storeProduct.findUnique({ where: { id } });
         if (!product || product.deletedAt) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+
+        if (!checkUnitAccess(session, product)) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
         }
 
         return NextResponse.json({ data: product });
@@ -52,6 +64,10 @@ export async function PUT(
         const existing = await prisma.storeProduct.findUnique({ where: { id } });
         if (!existing || existing.deletedAt) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+
+        if (!checkUnitAccess(session, existing)) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
         }
 
         const body = await request.json();
@@ -129,6 +145,15 @@ export async function DELETE(
         const { id: rawId } = await params;
         const id = parseInt(rawId);
         if (isNaN(id)) return NextResponse.json({ message: "Invalid ID" }, { status: 400 });
+
+        const existing = await prisma.storeProduct.findUnique({ where: { id } });
+        if (!existing || existing.deletedAt) {
+            return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+
+        if (!checkUnitAccess(session, existing)) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
+        }
 
         await prisma.storeProduct.update({
             where: { id },

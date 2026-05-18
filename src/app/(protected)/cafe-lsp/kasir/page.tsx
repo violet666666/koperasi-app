@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Coffee, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, ImageOff, AlertCircle, CheckCircle2, QrCode, Star, Clock, ListOrdered, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+import { useAuth } from "@/lib/hooks";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; metadata?: any; }
 interface CartItem { product: Product; quantity: number; notes?: string; }
@@ -67,6 +68,7 @@ const useCafeLspStore = create<CafeLspState>()(
 
 export default function CafeLspKasirPage() {
     const { cart, queueOrders, addToCart, updateItem, removeItem, clearCart, addQueueOrder, updateQueueOrder } = useCafeLspStore();
+    const { user } = useAuth();
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -358,7 +360,7 @@ export default function CafeLspKasirPage() {
                 keterangan: `Cafe LSP - Counter [Antrian ${currentQueue}]`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Cafe LSP",
+                kasir: user?.name || "Kasir Cafe LSP",
                 unitType: "cafe_lsp",
                 items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };

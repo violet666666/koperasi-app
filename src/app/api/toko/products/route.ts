@@ -12,7 +12,12 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
-        const unitType = searchParams.get("unitType") || null;
+        const userUnitType = (session.user as { unitType?: string }).unitType || null;
+        const unitType = searchParams.get("unitType") || userUnitType || null;
+        const role = session.user.role as string;
+        if (role !== "operator" && userUnitType && unitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const category = searchParams.get("category") || null;
         const productTypeParam = searchParams.get("productType");
         const pageParam = searchParams.get("page");

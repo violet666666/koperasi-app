@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +36,6 @@ interface SaleRecord {
 }
 
 export default function RestoLaporanPage() {
-    const { user } = useAuth();
     const [summary, setSummary] = React.useState<SalesSummary | null>(null);
     const [topProducts, setTopProducts] = React.useState<TopProduct[]>([]);
     const [sales, setSales] = React.useState<SaleRecord[]>([]);

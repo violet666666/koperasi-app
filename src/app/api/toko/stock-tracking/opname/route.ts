@@ -52,6 +52,15 @@ export async function POST(request: Request) {
 
         const productMap = new Map(products.map((p) => [p.id, p]));
 
+        // Validate all submitted product IDs belong to this unit
+        const invalidIds = productIds.filter((id: number) => !productMap.has(id));
+        if (invalidIds.length > 0) {
+            return NextResponse.json(
+                { message: `Produk ID [${invalidIds.join(", ")}] tidak ditemukan di unit Anda` },
+                { status: 400 }
+            );
+        }
+
         const results = [];
         for (const item of items) {
             const product = productMap.get(item.productId);

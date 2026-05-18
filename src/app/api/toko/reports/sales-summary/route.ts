@@ -13,7 +13,16 @@ export async function GET(req: Request) {
         }
 
         const { searchParams } = new URL(req.url);
-        const unitType = searchParams.get("unitType") || "resto";
+        const role = session.user.role as string;
+        const ALLOWED_REPORT_ROLES = ["admin", "operator", "kasir"];
+        if (!ALLOWED_REPORT_ROLES.includes(role)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+        const userUnitType = (session.user as { unitType?: string }).unitType || null;
+        const unitType = searchParams.get("unitType") || userUnitType || "resto";
+        if (role !== "operator" && userUnitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const from = searchParams.get("from");
         const to = searchParams.get("to");
         const sortBy = searchParams.get("sortBy") || "createdAt";

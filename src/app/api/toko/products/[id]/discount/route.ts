@@ -54,6 +54,11 @@ export async function PATCH(
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
         }
 
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if (role !== "operator" && userUnitType && product.unitType !== userUnitType) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
+        }
+
         const updated = await prisma.storeProduct.update({
             where: { id: productId },
             data: {

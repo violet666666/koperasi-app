@@ -21,7 +21,11 @@ export async function GET(req: Request) {
         }
 
         const { searchParams } = new URL(req.url);
-        const unitType = searchParams.get("unitType");
+        const userUnitType = (session.user as { unitType?: string }).unitType || null;
+        const unitType = searchParams.get("unitType") || userUnitType;
+        if (role !== "operator" && userUnitType && unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const status = searchParams.get("status");
         const limit = parseInt(searchParams.get("limit") || "50");
 

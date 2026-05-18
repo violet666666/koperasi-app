@@ -46,6 +46,11 @@ export async function POST(
             return NextResponse.json({ message: "Mutasi stok tidak ditemukan" }, { status: 404 });
         }
 
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if (role !== "operator" && userUnitType && movement.product.unitType !== userUnitType) {
+            return NextResponse.json({ message: "Anda tidak memiliki akses ke mutasi stok unit ini" }, { status: 403 });
+        }
+
         if (movement.status === "voided") {
             return NextResponse.json({ message: "Mutasi ini sudah dibatalkan sebelumnya" }, { status: 400 });
         }

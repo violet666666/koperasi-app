@@ -229,6 +229,22 @@ export default function RestoKasirPage() {
         else setLimitInfo(null);
     }, [selectedMember, subtotal]);
 
+    // Debounced member search from table customer name input
+    React.useEffect(() => {
+        if (selectedMember || !activeTable?.customerName || activeTable.customerName.length < 2) {
+            setMemberResults([]);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(activeTable.customerName)}`);
+                const json = await res.json();
+                setMemberResults(json.data || []);
+            } catch {}
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [activeTable?.customerName, selectedMember]);
+
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
@@ -414,19 +430,7 @@ export default function RestoKasirPage() {
                                 const val = e.target.value;
                                 if (selectedMember) { setSelectedMember(null); setLimitInfo(null); }
                                 setCustomer(activeTable.id, val);
-                                // Debounced member search
-                                if (val.length >= 2) {
-                                    const timer = setTimeout(async () => {
-                                        try {
-                                            const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(val)}`);
-                                            const json = await res.json();
-                                            setMemberResults(json.data || []);
-                                        } catch {}
-                                    }, 400);
-                                    return () => clearTimeout(timer);
-                                } else {
-                                    setMemberResults([]);
-                                }
+                                if (val.length < 2) setMemberResults([]);
                             }}
                             onFocus={() => {
                                 if (activeTable.customerName.length >= 2 && !selectedMember) {

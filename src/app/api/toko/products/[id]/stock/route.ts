@@ -55,6 +55,11 @@ export async function POST(
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
         }
 
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if (role !== "operator" && userUnitType && product.unitType !== userUnitType) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
+        }
+
         const effectiveStock = product.stockGdg + product.stockToko;
         if ((type === "out" || type === "out_writeoff") && effectiveStock < qty) {
             return NextResponse.json({ message: `Stok tidak mencukupi. Sisa stok: ${effectiveStock}` }, { status: 400 });

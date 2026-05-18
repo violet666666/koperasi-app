@@ -19,6 +19,15 @@ export async function GET(req: Request) {
             return NextResponse.json({ message: "productId is required" }, { status: 400 });
         }
 
+        const product = await prisma.storeProduct.findUnique({ where: { id: parseInt(productId) }, select: { unitType: true } });
+        if (!product) {
+            return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if ((session.user.role as string) !== "operator" && userUnitType && product.unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
         const settingKey = `modifiers_product_${productId}`;
         const setting = await prisma.appSetting.findUnique({ where: { key: settingKey } });
 
@@ -55,6 +64,15 @@ export async function PUT(req: Request) {
 
         if (!productId) {
             return NextResponse.json({ message: "productId is required" }, { status: 400 });
+        }
+
+        const product = await prisma.storeProduct.findUnique({ where: { id: parseInt(productId) }, select: { unitType: true } });
+        if (!product) {
+            return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if (role !== "operator" && userUnitType && product.unitType !== userUnitType) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
         if (!Array.isArray(groups)) {
