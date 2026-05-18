@@ -106,12 +106,7 @@ export async function PUT(request: Request, { params }: Params) {
             );
         }
 
-        if (loan._count.payments > 0) {
-            return NextResponse.json(
-                { message: "Pinjaman tidak dapat di-edit karena sudah memiliki riwayat pembayaran angsuran. Gunakan fitur VOID jika ingin membatalkan." },
-                { status: 400 }
-            );
-        }
+        const hasPayments = loan._count.payments > 0;
 
         // 4. Extract editable fields (all optional — only update what's sent)
         const newPrincipal = body.principalAmount !== undefined ? Number(body.principalAmount) : Number(loan.principalAmount);
@@ -174,7 +169,18 @@ export async function PUT(request: Request, { params }: Params) {
         const userId = Number((session.user as any).id);
 
         const result = await prisma.$transaction(async (tx) => {
-            // 7a. Delete old schedules
+            // 7a. If payments exist, delete allocations first (FK dependency), then schedules
+            if (hasPayments) {
+                const scheduleIds = (await tx.loanSchedule.findMany({
+                    where: { loanId },
+                    select: { id: true },
+                })).map(s => s.id);
+                if (scheduleIds.length > 0) {
+                    await tx.loanPaymentAllocation.deleteMany({
+                        where: { scheduleId: { in: scheduleIds } },
+                    });
+                }
+            }
             await tx.loanSchedule.deleteMany({
                 where: { loanId },
             });
@@ -261,7 +267,7 @@ export async function PUT(request: Request, { params }: Params) {
         if (body.disbursementDate) changes.push(`Tgl Cair: diperbarui`);
         if (body.firstDueDate) changes.push(`Jatuh Tempo Pertama: diperbarui`);
 
-        console.log(`[LOAN-EDIT] Loan ${loan.loanNo} edited by User #${userId}. Changes: ${changes.join(", ")}`);
+        console.log(`[LOAN-EDIT] Loan ${loan.loanNo} edited by User #${userId}. Has payments: ${hasPayments}. Changes: ${changes.join(", ")}`);
 
         // Audit trail
         await logAuditFromRequest(request, session, {

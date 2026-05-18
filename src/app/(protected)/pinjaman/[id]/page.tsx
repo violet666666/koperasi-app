@@ -165,7 +165,7 @@ export default function PinjamanDetailPage() {
     const overdueInstallments = schedule.filter((s) => s.status === "overdue").length;
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
     const hasPayments = loan.payments && loan.payments.length > 0;
-    const canEdit = isOperator && loan.status === "active" && !hasPayments;
+    const canEdit = isOperator && loan.status === "active";
     const canVoid = isOperator && loan.status === "active";
 
     // Edit helpers
@@ -317,6 +317,13 @@ export default function PinjamanDetailPage() {
                                 <span className="text-blue-600 dark:text-blue-400"> Data pembayaran dari import (pokok terbayar, bunga terbayar) akan disesuaikan dengan perhitungan baru. Jadwal angsuran akan di-regenerasi otomatis.</span>
                             )}
                         </DialogDescription>
+                        {hasPayments && (
+                            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200">
+                                <strong>Perhatian:</strong> Pinjaman ini memiliki <strong>{loan.payments?.length} riwayat pembayaran</strong>.
+                                Jadwal angsuran akan di-regenerasi berdasarkan data pokok/bunga terbayar yang Anda masukkan.
+                                Data pembayaran yang sudah tercatat di buku kas tidak akan dihapus.
+                            </div>
+                        )}
                     </DialogHeader>
 
                     <div className="space-y-5 py-2">
