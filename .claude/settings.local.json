@@ -122,7 +122,13 @@
       "Bash(npm i *)",
       "Skill(using-superpowers)",
       "Skill(superpowers:writing-plans)",
-      "mcp__plugin_playwright_playwright__browser_close"
+      "mcp__plugin_playwright_playwright__browser_close",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(Start-Sleep -Seconds 8)",
+      "Bash(Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/csrf\" -UseBasicParsing)",
+      "Bash(Select-Object -ExpandProperty Content)",
+      "Bash(tasklist)",
+      "Bash(awk '{print $NF}')"
     ]
   },
   "enabledPlugins": {
