@@ -67,60 +67,14 @@ export async function POST(request: Request) {
     const startUTC = periodStart;
     const endUTC = new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-    // Backfill missing piutang UnitTransactions for salary_cut StoreSales.
-    // Some older sales may not have piutang records if the POS code was
-    // deployed mid-day. Find StoreSales without matching piutang and create them.
-    const storeSales = await prisma.storeSale.findMany({
-      where: {
-        paymentMethod: "salary_cut",
-        status: { not: "voided" },
-        memberId: { not: null },
-        transactionDate: { lte: endUTC },
-      },
-      select: { id: true, saleNo: true, memberId: true, member: { select: { name: true } }, totalAmount: true, transactionDate: true, createdById: true },
-    });
+    // Strategy: collect piutang from two sources, then deduplicate by saleNo.
+    // Source 1: UnitTransaction piutang records (salary_cut, unpaid, completed).
+    // Source 2: StoreSales with salary_cut that have NO matching piutang UnitTransaction
+    //           (covers the gap before POS piutang code was deployed).
 
-    if (storeSales.length > 0) {
-      const existingPiutang = await prisma.unitTransaction.findMany({
-        where: {
-          paymentMethod: "salary_cut",
-          status: { in: ["completed", "pending"] },
-          notes: { startsWith: "Auto-generated dari penjualan kasir" },
-        },
-        select: { description: true },
-      });
-      const coveredSaleNos = new Set(existingPiutang.map((ut) => {
-        const match = ut.description?.match(/(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/);
-        return match ? match[1] : null;
-      }).filter(Boolean));
+    const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
 
-      const missingSales = storeSales.filter((ss) => !coveredSaleNos.has(ss.saleNo));
-      if (missingSales.length > 0) {
-        await prisma.$transaction(async (tx) => {
-          for (const ss of missingSales) {
-            await tx.unitTransaction.create({
-              data: {
-                transactionNo: `TK-UTG-${Date.now().toString(36).toUpperCase()}-${ss.id}`,
-                memberId: ss.memberId!,
-                unitType: "toko",
-                description: `Piutang toko (Potongan Gaji) - ${ss.saleNo}`,
-                amount: ss.totalAmount,
-                transactionDate: ss.transactionDate,
-                paymentMethod: "salary_cut",
-                isPaid: false,
-                notes: `Auto-generated dari penjualan kasir. No. Transaksi: ${ss.saleNo}`,
-                createdById: ss.createdById,
-              },
-            });
-          }
-        });
-      }
-    }
-
-    // Fetch ALL unpaid salary_cut UnitTransactions up to end of period.
-    // Only use UnitTransaction — NOT StoreSale — because toko POS already
-    // creates a UnitTransaction (piutang) for every salary_cut StoreSale.
-    // Querying both would cause double-counting.
+    // Source 1: Existing piutang UnitTransactions
     const unitTransactions = await prisma.unitTransaction.findMany({
       where: {
         paymentMethod: "salary_cut",
@@ -135,14 +89,33 @@ export async function POST(request: Request) {
       },
     });
 
-    if (unitTransactions.length === 0) {
-      return NextResponse.json(
-        { message: "Tidak ada transaksi piutang untuk periode ini" },
-        { status: 400 }
-      );
+    // Build a set of saleNos already covered by UnitTransactions
+    const coveredSaleNos = new Set<string>();
+    for (const ut of unitTransactions) {
+      const match = ut.description?.match(SALE_NO_RE);
+      if (match) coveredSaleNos.add(match[1]);
     }
 
-    // Build billing items
+    // Source 2: StoreSales without matching piutang UnitTransaction
+    const uncoveredStoreSales = await prisma.storeSale.findMany({
+      where: {
+        paymentMethod: "salary_cut",
+        status: { not: "voided" },
+        memberId: { not: null },
+        transactionDate: { lte: endUTC },
+      },
+      select: {
+        id: true, saleNo: true, memberId: true, totalAmount: true,
+        transactionDate: true, member: { select: { name: true, nrp: true } },
+      },
+    });
+
+    // Filter to only StoreSales not already covered by UnitTransactions
+    const gapStoreSales = uncoveredStoreSales.filter(
+      (ss) => !coveredSaleNos.has(ss.saleNo)
+    );
+
+    // Build billing items from both sources
     const items: {
       memberId: number;
       memberName: string;
@@ -154,6 +127,7 @@ export async function POST(request: Request) {
       amount: number;
     }[] = [];
 
+    // Items from UnitTransactions (primary source)
     for (const tx of unitTransactions) {
       if (!tx.memberId) continue;
       items.push({
@@ -166,6 +140,28 @@ export async function POST(request: Request) {
         description: tx.description,
         amount: Number(tx.amount),
       });
+    }
+
+    // Items from StoreSales that lack piutang records (gap coverage)
+    for (const ss of gapStoreSales) {
+      if (!ss.memberId) continue;
+      items.push({
+        memberId: ss.memberId,
+        memberName: ss.member?.name ?? "Unknown",
+        memberNrp: ss.member?.nrp ?? null,
+        unitType: "toko",
+        transactionId: ss.id,
+        transactionSource: "store_sale",
+        description: `Piutang toko (Potongan Gaji) - ${ss.saleNo}`,
+        amount: Number(ss.totalAmount),
+      });
+    }
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { message: "Tidak ada transaksi piutang untuk periode ini" },
+        { status: 400 }
+      );
     }
 
     // Group by member for totals
