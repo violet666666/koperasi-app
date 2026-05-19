@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             });
 
             if (anggotaRole && data.nrp) {
-                const hashedPassword = await bcrypt.hash("anggota123", 10);
+                const hashedPassword = await bcrypt.hash(member.nrp || data.nrp, 10);
                 await tx.user.create({
                     data: {
                         name: member.name,
