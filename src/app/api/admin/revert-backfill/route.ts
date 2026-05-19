@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
         // Find all [BACKFILL] CashBankTransaction records
         const backfillTransactions = await prisma.cashBankTransaction.findMany({
             where: { description: { contains: "[BACKFILL]" } },
-            include: { cashBankAccount: { select: { id: true, accountName: true, accountNo: true, currentBalance: true } } },
+            include: { account: { select: { id: true, name: true, code: true, accountNumber: true, currentBalance: true } } },
         });
 
         if (backfillTransactions.length === 0) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
         for (const tx of backfillTransactions) {
             const accId = tx.accountId;
             if (!byAccount.has(accId)) {
-                byAccount.set(accId, { account: tx.cashBankAccount, totalOut: 0, totalIn: 0, count: 0 });
+                byAccount.set(accId, { account: tx.account, totalOut: 0, totalIn: 0, count: 0 });
             }
             const entry = byAccount.get(accId)!;
             entry.count++;
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
                 affectedLoans: loanIds.length,
                 accounts: Array.from(byAccount.entries()).map(([id, data]) => ({
                     accountId: id,
-                    accountName: data.account.accountName,
-                    accountNo: data.account.accountNo,
+                    accountName: data.account.name,
+                    accountNo: data.account.code,
                     currentBalance: Number(data.account.currentBalance),
                     totalBackfillOut: data.totalOut,
                     totalBackfillIn: data.totalIn,
@@ -107,8 +107,8 @@ export async function POST(req: NextRequest) {
             ...result,
             accounts: Array.from(byAccount.entries()).map(([id, data]) => ({
                 accountId: id,
-                accountName: data.account.accountName,
-                accountNo: data.account.accountNo,
+                accountName: data.account.name,
+                accountNo: data.account.code,
                 previousBalance: Number(data.account.currentBalance),
                 correctionAmount: data.totalOut - data.totalIn,
                 newBalance: Number(data.account.currentBalance) + data.totalOut - data.totalIn,
