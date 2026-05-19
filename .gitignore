@@ -123,3 +123,5 @@ verify-86030500.js
 
 # Playwright MCP testing artifacts
 .playwright-mcp/
+cookies.txt
+headers.txt
