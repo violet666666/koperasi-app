@@ -182,6 +182,47 @@ export async function POST(request: Request) {
                 },
             });
 
+            // 5. Record cash outflow (disbursement) to Cash/Bank
+            const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true },
+                orderBy: { id: 'asc' },
+            });
+
+            if (cashAccount) {
+                const balBefore = Number(cashAccount.currentBalance);
+                const balAfter = balBefore - disbursedAmount;
+
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `CBM-PJM-${loan.loanNo}`,
+                        accountId: cashAccount.id,
+                        branchId: member.branchId,
+                        type: "out",
+                        category: "pencairan_pinjaman",
+                        amount: disbursedAmount,
+                        balanceBefore: balBefore,
+                        balanceAfter: balAfter,
+                        referenceType: "Loan",
+                        referenceId: loan.id,
+                        unitType: "simpan_pinjam",
+                        description: `Pencairan Pinjaman ${loan.loanNo} untuk ${member.name}`,
+                        transactionDate: baseDate,
+                        memberId: data.memberId,
+                        createdById: currentUserId,
+                    },
+                });
+
+                await tx.cashBankAccount.update({
+                    where: { id: cashAccount.id },
+                    data: { currentBalance: balAfter },
+                });
+
+                await tx.loan.update({
+                    where: { id: loan.id },
+                    data: { disbursementCashBankId: cashAccount.id },
+                });
+            }
+
             return {
                 applicationId: application.id,
                 applicationNo: application.applicationNo,
