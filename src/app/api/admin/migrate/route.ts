@@ -136,6 +136,32 @@ export async function POST(request: Request) {
             results.push("billing_items table already exists");
         }
 
+        // ── Kitchen Orders table (if missing) ────────────────────────────
+        const kitchenOrdersExists = await tableExists("kitchen_orders");
+        if (!kitchenOrdersExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE kitchen_orders (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    unit_type TEXT NOT NULL,
+                    sale_id TEXT,
+                    table_number INTEGER,
+                    queue_number TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    items JSONB NOT NULL,
+                    notes TEXT,
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+                    started_at TIMESTAMP(3),
+                    completed_at TIMESTAMP(3),
+                    served_at TIMESTAMP(3)
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_kitchen_orders_unit_status ON kitchen_orders(unit_type, status, created_at)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_kitchen_orders_sale_id ON kitchen_orders(sale_id)`);
+            results.push("Created kitchen_orders table");
+        } else {
+            results.push("kitchen_orders table already exists");
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
