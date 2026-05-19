@@ -23,9 +23,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { useAuth } from "@/lib/hooks/use-auth";
 
 export default function TambahAnggotaPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = React.useState(false);
 
     // Form state
@@ -35,7 +37,7 @@ export default function TambahAnggotaPage() {
         phone: "",
         email: "",
         category: "",
-        branch_id: "1",
+        branch_id: String(user?.branchId ?? 10),
         join_date: new Date().toISOString().split("T")[0],
         pangkat: "",
         golongan: "",
