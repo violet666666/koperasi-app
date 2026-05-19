@@ -184,6 +184,8 @@ export async function POST(request: Request) {
 
             // 5. Record cash outflow (disbursement) to Cash/Bank
             const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
+            }) ?? await tx.cashBankAccount.findFirst({
                 where: { branchId: member.branchId, isActive: true },
                 orderBy: { id: 'asc' },
             });

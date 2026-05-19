@@ -131,6 +131,8 @@ export async function POST(request: Request) {
 
             // 14. Record Cash/Bank transactions
             const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
+            }) ?? await tx.cashBankAccount.findFirst({
                 where: { branchId: member.branchId, isActive: true },
                 orderBy: { id: 'asc' },
             });

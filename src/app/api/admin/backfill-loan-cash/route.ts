@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
         if (mode === "execute") {
             for (const loan of missingLoans) {
                 const branchId = loan.member.branchId ?? loan.branchId;
+                // Prefer cash-type account (KAS-002) for loan disbursements
                 const cashAccount = await prisma.cashBankAccount.findFirst({
+                    where: { branchId, isActive: true, type: "cash", code: "KAS-002" },
+                }) ?? await prisma.cashBankAccount.findFirst({
                     where: { branchId, isActive: true },
                     orderBy: { id: "asc" },
                 });
