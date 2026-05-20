@@ -611,6 +611,10 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Kitchen Display", href: "/resto/kds", icon: Monitor,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Manajemen Menu", href: "/resto/produk", icon: Package,
                 permission: "manage_unit_transactions",
             },
@@ -623,19 +627,7 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Bahan Baku", href: "/resto/bahan-baku", icon: FlaskConical,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Manajemen Batch", href: "/resto/batch", icon: Layers,
-                permission: "manage_unit_transactions",
-            },
-            {
                 title: "Opname Stok", href: "/resto/opname", icon: ClipboardCheck,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Kitchen Display", href: "/resto/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
             {
@@ -1111,7 +1103,7 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
-                title: "Order Queue", href: "/cafe-lsp/antrian", icon: ClipboardList,
+                title: "Kitchen Display", href: "/cafe-lsp/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
             {
@@ -1124,22 +1116,6 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/cafe-lsp/persediaan", icon: Boxes,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Bahan Baku", href: "/cafe-lsp/bahan-baku", icon: FlaskConical,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Manajemen Batch", href: "/cafe-lsp/batch", icon: Layers,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Opname Stok", href: "/cafe-lsp/opname", icon: ClipboardCheck,
-                permission: "manage_unit_transactions",
-            },
-            {
-                title: "Kitchen Display", href: "/cafe-lsp/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
             {

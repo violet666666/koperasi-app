@@ -156,6 +156,7 @@ export async function POST(request: Request) {
 
         const body = await request.json();
         const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock } = body;
+        const nonInventoryUnits = ["cafe_lsp", "resto", "resto_cafe", "coffe_latar"];
 
         if (!sku || !name || sellPrice === undefined || sellPrice === null) {
             return NextResponse.json(
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
                         unitType: unitType || "toko",
                         isService: isService || false,
                         productType: productType || "finished",
-                        trackStock: trackStock !== undefined ? trackStock : true,
+                        trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
                         isActive: true,
                         deletedAt: null,
                     },
@@ -228,7 +229,7 @@ export async function POST(request: Request) {
                 unitType: unitType || "toko",
                 isService: isService || false,
                 productType: productType || "finished",
-                trackStock: trackStock !== undefined ? trackStock : true,
+                trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
             },
         });
 

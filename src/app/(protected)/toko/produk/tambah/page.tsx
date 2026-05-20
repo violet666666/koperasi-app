@@ -267,6 +267,9 @@ export default function TambahProdukPage() {
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="costPrice">Harga Beli (Modal / HPP)</Label>
+                                {(isResto || unitType === "cafe_lsp") && (
+                                    <p className="text-[10px] text-muted-foreground">Isi manual sesuai perhitungan HPP dari manajemen</p>
+                                )}
                                 <Input id="costPrice" type="number" min={0} placeholder="0"
                                     value={form.costPrice} onChange={e => handleChange("costPrice", e.target.value)} />
                             </div>

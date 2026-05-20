@@ -1,79 +1,52 @@
-# Dokumentasi Unit Cafe LSP
+# Unit Cafe LSP
 
-> **unitType:** `cafe_lsp`
-> **Status:** All features implemented
-> **Referensi Terkait:** `UNIT-CAFE-RESTO.md`, `UNIT-TOKO.md`
+> **unitType:** `cafe_lsp` | **Jalur:** Retail/F&B (StoreSale) | **API:** `/api/toko/sales`
 
 ---
 
-## 1. Ringkasan
+## Ringkasan
 
-Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan order di counter, menerima nomor antrian, dan mengambil pesanan saat dipanggil.
-
-**Jalur Sistem:** Jalur 2 — Retail/F&B (StoreSale). DB: `StoreSale` + `StoreSaleItem` + `StoreProduct`. API: `/api/toko/sales` dengan `unitType=cafe_lsp`.
+Counter-based F&B. Pelanggan order di counter → nomor antrian → ambil pesanan saat dipanggil.
+**Manajemen tidak menggunakan resep/bahan baku otomatis.** HPP diisi manual. Produk default `trackStock=false` (stok tidak dipotong saat jual).
 
 ---
 
-## 2. Fitur POS
+## Sidebar (Mei 2026)
 
-| Fitur | Status |
+### Kasir (4 item)
+
+| Menu | Route |
 |---|---|
-| POS Counter-based (grid visual + filter kategori + search) | ✅ |
-| Tampilan foto menu (imageUrl) | ✅ |
-| Quick Keys (tab best sellers, admin-configurable) | ✅ |
-| Notes per item (max 60 char, saved in metadata) | ✅ |
-| Nomor Antrian Otomatis (server-side atomic, configurable) | ✅ |
-| 3 Metode bayar (Tunai/QRIS/Potong Gaji) | ✅ |
-| Validasi plafon piutang + stok sebelum checkout | ✅ |
-| Shift validation + lock checkout + shiftId auto-attach | ✅ |
-| Order Queue Panel (di POS) + Queue Board (full page) | ✅ |
-| Struk Receipt 80mm | ✅ |
-| Zustand state (persist localStorage) | ✅ |
-| Resep & HPP (ProductRecipe) + auto-calculate costPrice | ✅ |
-| Manajemen Batch & Expiry (wrapper Toko) | ✅ |
-| Kitchen Display System / KDS (wrapper Resto) | ✅ |
-| Split Bill (shared module) | ✅ |
-| Modifiers / Add-on System (shared module) | ✅ |
-| Reporting Dashboard (shared module) | ✅ |
-| Offline Mode (shared module) | ✅ |
-| Hybrid Inventory — racikan + retail | ✅ |
-| Bahan Baku management (mobile-first) | ✅ |
-| Opname Stok (stock taking) | ✅ |
-
----
-
-## 3. Role & Akses
-
-### Kasir
-
-| Fitur | Link |
-|---|---|
-| POS Cafe LSP | `/cafe-lsp/kasir` |
+| Kasir POS | `/cafe-lsp/kasir` |
 | Order Queue | `/cafe-lsp/antrian` |
 | Shift Kasir | `/cafe-lsp/shift` |
 | Riwayat Penjualan | `/transaksi-unit/riwayat?unitType=cafe_lsp` |
 
-### Admin
+### Admin (7 item)
 
-| Fitur | Link |
+| Menu | Route | Icon |
+|---|---|---|
+| Kasir POS | `/cafe-lsp/kasir` | Coffee |
+| Kitchen Display | `/cafe-lsp/kds` | Monitor |
+| Manajemen Menu | `/cafe-lsp/produk` | Package |
+| Promo & Diskon | `/cafe-lsp/marketing` | Tag |
+| Persediaan & Stok | `/cafe-lsp/persediaan` | Boxes |
+| Shift Kasir | `/cafe-lsp/shift` | Timer |
+| Riwayat Penjualan | `/transaksi-unit/riwayat?unitType=cafe_lsp` | ClipboardList |
+
++ LAPORAN (`/unit/cafe-lsp/laporan`), PERSETUJUAN (`/approval`), AKUN (`/profil`)
+
+### Hidden dari Sidebar (tetap accessible via URL)
+
+| Route | Status |
 |---|---|
-| POS Cafe LSP | `/cafe-lsp/kasir` |
-| Order Queue | `/cafe-lsp/antrian` |
-| Manajemen Menu | `/cafe-lsp/produk` |
-| Promo & Diskon | `/cafe-lsp/marketing` |
-| Persediaan & Stok | `/cafe-lsp/persediaan` |
-| Bahan Baku | `/cafe-lsp/bahan-baku` |
-| Manajemen Batch | `/cafe-lsp/batch` |
-| Opname Stok | `/cafe-lsp/opname` |
-| Kitchen Display | `/cafe-lsp/kds` |
-| Shift Kasir | `/cafe-lsp/shift` |
-| Riwayat Penjualan | `/transaksi-unit/riwayat?unitType=cafe_lsp` |
-| Laporan Penjualan | `/unit/cafe-lsp/laporan` |
-| Inbox Approval | `/approval` |
+| `/cafe-lsp/bahan-baku` | Hidden — manajemen tidak pakai resep otomatis |
+| `/cafe-lsp/batch` | Hidden — tidak dipakai |
+| `/cafe-lsp/opname` | Hidden — tombol Opname ada di halaman Persediaan |
 
 ---
 
-## 4. Akun
+## Akun
 
 | Role | Email | Password |
 |---|---|---|
@@ -82,145 +55,52 @@ Unit **Cafe LSP** adalah unit F&B counter-based (tanpa meja dine-in). Pelanggan 
 
 ---
 
-## 5. Arsitektur: Wrapper Pages
+## Fitur POS
 
-```
-/cafe-lsp/kasir/page.tsx      → DEDICATED POS (counter-based)
-/cafe-lsp/antrian/page.tsx    → DEDICATED Order Queue Board
-/cafe-lsp/produk/page.tsx     → Wrapper → TokoProdukPage
-/cafe-lsp/shift/page.tsx      → Wrapper → TokoShiftPage
-/cafe-lsp/marketing/page.tsx  → Wrapper → TokoMarketingPage
-/cafe-lsp/persediaan/page.tsx → Wrapper → TokoPersediaanPage
-/cafe-lsp/bahan-baku/page.tsx → Wrapper → TokoBahanBakuPage
-/cafe-lsp/batch/page.tsx      → Wrapper → TokoBatchPage
-/cafe-lsp/opname/page.tsx     → Wrapper → TokoOpnamePage
-/cafe-lsp/kds/page.tsx        → Wrapper → Resto KDS Page
-```
+| Fitur | Status |
+|---|---|
+| POS Counter-based (grid + filter + search) | ✅ |
+| Foto menu (imageUrl) + Quick Keys | ✅ |
+| Notes per item (metadata) | ✅ |
+| Nomor Antrian (server-side atomic) | ✅ |
+| 3 Metode bayar (Tunai/QRIS/Potong Gaji) | ✅ |
+| Shift validation + lock + shiftId | ✅ |
+| Order Queue Panel + Board | ✅ |
+| Struk Receipt 80mm | ✅ |
+| Kitchen Display System (KDS) | ✅ |
+| HPP Manual (field costPrice, tidak otomatis dari resep) | ✅ |
+| Persediaan & Stok + tombol Opname | ✅ |
 
 ---
 
-## 6. Perbedaan dengan Resto Latar
+## Perbedaan vs Resto Latar
 
 | Aspek | Resto Latar | Cafe LSP |
 |---|---|---|
-| **Tipe** | Dine-in + Takeaway | Counter-based |
-| **Denah Meja** | ✅ 12 meja + takeaway | ❌ Tidak ada |
-| **Nomor Antrian** | ❌ | ✅ Server-side atomic |
-| **Quick Keys** | ❌ | ✅ Tab ★ Quick |
-| **Order Queue** | ❌ | ✅ Panel + Board |
-| **Shift Lock** | ⚠️ Warning saja | ✅ Lock checkout |
-| **shiftId** | ⚠️ Tidak terkirim | ✅ Auto-attach |
-| **API** | `/api/toko/sales` | `/api/toko/sales` (shared) |
+| Tipe | Dine-in + Takeaway | Counter-based |
+| Denah Meja | ✅ | ❌ |
+| Nomor Antrian | ❌ | ✅ |
+| Quick Keys | ❌ | ✅ |
+| Modifier & Add-on | ✅ | ❌ (hidden) |
+| Opname di sidebar | ✅ | ❌ (via Persediaan) |
 
 ---
 
-## 7. File-File Terkait
+## File Terkait
 
 | File | Fungsi |
 |---|---|
-| `src/app/(protected)/cafe-lsp/kasir/page.tsx` | POS Dedicated counter-based |
+| `src/lib/constants/navigation.ts` | `adminCafeLspNavigation` (7 item) + `kasirCafeLspNavigation` (4 item) |
+| `src/app/(protected)/cafe-lsp/kasir/page.tsx` | POS Dedicated |
+| `src/app/(protected)/cafe-lsp/kds/page.tsx` | KDS wrapper |
 | `src/app/(protected)/cafe-lsp/antrian/page.tsx` | Order Queue Board |
-| `src/app/(protected)/cafe-lsp/produk/page.tsx` | Wrapper → TokoProdukPage |
-| `src/app/(protected)/cafe-lsp/shift/page.tsx` | Wrapper → TokoShiftPage |
-| `src/app/(protected)/cafe-lsp/marketing/page.tsx` | Wrapper → TokoMarketingPage |
-| `src/app/(protected)/cafe-lsp/persediaan/page.tsx` | Wrapper → TokoPersediaanPage |
-| `src/app/(protected)/cafe-lsp/bahan-baku/page.tsx` | Wrapper → TokoBahanBakuPage |
-| `src/app/(protected)/cafe-lsp/batch/page.tsx` | Wrapper → TokoBatchPage |
-| `src/app/(protected)/cafe-lsp/opname/page.tsx` | Wrapper → TokoOpnamePage |
-| `src/app/(protected)/cafe-lsp/kds/page.tsx` | Wrapper → Resto KDS Page |
-| `src/lib/constants/navigation.ts` | `kasirCafeLspNavigation` + `adminCafeLspNavigation` |
-| `src/app/(protected)/layout.tsx` | Route guard `cafe_lsp` |
-| `src/components/patterns/kasir-dashboard.tsx` | Dashboard POS route |
-| `src/app/api/toko/sales/route.ts` | API checkout (shared, hybrid) |
-| `src/app/api/toko/products/route.ts` | API produk (filter by unitType + productType) |
-| `src/app/api/toko/products/[id]/recipe/route.ts` | API CRUD resep/HPP |
-| `src/app/api/toko/products/quick-keys/route.ts` | API CRUD Quick Keys |
-| `src/app/api/toko/queue/route.ts` | Atomic queue number (GET/POST) |
-| `src/app/api/toko/queue/config/route.ts` | Queue config (PUT) |
-| `src/app/api/toko/stock-tracking/opname/route.ts` | API stock opname |
-| `src/app/api/toko/stock-tracking/products/route.ts` | API products for stock tracking |
-| `src/lib/queue.ts` | Queue config & formatting |
-| `src/lib/stock-opname.ts` | Opname validation |
-| `prisma/seed-cafe-lsp.ts` | Seed script khusus Cafe LSP |
-| `prisma/seed-cafe-lsp-menu.ts` | Seed 35 menu items (SKU: LSP-XXX) |
-| `prisma/seed-cafe-lsp-recipes.ts` | Seed 35 resep + 45 bahan baku |
-| `prisma/seed-raw-materials.ts` | Seed 46 bahan baku + link resep |
+| `src/app/api/toko/products/route.ts` | Produk API (`trackStock` default false) |
+| `src/app/api/toko/sales/route.ts` | Checkout (shared) |
+| `src/app/api/toko/queue/route.ts` | Nomor antrian |
 
 ---
 
-## 8. Menu & Resep
+## Changelog
 
-### 8.1 Daftar Menu (35 items)
-
-| Kategori | Jumlah | Harga Range |
-|---|---|---|
-| Mocktail | 5 | Rp14.000 – Rp19.000 |
-| Tea Series | 5 | Rp12.000 |
-| Frappe | 2 | Rp18.000 |
-| Choco Series | 4 | Rp16.000 – Rp18.000 |
-| Matcha Series | 3 | Rp17.000 – Rp20.000 |
-| Ice Coffee | 9 | Rp15.000 – Rp18.000 |
-| Hot Coffee | 7 | Rp8.000 – Rp17.000 |
-
-### 8.2 Resep & HPP
-
-- Setiap menu memiliki resep di tabel `ProductRecipe` (breakdown bahan, qty, satuan, harga/unit)
-- `costPrice` dihitung otomatis dari total resep; margin rata-rata ~68%
-- 45+ bahan baku unik dilacak; 96/96 recipe rows linked ke ingredient products
-- SKU format: `LSP-{DEPT}-{VARIANT}`
-- Admin CRUD resep via halaman Manajemen Menu (tombol BookOpen)
-- Ingredient linking: bahan terhubung ke `StoreProduct` via `ingredientProductId`
-
----
-
-## 9. Opname Stok
-
-**Page:** `/cafe-lsp/opname` — wrapper reuses `TokoOpnamePage` (reads `unitType` from session).
-
-**Fitur:**
-- **Product type filter:** Semua Produk / Produk Jadi / Bahan Baku
-- **Location filter:** Gudang / Toko
-- **Search:** filter by nama produk atau SKU
-- **Physical count input:** input stok fisik per produk, tampil selisih vs sistem secara real-time
-- **Progress tracker:** stats card (total, sudah dihitung, belum, progress %)
-- **Discrepancy display:** color-coded status (hijau = sesuai, biru = lebih, merah = kurang)
-- **Save adjustments:** POST ke API, buat `StoreStockMovement` untuk penyesuaian
-- **Result dialog:** ringkasan diperiksa / sesuai / disesuaikan + detail per produk
-
-**API:** `POST /api/toko/stock-tracking/opname` — body: `{ items: [{productId, physicalStock}], location }`. Returns `{ results, summary }`.
-
-**Navigation:** "Opname Stok" (ClipboardCheck icon) di `adminCafeLspNavigation`, permission `manage_unit_transactions`.
-
----
-
-## 10. Audit & Bug Fix Summary
-
-| Item | Status |
-|---|---|
-| Fixed: Queue number race condition — server-side atomic counter (was client-side) | ✅ |
-| Fixed: Queue cap 999 removed — unlimited via server daily count | ✅ |
-| Fixed: Antrian Board stale readyIds — useRef fix + perPage increased to 100 | ✅ |
-| Fixed: Item notes not persisted — saved in `metadata.itemNotes` | ✅ |
-| Fixed: Recipe API unit isolation — validate `product.unitType` matches session | ✅ |
-| Fixed: Dynamic backHref/links for wrapper pages (no hardcoded `/toko/kasir`) | ✅ |
-| Fixed: Movements API fallback `unitType` filter | ✅ |
-| Fixed: Bahan Baku page crash (API response format) | ✅ |
-| Fixed: Products API not saving `productType`/`trackStock` fields | ✅ |
-| Fixed: Shared API bugs — product lookup, FIFO batch, audit log, notifications, shift check, movements — all scoped by `unitType` | ✅ |
-| New: Opname Stok feature — stock taking with physical count vs system | ✅ |
-| New: Hybrid Inventory — racikan deducts ingredients via FIFO, retail deducts product stock | ✅ |
-| New: Dynamic Queue System — admin-configurable prefix, digits, reset policy | ✅ |
-| New: Kitchen Display System (KDS) — shared with Resto | ✅ |
-| New: Quick Keys — admin configurable from Manajemen Menu | ✅ |
-| New: Date range filter on sales API (`?from=&to=`) | ✅ |
-
----
-
-## Changelog — 18 Mei 2026
-
-- **[Riwayat] Edit NRP Fix:** Tombol "Tambah NRP Anggota" di `/transaksi-unit/riwayat?unitType=cafe_lsp` sekarang tampil untuk semua transaksi non-voided. Dialog menampilkan "Anggota Saat Ini" jika sudah ada member. Berlaku untuk semua unit. File: `transaksi-unit/riwayat/page.tsx`
-- **[Role] Operator Hierarchy:** Dihapus referensi `superadmin`/`super_admin` dari seluruh codebase. Operator = role tertinggi. Admin Cafe LSP tetap akses unit `cafe_lsp` saja.
-
----
-
-*Dokumen ini adalah referensi utama untuk Unit Cafe LSP. Untuk Cafe & Resto Latar, lihat `UNIT-CAFE-RESTO.md`. Untuk Toko, lihat `UNIT-TOKO.md`.*
+- **21 Mei 2026** — Sidebar dipangkas 12→7 item. Hapus Bahan Baku, Batch, Opname, Order Queue dari sidebar admin. Default `trackStock=false` untuk produk baru. HPP manual tooltip di form Tambah Menu. Tombol Opname di Persediaan.
+- **18 Mei 2026** — Edit NRP fix, operator hierarchy cleanup.

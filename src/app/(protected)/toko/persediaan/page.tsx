@@ -20,9 +20,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
     Warehouse, Plus, Minus, ArrowDownCircle, ArrowUpCircle, Loader2,
-    Check, ChevronsUpDown, Ban, RotateCcw, Package, ArrowRightLeft
+    Check, ChevronsUpDown, Ban, RotateCcw, Package, ArrowRightLeft,
+    ClipboardCheck
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface StockMovement {
     id: number;
@@ -139,7 +141,9 @@ export default function PersediaanPage() {
     const canVoid = roleName === "operator" || roleName === "admin";
 
     const unitType = session?.user?.unitType as string || "toko";
+    const isCafeLsp = unitType === "cafe_lsp";
     const isResto = ["resto_cafe", "resto", "coffe_latar"].includes(unitType);
+    const router = useRouter();
     const productUnitType = isResto ? "resto" : unitType;
 
     // Filter state
@@ -412,6 +416,15 @@ export default function PersediaanPage() {
                     </div>
                 }
             />
+
+            {isCafeLsp && (
+                <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => router.push("/cafe-lsp/opname")} className="gap-2">
+                        <ClipboardCheck className="h-4 w-4" />
+                        Opname Stok
+                    </Button>
+                </div>
+            )}
 
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                 <Card><CardContent className="flex items-center gap-4 p-4"><div className="rounded-lg bg-emerald-100 p-3 dark:bg-emerald-900/30"><ArrowDownCircle className="h-5 w-5 text-emerald-600" /></div><div><p className="text-sm text-muted-foreground">Stok Masuk Hari Ini</p><p className="text-2xl font-bold text-emerald-600">+{stats.todayIn}</p></div></CardContent></Card>
