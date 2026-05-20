@@ -120,3 +120,8 @@ verify-86030500.js
 # Android signing keystore
 *.keystore
 *.jks
+
+# Playwright MCP testing artifacts
+.playwright-mcp/
+cookies.txt
+headers.txt

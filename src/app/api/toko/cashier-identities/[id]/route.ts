@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_ROLES = ["admin", "operator"];
 
 // PUT /api/toko/cashier-identities/[id] — Update identity
 export async function PUT(

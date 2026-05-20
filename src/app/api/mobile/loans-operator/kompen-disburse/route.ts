@@ -108,7 +108,7 @@ export async function POST(request: Request) {
                 principalPaid: Number(existingLoan.principalPaid),
             });
             const payNo = `PAY-${year}-${Math.floor(Math.random() * 1000000).toString().padStart(6, "0")}`;
-            await tx.loanPayment.create({
+            const kompenPayment = await tx.loanPayment.create({
                 data: {
                     paymentNo: payNo, loanId: existingLoanId, memberId, branchId: member.branchId,
                     amount: totalKompen, principalPortion: principalOutstanding, interestPortion: 0,
@@ -128,6 +128,73 @@ export async function POST(request: Request) {
                 where: { loanId: existingLoanId, status: { in: ["pending", "partial", "overdue"] } },
                 data: { status: "paid", paidDate: baseDate },
             });
+
+            // 14. Record Cash/Bank transactions
+            const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
+            }) ?? await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true },
+                orderBy: { id: 'asc' },
+            });
+
+            if (cashAccount) {
+                let balBefore = Number(cashAccount.currentBalance);
+
+                // OUT: Disbursement to member
+                const balAfterOut = balBefore - disbursedToMember;
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `KK-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                        accountId: cashAccount.id, branchId: member.branchId,
+                        type: "out", amount: disbursedToMember, balanceBefore: balBefore, balanceAfter: balAfterOut,
+                        category: "pencairan_pinjaman",
+                        referenceType: "LoanPayment", referenceId: kompenPayment.id,
+                        description: `[KOMPEN MOBILE] Pencairan selisih ke anggota ${member.name} (${newLoan.loanNo})`,
+                        transactionDate: baseDate,
+                        createdById: parseInt(user.id),
+                    },
+                });
+                await tx.cashBankAccount.update({ where: { id: cashAccount.id }, data: { currentBalance: balAfterOut } });
+
+                // IN: Pelunasan pokok old loan
+                const balAfterIn = balAfterOut + principalOutstanding;
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `KM-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                        accountId: cashAccount.id, branchId: member.branchId,
+                        type: "in", amount: principalOutstanding, balanceBefore: balAfterOut, balanceAfter: balAfterIn,
+                        category: "angsuran_pokok",
+                        referenceType: "LoanPayment", referenceId: kompenPayment.id,
+                        description: `[KOMPEN MOBILE] Pelunasan pokok ${existingLoan.loanNo} dari ${newLoan.loanNo}`,
+                        transactionDate: baseDate,
+                        createdById: parseInt(user.id),
+                    },
+                });
+                await tx.cashBankAccount.update({ where: { id: cashAccount.id }, data: { currentBalance: balAfterIn } });
+
+                // IN: Penalti pelunasan
+                if (penaltyFee > 0) {
+                    const balAfterPenalty = balAfterIn + penaltyFee;
+                    await tx.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `KM-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}-P/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                            accountId: cashAccount.id, branchId: member.branchId,
+                            type: "in", amount: penaltyFee, balanceBefore: balAfterIn, balanceAfter: balAfterPenalty,
+                            category: "penalti_pelunasan",
+                            referenceType: "LoanPayment", referenceId: kompenPayment.id,
+                            description: `[KOMPEN MOBILE] Penalti pelunasan ${existingLoan.loanNo}`,
+                            transactionDate: baseDate,
+                            createdById: parseInt(user.id),
+                        },
+                    });
+                    await tx.cashBankAccount.update({ where: { id: cashAccount.id }, data: { currentBalance: balAfterPenalty } });
+                }
+
+                await tx.loan.update({
+                    where: { id: newLoan.id },
+                    data: { disbursementCashBankId: cashAccount.id },
+                });
+            }
 
             return {
                 newLoanId: newLoan.id, newLoanNo: newLoan.loanNo,

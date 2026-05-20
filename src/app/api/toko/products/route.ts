@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // GET /api/toko/products - List store products (with server-side pagination)
 export async function GET(request: Request) {
@@ -12,17 +13,27 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search") || "";
-        const unitType = searchParams.get("unitType") || null;
+        const userUnitType = (session.user as { unitType?: string }).unitType || null;
+        const unitType = searchParams.get("unitType") || userUnitType || null;
+        const role = session.user.role as string;
+        if (role !== "operator" && userUnitType && unitType && !isSameUnit(unitType, userUnitType)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const category = searchParams.get("category") || null;
+        const productTypeParam = searchParams.get("productType");
         const pageParam = searchParams.get("page");
         const perPageParam = searchParams.get("perPage");
         const isPaginated = !!pageParam || !!perPageParam;
         const page = Math.max(1, parseInt(pageParam || "1"));
         const perPage = Math.min(200, Math.max(1, parseInt(perPageParam || "50")));
 
+        // Default to "finished" — migration set all existing rows to 'finished'
+        const productType = productTypeParam || "finished";
+
         const where = {
             deletedAt: null,
             isActive: true,
+            productType,
             ...(unitType && { unitType: unitType }),
             ...(category && category !== "all" && { category }),
             ...(search && {
@@ -61,6 +72,7 @@ export async function GET(request: Request) {
         const filterUnitType = unitType || null;
         const filterCategory = (category && category !== "all") ? category : null;
         const filterSearch = search || null;
+        const filterProductType = productType;
         const agStats = isPaginated ? await prisma.$queryRaw<{
             total_products: number; total_stock: number; total_value: number; out_of_stock: number; low_stock: number;
         }[]>`
@@ -72,6 +84,7 @@ export async function GET(request: Request) {
                 SUM(CASE WHEN stock_gdg + stock_toko > 0 AND stock_gdg + stock_toko <= min_stock THEN 1 ELSE 0 END)::int as low_stock
             FROM store_products
             WHERE deleted_at IS NULL AND is_active = true
+              AND product_type = ${filterProductType}
               AND (${filterUnitType}::text IS NULL OR unit_type = ${filterUnitType})
               AND (${filterCategory}::text IS NULL OR category = ${filterCategory})
               AND (${filterSearch}::text IS NULL OR name ILIKE '%' || ${filterSearch} || '%' OR sku ILIKE '%' || ${filterSearch} || '%')
@@ -142,7 +155,7 @@ export async function POST(request: Request) {
         const userId = parseInt(session.user.id);
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock } = body;
 
         if (!sku || !name || sellPrice === undefined || sellPrice === null) {
             return NextResponse.json(
@@ -183,6 +196,8 @@ export async function POST(request: Request) {
                         unit: unit || "pcs",
                         unitType: unitType || "toko",
                         isService: isService || false,
+                        productType: productType || "finished",
+                        trackStock: trackStock !== undefined ? trackStock : true,
                         isActive: true,
                         deletedAt: null,
                     },
@@ -212,6 +227,8 @@ export async function POST(request: Request) {
                 unit: unit || "pcs",
                 unitType: unitType || "toko",
                 isService: isService || false,
+                productType: productType || "finished",
+                trackStock: trackStock !== undefined ? trackStock : true,
             },
         });
 

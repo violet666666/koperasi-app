@@ -166,9 +166,9 @@ export async function POST(request: Request) {
             } catch { /* non-critical */ }
         }
 
-        // Cek apakah user sudah punya shift yang masih open
+        // Cek apakah user sudah punya shift yang masih open di unit yang sama
         const existingOpenShift = await prisma.cashierShift.findFirst({
-            where: { userId, status: "open" },
+            where: { userId, status: "open", unitType },
         });
 
         if (existingOpenShift) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,7 +20,18 @@ export async function GET(request: Request) {
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
         const perPage = Math.min(500, Math.max(1, parseInt(searchParams.get("perPage") || "50")));
 
-        const whereClause: Record<string, unknown> = {};
+        const role = typeof session.user.role === "string"
+            ? session.user.role
+            : (session.user.role as { name: string })?.name;
+        const userUnitType = (session.user.unitType as string) || null;
+        const unitType = searchParams.get("unitType") || userUnitType || "toko";
+        if (role !== "operator" && userUnitType && !isSameUnit(unitType, userUnitType)) {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
+        const whereClause: Record<string, unknown> = {
+            product: { unitType },
+        };
         if (productId) {
             whereClause.productId = parseInt(productId);
         }
@@ -76,6 +88,7 @@ export async function GET(request: Request) {
             try {
                 const sales = await prisma.storeSale.findMany({
                     where: {
+                        unitType,
                         ...(productId ? { items: { some: { productId: parseInt(productId) } } } : {}),
                     },
                     include: {

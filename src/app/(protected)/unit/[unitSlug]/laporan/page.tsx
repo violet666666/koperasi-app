@@ -67,6 +67,7 @@ import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SortableHeader } from "@/components/ui/sortable-header";
 
 // ── Unit label map ──────────────────────────────────────────────────────────
 const UNIT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
@@ -193,6 +194,19 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [page, setPage] = React.useState(1);
     const perPage = 50;
     const [isExporting, setIsExporting] = React.useState(false);
+
+    // Sort state
+    const [sortField, setSortField] = React.useState("transactionDate");
+    const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc");
+
+    const toggleSort = (field: string) => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortOrder("desc");
+        }
+    };
 
     // Expense Dialog
     const [editExpenseId, setEditExpenseId] = React.useState<number | null>(null);
@@ -381,6 +395,8 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 period,
                 page: String(targetPage),
                 perPage: String(perPage),
+                sortBy: sortField,
+                sortOrder,
                 _t: Date.now().toString(),
             });
             if (period === "custom" && dateFrom && dateTo) {
@@ -398,7 +414,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         } finally {
             setIsLoading(false);
         }
-    }, [hasAccess, isWrongUnit, unitSlug, period, dateFrom, dateTo, page]);
+    }, [hasAccess, isWrongUnit, unitSlug, period, dateFrom, dateTo, sortField, sortOrder, page]);
 
     // Helper: fetch ALL data for export/print (no pagination)
     const fetchAllData = React.useCallback(async (): Promise<LaporanData | null> => {
@@ -407,6 +423,8 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 period,
                 perPage: String(perPage),
                 export: "true",
+                sortBy: sortField,
+                sortOrder,
                 _t: Date.now().toString(),
             });
             if (period === "custom" && dateFrom && dateTo) {
@@ -423,11 +441,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             toast.error(err.message || "Gagal memuat data");
             return null;
         }
-    }, [unitSlug, period, dateFrom, dateTo]);
+    }, [unitSlug, period, dateFrom, dateTo, sortField, sortOrder]);
 
     React.useEffect(() => {
         fetchLaporan(1);
-    }, [period, dateFrom, dateTo, hasAccess]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [period, dateFrom, dateTo, hasAccess, sortField, sortOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Reset page to 1 when period or date range changes
     React.useEffect(() => {
@@ -1000,13 +1018,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
                                         <TableHead className="w-[50px] text-center">No.</TableHead>
-                                        <TableHead className="whitespace-nowrap">Tanggal</TableHead>
-                                        <TableHead className="whitespace-nowrap">No. Transaksi</TableHead>
+                                        <SortableHeader label="Tanggal" field="transactionDate" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} />
+                                        <SortableHeader label="No. Transaksi" field="transactionNo" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} />
                                         <TableHead>Keterangan</TableHead>
                                         {isCuciMobil && <TableHead className="whitespace-nowrap">Plat Nomor</TableHead>}
                                         <TableHead className="whitespace-nowrap">Anggota / Pelanggan</TableHead>
                                         <TableHead className="whitespace-nowrap">Metode</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Nominal</TableHead>
+                                        <SortableHeader label="Nominal" field="amount" currentField={sortField} currentOrder={sortOrder} onSort={toggleSort} align="right" />
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>

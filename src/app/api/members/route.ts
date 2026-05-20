@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
 // GET /api/members - List all members
 export async function GET(request: Request) {
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             });
 
             if (anggotaRole && data.nrp) {
-                const hashedPassword = await bcrypt.hash("anggota123", 10);
+                const hashedPassword = await bcrypt.hash(member.nrp || data.nrp, 10);
                 await tx.user.create({
                     data: {
                         name: member.name,

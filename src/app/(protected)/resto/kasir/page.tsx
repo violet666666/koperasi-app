@@ -4,6 +4,7 @@ import * as React from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode } from "lucide-react";
+import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
@@ -32,6 +33,7 @@ interface RestoState {
     setCustomer: (tableId: string, name: string) => void;
     clearTable: (tableId: string) => void;
     addTakeaway: () => void;
+    setFloorPlanTables: (labels: { id: string; label: string }[]) => void;
 }
 
 const DEFAULT_TABLES: RestoTable[] = Array.from({ length: 12 }, (_, i) => ({
@@ -76,15 +78,26 @@ const useRestoStore = create<RestoState>()(
                 const takes = state.tables.filter(t => t.type === "takeaway");
                 const newId = `T${takes.length + 1}`;
                 return { tables: [...state.tables, { id: newId, label: `Takeaway ${takes.length + 1}`, type: "takeaway", cart: [], customerName: "" }] };
-            })
+            }),
+            setFloorPlanTables: (labels) => set((state) => {
+                const takeawayTables = state.tables.filter(t => t.type === "takeaway");
+                const existingCarts = new Map(state.tables.map(t => [t.id, t]));
+                const dineInTables = labels.map(l => {
+                    const existing = existingCarts.get(l.id);
+                    return { id: l.id, label: l.label, type: "dine_in" as const, cart: existing?.cart || [], customerName: existing?.customerName || "" };
+                });
+                return { tables: [...dineInTables, ...takeawayTables] };
+            }),
         }),
         { name: "resto-pos-storage" }
     )
 );
 
 export default function RestoKasirPage() {
-    const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway } = useRestoStore();
+    const { tables, activeTableId, setActiveTable, updateCart, setCustomer, clearTable, addTakeaway, setFloorPlanTables } = useRestoStore();
     const activeTable = tables.find(t => t.id === activeTableId);
+    const { user } = useAuth();
+    const sessionUnitType = user?.unitType || "resto_cafe";
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -110,8 +123,13 @@ export default function RestoKasirPage() {
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
     const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
 
+    // Split Bill
+    const [showSplitDialog, setShowSplitDialog] = React.useState(false);
+    const [splitPayments, setSplitPayments] = React.useState<{ method: string; amount: number }[]>([]);
+
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
+    const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -125,13 +143,27 @@ export default function RestoKasirPage() {
         fetchProducts();
     }, []);
 
+    // Load dynamic floor plan tables
+    React.useEffect(() => {
+        async function loadFloorPlan() {
+            try {
+                const res = await fetch("/api/toko/floor-plan?unitType=resto");
+                const json = await res.json();
+                if (json.plan?.tables) {
+                    setFloorPlanTables(json.plan.tables.map((t: any) => ({ id: t.id, label: t.label })));
+                }
+            } catch { /* fallback to hardcoded DEFAULT_TABLES from zustand */ }
+        }
+        loadFloorPlan();
+    }, []);
+
     // Lazy-load QRIS on-demand when the dialog opens
     React.useEffect(() => {
         if (!showQrisDialog) return;
         let cancelled = false;
         const fetchQris = async () => {
             try {
-                const res = await fetch("/api/unit-layanan/qris?unitType=resto");
+                const res = await fetch(`/api/unit-layanan/qris?unitType=${sessionUnitType}`);
                 if (!res.ok) return;
                 const json = await res.json();
                 if (!cancelled && json.qrisUrl) setQrisUrl(json.qrisUrl);
@@ -145,10 +177,11 @@ export default function RestoKasirPage() {
     React.useEffect(() => {
         async function checkShift() {
             try {
-                const res = await fetch("/api/toko/shifts?status=open");
+                const res = await fetch(`/api/toko/shifts?status=open&unitType=${sessionUnitType}`);
                 const json = await res.json();
                 const shifts = json.data || [];
                 setShiftOpen(shifts.length > 0);
+                if (shifts.length > 0) setActiveShiftId(shifts[0].id);
             } catch { setShiftOpen(false); }
         }
         checkShift();
@@ -187,7 +220,7 @@ export default function RestoKasirPage() {
             try {
                 const res = await fetch("/api/unit-transactions/validate", {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: "resto" }),
+                    body: JSON.stringify({ nrp: selectedMember.nrp, amount: subtotal, unitType: sessionUnitType }),
                 });
                 setLimitInfo(await res.json());
             } catch { toast.error("Gagal mengecek sisa limit plafon anggota."); } finally { setIsValidatingLimit(false); }
@@ -196,9 +229,26 @@ export default function RestoKasirPage() {
         else setLimitInfo(null);
     }, [selectedMember, subtotal]);
 
+    // Debounced member search from table customer name input
+    React.useEffect(() => {
+        if (selectedMember || !activeTable?.customerName || activeTable.customerName.length < 2) {
+            setMemberResults([]);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(activeTable.customerName)}`);
+                const json = await res.json();
+                setMemberResults(json.data || []);
+            } catch {}
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [activeTable?.customerName, selectedMember]);
+
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+        if (shiftOpen === false) { toast.error("Buka shift terlebih dahulu!"); return; }
         // Validate stock availability before sending to API
         for (const item of cart) {
             if (item.product.stock !== undefined && item.product.stock !== null && item.quantity > item.product.stock) {
@@ -217,7 +267,17 @@ export default function RestoKasirPage() {
                 paymentMethod: method,
                 unitType: "resto",
                 memberId: selectedMember?.id || undefined,
-                metadata: { tableNo: activeTable.label, orderType: activeTable.type, guestName: activeTable.customerName }
+                shiftId: activeShiftId || undefined,
+                shiftUnitType: sessionUnitType,
+                metadata: {
+                    tableNo: activeTable.label,
+                    orderType: activeTable.type,
+                    guestName: activeTable.customerName,
+                    itemNotes: cart.reduce((acc, item) => {
+                        if (item.notes) acc[String(item.product.id)] = item.notes;
+                        return acc;
+                    }, {} as Record<string, string>),
+                },
             };
             
             if (method === "cash") body.cashReceived = Number(paymentAmount);
@@ -241,8 +301,8 @@ export default function RestoKasirPage() {
                 keterangan: `Restoran / Latar Cafe - ${activeTable.type === "dine_in" ? "Dine In" : "Takeaway"} [${activeTable.label}]`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Resto",
-                unitType: "resto",
+                kasir: user?.name || "Kasir Resto",
+                unitType: sessionUnitType,
                 items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
             setLastReceipt(receiptInfo);
@@ -289,7 +349,7 @@ export default function RestoKasirPage() {
                                 <p className="font-semibold text-sm">Shift Kasir Belum Dibuka</p>
                                 <p className="text-xs mt-0.5">Buka shift terlebih dahulu agar transaksi tercatat di rekap shift kasir.</p>
                             </div>
-                            <Link href="/toko/shift">
+                            <Link href="/resto/shift">
                                 <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100">Buka Shift</Button>
                             </Link>
                         </div>
@@ -358,49 +418,66 @@ export default function RestoKasirPage() {
                 <div className="flex items-center gap-3 w-1/3 relative">
                     <div className="relative flex-1">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input 
+                        <Input
                             placeholder="Cari nama / NRP anggota..."
-                            className="pl-9"
+                            className={`pl-9 ${
+                                selectedMember
+                                    ? "border-emerald-500 bg-emerald-50/50 pr-8"
+                                    : ""
+                            }`}
                             value={activeTable.customerName}
                             onChange={e => {
                                 const val = e.target.value;
+                                if (selectedMember) { setSelectedMember(null); setLimitInfo(null); }
                                 setCustomer(activeTable.id, val);
-                                // Debounced member search
-                                if (val.length >= 2) {
-                                    const timer = setTimeout(async () => {
-                                        try {
-                                            const res = await fetch(`/api/members/lookup?q=${encodeURIComponent(val)}`);
-                                            const json = await res.json();
-                                            setMemberResults(json.data || []);
-                                        } catch {}
-                                    }, 400);
-                                    return () => clearTimeout(timer);
-                                } else {
-                                    setMemberResults([]);
-                                }
+                                if (val.length < 2) setMemberResults([]);
                             }}
                             onFocus={() => {
-                                if (activeTable.customerName.length >= 2) {
-                                    // Re-trigger search on focus
+                                if (activeTable.customerName.length >= 2 && !selectedMember) {
                                     fetch(`/api/members/lookup?q=${encodeURIComponent(activeTable.customerName)}`)
                                         .then(r => r.json()).then(j => setMemberResults(j.data || [])).catch(() => {});
                                 }
                             }}
+                            autoComplete="off"
                         />
+                        {/* Clear / selected indicator */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {selectedMember && (
+                                <button type="button"
+                                    onClick={() => {
+                                        setSelectedMember(null); setLimitInfo(null);
+                                        setCustomer(activeTable.id, "");
+                                        setMemberResults([]);
+                                    }}
+                                    className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-600" title="Hapus pilihan">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
                         {/* Member Search Dropdown */}
-                        {memberResults.length > 0 && activeTable.customerName.length >= 2 && (
+                        {memberResults.length > 0 && activeTable.customerName.length >= 2 && !selectedMember && (
                             <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                                <div className="px-3 py-1.5 bg-muted/50 border-b">
+                                    <p className="text-[10px] text-muted-foreground font-medium">
+                                        {memberResults.length} anggota ditemukan
+                                    </p>
+                                </div>
                                 {memberResults.map(m => (
                                     <button key={m.id} type="button"
-                                        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 border-b last:border-0 transition-colors"
+                                        className="w-full flex items-center gap-3 text-left px-3 py-2.5 hover:bg-sky-50 border-b last:border-0 transition-colors"
                                         onClick={() => {
                                             setCustomer(activeTable.id, m.name);
                                             setSelectedMember(m);
                                             setMemberResults([]);
                                         }}
                                     >
-                                        <p className="font-semibold text-sm text-slate-800">{m.name}</p>
-                                        <p className="text-[11px] text-slate-500">NRP: {m.nrp || "-"} • No: {m.memberNo}</p>
+                                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">
+                                            {m.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-sm text-slate-800 truncate">{m.name}</p>
+                                            <p className="text-[10px] text-slate-500">NRP: {m.nrp || "-"} • No: {m.memberNo}</p>
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -543,8 +620,14 @@ export default function RestoKasirPage() {
                             <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
-                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowCreditDialog(true); }} disabled={cart.length === 0 || isProcessing}>
+                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => {
+                                if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+                                if (selectedMember) { processPayment("salary_cut"); } else { setShowCreditDialog(true); }
+                            }} disabled={cart.length === 0 || isProcessing}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
+                            </Button>
+                            <Button variant="outline" className="h-10 col-span-2 border-purple-200 text-purple-700 hover:bg-purple-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setSplitPayments([{ method: "cash", amount: 0 }, { method: "qris", amount: 0 }]); setShowSplitDialog(true); }} disabled={cart.length === 0 || isProcessing}>
+                                <CreditCard className="mr-2 h-4 w-4" /> Split Bill (Pisah Bayar)
                             </Button>
                         </div>
                     </div>
@@ -634,6 +717,105 @@ export default function RestoKasirPage() {
                         <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setShowQrisDialog(false); processPayment("qris"); }} disabled={!qrisUrl || isProcessing}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                             Pelanggan Sudah Bayar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Split Bill Dialog */}
+            <Dialog open={showSplitDialog} onOpenChange={setShowSplitDialog}>
+                <DialogContent className="sm:max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Split Bill — Pisah Bayar</DialogTitle>
+                        <DialogDescription>Bagi total ke beberapa metode pembayaran.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <p className="text-sm text-slate-500">Total Pesanan</p>
+                            <p className="text-xl sm:text-2xl font-black text-slate-800">{formatCurrency(subtotal)}</p>
+                        </div>
+                        {splitPayments.map((sp, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                <select
+                                    className="h-10 rounded-md border border-slate-200 px-3 text-sm bg-white w-full sm:w-auto touch-target"
+                                    value={sp.method}
+                                    onChange={e => {
+                                        const updated = [...splitPayments];
+                                        updated[idx] = { ...updated[idx], method: e.target.value };
+                                        setSplitPayments(updated);
+                                    }}
+                                >
+                                    <option value="cash">Tunai</option>
+                                    <option value="qris">QRIS</option>
+                                    <option value="salary_cut">Potong Gaji</option>
+                                </select>
+                                <Input
+                                    type="number"
+                                    placeholder="Nominal..."
+                                    className="h-10 text-sm font-mono touch-target"
+                                    value={sp.amount || ""}
+                                    onChange={e => {
+                                        const updated = [...splitPayments];
+                                        updated[idx] = { ...updated[idx], amount: Number(e.target.value) || 0 };
+                                        setSplitPayments(updated);
+                                    }}
+                                />
+                                {splitPayments.length > 2 && (
+                                    <Button size="icon" variant="ghost" className="text-red-500 h-10 w-10 shrink-0 self-end sm:self-auto touch-target" onClick={() => setSplitPayments(prev => prev.filter((_, i) => i !== idx))}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        <div className="flex items-center justify-between">
+                            <Button size="sm" variant="outline" onClick={() => setSplitPayments(prev => [...prev, { method: "cash", amount: 0 }])}>
+                                <Plus className="h-4 w-4 mr-2" /> Tambah Metode
+                            </Button>
+                            {(() => {
+                                const paidTotal = splitPayments.reduce((s, p) => s + p.amount, 0);
+                                const remaining = subtotal - paidTotal;
+                                return (
+                                    <span className={`text-sm font-semibold ${remaining === 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                        {remaining === 0 ? "Lunas ✓" : `Kurang: ${formatCurrency(remaining)}`}
+                                    </span>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowSplitDialog(false)}>Batal</Button>
+                        <Button
+                            disabled={splitPayments.reduce((s, p) => s + p.amount, 0) !== subtotal || isProcessing}
+                            onClick={async () => {
+                                setIsProcessing(true);
+                                try {
+                                    const res = await fetch("/api/toko/split-bill", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
+                                            payments: splitPayments.map(p => ({ method: p.method, amount: p.amount })),
+                                            unitType: "resto",
+                                            shiftUnitType: sessionUnitType,
+                                            customerName: activeTable.customerName || "Tamu",
+                                            tableNo: activeTable.label,
+                                            shiftId: activeShiftId || undefined,
+                                        }),
+                                    });
+                                    const json = await res.json();
+                                    if (!res.ok) throw new Error(json.message);
+                                    toast.success(`Split Bill lunas! ${json.totalSales} transaksi dibuat.`);
+                                    clearTable(activeTable.id);
+                                    setActiveTable(null);
+                                    setShowSplitDialog(false);
+                                    setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false);
+                                } catch (error: any) {
+                                    toast.error(error.message || "Gagal memproses split bill");
+                                } finally { setIsProcessing(false); }
+                            }}
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                            Proses Split Bill
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     try {
         // Authenticate request first
         const user = getMobileUser(request);
-        const isOperator = user && ["operator", "admin", "superadmin", "admin_sp"].includes(user.role);
+        const isOperator = user && ["operator", "admin", "admin_sp"].includes(user.role);
         if (!user || !isOperator) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

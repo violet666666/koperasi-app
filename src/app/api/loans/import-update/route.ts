@@ -289,7 +289,7 @@ export async function POST(request: Request) {
                                         tenorMonths: taskData.selama,
                                         interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
                                         interestMethod: product.interestMethod || "flat",
-                                        monthlyInstallment: taskData.angsuran + taskData.jasa,
+                                        monthlyInstallment: Math.floor(taskData.pinjam / taskData.selama) + taskData.jasa,
                                         principalPaid: taskData.jumlah,
                                         interestPaid: taskData.terbayar * taskData.jasa,
                                         lateFeePaid: 0,
@@ -489,7 +489,7 @@ export async function POST(request: Request) {
                                         tenorMonths: taskData.selama,
                                         interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
                                         interestMethod: product.interestMethod || "flat",
-                                        monthlyInstallment: taskData.angsuran + taskData.jasa,
+                                        monthlyInstallment: Math.floor(taskData.pinjam / taskData.selama) + taskData.jasa,
                                         principalPaid: taskData.jumlah,
                                         interestPaid: taskData.terbayar * taskData.jasa,
                                         lateFeePaid: 0,
@@ -536,47 +536,56 @@ export async function POST(request: Request) {
                                 const paidCount = taskData.terbayar;
                                 const updatedInterestPaid = paidCount * taskData.jasa;
                                 const totalInterest = taskData.jasa * taskData.selama;
+                                const schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
+                                const applicationDate = taskData.tglPinjam || new Date();
                                 await tx.loan.update({
                                     where: { id: loanId },
                                     data: {
-                                        principalOutstanding: taskData.sisaSaldo,
-                                        principalPaid: updatedPrincipalPaid,
-                                        interestPaid: updatedInterestPaid,
-                                        interestOutstanding: Math.max(0, totalInterest - updatedInterestPaid),
+                                        principalAmount: taskData.pinjam,
+                                        interestAmount: totalInterest,
+                                        totalAmount: taskData.pinjam + totalInterest,
+                                        tenorMonths: taskData.selama,
+                                        interestRate: taskData.pinjam > 0 ? Number(((taskData.jasa / taskData.pinjam) * 100).toFixed(2)) : 0,
+                                        monthlyInstallment: schedPrincipal + taskData.jasa,
                                         adminFee: Math.round(taskData.pinjam * 0.02),
                                         disbursedAmount: taskData.pinjam - Math.round(taskData.pinjam * 0.02),
+                                        principalPaid: updatedPrincipalPaid,
+                                        interestPaid: updatedInterestPaid,
+                                        principalOutstanding: taskData.sisaSaldo,
+                                        interestOutstanding: Math.max(0, totalInterest - updatedInterestPaid),
+                                        disbursementDate: applicationDate,
+                                        firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
+                                        lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
                                         status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
                                         paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
                                     },
                                 });
 
-                                // Generate LoanSchedule records if missing
-                                const existingSchedules = await tx.loanSchedule.count({ where: { loanId: loanId! } });
-                                if (existingSchedules === 0) {
-                                    const schedBase = taskData.tglPinjam || new Date();
-                                    const schedsUpd = [];
-                                    for (let j = 1; j <= taskData.selama; j++) {
-                                        const dueDate = new Date(schedBase.getFullYear(), schedBase.getMonth() + j, 1);
-                                        let schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
-                                        let schedInterest = taskData.jasa;
-                                        if (j === taskData.selama) {
-                                            schedPrincipal += (taskData.pinjam - Math.floor(taskData.pinjam / taskData.selama) * taskData.selama);
-                                        }
-                                        const isPaid = j <= paidCount;
-                                        schedsUpd.push({
-                                            loanId: loanId!,
-                                            installmentNo: j,
-                                            dueDate,
-                                            principalAmount: schedPrincipal,
-                                            interestAmount: schedInterest,
-                                            totalAmount: schedPrincipal + schedInterest,
-                                            principalPaid: isPaid ? schedPrincipal : 0,
-                                            interestPaid: isPaid ? schedInterest : 0,
-                                            status: isPaid ? "paid" : "pending",
-                                        });
+                                // Always regenerate schedules — delete old ones first
+                                await tx.loanSchedule.deleteMany({ where: { loanId: loanId! } });
+                                const schedBase = applicationDate;
+                                const schedsUpd = [];
+                                for (let j = 1; j <= taskData.selama; j++) {
+                                    const dueDate = new Date(schedBase.getFullYear(), schedBase.getMonth() + j, 1);
+                                    let sp = Math.floor(taskData.pinjam / taskData.selama);
+                                    let si = taskData.jasa;
+                                    if (j === taskData.selama) {
+                                        sp += (taskData.pinjam - Math.floor(taskData.pinjam / taskData.selama) * taskData.selama);
                                     }
-                                    await tx.loanSchedule.createMany({ data: schedsUpd });
+                                    const isPaid = j <= paidCount;
+                                    schedsUpd.push({
+                                        loanId: loanId!,
+                                        installmentNo: j,
+                                        dueDate,
+                                        principalAmount: sp,
+                                        interestAmount: si,
+                                        totalAmount: sp + si,
+                                        principalPaid: isPaid ? sp : 0,
+                                        interestPaid: isPaid ? si : 0,
+                                        status: isPaid ? "paid" : "pending",
+                                    });
                                 }
+                                await tx.loanSchedule.createMany({ data: schedsUpd });
                             }
 
                             // Create monthly payments (idempotent)

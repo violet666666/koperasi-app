@@ -173,7 +173,7 @@ export default function PersediaanPage() {
             if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
             // Fetch stock movements from DB with pagination
             const [movementsRes, productsRes] = await Promise.all([
-                fetch(`/api/toko/movements?${params}`),
+                fetch(`/api/toko/movements?unitType=${productUnitType}&${params}`),
                 fetch(`/api/toko/products?unitType=${productUnitType}`),
             ]);
 
@@ -690,6 +690,7 @@ export default function PersediaanPage() {
                                     { value: "damaged", label: "Rusak / Hilang", icon: "🗑️" },
                                     { value: "expired", label: "Kadaluarsa", icon: "📅" },
                                     { value: "internal_use", label: "Pemakaian Internal", icon: "🏢" },
+                                    { value: "waste", label: "Waste / Spill", icon: "☕" },
                                     { value: "other", label: "Lainnya", icon: "📝" },
                                 ].map((r) => (
                                     <Button

@@ -1,5 +1,6 @@
 Resume this session with:
 claude --resume aa30bc63-3606-499f-9d7b-ca93427ddb5e
+claude --resume 515c7c69-5cb4-47b9-8263-0ef698ebe227
 
 # Panduan Migrasi Database: NeonDB → Railway PostgreSQL
 

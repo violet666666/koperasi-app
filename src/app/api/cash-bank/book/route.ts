@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
 
 // Check if a description represents an opening balance row
 function isOpeningBalanceDescription(desc: string): boolean {
@@ -41,21 +41,21 @@ export async function GET(request: Request) {
         const filterYear = year ? parseInt(year) : now.getFullYear();
         const isAllMonths = month === "all" || !month;
 
-        // Build date range for the period
+        // Build date range for the period using UTC to avoid timezone issues
+        // with PostgreSQL DATE columns (which strip time and compare date-only)
         let startDate: Date;
         let endDate: Date;
         let periodLabel: string;
 
         if (isAllMonths) {
-            // All months for the selected year
-            startDate = new Date(filterYear, 0, 1); // Jan 1
-            endDate = new Date(filterYear, 11, 31, 23, 59, 59, 999); // Dec 31
+            startDate = new Date(Date.UTC(filterYear, 0, 1));
+            endDate = new Date(Date.UTC(filterYear, 11, 31));
             periodLabel = `Tahun ${filterYear}`;
         } else {
             const filterMonth = parseInt(month!);
-            startDate = new Date(filterYear, filterMonth - 1, 1);
-            endDate = new Date(filterYear, filterMonth, 0, 23, 59, 59, 999);
-            periodLabel = new Date(filterYear, filterMonth - 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+            startDate = new Date(Date.UTC(filterYear, filterMonth - 1, 1));
+            endDate = new Date(Date.UTC(filterYear, filterMonth, 0));
+            periodLabel = new Date(Date.UTC(filterYear, filterMonth - 1, 1)).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
         }
 
         // Build where condition
@@ -77,6 +77,11 @@ export async function GET(request: Request) {
         // ================================================================
         // OPENING BALANCE CALCULATION
         // ================================================================
+        // OPENING BALANCE CALCULATION
+        // ================================================================
+        // Always calculate from cumulative sum of all prior transactions.
+        // Do NOT use `balanceAfter` from DB — it's based on insert order,
+        // not chronological order, so backdated transactions corrupt it.
         let openingBalance = 0;
 
         const priorWhere: Record<string, unknown> = {
@@ -86,43 +91,14 @@ export async function GET(request: Request) {
             priorWhere.accountId = parseInt(accountId);
         }
 
-        // Try to get the last transaction before this period for accurate balance
-        if (accountId && accountId !== "all") {
-            const lastPriorTx = await prisma.cashBankTransaction.findFirst({
-                where: {
-                    accountId: parseInt(accountId),
-                    transactionDate: { lt: startDate },
-                },
-                orderBy: [
-                    { transactionDate: "desc" },
-                    { id: "desc" },
-                ],
-                select: { balanceAfter: true },
-            });
-
-            if (lastPriorTx) {
-                openingBalance = Number(lastPriorTx.balanceAfter);
-            } else {
-                const priorTransactions = await prisma.cashBankTransaction.findMany({
-                    where: priorWhere,
-                    select: { type: true, amount: true },
-                });
-                openingBalance = priorTransactions.reduce((sum, tx) => {
-                    const amt = Number(tx.amount);
-                    return sum + (tx.type === "in" ? amt : -amt);
-                }, 0);
-            }
-        } else {
-            // "All accounts" mode
-            const priorTransactions = await prisma.cashBankTransaction.findMany({
-                where: priorWhere,
-                select: { type: true, amount: true },
-            });
-            openingBalance = priorTransactions.reduce((sum, tx) => {
-                const amt = Number(tx.amount);
-                return sum + (tx.type === "in" ? amt : -amt);
-            }, 0);
-        }
+        const priorTransactions = await prisma.cashBankTransaction.findMany({
+            where: priorWhere,
+            select: { type: true, amount: true },
+        });
+        openingBalance = priorTransactions.reduce((sum, tx) => {
+            const amt = Number(tx.amount);
+            return sum + (tx.type === "in" ? amt : -amt);
+        }, 0);
 
         // ================================================================
         // FETCH TRANSACTIONS FOR THE PERIOD

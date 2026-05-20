@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_ROLES = ["admin", "operator"];
 
 async function validateUnitAccess(session: any, productId: number): Promise<Response | null> {
-    if (["operator", "super_admin"].includes(session.user.role as string)) return null;
+    if (["operator"].includes(session.user.role as string)) return null;
     const user = await prisma.user.findUnique({
         where: { id: Number(session.user.id) },
         select: { unitType: true },
@@ -50,6 +50,7 @@ export async function GET(
             data: recipes.map(r => ({
                 id: r.id,
                 ingredientName: r.ingredientName,
+                ingredientProductId: r.ingredientProductId,
                 quantity: Number(r.quantity),
                 unit: r.unit,
                 unitCost: Number(r.unitCost),
@@ -84,11 +85,17 @@ export async function POST(
 
         // Bulk mode: replace all ingredients at once
         if (Array.isArray(body)) {
-            const ingredients = body as { ingredientName: string; quantity: number; unit: string; unitCost: number }[];
+            const ingredients = body as { ingredientName: string; quantity: number; unit: string; unitCost: number; ingredientProductId?: number | null }[];
 
             for (const ing of ingredients) {
                 if (!ing.ingredientName || ing.quantity <= 0 || ing.unitCost < 0) {
                     return NextResponse.json({ message: `Invalid ingredient: ${ing.ingredientName}` }, { status: 400 });
+                }
+                if (ing.ingredientProductId) {
+                    const linked = await prisma.storeProduct.findUnique({ where: { id: ing.ingredientProductId } });
+                    if (!linked || linked.productType !== "ingredient") {
+                        return NextResponse.json({ message: `Invalid ingredient link: ${ing.ingredientName}` }, { status: 400 });
+                    }
                 }
             }
 
@@ -107,6 +114,7 @@ export async function POST(
                             unit: ing.unit || "ml",
                             unitCost: ing.unitCost,
                             subtotal,
+                            ingredientProductId: ing.ingredientProductId || null,
                         },
                     });
                 }
@@ -162,7 +170,7 @@ export async function PUT(
         const accessDenied = await validateUnitAccess(session, productId);
         if (accessDenied) return accessDenied;
 
-        const { recipeId, ingredientName, quantity, unit, unitCost } = await request.json();
+        const { recipeId, ingredientName, quantity, unit, unitCost, ingredientProductId } = await request.json();
         if (!recipeId || !ingredientName || quantity <= 0 || unitCost < 0) {
             return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
         }
@@ -172,7 +180,14 @@ export async function PUT(
         await prisma.$transaction(async (tx) => {
             await tx.productRecipe.update({
                 where: { id: recipeId },
-                data: { ingredientName, quantity, unit: unit || "ml", unitCost, subtotal },
+                data: {
+                    ingredientName,
+                    quantity,
+                    unit: unit || "ml",
+                    unitCost,
+                    subtotal,
+                    ...(ingredientProductId !== undefined && { ingredientProductId: ingredientProductId || null }),
+                },
             });
 
             const allRecipes = await tx.productRecipe.findMany({ where: { productId } });

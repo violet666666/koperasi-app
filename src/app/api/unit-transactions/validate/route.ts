@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "super_admin", "kasir"];
+const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
 export const dynamic = "force-dynamic";
 

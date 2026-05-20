@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         if (isNaN(currentUserId)) {
             return NextResponse.json({ message: "Session user ID tidak valid." }, { status: 401 });
         }
-        const isOperator = ["operator", "admin", "super_admin"].includes(session.user.role)
+        const isOperator = ["operator", "admin"].includes(session.user.role)
             || session.user.permissions?.includes("manage_all");
         const now = new Date();
 
@@ -58,9 +58,13 @@ export async function POST(request: Request) {
         }
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
-        // Prefix TK-, POS-, TS- bisa berasal dari StoreSale (Toko POS Tunai) ATAU UnitTransaction (Potong Gaji Toko)
-        // Kita coba cari di StoreSale dulu; jika tidak ada, fall-through ke UnitTransaction di bawah
-        if (String(transactionNo).startsWith("POS-") || String(transactionNo).startsWith("TK-") || String(transactionNo).startsWith("TS-") ) {
+        // StoreSale uses unit-specific prefixes: TK (Toko), RS (Resto), CF (Cafe LSP), PS (PlayStation),
+        // CL (Coffe Latar), RC (Resto Cafe). Legacy: POS-, TS-.
+        // Also UnitTransaction can use TK-/TS- prefixes for Potong Gaji.
+        // We try StoreSale first; if not found, fall-through to UnitTransaction below.
+        const STORE_SALE_PREFIXES = ["POS-", "TK-", "TS-", "RS-", "PS-", "CF-", "CL-", "RC-"];
+        const isStoreSaleCandidate = STORE_SALE_PREFIXES.some(p => String(transactionNo).startsWith(p));
+        if (isStoreSaleCandidate) {
             const storeSale = await prisma.storeSale.findUnique({
                 where: { saleNo: String(transactionNo) },
                 include: { member: true, createdBy: true, items: true },
@@ -116,29 +120,62 @@ export async function POST(request: Request) {
                     for (const item of storeSale.items) {
                         const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
                         if (prod && !prod.isService) {
+                            const isRacikan = prod.trackStock === false;
                             const qty = Math.abs(item.quantity);
-                            const newStockGdg = prod.stockGdg + qty;
-                            const newStock = prod.stockToko + newStockGdg;
 
-                            await tx.storeProduct.update({
-                                where: { id: item.productId },
-                                data: {
-                                    stockGdg: newStockGdg,
-                                    stock: newStock,
-                                },
-                            });
+                            if (isRacikan) {
+                                // Racikan: restore ingredient stock instead of product stock
+                                const recipes = await tx.productRecipe.findMany({
+                                    where: { productId: prod.id, ingredientProductId: { not: null } },
+                                });
+                                for (const recipe of recipes) {
+                                    if (!recipe.ingredientProductId) continue;
+                                    const ingredient = await tx.storeProduct.findUnique({
+                                        where: { id: recipe.ingredientProductId },
+                                    });
+                                    if (!ingredient) continue;
+                                    const restoreQty = Math.ceil(Number(recipe.quantity) * qty);
+                                    const newGdg = ingredient.stockGdg + restoreQty;
+                                    const newStock = ingredient.stockToko + newGdg;
+                                    await tx.storeProduct.update({
+                                        where: { id: ingredient.id },
+                                        data: { stockGdg: newGdg, stock: newStock },
+                                    });
+                                    await tx.storeStockMovement.create({
+                                        data: {
+                                            productId: ingredient.id,
+                                            type: "in",
+                                            quantity: restoreQty,
+                                            reference: `VOID ${storeSale.saleNo}`,
+                                            notes: `Pengembalian bahan baku (void racikan)`,
+                                            operatorId: currentUserId,
+                                        },
+                                    });
+                                }
+                            } else {
+                                // Retail: restore product stock (existing behavior)
+                                const newStockGdg = prod.stockGdg + qty;
+                                const newStock = prod.stockToko + newStockGdg;
 
-                            // Insert log mutasi pengembalian stok
-                            await tx.storeStockMovement.create({
-                                data: {
-                                    productId: item.productId,
-                                    type: "in",
-                                    quantity: qty,
-                                    reference: `VOID ${storeSale.saleNo}`,
-                                    notes: `Pengembalian stok (void operator)`,
-                                    operatorId: currentUserId,
-                                },
-                            });
+                                await tx.storeProduct.update({
+                                    where: { id: item.productId },
+                                    data: {
+                                        stockGdg: newStockGdg,
+                                        stock: newStock,
+                                    },
+                                });
+
+                                await tx.storeStockMovement.create({
+                                    data: {
+                                        productId: item.productId,
+                                        type: "in",
+                                        quantity: qty,
+                                        reference: `VOID ${storeSale.saleNo}`,
+                                        notes: `Pengembalian stok (void operator)`,
+                                        operatorId: currentUserId,
+                                    },
+                                });
+                            }
                         }
                     }
 

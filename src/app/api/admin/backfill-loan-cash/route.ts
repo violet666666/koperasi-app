@@ -13,8 +13,13 @@ export async function POST(req: NextRequest) {
 
     try {
         // Find all loans that do NOT have a matching CashBankTransaction
+        // IMPORTANT: Exclude import loans (SP-IMP/*) — they are historical data
+        // and were never disbursed from actual cash/bank accounts
         const allLoans = await prisma.loan.findMany({
-            where: { status: { in: ["active", "paid_off"] } },
+            where: {
+                status: { in: ["active", "paid_off"] },
+                loanNo: { not: { startsWith: "SP-IMP/" } },
+            },
             include: { member: { select: { id: true, name: true, branchId: true } } },
         });
 
@@ -47,7 +52,10 @@ export async function POST(req: NextRequest) {
         if (mode === "execute") {
             for (const loan of missingLoans) {
                 const branchId = loan.member.branchId ?? loan.branchId;
+                // Prefer cash-type account (KAS-002) for loan disbursements
                 const cashAccount = await prisma.cashBankAccount.findFirst({
+                    where: { branchId, isActive: true, type: "cash", code: "KAS-002" },
+                }) ?? await prisma.cashBankAccount.findFirst({
                     where: { branchId, isActive: true },
                     orderBy: { id: "asc" },
                 });

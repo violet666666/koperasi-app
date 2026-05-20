@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
         // Hanya Operator yang boleh menggunakan endpoint ini
         // Note: Check permissions array if available, otherwise check role
-        const isOperator = user.role === "operator" || user.role === "admin" || user.role === "superadmin" || user.role === "admin_sp" || user.permissions?.includes("manage_all");
+        const isOperator = user.role === "operator" || user.role === "admin" || user.role === "admin_sp" || user.permissions?.includes("manage_all");
         if (!isOperator) {
             return NextResponse.json(
                 { message: "Endpoint ini hanya untuk Operator. Gunakan alur pengajuan normal." },
@@ -181,6 +181,49 @@ export async function POST(request: Request) {
                     createdById: currentUserId,
                 },
             });
+
+            // 5. Record cash outflow (disbursement) to Cash/Bank
+            const cashAccount = await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
+            }) ?? await tx.cashBankAccount.findFirst({
+                where: { branchId: member.branchId, isActive: true },
+                orderBy: { id: 'asc' },
+            });
+
+            if (cashAccount) {
+                const balBefore = Number(cashAccount.currentBalance);
+                const balAfter = balBefore - disbursedAmount;
+
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `CBM-PJM-${loan.loanNo}`,
+                        accountId: cashAccount.id,
+                        branchId: member.branchId,
+                        type: "out",
+                        category: "pencairan_pinjaman",
+                        amount: disbursedAmount,
+                        balanceBefore: balBefore,
+                        balanceAfter: balAfter,
+                        referenceType: "Loan",
+                        referenceId: loan.id,
+                        unitType: "simpan_pinjam",
+                        description: `Pencairan Pinjaman ${loan.loanNo} untuk ${member.name}`,
+                        transactionDate: baseDate,
+                        memberId: data.memberId,
+                        createdById: currentUserId,
+                    },
+                });
+
+                await tx.cashBankAccount.update({
+                    where: { id: cashAccount.id },
+                    data: { currentBalance: balAfter },
+                });
+
+                await tx.loan.update({
+                    where: { id: loan.id },
+                    data: { disbursementCashBankId: cashAccount.id },
+                });
+            }
 
             return {
                 applicationId: application.id,

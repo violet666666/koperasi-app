@@ -86,6 +86,7 @@ interface ScheduleDue {
     dueDate: string;
     principalDue: number;
     interestDue: number;
+    lateFeeDue: number;
     totalDue: number;
 }
 
@@ -109,13 +110,15 @@ function toNum(v: number | string): number {
 function calcScheduleDue(s: LoanSchedule): ScheduleDue {
     const principalDue = toNum(s.principalAmount) - toNum(s.principalPaid);
     const interestDue = toNum(s.interestAmount) - toNum(s.interestPaid);
+    const lateFeeDue = toNum(s.lateFee) - toNum(s.lateFeePaid);
     return {
         scheduleId: s.id,
         installmentNo: s.installmentNo,
         dueDate: s.dueDate,
         principalDue,
         interestDue,
-        totalDue: principalDue + interestDue,
+        lateFeeDue,
+        totalDue: principalDue + interestDue + lateFeeDue,
     };
 }
 
@@ -133,6 +136,7 @@ export default function BayarAngsuranPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const loanId = searchParams.get("loan_id") || searchParams.get("loanId");
+    const memberId = searchParams.get("member_id");
 
     // State
     const [loan, setLoan] = React.useState<LoanDetail | null>(null);
@@ -213,13 +217,29 @@ export default function BayarAngsuranPage() {
     // ─── Fetch Loan ─────────────────────────────────────────────────────────
 
     React.useEffect(() => {
-        if (!loanId) {
+        if (!loanId && !memberId) {
             setIsLoading(false);
             return;
         }
         (async () => {
             try {
-                const res = await fetch(`/api/loans/${loanId}`);
+                let effectiveLoanId = loanId;
+                // Fallback: if member_id provided instead of loan_id, look up active loan
+                if (!effectiveLoanId && memberId) {
+                    const searchRes = await fetch(`/api/loans?memberId=${memberId}&status=active&perPage=1`);
+                    if (searchRes.ok) {
+                        const searchJson = await searchRes.json();
+                        const loans = searchJson.data || [];
+                        if (loans.length > 0) {
+                            effectiveLoanId = String(loans[0].id);
+                        }
+                    }
+                }
+                if (!effectiveLoanId) {
+                    setIsLoading(false);
+                    return;
+                }
+                const res = await fetch(`/api/loans/${effectiveLoanId}`);
                 if (!res.ok) throw new Error("Gagal mengambil data");
                 const json = await res.json();
                 setLoan(json.data);
@@ -230,7 +250,7 @@ export default function BayarAngsuranPage() {
                 setIsLoading(false);
             }
         })();
-    }, [loanId]);
+    }, [loanId, memberId]);
 
     // ─── Fetch Cash/Bank Accounts ────────────────────────────────────────
 
@@ -362,7 +382,7 @@ export default function BayarAngsuranPage() {
 
     // ─── Render: Error / Not Found ──────────────────────────────────────────
 
-    if (!loanId || !loan) {
+    if ((!loanId && !memberId) || !loan) {
         return (
             <div className="space-y-6">
                 <PageHeader
@@ -375,7 +395,7 @@ export default function BayarAngsuranPage() {
                         <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground/40" />
                         <h3 className="mt-4 text-lg font-medium">Pinjaman Tidak Ditemukan</h3>
                         <p className="mt-2 text-muted-foreground text-sm">
-                            {!loanId
+                            {(!loanId && !memberId)
                                 ? "Loan ID tidak ditemukan di URL. Silakan kembali ke halaman angsuran."
                                 : "Data pinjaman tidak bisa dimuat. Coba lagi atau hubungi admin."}
                         </p>

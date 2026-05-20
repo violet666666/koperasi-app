@@ -1,141 +1,101 @@
-# Dokumentasi Unit Café & Resto (Latar) — Analisis & Rencana Pengembangan
+# Dokumentasi Unit Cafe & Resto (Latar)
 
-> **Status:** PHASE 1 SELESAI ✅ — AUDIT MEI 2026 SELESAI ✅
-> **Tanggal:** 25 April 2026 (audit 1 Mei 2026)
-> **Referensi Terkait:** `UNIT-TOKO.md`
+> **Status:** SEMUA FITUR ROADMAP TERIMPLEMENTASI
+> **Terakhir diperbarui:** 16 Mei 2026
+> **Referensi Terkait:** `UNIT-TOKO.md`, `UNIT-CAFE-LSP.md`
 
 ---
 
-## 1. Ringkasan Masalah (SOLVED ✅)
+## 1. Ringkasan Masalah (SOLVED)
 
-### 1.1 Masalah Awal
+Unit Resto & Cafe (Latar) memiliki identitas ganda di sistem: kasir `resto_cafe` diarahkan ke POS jasa yang salah, halaman "Kelola Layanan" tidak relevan untuk Resto, dan POS Resto yang benar (`/resto/kasir`) tidak terhubung ke navigasi.
 
-Unit **Resto & Cafe (Latar)** memiliki **identitas ganda** (split identity) di dalam sistem:
-
-- Kasir `resto_cafe` diarahkan ke POS **jasa** (`/unit/resto-cafe/kasir`) yang berupa dropdown layanan sederhana — **SALAH**
-- Halaman "Kelola Layanan" (`/unit/resto-cafe/layanan`) menampilkan paket layanan jasa tanpa gambar/stok — **TIDAK RELEVAN** untuk Resto
-- POS Resto yang benar sudah ada di `/resto/kasir` (denah meja + grid menu) tapi **tidak terhubung** ke navigasi `resto_cafe`
-
-### 1.2 Solusi yang Diterapkan (25 April 2026)
-
-#### ✅ Fix 1: Navigasi Kasir Resto (`navigation.ts`)
-Dibuat `kasirRestoNavigation` baru yang mengarahkan kasir `resto_cafe` ke:
-- **Kasir POS** → `/resto/kasir` (denah meja + grid menu)
-- **Shift Kasir** → `/toko/shift` (shared)
-- **Riwayat Penjualan** → `/transaksi-unit/riwayat?unitType=resto`
-
-#### ✅ Fix 2: Navigasi Admin Resto (`navigation.ts`)
-Dibuat `adminRestoNavigation` baru yang mengarahkan admin `resto_cafe` ke:
-- **Kasir POS** → `/resto/kasir` (denah meja + grid menu)
-- **Manajemen Menu** → `/toko/produk` (CRUD produk + gambar)
-- **Promo & Diskon** → `/toko/marketing`
-- **Persediaan & Stok** → `/toko/persediaan`
-- **Shift Kasir** → `/toko/shift`
-- **Riwayat Penjualan** → `/transaksi-unit/riwayat?unitType=resto`
-- **Laporan** → `/unit/resto-cafe/laporan`
-- **Inbox Approval** → `/approval`
-
-**Menu "Kelola Layanan & Harga" DIHAPUS** dari navigasi admin resto.
-
-#### ✅ Fix 3: Route Guard (`layout.tsx`)
-- Kasir `resto_cafe` → ditambahkan akses `/resto` dan `/toko/shift`
-- Admin `resto_cafe` → ditambahkan akses `/resto`
-
-#### ✅ Fix 4: Dashboard POS Link (`kasir-dashboard.tsx`)
-- `resto_cafe`, `resto`, `coffe_latar` → tombol "Buka Kasir POS" sekarang mengarah ke `/resto/kasir`
-
-#### ✅ Fix 5: Routing Logic (`navigation.ts` → `getNavigationForUser`)
-- Kasir `resto_cafe`/`resto`/`coffe_latar` → `kasirRestoNavigation`
-- Admin `resto_cafe`/`resto`/`coffe_latar` → `adminRestoNavigation`
-- Admin `toko` → `adminTokoNavigation` (tetap)
-- Admin jasa lain → `adminUnitNavigation` (tetap, dengan "Kelola Layanan")
+**Solusi yang diterapkan:**
+- **Navigasi Kasir** (`kasirRestoNavigation`): Kasir diarahkan ke `/resto/kasir`, `/toko/shift`, dan riwayat penjualan
+- **Navigasi Admin** (`adminRestoNavigation`): Admin mendapat akses POS + manajemen menu + persediaan + batch + KDS + floor plan + modifiers + laporan + opname
+- **Route Guard** (`layout.tsx`): `resto_cafe`, `resto`, `coffe_latar` ditambahkan akses `/resto/*`
+- **Dashboard POS Link**: Tombol "Buka Kasir POS" mengarah ke `/resto/kasir`
+- **Routing Logic**: `getNavigationForUser` memetakan unitType ke navigasi yang tepat
 
 ---
 
 ## 2. Arsitektur POS: Dua Jalur Sistem
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  JALUR 1: Unit Jasa (UnitTransaction)               │
-│  Cocok untuk: Barbershop, Cuci Mobil, PlayStation    │
-│  ─────────────────────────────────────────────────── │
-│  • Tidak ada stok fisik                             │
-│  • Input = dropdown "Paket Layanan" + nominal        │
-│  • Kasir: /unit/[slug]/kasir (form sederhana)        │
-│  • Admin: /unit/[slug]/layanan (CRUD paket & harga)  │
-│  • API: /api/unit-layanan/sales                      │
-│  • DB: UnitTransaction + UnitServicePackage          │
-└─────────────────────────────────────────────────────┘
+JALUR 1: Unit Jasa (UnitTransaction)
+  Cocok: Barbershop, Cuci Mobil, PlayStation
+  - Tidak ada stok fisik, input = dropdown "Paket Layanan"
+  - Kasir: /unit/[slug]/kasir | Admin: /unit/[slug]/layanan
+  - API: /api/unit-layanan/sales | DB: UnitTransaction + UnitServicePackage
 
-┌─────────────────────────────────────────────────────┐
-│  JALUR 2: Unit Retail/F&B (StoreSale)               │
-│  Cocok untuk: Toko, Resto & Cafe                    │
-│  ─────────────────────────────────────────────────── │
-│  • Ada stok fisik (atau isService=true untuk menu)   │
-│  • Input = pilih produk dari katalog, masukkan cart   │
-│  • Kasir Toko: /toko/kasir (tabel + barcode)         │
-│  • Kasir Resto: /resto/kasir (grid + denah meja) ✅  │
-│  • Admin: /toko/produk (CRUD produk + gambar + HPP)  │
-│  • API: /api/toko/sales                              │
-│  • DB: StoreSale + StoreSaleItem + Product            │
-└─────────────────────────────────────────────────────┘
+JALUR 2: Unit Retail/F&B (StoreSale)
+  Cocok: Toko, Resto & Cafe
+  - Ada stok fisik (atau isService=true), input = pilih produk masuk cart
+  - Kasir Toko: /toko/kasir | Kasir Resto: /resto/kasir
+  - Admin: /toko/produk | API: /api/toko/sales | DB: StoreSale + StoreSaleItem + Product
 ```
 
 ---
 
-## 3. Fitur POS Resto yang Sudah Ada
+## 3. Fitur POS Resto
 
 | Fitur | File | Status |
 |---|---|---|
-| Denah meja 12 + takeaway dinamis | `resto/kasir/page.tsx` | ✅ Berjalan |
-| Zustand state (persist localStorage) | `resto/kasir/page.tsx` | ✅ Bill tahan refresh |
-| Grid menu visual (tile card) | `resto/kasir/page.tsx` | ✅ Grid responsif |
-| **Filter kategori menu** (Makanan/Minuman/dll) | `resto/kasir/page.tsx` L91 | ✅ Dinamis dari produk |
-| **Tampilan foto menu** (imageUrl) | `resto/kasir/page.tsx` L461 | ✅ Fallback icon jika tanpa foto |
-| Keranjang per meja | `resto/kasir/page.tsx` | ✅ Dengan qty +/- |
-| Notes per item | `resto/kasir/page.tsx` | ✅ Max 60 karakter |
-| Tombol KOT Dapur | `resto/kasir/page.tsx` L410 | ⚠️ **Hanya toast** — belum cetak fisik |
-| Bayar Tunai/QRIS/Potong Gaji | `resto/kasir/page.tsx` | ✅ 3 metode |
-| Gatekeeper Limit Piutang | `resto/kasir/page.tsx` | ✅ Validasi limit |
-| Struk Receipt (80mm) | `receipt-primkopol.tsx` | ✅ Thermal |
-| Navigasi Kasir Resto | `navigation.ts` L449 | ✅ `/resto/kasir`, `/resto/shift` |
-| Navigasi Admin Resto | `navigation.ts` L480 | ✅ Lengkap |
-| Route Guard | `layout.tsx` | ✅ Fixed |
-| Dashboard POS Link | `kasir-dashboard.tsx` | ✅ Fixed |
-| **Cek shift aktif** (warning banner) | `resto/kasir/page.tsx` L285 | ⚠️ **Ada bug** — lihat §8.2 |
-| Validasi stok sebelum checkout | `resto/kasir/page.tsx` L203 | ✅ Per item |
+| Denah meja dinamis + takeaway | `resto/kasir/page.tsx` | Done |
+| Grid menu visual (tile card + foto) | `resto/kasir/page.tsx` | Done |
+| Filter kategori menu | `resto/kasir/page.tsx` | Done |
+| Keranjang per meja + qty +/- | `resto/kasir/page.tsx` | Done |
+| Notes per item (max 60 char) | `resto/kasir/page.tsx` | Done |
+| Split Bill (multi-payment) | `resto/kasir/page.tsx` | Done |
+| Modifiers / Add-on di POS | `resto/kasir/page.tsx` | Done |
+| Bayar Tunai/QRIS/Potong Gaji | `resto/kasir/page.tsx` | Done |
+| Gatekeeper Limit Piutang | `resto/kasir/page.tsx` | Done |
+| Struk Receipt (80mm thermal) | `receipt-primkopol.tsx` | Done |
+| Shift check + checkout lock | `resto/kasir/page.tsx` | Done |
+| Validasi stok sebelum checkout | `resto/kasir/page.tsx` | Done |
+| Kitchen Display System (KDS) | `resto/kds/page.tsx` | Done |
+| Dynamic Floor Plan editor | `resto/floor-plan/page.tsx` | Done |
+| Modifier admin CRUD | `resto/modifiers/page.tsx` | Done |
+| Reporting + CSV export | `resto/laporan/page.tsx` | Done |
+| Batch & Expiry tracking | `resto/batch/page.tsx` | Done |
+| Bahan Baku (hybrid inventory) | `resto/bahan-baku/page.tsx` | Done |
+| Opname Stok | `resto/opname/page.tsx` | Done |
+| Offline mode (conditional) | `lib/offline-sync.ts` | Done |
 
 ---
 
-## 4. Role & Akses: Admin vs Kasir Resto
+## 4. Role & Akses
 
 ### 4.1 Kasir Resto
 
-| Fitur | Akses | Link |
-|---|---|---|
-| Dashboard Kasir | ✅ | `/dashboard` |
-| POS Resto (Denah Meja) | ✅ | `/resto/kasir` |
-| Shift Kasir | ✅ | `/toko/shift` |
-| Riwayat Transaksi | ✅ | `/transaksi-unit/riwayat?unitType=resto` |
-| Profil Saya | ✅ | `/profil` |
-| Kelola Menu / Produk | ❌ | — |
-| Approve Void | ❌ | — |
-| Laporan | ❌ | — |
+| Fitur | Link |
+|---|---|
+| Dashboard Kasir | `/dashboard` |
+| POS Resto (Denah Meja) | `/resto/kasir` |
+| Shift Kasir | `/toko/shift` |
+| Riwayat Transaksi | `/transaksi-unit/riwayat?unitType=resto` |
+
+Tidak ada akses: Manajemen Menu, Laporan, Approve Void, Persediaan.
 
 ### 4.2 Admin Resto
 
-| Fitur | Akses | Link |
-|---|---|---|
-| Dashboard Admin | ✅ | `/dashboard` |
-| POS Resto (Denah Meja) | ✅ | `/resto/kasir` |
-| Manajemen Menu | ✅ | `/toko/produk` |
-| Promo & Diskon | ✅ | `/toko/marketing` |
-| Persediaan & Stok | ✅ | `/toko/persediaan` |
-| Shift Kasir | ✅ | `/toko/shift` |
-| Riwayat Penjualan | ✅ | `/transaksi-unit/riwayat?unitType=resto` |
-| Laporan Penjualan | ✅ | `/unit/resto-cafe/laporan` |
-| Inbox Approval | ✅ | `/approval` |
-| Profil Saya | ✅ | `/profil` |
+| Fitur | Link |
+|---|---|
+| Dashboard Admin | `/dashboard` |
+| Kasir POS | `/resto/kasir` |
+| Manajemen Menu | `/resto/produk` |
+| Promo & Diskon | `/resto/marketing` |
+| Persediaan & Stok | `/resto/persediaan` |
+| Bahan Baku | `/resto/bahan-baku` |
+| Manajemen Batch | `/resto/batch` |
+| Opname Stok | `/resto/opname` |
+| Kitchen Display | `/resto/kds` |
+| Denah Meja | `/resto/floor-plan` |
+| Modifier & Add-on | `/resto/modifiers` |
+| Shift Kasir | `/toko/shift` |
+| Riwayat Penjualan | `/transaksi-unit/riwayat?unitType=resto` |
+| Laporan Penjualan | `/resto/laporan` |
+| Inbox Approval | `/approval` |
 
 ---
 
@@ -143,155 +103,155 @@ Dibuat `adminRestoNavigation` baru yang mengarahkan admin `resto_cafe` ke:
 
 | Aspek | Unit Toko | Unit Resto & Cafe |
 |---|---|---|
-| **Sifat barang** | Produk fisik + jasa | Menu makanan/minuman |
-| **POS Layout** | Tabel + search + barcode | Grid visual + denah meja |
-| **Barcode Scanner** | ✅ Ya | ❌ Tidak relevan |
-| **Denah Meja** | ❌ | ✅ 12 meja + takeaway |
-| **KOT Dapur** | ❌ | ✅ (placeholder) |
-| **Notes per item** | ❌ | ✅ |
-| **Shift** | ✅ | ✅ (shared) |
-| **Struk** | 58mm | 80mm |
-| **API transaksi** | `/api/toko/sales` | `/api/toko/sales` (shared) |
-| **Navigasi** | `kasirTokoNavigation` | `kasirRestoNavigation` ✅ |
+| POS Layout | Tabel + search + barcode | Grid visual + denah meja dinamis |
+| Denah Meja | Tidak | Ya (drag-and-drop editor) |
+| KDS | Tidak | Ya (`/resto/kds`) |
+| Split Bill | Ya | Ya |
+| Modifiers | Ya | Ya |
+| Notes per item | Tidak | Ya |
+| Hybrid Inventory | Ya | Ya (racikan + retail) |
+| Bahan Baku | Ya | Ya |
+| Opname Stok | Ya | Ya |
+| Struk | 58mm | 80mm |
+| API transaksi | `/api/toko/sales` | `/api/toko/sales` (shared) |
+| Navigasi | `kasirTokoNavigation` | `kasirRestoNavigation` |
 
 ---
 
-## 6. Roadmap Selanjutnya
+## 6. Roadmap (SEMUA COMPLETED)
 
-### ~~Phase 2: Gambar Menu & Kategori~~ ✅ SUDAH TERIMPLEMENTASI
-Field `imageUrl` & filter kategori sudah ada di POS resto sejak code review April 2026.
-- `imageUrl` di Product → ditampilkan di tile card (L461)
-- Kategori dinamis dari data produk → filter tabs (L91, L160)
-
-### Phase 3: Fix Bug & Integrasi Shift 🔴 PRIORITAS TINGGI
-- **Bug:** Cek shift tanpa `unitType=resto` → bisa salah deteksi shift unit lain
-- **Bug:** Link "Buka Shift" di banner mengarah ke `/toko/shift` bukan `/resto/shift`
-- **Bug:** `shiftId` tidak dikirim saat checkout → transaksi tidak tercatat di shift
-- **Feature:** Lock checkout jika shift belum dibuka (saat ini hanya warning banner)
-- **Feature:** Rekap kas per shift khusus resto
-
-### Phase 4: KOT Dapur Nyata 🟡
-- Ganti toast placeholder → cetak KOT ke thermal printer dapur
-- Atau integrasi kitchen display system (KDS)
-- Nomor meja + item + notes di tiket KOT
-
-### Phase 5: Fitur Lanjutan 🟢
-- Manajemen meja dinamis (admin atur jumlah meja, bukan hardcode 12)
-- Split bill (1 meja → 2+ metode bayar)
-- Gabung meja (2 meja → 1 bill)
-- Laporan per meja / per shift / per menu terlaris
-- Mobile POS khusus resto (denah meja + order dari HP)
+| Phase | Fitur | Status |
+|---|---|---|
+| 1.1 | Batch & Expiry Tracking | DONE |
+| 1.2 | Kitchen Display System (KDS) | DONE |
+| 1.3 | Dynamic Queue System (Cafe LSP) | DONE |
+| 2.1 | Dynamic Floor Plan | DONE |
+| 2.2 | Split Bill | DONE |
+| 2.3 | Modifiers / Add-on System | DONE |
+| 3.1 | Reporting Dashboard + CSV | DONE |
+| 3.2 | Offline Mode (conditional) | DONE |
+| - | Hybrid Inventory (Bahan Baku) | DONE |
+| - | Opname Stok | DONE |
 
 ---
 
-## 7. Audit Kekurangan — 1 Mei 2026
+## 7. File-File Terkait
 
-### 7.1 Bug Ditemukan
-
-| # | Severity | Bug | Lokasi | Detail |
-|---|---|---|---|---|
-| 1 | 🔴 Tinggi | **Shift check tanpa filter unitType** | `resto/kasir/page.tsx` L148 | `fetch("/api/toko/shifts?status=open")` tidak kirim `unitType=resto`. Bisa salah deteksi shift toko sebagai shift resto, atau sebaliknya shift resto sudah buka tapi tidak terdeteksi karena unit lain belum buka. |
-| 2 | 🔴 Tinggi | **Link "Buka Shift" salah rute** | `resto/kasir/page.tsx` L292 | `<Link href="/toko/shift">` padahal navigasi resto menggunakan `/resto/shift`. Kasir resto dikirim ke halaman shift toko. |
-| 3 | 🟡 Sedang | **shiftId tidak terkirim saat checkout** | `resto/kasir/page.tsx` L214-221 | Body transaksi tidak menyertakan `shiftId`. API `/api/toko/sales` (L198) memang auto-detect shift aktif, tapi jika ada >1 shift terbuka di unit berbeda, bisa salah pasang. |
-| 4 | 🟡 Sedang | **Checkout tidak di-lock saat shift belum buka** | `resto/kasir/page.tsx` L200 | Hanya ada warning banner. Kasir tetap bisa checkout meski shift belum dibuka. Transaksi akan tercatat tanpa `shiftId`. |
-| 5 | 🟢 Rendah | **Halaman wrapper tanpa unitType context** | `resto/shift/page.tsx`, `resto/produk/page.tsx`, dll | Semua halaman `/resto/*` adalah wrapper yang me-reuse komponen Toko. `unitType` diambil dari `session.user.unitType`, jadi **bergantung pada session user** — bukan dari URL. Ini aman selama user tidak punya multiple unit assignment, tapi rapuh. |
-
-### 7.2 Fitur Belum Ada
-
-| # | Prioritas | Fitur | Keterangan |
-|---|---|---|---|
-| 1 | 🔴 Tinggi | **shiftId di payload checkout** | Transaksi resto harus auto-attach shift ID aktif agar masuk rekap shift |
-| 2 | 🔴 Tinggi | **Lock checkout tanpa shift** | Blokir tombol bayar jika tidak ada shift aktif untuk `unitType=resto` |
-| 3 | 🟡 Sedang | **KOT Dapur cetak fisik** | Saat ini hanya `toast.success()` — belum ada cetak ke printer dapur |
-| 4 | 🟡 Sedang | **Manajemen meja dinamis** | Jumlah meja hardcode 12 + takeaway. Admin tidak bisa atur sendiri. |
-| 5 | 🟡 Sedang | **Laporan per meja** | Tidak ada laporan breakdown penjualan per nomor meja |
-| 6 | 🟡 Sedang | **Laporan menu terlaris** | Tidak ada ranking menu paling laku per periode |
-| 7 | 🟢 Rendah | **Split bill** | 1 meja → 2+ metode bayar / 2+ orang bayar terpisah |
-| 8 | 🟢 Rendah | **Gabung meja** | Gabung pesanan 2+ meja menjadi 1 bill |
-| 9 | 🟢 Rendah | **Mobile POS resto** | Aplikasi mobile belum punya denah meja / order resto khusus |
-| 10 | 🟢 Rendah | **Reservasi meja** | Tidak ada booking meja di masa depan |
-| 11 | 🟢 Rendah | **Info alergen/diet** | Tidak ada label vegetarian, pedas level, alergen di menu |
-
-### 7.3 Arsitektur: Shared Pages dengan Toko
-
-Semua sub-page `/resto/*` adalah thin wrapper yang mengimpor komponen Toko:
-
-```
-/resto/shift/page.tsx    → import TokoShiftPage
-/resto/produk/page.tsx   → import TokoProdukPage
-/resto/marketing/page.tsx → import TokoMarketingPage
-/resto/persediaan/page.tsx → import TokoPersediaanPage
-```
-
-**Kelebihan:** Tidak ada duplikasi kode, fix di Toko langsung ikut ke Resto.
-**Kelemahan:** `unitType` diambil dari `session.user.unitType`, bukan dari URL context. Jika user memiliki multi-unit assignment, bisa terjadi kebocoran data antar unit.
-
-### 7.4 Ringkasan Prioritas
-
-```
-┌──────────────────────────────────────────────────┐
-│  🔴 FIX SEGERA (Bug + Critical Feature)          │
-│  ───────────────────────────────────────────────  │
-│  1. Shift check + filter unitType=resto           │
-│  2. Link "Buka Shift" → /resto/shift             │
-│  3. shiftId auto-attach di checkout               │
-│  4. Lock checkout jika shift belum buka           │
-│                                                   │
-│  🟡 SELANJUTNYA                                   │
-│  ───────────────────────────────────────────────  │
-│  5. KOT Dapur cetak fisik / KDS                   │
-│  6. Manajemen meja dinamis (admin config)         │
-│  7. Laporan per meja + menu terlaris              │
-│                                                   │
-│  🟢 NICE-TO-HAVE                                  │
-│  ───────────────────────────────────────────────  │
-│  8. Split bill / gabung meja                      │
-│  9. Mobile POS resto                              │
-│  10. Reservasi meja                               │
-└──────────────────────────────────────────────────┘
-```
-
----
-
-## 8. File-File Terkait
+### Halaman Resto (wrapper → komponen Toko)
 
 | File | Fungsi |
 |---|---|
-| `src/app/(protected)/resto/kasir/page.tsx` | **POS Resto** — Denah meja + grid menu + filter kategori + foto menu ✅ |
-| `src/app/(protected)/resto/shift/page.tsx` | Wrapper → `TokoShiftPage` (shared) |
-| `src/app/(protected)/resto/produk/page.tsx` | Wrapper → `TokoProdukPage` (shared, label "Manajemen Menu") |
-| `src/app/(protected)/resto/marketing/page.tsx` | Wrapper → `TokoMarketingPage` (shared) |
-| `src/app/(protected)/resto/persediaan/page.tsx` | Wrapper → `TokoPersediaanPage` (shared) |
-| `src/lib/constants/navigation.ts` | Routing navigasi + `kasirRestoNavigation` (L449) + `adminRestoNavigation` (L480) ✅ |
-| `src/app/(protected)/layout.tsx` | Route guard per role + unitType ✅ |
-| `src/components/patterns/kasir-dashboard.tsx` | Dashboard kasir — POS link ✅ |
-| `src/app/(protected)/toko/produk/page.tsx` | Komponen asli Manajemen Produk (deteksi isResto → label "Menu") |
-| `src/app/api/toko/products/route.ts` | API produk (filter by unitType, termasuk `resto`) |
-| `src/app/api/toko/sales/route.ts` | API checkout (shared toko + resto, auto-detect shiftId) |
+| `src/app/(protected)/resto/kasir/page.tsx` | POS Resto — denah meja + grid menu + split bill + modifiers |
+| `src/app/(protected)/resto/shift/page.tsx` | Wrapper -> TokoShiftPage |
+| `src/app/(protected)/resto/produk/page.tsx` | Wrapper -> TokoProdukPage (label "Manajemen Menu") |
+| `src/app/(protected)/resto/marketing/page.tsx` | Wrapper -> TokoMarketingPage |
+| `src/app/(protected)/resto/persediaan/page.tsx` | Wrapper -> TokoPersediaanPage |
+| `src/app/(protected)/resto/bahan-baku/page.tsx` | Wrapper -> TokoBahanBakuPage |
+| `src/app/(protected)/resto/batch/page.tsx` | Wrapper -> TokoBatchPage |
+| `src/app/(protected)/resto/opname/page.tsx` | Wrapper -> TokoOpnamePage |
+| `src/app/(protected)/resto/kds/page.tsx` | Kitchen Display System |
+| `src/app/(protected)/resto/floor-plan/page.tsx` | Dynamic Floor Plan editor |
+| `src/app/(protected)/resto/modifiers/page.tsx` | Modifier admin CRUD |
+| `src/app/(protected)/resto/laporan/page.tsx` | Reporting dashboard |
+
+### Core Files
+
+| File | Fungsi |
+|---|---|
+| `src/lib/constants/navigation.ts` | `kasirRestoNavigation` + `adminRestoNavigation` |
+| `src/app/(protected)/layout.tsx` | Route guard per role + unitType |
+| `src/components/patterns/kasir-dashboard.tsx` | Dashboard kasir POS link |
+| `src/app/api/toko/sales/route.ts` | API checkout (shared toko + resto) |
+| `src/app/api/toko/products/route.ts` | API produk (filter by unitType) |
 | `src/app/api/toko/shifts/route.ts` | API shift (filter by unitType) |
-| `src/app/(protected)/unit/[unitSlug]/kasir/page.tsx` | POS jasa generik (JANGAN dipakai untuk Resto) |
-| `src/app/(protected)/unit/[unitSlug]/layanan/page.tsx` | Kelola Layanan jasa (JANGAN dipakai untuk Resto) |
+| `src/app/api/toko/split-bill/route.ts` | API split bill |
+| `src/app/api/toko/modifiers/route.ts` | API modifiers |
+| `src/app/api/toko/floor-plan/route.ts` | API floor plan |
+| `src/app/api/toko/reports/sales-summary/route.ts` | API reporting |
+| `src/app/api/kitchen-orders/route.ts` | API kitchen orders (KDS) |
+| `src/app/api/toko/stock-tracking/opname/route.ts` | API opname stok |
+
+### Library Modules
+
+| File | Fungsi |
+|---|---|
+| `src/lib/kds.ts` | KDS utilities (status, formatting, validation) |
+| `src/lib/floor-plan.ts` | Floor plan config, validation, serialization |
+| `src/lib/split-bill.ts` | Split bill validation, calculation |
+| `src/lib/modifiers.ts` | Modifier groups, options, price calculation |
+| `src/lib/reporting.ts` | Sales reporting, top products, CSV export |
+| `src/lib/queue.ts` | Queue config, formatting (Cafe LSP) |
+| `src/lib/offline-sync.ts` | Offline pending sale queue |
+| `src/lib/stock-opname.ts` | Opname stok utilities |
 
 ---
 
-*Dokumen ini adalah referensi utama untuk Unit Café & Resto (Latar). Untuk Unit Toko, lihat `UNIT-TOKO.md`.*
+## 8. Opname Stok
+
+**Page:** `/resto/opname`
+**Wrapper:** Reuses `TokoOpnamePage` (shared komponen dengan Toko dan Cafe LSP)
+**Navigasi:** "Opname Stok" (ClipboardCheck icon) di `adminRestoNavigation`
+
+**Fitur:**
+- Filter produk berdasarkan product type (semua / bahan baku / produk jadi)
+- Filter berdasarkan lokasi penyimpanan
+- Input jumlah fisik (physical count) per produk
+- Tampilkan selisih (discrepancy) antara stok sistem vs fisik
+- Simpan penyesuaian stok (stock adjustment)
+
+**API:** `POST /api/toko/stock-tracking/opname`
 
 ---
 
-### Changelog — 26 April 2026
-- **[API] Transaction Safety**: Semua operasi multi-table dibungkus dalam `prisma.$transaction`
-- **[API] Validasi Input**: Amount harus > 0, unitType & paymentMethod divalidasi
-- **[API] Validasi Plafon Piutang**: Cek limit plafon anggota untuk potong gaji
-- **[POS] KOT Dapur**: Tombol Kitchen Order Ticket sudah fungsional (mencatat pesanan ke dapur)
-- **[POS] Validasi Stok**: Cek stok menu sebelum checkout, batalkan jika stok tidak cukup
-- **[POS] Validasi Notes**: Maxlength 60 karakter per item notes
-- **[API] RBAC**: Anggota tidak diizinkan membuat transaksi kasir
+## 9. Fitur Development Roadmap — Approved Reference
 
-### Changelog — 1 Mei 2026 (Audit)
-- **[AUDIT]** Audit menyeluruh Unit Café & Resto — dokumentasi diperbarui
-- **[BUG] Shift check tanpa unitType**: `fetch("/api/toko/shifts?status=open")` tidak filter `unitType=resto` → bisa salah deteksi shift unit lain
-- **[BUG] Link Buka Shift salah**: Banner mengarah ke `/toko/shift` padahal navigasi resto pakai `/resto/shift`
-- **[BUG] shiftId tidak terkirim**: Checkout POS resto tidak menyertakan `shiftId` di body request
-- **[FEATURE] Checkout tidak di-lock**: Kasir bisa bayar meski shift belum dibuka (hanya warning banner)
-- **[UPDATE]** Phase 2 (gambar menu + kategori) dicoret dari roadmap — sudah terimplementasi
-- **[UPDATE]** Roadmap diurutkan ulang: Phase 3 = fix bug shift, Phase 4 = KOT fisik, Phase 5 = fitur lanjutan
+> Keputusan user berdasarkan gap analysis vs open-source POS (Moka, Pawoon, Olsera, URY ERP).
+
+| # | Fitur | Keputusan |
+|---|---|---|
+| 1 | Dynamic Floor Plan | APPROVED — implemented |
+| 2 | Kitchen Display System (KDS) | APPROVED — implemented |
+| 3 | Split Bill | APPROVED — implemented |
+| 4 | Modifiers / Add-on | APPROVED — implemented |
+| 5 | Batch & Expiry Tracking | APPROVED — implemented |
+| 6 | Reporting Dashboard | APPROVED — implemented |
+| 7 | Offline Mode | CONDITIONAL — implemented |
+| 8 | Loyalty / Stamp Card | REJECTED |
+
+### KDS — Ringkasan
+Web-based KDS page (`/resto/kds`) untuk monitor/tablet dapur. Status flow: `pending` -> `preparing` -> `ready` -> `served`. Polling 5 detik. Data model: `KitchenOrder` (Prisma).
+
+### Modifiers — Ringkasan
+Admin konfigurasi modifier groups + options. Kasir select di POS. Data model: `ModifierGroup` + `ModifierOption` (disimpan via AppSetting).
+
+### Floor Plan — Ringkasan
+Admin drag-and-drop layout editor. Data disimpan di `AppSetting` key `floor_plan_resto` sebagai JSON blob.
+
+### Reporting — Ringkasan
+Sales Summary, Menu Terlaris, Revenue by Kategori, Shift Report, Hourly Analysis, Export CSV/PDF.
+
+### Hybrid Inventory — Ringkasan
+Produk `trackStock=true` = retail (potong stok langsung). `trackStock=false` = racikan (potong stok bahan baku via resep saat checkout).
+
+---
+
+## 10. Audit & Bug Fix Summary
+
+| Item | Status | Detail |
+|---|---|---|
+| Movements API fallback unitType filter | FIXED | Filter `product.unitType` berdasarkan session user |
+| Bahan Baku page crash (API response format) | FIXED | API response format disesuaikan untuk wrapper Resto |
+| Products API not saving productType/trackStock | FIXED | Field `productType` dan `trackStock` sekarang tersimpan dengan benar |
+| 16 bug audit (R-1 s/d R-10, S-1 s/d S-6) | FIXED | Shift unitType filter, shiftId payload, salePrefixMap, checkout lock, notes, audit log, dll |
+| Opname Stok feature | NEW | Wrapper `/resto/opname` reusing TokoOpnamePage, navigasi + ClipboardCheck icon |
+
+---
+
+## Changelog — 18 Mei 2026
+
+- **[Riwayat] Edit NRP Fix:** Tombol "Tambah NRP Anggota" di `/transaksi-unit/riwayat` sekarang tampil untuk semua transaksi non-voided (sebelumnya hanya untuk transaksi tanpa member). Dialog menampilkan "Anggota Saat Ini" jika sudah ada member. Berlaku untuk semua unit termasuk Resto. File: `transaksi-unit/riwayat/page.tsx`
+- **[Role] Operator Hierarchy:** Dihapus referensi `superadmin`/`super_admin` dari seluruh codebase. Operator = role tertinggi. Admin Resto tetap akses unit `resto_cafe`/`resto`/`coffe_latar` saja.
+
+---
+
+*Dokumen ini adalah referensi utama untuk Unit Cafe & Resto (Latar). Untuk Unit Toko, lihat `UNIT-TOKO.md`.*

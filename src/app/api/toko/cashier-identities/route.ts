@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
-const ALLOWED_ROLES = ["admin", "operator", "super_admin"];
+const ALLOWED_ROLES = ["admin", "operator"];
 
 // GET /api/toko/cashier-identities — List identities for this device user
 export async function GET(request: Request) {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
             // Admin/Operator: see all identities for users in their unit
             // Super_admin: see all identities (no unit filter)
             const unitType = (session.user as any).unitType;
-            const whereClause = role === "super_admin" ? {} : { parentUser: { unitType } };
+            const whereClause = role === "operator" ? {} : { parentUser: { unitType } };
             identities = await prisma.cashierIdentity.findMany({
                 where: whereClause,
                 include: { parentUser: { select: { id: true, name: true, email: true } } },
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
         }
         const adminUnitType = (session.user as any).unitType;
-        if (role !== "super_admin" && targetUser.unitType !== adminUnitType) {
+        if (role !== "operator" && targetUser.unitType !== adminUnitType) {
             return NextResponse.json({ message: "User bukan dari unit Anda" }, { status: 403 });
         }
 

@@ -127,7 +127,7 @@ export async function proxy(request: NextRequest) {
         // Blokade berlaku untuk SEMUA user yang punya unitType (kasir DAN admin unit)
         // Pengecualian hanya untuk operator (punya manage_all permission via JWT)
         // dan admin_sp (perlu akses modul keuangan inti)
-        const isFullOperator = userRole === "operator" || userRole === "superadmin";
+        const isFullOperator = userRole === "operator";
         const isAdminSp = userRole === "admin_sp";
 
         if (userUnitType && !isFullOperator && !isAdminSp) {

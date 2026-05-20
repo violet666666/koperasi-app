@@ -627,3 +627,524 @@ for (const task of commitTasks) {
 
 *Diperbarui: 4 Mei 2026*
 *Total bug tercatat modul Pinjaman: 29 | Total fitur baru: 6*
+
+---
+
+## 🔴 BUG AUDIT MODULE — 17 Mei 2026 (Loan Audit 6 Fix + Billing Delete)
+
+### BUG-AUDIT-001 — monthlyInstallment Divergence antara Import dan Jadwal Angsuran
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (Cicilan per bulan berbeda antara field loan dan jadwal aktual)
+
+**Gejala:**
+Pinjaman hasil import menunjukkan `monthlyInstallment` berbeda dari total angsuran di `LoanSchedule`. Contoh NRP "83111012": `monthlyInstallment = 2.667.000` tapi jadwal menunjukkan `floor(100.000.000/60) + 1.000.000 = 2.666.667`. Selisih Rp 333 per bulan × 60 bulan = Rp 19.980 per pinjaman.
+
+**Root Cause:**
+Route import menghitung `monthlyInstallment = angsuran + jasa` (menggunakan `angsuran` dari Excel = `floor(pinjam/selama)`). Namun saat generate `LoanSchedule`, system menghitung `floor(pinjam/selama)` secara independen. Kedua rounding bisa berbeda jika Excel `angsuran` ≠ `Math.floor(pinjam/selama)`.
+
+**Fix:**
+Kedua creation path di `import-update/route.ts` sekarang menggunakan formula yang sama: `monthlyInstallment = Math.floor(pinjam / selama) + jasa`.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (kedua loan creation block)
+
+---
+
+### BUG-AUDIT-002 — Import UPDATE Path Tidak Sinkronisasi Semua Field Pinjaman
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (Pinjaman yang sudah ada tidak ter-update dengan data Excel terbaru)
+
+**Gejala:**
+Saat import update menemukan pinjaman yang sudah ada (match by NRP), hanya field `principalPaid`, `interestPaid`, `interestOutstanding`, `outstandingAmount` yang di-update. Field `principalAmount`, `tenorMonths`, `interestRate`, `monthlyInstallment`, dan `totalAmount` tetap menggunakan nilai lama.
+
+**Root Cause:**
+UPDATE path di `import-update/route.ts` hanya memperbarui paid/outstanding fields, bukan data utama pinjaman. Selain itu, `LoanSchedule` lama tidak di-regenerasi, menyebabkan jadwal tidak sesuai dengan data Excel terbaru.
+
+**Fix:**
+UPDATE path sekarang memperbarui SEMUA field pinjaman (principal, interest, tenor, rate, monthlyInstallment, totalAmount, disbursedAmount, adminFee) dan menghapus+regenerasi seluruh `LoanSchedule`.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/import-update/route.ts` (UPDATE path)
+
+---
+
+### BUG-AUDIT-003 — Jadwal Angsuran Regenerasi Tidak Menyertakan paidDate
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Jadwal angsuran yang sudah dibayar tidak memiliki tanggal pembayaran)
+
+**Gejala:**
+Saat operator mengedit pinjaman (PUT `/api/loans/[id]`), jadwal angsuran di-regenerasi namun angsuran yang sudah dibayar (`status: "paid"`) tidak memiliki `paidDate`. Ini menyebabkan riwayat pembayaran tidak menampilkan kapan angsuran dibayar.
+
+**Root Cause:**
+PUT handler di `loans/[id]/route.ts` membuat schedule baru tanpa mengisi `paidDate`, `principalPaid`, dan `interestPaid` untuk angsuran yang sudah dibayar (status = paid).
+
+**Fix:**
+Regenerated schedules sekarang menyertakan `paidDate: dueDate`, `principalPaid`, `interestPaid` untuk angsuran yang sudah dibayar.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/route.ts` (PUT handler schedule generation)
+
+---
+
+### BUG-AUDIT-004 — paidInstallments Menggunakan Formula Tidak Akurat
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Kolom "Angsuran Ke" di detail anggota menampilkan angka salah)
+
+**Gejala:**
+API `/api/members/[id]` menampilkan `paidInstallments` yang berbeda dari jumlah `LoanSchedule` berstatus "paid". Formula `Math.round(principalPaid / monthlyInstallment)` menghasilkan angka yang terlalu kecil karena `monthlyInstallment` = pokok + bunga, bukan hanya porsi pokok.
+
+**Root Cause:**
+Perhitungan paid installments membagi total pokok terbayar oleh cicilan bulanan (pokok+bunga), bukan oleh porsi pokok per bulan. Contoh: 25.005.000 / 2.667.000 = 9, padahal seharusnya 25.005.000 / 1.666.667 = 15.
+
+**Fix:**
+Pre-fetch paid schedule counts via `prisma.loanSchedule.groupBy()` sebelum mapping, gunakan schedule count sebagai sumber utama, formula hanya sebagai fallback.
+
+**File yang Diperbaiki:**
+- `src/app/api/members/[id]/route.ts` (paidInstallments calculation)
+
+---
+
+### BUG-AUDIT-005 — Bayar Angsuran Tidak Menghitung lateFee
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** IMPORTANT (Denda keterlambatan tidak termasuk di total tagihan angsuran)
+
+**Gejala:**
+Halaman bayar angsuran tidak menampilkan denda keterlambatan (`lateFee`) sebagai bagian dari total yang harus dibayar, meskipun field `lateFee` tersedia di model `LoanSchedule`.
+
+**Root Cause:**
+Function `calcScheduleDue()` di `angsuran/bayar/page.tsx` hanya menghitung `principalDue` dan `interestDue`, tanpa menyertakan `lateFee - lateFeePaid`.
+
+**Fix:**
+Menambahkan `lateFeeDue` ke interface `ScheduleDue` dan kalkulasi `totalDue = principalDue + interestDue + lateFeeDue`.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/pinjaman/angsuran/bayar/page.tsx` (calcScheduleDue function)
+
+---
+
+### BUG-AUDIT-006 — Console Error "Failed to fetch" pada NotificationBell dan signOut
+
+**Tanggal Ditemukan:** 17 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** Low (Error konsol yang tidak mempengaruhi fungsi, namun mengganggu debugging)
+
+**Gejala:**
+Next.js dev mode menampilkan TypeError "Failed to fetch" di console dari:
+1. `NotificationBell` — polling `/api/notifications` setiap 30 detik
+2. `signOut` di `use-auth.tsx` — NextAuth signOut gagal saat dev server restart
+
+**Root Cause:**
+Saat Next.js dev server hot-reload atau restart, request fetch yang sedang berjalan akan gagal dengan TypeError "Failed to fetch". Ini adalah expected behavior di dev mode, bukan bug di aplikasi.
+
+**Fix:**
+Error di-ignore secara silent (AbortError dan "Failed to fetch" TypeError), tanpa `console.error` yang mengganggu debugging.
+
+**File yang Diperbaiki:**
+- `src/components/patterns/notification-bell.tsx` (fetchNotifications, markAsRead, markAllRead)
+- `src/lib/hooks/use-auth.tsx` (logout function)
+
+---
+
+## 🟢 FITUR BARU — Tagihan Piutang: Hapus Draft
+
+### FEAT-TAGIHAN-001 — Delete Draft Billing Period
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** Feature (Operator perlu bisa menghapus draft billing yang salah generate)
+
+**Deskripsi:**
+Operator dapat menghapus draft billing period yang sudah di-generate (sebelum di-proses), sehingga bisa generate ulang untuk periode yang sama. Endpoint `DELETE /api/billing/[periodId]` hanya mengizinkan penghapusan period dengan status "draft". UI menambahkan tombol merah "Hapus Draft" di halaman `/tagihan`.
+
+**File yang Diperbaiki:**
+- `src/app/api/billing/[periodId]/route.ts` (DELETE handler)
+- `src/app/(protected)/tagihan/page.tsx` (UI "Hapus Draft" button)
+
+---
+
+## 🟢 FITUR BARU — Member Management Enhancement
+
+### FEAT-MEMBER-001 — Salary Fields pada Form Tambah Anggota
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Deskripsi:**
+Form "Tambah Anggota Baru" (`/anggota/tambah`) sekarang menyertakan section "Setoran Bulanan (Gaji & Tabungan)" dengan 4 field: Gaji Bersih, Tunles/Tunkin, Sisa Gaji, dan Plafon Piutang. Sebelumnya field ini hanya bisa diisi melalui Edit Anggota atau Import Gaji.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/anggota/tambah/page.tsx`
+
+---
+
+---
+
+## 🟢 FITUR BARU & FIX — 18 Mei 2026 (Role Cleanup + Tagihan + Edit NRP)
+
+### FEAT-TAGIHAN-002 — Custom Date Range untuk Generate Tagihan
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Deskripsi:**
+Operator dapat memilih rentang tanggal kustom saat generate billing period, tidak hanya periode otomatis (16-15). Fitur "Atur Rentang Tanggal" menampilkan date picker start/end, dikirim ke API generate. Validasi: start harus sebelum end.
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/tagihan/page.tsx` — Date range picker UI + state management
+- `src/app/api/billing/generate/route.ts` — Accept optional `periodStart`/`periodEnd` from body
+
+### FIX-ROLE-001 — Operator Hierarchy Unification
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** High (Role `superadmin`/`super_admin` tidak ada di DB, menyebabkan dead code)
+
+**Perubahan:**
+- Dihapus semua referensi `superadmin` dan `super_admin` dari 59 file
+- Operator = role tertinggi (satu-satunya `manage_all`)
+- Admin unit = akses unit spesifik saja
+- Kolom member baru ditambahkan via migration: `sisa_gaji`, `employee_type`, `pangkat`, `golongan`, `kesatuan`, `no_rekening`
+
+**File Terkait:**
+- `src/app/api/admin/migrate/route.ts` — Member column migrations + billing table creation
+- `src/app/api/unit-transactions/[id]/member/route.ts` — Simplified role check
+
+### FIX-RIWAYAT-001 — Edit NRP pada Riwayat Transaksi
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** Medium (Operator tidak bisa edit NRP untuk transaksi yang sudah punya member)
+
+**Gejala:**
+Tombol "Tambah NRP Anggota" hanya muncul untuk transaksi dengan `memberId === null`. Transaksi yang sudah punya member tidak bisa diganti anggotanya.
+
+**Fix:**
+- `canEditNrp` diubah dari `(isAdmin || isOperator) && !tx.memberId` ke `(isAdmin || isOperator) && baseStatus !== "voided"`
+- Dialog sekarang menampilkan "Anggota Saat Ini" (info box biru) jika transaksi sudah punya member
+- Dihapus teks "Hanya Admin Unit yang dapat melakukan ini" (operator juga bisa)
+
+**File yang Diperbaiki:**
+- `src/app/(protected)/transaksi-unit/riwayat/page.tsx`
+
+### FIX-MIGRATE-001 — Billing Tables & Member Columns di NeonDB
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** Critical (Halaman /tagihan 500 karena tabel billing_periods belum ada)
+
+**Perubahan:**
+Migration endpoint `POST /api/admin/migrate` sekarang juga membuat:
+- Tabel `billing_periods` (id, period_start, period_end, period_label, status, total_members, total_amount, processed_by_id, processed_at, timestamps)
+- Tabel `billing_items` (id, billing_period_id FK, member_id, member_name, member_nrp, unit_type, transaction_id, transaction_source, description, amount, is_marked_paid, paid_at, timestamps)
+- Kolom member: `sisa_gaji` (DECIMAL)
+
+**File yang Diperbaiki:**
+- `src/app/api/admin/migrate/route.ts` — Added `tableExists()` helper + billing table creation
+
+---
+
+---
+
+## 🔴 BUG EDIT TENOR — 7 Fix (17 Mei 2026)
+
+> **Design Spec:** `docs/specs/2026-05-17-member-loan-management-design.md`
+> **Status:** ✅ ALL FIXED
+
+### BUG-EDIT-001 — paidInstallmentCount Rounding Error
+
+**Severity:** CRITICAL (Jadwal angsuran salah menandai schedule sebagai "paid")
+**Fix:** `paidInstallmentCount = Math.min(newTenor, Math.floor(newPrincipalPaid / monthlyPrincipal))` + remainder handling untuk partial payment di schedule berikutnya.
+
+### BUG-EDIT-002 — JS Date setMonth() Overflow
+
+**Severity:** HIGH (Jan 31 + 1 month = Mar 3 di JavaScript)
+**Fix:** Helper `addMonths()` di `src/lib/date-helpers.ts` — set ke tanggal 1 dulu, lalu clamp ke hari terakhir bulan.
+
+### BUG-EDIT-003 — Role Inconsistency (admin_sp)
+
+**Severity:** MEDIUM (API izinkan admin_sp tapi UI hanya tampil untuk operator)
+**Fix:** UI gate diganti ke permission-based (`manage_all` atau `roleName === "operator"`).
+
+### BUG-EDIT-004 — Misleading "Riwayat Pembayaran" Message
+
+**Severity:** LOW (Pesan membingungkan operator)
+**Fix:** Copy diubah ke: "Data pembayaran dari import akan disesuaikan dengan perhitungan baru."
+
+### BUG-EDIT-005 — Field `notes` Silently Discarded
+
+**Severity:** LOW (Field diterima tapi tidak disimpan)
+**Fix:** Dihapus dari accepted body fields karena model Loan tidak punya field `notes`.
+
+### BUG-EDIT-006 — Missing Audit Trail on Loan Edit
+
+**Severity:** HIGH (Perubahan pinjaman tidak tercatat di audit log)
+**Fix:** Ditambahkan `logAuditFromRequest()` di PUT handler setelah transaksi berhasil. Mencatat field yang berubah + before/after values.
+
+### BUG-EDIT-007 — Import Bypass Payment Guard
+
+**Severity:** LOW (Import sengaja bypass guard untuk migrasi)
+**Fix:** Inline comment ditambahkan menjelaskan bahwa import pipeline sengaja melewati payment-count guard untuk mendukung koreksi data dari Excel legacy. No code change.
+
+**File yang Diperbaiki:**
+- `src/app/api/loans/[id]/route.ts` — Fix A1-A7
+- `src/lib/date-helpers.ts` — NEW: `addMonths()` helper
+- `src/app/(protected)/pinjaman/[id]/page.tsx` — Role gate fix, edit dialog copy
+
+---
+
+## 🟢 FITUR BARU — Member Management Enhancement (17 Mei 2026)
+
+### FEAT-MEMBER-002 — Duplicate Detection API
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Endpoint:** `GET /api/members/duplicates`
+**Fitur:**
+- Query semua anggota aktif, group by normalized name (strip titles: H., Dr., S.H.) dan NRP
+- Flag grup dengan count > 1 sebagai duplikat
+- Setiap member dilengkapi info: hasLoans, hasSavings, hasTransactions
+
+**File:** `src/app/api/members/duplicates/route.ts`
+
+### FEAT-MEMBER-003 — Member Merge API
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Endpoint:** `POST /api/members/merge`
+**Fitur:**
+- Merge 2 anggota duplikat (source → target) secara atomik via `prisma.$transaction`
+- Reassign 13 jenis child records: SavingsAccount, SavingsTransaction, Loan, LoanApplication, LoanPayment, UnitTransaction, StoreSale, Receipt, CashBankTransaction, ShuDistribution, TabunganSejahteraHistory, BillingItem, PayrollSlip
+- Handle unique constraints: suffix `memberNo`, `nrp`, `nik` dengan `_merged_{id}_{timestamp}`
+- Soft-delete source member (status: "merged")
+- Deactivate source's User account
+- Audit log
+
+**File:** `src/app/api/members/merge/route.ts`
+
+### FEAT-MEMBER-004 — Enhanced Member Delete
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Enhanced checks sebelum delete:**
+1. Block jika ada pinjaman aktif
+2. Block jika ada saldo simpanan > 0
+3. Block jika ada tagihan billing belum dibayar
+4. Block jika ada transaksi unit belum dibayar
+5. Jika clear: soft delete + free unique constraints (nrp, nik → null, memberNo → suffix `_deleted_`)
+
+**File:** `src/app/api/members/[id]/route.ts`
+
+### FEAT-MEMBER-005 — Edit NRP dengan Credential Sync
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Fitur:**
+- Saat operator mengubah NRP anggota di halaman Edit, sistem otomatis:
+  - Update email login ke `{newNrp}@koperasi.local`
+  - Reset password ke NRP baru
+  - Sync `memberNo` jika sebelumnya sama dengan NRP lama
+  - Audit log mencatat perubahan NRP
+- UI menampilkan dialog konfirmasi sebelum mengubah NRP (warning bahwa member harus login ulang)
+
+**File:**
+- `src/app/api/members/[id]/route.ts` — Enhanced NRP sync dalam PUT handler
+- `src/app/(protected)/anggota/[id]/edit/page.tsx` — Confirmation dialog
+
+### FEAT-MEMBER-006 — Duplicate Management UI
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Page:** `/anggota/kelola`
+**Fitur:**
+- Tab "Duplikasi" — list grup duplikat dari API, tampilan side-by-side
+- Aksi per grup: Merge (pilih primary) atau Hapus individual
+- Tab "Semua Anggota" — list lengkap dengan enhanced delete button
+- Confirmation dialogs untuk aksi destruktif
+
+**File:** `src/app/(protected)/anggota/kelola/page.tsx`
+
+### FEAT-MEMBER-007 — Edit Detail Anggota (Sisa Gaji, Plafon, Klasifikasi)
+
+**Tanggal:** 17 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Field yang bisa diedit operator di halaman `/anggota/[id]/edit`:**
+- **Keuangan:** Gaji Bersih (`salary`), Tunles/Tunkin (`tunlesKinerja`), Sisa Gaji (`sisaGaji`), Plafon Piutang (`plafonPiutang`)
+- **Klasifikasi:** Pangkat, Golongan, Kesatuan, Jenis Pegawai (`employeeType`), No. Rekening (`noRekening`)
+- **Kontak:** Phone, Email, Address
+- **Identitas:** NRP (dengan credential sync), Nama, Category, Occupation
+
+**Catatan:** Sisa Gaji digunakan untuk kalkulasi plafon piutang potong gaji (50% × sisaBersih).
+
+**File:**
+- `src/app/(protected)/anggota/[id]/edit/page.tsx` — Full edit form
+- `src/app/api/members/[id]/route.ts` — PUT handler with all fields
+- `src/app/api/mobile/members/[id]/route.ts` — Mobile edit endpoint
+
+---
+
+---
+
+## 🟢 FITUR BARU & FIX — 18 Mei 2026 (Billing Code Review + Portal Faktur + Export)
+
+### FIX-TAGIHAN-001 — DELETE Tidak Reverse isPaid untuk Partial-Settled Draft
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** HIGH (Draft yang sudah partial-settle tidak reverse `isPaid` saat dihapus)
+
+**Gejala:**
+Saat operator menghapus draft billing period yang sudah ada item yang di-settle (isMarkedPaid = true), field `isPaid` pada `UnitTransaction` tidak di-reverse ke `false`. Hanya period dengan `status === "processed"` yang di-reverse.
+
+**Fix:**
+Tambah pengecekan `period.billingItems.some((i) => i.isMarkedPaid)` agar draft yang sudah partial-settle juga melakukan reverse.
+
+**File:** `src/app/api/billing/[periodId]/route.ts`
+
+---
+
+### FIX-TAGIHAN-002 — totalMembers Menghitung Item, Bukan Unique Member
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** MEDIUM (Statistik period menunjukkan jumlah item, bukan jumlah anggota)
+
+**Fix:**
+`totalMembers` diubah dari `period.billingItems.length` ke `new Set(period.billingItems.map((i) => i.memberId)).size`.
+
+**File:** `src/app/api/billing/[periodId]/process/route.ts`
+
+---
+
+### FIX-TAGIHAN-003 — Partial Settle totalAmount Overwrite (Bukan Kumulatif)
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** HIGH (Setiap partial settle overwrite totalAmount dengan batch saat ini, bukan kumulatif)
+
+**Fix:**
+Re-query semua paid items setelah settle untuk menghitung total kumulatif:
+```typescript
+const allPaidItems = await tx.billingItem.findMany({
+  where: { billingPeriodId: period.id, isMarkedPaid: true }
+});
+```
+
+**File:** `src/app/api/billing/[periodId]/process/route.ts`
+
+---
+
+### FIX-TAGIHAN-004 — GET Endpoint Billing Tidak Ada Permission Check
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (Semua user terauthentikasi bisa baca data billing)
+
+**Fix:**
+Tambah `permissions.includes("manage_all")` check di GET handler.
+
+**File:** `src/app/api/billing/[periodId]/route.ts`
+
+---
+
+### FIX-TAGIHAN-005 — Tidak Ada Indikator Visual untuk Member yang Sudah Settle
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** MEDIUM (Operator tidak tahu mana member yang sudah di-settle)
+
+**Fix:**
+- Tambah `isPaid` field ke `MemberRow` interface
+- Sorting: unpaid first, lalu alphabetically
+- Badge "Lunas" + opacity untuk settled member
+- Checkbox hanya untuk unsettled member
+- Bulk settle hanya target unsettled member
+
+**File:** `src/app/(protected)/tagihan/page.tsx`
+
+---
+
+### FEAT-TAGIHAN-003 — Faktur Page di Portal Anggota
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Komponen:**
+- API: `GET /api/member-portal/faktur` — billing periods + items untuk member login
+- Page: `/portal/faktur` — expandable cards, status badges, detail table, print
+- Nav: Menu "Faktur" di portal layout
+
+**Fitur:**
+- Member melihat riwayat tagihan piutang potongan gaji
+- Expandable card per periode (Lunas/Menunggu)
+- Unit summary pills per periode
+- Detail table: Unit, Keterangan, Status, Jumlah per item
+- "Cetak Faktur" → professional A4 print
+- Cascade delete: saat operator hapus period, faktur hilang otomatis
+
+**File:**
+- `src/app/api/member-portal/faktur/route.ts`
+- `src/app/portal/faktur/page.tsx`
+- `src/app/portal/layout.tsx`
+
+---
+
+### FEAT-TAGIHAN-004 — Export Piutang PDF (A4 Professional)
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Fitur:**
+- Professional A4 document via `window.open()`
+- Kop surat: Logo PRIMKOPPOL, alamat (Jl. Alun-Alun Utara No. 11), telepon ((0334) 881110)
+- Info grid: Nama, NRP, Periode, Rentang, Status, Dikonfirmasi oleh
+- Unit summary pills
+- Detail table + total row
+- Auto-print via `setTimeout`
+
+**File:** `src/lib/export-utils.ts` (`generateFakturPiutangPDF`)
+
+---
+
+### FEAT-TAGIHAN-005 — Export Piutang Excel (3 Sheets)
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Fitur:**
+- Sheet 1: "Detail Anggota" — satu row per unit per member
+- Sheet 2: "Ringkasan Unit" — total per unit type
+- Sheet 3: "Rekap Anggota" — satu row per member dengan unit detail string
+- Column widths auto-set, currency formatting
+
+**File:** `src/lib/export-utils.ts` (`exportFakturPiutangExcel`)
+
+---
+
+### FEAT-TAGIHAN-006 — Mobile Responsive Tagihan
+
+**Tanggal:** 18 Mei 2026
+**Status:** ✅ IMPLEMENTED
+
+**Perbaikan:**
+- `/tagihan`: NRP hidden on sm, Unit hidden on md, inline info on mobile
+- `/tagihan/riwayat`: Progressive column hiding
+- Header buttons: icon-only on mobile, text on sm+
+
+---
+
+*Diperbarui: 18 Mei 2026*
+*Total bug tercatat modul Pinjaman: 47 | Total fitur baru: 23*

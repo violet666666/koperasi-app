@@ -11,9 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Coffee, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, ImageOff, AlertCircle, CheckCircle2, QrCode, Star, Clock, ListOrdered } from "lucide-react";
+import { Coffee, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, ImageOff, AlertCircle, CheckCircle2, QrCode, Star, Clock, ListOrdered, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+import { useAuth } from "@/lib/hooks";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; metadata?: any; }
 interface CartItem { product: Product; quantity: number; notes?: string; }
@@ -58,12 +59,16 @@ const useCafeLspStore = create<CafeLspState>()(
                 queueOrders: state.queueOrders.map(o => o.id === id ? { ...o, status } : o),
             })),
         }),
-        { name: "cafe-lsp-pos-storage" }
+        {
+            name: "cafe-lsp-pos-storage",
+            partialize: (state) => ({ cart: state.cart } as CafeLspState),
+        }
     )
 );
 
 export default function CafeLspKasirPage() {
     const { cart, queueOrders, addToCart, updateItem, removeItem, clearCart, addQueueOrder, updateQueueOrder } = useCafeLspStore();
+    const { user } = useAuth();
 
     const [products, setProducts] = React.useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -82,6 +87,14 @@ export default function CafeLspKasirPage() {
     const [isSearchingMember, setIsSearchingMember] = React.useState(false);
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
+
+    // Universal customer auto-detect (for all payment methods)
+    const [customerName, setCustomerName] = React.useState("");
+    const [customerSearchResults, setCustomerSearchResults] = React.useState<any[]>([]);
+    const [isSearchingCustomer, setIsSearchingCustomer] = React.useState(false);
+    const [showCustomerDropdown, setShowCustomerDropdown] = React.useState(false);
+    const customerInputRef = React.useRef<HTMLInputElement>(null);
+    const customerDropdownRef = React.useRef<HTMLDivElement>(null);
 
     const [showQrisDialog, setShowQrisDialog] = React.useState(false);
     const [qrisUrl, setQrisUrl] = React.useState<string | null>(null);
@@ -151,19 +164,80 @@ export default function CafeLspKasirPage() {
         checkShift();
     }, []);
 
-    React.useEffect(() => {
-        async function fetchQueueCount() {
-            try {
-                const today = new Date();
-                const startOfDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                const res = await fetch(`/api/toko/sales?unitType=cafe_lsp&perPage=1&from=${startOfDay}`);
-                const json = await res.json();
-                const total = json.pagination?.total || 0;
-                setNextQueueNumber(`A${String(total + 1).padStart(3, "0")}`);
-            } catch { setNextQueueNumber("A001"); }
-        }
-        fetchQueueCount();
+    // Fetch current queue state from server (atomic counter)
+    const fetchQueueCount = React.useCallback(async () => {
+        try {
+            const res = await fetch("/api/toko/queue?unitType=cafe_lsp");
+            const json = await res.json();
+            if (json.queueNumber) {
+                // Show next number (current + 1)
+                const num = json.currentCount + 1;
+                setNextQueueNumber(`A${String(num).padStart(3, "0")}`);
+            } else {
+                setNextQueueNumber("A001");
+            }
+        } catch { setNextQueueNumber("A001"); }
     }, []);
+
+    React.useEffect(() => { fetchQueueCount(); }, [fetchQueueCount]);
+
+    // Clear stale cart/queue data from previous sessions
+    React.useEffect(() => {
+        clearCart();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Auto-detect member by NRP/name for all payment methods
+    React.useEffect(() => {
+        if (selectedMember) return;
+        if (!customerName || customerName.length < 2) {
+            setCustomerSearchResults([]);
+            setShowCustomerDropdown(false);
+            return;
+        }
+        const timeout = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const res = await fetch(`/api/members?search=${encodeURIComponent(customerName)}&perPage=8`);
+                if (!res.ok) { setCustomerSearchResults([]); setShowCustomerDropdown(false); return; }
+                const json = await res.json();
+                const results = json.data || [];
+                setCustomerSearchResults(results);
+                setShowCustomerDropdown(results.length > 0);
+            } catch { setCustomerSearchResults([]); setShowCustomerDropdown(false); }
+            finally { setIsSearchingCustomer(false); }
+        }, 350);
+        return () => clearTimeout(timeout);
+    }, [customerName, selectedMember]);
+
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node) &&
+                customerInputRef.current && !customerInputRef.current.contains(e.target as Node)) {
+                setShowCustomerDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const selectCustomer = (member: any) => {
+        const memberObj: MemberResult = { id: member.id, memberNo: member.memberNo, name: member.name, nrp: member.nrp };
+        setSelectedMember(memberObj);
+        setCustomerName(member.name);
+        setCustomerSearchResults([]);
+        setShowCustomerDropdown(false);
+        toast.success(`Anggota dipilih: ${member.name} (${member.nrp || member.memberNo})`);
+    };
+
+    const clearCustomer = () => {
+        setSelectedMember(null);
+        setCustomerName("");
+        setCustomerSearchResults([]);
+        setShowCustomerDropdown(false);
+        setLimitInfo(null);
+        customerInputRef.current?.focus();
+    };
 
     const categories = React.useMemo(() => {
         const cats = new Set<string>();
@@ -222,6 +296,20 @@ export default function CafeLspKasirPage() {
 
         setIsProcessing(true);
         try {
+            // Get atomic queue number from server
+            let queueNum = nextQueueNumber;
+            try {
+                const queueRes = await fetch("/api/toko/queue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ unitType: "cafe_lsp" }),
+                });
+                if (queueRes.ok) {
+                    const queueJson = await queueRes.json();
+                    queueNum = queueJson.queueNumber || nextQueueNumber;
+                }
+            } catch {}
+
             const body: any = {
                 items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                 customerName: selectedMember?.name || "Tamu",
@@ -230,7 +318,7 @@ export default function CafeLspKasirPage() {
                 memberId: selectedMember?.id || undefined,
                 shiftId: activeShiftId || undefined,
                 metadata: {
-                    queueNumber: nextQueueNumber,
+                    queueNumber: queueNum,
                     orderType: "counter",
                     itemNotes: cart.reduce((acc, item) => {
                         if (item.notes) acc[String(item.product.id)] = item.notes;
@@ -249,15 +337,14 @@ export default function CafeLspKasirPage() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
 
-            const currentQueue = nextQueueNumber;
+            const currentQueue = queueNum;
             toast.success(`Antrian ${currentQueue} Lunas!`);
 
-            // Increment queue number locally for next order
-            const nextNum = parseInt(currentQueue.slice(1)) + 1;
-            setNextQueueNumber(`A${String(Math.min(nextNum, 999)).padStart(3, "0")}`);
+            // Re-fetch queue count from server for accurate next number
+            fetchQueueCount();
 
             addQueueOrder({
-                id: `order-${Date.now()}`,
+                id: `CL-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 queueNumber: currentQueue,
                 items: cart.map(i => `${i.quantity}x ${i.product.name}`).join(", "),
                 time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
@@ -273,7 +360,7 @@ export default function CafeLspKasirPage() {
                 keterangan: `Cafe LSP - Counter [Antrian ${currentQueue}]`,
                 total: subtotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
-                kasir: "Kasir Cafe LSP",
+                kasir: user?.name || "Kasir Cafe LSP",
                 unitType: "cafe_lsp",
                 items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
             };
@@ -281,7 +368,7 @@ export default function CafeLspKasirPage() {
             setShowReceipt(true);
 
             clearCart();
-            setPaymentAmount(""); setSelectedMember(null); setShowCreditDialog(false); setShowQrisDialog(false);
+            setPaymentAmount(""); setSelectedMember(null); setCustomerName(""); setShowCreditDialog(false); setShowQrisDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
         } finally { setIsProcessing(false); }
@@ -439,6 +526,89 @@ export default function CafeLspKasirPage() {
                             <span className="text-sm font-semibold text-slate-500">Subtotal</span>
                             <span className="text-2xl font-black tracking-tight text-slate-800">{formatCurrency(subtotal)}</span>
                         </div>
+
+                        {/* Customer Auto-Detect */}
+                        <div className="relative">
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    ref={customerInputRef}
+                                    placeholder="Ketik nama atau NRP pelanggan (opsional)..."
+                                    value={customerName}
+                                    onChange={(e) => {
+                                        if (selectedMember) { setSelectedMember(null); setLimitInfo(null); }
+                                        setCustomerName(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        if (customerSearchResults.length > 0) setShowCustomerDropdown(true);
+                                    }}
+                                    className={`pl-10 ${
+                                        selectedMember
+                                            ? "border-emerald-500 bg-emerald-50/50 pr-8"
+                                            : isSearchingCustomer
+                                            ? "border-blue-300 pr-8"
+                                            : ""
+                                    }`}
+                                    autoComplete="off"
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    {isSearchingCustomer && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                                    {selectedMember && (
+                                        <button type="button" onClick={clearCustomer}
+                                            className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-emerald-200 text-emerald-600" title="Hapus pilihan">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Autocomplete Dropdown */}
+                            {showCustomerDropdown && customerSearchResults.length > 0 && (
+                                <div ref={customerDropdownRef}
+                                    className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-border rounded-lg shadow-xl overflow-hidden">
+                                    <div className="px-3 py-1.5 bg-muted/50 border-b">
+                                        <p className="text-[10px] text-muted-foreground font-medium">
+                                            {customerSearchResults.length} anggota ditemukan — klik untuk pilih
+                                        </p>
+                                    </div>
+                                    <div className="max-h-48 overflow-y-auto">
+                                        {customerSearchResults.map((member: any) => (
+                                            <button key={member.id} type="button" onClick={() => selectCustomer(member)}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-primary/5 transition-colors border-b border-border/40 last:border-0">
+                                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                                                    {member.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium text-sm truncate">{member.name}</p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {member.nrp || member.memberNo}
+                                                        {member.category && <span className="ml-1 text-blue-500">· {member.category}</span>}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Selected member badge */}
+                            {selectedMember && (
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 mt-1">
+                                    <div className="h-6 w-6 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-[10px] font-bold">
+                                        {selectedMember.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-emerald-800 truncate">{selectedMember.name}</p>
+                                        <p className="text-[10px] text-emerald-600">{selectedMember.nrp || selectedMember.memberNo}</p>
+                                    </div>
+                                    {limitInfo && limitInfo.allowed && (
+                                        <Badge variant="outline" className="text-[9px] border-emerald-300 text-emerald-600">
+                                            Limit: {formatCurrency(limitInfo.sisaLimit)}
+                                        </Badge>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <div className="flex gap-2">
                             <Input type="number" placeholder="Tunai Diterima..." className="h-12 text-lg font-mono text-center flex-1"
                                 value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
@@ -454,7 +624,10 @@ export default function CafeLspKasirPage() {
                             <Button variant="outline" className="h-10 border-sky-200 text-sky-700 hover:bg-sky-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowQrisDialog(true); }} disabled={cart.length === 0 || isProcessing || shiftOpen === false}>
                                 <CreditCard className="mr-2 h-4 w-4" /> QRIS
                             </Button>
-                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => { if (cart.length === 0) { toast.error("Pesanan kosong"); return; } setShowCreditDialog(true); }} disabled={cart.length === 0 || isProcessing || shiftOpen === false}>
+                            <Button variant="outline" className="h-10 border-slate-300 text-slate-700 hover:bg-slate-50" onClick={() => {
+                                if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
+                                if (selectedMember) { processPayment("salary_cut"); } else { setShowCreditDialog(true); }
+                            }} disabled={cart.length === 0 || isProcessing || shiftOpen === false}>
                                 <User className="mr-2 h-4 w-4" /> Potong Gaji
                             </Button>
                         </div>

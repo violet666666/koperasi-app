@@ -48,10 +48,11 @@ export async function GET(request: Request) {
             const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar"];
             const includeStoreSales = !unitType || unitType === "all" || storeBasedUnits.includes(unitType);
 
-            // Build StoreSale where clause with isPaid + unitType filters
+            // Build StoreSale where clause — do NOT use Prisma JSON filter for isVoided
+            // because it excludes rows where metadata is NULL (most sales have null metadata).
+            // Instead, filter voided sales in JS after fetching.
             const storeWhere: Record<string, unknown> = {
                 memberId,
-                NOT: { metadata: { path: ["isVoided"], equals: true } },
             };
             if (unitType && unitType !== "all" && storeBasedUnits.includes(unitType)) {
                 storeWhere.unitType = unitType;
@@ -89,10 +90,29 @@ export async function GET(request: Request) {
                 ? await prisma.storeSale.count({ where: storeWhere })
                 : 0;
 
+            // Debug: log raw data to server console for diagnosis
+            const debugMode = searchParams.get("debug") === "1";
+            if (debugMode) {
+                console.log("[DEBUG member-portal/transactions] memberId:", memberId);
+                console.log("[DEBUG] unitTxns raw count:", unitTxns.length);
+                console.log("[DEBUG] unitTxns raw:", JSON.stringify(unitTxns.map((t: any) => ({
+                    id: t.id, transactionNo: t.transactionNo, unitType: t.unitType,
+                    paymentMethod: t.paymentMethod, isPaid: t.isPaid, status: t.status,
+                    amount: Number(t.amount), notes: t.notes?.substring(0, 80),
+                })), null, 2));
+                console.log("[DEBUG] storeSales raw count:", storeSales.length);
+                console.log("[DEBUG] storeSales raw:", JSON.stringify(storeSales.map((s: any) => ({
+                    id: s.id, saleNo: s.saleNo, unitType: s.unitType,
+                    paymentMethod: s.paymentMethod, amount: Number(s.totalAmount),
+                })), null, 2));
+            }
+
+            const excludedUnitTxns: any[] = [];
             const mappedUnitTxns = unitTxns
                 .filter((t) => {
                     // Exclude auto-generated salary_cut piutang — StoreSale already represents them
                     if (t.paymentMethod === "salary_cut" && t.notes?.startsWith("Auto-generated dari penjualan kasir")) {
+                        excludedUnitTxns.push({ id: t.id, transactionNo: t.transactionNo, reason: "auto-generated salary_cut" });
                         return false;
                     }
                     return true;
@@ -112,7 +132,9 @@ export async function GET(request: Request) {
                     status: t.status,
                 }));
 
-            const mappedStoreSales = storeSales.map((s: any) => {
+            const mappedStoreSales = storeSales
+                .filter((s: any) => !(s.metadata?.isVoided === true))
+                .map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                     const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
                     return {
@@ -152,6 +174,22 @@ export async function GET(request: Request) {
                 ? Math.round(unitCount * (mappedUnitTxns.length / unitTxns.length))
                 : Math.max(0, unitCount - (unitTxns.length - mappedUnitTxns.length));
             if (type === "unit") result.meta.total = filteredTotal + storeCount;
+
+            // Attach debug info to response for client-side inspection
+            if (debugMode && type === "unit") {
+                (result as any)._debug = {
+                    memberId,
+                    rawUnitTxnCount: unitTxns.length,
+                    rawStoreSaleCount: storeSales.length,
+                    excludedUnitTxns,
+                    mappedUnitTxnCount: mappedUnitTxns.length,
+                    mappedStoreSaleCount: mappedStoreSales.length,
+                    dbUnitCount: unitCount,
+                    dbStoreCount: storeCount,
+                    mergedTotal: allUnitTxns.length,
+                    pageSlice: result.unitTransactions?.length,
+                };
+            }
         }
 
         if (!type || type === "savings") {

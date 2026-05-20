@@ -82,29 +82,41 @@ export async function GET() {
             0
         );
 
-        // Get unit transactions summary (include voided for display but mark them)
-        const unitTransactions = await prisma.unitTransaction.findMany({
+        // Get unit transactions summary — fetch extra to allow for dedup filtering
+        const unitTransactionsRaw = await prisma.unitTransaction.findMany({
             where: { memberId },
             orderBy: { transactionDate: "desc" },
-            take: 10,
+            take: 20,
             select: {
                 id: true, transactionNo: true, unitType: true, description: true,
                 amount: true, transactionDate: true, isPaid: true, paidDate: true,
-                status: true, paymentMethod: true,
+                status: true, paymentMethod: true, notes: true,
             },
         });
 
-        // BUG-113 FIX: Also fetch StoreSale for dashboard history
-        const storeSaleTxs = await prisma.storeSale.findMany({
+        // Dedup: exclude auto-generated salary_cut piutang (StoreSale already represents them)
+        const unitTransactions = unitTransactionsRaw.filter(t => {
+            if (t.paymentMethod === "salary_cut" && t.notes?.startsWith("Auto-generated dari penjualan kasir")) {
+                return false;
+            }
+            return true;
+        });
+
+        // Fetch StoreSale for dashboard history (filter voided in JS — Prisma JSON filter
+        // excludes rows where metadata is null, which is most sales)
+        const storeSaleTxsRaw = await prisma.storeSale.findMany({
             where: { memberId },
             orderBy: { createdAt: "desc" },
-            take: 10,
+            take: 15,
             select: {
                 id: true, saleNo: true, unitType: true, totalAmount: true,
-                createdAt: true, paymentMethod: true,
+                createdAt: true, paymentMethod: true, metadata: true,
                 items: { select: { product: { select: { name: true } }, quantity: true } },
             },
         });
+        const storeSaleTxs = storeSaleTxsRaw.filter(s => !(s.metadata?.isVoided === true));
+
+        const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
 
         // Merge UnitTransaction + StoreSale into unified recent list
         const mergedRecent = [
@@ -121,7 +133,7 @@ export async function GET() {
                 source: 'unit' as const,
             })),
             ...storeSaleTxs.map(s => {
-                const itemDesc = s.items.map(i => `${i.product.name} x${i.quantity}`).join(', ');
+                const itemDesc = s.items.map(i => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                 return {
                     id: s.id + 100000, // offset to avoid ID clash in frontend keys
                     transactionNo: s.saleNo,
@@ -129,7 +141,7 @@ export async function GET() {
                     description: itemDesc || 'Belanja Toko',
                     amount: Number(s.totalAmount),
                     transactionDate: s.createdAt,
-                    isPaid: true, // StoreSale is always paid (cash/QRIS at checkout)
+                    isPaid: s.paymentMethod !== "salary_cut",
                     status: 'completed',
                     paymentMethod: s.paymentMethod,
                     source: 'store' as const,
@@ -137,10 +149,18 @@ export async function GET() {
             }),
         ].sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()).slice(0, 10);
 
-        // Stats: combine both tables
+        // Stats: combine both tables — exclude auto-generated salary_cut from UnitTransaction stats
+        // (StoreSale already represents those transactions)
         const unitStats = await prisma.unitTransaction.groupBy({
             by: ["unitType"],
-            where: { memberId, status: { not: "voided" } },
+            where: {
+                memberId,
+                status: { not: "voided" },
+                NOT: {
+                    paymentMethod: "salary_cut",
+                    notes: { startsWith: "Auto-generated dari penjualan kasir" },
+                },
+            },
             _sum: { amount: true },
             _count: { id: true },
         });
@@ -174,13 +194,32 @@ export async function GET() {
         }
         const mergedStats = Array.from(statsMap.entries()).map(([unitType, v]) => ({ unitType, ...v }));
 
+        // Unpaid piutang: exclude auto-generated salary_cut (StoreSale handles those)
         const unpaidUnitTotal = await prisma.unitTransaction.aggregate({
-            where: { memberId, isPaid: false, status: { not: "voided" } },
+            where: {
+                memberId,
+                isPaid: false,
+                status: { not: "voided" },
+                NOT: {
+                    paymentMethod: "salary_cut",
+                    notes: { startsWith: "Auto-generated dari penjualan kasir" },
+                },
+            },
             _sum: { amount: true },
             _count: { id: true },
         });
 
-        // --- Real-time SHU Estimation ---
+        // Count salary_cut StoreSales as unpaid piutang (filter voided in JS)
+        const unpaidStoreSalesRaw = await prisma.storeSale.findMany({
+            where: { memberId, paymentMethod: "salary_cut" },
+            select: { totalAmount: true, metadata: true },
+        });
+        const unpaidStoreSales = unpaidStoreSalesRaw.filter(s => !(s.metadata?.isVoided === true));
+        const unpaidStoreAmount = unpaidStoreSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+        const unpaidStoreCount = unpaidStoreSales.length;
+
+        const totalUnpaidAmount = Number(unpaidUnitTotal._sum.amount || 0) + unpaidStoreAmount;
+        const totalUnpaidCount = unpaidUnitTotal._count.id + unpaidStoreCount;
         const year = new Date().getFullYear();
         const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
         const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
@@ -361,8 +400,8 @@ export async function GET() {
                 unitTransactions: {
                     recent: mergedRecent,
                     byUnit: mergedStats,
-                    unpaidTotal: Number(unpaidUnitTotal._sum.amount || 0),
-                    unpaidCount: unpaidUnitTotal._count.id,
+                    unpaidTotal: totalUnpaidAmount,
+                    unpaidCount: totalUnpaidCount,
                 },
                 estimatedSHU: {
                     total: estimatedSHUTotal,

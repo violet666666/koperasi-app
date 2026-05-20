@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { logAuditFromRequest } from "@/lib/audit-logger";
 import { Prisma } from "@prisma/client";
@@ -53,6 +54,11 @@ export async function POST(
         const product = await prisma.storeProduct.findUnique({ where: { id: productId, deletedAt: null } });
         if (!product) {
             return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+
+        const userUnitType = (session.user as { unitType?: string }).unitType;
+        if (role !== "operator" && userUnitType && !isSameUnit(product.unitType, userUnitType)) {
+            return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
         }
 
         const effectiveStock = product.stockGdg + product.stockToko;
@@ -406,6 +412,7 @@ function reasonLabel(reason: string): string {
         damaged: "Rusak / Hilang",
         expired: "Kadaluarsa",
         internal_use: "Pemakaian Internal",
+        waste: "Waste / Spill",
         other: "Lainnya",
     };
     return labels[reason] || reason;

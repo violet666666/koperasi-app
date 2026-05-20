@@ -23,7 +23,7 @@ import {
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
-    Star,
+    Star, ImagePlus, Camera,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 
@@ -40,6 +40,16 @@ interface Product {
     unit: string;
     minStock: number;
     isActive?: boolean;
+    imageUrl?: string | null;
+    trackStock?: boolean;
+}
+
+interface IngredientOption {
+    id: number;
+    name: string;
+    unit: string;
+    costPrice: number;
+    stockGdg: number;
 }
 
 export default function TokoProdukPage() {
@@ -51,7 +61,10 @@ export default function TokoProdukPage() {
     // Dynamic unit type for API calls — use actual unitType instead of hardcoding
     const productUnitType = isResto ? "resto" : unitType;
     const isKasir = userRole === "kasir";
-    const produkBaseRoute = unitType === "cafe_lsp" ? "/cafe-lsp/produk" : unitType === "playstation" ? "/play-station/pengaturan" : "/toko/produk";
+    const produkBaseRoute = unitType === "cafe_lsp" ? "/cafe-lsp/produk"
+        : ["resto_cafe", "resto", "coffe_latar"].includes(unitType) ? "/resto/produk"
+        : unitType === "playstation" ? "/play-station/pengaturan"
+        : "/toko/produk";
 
     // Dynamic labels
     const UNIT_PRODUCT_LABELS: Record<string, { title: string; desc: string; itemName: string }> = {
@@ -113,10 +126,20 @@ export default function TokoProdukPage() {
     const [showRecipeDialog, setShowRecipeDialog] = React.useState(false);
     const [recipeProductId, setRecipeProductId] = React.useState<number | null>(null);
     const [recipeProductName, setRecipeProductName] = React.useState("");
-    const [recipeItems, setRecipeItems] = React.useState<{ id?: number; ingredientName: string; quantity: string; unit: string; unitCost: string }[]>([]);
+    const [recipeItems, setRecipeItems] = React.useState<{ id?: number; ingredientName: string; quantity: string; unit: string; unitCost: string; ingredientProductId?: number | null }[]>([]);
     const [recipeTotalCost, setRecipeTotalCost] = React.useState(0);
     const [isRecipeSaving, setIsRecipeSaving] = React.useState(false);
     const [isRecipeLoading, setIsRecipeLoading] = React.useState(false);
+    const [ingredientOptions, setIngredientOptions] = React.useState<IngredientOption[]>([]);
+
+    // Image edit state
+    const [showImageDialog, setShowImageDialog] = React.useState(false);
+    const [imageProductId, setImageProductId] = React.useState<number | null>(null);
+    const [imageProductName, setImageProductName] = React.useState("");
+    const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+    const [imageFile, setImageFile] = React.useState<string>("");
+    const [isImageSaving, setIsImageSaving] = React.useState(false);
+    const imageFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Quick Keys state
     const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
@@ -128,28 +151,36 @@ export default function TokoProdukPage() {
         setShowRecipeDialog(true);
         setIsRecipeLoading(true);
         try {
-            const res = await fetch(`/api/toko/products/${product.id}/recipe`);
-            const json = await res.json();
-            if (json.data && json.data.length > 0) {
-                setRecipeItems(json.data.map((r: any) => ({
+            const [recipeRes, ingredientRes] = await Promise.all([
+                fetch(`/api/toko/products/${product.id}/recipe`),
+                fetch(`/api/toko/products?productType=ingredient&unitType=${productUnitType}&perPage=200`),
+            ]);
+            const recipeJson = await recipeRes.json();
+            const ingredientJson = await ingredientRes.json();
+            const ingredients = (ingredientJson.products || ingredientJson.data || []) as IngredientOption[];
+            setIngredientOptions(ingredients);
+
+            if (recipeJson.data && recipeJson.data.length > 0) {
+                setRecipeItems(recipeJson.data.map((r: any) => ({
                     id: r.id,
                     ingredientName: r.ingredientName,
                     quantity: String(r.quantity),
                     unit: r.unit,
                     unitCost: String(r.unitCost),
+                    ingredientProductId: r.ingredientProductId || null,
                 })));
-                setRecipeTotalCost(json.totalCost || 0);
+                setRecipeTotalCost(recipeJson.totalCost || 0);
             } else {
-                setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+                setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
                 setRecipeTotalCost(0);
             }
         } catch {
-            setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+            setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
         } finally { setIsRecipeLoading(false); }
     };
 
     const addRecipeRow = () => {
-        setRecipeItems(prev => [...prev, { ingredientName: "", quantity: "", unit: "ml", unitCost: "" }]);
+        setRecipeItems(prev => [...prev, { ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
     };
 
     const removeRecipeRow = (index: number) => {
@@ -179,6 +210,7 @@ export default function TokoProdukPage() {
                 quantity: parseFloat(i.quantity),
                 unit: i.unit || "ml",
                 unitCost: parseFloat(i.unitCost) || 0,
+                ingredientProductId: i.ingredientProductId || null,
             }));
             const res = await fetch(`/api/toko/products/${recipeProductId}/recipe`, {
                 method: "POST",
@@ -667,6 +699,56 @@ export default function TokoProdukPage() {
         }
     };
 
+    // ── Image Edit ──
+    const openImageDialog = (product: Product) => {
+        setImageProductId(product.id);
+        setImageProductName(product.name);
+        setImagePreview(product.imageUrl || null);
+        setImageFile("");
+        setShowImageDialog(true);
+    };
+
+    const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 1 * 1024 * 1024) { toast.error("Ukuran gambar maksimal 1MB"); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = reader.result as string;
+            setImageFile(base64);
+            setImagePreview(base64);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeImagePreview = () => {
+        setImageFile("");
+        setImagePreview(null);
+        if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+    };
+
+    const saveImage = async () => {
+        if (!imageProductId) return;
+        setIsImageSaving(true);
+        try {
+            const imageUrlValue = imageFile === "REMOVE" ? null : (imageFile || null);
+            const res = await fetch(`/api/toko/products/${imageProductId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imageUrl: imageUrlValue }),
+            });
+            const json = await res.json();
+            if (!res.ok) { toast.error(json.message || "Gagal menyimpan gambar"); return; }
+            toast.success(imageUrlValue ? `Gambar "${imageProductName}" berhasil diperbarui` : `Gambar "${imageProductName}" berhasil dihapus`);
+            setShowImageDialog(false);
+            await fetchProducts();
+        } catch {
+            toast.error("Gagal menyimpan gambar");
+        } finally {
+            setIsImageSaving(false);
+        }
+    };
+
     // ── Render ──
     return (
         <div className="space-y-6">
@@ -955,10 +1037,28 @@ export default function TokoProdukPage() {
                                                                 </Button>
                                                             )}
                                                             {isFnB && (
-                                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openRecipeDialog(p)} title="Resep / HPP">
+                                                                <Button size="icon" variant="ghost"
+                                                                    className={`h-7 w-7 ${p.trackStock === false ? "text-orange-500 bg-orange-50" : "text-slate-400 hover:text-orange-400"}`}
+                                                                    onClick={async () => {
+                                                                        const newVal = p.trackStock !== false;
+                                                                        try {
+                                                                            const res = await fetch(`/api/toko/products/${p.id}`, {
+                                                                                method: "PUT",
+                                                                                headers: { "Content-Type": "application/json" },
+                                                                                body: JSON.stringify({ trackStock: newVal }),
+                                                                            });
+                                                                            if (!res.ok) { const j = await res.json(); toast.error(j.message); return; }
+                                                                            toast.success(newVal ? "Produk retail — potong stok produk" : "Produk racikan — potong stok bahan baku");
+                                                                            fetchProducts();
+                                                                        } catch { toast.error("Gagal mengubah mode stok"); }
+                                                                    }}
+                                                                    title={p.trackStock === false ? "Racikan (klik untuk Retail)" : "Retail (klik untuk Racikan)"}>
                                                                     <BookOpen className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             )}
+                                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openImageDialog(p)} title="Edit Gambar">
+                                                                <Camera className="h-3.5 w-3.5" />
+                                                            </Button>
                                                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)} title="Edit Produk">
                                                                 <Pencil className="h-3.5 w-3.5" />
                                                             </Button>
@@ -1247,6 +1347,7 @@ export default function TokoProdukPage() {
                         </DialogTitle>
                         <DialogDescription>
                             Kelola bahan baku per menu. HPP dihitung otomatis dari total resep.
+                            Pilih bahan baku yang terdaftar untuk menghubungkan ke stok gudang.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1254,46 +1355,109 @@ export default function TokoProdukPage() {
                         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
                     ) : (
                         <div className="space-y-3">
-                            <div className="grid grid-cols-[1fr_80px_60px_100px_80px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+                            {/* Mobile: stacked rows. Desktop: grid */}
+                            <div className="hidden sm:grid grid-cols-[1fr_80px_60px_100px_80px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
                                 <span>Nama Bahan</span>
                                 <span>Qty</span>
                                 <span>Satuan</span>
-                                <span>Harga/Unit</span>
+                                <span>HPP/Unit</span>
                                 <span>Subtotal</span>
                                 <span></span>
                             </div>
                             {recipeItems.map((item, idx) => {
                                 const subtotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitCost) || 0);
+                                const linkedIngredient = item.ingredientProductId
+                                    ? ingredientOptions.find(o => o.id === item.ingredientProductId)
+                                    : null;
                                 return (
-                                    <div key={idx} className="grid grid-cols-[1fr_80px_60px_100px_80px_32px] gap-2 items-center">
-                                        <Input className="h-8 text-sm" placeholder="Nama bahan" value={item.ingredientName}
-                                            onChange={e => updateRecipeRow(idx, "ingredientName", e.target.value)} />
-                                        <Input className="h-8 text-sm text-center" type="number" placeholder="0" value={item.quantity}
-                                            onChange={e => updateRecipeRow(idx, "quantity", e.target.value)} />
-                                        <select className="h-8 text-sm border rounded px-1 bg-background"
-                                            value={item.unit} onChange={e => updateRecipeRow(idx, "unit", e.target.value)}>
-                                            <option value="ml">ml</option>
-                                            <option value="gr">gr</option>
-                                            <option value="pcs">pcs</option>
-                                            <option value="ltr">ltr</option>
-                                            <option value="kg">kg</option>
-                                        </select>
-                                        <Input className="h-8 text-sm text-right" type="number" placeholder="0" value={item.unitCost}
-                                            onChange={e => updateRecipeRow(idx, "unitCost", e.target.value)} />
-                                        <span className="text-sm text-right tabular-nums">{formatCurrency(subtotal)}</span>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => removeRecipeRow(idx)} disabled={recipeItems.length <= 1}>
-                                            <X className="h-3.5 w-3.5" />
-                                        </Button>
+                                    <div key={idx} className="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-[1fr_80px_60px_100px_80px_32px] sm:gap-2 sm:items-center p-2 sm:p-0 rounded-lg border sm:border-0 bg-muted/30 sm:bg-transparent">
+                                        {/* Ingredient selector + name */}
+                                        <div className="space-y-1">
+                                            <select
+                                                className="w-full h-7 text-xs border rounded px-1 bg-amber-50 border-amber-200 text-amber-800"
+                                                value={item.ingredientProductId || ""}
+                                                onChange={e => {
+                                                    const selectedId = e.target.value ? Number(e.target.value) : null;
+                                                    const selected = selectedId ? ingredientOptions.find(o => o.id === selectedId) : null;
+                                                    setRecipeItems(prev => prev.map((it, i) => i === idx ? {
+                                                        ...it,
+                                                        ingredientProductId: selectedId,
+                                                        ingredientName: selected ? selected.name : it.ingredientName,
+                                                        unit: selected ? selected.unit : it.unit,
+                                                        unitCost: selected ? String(selected.costPrice) : it.unitCost,
+                                                    } : it));
+                                                }}
+                                            >
+                                                <option value="">— Pilih Bahan Baku —</option>
+                                                {ingredientOptions.map(o => (
+                                                    <option key={o.id} value={o.id}>
+                                                        {o.name} ({o.stockGdg} {o.unit}) — Rp{o.costPrice.toLocaleString("id-ID")}/{o.unit}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <Input className="h-7 text-xs" placeholder="Nama bahan (manual)" value={item.ingredientName}
+                                                onChange={e => updateRecipeRow(idx, "ingredientName", e.target.value)} />
+                                        </div>
+                                        <div className="flex items-center gap-2 sm:contents">
+                                            <div className="flex-1 sm:hidden">
+                                                <Input className="h-7 text-xs text-center" type="number" placeholder="0" value={item.quantity}
+                                                    onChange={e => updateRecipeRow(idx, "quantity", e.target.value)} />
+                                            </div>
+                                            <Input className="hidden sm:block h-7 text-xs text-center" type="number" placeholder="0" value={item.quantity}
+                                                onChange={e => updateRecipeRow(idx, "quantity", e.target.value)} />
+                                            <div className="flex-1 sm:hidden">
+                                                <select className="h-7 text-xs border rounded px-1 bg-background w-full"
+                                                    value={item.unit} onChange={e => updateRecipeRow(idx, "unit", e.target.value)}>
+                                                    <option value="ml">ml</option>
+                                                    <option value="gr">gr</option>
+                                                    <option value="pcs">pcs</option>
+                                                </select>
+                                            </div>
+                                            <select className="hidden sm:block h-7 text-xs border rounded px-1 bg-background"
+                                                value={item.unit} onChange={e => updateRecipeRow(idx, "unit", e.target.value)}>
+                                                <option value="ml">ml</option>
+                                                <option value="gr">gr</option>
+                                                <option value="pcs">pcs</option>
+                                            </select>
+                                            <div className="flex-1 sm:hidden">
+                                                <Input className="h-7 text-xs text-right" type="number" placeholder="0" value={item.unitCost}
+                                                    onChange={e => updateRecipeRow(idx, "unitCost", e.target.value)} />
+                                            </div>
+                                            <Input className="hidden sm:block h-7 text-xs text-right" type="number" placeholder="0" value={item.unitCost}
+                                                onChange={e => updateRecipeRow(idx, "unitCost", e.target.value)} />
+                                            <span className="text-xs text-right tabular-nums flex-1 sm:block">{formatCurrency(subtotal)}</span>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 shrink-0" onClick={() => removeRecipeRow(idx)} disabled={recipeItems.length <= 1}>
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                        {linkedIngredient && (
+                                            <div className="text-[10px] text-muted-foreground sm:col-span-6">
+                                                Stok gudang: {linkedIngredient.stockGdg} {linkedIngredient.unit}
+                                                {linkedIngredient.stockGdg <= 100 && <span className="text-amber-600 ml-1">(menipis)</span>}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
                             <Button variant="outline" size="sm" className="w-full" onClick={addRecipeRow}>
                                 <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Bahan
                             </Button>
+                            {ingredientOptions.length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center">
+                                    Belum ada bahan baku terdaftar.{" "}
+                                    <Link href={unitType === "cafe_lsp" ? "/cafe-lsp/bahan-baku" : "/resto/bahan-baku"} className="text-primary underline">
+                                        Daftarkan bahan baku
+                                    </Link>{" "}
+                                    agar bisa dihubungkan ke resep.
+                                </p>
+                            )}
                             <div className="flex items-center justify-between pt-3 border-t">
                                 <div className="text-sm">
                                     <span className="text-muted-foreground">Total HPP:</span>{" "}
                                     <span className="font-bold text-lg">{formatCurrency(calcRecipeTotal())}</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {recipeItems.filter(i => i.ingredientProductId).length}/{recipeItems.filter(i => i.ingredientName.trim()).length} bahan terhubung
                                 </div>
                             </div>
                         </div>
@@ -1304,6 +1468,64 @@ export default function TokoProdukPage() {
                         <Button onClick={saveRecipe} disabled={isRecipeSaving}>
                             {isRecipeSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                             Simpan Resep
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Image Edit Dialog */}
+            <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Camera className="h-5 w-5 text-blue-500" />
+                            Gambar Menu
+                        </DialogTitle>
+                        <DialogDescription>
+                            {imageProductName}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <input
+                            ref={imageFileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            className="hidden"
+                            onChange={handleImageFileSelect}
+                        />
+                        {imagePreview ? (
+                            <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-blue-200 shadow-sm">
+                                <img src={imagePreview} alt={imageProductName} className="w-full h-full object-cover" />
+                                <button type="button" onClick={removeImagePreview}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => imageFileInputRef.current?.click()}
+                                className="w-full h-48 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors flex flex-col items-center justify-center text-slate-400 hover:text-blue-600">
+                                <ImagePlus className="h-10 w-10 mb-2" />
+                                <span className="text-sm font-medium">Upload Gambar</span>
+                                <span className="text-xs mt-1">PNG, JPG, WebP (maks 1MB)</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setShowImageDialog(false)}>Batal</Button>
+                        {imagePreview && imageFile === "" && (
+                            <Button variant="destructive" onClick={async () => {
+                                setImageFile("REMOVE");
+                                setImagePreview(null);
+                                if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+                            }} disabled={isImageSaving}>
+                                Hapus Gambar
+                            </Button>
+                        )}
+                        <Button onClick={saveImage} disabled={isImageSaving || (!imageFile && !imagePreview)}>
+                            {isImageSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {imageFile === "REMOVE" ? "Hapus Gambar" : imageFile && imageFile !== "REMOVE" ? "Simpan Gambar" : "Simpan"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

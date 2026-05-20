@@ -22,7 +22,7 @@ export async function PUT(
             return NextResponse.json({ message: "User not found" }, { status: 404 });
         }
 
-        const isOperator = ["operator", "super_admin"].includes(sessionUser.role.name);
+        const isOperator = ["operator"].includes(sessionUser.role.name);
         const isAdmin = sessionUser.role.name === "admin";
         if (!isOperator && !isAdmin) {
             return NextResponse.json({ message: "Hanya Admin/Operator yang dapat mengedit shift" }, { status: 403 });

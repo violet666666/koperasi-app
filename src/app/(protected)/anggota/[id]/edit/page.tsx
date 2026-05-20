@@ -25,6 +25,16 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { getProvinceNames, getCitiesByProvince } from "@/lib/constants/regions";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function EditAnggotaPage() {
     const router = useRouter();
@@ -33,6 +43,9 @@ export default function EditAnggotaPage() {
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [showNrpDialog, setShowNrpDialog] = React.useState(false);
+    const [pendingNrp, setPendingNrp] = React.useState("");
+    const [originalNrp, setOriginalNrp] = React.useState("");
 
     const [activeRoles, setActiveRoles] = React.useState<{ id: number; name: string; displayName: string }[]>([]);
 
@@ -45,6 +58,7 @@ export default function EditAnggotaPage() {
         category: "",
         salary: "",
         tunlesKinerja: "",
+        sisaGaji: "",
         tabunganWajib: "",
         birthPlace: "",
         birthDate: "",
@@ -80,6 +94,7 @@ export default function EditAnggotaPage() {
                 const roles = res.data?.meta?.roles || [];
                 setActiveRoles(roles);
 
+                setOriginalNrp(mData.nrp || "");
                 const getBal = (type: string) => {
                     if (!mData.savingsAccounts) return "0";
                     const acc = mData.savingsAccounts.find((a: any) => a.product?.type === type);
@@ -94,6 +109,7 @@ export default function EditAnggotaPage() {
                     category: mData.category || "",
                     salary: mData.salary ? String(mData.salary) : "",
                     tunlesKinerja: mData.tunlesKinerja ? String(mData.tunlesKinerja) : "",
+                    sisaGaji: mData.sisaGaji ? String(mData.sisaGaji) : "",
                     tabunganWajib: mData.tabunganWajib ? String(mData.tabunganWajib) : "",
                     birthPlace: mData.birthPlace || "",
                     birthDate: mData.birthDate ? mData.birthDate.split("T")[0] : "",
@@ -150,6 +166,19 @@ export default function EditAnggotaPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Check if NRP changed
+        const newNrp = formData.nrp.trim();
+        if (newNrp !== originalNrp && newNrp !== "") {
+            setPendingNrp(newNrp);
+            setShowNrpDialog(true);
+            return;
+        }
+
+        await doSubmit();
+    };
+
+    const doSubmit = async () => {
         setIsSaving(true);
         try {
             const payload: Record<string, any> = { ...formData };
@@ -433,6 +462,11 @@ export default function EditAnggotaPage() {
                             <Input id="tunlesKinerja" name="tunlesKinerja" type="number" min="0" value={formData.tunlesKinerja} onChange={handleChange} placeholder="Rp" />
                         </div>
                         <div>
+                            <Label htmlFor="sisaGaji">Sisa Gaji (Setelah Potongan)</Label>
+                            <Input id="sisaGaji" name="sisaGaji" type="number" min="0" value={formData.sisaGaji} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Sisa gaji bersih setelah potongan koperasi (simpanan, angsuran, piutang).</p>
+                        </div>
+                        <div>
                             <Label htmlFor="tabunganWajib">Target Setoran Wajib Per Bulan</Label>
                             <Input id="tabunganWajib" name="tabunganWajib" type="number" min="0" value={formData.tabunganWajib} onChange={handleChange} placeholder="Rp" />
                             <p className="text-[10px] text-orange-600 mt-1 font-semibold">⚠ Ini adalah TARGET BULANAN (Misal: 50.000). BUKAN total saldo saat ini!</p>
@@ -544,6 +578,41 @@ export default function EditAnggotaPage() {
                     </Button>
                 </div>
             </form>
+
+            {/* NRP Change Confirmation Dialog */}
+            <AlertDialog open={showNrpDialog} onOpenChange={setShowNrpDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Perubahan NRP Terdeteksi</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p>
+                                    NRP akan berubah dari <strong className="font-mono">{originalNrp || "(kosong)"}</strong> menjadi{" "}
+                                    <strong className="font-mono">{pendingNrp}</strong>.
+                                </p>
+                                <p className="text-sm">Perubahan ini akan:</p>
+                                <ul className="text-sm list-disc list-inside space-y-1">
+                                    <li>Reset password login member ke NRP baru</li>
+                                    <li>Update username login ke NRP baru</li>
+                                    <li>Member harus login ulang dengan NRP baru</li>
+                                </ul>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowNrpDialog(false)}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={async () => {
+                                setShowNrpDialog(false);
+                                await doSubmit();
+                            }}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                        >
+                            Ya, Ubah NRP
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

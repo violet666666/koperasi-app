@@ -10,8 +10,7 @@ export async function PUT(request: Request, context: { params: Promise<{ slug: s
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-
-        if (session.user.role !== "admin" && session.user.role !== "operator" && session.user.role !== "superadmin") {
+        if (!["operator", "admin"].includes(session.user.role)) {
             return NextResponse.json({ message: "Hanya Admin Unit yang dapat mengubah paket layanan" }, { status: 403 });
         }
 
@@ -62,8 +61,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ slug
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
-
-        if (session.user.role !== "admin" && session.user.role !== "operator" && session.user.role !== "superadmin") {
+        if (!["operator", "admin"].includes(session.user.role)) {
             return NextResponse.json({ message: "Hanya Admin Unit yang dapat menghapus paket layanan" }, { status: 403 });
         }
 

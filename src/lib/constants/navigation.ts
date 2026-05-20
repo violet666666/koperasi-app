@@ -44,6 +44,12 @@ import {
     Layers,
     Coffee,
     Banknote,
+    SearchCheck,
+    Monitor,
+    Grid3x3,
+    Settings2,
+    FlaskConical,
+    ClipboardCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -137,6 +143,21 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
     },
 
     {
+        title: "TAGIHAN",
+        roles: ["operator"],
+        items: [
+            {
+                title: "Tagihan Piutang", href: "/tagihan", icon: ClipboardCheck,
+                permission: "manage_all",
+                children: [
+                    { title: "Rekap Piutang", href: "/tagihan" },
+                    { title: "Riwayat Tagihan", href: "/tagihan/riwayat" },
+                ],
+            },
+        ],
+    },
+
+    {
         title: "AKUNTANSI",
         roles: ["operator", "admin"],
         items: [
@@ -192,19 +213,15 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
     },
 
     {
-        title: "TOKO",
-        roles: ["operator", "admin"],
+        title: "MANAJEMEN UNIT",
+        roles: ["operator"],
         items: [
             {
-                title: "Toko PRIMKOPPOL", href: "/toko", icon: ShoppingBag,
-                permission: "manage_toko",
+                title: "Manajemen Unit", href: "/manajemen-unit", icon: Layers,
+                permission: "manage_all",
                 children: [
-                    { title: "Produk", href: "/toko/produk" },
-                    { title: "Manajemen Harga", href: "/toko/manajemen-harga" },
-                    { title: "Kasir / POS", href: "/toko/kasir" },
-                    { title: "Manajemen Kasir", href: "/toko/kasir-manajemen" },
-                    { title: "Shift Kasir", href: "/toko/shift" },
-                    { title: "Persediaan", href: "/toko/persediaan" },
+                    { title: "Dashboard Unit", href: "/manajemen-unit" },
+                    { title: "Pengaturan Unit", href: "/manajemen-unit/pengaturan" },
                 ],
             },
         ],
@@ -355,6 +372,11 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
             {
                 title: "Persediaan & Stok", href: "/toko/persediaan", icon: Boxes,
                 permission: "manage_toko",
+            },
+            {
+                title: "Stock Tracking", href: "/toko/stock-tracking", icon: SearchCheck,
+                permission: "manage_toko",
+                roles: ["admin", "operator"],
             },
             {
                 title: "Manajemen Batch", href: "/toko/batch", icon: Layers,
@@ -601,6 +623,30 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Bahan Baku", href: "/resto/bahan-baku", icon: FlaskConical,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Batch", href: "/resto/batch", icon: Layers,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Opname Stok", href: "/resto/opname", icon: ClipboardCheck,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kitchen Display", href: "/resto/kds", icon: Monitor,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Denah Meja", href: "/resto/floor-plan", icon: Grid3x3,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Modifier & Add-on", href: "/resto/modifiers", icon: Settings2,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Shift Kasir", href: "/resto/shift", icon: Timer,
                 permission: "manage_unit_transactions",
             },
@@ -614,7 +660,7 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
         title: "LAPORAN & KEUANGAN",
         items: [
             {
-                title: "Laporan Penjualan", href: "/unit/resto-cafe/laporan", icon: BarChart2,
+                title: "Laporan Penjualan", href: "/resto/laporan", icon: BarChart2,
                 permission: "manage_unit_transactions",
             },
         ],
@@ -1078,6 +1124,22 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Persediaan & Stok", href: "/cafe-lsp/persediaan", icon: Boxes,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Bahan Baku", href: "/cafe-lsp/bahan-baku", icon: FlaskConical,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Manajemen Batch", href: "/cafe-lsp/batch", icon: Layers,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Opname Stok", href: "/cafe-lsp/opname", icon: ClipboardCheck,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Kitchen Display", href: "/cafe-lsp/kds", icon: Monitor,
                 permission: "manage_unit_transactions",
             },
             {

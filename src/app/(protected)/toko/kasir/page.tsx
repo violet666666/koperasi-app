@@ -309,10 +309,13 @@ export default function KasirPage() {
         } finally { setIsSearchingMember(false); }
     };
 
-    // Validasi Gatekeeper
+    // Validasi Gatekeeper (debounced — fires at most once per 500ms)
     React.useEffect(() => {
-        const validateLimit = async () => {
-            if (!selectedMember?.nrp || subtotal <= 0) return;
+        if (!selectedMember?.nrp || subtotal <= 0) {
+            setLimitInfo(null);
+            return;
+        }
+        const timer = setTimeout(async () => {
             setIsValidatingLimit(true);
             try {
                 const res = await fetch("/api/unit-transactions/validate", {
@@ -331,10 +334,9 @@ export default function KasirPage() {
             } finally {
                 setIsValidatingLimit(false);
             }
-        };
+        }, 500);
 
-        if (selectedMember) validateLimit();
-        else setLimitInfo(null);
+        return () => clearTimeout(timer);
     }, [selectedMember, subtotal]);
 
     // Process payment (cash, qris, or salary_cut)
@@ -414,13 +416,24 @@ export default function KasirPage() {
             clearCustomer();
             setSelectedMember(null);
             setShowCreditDialog(false);
+            setIsProcessing(false);
 
-            const productsRes = await fetch("/api/toko/products?unitType=toko");
-            const productsJson = await productsRes.json();
-            setProducts(productsJson.data || []);
+            // Update stock for sold items in local state instead of re-fetching all products
+            setProducts(prev => {
+                const soldIds = new Set(cart.map(item => item.product.id));
+                return prev.map(p => {
+                    if (!soldIds.has(p.id)) return p;
+                    const cartItem = cart.find(c => c.product.id === p.id);
+                    if (!cartItem || p.isService) return p;
+                    const newStockToko = Math.max(0, p.stockToko - cartItem.quantity);
+                    const newStock = Math.max(0, p.stock - cartItem.quantity);
+                    return { ...p, stockToko: newStockToko, stock: newStock };
+                });
+            });
         } catch {
             toast.error("Gagal memproses pembayaran");
-        } finally { setIsProcessing(false); }
+            setIsProcessing(false);
+        }
     };
 
     if (shiftLoading) {

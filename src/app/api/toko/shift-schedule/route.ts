@@ -25,7 +25,7 @@ export async function PUT(request: Request) {
         }
 
         const role = session.user.role as string;
-        if (role !== "admin" && role !== "operator" && role !== "super_admin") {
+        if (role !== "admin" && role !== "operator") {
             return NextResponse.json({ message: "Hanya admin/operator yang dapat mengubah jadwal shift" }, { status: 403 });
         }
 

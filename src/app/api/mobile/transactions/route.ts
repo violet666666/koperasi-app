@@ -68,17 +68,15 @@ export async function GET(request: Request) {
                     take: limit * 2,
                 }),
                 prisma.unitTransaction.count({ where: { memberId } }),
-                // Also fetch StoreSales for store-based units
+                // Also fetch StoreSales for store-based units (filter voided in JS)
                 prisma.storeSale.findMany({
-                    where: {
-                        memberId,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } },
-                    },
+                    where: { memberId },
                     orderBy: { createdAt: "desc" },
                     take: limit,
                     select: {
                         id: true, saleNo: true, totalAmount: true,
                         paymentMethod: true, createdAt: true, unitType: true,
+                        metadata: true,
                         items: { select: { product: { select: { name: true } }, quantity: true, unitPrice: true, subtotal: true } },
                     },
                 }),
@@ -94,7 +92,9 @@ export async function GET(request: Request) {
 
             const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
 
-            const mappedStoreSales = storeSales.map((s: any) => ({
+            const mappedStoreSales = storeSales
+                .filter((s: any) => !(s.metadata?.isVoided === true))
+                .map((s: any) => ({
                 id: `SS-${s.id}`,
                 type: s.unitType || "toko",
                 amount: Number(s.totalAmount),

@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS, INSTALLMENT_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
+import { addMonths } from "@/lib/date-helpers";
 
 
 // Info item component
@@ -92,16 +93,17 @@ export default function PinjamanDetailPage() {
         principalAmount: "",
         tenorMonths: "",
         interestRate: "",
+        principalPaid: "",
+        interestPaid: "",
         disbursementDate: "",
         firstDueDate: "",
-        notes: "",
     });
 
     // Role Check — operator & admin boleh edit/void
     const roleName = typeof session?.user?.role === "string" 
          ? session.user.role 
          : (session?.user?.role as any)?.name ?? "";
-    const isOperator = roleName === "operator";
+    const isOperator = roleName === "operator" || roleName === "admin_sp";
 
     React.useEffect(() => {
         async function fetchLoanData() {
@@ -163,7 +165,7 @@ export default function PinjamanDetailPage() {
     const overdueInstallments = schedule.filter((s) => s.status === "overdue").length;
     const statusConfig = LOAN_STATUS[loan.status as keyof typeof LOAN_STATUS] || LOAN_STATUS.active;
     const hasPayments = loan.payments && loan.payments.length > 0;
-    const canEdit = isOperator && loan.status === "active" && !hasPayments;
+    const canEdit = isOperator && loan.status === "active";
     const canVoid = isOperator && loan.status === "active";
 
     // Edit helpers
@@ -176,9 +178,10 @@ export default function PinjamanDetailPage() {
             principalAmount: String(Number(loan.principalAmount)),
             tenorMonths: String(loan.tenorMonths),
             interestRate: String(Number(loan.interestRate)),
+            principalPaid: String(Number(loan.principalPaid)),
+            interestPaid: String(Number(loan.interestPaid)),
             disbursementDate: fmtDate(loan.disbursementDate),
             firstDueDate: fmtDate(loan.firstDueDate),
-            notes: loan.notes || "",
         });
         setIsEditDialogOpen(true);
     };
@@ -187,6 +190,8 @@ export default function PinjamanDetailPage() {
     const editPrincipal = Number(editForm.principalAmount) || 0;
     const editTenor = Number(editForm.tenorMonths) || 1;
     const editRate = Number(editForm.interestRate) || 0;
+    const editPrincipalPaid = Number(editForm.principalPaid) || 0;
+    const editInterestPaid = Number(editForm.interestPaid) || 0;
     const editInterestPerMonth = Math.round(editPrincipal * (editRate / 100));
     const editTotalInterest = editInterestPerMonth * editTenor;
     const editTotalAmount = editPrincipal + editTotalInterest;
@@ -196,8 +201,7 @@ export default function PinjamanDetailPage() {
     const editLastDueDate = (() => {
         if (!editForm.firstDueDate) return "-";
         const d = new Date(editForm.firstDueDate);
-        d.setMonth(d.getMonth() + editTenor - 1);
-        return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+        return addMonths(d, editTenor - 1).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
     })();
 
     const executeEdit = async () => {
@@ -209,7 +213,6 @@ export default function PinjamanDetailPage() {
             if (editForm.interestRate !== String(Number(loan.interestRate))) payload.interestRate = Number(editForm.interestRate);
             if (editForm.disbursementDate && editForm.disbursementDate !== new Date(loan.disbursementDate).toISOString().split("T")[0]) payload.disbursementDate = editForm.disbursementDate;
             if (editForm.firstDueDate && editForm.firstDueDate !== new Date(loan.firstDueDate).toISOString().split("T")[0]) payload.firstDueDate = editForm.firstDueDate;
-            if (editForm.notes !== (loan.notes || "")) payload.notes = editForm.notes;
 
             // Always send at least the core fields to trigger regeneration
             if (Object.keys(payload).length === 0) {
@@ -222,6 +225,8 @@ export default function PinjamanDetailPage() {
             payload.principalAmount = Number(editForm.principalAmount);
             payload.tenorMonths = Number(editForm.tenorMonths);
             payload.interestRate = Number(editForm.interestRate);
+            payload.principalPaid = Number(editForm.principalPaid);
+            payload.interestPaid = Number(editForm.interestPaid);
             payload.disbursementDate = editForm.disbursementDate;
             payload.firstDueDate = editForm.firstDueDate;
 
@@ -307,8 +312,18 @@ export default function PinjamanDetailPage() {
                             Edit Pinjaman {loan.loanNo}
                         </DialogTitle>
                         <DialogDescription>
-                            Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan otomatis di-regenerasi setelah perubahan disimpan.
+                            Edit data pinjaman milik <strong>{loan.member?.name}</strong>. Jadwal angsuran akan di-regenerasi.
+                            {(Number(loan.principalPaid) > 0 || Number(loan.interestPaid) > 0) && (
+                                <span className="text-blue-600 dark:text-blue-400"> Data pembayaran dari import (pokok terbayar, bunga terbayar) akan disesuaikan dengan perhitungan baru. Jadwal angsuran akan di-regenerasi otomatis.</span>
+                            )}
                         </DialogDescription>
+                        {hasPayments && (
+                            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200">
+                                <strong>Perhatian:</strong> Pinjaman ini memiliki <strong>{loan.payments?.length} riwayat pembayaran</strong>.
+                                Jadwal angsuran akan di-regenerasi berdasarkan data pokok/bunga terbayar yang Anda masukkan.
+                                Data pembayaran yang sudah tercatat di buku kas tidak akan dihapus.
+                            </div>
+                        )}
                     </DialogHeader>
 
                     <div className="space-y-5 py-2">
@@ -349,6 +364,30 @@ export default function PinjamanDetailPage() {
                             </div>
                         </div>
 
+                        {/* Pokok Terbayar + Bunga Terbayar */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Pokok Terbayar</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.principalPaid}
+                                    onChange={(e) => setEditForm({...editForm, principalPaid: e.target.value})}
+                                    min={0}
+                                />
+                                <p className="text-xs text-muted-foreground">Sisa: {formatCurrency(Math.max(0, editPrincipal - editPrincipalPaid))}</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Bunga Terbayar</label>
+                                <Input
+                                    type="number"
+                                    value={editForm.interestPaid}
+                                    onChange={(e) => setEditForm({...editForm, interestPaid: e.target.value})}
+                                    min={0}
+                                />
+                                <p className="text-xs text-muted-foreground">Sisa: {formatCurrency(Math.max(0, editTotalInterest - editInterestPaid))}</p>
+                            </div>
+                        </div>
+
                         {/* Tanggal Cair + Jatuh Tempo */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
@@ -369,19 +408,9 @@ export default function PinjamanDetailPage() {
                             </div>
                         </div>
 
-                        {/* Catatan */}
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Catatan <span className="text-muted-foreground">(opsional)</span></label>
-                            <Textarea
-                                value={editForm.notes}
-                                onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
-                                placeholder="Catatan perubahan..."
-                                rows={2}
-                            />
-                        </div>
-
                         {/* ── Live Preview ──────────────────────────── */}
                         <Separator />
+
                         <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
                             <p className="text-sm font-semibold text-muted-foreground mb-2">📊 Preview Kalkulasi</p>
                             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">

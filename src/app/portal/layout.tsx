@@ -16,6 +16,7 @@ import {
     Menu,
     Send,
     Receipt,
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,7 @@ const portalNavLinks = [
     { title: "Simpanan", href: "/portal/simpanan", icon: PiggyBank },
     { title: "Pinjaman", href: "/portal/pinjaman", icon: CreditCard },
     { title: "Gaji", href: "/portal/gaji", icon: Receipt },
+    { title: "Faktur", href: "/portal/faktur", icon: FileText },
     { title: "Pengajuan", href: "/portal/pengajuan-pinjaman", icon: Send },
     { title: "Profil", href: "/portal/profil", icon: UserCircle },
 ];

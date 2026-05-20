@@ -57,6 +57,8 @@ model User {
   cashierShifts           CashierShift[]        @relation("CashierShiftUser")
   cashierIdentities       CashierIdentity[]
   notifications           Notification[]
+  billingPeriodsProcessed BillingPeriod[]        @relation("BillingProcessedBy")
+  billingItemsPaid        BillingItem[]          @relation("BillingItemPaidBy")
   payrollPeriods           PayrollPeriod[]
 
   @@index([roleId])
@@ -246,6 +248,7 @@ model Member {
   noRekening        String?   @map("no_rekening")    // No rekening BRI untuk mass debet
   salary            Decimal?  @map("salary") @db.Decimal(15, 2) // Monthly salary for loan eligibility
   tunlesKinerja     Decimal?  @map("tunles_kinerja") @db.Decimal(15, 2) // Tunjangan Kinerja (Tunkin)
+  sisaGaji          Decimal?  @map("sisa_gaji") @db.Decimal(15, 2) // Sisa gaji setelah potongan koperasi (editable oleh operator)
   tabunganWajib     Decimal?  @map("tabungan_wajib") @db.Decimal(15, 2) // Tabungan Wajib per bulan
   plafonPiutang     Decimal   @default(0) @map("plafon_piutang") @db.Decimal(15, 2) // Limit piutang di unit usaha — hanya bisa diubah Operator
   status            String    @default("active") // active, inactive, resigned
@@ -273,6 +276,7 @@ model Member {
   cashBankTransactions CashBankTransaction[] @relation("CashBankMember")
   shuDistributions     ShuDistribution[]
   payrollSlips         PayrollSlip[]
+  billingItems         BillingItem[]
 
   @@index([status])
   @@index([nrp])
@@ -826,20 +830,24 @@ model StoreProduct {
   stockToko Int       @default(0) @map("stock_toko")
   minStock  Int       @default(5) @map("min_stock")
   unit      String    @default("pcs")
-  isService Boolean   @default(false) @map("is_service") // True for haircuts, generic washes, etc.
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  isService   Boolean   @default(false) @map("is_service") // True for haircuts, generic washes, etc.
+  productType String    @default("finished") @map("product_type") // "finished" | "ingredient"
+  trackStock  Boolean   @default(true) @map("track_stock") // false = racikan (deduct ingredients instead)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 
-  saleItems      StoreSaleItem[]
-  stockMovements StoreStockMovement[]
-  stockBatches   StockBatch[]
-  recipes        ProductRecipe[]
+  saleItems         StoreSaleItem[]
+  stockMovements    StoreStockMovement[]
+  stockBatches      StockBatch[]
+  recipes           ProductRecipe[]
+  recipeIngredients ProductRecipe[] @relation("IngredientProduct")
 
   @@index([unitType])
   @@index([unitType, isActive])
   @@index([category])
+  @@index([deletedAt])
   @@map("store_products")
 }
 
@@ -854,8 +862,11 @@ model ProductRecipe {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  product StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product             StoreProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientProductId Int?          @map("ingredient_product_id")
+  ingredientProduct   StoreProduct? @relation("IngredientProduct", fields: [ingredientProductId], references: [id])
 
+  @@index([ingredientProductId])
   @@map("product_recipes")
 }
 
@@ -1271,6 +1282,29 @@ model StockBatch {
 }
 
 // =================================================================
+// KITCHEN DISPLAY SYSTEM (KDS) — Order Queue for Kitchen
+// =================================================================
+
+model KitchenOrder {
+  id              String    @id @default(cuid())
+  unitType        String    @map("unit_type") // "resto", "cafe_lsp", "resto_cafe", "coffe_latar"
+  saleId          String?   @map("sale_id")   // link to StoreSale (set after checkout)
+  tableNumber     Int?      @map("table_number")
+  queueNumber     String?   @map("queue_number")
+  status          String    @default("pending") // pending | preparing | ready | served
+  items           Json      // [{name, qty, notes, modifiers}]
+  notes           String?   // overall order notes
+  createdAt       DateTime  @default(now()) @map("created_at")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  servedAt        DateTime? @map("served_at")
+
+  @@index([unitType, status, createdAt])
+  @@index([saleId])
+  @@map("kitchen_orders")
+}
+
+// =================================================================
 // PAYROLL (GAJI) — Import & Processing
 // =================================================================
 
@@ -1333,4 +1367,54 @@ model PayrollSlip {
   @@index([periodId])
   @@index([memberId])
   @@map("payroll_slips")
+}
+
+// =================================================================
+// BILLING PERIOD (Tagihan Piutang 16-15)
+// =================================================================
+
+model BillingPeriod {
+  id              Int       @id @default(autoincrement())
+  periodStart     DateTime  @map("period_start") @db.Date
+  periodEnd       DateTime  @map("period_end") @db.Date
+  periodLabel     String    @map("period_label")
+  status          String    @default("draft")              // draft | processed
+  totalMembers    Int       @default(0) @map("total_members")
+  totalAmount     Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
+  processedById   Int?      @map("processed_by_id")
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  billingItems  BillingItem[]
+  processedBy   User?       @relation("BillingProcessedBy", fields: [processedById], references: [id])
+
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("billing_periods")
+}
+
+model BillingItem {
+  id                Int       @id @default(autoincrement())
+  billingPeriodId   Int       @map("billing_period_id")
+  memberId          Int       @map("member_id")
+  memberName        String    @map("member_name")
+  memberNrp         String?   @map("member_nrp")
+  unitType          String?   @map("unit_type")
+  transactionId     Int?      @map("transaction_id")
+  transactionSource String?   @map("transaction_source")   // "unit_transaction" | "store_sale"
+  description       String?
+  amount            Decimal   @db.Decimal(15, 2)
+  isMarkedPaid      Boolean   @default(false) @map("is_marked_paid")
+  paidAt            DateTime? @map("paid_at")
+  paidById          Int?      @map("paid_by_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  billingPeriod BillingPeriod @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+  member        Member        @relation(fields: [memberId], references: [id])
+  paidBy        User?         @relation("BillingItemPaidBy", fields: [paidById], references: [id])
+
+  @@index([billingPeriodId, memberId])
+  @@index([memberId])
+  @@map("billing_items")
 }

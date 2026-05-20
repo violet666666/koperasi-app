@@ -23,9 +23,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { useAuth } from "@/lib/hooks/use-auth";
 
 export default function TambahAnggotaPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = React.useState(false);
 
     // Form state
@@ -35,13 +37,17 @@ export default function TambahAnggotaPage() {
         phone: "",
         email: "",
         category: "",
-        branch_id: "1",
+        branch_id: String(user?.branchId ?? 10),
         join_date: new Date().toISOString().split("T")[0],
         pangkat: "",
         golongan: "",
         kesatuan: "",
         employeeType: "",
         noRekening: "",
+        salary: "",
+        tunlesKinerja: "",
+        sisaGaji: "",
+        plafonPiutang: "",
     });
 
     const handleChange = (
@@ -83,6 +89,10 @@ export default function TambahAnggotaPage() {
                 kesatuan: formData.kesatuan || undefined,
                 employeeType: formData.employeeType || undefined,
                 noRekening: formData.noRekening || undefined,
+                salary: formData.salary ? Number(formData.salary) : undefined,
+                tunlesKinerja: formData.tunlesKinerja ? Number(formData.tunlesKinerja) : undefined,
+                sisaGaji: formData.sisaGaji ? Number(formData.sisaGaji) : undefined,
+                plafonPiutang: formData.plafonPiutang ? Number(formData.plafonPiutang) : undefined,
             };
 
             await membersApi.create(payload);
@@ -224,6 +234,34 @@ export default function TambahAnggotaPage() {
                                 onChange={handleChange}
                                 placeholder="15 digit"
                             />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Data Finansial */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Setoran Bulanan (Gaji & Tabungan)</CardTitle>
+                        <p className="text-sm text-muted-foreground">Opsional. Juga dapat diisi nanti melalui Edit Anggota atau Import Gaji.</p>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="salary">Gaji Bersih (Per Bulan)</Label>
+                            <Input id="salary" name="salary" type="number" min="0" value={formData.salary} onChange={handleChange} placeholder="Rp" />
+                        </div>
+                        <div>
+                            <Label htmlFor="tunlesKinerja">Tunles / Tunkin (Per Bulan)</Label>
+                            <Input id="tunlesKinerja" name="tunlesKinerja" type="number" min="0" value={formData.tunlesKinerja} onChange={handleChange} placeholder="Rp" />
+                        </div>
+                        <div>
+                            <Label htmlFor="sisaGaji">Sisa Gaji (Setelah Potongan)</Label>
+                            <Input id="sisaGaji" name="sisaGaji" type="number" min="0" value={formData.sisaGaji} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Sisa gaji bersih setelah potongan koperasi.</p>
+                        </div>
+                        <div>
+                            <Label htmlFor="plafonPiutang">Plafon Piutang Unit</Label>
+                            <Input id="plafonPiutang" name="plafonPiutang" type="number" min="0" value={formData.plafonPiutang} onChange={handleChange} placeholder="Rp" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Limit maksimal piutang di unit usaha.</p>
                         </div>
                     </CardContent>
                 </Card>
