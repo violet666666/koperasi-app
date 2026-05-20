@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-// Phase 1.1: Batch & Expiry Tracking
-// Navigation config tests — wrapper page existence verified via Playwright.
+// Batch & Expiry Tracking — batch sidebar removed from Cafe LSP & Resto (Mei 2026)
+// Batch routes still accessible via URL, just hidden from sidebar navigation.
 
 function flattenNavItems(nav: any[]): any[] {
     const result: any[] = [];
@@ -13,22 +13,36 @@ function flattenNavItems(nav: any[]): any[] {
 }
 
 describe("Batch Navigation Config", () => {
-    it("should have batch nav entry for adminRestoNavigation", async () => {
+    it("should NOT have batch nav entry for adminRestoNavigation (removed Mei 2026)", async () => {
         const mod = await import("@/lib/constants/navigation");
         const flat = flattenNavItems(mod.adminRestoNavigation);
         const batchEntry = flat.find((item: any) => item.href === "/resto/batch");
 
-        expect(batchEntry).toBeDefined();
-        expect(batchEntry.title).toBe("Manajemen Batch");
+        expect(batchEntry).toBeUndefined();
     });
 
-    it("should have batch nav entry for adminCafeLspNavigation", async () => {
+    it("should NOT have batch nav entry for adminCafeLspNavigation (removed Mei 2026)", async () => {
         const mod = await import("@/lib/constants/navigation");
         const flat = flattenNavItems(mod.adminCafeLspNavigation);
         const batchEntry = flat.find((item: any) => item.href === "/cafe-lsp/batch");
 
-        expect(batchEntry).toBeDefined();
-        expect(batchEntry.title).toBe("Manajemen Batch");
+        expect(batchEntry).toBeUndefined();
+    });
+
+    it("should NOT have bahan-baku nav in adminRestoNavigation (removed Mei 2026)", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const flat = flattenNavItems(mod.adminRestoNavigation);
+        const bahanEntry = flat.find((item: any) => item.href === "/resto/bahan-baku");
+
+        expect(bahanEntry).toBeUndefined();
+    });
+
+    it("should NOT have bahan-baku nav in adminCafeLspNavigation (removed Mei 2026)", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const flat = flattenNavItems(mod.adminCafeLspNavigation);
+        const bahanEntry = flat.find((item: any) => item.href === "/cafe-lsp/bahan-baku");
+
+        expect(bahanEntry).toBeUndefined();
     });
 
     it("should NOT have batch nav in kasir navigation for either unit", async () => {
@@ -43,5 +57,27 @@ describe("Batch Navigation Config", () => {
         expect(
             flatCafeLsp.find((item: any) => item.href?.includes("/batch"))
         ).toBeUndefined();
+    });
+
+    it("should NOT have opname nav in adminCafeLspNavigation (moved to button in Persediaan)", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const flat = flattenNavItems(mod.adminCafeLspNavigation);
+        const opnameEntry = flat.find((item: any) => item.href === "/cafe-lsp/opname");
+
+        expect(opnameEntry).toBeUndefined();
+    });
+
+    it("adminCafeLspNavigation should have exactly 7 items in CAFE & MENU group", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const cafeMenuGroup = mod.adminCafeLspNavigation.find((item: any) => item.title === "CAFE & MENU");
+        expect(cafeMenuGroup).toBeDefined();
+        expect(cafeMenuGroup.items.length).toBe(7);
+    });
+
+    it("adminRestoNavigation should have exactly 10 items in RESTO & MENU group", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const restoMenuGroup = mod.adminRestoNavigation.find((item: any) => item.title === "RESTO & MENU");
+        expect(restoMenuGroup).toBeDefined();
+        expect(restoMenuGroup.items.length).toBe(10);
     });
 });
