@@ -116,9 +116,10 @@ export default function TokoProdukPage() {
 
     // Category management
     const [showCategoryDialog, setShowCategoryDialog] = React.useState(false);
-    const [categoryList, setCategoryList] = React.useState<{ name: string; count: number }[]>([]);
+    const [categoryList, setCategoryList] = React.useState<{ id?: number; name: string; count: number }[]>([]);
     const [editingCategory, setEditingCategory] = React.useState<string | null>(null);
     const [newCategoryName, setNewCategoryName] = React.useState("");
+    const [newCategoryInput, setNewCategoryInput] = React.useState("");
     const [isCategoryProcessing, setIsCategoryProcessing] = React.useState(false);
 
     // Recipe state
@@ -239,19 +240,57 @@ export default function TokoProdukPage() {
         setShowCategoryDialog(true);
     };
 
+    const handleCreateCategory = async () => {
+        const name = newCategoryInput.trim();
+        if (!name) { toast.error("Nama kategori tidak boleh kosong"); return; }
+        setIsCategoryProcessing(true);
+        try {
+            if (isFnB) {
+                const res = await fetch("/api/toko/products/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ category: name, unitType: productUnitType }),
+                });
+                const json = await res.json();
+                if (!res.ok) { toast.error(json.message); return; }
+                toast.success(`Kategori "${name}" berhasil ditambahkan`);
+            } else {
+                toast.error("Kategori untuk Toko dibuat otomatis saat menambahkan produk");
+                return;
+            }
+            setNewCategoryInput("");
+            fetchCategories();
+            fetchCategoriesList();
+        } catch { toast.error("Gagal menambahkan kategori"); }
+        finally { setIsCategoryProcessing(false); }
+    };
+
     const handleRenameCategory = async (oldName: string) => {
         const trimmed = newCategoryName.trim();
         if (!trimmed) { toast.error("Nama kategori baru tidak boleh kosong"); return; }
         setIsCategoryProcessing(true);
         try {
-            const res = await fetch("/api/toko/products/categories", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "rename", category: oldName, newCategory: trimmed }),
-            });
-            const json = await res.json();
-            if (!res.ok) { toast.error(json.message); return; }
-            toast.success(json.message);
+            if (isFnB) {
+                const cat = categoryList.find(c => c.name === oldName);
+                if (!cat?.id) { toast.error("Kategori tidak ditemukan"); return; }
+                const res = await fetch("/api/toko/products/categories", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: cat.id, name: trimmed }),
+                });
+                const json = await res.json();
+                if (!res.ok) { toast.error(json.message); return; }
+                toast.success(`Kategori berhasil diubah ke "${trimmed}"`);
+            } else {
+                const res = await fetch("/api/toko/products/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "rename", category: oldName, newCategory: trimmed }),
+                });
+                const json = await res.json();
+                if (!res.ok) { toast.error(json.message); return; }
+                toast.success(json.message);
+            }
             setEditingCategory(null);
             setNewCategoryName("");
             fetchCategories();
@@ -264,14 +303,23 @@ export default function TokoProdukPage() {
     const handleDeleteCategory = async (name: string) => {
         setIsCategoryProcessing(true);
         try {
-            const res = await fetch("/api/toko/products/categories", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "delete", category: name }),
-            });
-            const json = await res.json();
-            if (!res.ok) { toast.error(json.message); return; }
-            toast.success(json.message);
+            if (isFnB) {
+                const cat = categoryList.find(c => c.name === name);
+                if (!cat?.id) { toast.error("Kategori tidak ditemukan"); return; }
+                const res = await fetch(`/api/toko/products/categories?id=${cat.id}`, { method: "DELETE" });
+                const json = await res.json();
+                if (!res.ok) { toast.error(json.message); return; }
+                toast.success(json.message);
+            } else {
+                const res = await fetch("/api/toko/products/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "delete", category: name }),
+                });
+                const json = await res.json();
+                if (!res.ok) { toast.error(json.message); return; }
+                toast.success(json.message);
+            }
             fetchCategories();
             fetchCategoriesList();
             fetchProducts();
@@ -1261,15 +1309,53 @@ export default function TokoProdukPage() {
             <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Kelola Kategori</DialogTitle>
-                        <DialogDescription>Kelola kategori produk untuk unit {productUnitType}. Kategori otomatis hilang jika tidak ada produk yang menggunakannya.</DialogDescription>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-primary" />
+                            Kelola Kategori
+                        </DialogTitle>
+                        <DialogDescription>
+                            {isFnB
+                                ? "Tambah, ubah nama, atau hapus kategori menu."
+                                : "Kelola kategori produk untuk unit Toko. Kategori otomatis hilang jika tidak ada produk yang menggunakannya."}
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {/* Add Category (F&B only) */}
+                    {isFnB && (
+                        <div className="flex gap-2 p-3 rounded-lg bg-muted/50 border border-dashed">
+                            <Input
+                                className="flex-1 h-9 bg-background"
+                                placeholder="Nama kategori baru..."
+                                value={newCategoryInput}
+                                onChange={(e) => setNewCategoryInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleCreateCategory(); }}
+                                disabled={isCategoryProcessing}
+                            />
+                            <Button size="sm" className="h-9 shrink-0" onClick={handleCreateCategory}
+                                disabled={isCategoryProcessing || !newCategoryInput.trim()}>
+                                {isCategoryProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                Tambah
+                            </Button>
+                        </div>
+                    )}
+
+                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
                         {categoryList.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-8">Belum ada kategori. Kategori muncul otomatis saat produk diberi kategori.</p>
+                            <div className="text-center py-10">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                                    <Tag className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    {isFnB ? "Belum ada kategori. Tambahkan di atas." : "Belum ada kategori."}
+                                </p>
+                            </div>
                         ) : categoryList.map((cat) => (
-                            <div key={cat.name} className="flex items-center gap-2 p-3 rounded-lg border bg-card">
+                            <div key={cat.id ?? cat.name}
+                                className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-colors ${
+                                    editingCategory === cat.name
+                                        ? "border-primary/50 bg-primary/5"
+                                        : "border-transparent hover:border-border bg-card hover:bg-accent/50"
+                                }`}>
                                 {editingCategory === cat.name ? (
                                     <>
                                         <Input
@@ -1284,25 +1370,24 @@ export default function TokoProdukPage() {
                                             }}
                                             disabled={isCategoryProcessing}
                                         />
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
                                             onClick={() => handleRenameCategory(cat.name)} disabled={isCategoryProcessing || !newCategoryName.trim()}>
                                             <Check className="h-4 w-4 text-green-600" />
                                         </Button>
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
                                             onClick={() => { setEditingCategory(null); setNewCategoryName(""); }} disabled={isCategoryProcessing}>
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </>
                                 ) : (
                                     <>
-                                        <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-                                        <span className="flex-1 text-sm font-medium">{cat.name}</span>
-                                        <Badge variant="secondary" className="text-xs">{cat.count} produk</Badge>
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
+                                        <span className="flex-1 text-sm truncate">{cat.name}</span>
+                                        <Badge variant="secondary" className="text-xs shrink-0">{cat.count}</Badge>
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                             onClick={() => { setEditingCategory(cat.name); setNewCategoryName(cat.name); }}>
-                                            <Pencil className="h-3.5 w-3.5" />
+                                            <Pencil className="h-3 w-3" />
                                         </Button>
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:text-destructive"
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:!text-destructive transition-opacity shrink-0"
                                             onClick={() => {
                                                 const msg = cat.count > 0
                                                     ? `Hapus kategori "${cat.name}"? ${cat.count} produk akan dipindahkan ke "Tanpa Kategori".`
@@ -1310,7 +1395,7 @@ export default function TokoProdukPage() {
                                                 if (confirm(msg)) handleDeleteCategory(cat.name);
                                             }}
                                             disabled={isCategoryProcessing}>
-                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <Trash2 className="h-3 w-3" />
                                         </Button>
                                     </>
                                 )}

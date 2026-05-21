@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
+import { isFbUnit } from "@/lib/constants/units";
 
 // GET /api/toko/products - List store products (with server-side pagination)
 export async function GET(request: Request) {
@@ -30,12 +31,24 @@ export async function GET(request: Request) {
         // Default to "finished" — migration set all existing rows to 'finished'
         const productType = productTypeParam || "finished";
 
+        // F&B: resolve category name → categoryId for proper relational filtering
+        let fbCategoryId: number | null = null;
+        if (category && category !== "all" && isFbUnit(unitType)) {
+            const storeCat = await prisma.storeCategory.findFirst({
+                where: { name: category, unitType: unitType!, isActive: true },
+                select: { id: true },
+            });
+            fbCategoryId = storeCat?.id ?? -1;
+        }
+
         const where = {
             deletedAt: null,
             isActive: true,
             productType,
             ...(unitType && { unitType: unitType }),
-            ...(category && category !== "all" && { category }),
+            ...(category && category !== "all" && !isFbUnit(unitType) && { category }),
+            ...(fbCategoryId && fbCategoryId > 0 && { categoryId: fbCategoryId }),
+            ...(fbCategoryId === -1 && { id: -1 }),
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: "insensitive" as const } },
@@ -73,6 +86,8 @@ export async function GET(request: Request) {
         const filterCategory = (category && category !== "all") ? category : null;
         const filterSearch = search || null;
         const filterProductType = productType;
+        // F&B: use categoryId for stats query
+        const fbStatsCategoryId = fbCategoryId;
         const agStats = isPaginated ? await prisma.$queryRaw<{
             total_products: number; total_stock: number; total_value: number; out_of_stock: number; low_stock: number;
         }[]>`
@@ -86,7 +101,10 @@ export async function GET(request: Request) {
             WHERE deleted_at IS NULL AND is_active = true
               AND product_type = ${filterProductType}
               AND (${filterUnitType}::text IS NULL OR unit_type = ${filterUnitType})
-              AND (${filterCategory}::text IS NULL OR category = ${filterCategory})
+              AND (
+                (${fbStatsCategoryId}::int IS NOT NULL AND ${fbStatsCategoryId}::int > 0 AND category_id = ${fbStatsCategoryId})
+                OR (${fbStatsCategoryId}::int IS NULL AND (${filterCategory}::text IS NULL OR category = ${filterCategory}))
+              )
               AND (${filterSearch}::text IS NULL OR name ILIKE '%' || ${filterSearch} || '%' OR sku ILIKE '%' || ${filterSearch} || '%')
         ` : null;
 

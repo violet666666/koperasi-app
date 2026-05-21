@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isFbUnit } from "@/lib/constants/units";
+import { normalizeUnitType } from "@/lib/unit-aliases";
 
 // GET /api/toko/products/categories — List categories with product counts
 // F&B units: from StoreCategory table (sorted by sortOrder)
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Kasir tidak diizinkan mengelola kategori" }, { status: 403 });
         }
 
-        const unitType = (session.user as any).unitType || "toko";
+        const rawUnitType = (session.user as any).unitType || "toko";
+        const unitType = normalizeUnitType(rawUnitType) || rawUnitType;
         const body = await request.json();
         const { action, category, newCategory } = body;
 
