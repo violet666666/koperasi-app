@@ -18,7 +18,14 @@ import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, Shie
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
-interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; }
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number;
+    // F&B fields
+    categoryId?: number | null;
+    menuType?: string | null;
+    posColor?: string | null;
+    variantGroupId?: string | null;
+    isActive?: boolean;
+}
 interface CartItem { product: Product; quantity: number; notes?: string; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -127,6 +134,8 @@ export default function RestoKasirPage() {
     const [showSplitDialog, setShowSplitDialog] = React.useState(false);
     const [splitPayments, setSplitPayments] = React.useState<{ method: string; amount: number }[]>([]);
 
+    const [fbCategories, setFbCategories] = React.useState<{id: number; name: string; sortOrder: number}[]>([]);
+
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
     const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
@@ -141,6 +150,15 @@ export default function RestoKasirPage() {
             } catch { toast.error("Gagal memuat menu resto"); } finally { setIsLoading(false); }
         }
         fetchProducts();
+    }, []);
+
+    React.useEffect(() => {
+        fetch("/api/toko/products/categories?unitType=resto")
+            .then(r => r.json())
+            .then(data => {
+                if (data.data) setFbCategories(data.data);
+            })
+            .catch(() => {});
     }, []);
 
     // Load dynamic floor plan tables
@@ -187,16 +205,15 @@ export default function RestoKasirPage() {
         checkShift();
     }, []);
 
-    // Derive unique categories from products
+    // Derive unique categories from F&B categories API
     const categories = React.useMemo(() => {
-        const cats = new Set<string>();
-        products.forEach(p => { if (p.category) cats.add(p.category); });
-        return ["Semua", ...Array.from(cats).sort()];
-    }, [products]);
+        return ["Semua", ...fbCategories.map(c => c.name)];
+    }, [fbCategories]);
 
     const filteredMenu = products.filter(p => {
         const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchCategory = activeCategory === "Semua" || p.category === activeCategory;
+        const matchCategory = activeCategory === "Semua" || p.category === activeCategory ||
+            (fbCategories.find(c => c.name === activeCategory)?.id === p.categoryId);
         return matchSearch && matchCategory;
     });
     const cart = activeTable?.cart || [];
@@ -531,7 +548,8 @@ export default function RestoKasirPage() {
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {filteredMenu.map(p => (
                                     <button key={p.id} onClick={() => updateCart(activeTable.id, { product: p, quantity: 1 }, "add")}
-                                        className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.97] text-left group"
+                                        className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.97] text-left group relative"
+                                        style={p.posColor ? { backgroundColor: p.posColor + '20', borderColor: p.posColor } : undefined}
                                     >
                                         {/* Image Area */}
                                         <div className="h-20 w-full bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
@@ -546,6 +564,9 @@ export default function RestoKasirPage() {
                                                 <span className="absolute top-1.5 left-1.5 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                                                     {p.category}
                                                 </span>
+                                            )}
+                                            {p.menuType === "kitchen" && p.isActive === false && (
+                                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">86'd</span>
                                             )}
                                         </div>
                                         {/* Info */}

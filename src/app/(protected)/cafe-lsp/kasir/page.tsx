@@ -16,7 +16,14 @@ import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 import { useAuth } from "@/lib/hooks";
 
-interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; metadata?: any; }
+interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; metadata?: any;
+    // F&B fields
+    categoryId?: number | null;
+    menuType?: string | null;
+    posColor?: string | null;
+    variantGroupId?: string | null;
+    isActive?: boolean;
+}
 interface CartItem { product: Product; quantity: number; notes?: string; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
@@ -104,6 +111,7 @@ export default function CafeLspKasirPage() {
 
     const [nextQueueNumber, setNextQueueNumber] = React.useState("A001");
     const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
+    const [fbCategories, setFbCategories] = React.useState<{id: number; name: string; sortOrder: number}[]>([]);
 
     const quickKeyProducts = React.useMemo(() => {
         if (quickKeyIds.length > 0) {
@@ -133,6 +141,15 @@ export default function CafeLspKasirPage() {
             } catch { toast.error("Gagal memuat menu"); } finally { setIsLoading(false); }
         }
         fetchProducts();
+    }, []);
+
+    React.useEffect(() => {
+        fetch("/api/toko/products/categories?unitType=cafe_lsp")
+            .then(r => r.json())
+            .then(data => {
+                if (data.data) setFbCategories(data.data);
+            })
+            .catch(() => {});
     }, []);
 
     React.useEffect(() => {
@@ -240,16 +257,15 @@ export default function CafeLspKasirPage() {
     };
 
     const categories = React.useMemo(() => {
-        const cats = new Set<string>();
-        products.forEach(p => { if (p.category) cats.add(p.category); });
-        return ["★ Quick", "Semua", ...Array.from(cats).sort()];
-    }, [products]);
+        return ["★ Quick", "Semua", ...fbCategories.map(c => c.name)];
+    }, [fbCategories]);
 
     const filteredMenu = React.useMemo(() => {
         if (activeCategory === "★ Quick") return quickKeyProducts;
         return products.filter(p => {
             const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchCategory = activeCategory === "Semua" || p.category === activeCategory;
+            const matchCategory = activeCategory === "Semua" || p.category === activeCategory ||
+                (fbCategories.find(c => c.name === activeCategory)?.id === p.categoryId);
             return matchSearch && matchCategory;
         });
     }, [products, activeCategory, searchQuery, quickKeyProducts]);
@@ -449,7 +465,8 @@ export default function CafeLspKasirPage() {
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {filteredMenu.map(p => (
                                     <button key={p.id} onClick={() => addToCart(p)}
-                                        className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-amber-300 hover:shadow-md transition-all active:scale-[0.97] text-left group"
+                                        className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-amber-300 hover:shadow-md transition-all active:scale-[0.97] text-left group relative"
+                                        style={p.posColor ? { backgroundColor: p.posColor + '20', borderColor: p.posColor } : undefined}
                                     >
                                         <div className="h-20 w-full bg-gradient-to-br from-amber-50 to-orange-50 relative overflow-hidden">
                                             {p.imageUrl ? (
@@ -463,6 +480,9 @@ export default function CafeLspKasirPage() {
                                                 <span className="absolute top-1.5 left-1.5 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                                                     {p.category}
                                                 </span>
+                                            )}
+                                            {p.menuType === "kitchen" && p.isActive === false && (
+                                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">86'd</span>
                                             )}
                                         </div>
                                         <div className="p-2.5 flex flex-col flex-1">
