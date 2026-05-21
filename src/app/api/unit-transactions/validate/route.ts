@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
                 pangkat: true,
                 plafonPiutang: true,
                 salary: true,
+                sisaGaji: true,
             },
         });
 
@@ -74,14 +76,7 @@ export async function POST(request: Request) {
         }
 
         // ── Lapis 3: Kalkulasi Sisa Limit ──────────────────────────────
-        let plafonPiutang = Number(member.plafonPiutang);
-
-        // FITUR OTOMATIS: Jika plafonPiutang masih 0, hitung dari SISA GAJI (net take-home pay)
-        if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-            // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
-            // Limit piutang = 50% dari sisa gaji
-            plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
-        }
+        const plafonPiutang = getPlafonPiutang(member);
 
         // Sumber: UnitTransaction (semua unit, karena Toko juga buat UnitTransaction untuk piutangnya)
         const tagihanUnitTx = await prisma.unitTransaction.aggregate({

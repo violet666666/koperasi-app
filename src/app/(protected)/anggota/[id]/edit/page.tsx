@@ -464,7 +464,7 @@ export default function EditAnggotaPage() {
                         <div>
                             <Label htmlFor="sisaGaji">Sisa Gaji (Setelah Potongan)</Label>
                             <Input id="sisaGaji" name="sisaGaji" type="number" min="0" value={formData.sisaGaji} onChange={handleChange} placeholder="Rp" />
-                            <p className="text-[10px] text-muted-foreground mt-1">Sisa gaji bersih setelah potongan koperasi (simpanan, angsuran, piutang).</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Rumus: Gaji Bersih − Total Potongan. Plafon piutang = 50% × Sisa Gaji (jika tidak ada plafon manual).</p>
                         </div>
                         <div>
                             <Label htmlFor="tabunganWajib">Target Setoran Wajib Per Bulan</Label>

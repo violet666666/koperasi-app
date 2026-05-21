@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 const ALLOWED_SALES_ROLES = ["admin", "operator", "kasir"];
 
@@ -324,12 +325,7 @@ export async function POST(request: Request) {
                     _sum: { amount: true },
                 });
                 const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
-                let plafonPiutang = Number(preValidatedMember?.plafonPiutang || 0);
-
-                if (plafonPiutang === 0 && Number(preValidatedMember?.salary || 0) > 0) {
-                    // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
-                    plafonPiutang = Math.max(0, Math.floor(Number(preValidatedMember.salary) * 0.5));
-                }
+                const plafonPiutang = getPlafonPiutang(preValidatedMember);
 
                 const sisaLimit = plafonPiutang - totalTagihan;
                 if (totalAmount > sisaLimit) {

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/lib/split-bill";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
 
@@ -147,10 +148,7 @@ export async function POST(req: Request) {
                     _sum: { amount: true },
                 });
                 const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
-                let plafonPiutang = Number(member.plafonPiutang || 0);
-                if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-                    plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
-                }
+                const plafonPiutang = getPlafonPiutang(member);
                 const sisaLimit = plafonPiutang - totalTagihan;
                 if (p.amount > sisaLimit) {
                     throw new Error(`Limit piutang tidak cukup untuk potong gaji. Sisa: Rp ${sisaLimit.toLocaleString("id-ID")}`);

@@ -399,6 +399,17 @@ export async function POST(request: Request) {
                     })),
                 });
             }
+
+            // Sync sisaGaji to Member records
+            for (const s of slips) {
+                if (s.memberId && s.sisaGaji > 0) {
+                    await tx.member.update({
+                        where: { id: s.memberId },
+                        data: { sisaGaji: s.sisaGaji },
+                    });
+                }
+            }
+
             return p;
         }, { timeout: 60000 });
 

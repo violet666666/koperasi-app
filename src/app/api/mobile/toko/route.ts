@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 // GET /api/mobile/toko?search=xxx&unitType=xxx
 export async function GET(request: Request) {
@@ -147,12 +148,7 @@ export async function POST(request: Request) {
                     _sum: { amount: true },
                 });
                 const totalTagihan = Number(tagihanUnitTx._sum.amount || 0);
-                let plafonPiutang = Number(member.plafonPiutang || 0);
-
-                if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-                    // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
-                    plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
-                }
+                const plafonPiutang = getPlafonPiutang(member);
 
                 if (totalAmount > plafonPiutang - totalTagihan) {
                     throw new Error(`Limit piutang tidak cukup. Sisa: Rp ${(plafonPiutang - totalTagihan).toLocaleString("id-ID")}`);

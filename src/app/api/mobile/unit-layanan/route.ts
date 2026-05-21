@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
         if (method === "salary_cut" && memberId) {
             const member = await prisma.member.findUnique({
                 where: { id: Number(memberId) },
-                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true },
+                select: { id: true, name: true, plafonPiutang: true, nrp: true, salary: true, sisaGaji: true },
             });
 
             if (!member) {
@@ -97,12 +98,7 @@ export async function POST(request: Request) {
             });
 
             const totalTagihan = Number(tagihanUnitTx._sum?.amount ?? 0);
-            let plafonPiutang = Number(member.plafonPiutang || 0);
-
-            if (plafonPiutang === 0 && Number(member.salary || 0) > 0) {
-                // salary = SISA GAJI (JUMLAH GAJI DITERIMA) — net after all deductions
-                plafonPiutang = Math.max(0, Math.floor(Number(member.salary) * 0.5));
-            }
+            const plafonPiutang = getPlafonPiutang(member);
 
             const sisaLimit = plafonPiutang - totalTagihan;
 
