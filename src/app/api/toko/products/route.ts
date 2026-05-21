@@ -107,6 +107,13 @@ export async function GET(request: Request) {
             unit: p.unit,
             isService: p.isService,
             unitType: p.unitType,
+            // F&B fields (null/defaults for Toko — harmless)
+            categoryId: p.categoryId ?? null,
+            menuType: p.menuType ?? null,
+            taxType: p.taxType ?? "inclusive",
+            taxRate: Number(p.taxRate ?? 11.0),
+            posColor: p.posColor ?? null,
+            variantGroupId: p.variantGroupId ?? null,
         }));
 
         // Backward-compatible: paginated requests return { data: { products, pagination } }
@@ -155,7 +162,7 @@ export async function POST(request: Request) {
         const userId = parseInt(session.user.id);
 
         const body = await request.json();
-        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock } = body;
+        const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock, categoryId, menuType, taxType, taxRate, posColor, variantGroupId } = body;
         const nonInventoryUnits = ["cafe_lsp", "resto", "resto_cafe", "coffe_latar"];
 
         if (!sku || !name || sellPrice === undefined || sellPrice === null) {
@@ -199,6 +206,12 @@ export async function POST(request: Request) {
                         isService: isService || false,
                         productType: productType || "finished",
                         trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
+                        ...(categoryId !== undefined && { categoryId }),
+                        ...(menuType !== undefined && { menuType }),
+                        ...(taxType !== undefined && { taxType }),
+                        ...(taxRate !== undefined && { taxRate: taxRate ?? 11.0 }),
+                        ...(posColor !== undefined && { posColor: posColor || null }),
+                        ...(variantGroupId !== undefined && { variantGroupId: variantGroupId || null }),
                         isActive: true,
                         deletedAt: null,
                     },
@@ -230,6 +243,12 @@ export async function POST(request: Request) {
                 isService: isService || false,
                 productType: productType || "finished",
                 trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
+                ...(categoryId !== undefined && { categoryId }),
+                ...(menuType !== undefined && { menuType }),
+                ...(taxType !== undefined && { taxType }),
+                ...(taxRate !== undefined && { taxRate: taxRate ?? 11.0 }),
+                ...(posColor !== undefined && { posColor: posColor || null }),
+                ...(variantGroupId !== undefined && { variantGroupId: variantGroupId || null }),
             },
         });
 

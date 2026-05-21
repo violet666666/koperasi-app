@@ -106,6 +106,12 @@ export async function PUT(
         if (body.isActive !== undefined) updateData.isActive = body.isActive;
         if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl || null;
         if (body.trackStock !== undefined) updateData.trackStock = !!body.trackStock;
+        if (body.categoryId !== undefined) updateData.categoryId = body.categoryId || null;
+        if (body.menuType !== undefined) updateData.menuType = body.menuType || null;
+        if (body.taxType !== undefined) updateData.taxType = body.taxType;
+        if (body.taxRate !== undefined) updateData.taxRate = body.taxRate;
+        if (body.posColor !== undefined) updateData.posColor = body.posColor || null;
+        if (body.variantGroupId !== undefined) updateData.variantGroupId = body.variantGroupId || null;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ message: "Tidak ada data yang diubah" }, { status: 400 });
