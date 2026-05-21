@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isFbUnit } from "@/lib/constants/units";
 
-// GET /api/toko/products/categories — List all categories with product counts
+// GET /api/toko/products/categories — List categories with product counts
+// F&B units: from StoreCategory table (sorted by sortOrder)
+// Toko/other: from StoreProduct.category string aggregate (unchanged)
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -13,6 +16,31 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const unitType = searchParams.get("unitType") || undefined;
 
+        if (unitType && isFbUnit(unitType)) {
+            const categories = await prisma.storeCategory.findMany({
+                where: { unitType, isActive: true },
+                orderBy: { sortOrder: "asc" },
+                include: {
+                    _count: {
+                        select: {
+                            products: {
+                                where: { deletedAt: null, isActive: true },
+                            },
+                        },
+                    },
+                },
+            });
+            return NextResponse.json({
+                data: categories.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    count: c._count.products,
+                    sortOrder: c.sortOrder,
+                })),
+            });
+        }
+
+        // Original Toko/other: aggregate from StoreProduct.category string
         const products = await prisma.storeProduct.findMany({
             where: {
                 deletedAt: null,
@@ -41,7 +69,7 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/toko/products/categories — Rename or delete a category
+// POST /api/toko/products/categories — Create (F&B) or rename/delete (Toko)
 export async function POST(request: Request) {
     try {
         const session = await auth();
@@ -58,6 +86,37 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { action, category, newCategory } = body;
 
+        // F&B: Create new category in StoreCategory table
+        if (isFbUnit(unitType) && (!action || action === "create")) {
+            const name = (category || newCategory || "").trim();
+            if (!name) {
+                return NextResponse.json({ message: "Nama kategori wajib diisi" }, { status: 400 });
+            }
+
+            const existing = await prisma.storeCategory.findFirst({
+                where: { name: { equals: name, mode: "insensitive" }, unitType },
+            });
+            if (existing) {
+                return NextResponse.json({ message: `Kategori "${name}" sudah ada` }, { status: 409 });
+            }
+
+            const maxSort = await prisma.storeCategory.aggregate({
+                where: { unitType, isActive: true },
+                _max: { sortOrder: true },
+            });
+
+            const cat = await prisma.storeCategory.create({
+                data: {
+                    name,
+                    unitType,
+                    sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
+                },
+            });
+
+            return NextResponse.json({ data: { id: cat.id, name: cat.name, sortOrder: cat.sortOrder } }, { status: 201 });
+        }
+
+        // Toko/other: existing rename/delete logic (unchanged)
         if (!action || !category) {
             return NextResponse.json({ message: "Action dan nama kategori wajib diisi" }, { status: 400 });
         }
@@ -72,7 +131,6 @@ export async function POST(request: Request) {
                 return NextResponse.json({ message: "Nama kategori baru sama dengan yang lama" }, { status: 400 });
             }
 
-            // Check if new category already exists (case-insensitive)
             const existingWithNew = await prisma.storeProduct.findFirst({
                 where: { ...unitFilter, category: { equals: newCategory.trim(), mode: "insensitive" } },
             });
@@ -95,7 +153,6 @@ export async function POST(request: Request) {
         }
 
         if (action === "delete") {
-            // Set category to null for all products with this category
             const result = await prisma.storeProduct.updateMany({
                 where: { ...unitFilter, category },
                 data: { category: null },
@@ -111,5 +168,106 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("POST /api/toko/products/categories error:", error);
         return NextResponse.json({ message: "Gagal memproses permintaan kategori" }, { status: 500 });
+    }
+}
+
+// PUT /api/toko/products/categories — Update F&B category (name, sortOrder)
+export async function PUT(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan mengelola kategori" }, { status: 403 });
+        }
+
+        const body = await request.json();
+        const { id, name, sortOrder } = body;
+
+        if (!id) {
+            return NextResponse.json({ message: "ID kategori wajib diisi" }, { status: 400 });
+        }
+
+        const existing = await prisma.storeCategory.findUnique({ where: { id } });
+        if (!existing) {
+            return NextResponse.json({ message: "Kategori tidak ditemukan" }, { status: 404 });
+        }
+
+        if (!isFbUnit(existing.unitType)) {
+            return NextResponse.json({ message: "Endpoint ini hanya untuk unit F&B" }, { status: 400 });
+        }
+
+        const updateData: Record<string, unknown> = {};
+        if (name !== undefined) {
+            const trimmed = name.trim();
+            if (!trimmed) return NextResponse.json({ message: "Nama kategori tidak boleh kosong" }, { status: 400 });
+
+            const dup = await prisma.storeCategory.findFirst({
+                where: { name: { equals: trimmed, mode: "insensitive" }, unitType: existing.unitType, NOT: { id } },
+            });
+            if (dup) return NextResponse.json({ message: `Kategori "${trimmed}" sudah ada` }, { status: 409 });
+
+            updateData.name = trimmed;
+        }
+        if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+
+        const updated = await prisma.storeCategory.update({
+            where: { id },
+            data: updateData,
+        });
+
+        return NextResponse.json({ data: { id: updated.id, name: updated.name, sortOrder: updated.sortOrder } });
+    } catch (error) {
+        console.error("PUT /api/toko/products/categories error:", error);
+        return NextResponse.json({ message: "Gagal memperbarui kategori" }, { status: 500 });
+    }
+}
+
+// DELETE /api/toko/products/categories — Delete F&B category, unlink products
+export async function DELETE(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const role = session.user.role as string;
+        if (role === "kasir") {
+            return NextResponse.json({ message: "Kasir tidak diizinkan mengelola kategori" }, { status: 403 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const id = parseInt(searchParams.get("id") || "0");
+        if (!id) {
+            return NextResponse.json({ message: "ID kategori wajib diisi" }, { status: 400 });
+        }
+
+        const existing = await prisma.storeCategory.findUnique({ where: { id } });
+        if (!existing) {
+            return NextResponse.json({ message: "Kategori tidak ditemukan" }, { status: 404 });
+        }
+
+        if (!isFbUnit(existing.unitType)) {
+            return NextResponse.json({ message: "Endpoint ini hanya untuk unit F&B" }, { status: 400 });
+        }
+
+        await prisma.$transaction([
+            prisma.storeProduct.updateMany({
+                where: { categoryId: id },
+                data: { categoryId: null, category: null },
+            }),
+            prisma.storeCategory.update({
+                where: { id },
+                data: { isActive: false },
+            }),
+        ]);
+
+        return NextResponse.json({ message: `Kategori "${existing.name}" berhasil dihapus` });
+    } catch (error) {
+        console.error("DELETE /api/toko/products/categories error:", error);
+        return NextResponse.json({ message: "Gagal menghapus kategori" }, { status: 500 });
     }
 }
