@@ -814,6 +814,22 @@ model UnitTransaction {
 // TOKO (STORE) MANAGEMENT
 // =================================================================
 
+model StoreCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  unitType  String   @map("unit_type")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products StoreProduct[]
+
+  @@unique([name, unitType])
+  @@index([unitType, isActive])
+  @@map("store_categories")
+}
+
 model StoreProduct {
   id        Int       @id @default(autoincrement())
   sku       String    @unique
@@ -838,6 +854,15 @@ model StoreProduct {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
 
+  // --- F&B Menu Management fields (all nullable/defaulted, safe for Toko) ---
+  categoryId     Int?             @map("category_id")
+  categoryRel    StoreCategory?   @relation(fields: [categoryId], references: [id])
+  menuType       String?          @map("menu_type")            // "inventory" | "kitchen" | null
+  taxType        String           @default("inclusive") @map("tax_type") // "inclusive" | "exclusive" | "none"
+  taxRate        Decimal          @default(11.0) @map("tax_rate") @db.Decimal(5, 2)
+  posColor       String?          @map("pos_color")            // Hex color: "#FF5722"
+  variantGroupId String?          @map("variant_group_id")     // Groups variants: "latte"
+
   saleItems         StoreSaleItem[]
   stockMovements    StoreStockMovement[]
   stockBatches      StockBatch[]
@@ -847,6 +872,7 @@ model StoreProduct {
   @@index([unitType])
   @@index([unitType, isActive])
   @@index([category])
+  @@index([categoryId])
   @@index([deletedAt])
   @@map("store_products")
 }

@@ -162,6 +162,46 @@ export async function POST(request: Request) {
             results.push("kitchen_orders table already exists");
         }
 
+        // ── F&B Menu Management: store_categories table ──────────────────
+        const storeCatExists = await tableExists("store_categories");
+        if (!storeCatExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE store_categories (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    unit_type TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    is_active BOOLEAN NOT NULL DEFAULT true,
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+                    CONSTRAINT store_categories_name_unit_type_unique UNIQUE (name, unit_type)
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_store_categories_unit_active ON store_categories(unit_type, is_active)`);
+            results.push("Created store_categories table");
+        } else {
+            results.push("store_categories table already exists");
+        }
+
+        // F&B fields on store_products
+        const fbColumns: [string, string][] = [
+            ["category_id", "INTEGER"],
+            ["menu_type", "TEXT"],
+            ["tax_type", "TEXT DEFAULT 'inclusive'"],
+            ["tax_rate", "DECIMAL(5,2) DEFAULT 11.0"],
+            ["pos_color", "TEXT"],
+            ["variant_group_id", "TEXT"],
+        ];
+        for (const [col, type] of fbColumns) {
+            const exists = await columnExists("store_products", col);
+            if (!exists) {
+                await prisma.$executeRawUnsafe(`ALTER TABLE store_products ADD COLUMN ${col} ${type}`);
+                results.push(`Added store_products.${col} (${type})`);
+            } else {
+                results.push(`store_products.${col} already exists`);
+            }
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

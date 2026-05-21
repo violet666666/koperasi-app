@@ -44,3 +44,10 @@ export function getStoreUnits(): UnitConfig[] {
 export function getServiceUnits(): UnitConfig[] {
   return Object.values(UNIT_TYPES).filter((u) => u.category === "service");
 }
+
+export const FB_UNITS = ["cafe_lsp", "resto", "resto_cafe", "coffe_latar"] as const;
+export type FbUnitType = (typeof FB_UNITS)[number];
+
+export function isFbUnit(unitType: string | null | undefined): boolean {
+  return !!unitType && (FB_UNITS as readonly string[]).includes(unitType);
+}
