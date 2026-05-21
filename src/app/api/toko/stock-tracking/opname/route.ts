@@ -106,8 +106,8 @@ export async function POST(request: Request) {
 
                 const updateData =
                     stockLocation === "gudang"
-                        ? { stockGdg: item.physicalStock }
-                        : { stockToko: item.physicalStock };
+                        ? { stockGdg: item.physicalStock, stock: item.physicalStock + product.stockToko }
+                        : { stockToko: item.physicalStock, stock: product.stockGdg + item.physicalStock };
 
                 await tx.storeProduct.update({
                     where: { id: product.id },
