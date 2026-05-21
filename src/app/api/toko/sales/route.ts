@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
+import { isFbUnit } from "@/lib/constants/units";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { getPlafonPiutang } from "@/lib/plafon";
@@ -300,10 +301,17 @@ export async function POST(request: Request) {
                     discount = Math.min(Number(product.discountValue), rawPrice);
                 }
                 const unitPrice = rawPrice - discount;
-                const subtotal = unitPrice * item.quantity;
+
+                // F&B exclusive tax: add tax on top of unit price
+                let taxAmount = 0;
+                if (isFbUnit(unitType) && product.taxType === "exclusive" && Number(product.taxRate) > 0) {
+                    taxAmount = Math.round(unitPrice * Number(product.taxRate) / 100);
+                }
+                const totalUnitPrice = unitPrice + taxAmount;
+                const subtotal = totalUnitPrice * item.quantity;
                 totalAmount += subtotal;
 
-                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0 });
+                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice: totalUnitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0, taxAmount });
             }
 
             // Validate payment

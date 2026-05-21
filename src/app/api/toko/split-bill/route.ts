@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/lib/split-bill";
+import { isFbUnit } from "@/lib/constants/units";
 import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
@@ -126,10 +127,16 @@ export async function POST(req: Request) {
                     discount = Math.min(Number(product.discountValue), rawPrice);
                 }
                 const unitPrice = rawPrice - discount;
-                const subtotal = unitPrice * item.quantity;
+
+                let taxAmount = 0;
+                if (isFbUnit(unitTypeVal) && product.taxType === "exclusive" && Number(product.taxRate) > 0) {
+                    taxAmount = Math.round(unitPrice * Number(product.taxRate) / 100);
+                }
+                const totalUnitPrice = unitPrice + taxAmount;
+                const subtotal = totalUnitPrice * item.quantity;
                 orderTotal += subtotal;
 
-                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0 });
+                validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice: totalUnitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0, taxAmount });
             }
 
             // Verify payment total matches server-computed total
