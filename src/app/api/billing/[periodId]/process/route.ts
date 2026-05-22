@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { findUnitAccount } from "@/lib/cash-bank";
 
 // POST /api/billing/[periodId]/process — Settle billing period
 // Body: { memberIds?: number[] } — if provided, only settle these members. If omitted, settle all.
@@ -68,7 +69,56 @@ export async function POST(
         }
       }
 
-      // 3. Update period status
+      // 3. Record CashBankTransactions for settled salary_cut items, grouped by unit
+      const itemsByUnit = new Map<string, { amount: number; count: number }>();
+      for (const item of itemsToSettle) {
+        const ut = item.unitType || "toko";
+        const existing = itemsByUnit.get(ut);
+        if (existing) {
+          existing.amount += Number(item.amount);
+          existing.count += 1;
+        } else {
+          itemsByUnit.set(ut, { amount: Number(item.amount), count: 1 });
+        }
+      }
+
+      for (const [ut, data] of itemsByUnit) {
+        // Salary deductions arrive via bank transfer from payroll
+        let account = await findUnitAccount(tx, ut, "bank");
+        // Fallback to cash if unit has no bank account
+        if (!account) {
+          account = await findUnitAccount(tx, ut, "cash");
+        }
+        if (!account) {
+          console.warn(`[Billing] No bank/cash account for unit "${ut}" — skipping CashBankTransaction for Rp ${data.amount}`);
+          continue;
+        }
+
+        const updatedAccount = await tx.cashBankAccount.update({
+          where: { id: account.id },
+          data: { currentBalance: { increment: data.amount } },
+        });
+        const balanceBefore = Number(updatedAccount.currentBalance) - data.amount;
+
+        await tx.cashBankTransaction.create({
+          data: {
+            transactionNo: `SETTLE-${ut.toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`,
+            accountId: account.id,
+            branchId: account.branchId,
+            type: "in",
+            category: "salary_cut_settlement",
+            amount: data.amount,
+            balanceBefore,
+            balanceAfter: Number(updatedAccount.currentBalance),
+            unitType: ut,
+            description: `[${ut.toUpperCase()}] Penyelesaian Piutang Gaji — ${period.periodLabel} — ${data.count} transaksi`,
+            transactionDate: new Date(),
+            createdById: userId,
+          },
+        });
+      }
+
+      // 4. Update period status
       const uniqueMemberCount = new Set(period.billingItems.map((i) => i.memberId)).size;
 
       if (isFullSettle) {

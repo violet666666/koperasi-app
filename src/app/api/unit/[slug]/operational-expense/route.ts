@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { findUnitAccount } from "@/lib/cash-bank";
 
 export const dynamic = "force-dynamic";
 
@@ -117,13 +118,8 @@ export async function POST(
             : `[${unitType.toUpperCase()}] Pengeluaran Operasional: ${description}`;
 
         const cashTx = await prisma.$transaction(async (tx) => {
-            // Find cash account inside transaction for correct locking
-            const cashAccount = await tx.cashBankAccount.findFirst({
-                where: { unitType, type: "cash", isActive: true },
-            }) || await tx.cashBankAccount.findFirst({
-                where: { type: "cash", isActive: true },
-                orderBy: { id: "asc" },
-            });
+            // 3-step account lookup: unitTypes array → unitType → generic operational
+            const cashAccount = await findUnitAccount(tx, unitType, "cash");
 
             if (!cashAccount) throw new Error("Tidak ditemukan akun kas aktif untuk unit ini.");
 

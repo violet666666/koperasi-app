@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
+import { findUnitAccount } from "@/lib/cash-bank";
 
 // GET /api/mobile/toko?search=xxx&unitType=xxx
 export async function GET(request: Request) {
@@ -296,16 +297,7 @@ export async function POST(request: Request) {
             // Cash/bank sync (inside transaction — atomic)
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
-                let targetAccount = await tx.cashBankAccount.findFirst({
-                    where: { type: accountType, unitType, isActive: true },
-                    orderBy: { id: "asc" },
-                });
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
+                const targetAccount = await findUnitAccount(tx, unitType, accountType);
                 if (targetAccount) {
                     const updatedAccount = await tx.cashBankAccount.update({
                         where: { id: targetAccount.id },
