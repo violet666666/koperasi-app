@@ -134,6 +134,42 @@ export default function RiwayatTransaksiUnitPage() {
         setIsDetailOpen(true);
     };
 
+    const FB_UNIT_CONFIG: Record<string, { label: string; paper: "58mm" | "80mm" }> = {
+        toko: { label: "STRUK PENJUALAN TOKO", paper: "58mm" },
+        resto: { label: "STRUK RESTO & CAFE", paper: "80mm" },
+        resto_cafe: { label: "STRUK RESTO & CAFE", paper: "80mm" },
+        coffe_latar: { label: "STRUK RESTO & CAFE", paper: "80mm" },
+        cafe_lsp: { label: "STRUK CAFE LSP", paper: "58mm" },
+    };
+
+    const canReprint = (tx: EnrichedTransaction) => {
+        const baseStatus = (tx as any).status || "completed";
+        const isVoided = baseStatus === "voided" || baseStatus === "pending_void";
+        return !isVoided && tx.unitType in FB_UNIT_CONFIG;
+    };
+
+    const handleReprint = (tx: EnrichedTransaction) => {
+        const cfg = FB_UNIT_CONFIG[tx.unitType];
+        if (!cfg) return;
+        generateKasirReceiptPDF({
+            saleNo: tx.transactionNo,
+            saleDate: tx.transactionDate,
+            customerName: tx.member?.name || tx.customerName || undefined,
+            cashierName: (tx as any).createdBy?.name || undefined,
+            items: tx.items?.map(i => ({
+                name: i.productName,
+                quantity: i.quantity,
+                price: i.unitPrice,
+                subtotal: i.subtotal,
+            })) || [],
+            totalAmount: tx.amount,
+            paymentMethod: tx.paymentMethod || "cash",
+            cashReceived: tx.cashReceived ?? undefined,
+            changeAmount: tx.changeAmount ?? undefined,
+            unitLabel: cfg.label,
+        }, cfg.paper);
+    };
+
     const searchMemberByNrp = async (nrp: string) => {
         if (!nrp || nrp.length < 4) { setEditMemberFound(null); return; }
         setIsSearchingNrp(true);
@@ -329,6 +365,11 @@ export default function RiwayatTransaksiUnitPage() {
                     <Button variant="ghost" size="sm" className="h-8 text-slate-600 hover:text-slate-700 hover:bg-slate-50" title="Detail Transaksi" onClick={(e) => { e.stopPropagation(); openDetail(tx); }}>
                         <Eye className="h-4 w-4" />
                     </Button>
+                    {canReprint(tx) && (
+                        <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Cetak Ulang Struk" onClick={(e) => { e.stopPropagation(); handleReprint(tx); }}>
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                    )}
                     {canEditNrp && (
                         <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Tambah NRP Anggota" onClick={(e) => { e.stopPropagation(); setEditTx(tx); setNrpInput(""); setEditMemberFound(null); setIsEditNrpOpen(true); }}>
                             <Pencil className="h-4 w-4" />
@@ -1107,41 +1148,17 @@ export default function RiwayatTransaksiUnitPage() {
                                 </div>
                             )}
 
-                            {/* Cetak Ulang Struk — hanya untuk transaksi toko non-voided */}
-                            {(() => {
-                                const baseStatus = (detailTx as any).status || "completed";
-                                const isVoided = baseStatus === "voided" || baseStatus === "pending_void";
-                                if (detailTx.unitType === "toko" && !isVoided) {
-                                    return (
-                                        <Button
-                                            variant="outline"
-                                            className="w-full mt-2"
-                                            onClick={() => {
-                                                generateKasirReceiptPDF({
-                                                    saleNo: detailTx.transactionNo,
-                                                    saleDate: detailTx.transactionDate,
-                                                    customerName: detailTx.member?.name || detailTx.customerName || undefined,
-                                                    cashierName: (detailTx as any).createdBy?.name || undefined,
-                                                    items: detailTx.items?.map(i => ({
-                                                        name: i.productName,
-                                                        quantity: i.quantity,
-                                                        price: i.unitPrice,
-                                                        subtotal: i.subtotal,
-                                                    })) || [],
-                                                    totalAmount: detailTx.amount,
-                                                    paymentMethod: detailTx.paymentMethod || "cash",
-                                                    cashReceived: detailTx.cashReceived ?? undefined,
-                                                    changeAmount: detailTx.changeAmount ?? undefined,
-                                                });
-                                            }}
-                                        >
-                                            <Printer className="mr-2 h-4 w-4" />
-                                            Cetak Ulang Struk
-                                        </Button>
-                                    );
-                                }
-                                return null;
-                            })()}
+                            {/* Cetak Ulang Struk — untuk toko, resto, cafe_lsp non-voided */}
+                            {canReprint(detailTx) && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full mt-2"
+                                    onClick={() => handleReprint(detailTx)}
+                                >
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    Cetak Ulang Struk
+                                </Button>
+                            )}
                         </div>
                     )}
                 </DialogContent>

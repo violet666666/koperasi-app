@@ -662,6 +662,7 @@ export interface KasirReceiptData {
     paymentMethod: string;
     cashReceived?: number;
     changeAmount?: number;
+    unitLabel?: string;
 }
 
 /**
@@ -739,7 +740,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
   <p>Polres Lumajang</p>
-  <p style="margin-top:2px;font-size:${fontSize};font-weight:bold;">STRUK PENJUALAN TOKO</p>
+  <p style="margin-top:2px;font-size:${fontSize};font-weight:bold;">${escapeHtml(data.unitLabel || "STRUK PENJUALAN TOKO")}</p>
 </div>
 <table><tbody>
   <tr><td>No Transaksi</td><td colspan="3" style="text-align:right;">${escapeHtml(data.saleNo)}</td></tr>
