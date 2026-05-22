@@ -38,17 +38,22 @@ export async function GET(request: Request) {
                 where: { name: category, unitType: unitType!, isActive: true },
                 select: { id: true },
             });
-            fbCategoryId = storeCat?.id ?? -1;
+            fbCategoryId = storeCat?.id ?? null;
         }
+
+        // Build category filter — F&B uses OR (categoryId FK OR category string), Toko uses simple string match
+        const categoryFilter = category && category !== "all"
+            ? (isFbUnit(unitType)
+                ? { OR: [{ category }, ...(fbCategoryId ? [{ categoryId: fbCategoryId }] : [])] }
+                : { category })
+            : {};
 
         const where = {
             deletedAt: null,
             isActive: true,
             productType,
             ...(unitType && { unitType: unitType }),
-            ...(category && category !== "all" && !isFbUnit(unitType) && { category }),
-            ...(fbCategoryId && fbCategoryId > 0 && { categoryId: fbCategoryId }),
-            ...(fbCategoryId === -1 && { id: -1 }),
+            ...categoryFilter,
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: "insensitive" as const } },
@@ -88,6 +93,7 @@ export async function GET(request: Request) {
         const filterProductType = productType;
         // F&B: use categoryId for stats query
         const fbStatsCategoryId = fbCategoryId;
+        const isFbStats = isFbUnit(unitType);
         const agStats = isPaginated ? await prisma.$queryRaw<{
             total_products: number; total_stock: number; total_value: number; out_of_stock: number; low_stock: number;
         }[]>`
@@ -102,8 +108,15 @@ export async function GET(request: Request) {
               AND product_type = ${filterProductType}
               AND (${filterUnitType}::text IS NULL OR unit_type = ${filterUnitType})
               AND (
-                (${fbStatsCategoryId}::int IS NOT NULL AND ${fbStatsCategoryId}::int > 0 AND category_id = ${fbStatsCategoryId})
-                OR (${fbStatsCategoryId}::int IS NULL AND (${filterCategory}::text IS NULL OR category = ${filterCategory}))
+                ${filterCategory}::text IS NULL
+                OR (
+                  ${isFbStats} = true
+                  AND (category = ${filterCategory} OR (${fbStatsCategoryId}::int IS NOT NULL AND category_id = ${fbStatsCategoryId}))
+                )
+                OR (
+                  ${isFbStats} = false
+                  AND category = ${filterCategory}
+                )
               )
               AND (${filterSearch}::text IS NULL OR name ILIKE '%' || ${filterSearch} || '%' OR sku ILIKE '%' || ${filterSearch} || '%')
         ` : null;

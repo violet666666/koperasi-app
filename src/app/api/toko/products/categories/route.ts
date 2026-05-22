@@ -18,6 +18,34 @@ export async function GET(request: Request) {
         const unitType = searchParams.get("unitType") || undefined;
 
         if (unitType && isFbUnit(unitType)) {
+            // Auto-backfill: link products with matching category string but no categoryId FK
+            const orphanProducts = await prisma.storeProduct.findMany({
+                where: {
+                    unitType,
+                    categoryId: null,
+                    category: { not: null },
+                    deletedAt: null,
+                    isActive: true,
+                },
+                select: { id: true, category: true },
+            });
+            if (orphanProducts.length > 0) {
+                const allCats = await prisma.storeCategory.findMany({
+                    where: { unitType, isActive: true },
+                    select: { id: true, name: true },
+                });
+                const catMap = new Map(allCats.map(c => [c.name.toLowerCase(), c.id]));
+                for (const p of orphanProducts) {
+                    const catId = catMap.get(p.category!.toLowerCase());
+                    if (catId) {
+                        await prisma.storeProduct.update({
+                            where: { id: p.id },
+                            data: { categoryId: catId },
+                        }).catch(() => {});
+                    }
+                }
+            }
+
             const categories = await prisma.storeCategory.findMany({
                 where: { unitType, isActive: true },
                 orderBy: { sortOrder: "asc" },
@@ -220,6 +248,14 @@ export async function PUT(request: Request) {
             where: { id },
             data: updateData,
         });
+
+        // Sync denormalized `category` string on linked products when name changes
+        if (updateData.name && updateData.name !== existing.name) {
+            await prisma.storeProduct.updateMany({
+                where: { categoryId: id },
+                data: { category: updateData.name },
+            });
+        }
 
         return NextResponse.json({ data: { id: updated.id, name: updated.name, sortOrder: updated.sortOrder } });
     } catch (error) {
