@@ -14,6 +14,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Coffee, Search, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, ImageOff, AlertCircle, CheckCircle2, QrCode, Star, Clock, ListOrdered, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+import { ModifierDialog, clearModifierCache } from "@/components/patterns/modifier-dialog";
+import type { ModifierGroupWithSelection } from "@/lib/modifiers";
+import { calculateModifierPrice } from "@/lib/modifiers";
 import { useAuth } from "@/lib/hooks";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number; metadata?: any;
@@ -24,7 +27,14 @@ interface Product { id: number; sku: string; name: string; price: number; isServ
     variantGroupId?: string | null;
     isActive?: boolean;
 }
-interface CartItem { product: Product; quantity: number; notes?: string; }
+interface CartItem {
+    product: Product;
+    quantity: number;
+    notes?: string;
+    modifiers?: ModifierGroupWithSelection[];
+    modifierTotal?: number;
+    cartKey?: string;
+}
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
 interface QueueOrder { id: string; queueNumber: string; items: string; time: string; status: "waiting" | "ready"; }
@@ -32,12 +42,16 @@ interface QueueOrder { id: string; queueNumber: string; items: string; time: str
 interface CafeLspState {
     cart: CartItem[];
     queueOrders: QueueOrder[];
-    addToCart: (product: Product) => void;
-    updateItem: (productId: number, updates: Partial<CartItem>) => void;
-    removeItem: (productId: number) => void;
+    addToCart: (item: CartItem) => void;
+    updateItem: (cartKey: string, updates: Partial<CartItem>) => void;
+    removeItem: (cartKey: string) => void;
     clearCart: () => void;
     addQueueOrder: (order: QueueOrder) => void;
     updateQueueOrder: (id: string, status: "waiting" | "ready") => void;
+}
+
+function getCartKey(item: CartItem): string {
+    return item.cartKey || String(item.product.id);
 }
 
 const useCafeLspStore = create<CafeLspState>()(
@@ -45,18 +59,19 @@ const useCafeLspStore = create<CafeLspState>()(
         (set) => ({
             cart: [],
             queueOrders: [],
-            addToCart: (product) => set((state) => {
-                const existing = state.cart.find(c => c.product.id === product.id);
+            addToCart: (item) => set((state) => {
+                const key = getCartKey(item);
+                const existing = state.cart.find(c => getCartKey(c) === key);
                 if (existing) {
-                    return { cart: state.cart.map(c => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c) };
+                    return { cart: state.cart.map(c => getCartKey(c) === key ? { ...c, quantity: c.quantity + 1 } : c) };
                 }
-                return { cart: [...state.cart, { product, quantity: 1, notes: "" }] };
+                return { cart: [...state.cart, { ...item, cartKey: key, quantity: 1, notes: item.notes || "" }] };
             }),
-            updateItem: (productId, updates) => set((state) => ({
-                cart: state.cart.map(c => c.product.id === productId ? { ...c, ...updates } : c).filter(c => c.quantity > 0),
+            updateItem: (cartKey, updates) => set((state) => ({
+                cart: state.cart.map(c => getCartKey(c) === cartKey ? { ...c, ...updates } : c).filter(c => c.quantity > 0),
             })),
-            removeItem: (productId) => set((state) => ({
-                cart: state.cart.filter(c => c.product.id !== productId),
+            removeItem: (cartKey) => set((state) => ({
+                cart: state.cart.filter(c => getCartKey(c) !== cartKey),
             })),
             clearCart: () => set({ cart: [] }),
             addQueueOrder: (order) => set((state) => ({
@@ -108,6 +123,10 @@ export default function CafeLspKasirPage() {
 
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null);
     const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
+
+    // Modifier dialog state
+    const [showModifierDialog, setShowModifierDialog] = React.useState(false);
+    const [modifierProduct, setModifierProduct] = React.useState<Product | null>(null);
 
     const [nextQueueNumber, setNextQueueNumber] = React.useState("A001");
     const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
@@ -270,7 +289,27 @@ export default function CafeLspKasirPage() {
         });
     }, [products, activeCategory, searchQuery, quickKeyProducts]);
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    const subtotal = cart.reduce((sum, item) => {
+        const modTotal = item.modifierTotal || 0;
+        return sum + ((item.product.price + modTotal) * item.quantity);
+    }, 0);
+
+    const handleModifierConfirm = (selections: ModifierGroupWithSelection[], modifierTotal: number) => {
+        if (!modifierProduct) return;
+        const modKey = selections.length > 0
+            ? selections.map(g => g.selectedOptionIds.sort().join(",")).join("|")
+            : "";
+        const cartKey = modKey ? `${modifierProduct.id}_${modKey}` : String(modifierProduct.id);
+        addToCart({
+            product: modifierProduct,
+            quantity: 1,
+            notes: "",
+            modifiers: selections.length > 0 ? selections : undefined,
+            modifierTotal: modifierTotal > 0 ? modifierTotal : undefined,
+            cartKey,
+        });
+        setModifierProduct(null);
+    };
 
     const searchMembers = async () => {
         if (!memberSearch.trim()) return;
@@ -327,7 +366,12 @@ export default function CafeLspKasirPage() {
             } catch {}
 
             const body: any = {
-                items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
+                items: cart.map(item => ({
+                    productId: item.product.id,
+                    quantity: item.quantity,
+                    modifiers: item.modifiers || [],
+                    modifierTotal: item.modifierTotal || 0,
+                })),
                 customerName: selectedMember?.name || "Tamu",
                 paymentMethod: method,
                 unitType: "cafe_lsp",
@@ -340,6 +384,18 @@ export default function CafeLspKasirPage() {
                         if (item.notes) acc[String(item.product.id)] = item.notes;
                         return acc;
                     }, {} as Record<string, string>),
+                    itemModifiers: cart.reduce((acc, item) => {
+                        if (item.modifiers && item.modifiers.length > 0) {
+                            acc[String(item.product.id)] = item.modifiers.map(g => ({
+                                group: g.name,
+                                selected: g.selectedOptionIds.map(id => {
+                                    const opt = g.options.find(o => o.id === id);
+                                    return opt ? `${opt.name}${opt.priceAdjust > 0 ? ` (+${formatCurrency(opt.priceAdjust)})` : ""}` : id;
+                                }),
+                            }));
+                        }
+                        return acc;
+                    }, {} as Record<string, any[]>),
                 },
             };
 
@@ -362,7 +418,12 @@ export default function CafeLspKasirPage() {
             addQueueOrder({
                 id: `CL-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 queueNumber: currentQueue,
-                items: cart.map(i => `${i.quantity}x ${i.product.name}`).join(", "),
+                items: cart.map(i => {
+                    const modLabel = i.modifiers?.length
+                        ? ` (${i.modifiers.flatMap(g => g.selectedOptionIds.map(id => g.options.find(o => o.id === id)?.name)).filter(Boolean).join(", ")})`
+                        : "";
+                    return `${i.quantity}x ${i.product.name}${modLabel}`;
+                }).join(", "),
                 time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
                 status: "waiting",
             });
@@ -378,7 +439,14 @@ export default function CafeLspKasirPage() {
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
                 kasir: user?.name || "Kasir Cafe LSP",
                 unitType: "cafe_lsp",
-                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
+                items: cart.map(i => {
+                    const modTotal = i.modifierTotal || 0;
+                    const unitPrice = i.product.price + modTotal;
+                    const modLabel = i.modifiers?.length
+                        ? ` (${i.modifiers.flatMap(g => g.selectedOptionIds.map(id => g.options.find(o => o.id === id)?.name)).filter(Boolean).join(", ")})`
+                        : "";
+                    return { name: i.product.name + modLabel, qty: i.quantity, price: unitPrice, subtotal: unitPrice * i.quantity };
+                }),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);
@@ -464,7 +532,11 @@ export default function CafeLspKasirPage() {
                         ) : (
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {filteredMenu.map(p => (
-                                    <button key={p.id} onClick={() => addToCart(p)}
+                                    <button key={p.id} onClick={() => {
+                                        // Check if product might have modifiers — open dialog
+                                        setModifierProduct(p);
+                                        setShowModifierDialog(true);
+                                    }}
                                         className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-amber-300 hover:shadow-md transition-all active:scale-[0.97] text-left group relative"
                                         style={p.posColor ? { backgroundColor: p.posColor + '20', borderColor: p.posColor } : undefined}
                                     >
@@ -518,26 +590,45 @@ export default function CafeLspKasirPage() {
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100">
-                                {cart.map(item => (
-                                    <div key={item.product.id} className="p-4 hover:bg-slate-50 transition-colors">
+                                {cart.map(item => {
+                                    const itemKey = item.cartKey || String(item.product.id);
+                                    const modTotal = item.modifierTotal || 0;
+                                    const itemPrice = item.product.price + modTotal;
+                                    return (
+                                    <div key={itemKey} className="p-4 hover:bg-slate-50 transition-colors">
                                         <div className="flex justify-between items-start mb-2">
-                                            <p className="font-semibold text-sm leading-tight pr-4 text-slate-700">{item.product.name}</p>
-                                            <p className="font-mono font-bold text-sm">{formatCurrency(item.product.price * item.quantity)}</p>
+                                            <div className="pr-4 flex-1 min-w-0">
+                                                <p className="font-semibold text-sm leading-tight text-slate-700">{item.product.name}</p>
+                                                {item.modifiers && item.modifiers.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {item.modifiers.map(g => g.selectedOptionIds.map(optId => {
+                                                            const opt = g.options.find(o => o.id === optId);
+                                                            return opt ? (
+                                                                <span key={optId} className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                                                                    {opt.name}{opt.priceAdjust > 0 ? ` +${formatCurrency(opt.priceAdjust)}` : ""}
+                                                                </span>
+                                                            ) : null;
+                                                        }))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="font-mono font-bold text-sm whitespace-nowrap">{formatCurrency(itemPrice * item.quantity)}</p>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <Input placeholder="Note..." className="h-7 text-[11px] w-32 bg-white" maxLength={60}
-                                                value={item.notes} onChange={e => updateItem(item.product.id, { notes: e.target.value })} />
+                                                value={item.notes} onChange={e => updateItem(itemKey, { notes: e.target.value })} />
                                             <div className="flex items-center gap-2 bg-white border rounded-md shadow-sm">
                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => {
-                                                    if (item.quantity <= 1) removeItem(item.product.id);
-                                                    else updateItem(item.product.id, { quantity: item.quantity - 1 });
+                                                    if (item.quantity <= 1) removeItem(itemKey);
+                                                    else updateItem(itemKey, { quantity: item.quantity - 1 });
                                                 }}><Minus className="h-3 w-3" /></Button>
                                                 <span className="w-5 text-center text-sm font-bold">{item.quantity}</span>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => updateItem(item.product.id, { quantity: item.quantity + 1 })}><Plus className="h-3 w-3" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => updateItem(itemKey, { quantity: item.quantity + 1 })}><Plus className="h-3 w-3" /></Button>
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </CardContent>
@@ -785,6 +876,16 @@ export default function CafeLspKasirPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Modifier Dialog */}
+            <ModifierDialog
+                open={showModifierDialog}
+                onOpenChange={(open) => { setShowModifierDialog(open); if (!open) setModifierProduct(null); }}
+                productId={modifierProduct?.id ?? null}
+                productName={modifierProduct?.name || ""}
+                basePrice={modifierProduct?.price || 0}
+                onConfirm={handleModifierConfirm}
+            />
         </div>
     );
 }

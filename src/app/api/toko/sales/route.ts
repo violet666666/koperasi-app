@@ -300,12 +300,16 @@ export async function POST(request: Request) {
                 } else if (product.discountType === "fixed" && Number(product.discountValue) > 0) {
                     discount = Math.min(Number(product.discountValue), rawPrice);
                 }
-                const unitPrice = rawPrice - discount;
 
-                // F&B exclusive tax: add tax on top of unit price
+                // Add modifier price adjustment from client
+                const modifierTotal = Number(item.modifierTotal) || 0;
+                const unitPrice = rawPrice - discount + modifierTotal;
+
+                // F&B exclusive tax: add tax on top of unit price (base after discount, before modifier)
                 let taxAmount = 0;
                 if (isFbUnit(unitType) && product.taxType === "exclusive" && Number(product.taxRate) > 0) {
-                    taxAmount = Math.round(unitPrice * Number(product.taxRate) / 100);
+                    const taxableBase = rawPrice - discount;
+                    taxAmount = Math.round(taxableBase * Number(product.taxRate) / 100);
                 }
                 const totalUnitPrice = unitPrice + taxAmount;
                 const subtotal = totalUnitPrice * item.quantity;

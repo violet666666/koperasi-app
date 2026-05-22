@@ -126,7 +126,10 @@ export async function POST(req: Request) {
                 } else if (product.discountType === "fixed" && Number(product.discountValue) > 0) {
                     discount = Math.min(Number(product.discountValue), rawPrice);
                 }
-                const unitPrice = rawPrice - discount;
+
+                // Add modifier price adjustment from client
+                const modifierTotal = Number(item.modifierTotal) || 0;
+                const unitPrice = rawPrice - discount + modifierTotal;
 
                 let taxAmount = 0;
                 if (isFbUnit(unitTypeVal) && product.taxType === "exclusive" && Number(product.taxRate) > 0) {

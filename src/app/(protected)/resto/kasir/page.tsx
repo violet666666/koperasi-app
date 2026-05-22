@@ -17,6 +17,9 @@ import { toast } from "sonner";
 import { Coffee, Search, Utensils, Banknote, CreditCard, Loader2, Maximize, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, Printer, LayoutGrid, Clock, ImageOff, AlertCircle, CheckCircle2, QrCode, X } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
+import { ModifierDialog, clearModifierCache } from "@/components/patterns/modifier-dialog";
+import type { ModifierGroupWithSelection } from "@/lib/modifiers";
+import { calculateModifierPrice } from "@/lib/modifiers";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; imageUrl?: string | null; stock?: number;
     // F&B fields
@@ -26,7 +29,14 @@ interface Product { id: number; sku: string; name: string; price: number; isServ
     variantGroupId?: string | null;
     isActive?: boolean;
 }
-interface CartItem { product: Product; quantity: number; notes?: string; }
+interface CartItem {
+    product: Product;
+    quantity: number;
+    notes?: string;
+    modifiers?: ModifierGroupWithSelection[];
+    modifierTotal?: number;
+    cartKey?: string;
+}
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
 
@@ -54,21 +64,22 @@ const useRestoStore = create<RestoState>()(
             activeTableId: null,
             setActiveTable: (id) => set({ activeTableId: id }),
             updateCart: (tableId, item, action) => set((state) => {
+                const itemKey = item.cartKey || String(item.product.id);
                 const tables = state.tables.map(t => {
                     if (t.id !== tableId) return t;
                     let newCart = [...t.cart];
-                    const existing = newCart.find(c => c.product.id === item.product.id);
+                    const existing = newCart.find(c => (c.cartKey || String(c.product.id)) === itemKey);
                     if (action === "add") {
                         if (existing) existing.quantity += 1;
-                        else newCart.push({ product: item.product, quantity: 1, notes: "" });
+                        else newCart.push({ ...item, cartKey: itemKey, quantity: 1, notes: item.notes || "" });
                     } else if (action === "update") {
                         if (existing) {
                             existing.quantity = item.quantity;
                             if (item.notes !== undefined) existing.notes = item.notes;
-                            if (existing.quantity <= 0) newCart = newCart.filter(c => c.product.id !== item.product.id);
+                            if (existing.quantity <= 0) newCart = newCart.filter(c => (c.cartKey || String(c.product.id)) !== itemKey);
                         }
                     } else if (action === "remove") {
-                        newCart = newCart.filter(c => c.product.id !== item.product.id);
+                        newCart = newCart.filter(c => (c.cartKey || String(c.product.id)) !== itemKey);
                     }
                     return { ...t, cart: newCart };
                 });
@@ -139,6 +150,10 @@ export default function RestoKasirPage() {
     // Shift state
     const [shiftOpen, setShiftOpen] = React.useState<boolean | null>(null); // null = loading
     const [activeShiftId, setActiveShiftId] = React.useState<number | null>(null);
+
+    // Modifier dialog state
+    const [showModifierDialog, setShowModifierDialog] = React.useState(false);
+    const [modifierProduct, setModifierProduct] = React.useState<Product | null>(null);
 
     React.useEffect(() => {
         async function fetchProducts() {
@@ -217,8 +232,27 @@ export default function RestoKasirPage() {
         return matchSearch && matchCategory;
     });
     const cart = activeTable?.cart || [];
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    const subtotal = cart.reduce((sum, item) => {
+        const modTotal = item.modifierTotal || 0;
+        return sum + ((item.product.price + modTotal) * item.quantity);
+    }, 0);
     const change = Number(paymentAmount) - subtotal;
+
+    const handleModifierConfirm = (selections: ModifierGroupWithSelection[], modifierTotal: number) => {
+        if (!modifierProduct || !activeTable) return;
+        const modKey = selections.length > 0
+            ? selections.map(g => g.selectedOptionIds.sort().join(",")).join("|")
+            : "";
+        const cartKey = modKey ? `${modifierProduct.id}_${modKey}` : String(modifierProduct.id);
+        updateCart(activeTable.id, {
+            product: modifierProduct,
+            quantity: 1,
+            modifiers: selections.length > 0 ? selections : undefined,
+            modifierTotal: modifierTotal > 0 ? modifierTotal : undefined,
+            cartKey,
+        }, "add");
+        setModifierProduct(null);
+    };
 
     const searchMembers = async () => {
         if (!memberSearch.trim()) return;
@@ -279,7 +313,12 @@ export default function RestoKasirPage() {
         setIsProcessing(true);
         try {
             const body: any = {
-                items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
+                items: cart.map(item => ({
+                    productId: item.product.id,
+                    quantity: item.quantity,
+                    modifiers: item.modifiers || [],
+                    modifierTotal: item.modifierTotal || 0,
+                })),
                 customerName: activeTable.customerName || (method === "salary_cut" ? selectedMember?.name : "Tamu"),
                 paymentMethod: method,
                 unitType: "resto",
@@ -294,6 +333,18 @@ export default function RestoKasirPage() {
                         if (item.notes) acc[String(item.product.id)] = item.notes;
                         return acc;
                     }, {} as Record<string, string>),
+                    itemModifiers: cart.reduce((acc, item) => {
+                        if (item.modifiers && item.modifiers.length > 0) {
+                            acc[String(item.product.id)] = item.modifiers.map(g => ({
+                                group: g.name,
+                                selected: g.selectedOptionIds.map(id => {
+                                    const opt = g.options.find(o => o.id === id);
+                                    return opt ? `${opt.name}${opt.priceAdjust > 0 ? ` (+${formatCurrency(opt.priceAdjust)})` : ""}` : id;
+                                }),
+                            }));
+                        }
+                        return acc;
+                    }, {} as Record<string, any[]>),
                 },
             };
             
@@ -320,7 +371,14 @@ export default function RestoKasirPage() {
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
                 kasir: user?.name || "Kasir Resto",
                 unitType: sessionUnitType,
-                items: cart.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, subtotal: i.product.price * i.quantity })),
+                items: cart.map(i => {
+                    const modTotal = i.modifierTotal || 0;
+                    const unitPrice = i.product.price + modTotal;
+                    const modLabel = i.modifiers?.length
+                        ? ` (${i.modifiers.flatMap(g => g.selectedOptionIds.map(id => g.options.find(o => o.id === id)?.name)).filter(Boolean).join(", ")})`
+                        : "";
+                    return { name: i.product.name + modLabel, qty: i.quantity, price: unitPrice, subtotal: unitPrice * i.quantity };
+                }),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);
@@ -547,7 +605,10 @@ export default function RestoKasirPage() {
                         ) : (
                             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {filteredMenu.map(p => (
-                                    <button key={p.id} onClick={() => updateCart(activeTable.id, { product: p, quantity: 1 }, "add")}
+                                    <button key={p.id} onClick={() => {
+                                        setModifierProduct(p);
+                                        setShowModifierDialog(true);
+                                    }}
                                         className="bg-white border rounded-xl flex flex-col overflow-hidden hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.97] text-left group relative"
                                         style={p.posColor ? { backgroundColor: p.posColor + '20', borderColor: p.posColor } : undefined}
                                     >
@@ -599,11 +660,29 @@ export default function RestoKasirPage() {
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100">
-                                {cart.map(item => (
-                                    <div key={item.product.id} className="p-4 hover:bg-slate-50 transition-colors">
+                                {cart.map(item => {
+                                    const itemKey = item.cartKey || String(item.product.id);
+                                    const modTotal = item.modifierTotal || 0;
+                                    const itemPrice = item.product.price + modTotal;
+                                    return (
+                                    <div key={itemKey} className="p-4 hover:bg-slate-50 transition-colors">
                                         <div className="flex justify-between items-start mb-2">
-                                            <p className="font-semibold text-sm leading-tight pr-4 text-slate-700">{item.product.name}</p>
-                                            <p className="font-mono font-bold text-sm">{formatCurrency(item.product.price * item.quantity)}</p>
+                                            <div className="pr-4 flex-1 min-w-0">
+                                                <p className="font-semibold text-sm leading-tight text-slate-700">{item.product.name}</p>
+                                                {item.modifiers && item.modifiers.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {item.modifiers.map(g => g.selectedOptionIds.map(optId => {
+                                                            const opt = g.options.find(o => o.id === optId);
+                                                            return opt ? (
+                                                                <span key={optId} className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">
+                                                                    {opt.name}{opt.priceAdjust > 0 ? ` +${formatCurrency(opt.priceAdjust)}` : ""}
+                                                                </span>
+                                                            ) : null;
+                                                        }))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="font-mono font-bold text-sm whitespace-nowrap">{formatCurrency(itemPrice * item.quantity)}</p>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <Input placeholder="Note (Pedes, Es dipisah)..." className="h-7 text-[11px] w-32 bg-white" maxLength={60}
@@ -611,11 +690,12 @@ export default function RestoKasirPage() {
                                             <div className="flex items-center gap-2 bg-white border rounded-md shadow-sm">
                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => updateCart(activeTable.id, { ...item, quantity: item.quantity - 1 }, "update")}><Minus className="h-3 w-3" /></Button>
                                                 <span className="w-5 text-center text-sm font-bold">{item.quantity}</span>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => updateCart(activeTable.id, { product: item.product, quantity: 1 }, "add")}><Plus className="h-3 w-3" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" onClick={() => updateCart(activeTable.id, { ...item, quantity: item.quantity + 1 }, "add")}><Plus className="h-3 w-3" /></Button>
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </CardContent>
@@ -814,7 +894,13 @@ export default function RestoKasirPage() {
                                         method: "POST",
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({
-                                            items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
+                                            items: cart.map(i => ({
+                                                productId: i.product.id,
+                                                name: i.product.name,
+                                                price: i.product.price + (i.modifierTotal || 0),
+                                                quantity: i.quantity,
+                                                modifierTotal: i.modifierTotal || 0,
+                                            })),
                                             payments: splitPayments.map(p => ({ method: p.method, amount: p.amount })),
                                             unitType: "resto",
                                             shiftUnitType: sessionUnitType,
@@ -850,11 +936,21 @@ export default function RestoKasirPage() {
                     </DialogHeader>
                     {lastReceipt && (
                         <div className="flex flex-col items-center">
-                            <ReceiptPrimkopol data={lastReceipt} paperSize="80mm" /> {/* Resto often uses 80mm */}
+                            <ReceiptPrimkopol data={lastReceipt} paperSize="80mm" />
                         </div>
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Modifier Dialog */}
+            <ModifierDialog
+                open={showModifierDialog}
+                onOpenChange={(open) => { setShowModifierDialog(open); if (!open) setModifierProduct(null); }}
+                productId={modifierProduct?.id ?? null}
+                productName={modifierProduct?.name || ""}
+                basePrice={modifierProduct?.price || 0}
+                onConfirm={handleModifierConfirm}
+            />
         </div>
     );
 }
