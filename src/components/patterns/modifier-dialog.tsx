@@ -33,11 +33,13 @@ export function ModifierDialog({
     const [groups, setGroups] = React.useState<ModifierGroup[]>([]);
     const [selections, setSelections] = React.useState<Record<string, string[]>>({});
     const [isLoading, setIsLoading] = React.useState(false);
+    const [hasLoaded, setHasLoaded] = React.useState(false);
 
     // Reset state when product changes
     React.useEffect(() => {
         if (!open || !productId) return;
         setSelections({});
+        setHasLoaded(false);
 
         async function loadModifiers() {
             if (!productId) return;
@@ -47,6 +49,7 @@ export function ModifierDialog({
                 if (modifierCache.has(productId)) {
                     setGroups(modifierCache.get(productId)!);
                     setIsLoading(false);
+                    setHasLoaded(true);
                     return;
                 }
                 const res = await fetch(`/api/toko/modifiers?productId=${productId}`);
@@ -58,18 +61,19 @@ export function ModifierDialog({
                 setGroups([]);
             } finally {
                 setIsLoading(false);
+                setHasLoaded(true);
             }
         }
         loadModifiers();
     }, [open, productId]);
 
-    // No modifiers — auto-confirm immediately
+    // No modifiers — auto-confirm only after fetch completes
     React.useEffect(() => {
-        if (!open || !productId || isLoading || groups.length > 0) return;
+        if (!open || !productId || !hasLoaded || isLoading || groups.length > 0) return;
         // Product has no modifier groups — just add to cart directly
         onConfirm([], 0);
         onOpenChange(false);
-    }, [open, productId, isLoading, groups.length]);
+    }, [open, productId, hasLoaded, isLoading, groups.length]);
 
     const toggleOption = (groupId: string, optionId: string, multiSelect: boolean) => {
         setSelections(prev => {
