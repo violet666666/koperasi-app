@@ -36,15 +36,21 @@ import { generateFakturPiutangPDF, exportFakturPiutangExcel, type FakturPiutangD
 
 const UNIT_LABELS: Record<string, string> = {
   toko: "Toko",
+  cuci_mobil: "Cuci Mobil",
   carwash: "Cuci Mobil",
   resto: "Resto",
-  coffe_latar: "Cafe Latar",
+  resto_cafe: "Resto & Cafe",
+  coffe_latar: "Coffee Latar",
   cafe_lsp: "Cafe LSP",
   barbershop: "Barbershop",
   fitness: "Fitness",
+  playstation: "PlayStation",
   play_station: "PlayStation",
+  laundry: "Laundry",
+  fotocopy: "Fotocopy",
   properti: "Properti",
   simpan_pinjam: "Simpan Pinjam",
+  aset: "Aset",
 };
 
 interface BillingItem {

@@ -74,6 +74,15 @@ export async function POST(request: Request) {
 
     const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
 
+    const UNIT_LABELS: Record<string, string> = {
+      toko: "Toko", resto: "Resto", resto_cafe: "Resto & Cafe",
+      cafe_lsp: "Cafe LSP", coffe_latar: "Coffee Latar",
+      playstation: "PlayStation", play_station: "PlayStation",
+      cuci_mobil: "Cuci Mobil", carwash: "Cuci Mobil",
+      barbershop: "Barbershop", fitness: "Fitness", laundry: "Laundry",
+      fotocopy: "Fotocopy", simpan_pinjam: "Simpan Pinjam", aset: "Aset",
+    };
+
     // Source 1: Existing piutang UnitTransactions within period
     const unitTransactions = await prisma.unitTransaction.findMany({
       where: {
@@ -107,7 +116,7 @@ export async function POST(request: Request) {
         createdAt: { gte: startUTC, lte: endUTC },
       },
       select: {
-        id: true, saleNo: true, memberId: true, totalAmount: true,
+        id: true, saleNo: true, memberId: true, unitType: true, totalAmount: true,
         createdAt: true, metadata: true,
         member: { select: { name: true, nrp: true } },
       },
@@ -153,14 +162,15 @@ export async function POST(request: Request) {
     // Items from StoreSales that lack piutang records (gap coverage)
     for (const ss of gapStoreSales) {
       if (!ss.memberId) continue;
+      const label = UNIT_LABELS[ss.unitType] || ss.unitType;
       items.push({
         memberId: ss.memberId,
         memberName: ss.member?.name ?? "Unknown",
         memberNrp: ss.member?.nrp ?? null,
-        unitType: "toko",
+        unitType: ss.unitType,
         transactionId: ss.id,
         transactionSource: "store_sale",
-        description: `Piutang toko (Potongan Gaji) - ${ss.saleNo}`,
+        description: `Piutang ${label} (Potongan Gaji) - ${ss.saleNo}`,
         amount: Number(ss.totalAmount),
       });
     }
