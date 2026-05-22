@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/lib/split-bill";
 import { isFbUnit } from "@/lib/constants/units";
+import { findUnitAccount } from "@/lib/cash-bank";
 import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
@@ -297,22 +298,7 @@ export async function POST(req: Request) {
                 // Update cash/bank account
                 if (method === "cash" || method === "qris") {
                     const accountType = method === "cash" ? "cash" : "bank";
-                    let targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, isActive: true, unitTypes: { array_contains: unitTypeVal } as any },
-                        orderBy: { id: "asc" },
-                    });
-                    if (!targetAccount) {
-                        targetAccount = await tx.cashBankAccount.findFirst({
-                            where: { type: accountType, unitType: unitTypeVal, isActive: true },
-                            orderBy: { id: "asc" },
-                        });
-                    }
-                    if (!targetAccount) {
-                        targetAccount = await tx.cashBankAccount.findFirst({
-                            where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
-                            orderBy: { id: "asc" },
-                        });
-                    }
+                    const targetAccount = await findUnitAccount(tx, unitTypeVal, accountType);
 
                     if (targetAccount) {
                         const updatedAccount = await tx.cashBankAccount.update({

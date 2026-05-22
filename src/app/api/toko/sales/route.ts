@@ -3,6 +3,7 @@ import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { isFbUnit } from "@/lib/constants/units";
+import { findUnitAccount } from "@/lib/cash-bank";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { getPlafonPiutang } from "@/lib/plafon";
@@ -676,22 +677,7 @@ export async function POST(request: Request) {
             // Update cash/bank account (atomic increment inside transaction)
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
-                let targetAccount = await tx.cashBankAccount.findFirst({
-                    where: { type: accountType, isActive: true, unitTypes: { array_contains: unitType } as any },
-                    orderBy: { id: "asc" },
-                });
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: unitType, isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
+                const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
                     const updatedAccount = await tx.cashBankAccount.update({

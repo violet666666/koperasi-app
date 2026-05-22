@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
+import { findUnitAccount } from "@/lib/cash-bank";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -164,29 +165,7 @@ export async function POST(request: Request) {
             // 2. Cash/Bank sync
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
-
-                let targetAccount = await tx.cashBankAccount.findFirst({
-                    where: {
-                        type: accountType,
-                        isActive: true,
-                        unitTypes: { array_contains: unitType } as any,
-                    },
-                    orderBy: { id: "asc" },
-                });
-
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: unitType, isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
-
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
+                const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
                     // Atomic increment to prevent race condition

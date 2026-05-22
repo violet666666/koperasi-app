@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
+import { findUnitAccount } from "@/lib/cash-bank";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -137,58 +138,31 @@ export async function POST(request: Request) {
             // 2. Cash/Bank sync
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
-
-                let targetAccount = await tx.cashBankAccount.findFirst({
-                    where: {
-                        type: accountType,
-                        isActive: true,
-                        unitTypes: { array_contains: unitType } as any,
-                    },
-                    orderBy: { id: "asc" },
-                });
-
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: unitType, isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
-
-                if (!targetAccount) {
-                    targetAccount = await tx.cashBankAccount.findFirst({
-                        where: { type: accountType, unitType: null, purpose: "operasional", isActive: true },
-                        orderBy: { id: "asc" },
-                    });
-                }
+                const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
-                    const freshAccount = await tx.cashBankAccount.findUnique({ where: { id: targetAccount.id } });
-                    if (freshAccount) {
-                        const currentBal = Number(freshAccount.currentBalance);
-                        const newBal = currentBal + totalAmount;
+                    const updatedAccount = await tx.cashBankAccount.update({
+                        where: { id: targetAccount.id },
+                        data: { currentBalance: { increment: totalAmount } },
+                    });
+                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
 
-                        await tx.cashBankTransaction.create({
-                            data: {
-                                transactionNo: `UL-M-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
-                                accountId: freshAccount.id,
-                                branchId: freshAccount.branchId,
-                                type: "in",
-                                category: "pendapatan_unit",
-                                amount: totalAmount,
-                                balanceBefore: currentBal,
-                                balanceAfter: newBal,
-                                unitType: unitType,
-                                description: `Pendapatan ${unitType} (Mobile) ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
-                                transactionDate: now,
-                                createdById: userId,
-                            },
-                        });
-
-                        await tx.cashBankAccount.update({
-                            where: { id: freshAccount.id },
-                            data: { currentBalance: newBal },
-                        });
-                    }
+                    await tx.cashBankTransaction.create({
+                        data: {
+                            transactionNo: `UL-M-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
+                            accountId: targetAccount.id,
+                            branchId: targetAccount.branchId,
+                            type: "in",
+                            category: "pendapatan_unit",
+                            amount: totalAmount,
+                            balanceBefore,
+                            balanceAfter: Number(updatedAccount.currentBalance),
+                            unitType: unitType,
+                            description: `Pendapatan ${unitType} (Mobile) ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
+                            transactionDate: now,
+                            createdById: userId,
+                        },
+                    });
                 }
             }
 
