@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { updateMemberSchema } from "@/lib/validations";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
@@ -221,7 +222,7 @@ export async function GET(request: Request, { params }: Params) {
             _sum: { loanAmount: true },
         });
         const totalTagihanUnit = Number(tagihanUnitResult._sum.loanAmount || 0);
-        const plafonPiutang = Number(member.plafonPiutang || 0);
+        const plafonPiutang = getPlafonPiutang(member);
         const sisaLimitUnit = plafonPiutang - totalTagihanUnit;
 
         return NextResponse.json({ 

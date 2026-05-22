@@ -312,19 +312,6 @@ export default function EditAnggotaPage() {
                         </div>
 
                         <div>
-                            <Label htmlFor="plafonPiutang">Plafon Piutang Belanja (Limit Kasir)</Label>
-                            <Input
-                                id="plafonPiutang"
-                                name="plafonPiutang"
-                                type="number"
-                                min="0"
-                                value={formData.plafonPiutang}
-                                onChange={handleChange}
-                                placeholder="Contoh: 1500000"
-                            />
-                        </div>
-
-                        <div>
                             <Label>Status Pernikahan</Label>
                             <Select value={formData.maritalStatus} onValueChange={(v) => handleSelectChange("maritalStatus", v)}>
                                 <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
@@ -474,7 +461,31 @@ export default function EditAnggotaPage() {
                         <div>
                             <Label htmlFor="plafonPiutang">Plafon Piutang Unit (Limit Kasir)</Label>
                             <Input id="plafonPiutang" name="plafonPiutang" type="number" min="0" value={formData.plafonPiutang} onChange={handleChange} placeholder="Rp" />
-                            <p className="text-[10px] text-muted-foreground mt-1">Batas maksimal ngutang/kasbon di toko.</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Batas maksimal ngutang/kasbon di toko. Kosongkan/0 = otomatis 50% × Sisa Gaji.</p>
+                            {(() => {
+                                const manualPlafon = parseFloat(formData.plafonPiutang) || 0;
+                                const sisaGajiVal = parseFloat(formData.sisaGaji) || 0;
+                                const effectivePlafon = manualPlafon > 0 ? manualPlafon : Math.floor(sisaGajiVal * 0.5);
+                                if (effectivePlafon > 0) {
+                                    return (
+                                        <div className="mt-2 px-3 py-2 rounded-md bg-blue-50 border border-blue-200">
+                                            <p className="text-xs font-semibold text-blue-700">
+                                                Plafon Aktif: Rp {effectivePlafon.toLocaleString("id-ID")}
+                                                {manualPlafon > 0
+                                                    ? " (manual)"
+                                                    : ` (auto: 50% × Rp ${sisaGajiVal.toLocaleString("id-ID")})`}
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div className="mt-2 px-3 py-2 rounded-md bg-red-50 border border-red-200">
+                                        <p className="text-xs font-semibold text-red-600">
+                                            Plafon Aktif: Rp 0 — Isi Sisa Gaji atau Plafon manual agar anggota bisa bertransaksi.
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </CardContent>
                 </Card>

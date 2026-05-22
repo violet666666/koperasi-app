@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMobileUser, unauthorizedResponse } from '../../middleware';
 import { logAudit } from '@/lib/audit-logger';
+import { getPlafonPiutang } from '@/lib/plafon';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -61,7 +62,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         salary: Number(member.salary || 0),
         tunlesKinerja: Number(member.tunlesKinerja || 0),
         tabunganWajib: Number(member.tabunganWajib || 0),
-        plafonPiutang: Number(member.plafonPiutang || 0),
+        plafonPiutang: getPlafonPiutang(member),
         totalSavings,
         totalLoansOutstanding,
         savingsAccounts: [

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
                     allowed: false,
                     reason: `Akun anggota ${member.name} berstatus "${member.status}". Transaksi piutang diblokir oleh sistem.`,
                     sisaLimit: 0,
-                    plafonPiutang: Number(member.plafonPiutang),
+                    plafonPiutang: getPlafonPiutang(member),
                     totalTagihan: 0,
                     member: { name: member.name, nrp: member.nrp },
                 },

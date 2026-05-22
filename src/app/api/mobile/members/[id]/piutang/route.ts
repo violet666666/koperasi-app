@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../../middleware";
+import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export async function GET(
 
     const member = await prisma.member.findUnique({
       where: { id: memberId },
-      select: { id: true, name: true, nrp: true, plafonPiutang: true },
+      select: { id: true, name: true, nrp: true, plafonPiutang: true, sisaGaji: true },
     });
 
     if (!member) {
@@ -57,7 +58,7 @@ export async function GET(
       _sum: { amount: true },
     });
 
-    const totalPlafon = Number(member.plafonPiutang);
+    const totalPlafon = getPlafonPiutang(member);
     const sudahTerpakai = Number(piutangAktif._sum.amount ?? 0);
     const sisaLimit = Math.max(0, totalPlafon - sudahTerpakai);
     const canTransact = sisaLimit > 0 && totalPlafon > 0;
