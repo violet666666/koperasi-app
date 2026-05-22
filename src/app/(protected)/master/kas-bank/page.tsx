@@ -112,10 +112,13 @@ function CashBankForm({
         { value: "toko", label: "Toko" },
         { value: "fitness", label: "Fitness" },
         { value: "coffe_latar", label: "Coffee Latar" },
+        { value: "cafe_lsp", label: "Cafe LSP" },
+        { value: "resto", label: "Resto" },
         { value: "barbershop", label: "Barbershop" },
         { value: "cuci_mobil", label: "Cuci Mobil" },
-        { value: "resto", label: "Resto" },
         { value: "play_station", label: "Play Station" },
+        { value: "laundry", label: "Laundry" },
+        { value: "fotocopy", label: "Fotocopy" },
         { value: "properti", label: "Properti" },
     ];
 

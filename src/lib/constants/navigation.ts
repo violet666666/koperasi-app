@@ -1111,6 +1111,10 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_unit_transactions",
             },
             {
+                title: "Modifier & Add-on", href: "/cafe-lsp/modifiers", icon: Settings2,
+                permission: "manage_unit_transactions",
+            },
+            {
                 title: "Promo & Diskon", href: "/cafe-lsp/marketing", icon: Tag,
                 permission: "manage_unit_transactions",
             },

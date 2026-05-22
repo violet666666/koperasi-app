@@ -106,23 +106,23 @@ async function main() {
     // ---- KATEGORI B: Kas Operasional Multi-Unit ----
     {
       code: "KAS-JATIM-CMR",
-      name: "Kas Tunai JATIM – Cuci Mobil & Resto",
+      name: "Kas Tunai JATIM – Cuci Mobil, Resto & Cafe LSP",
       type: "cash" as const,
       bankName: null,
       accountNumber: null,
       unitType: "cuci_mobil",       // primary unit (backward compat)
-      unitTypes: ["cuci_mobil", "resto"],
+      unitTypes: ["cuci_mobil", "resto", "cafe_lsp"],
       purpose: "operasional",
       glAccountId: kasAccount?.id || null,
     },
     {
       code: "BNK-JATIM-CMR",
-      name: "Bank JATIM – Cuci Mobil & Resto",
+      name: "Bank JATIM – Cuci Mobil, Resto & Cafe LSP",
       type: "bank" as const,
       bankName: "Bank JATIM",
       accountNumber: "1234560004",
       unitType: "cuci_mobil",
-      unitTypes: ["cuci_mobil", "resto"],
+      unitTypes: ["cuci_mobil", "resto", "cafe_lsp"],
       purpose: "operasional",
       glAccountId: bankAccount?.id || null,
     },
