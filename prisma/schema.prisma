@@ -251,7 +251,7 @@ model Member {
   sisaGaji          Decimal?  @map("sisa_gaji") @db.Decimal(15, 2) // Sisa gaji setelah potongan koperasi (editable oleh operator)
   tabunganWajib     Decimal?  @map("tabungan_wajib") @db.Decimal(15, 2) // Tabungan Wajib per bulan
   plafonPiutang     Decimal   @default(0) @map("plafon_piutang") @db.Decimal(15, 2) // Limit piutang di unit usaha — hanya bisa diubah Operator
-  status            String    @default("active") // active, inactive, resigned
+  status            String    @default("active") // active, inactive, resigned, pensiun
   resignedDate      DateTime? @map("resigned_date") @db.Date
   resignationReason String?   @map("resignation_reason")
   photoPath         String?   @map("photo_path")

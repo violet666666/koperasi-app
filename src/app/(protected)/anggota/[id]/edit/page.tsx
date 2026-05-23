@@ -56,6 +56,7 @@ export default function EditAnggotaPage() {
         nik: "",
         gender: "",
         category: "",
+        status: "active",
         salary: "",
         tunlesKinerja: "",
         sisaGaji: "",
@@ -107,6 +108,7 @@ export default function EditAnggotaPage() {
                     nik: mData.nik || "",
                     gender: mData.gender || "",
                     category: mData.category || "",
+                    status: mData.status || "active",
                     salary: mData.salary ? String(mData.salary) : "",
                     tunlesKinerja: mData.tunlesKinerja ? String(mData.tunlesKinerja) : "",
                     sisaGaji: mData.sisaGaji ? String(mData.sisaGaji) : "",
@@ -296,6 +298,26 @@ export default function EditAnggotaPage() {
                                 <option value="Polri" />
                                 <option value="Karyawan" />
                             </datalist>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="status">Status Keanggotaan</Label>
+                            <Select value={formData.status} onValueChange={(v) => handleSelectChange("status", v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Aktif</SelectItem>
+                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                    <SelectItem value="pensiun">Pensiun</SelectItem>
+                                    <SelectItem value="resigned">Berhenti / Keluar</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {formData.status !== "active" && (
+                                <p className="text-[10px] text-amber-600 mt-1 font-semibold">
+                                    Status non-aktif memungkinkan penarikan Simpanan Pokok & Wajib.
+                                </p>
+                            )}
                         </div>
 
                         <div>

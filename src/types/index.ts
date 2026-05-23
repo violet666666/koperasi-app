@@ -66,7 +66,7 @@ export interface Member {
     city?: string;
     province?: string;
     join_date: string;
-    status: 'active' | 'inactive' | 'resigned';
+    status: 'active' | 'inactive' | 'resigned' | 'pensiun';
     salary?: number;
     tunles_kinerja?: number;
     sisa_gaji?: number;

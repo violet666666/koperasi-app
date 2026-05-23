@@ -20,11 +20,12 @@ export async function GET(request: Request) {
         };
 
         // Summary counts are always complete (never paginated)
-        const [totalMembers, activeMembers, inactiveMembers, resignedMembers] = await Promise.all([
+        const [totalMembers, activeMembers, inactiveMembers, resignedMembers, pensiunMembers] = await Promise.all([
             prisma.member.count({ where }),
             prisma.member.count({ where: { ...where, status: "active" } }),
             prisma.member.count({ where: { ...where, status: "inactive" } }),
             prisma.member.count({ where: { ...where, status: "resigned" } }),
+            prisma.member.count({ where: { ...where, status: "pensiun" } }),
         ]);
 
         // Get members with their financial summary
@@ -93,6 +94,8 @@ export async function GET(request: Request) {
                     active: activeMembers,
                     inactive: inactiveMembers,
                     resigned: resignedMembers,
+                    pensiun: pensiunMembers,
+                    resigned: resignedMembers,
                 },
                 members: allMembers.map((m) => {
                     const fin = financials.get(m.id) ?? { totalSavings: 0, totalLoans: 0 };
@@ -136,6 +139,7 @@ export async function GET(request: Request) {
                 active: activeMembers,
                 inactive: inactiveMembers,
                 resigned: resignedMembers,
+                pensiun: pensiunMembers,
             },
             members: members.map((m) => {
                 const fin = financials.get(m.id) ?? { totalSavings: 0, totalLoans: 0 };

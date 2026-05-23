@@ -117,7 +117,7 @@ export const createMemberSchema = z.object({
     sisaGaji: z.coerce.number().nonnegative().optional().nullable(),
     plafonPiutang: z.coerce.number().nonnegative().optional(),
     tabunganWajib: z.coerce.number().nonnegative().optional().nullable(),
-    status: z.enum(["active", "inactive", "resigned"]).default("active"),
+    status: z.enum(["active", "inactive", "resigned", "pensiun"]).default("active"),
 });
 
 export const updateMemberSchema = createMemberSchema.partial().extend({

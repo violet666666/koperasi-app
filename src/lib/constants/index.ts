@@ -104,6 +104,7 @@ export const PAGE_SIZE_OPTIONS = [10, 15, 25, 50, 100];
 export const MEMBER_STATUS = {
     active: { label: "Aktif", color: "success" },
     inactive: { label: "Tidak Aktif", color: "secondary" },
+    pensiun: { label: "Pensiun", color: "warning" },
     resigned: { label: "Keluar", color: "destructive" },
 } as const;
 

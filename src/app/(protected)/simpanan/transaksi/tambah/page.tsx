@@ -28,6 +28,7 @@ interface MemberOption {
     name: string;
     nrp?: string;
     category?: string;
+    status?: string;
 }
 
 interface SavingsProduct {
@@ -85,7 +86,11 @@ export default function TambahSimpananPage() {
 
     // Derived: selected product details
     const selectedProduct = products.find((p) => String(p.id) === formData.productId) ?? null;
-    const isWithdrawBlocked = selectedProduct ? !selectedProduct.canWithdraw : false;
+    // AD-ART Pasal 26: Pokok/Wajib blocked ONLY for active members.
+    // Non-active members (resigned/pensiun) may withdraw all savings.
+    const isWithdrawBlocked = selectedProduct
+        ? !selectedProduct.canWithdraw && selectedMember?.status === "active"
+        : false;
 
     // ── Load master data on mount ──────────────────────────────────────────
     React.useEffect(() => {
@@ -150,6 +155,7 @@ export default function TambahSimpananPage() {
                         name: d.name,
                         nrp: d.nrp,
                         category: d.category,
+                        status: d.status,
                     });
                 }
             })
@@ -192,6 +198,19 @@ export default function TambahSimpananPage() {
         setMemberQuery("");
         setShowDropdown(false);
         setMemberOptions([]);
+        enrichMemberStatus(m.id);
+    };
+
+    // Fetch full member details (including status) when selected from autocomplete
+    const enrichMemberStatus = async (memberId: number) => {
+        try {
+            const res = await fetch(`/api/members/${memberId}`);
+            const json = await res.json();
+            const d = json.data ?? json;
+            if (d?.status) {
+                setSelectedMember((prev) => prev ? { ...prev, status: d.status } : prev);
+            }
+        } catch { /* silent */ }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -429,6 +448,7 @@ export default function TambahSimpananPage() {
                                 <AlertDescription className="text-amber-800 text-xs">
                                     <strong>{selectedProduct?.name}</strong> tidak dapat ditarik selama anggota masih aktif (sesuai AD/ART Pasal 26).
                                     Hanya <strong>Simpanan Sukarela</strong> yang dapat ditarik sewaktu-waktu.
+                                    <br />Untuk pencairan pensiun/pengunduran diri, ubah status anggota ke <strong>Pensiun/Resigned</strong> terlebih dahulu.
                                 </AlertDescription>
                             </Alert>
                         )}

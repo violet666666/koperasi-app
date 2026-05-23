@@ -421,7 +421,7 @@ export default function AnggotaDetailPage() {
         );
     }
 
-    const statusConfig = MEMBER_STATUS[member.status];
+    const statusConfig = MEMBER_STATUS[member.status] ?? { label: member.status, color: "secondary" };
 
     return (
         <div className="space-y-6">
