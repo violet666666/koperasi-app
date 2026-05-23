@@ -51,14 +51,26 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     const [stats, setStats] = React.useState<UnitStats | null>(null);
     const [loading, setLoading] = React.useState(true);
 
-    React.useEffect(() => {
+    const fetchStats = React.useCallback(() => {
         if (!unitType) return;
+        setLoading(true);
         fetch(`/api/unit-layanan/stats?unitType=${unitType}`)
             .then(r => r.json())
             .then(json => { if (json.data) setStats(json.data); })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [unitType]);
+
+    React.useEffect(() => { fetchStats(); }, [fetchStats]);
+
+    // Refresh stats when the user returns to this page (e.g. after POS transaction)
+    React.useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === "visible") fetchStats();
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => document.removeEventListener("visibilitychange", onVisible);
+    }, [fetchStats]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
     // Map each unit to its dedicated POS route

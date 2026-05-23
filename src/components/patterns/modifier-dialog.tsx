@@ -67,12 +67,24 @@ export function ModifierDialog({
         loadModifiers();
     }, [open, productId]);
 
+    // Use refs for callbacks to avoid stale closures in the auto-confirm effect
+    const onConfirmRef = React.useRef(onConfirm);
+    onConfirmRef.current = onConfirm;
+    const onOpenChangeRef = React.useRef(onOpenChange);
+    onOpenChangeRef.current = onOpenChange;
+
+    // Track whether auto-confirm already fired for this open/product pair
+    const autoConfirmKeyRef = React.useRef<string | null>(null);
+
     // No modifiers — auto-confirm only after fetch completes
     React.useEffect(() => {
         if (!open || !productId || !hasLoaded || isLoading || groups.length > 0) return;
-        // Product has no modifier groups — just add to cart directly
-        onConfirm([], 0);
-        onOpenChange(false);
+        // Prevent double-fire: only auto-confirm once per (open, productId) pair
+        const key = `${open}-${productId}`;
+        if (autoConfirmKeyRef.current === key) return;
+        autoConfirmKeyRef.current = key;
+        onConfirmRef.current([], 0);
+        onOpenChangeRef.current(false);
     }, [open, productId, hasLoaded, isLoading, groups.length]);
 
     const toggleOption = (groupId: string, optionId: string, multiSelect: boolean) => {

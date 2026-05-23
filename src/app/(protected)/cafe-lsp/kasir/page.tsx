@@ -217,9 +217,21 @@ export default function CafeLspKasirPage() {
 
     React.useEffect(() => { fetchQueueCount(); }, [fetchQueueCount]);
 
-    // Clear stale cart/queue data from previous sessions
+    // Clear truly stale cart from a DIFFERENT browser session (not same-session re-renders).
+    // Compare persisted session ID — only clear if session changed.
+    const sessionIdRef = React.useRef<string | null>(null);
     React.useEffect(() => {
-        clearCart();
+        const storeKey = "cafe-lsp-pos-session";
+        const currentSession = sessionStorage.getItem(storeKey);
+        if (currentSession) {
+            sessionIdRef.current = currentSession;
+        } else {
+            // New session — generate ID, clear stale cart from a previous session
+            const newId = Date.now().toString(36);
+            sessionStorage.setItem(storeKey, newId);
+            sessionIdRef.current = newId;
+            clearCart();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
