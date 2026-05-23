@@ -569,9 +569,8 @@ ${data.referenceNo ? `<div class="field-row"><span style="color:#666;">No. Refer
 ${data.notes ? `<div class="field-row"><span style="color:#666;">Catatan</span><span>:</span><span>${escapeHtml(data.notes)}</span></div>` : ""}
 <div class="ttd-area">
   <div style="font-size:11px;color:#666;">Lumajang, ${receiptDate}</div>
-  <div style="display:flex;gap:40px;">
-    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${escapeHtml(data.receivedFrom)}</p><p style="font-size:10px;color:#888;">Anggota</p></div>
-    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Operator</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">Operator PRIMKOPPOL</p><p style="font-size:10px;color:#888;">Petugas</p></div>
+  <div style="display:flex;justify-content:flex-end;">
+    <div class="ttd-box"><p style="margin-bottom:4px;font-size:11px;color:#666;">Yang Menerima,</p><p style="margin-bottom:4px;font-size:10px;font-weight:600;color:#666;">Operator PRIMKOPPOL</p><div class="ttd-line"></div><p style="margin-top:4px;font-weight:600;">${escapeHtml(data.createdBy || "Operator")}</p><p style="font-size:10px;color:#888;">Petugas</p></div>
   </div>
 </div>
 <div class="footer">Kwitansi ini sah sebagai bukti pembayaran resmi PRIMKOPPOL Resor Lumajang.</div>

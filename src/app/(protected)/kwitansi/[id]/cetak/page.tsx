@@ -306,24 +306,15 @@ export default function CetakKwitansiPage() {
                             <p>Lumajang, {receiptDate}</p>
                         </div>
 
-                        {/* Area TTD */}
-                        <div className="flex gap-8">
-                            {/* Yang Menerima */}
-                            <div className="text-center min-w-[140px]">
+                        {/* Area TTD — hanya Operator */}
+                        <div className="flex justify-end">
+                            <div className="text-center min-w-[160px]">
                                 <p className="text-xs text-muted-foreground mb-1">Yang Menerima,</p>
-                                <div className="h-16 border-b border-dashed border-muted-foreground/30" />
-                                <p className="font-medium text-sm mt-1">{receipt.receivedFrom}</p>
-                                <p className="text-[10px] text-muted-foreground">Anggota</p>
-                            </div>
-
-                            {/* Kasir / Bendahara */}
-                            <div className="text-center min-w-[140px]">
-                                <p className="text-xs text-muted-foreground mb-1">Operator</p>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Operator PRIMKOPPOL</p>
                                 <div className="h-16 border-b border-dashed border-muted-foreground/30 flex items-end justify-center">
-                                    {/* Placeholder area cap stempel */}
                                     <span className="text-[9px] text-muted-foreground/30 mb-1">(Cap & Stempel)</span>
                                 </div>
-                                <p className="font-medium text-sm mt-1">PRIMKOPPOL</p>
+                                <p className="font-medium text-sm mt-1">{receipt.createdBy?.name || "Operator"}</p>
                                 <p className="text-[10px] text-muted-foreground">Petugas</p>
                             </div>
                         </div>
