@@ -728,6 +728,9 @@ export default function CafeLspKasirPage() {
                                 <Trash2 className="h-5 w-5" />
                             </Button>
                         </div>
+                        {Number(paymentAmount) >= subtotal && subtotal > 0 && (
+                            <p className="text-sm text-emerald-600 font-medium">Kembalian: {formatCurrency(Number(paymentAmount) - subtotal)}</p>
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                             <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm col-span-2" onClick={() => processPayment("cash")} disabled={cart.length === 0 || isProcessing || shiftOpen === false}>
                                 {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Bayar Tunai
