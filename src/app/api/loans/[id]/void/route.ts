@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calcPaymentReversalAmount, buildKompenReversalUpdate, buildVoidResponse } from "@/lib/loan-void-helpers";
 
 export async function POST(
     req: NextRequest,
@@ -56,6 +57,10 @@ export async function POST(
 
         const hasPayments = loan._count.payments > 0;
 
+        let disbursementReversed = false;
+        let kompenReversed = false;
+        let oldLoanId: number | undefined;
+
         await prisma.$transaction(async (tx) => {
             // 1. If payments exist, reverse them first
             if (hasPayments) {
@@ -66,6 +71,27 @@ export async function POST(
 
                 // Reverse each payment's cash/bank and journal entries
                 for (const payment of loan.payments) {
+                    // Fetch CB transactions FIRST to calculate exact reversal amount
+                    const paymentCbTxns = await tx.cashBankTransaction.findMany({
+                        where: {
+                            referenceType: "LoanPayment",
+                            referenceId: payment.id,
+                        },
+                    });
+
+                    // Sum actual recorded amounts (avoids over-decrement from lateFee)
+                    const reversalAmount = calcPaymentReversalAmount(
+                        paymentCbTxns.map(cb => ({ type: cb.type, amount: Number(cb.amount) }))
+                    );
+
+                    // Reverse cash/bank balance — payment was IN, so SUBTRACT exact amount
+                    if (payment.cashBankAccountId && reversalAmount > 0) {
+                        await tx.cashBankAccount.update({
+                            where: { id: payment.cashBankAccountId },
+                            data: { currentBalance: { decrement: reversalAmount } }
+                        });
+                    }
+
                     // Delete payment-level CashBankTransaction records
                     await tx.cashBankTransaction.deleteMany({
                         where: {
@@ -73,14 +99,6 @@ export async function POST(
                             referenceId: payment.id,
                         },
                     });
-
-                    // Reverse cash/bank balance — payment was IN, so SUBTRACT
-                    if (payment.cashBankAccountId) {
-                        await tx.cashBankAccount.update({
-                            where: { id: payment.cashBankAccountId },
-                            data: { currentBalance: { decrement: payment.amount } }
-                        });
-                    }
 
                     // Reverse journal for this payment
                     if (payment.journalId) {
@@ -101,19 +119,23 @@ export async function POST(
             });
 
             // 3. Reverse disbursement CashBank transaction
-            if (loan.disbursementCashBankId) {
-                const cbTx = await tx.cashBankTransaction.findUnique({
-                    where: { id: loan.disbursementCashBankId }
-                });
+            // Look up by referenceType + referenceId (not disbursementCashBankId which is an account FK)
+            const disbursementCbTx = await tx.cashBankTransaction.findFirst({
+                where: {
+                    referenceType: "Loan",
+                    referenceId: loan.id,
+                    category: "pencairan_pinjaman",
+                },
+            });
 
-                if (cbTx) {
-                    // Disbursement was OUT, so ADD it back
-                    await tx.cashBankAccount.update({
-                        where: { id: cbTx.accountId },
-                        data: { currentBalance: { increment: cbTx.amount } }
-                    });
-                    await tx.cashBankTransaction.delete({ where: { id: cbTx.id } });
-                }
+            if (disbursementCbTx) {
+                // Disbursement was OUT, so ADD it back
+                await tx.cashBankAccount.update({
+                    where: { id: disbursementCbTx.accountId },
+                    data: { currentBalance: { increment: disbursementCbTx.amount } }
+                });
+                await tx.cashBankTransaction.delete({ where: { id: disbursementCbTx.id } });
+                disbursementReversed = true;
             }
 
             // 4. Reverse disbursement Journal
@@ -160,18 +182,11 @@ export async function POST(
                             where: { referenceType: "LoanPayment", referenceId: kompenPayment.id },
                         });
                         for (const cbTx of kompenCbTxns) {
-                            // Reverse balance: IN → decrement, OUT → increment
-                            const balanceDelta = cbTx.type === "in" ? -Number(cbTx.amount) : Number(cbTx.amount);
+                            const balanceUpdate = buildKompenReversalUpdate({ type: cbTx.type, amount: Number(cbTx.amount) });
                             await tx.cashBankAccount.update({
                                 where: { id: cbTx.accountId },
-                                data: { currentBalance: { increment: balanceDelta > 0 ? balanceDelta : 0 } },
+                                data: { currentBalance: balanceUpdate },
                             });
-                            if (balanceDelta < 0) {
-                                await tx.cashBankAccount.update({
-                                    where: { id: cbTx.accountId },
-                                    data: { currentBalance: { decrement: Math.abs(balanceDelta) } },
-                                });
-                            }
                             await tx.cashBankTransaction.delete({ where: { id: cbTx.id } });
                         }
 
@@ -207,6 +222,9 @@ export async function POST(
                         },
                         data: { status: "pending", paidDate: null },
                     });
+
+                    kompenReversed = true;
+                    oldLoanId = oldLoan.id;
                 }
             }
 
@@ -215,14 +233,18 @@ export async function POST(
                 where: { id: loan.id },
                 data: { status: "voided" },
             });
+        }, { timeout: 30000 });
+
+        const result = buildVoidResponse({
+            paymentCount: hasPayments ? loan._count.payments : 0,
+            disbursementReversed,
+            kompenReversed,
+            oldLoanId,
         });
 
-        const msg = hasPayments
-            ? `Pinjaman berhasil dibatalkan (VOID) beserta ${loan._count.payments} riwayat pembayaran. Jurnal kas bank telah di-rollback.`
-            : "Pinjaman berhasil dibatalkan (VOID). Jurnal kas bank telah di-rollback.";
-
         return NextResponse.json({
-            message: msg,
+            message: result.message,
+            detail: result.detail,
             status: "voided"
         });
 
