@@ -1146,5 +1146,53 @@ Tambah `permissions.includes("manage_all")` check di GET handler.
 
 ---
 
-*Diperbarui: 18 Mei 2026*
+---
+
+## VOID-001 s/d VOID-005 — 5 Bug pada Pembatalan Pinjaman (VOID)
+
+**Tanggal:** 26 Mei 2026
+**Status:** ✅ FIXED (commit `3aff131`)
+**Severity Range:** CRITICAL → INFO
+
+**Konteks:**
+Fitur VOID (pembatalan pinjaman setelah pencairan) "berhasil" setiap kali dijalankan — status berubah ke `voided` tanpa error. Namun, data akuntansi di balik layar **korup secara diam-diam** (silent data corruption). Operator mengira operasi berhasil padahal saldo kas koperasi menjadi tidak akurat.
+
+### VOID-001 (CRITICAL) — Reversal Pencairan Kas Selalu Gagal (Silent)
+
+**Root Cause:** Field `disbursementCashBankId` pada model `Loan` menyimpan **CashBankAccount ID** (FK ke akun kas, misalnya `12` = KAS-002), tetapi kode void melakukan `cashBankTransaction.findUnique({ where: { id: loan.disbursementCashBankId } })` — mencari CashBankTransaction dengan ID tersebut. Hasilnya: selalu `null` karena tidak ada CB Transaction dengan ID 12 (transaction ID aslinya adalah 7534). Pencairan Rp 5-20 juta per pinjaman **tidak pernah di-reverse**, saldo kas tetap berkurang permanen.
+
+**Fix:** Lookup via `findFirst({ where: { referenceType: "Loan", referenceId: loan.id, category: "pencairan_pinjaman" } })` — cara yang sama seperti saat disbursement route membuat transaksi tersebut. Berdampak pada ~23 pinjaman PJM-* yang dicairkan via sistem (SP-IMP/* impor tidak memiliki CB transaction, jadi tidak terdampak).
+
+### VOID-002 (HIGH) — Payment Reversal Over-Decrement Saldo
+
+**Root Cause:** Void membalikkan pembayaran dengan `decrement: payment.amount`, yang termasuk `lateFee`. Namun, route pembayaran angsuran hanya membuat CashBankTransaction untuk `angsuran_pokok` dan `jasa_pinjaman` — **lateFee tidak punya CB Transaction tersendiri**. Akibatnya saldo kas di-decrement lebih besar dari yang seharusnya dicatat.
+
+**Fix:** Fetch CB transactions untuk setiap payment, sum actual amounts via `calcPaymentReversalAmount()`, lalu decrement exact amount. Restructured order: fetch → sum → decrement → delete (sebelumnya: delete → decrement).
+
+### VOID-003 (MEDIUM) — Transaction Timeout 5 Detik
+
+**Root Cause:** `prisma.$transaction()` tanpa opsi timeout menggunakan default 5 detik. Pinjaman dengan banyak riwayat pembayaran + kompen reversal bisa melebihi batas ini, menyebabkan transaction abort.
+
+**Fix:** Explicit `{ timeout: 30000 }` (30 detik), konsisten dengan pola di payment route.
+
+### VOID-004 (LOW) — Kompen Reversal Race Condition
+
+**Root Cause:** Logika kompen reversal melakukan 2 DB update per CB transaction: pertama `increment: balanceDelta > 0 ? balanceDelta : 0` (0 untuk IN reversal), lalu `decrement: Math.abs(balanceDelta)` secara terpisah. Ini tidak hanya ineffisien (2 roundtrip DB), tapi juga membuka window race condition antara 2 update.
+
+**Fix:** Single update via `buildKompenReversalUpdate()` — IN → `{ decrement: amount }`, OUT → `{ increment: amount }` dalam satu operasi.
+
+### VOID-005 (INFO) — Operator Tidak Tahu Apa yang Di-reverse
+
+**Root Cause:** Response void hanya menampilkan jumlah pembayaran atau pesan generik. Operator tidak bisa memverifikasi apakah pencairan berhasil di-reverse, apakah ada kompen yang di-reverse, atau apakah ada yang di-skip (pinjaman impor).
+
+**Fix:** Response detail via `buildVoidResponse()` yang mencantumkan: jumlah pembayaran, status reversal pencairan, status reversal kompen + ID pinjaman lama, dan catatan khusus untuk pinjaman impor.
+
+**Files:**
+- `src/app/api/loans/[id]/void/route.ts` — semua 5 fix diterapkan
+- `src/lib/loan-void-helpers.ts` — helper functions yang di-test terpisah
+- `src/__tests__/loan-void-reversal.test.ts` — 13 unit tests
+
+---
+
+*Diperbarui: 26 Mei 2026*
 *Total bug tercatat modul Pinjaman: 47 | Total fitur baru: 23*

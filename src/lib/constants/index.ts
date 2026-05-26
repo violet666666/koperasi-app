@@ -118,6 +118,7 @@ export const LOAN_STATUS = {
     active: { label: "Aktif", color: "success" },
     paid_off: { label: "Lunas", color: "success" },
     written_off: { label: "Dihapusbukukan", color: "destructive" },
+    voided: { label: "Dibatalkan (VOID)", color: "destructive" },
 } as const;
 
 export const INSTALLMENT_STATUS = {

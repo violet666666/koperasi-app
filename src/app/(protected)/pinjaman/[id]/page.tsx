@@ -478,9 +478,9 @@ export default function PinjamanDetailPage() {
                     </DialogHeader>
                     <div className="space-y-3 py-2">
                         <label className="text-sm font-medium">Ketik kata <strong>VOID</strong> di bawah ini untuk konfirmasi:</label>
-                        <Input 
-                             value={voidConfirmationText} 
-                             onChange={(e) => setVoidConfirmationText(e.target.value)}
+                        <Input
+                             value={voidConfirmationText}
+                             onChange={(e) => setVoidConfirmationText(e.target.value.toUpperCase())}
                              placeholder="VOID"
                              className="uppercase"
                         />
