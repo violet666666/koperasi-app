@@ -324,9 +324,10 @@ export default function PinjamanListPage() {
         fetchData();
     }, []);
 
-    // Filter data
+    // Filter data — voided loans hidden by default (only shown when explicitly filtered)
     const filteredLoans = React.useMemo(() => {
         return loans.filter((loan) => {
+            if (statusFilter === "all" && loan.status === "voided") return false;
             const matchesStatus = statusFilter === "all" || loan.status === statusFilter;
             const matchesDate = matchesDateRange(loan.disbursementDate, dateRange);
             return matchesStatus && matchesDate;
@@ -417,6 +418,7 @@ export default function PinjamanListPage() {
                             <SelectItem value="active">Aktif</SelectItem>
                             <SelectItem value="paid_off">Lunas</SelectItem>
                             <SelectItem value="written_off">Hapus Buku</SelectItem>
+                            <SelectItem value="voided">Dibatalkan (VOID)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
