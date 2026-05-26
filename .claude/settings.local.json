@@ -111,7 +111,8 @@
       "Bash(file \"mobile/store-listing/screenshots-tablet-10/\"*.png)",
       "Bash(git log *)",
       "Bash(git show *)",
-      "mcp__plugin_playwright_playwright__browser_network_requests"
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "Bash(Select-Object -Last 25)"
     ]
   },
   "enabledPlugins": {

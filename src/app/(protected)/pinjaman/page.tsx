@@ -33,6 +33,7 @@ import {
     Receipt,
     TrendingUp,
     AlertTriangle,
+    ShieldAlert,
     CheckCircle,
 } from "lucide-react";
 import { formatCurrency, LOAN_STATUS } from "@/lib/constants";
@@ -54,6 +55,7 @@ interface Loan {
     tenorMonths?: number;
     monthlyInstallment?: number;
     disbursementDate?: string;
+    adminFee?: number;
     status: string;
     _count?: { schedules: number };
 }
@@ -290,6 +292,12 @@ export default function PinjamanListPage() {
         }, 0);
     }, [loans]);
 
+    const totalDanaResiko = React.useMemo(() => {
+        return loans.filter(l => l.status === "active").reduce((sum, l) => {
+            return sum + Number(l.adminFee || 0);
+        }, 0);
+    }, [loans]);
+
     // Fetch data from API
     React.useEffect(() => {
         async function fetchData() {
@@ -384,12 +392,14 @@ export default function PinjamanListPage() {
 
                 <Card>
                     <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-red-100 p-3 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                            <AlertTriangle className="h-5 w-5" />
+                        <div className="rounded-lg bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                            <ShieldAlert className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Jatuh Tempo</p>
-                            <p className="text-2xl font-bold">0</p>
+                            <p className="text-sm text-muted-foreground">Dana Resiko (2%)</p>
+                            <p className="text-xl font-bold tabular-nums text-amber-700">
+                                {formatCurrency(totalDanaResiko)}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
