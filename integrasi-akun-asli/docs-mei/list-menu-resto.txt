@@ -1,0 +1,41 @@
+Berikut adalah daftar menu yang sudah dirapikan dengan hanya menampilkan **Nama Menu**, **Harga Jual**, dan **HPP** agar lebih mudah dianalisis atau dipindahkan ke spreadsheet:
+
+### Kelompok Ayam & Steak
+
+* **Ayam Katsu** | Harga Jual: Rp 18.000 | HPP: Rp 10.500
+* **Ayam Teriyaki** | Harga Jual: Rp 18.000 | HPP: Rp 13.500
+* **Steak Ayam Krispy** | Harga Jual: Rp 18.000 | HPP: Rp 15.000
+* **Chicken Steak** | Harga Jual: Rp 20.000 | HPP: Rp 15.000
+* **Ayam Bakar Kota** | Harga Jual: Rp 20.000 | HPP: Rp 15.000
+* **Ayam Kampung (Bakar)** | Harga Jual: Rp 25.000 | HPP: Rp 20.000
+* **Empal Ayam / Dada** | Harga Jual: Rp 20.000 | HPP: Rp 15.000
+* **Ayam Nelongso Pk** | Harga Jual: Rp 15.000 | HPP: Rp 11.500
+* **Ayam Pedas** | Harga Jual: Rp 20.000 | HPP: Rp 15.500
+* **Ayam Pedas Kampung** | Harga Jual: Rp 25.000 | HPP: Rp 20.500
+
+### Kelompok Bebek & Daging
+
+* **Bebek Goreng** | Harga Jual: Rp 22.000 | HPP: Rp 18.500
+* **Bebek Hitam / Lsp** | Harga Jual: Rp 25.000 | HPP: Rp 20.500
+* **Rawon** | Harga Jual: Rp 25.000 | HPP: Rp 23.500
+* **Daging Lada Hitam** | Harga Jual: Rp 25.000 | HPP: Rp 19.500
+
+### Kelompok Nasi, Mie & Lalapan
+
+* **Nasi Goreng Jawa** | Harga Jual: Rp 18.000 | HPP: Rp 15.500
+* **Nasi Goreng Jawi (Biasa)** | Harga Jual: Rp 15.000 | HPP: Rp 13.500
+* **Mie Goreng** | Harga Jual: Rp 15.000 | HPP: Rp 13.000
+* **Lalapan Kota (Ayam)** | Harga Jual: Rp 15.000 | HPP: Rp 10.500
+* **Lalapan Kampung (Ayam)** | Harga Jual: Rp 22.000 | HPP: Rp 16.500
+* **Lalapan Ayam Kota (Porsi)** | Harga Jual: Rp 22.000 | HPP: Rp 17.500
+* **Lalapan Ayam Kampung (Porsi)** | Harga Jual: Rp 25.000 | HPP: Rp 22.500
+* **Lalapan Ikan Bara Kuda** | Harga Jual: Rp 20.000 | HPP: Rp 17.500
+* **Lalapan 3T (Tahu, Tempe, Telor)** | Harga Jual: Rp 15.000 | HPP: Rp 10.500
+
+### Kelompok Cemilan
+
+* **Dimsum** | Harga Jual: Rp 12.000 | HPP: Rp 9.500
+* **Mendoan** | Harga Jual: Rp 15.000 | HPP: Rp 11.500
+* **Mix Platter** | Harga Jual: Rp 15.000 | HPP: Rp 12.000
+
+Jika Anda membutuhkan perhitungan margin keuntungan (profit) atau persentase HPP dari masing-masing menu, silakan beri tahu saya!

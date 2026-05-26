@@ -1194,5 +1194,29 @@ Fitur VOID (pembatalan pinjaman setelah pencairan) "berhasil" setiap kali dijala
 
 ---
 
+## VOID-006 & VOID-007 — Bug pada Dialog VOID + Status Badge
+
+**Tanggal:** 26 Mei 2026
+**Status:** ✅ FIXED (commit `e2a9900`)
+**Severity:** HIGH + MEDIUM
+
+### VOID-006 (HIGH) — Tombol VOID Tetap Disabled Setelah Mengetik "VOID"
+
+**Root Cause:** CSS `className="uppercase"` pada Input hanya menerapkan `text-transform: uppercase` secara visual — browser tetap menyimpan nilai asli (lowercase) di `e.target.value`. Saat user mengetik "void" (lowercase, default di mobile), teks tampak "VOID" di layar tapi state menyimpan "void", sehingga perbandingan `voidConfirmationText !== "VOID"` tetap `true` dan tombol tetap disabled.
+
+**Fix:** `onChange` sekarang memanggil `.toUpperCase()` pada input value, sehingga state selalu menyimpan "VOID" terlepas dari huruf besar/kecil yang diketik user.
+
+**File:** `src/app/(protected)/pinjaman/[id]/page.tsx`
+
+### VOID-007 (MEDIUM) — Badge Status "Aktif" untuk Pinjaman Voided
+
+**Root Cause:** Map `LOAN_STATUS` tidak memiliki key `"voided"`. Fallback `|| LOAN_STATUS.active` menyebabkan pinjaman yang sudah dibatalkan (voided) menampilkan badge hijau "Aktif" — menyesatkan karena voided adalah status terminal.
+
+**Fix:** Tambahkan entry `voided: { label: "Dibatalkan (VOID)", color: "destructive" }` ke LOAN_STATUS map.
+
+**File:** `src/lib/constants/index.ts`
+
+---
+
 *Diperbarui: 26 Mei 2026*
-*Total bug tercatat modul Pinjaman: 47 | Total fitur baru: 23*
+*Total bug tercatat modul Pinjaman: 49 | Total fitur baru: 23*
