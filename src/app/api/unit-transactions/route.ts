@@ -86,6 +86,7 @@ export async function GET(request: Request) {
         const dateFrom = searchParams.get("dateFrom");
         const dateTo = searchParams.get("dateTo");
         const paymentMethod = searchParams.get("paymentMethod");
+        const category = searchParams.get("category");
 
         // Kasir can only see their own unit's data
         const effectiveUnitType = session.user.role === "kasir"
@@ -124,6 +125,11 @@ export async function GET(request: Request) {
         // Server-side payment method filter
         if (paymentMethod && paymentMethod !== "all") {
             where.paymentMethod = paymentMethod;
+        }
+
+        // Category filter (e.g., carwash: Motor, Mobil Kecil, Mobil Sedang, Mobil Besar)
+        if (category && category !== "all") {
+            where.description = { contains: category, mode: "insensitive" };
         }
 
         if (query.search) {

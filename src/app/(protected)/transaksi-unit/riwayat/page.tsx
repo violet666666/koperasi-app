@@ -89,6 +89,7 @@ export default function RiwayatTransaksiUnitPage() {
     // Priority: URL param > auth unitType > "all"
     const [filterUnit, setFilterUnit] = React.useState<string>(normalizeUnitType(urlUnitType) || normalizeUnitType(userUnitType) || "all");
     const [filterStatus, setFilterStatus] = React.useState<string>("all");
+    const [filterCategory, setFilterCategory] = React.useState<string>("all");
 
     // Sort state
     const [sortField, setSortField] = React.useState("transactionDate");
@@ -239,8 +240,9 @@ export default function RiwayatTransaksiUnitPage() {
         // Map status filter to isPaid for API
         if (filterStatus === "lunas") params.isPaid = "true";
         else if (filterStatus === "belum_lunas") params.isPaid = "false";
+        if (filterCategory !== "all") params.category = filterCategory;
         return params;
-    }, [page, perPage, filterUnit, dateRange, filterStatus, sortField, sortOrder]);
+    }, [page, perPage, filterUnit, dateRange, filterStatus, sortField, sortOrder, filterCategory]);
 
     const { data: response, isLoading } = useQuery({
         queryKey: ["unit-transactions", apiParams],
@@ -282,9 +284,10 @@ export default function RiwayatTransaksiUnitPage() {
         }
     }, [urlUnitType, userUnitType, isOperator]);
 
-    // Reset to page 1 when any filter changes
+    // Reset to page 1 when any filter changes; reset category when unit changes
     React.useEffect(() => {
         setPage(1);
+        if (filterUnit !== "cuci_mobil") setFilterCategory("all");
     }, [filterUnit, filterStatus, dateRange, perPage, sortField, sortOrder]);
 
     const getUnitName = (type: string) => {
@@ -691,6 +694,7 @@ export default function RiwayatTransaksiUnitPage() {
 
         // Fetch ALL data for export (respecting filters + sort)
         const exportParams: Record<string, unknown> = { export: true, sortBy: sortField, sortOrder };
+        if (filterCategory !== "all") exportParams.category = filterCategory;
         if (filterUnit !== "all") exportParams.unitType = filterUnit;
         if (dateRange.start) exportParams.dateFrom = format(dateRange.start, "yyyy-MM-dd");
         if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");
@@ -788,6 +792,7 @@ export default function RiwayatTransaksiUnitPage() {
         if (dateRange.end) exportParams.dateTo = format(dateRange.end, "yyyy-MM-dd");
         if (filterStatus === "lunas") exportParams.isPaid = "true";
         else if (filterStatus === "belum_lunas") exportParams.isPaid = "false";
+        if (filterCategory !== "all") exportParams.category = filterCategory;
 
         const exportRes = await unitTransactionsApi.list(exportParams as Parameters<typeof unitTransactionsApi.list>[0]);
         let exportData = (exportRes.data as unknown as EnrichedTransaction[]);
@@ -898,6 +903,24 @@ export default function RiwayatTransaksiUnitPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                        {filterUnit === "cuci_mobil" && (
+                            <div className="flex items-center gap-2">
+                                <Label className="text-sm text-muted-foreground whitespace-nowrap">Kategori:</Label>
+                                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                                    <SelectTrigger className="h-8 w-[180px]">
+                                        <SelectValue placeholder="Semua Kategori" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua Kategori</SelectItem>
+                                        <SelectItem value="Motor">Motor</SelectItem>
+                                        <SelectItem value="Mobil Kecil">Mobil Kecil</SelectItem>
+                                        <SelectItem value="Mobil Sedang">Mobil Sedang</SelectItem>
+                                        <SelectItem value="Mobil Besar">Mobil Besar</SelectItem>
+                                        <SelectItem value="Mobil Extra">Mobil Extra</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         {dateRange.mode !== "all" && (
                             <p className="text-xs text-muted-foreground">Periode: <strong>{dateRange.label}</strong></p>
                         )}
