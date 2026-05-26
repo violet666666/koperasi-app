@@ -142,7 +142,14 @@ export async function GET(request: Request) {
         }
 
         // Exclude auto-generated UnitTransactions from POS sales (they're represented by StoreSale)
-        where.notes = { not: { startsWith: "Auto-generated dari penjualan kasir" } };
+        // Use AND to avoid overwriting search OR. Must handle NULL notes:
+        // SQL NOT(NULL LIKE 'x') → NULL (falsy) would exclude valid rows with null notes.
+        where.AND = [
+            { OR: [
+                { notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } } },
+                { notes: null },
+            ] },
+        ];
 
         // For export mode, skip pagination -- fetch everything with filters applied
         // For paginated mode, fetch with generous limits from both tables, then merge+slice

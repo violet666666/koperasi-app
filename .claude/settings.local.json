@@ -108,7 +108,10 @@
       "Bash(Select-String -Pattern \"loan-void|void/route\")",
       "Bash(Select-Object -First 10)",
       "mcp__plugin_playwright_playwright__browser_resize",
-      "Bash(file \"mobile/store-listing/screenshots-tablet-10/\"*.png)"
+      "Bash(file \"mobile/store-listing/screenshots-tablet-10/\"*.png)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "mcp__plugin_playwright_playwright__browser_network_requests"
     ]
   },
   "enabledPlugins": {
