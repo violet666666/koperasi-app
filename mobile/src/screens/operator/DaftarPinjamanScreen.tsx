@@ -7,30 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
-
-const formatRp = (v: number) =>
-  'Rp ' + Math.round(v).toLocaleString('id-ID');
+import { getLoanStatus, formatRp } from '../../lib/constants';
 
 const STATUS_TABS = [
-  { key: 'all',     label: 'Semua' },
-  { key: 'active',  label: 'Aktif' },
-  { key: 'overdue', label: 'Menunggak' },
-  { key: 'paid',    label: 'Lunas' },
+  { key: 'all',        label: 'Semua' },
+  { key: 'active',     label: 'Aktif' },
+  { key: 'overdue',    label: 'Menunggak' },
+  { key: 'paid_off',   label: 'Lunas' },
+  { key: 'voided',     label: 'Dibatalkan' },
 ];
-
-const STATUS_COLOR: Record<string, string> = {
-  active:  C.success,
-  overdue: C.destructive,
-  paid:    C.mutedForeground,
-  pending: C.warning,
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  active:  'Aktif',
-  overdue: 'Menunggak',
-  paid:    'Lunas',
-  pending: 'Menunggu',
-};
 
 interface Loan {
   id: number;
@@ -121,7 +106,7 @@ export default function DaftarPinjamanScreen() {
 
   const renderLoan = ({ item }: { item: Loan }) => {
     const pct = progressPct(item);
-    const color = STATUS_COLOR[item.status] || C.mutedForeground;
+    const st = getLoanStatus(item.status);
     return (
       <TouchableOpacity
         style={styles.card}
@@ -135,8 +120,8 @@ export default function DaftarPinjamanScreen() {
             <Text style={styles.memberName}>{item.memberName}</Text>
             <Text style={styles.nrp}>{item.nrp} · {item.memberNo}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: color + '20', borderColor: color }]}>
-            <Text style={[styles.statusText, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: st.bg, borderColor: st.color }]}>
+            <Text style={[styles.statusText, { color: st.color }]}>{st.text}</Text>
           </View>
         </View>
 
@@ -189,7 +174,7 @@ export default function DaftarPinjamanScreen() {
               Bayar terakhir: {new Date(item.lastPaymentDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
             </Text>
           )}
-          {item.status === 'active' || item.status === 'overdue' ? (
+          {(item.status === 'active' || item.status === 'overdue') ? (
             <TouchableOpacity
               style={styles.payBtn}
               onPress={() => navigation.navigate('LoanPayment', { memberId: item.memberId, memberName: item.memberName })}

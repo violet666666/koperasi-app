@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { getLoanStatus, formatRp, formatDate } from '../../lib/constants';
 
 interface Loan {
   id: number;
@@ -17,16 +18,6 @@ interface Loan {
   disbursedAt: string | null;
   recentPayments: { id: number; amount: number; paymentDate: string }[];
 }
-
-const formatRp = (n: number) => 'Rp ' + Math.abs(n).toLocaleString('id-ID');
-const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-
-const statusLabel: Record<string, { text: string; color: string; bg: string }> = {
-  active: { text: 'Aktif', color: '#10B981', bg: '#ECFDF5' },
-  overdue: { text: 'Tertunggak', color: '#EF4444', bg: '#FEF2F2' },
-  paid: { text: 'Lunas', color: '#64748B', bg: '#F1F5F9' },
-  submitted: { text: 'Diajukan', color: '#F59E0B', bg: '#FFFBEB' },
-};
 
 export default function PinjamanScreen() {
   const navigation = useNavigation<any>();
@@ -54,7 +45,7 @@ export default function PinjamanScreen() {
   };
 
   const renderItem = ({ item }: { item: Loan }) => {
-    const st = statusLabel[item.status] || statusLabel.active;
+    const st = getLoanStatus(item.status);
     return (
       <View style={styles.loanCard}>
         <View style={styles.loanHeader}>

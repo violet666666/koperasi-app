@@ -10,7 +10,7 @@ import C from '../../lib/colors';
 
 export default function KwitansiViewerScreen({ route, navigation }: any) {
   const { receiptId } = route.params;
-  const url = `https://www.primkoppol.online/kwitansi/${receiptId}/cetak`;
+  const url = `https://www.primkoppol.site/kwitansi/${receiptId}/cetak`;
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -69,9 +69,9 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
         source={{ uri: url }}
         style={{ flex: 1 }}
         onLoadEnd={() => setLoading(false)}
-        originWhitelist={['https://www.primkoppol.online/*']}
+        originWhitelist={['https://www.primkoppol.site/*']}
         onShouldStartLoadWithRequest={(request) =>
-          request.url.startsWith('https://www.primkoppol.online/')
+          request.url.startsWith('https://www.primkoppol.site/')
         }
         allowsBackForwardNavigationGestures={false}
       />

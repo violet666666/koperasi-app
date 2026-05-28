@@ -13,7 +13,7 @@ import Constants from 'expo-constants';
 function getBaseUrl(): string {
   // ==========================================================
   // 🔴 KONFIGURASI URL API
-  // APK Production otomatis menggunakan domain primkoppol.online
+  // APK Production otomatis menggunakan domain primkoppol.site
   // Development (Expo Go) otomatis detect IP laptop
   // ==========================================================
   const MANUAL_URL = ''; // Override manual jika diperlukan
@@ -23,7 +23,7 @@ function getBaseUrl(): string {
   // Production build (APK/AAB): selalu gunakan domain publik
   const isProduction = !__DEV__;
   if (isProduction) {
-    return 'https://www.primkoppol.online';
+    return 'https://www.primkoppol.site';
   }
 
   // ── S1-02: Dynamic port dari env variable ──────────────────
@@ -40,7 +40,7 @@ function getBaseUrl(): string {
   }
 
   // Fallback ke domain publik (bukan IP lokal)
-  return 'https://www.primkoppol.online';
+  return 'https://www.primkoppol.site';
 }
 
 export const BASE_URL = getBaseUrl();
