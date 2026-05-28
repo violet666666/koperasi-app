@@ -87,6 +87,26 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 expenseAccounts[line.account.code].amount += amount;
             }
         }
+
+        // COGS tidak dijurnal oleh store sales — hitung langsung dari StoreSaleItems
+        // Termasuk semua unit retail/F&B: toko, cafe_lsp, resto_cafe, coffe_latar, resto
+        const soldItems = await prisma.storeSaleItem.findMany({
+            where: {
+                sale: {
+                    createdAt: { gte: startDate, lte: endDate },
+                    NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+                },
+            },
+            include: { product: { select: { costPrice: true } } },
+        });
+        let cogsTotal = 0;
+        soldItems.forEach(item => {
+            cogsTotal += item.quantity * toNum(item.product?.costPrice);
+        });
+        if (cogsTotal > 0) {
+            totalExpense += cogsTotal;
+            expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP (Modal Barang)", amount: cogsTotal };
+        }
     } else {
         // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung Gross Margin (Laba Kotor) Langsung
         const [expensesTx, incomeTx, loanInterestAgg, unitTx, storeSalesInc, soldItems] = await Promise.all([

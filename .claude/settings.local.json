@@ -119,7 +119,10 @@
       "mcp__plugin_playwright_playwright__browser_select_option",
       "Bash(where python *)",
       "Bash(where python3 *)",
-      "Bash(where node *)"
+      "Bash(where node *)",
+      "Bash(Select-String \"error TS\")",
+      "Bash(Measure-Object)",
+      "Bash(Select-Object -ExpandProperty Count)"
     ]
   },
   "enabledPlugins": {
