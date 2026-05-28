@@ -1079,13 +1079,19 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
             continue;
         }
 
+        // 4. When multiple name matches, disambiguate by closest existing salary
         if (matches.length > 1) {
-            results.push({
-                row: i + 2, nrp, nama: rawNama, gaji: finalSalary, sisaGaji: finalSisaGaji,
-                status: 'error', reason: 'Ada 2+ kembaran nama, NRP dibutuhkan'
+            // Sort by closest salary match — prefer the member whose existing salary
+            // is closest to the file salary (same person keeps their data)
+            matches.sort((a: any, b: any) => {
+                const diffA = Math.abs(Number(a.salary || 0) - finalSalary);
+                const diffB = Math.abs(Number(b.salary || 0) - finalSalary);
+                // If both have no salary, prefer the one with no salary at all
+                if (diffA === diffB && diffA === finalSalary) {
+                    return Number(a.sisaGaji || 0) - Number(b.sisaGaji || 0);
+                }
+                return diffA - diffB;
             });
-            failCount++;
-            continue;
         }
 
         const member = matches[0];
