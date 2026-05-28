@@ -408,8 +408,32 @@ async function processSimpleTajipImport(
         const csvCleanName = cleanNameForMatch(rawNama);
 
         let matches: any[] = [];
+        // Level 1: NRP match (most reliable)
         if (nrp) matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
+        // Level 2: Exact full name match
         if (matches.length === 0) matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        // Level 3: Word-token overlap scoring (handles ambiguous/short names)
+        if (matches.length === 0) {
+            const csvTokens = csvCleanName.split(/\s+/).filter(t => t.length >= 2);
+            if (csvTokens.length >= 1) {
+                const scored = allMembers.map(m => {
+                    const dbTokens = cleanNameForMatch(m.name).split(/\s+/).filter(t => t.length >= 2);
+                    let overlap = 0;
+                    for (const ct of csvTokens) {
+                        if (dbTokens.some(dt => dt === ct)) overlap++;
+                    }
+                    const minOverlap = Math.min(csvTokens.length, dbTokens.length) >= 2 ? 2 : 1;
+                    const score = overlap >= minOverlap ? overlap / Math.max(csvTokens.length, dbTokens.length) : 0;
+                    return { m, score };
+                }).filter(s => s.score > 0);
+
+                scored.sort((a, b) => b.score - a.score);
+                if (scored.length > 0 && scored[0].score >= 0.4) {
+                    matches = [scored[0].m];
+                }
+            }
+        }
+        // Level 4: Last-resort substring match (strict: ≥5 chars)
         if (matches.length === 0) {
             matches = allMembers.filter(m => {
                 const dbName = cleanNameForMatch(m.name);
@@ -557,8 +581,21 @@ async function processSimpleTajipImport(
 // Tajib Import (Simpanan Wajib & Sejarah Mutasi)
 // ==========================================
 async function processTajibImport(headers: string[], dataRows: string[][], mode: string, periodMonth: string | null = null) {
-    const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
+    let nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
+
+    // Auto-detect unlabeled NRP column: if col 0 has no header but data rows contain 6-10 digit numbers
+    if (nrpIdx === -1 && namaIdx > 0) {
+        const sampleSize = Math.min(10, dataRows.length);
+        let nrpLikeCount = 0;
+        for (let i = 0; i < sampleSize; i++) {
+            const val = String(dataRows[i]?.[0] || "").trim();
+            if (/^\d{6,10}$/.test(val)) nrpLikeCount++;
+        }
+        if (nrpLikeCount >= sampleSize * 0.7) {
+            nrpIdx = 0;
+        }
+    }
     
     // Temukan POKOK dan WAJIB dasar
     // PENTING: Excel punya 2 kelompok kolom identik (Saldo Lama & Saldo Baru).
@@ -693,8 +730,27 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
         const csvCleanName = cleanNameForMatch(rawNama);
 
         let matches: any[] = [];
+        // Level 1: NRP match
         if (nrp) matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
+        // Level 2: Exact full name
         if (matches.length === 0) matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        // Level 3: Word-token overlap scoring
+        if (matches.length === 0) {
+            const csvTokens = csvCleanName.split(/\s+/).filter(t => t.length >= 2);
+            if (csvTokens.length >= 1) {
+                const scored = allMembers.map(m => {
+                    const dbTokens = cleanNameForMatch(m.name).split(/\s+/).filter(t => t.length >= 2);
+                    let overlap = 0;
+                    for (const ct of csvTokens) { if (dbTokens.some(dt => dt === ct)) overlap++; }
+                    const minOverlap = Math.min(csvTokens.length, dbTokens.length) >= 2 ? 2 : 1;
+                    const score = overlap >= minOverlap ? overlap / Math.max(csvTokens.length, dbTokens.length) : 0;
+                    return { m, score };
+                }).filter(s => s.score > 0);
+                scored.sort((a, b) => b.score - a.score);
+                if (scored.length > 0 && scored[0].score >= 0.4) matches = [scored[0].m];
+            }
+        }
+        // Level 4: Last-resort substring (≥5 chars)
         if (matches.length === 0) {
             matches = allMembers.filter(m => {
                 const dbName = cleanNameForMatch(m.name);

@@ -114,7 +114,12 @@
       "mcp__plugin_playwright_playwright__browser_network_requests",
       "Bash(Select-Object -Last 25)",
       "mcp__plugin_railway_railway__list_projects",
-      "Bash(npx expo *)"
+      "Bash(npx expo *)",
+      "Bash(Select-Object FullName)",
+      "mcp__plugin_playwright_playwright__browser_select_option",
+      "Bash(where python *)",
+      "Bash(where python3 *)",
+      "Bash(where node *)"
     ]
   },
   "enabledPlugins": {
