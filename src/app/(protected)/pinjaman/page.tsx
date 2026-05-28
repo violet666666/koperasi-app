@@ -391,19 +391,22 @@ export default function PinjamanListPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardContent className="flex items-center gap-4 p-4">
-                        <div className="rounded-lg bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                            <ShieldAlert className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Dana Resiko (2%)</p>
-                            <p className="text-xl font-bold tabular-nums text-amber-700">
-                                {formatCurrency(totalDanaResiko)}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <Link href="/pinjaman/laporan-dana-resiko">
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                        <CardContent className="flex items-center gap-4 p-4">
+                            <div className="rounded-lg bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                                <ShieldAlert className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-muted-foreground">Dana Resiko (2%)</p>
+                                <p className="text-xl font-bold tabular-nums text-amber-700">
+                                    {formatCurrency(totalDanaResiko)}
+                                </p>
+                            </div>
+                            <span className="text-xs text-muted-foreground print:hidden">Lihat Rekap →</span>
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
 
             {/* Filters */}

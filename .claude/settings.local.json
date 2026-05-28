@@ -112,7 +112,9 @@
       "Bash(git log *)",
       "Bash(git show *)",
       "mcp__plugin_playwright_playwright__browser_network_requests",
-      "Bash(Select-Object -Last 25)"
+      "Bash(Select-Object -Last 25)",
+      "mcp__plugin_railway_railway__list_projects",
+      "Bash(npx expo *)"
     ]
   },
   "enabledPlugins": {
