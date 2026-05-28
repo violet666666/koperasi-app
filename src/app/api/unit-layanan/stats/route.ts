@@ -36,6 +36,10 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: "unitType diperlukan" }, { status: 400 });
     }
 
+    // Unit types yang menyimpan transaksi di tabel StoreSale (retail / F&B)
+    const STORE_SALE_UNITS = ["toko", "resto_cafe", "coffe_latar", "resto", "cafe_lsp"];
+    const isStoreSaleUnit = STORE_SALE_UNITS.includes(unitType);
+
     try {
         const now = new Date();
 
@@ -75,8 +79,8 @@ export async function GET(request: Request) {
             select: { amount: true, paymentMethod: true, isPaid: true, status: true },
         });
 
-        // Also count StoreSale for toko unit
-        const rawTodayStoreSales = unitType === "toko" ? await prisma.storeSale.findMany({
+        // Also count StoreSale for retail/F&B units
+        const rawTodayStoreSales = isStoreSaleUnit ? await prisma.storeSale.findMany({
             where: {
                 unitType,
                 createdAt: { gte: todayStartWIB, lt: todayEndWIB },
@@ -114,7 +118,7 @@ export async function GET(request: Request) {
             select: { transactionDate: true, amount: true },
         });
         
-        const weeklyStoreTrxRaw = unitType === "toko" ? await prisma.storeSale.findMany({
+        const weeklyStoreTrxRaw = isStoreSaleUnit ? await prisma.storeSale.findMany({
             where: { unitType, createdAt: { gte: weekStartWIB, lt: todayEndWIB } },
             select: { createdAt: true, totalAmount: true, metadata: true },
         }) : [];
@@ -184,7 +188,7 @@ export async function GET(request: Request) {
             memberName: t.member?.name ?? null,
         }));
 
-        if (unitType === "toko") {
+        if (isStoreSaleUnit) {
             const recentStoreTrx = await prisma.storeSale.findMany({
                 where: { unitType },
                 orderBy: { createdAt: "desc" },
@@ -207,7 +211,7 @@ export async function GET(request: Request) {
                         no: t.saleNo,
                         amount: Number(t.totalAmount),
                         method: t.paymentMethod,
-                        desc: `Penjualan Toko ${t.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
+                        desc: `Penjualan ${unitLabel[unitType] || unitType} ${t.paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${isVoided ? '[DIBATALKAN]' : ''}`,
                         date: t.createdAt,
                         isPaid: isVoided ? false : (t.paymentMethod !== "salary_cut"),
                         memberName: t.member?.name || t.customerName || null,
@@ -223,6 +227,9 @@ export async function GET(request: Request) {
             fitness: "Fitness",
             playstation: "Playstation",
             resto_cafe: "Resto & Cafe",
+            cafe_lsp: "Cafe LSP",
+            coffe_latar: "Coffe Latar",
+            resto: "Resto",
             fotocopy: "Fotocopy",
             laundry: "Laundry",
             simpan_pinjam: "Simpan Pinjam",
