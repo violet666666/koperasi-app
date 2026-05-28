@@ -12,6 +12,7 @@ export async function POST(request: Request) {
         const file = formData.get("file") as File | null;
         const importType = (formData.get("type") as string) || "tunkin"; // tunkin, gaji
         const mode = (formData.get("mode") as string) || "preview"; // preview, commit
+        const periodMonth = (formData.get("periodMonth") as string) || null;
 
         if (!file) {
             return NextResponse.json(
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
                 result = await processGajiUraianImport(dataRows, mode);
                 break;
             case "tajib":
-                result = await processTajibImport(headers, dataRows, mode);
+                result = await processTajibImport(headers, dataRows, mode, periodMonth);
                 break;
             case "akun_anggota":
                 result = await processAkunAnggotaImport(headers, dataRows, mode);
@@ -329,9 +330,219 @@ async function processTunkinImport(headers: string[], dataRows: string[][], mode
 }
 
 // ==========================================
+// Simple TAJIP Import (NRP + TAJIB amount only → monthly wajib deposit)
+// ==========================================
+async function processSimpleTajipImport(
+    headers: string[],
+    dataRows: string[][],
+    mode: string,
+    periodMonth: string,
+    nrpIdx: number,
+    namaIdx: number,
+    tajibIdx: number,
+) {
+    const MONTH_NAMES = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ];
+
+    const [yearStr, monthStr] = periodMonth.split("-");
+    const periodYear = parseInt(yearStr, 10);
+    const periodMonthNum = parseInt(monthStr, 10);
+    const monthName = MONTH_NAMES[periodMonthNum - 1];
+    const notesLabel = `Setoran Import TAJIB: ${monthName.toUpperCase()}`;
+    // Transaction date = 28th of the period month
+    const txDate = new Date(periodYear, periodMonthNum - 1, 28);
+
+    const sysUser = await prisma.user.findFirst({ where: { isActive: true } });
+    const sysUserId = sysUser ? sysUser.id : 1;
+
+    const allMembers = await prisma.member.findMany({
+        where: { deletedAt: null },
+        include: { savingsAccounts: { include: { product: true } } },
+    });
+
+    const globalWProd = await prisma.savingsProduct.findFirst({ where: { type: "wajib" } });
+
+    const results: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
+    const commitTasks: (() => Promise<void>)[] = [];
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length === 0) continue;
+
+        const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
+        const rawNama = namaIdx >= 0 ? String(row[namaIdx] || '').trim() : '';
+
+        if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
+        if (/^\d+(\.\d+)?$/.test(rawNama)) continue;
+
+        const tajibAmount = tajibIdx >= 0 ? cleanNumber(row[tajibIdx]) : 0;
+
+        // Skip zero or negative TAJIB (e.g. GAGAL POT entries)
+        if (tajibAmount <= 0) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama, tajib: tajibAmount,
+                status: 'error', reason: 'TAJIB = 0 (GAGAL POT / tanpa potongan)',
+            });
+            failCount++;
+            continue;
+        }
+
+        const csvCleanName = cleanNameForMatch(rawNama);
+
+        let matches: any[] = [];
+        if (nrp) matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
+        if (matches.length === 0) matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
+        if (matches.length === 0) {
+            matches = allMembers.filter(m => {
+                const dbName = cleanNameForMatch(m.name);
+                return (dbName.includes(csvCleanName) || csvCleanName.includes(dbName)) && csvCleanName.length >= 5;
+            });
+        }
+
+        if (matches.length === 0) {
+            results.push({
+                row: i + 2, nrp, nama: rawNama, tajib: tajibAmount,
+                status: 'error', reason: 'Anggota tdk ditemukan',
+            });
+            failCount++;
+            continue;
+        }
+
+        const member = matches[0];
+
+        if (mode === "commit") {
+            commitTasks.push(async () => {
+                try {
+                    await prisma.$transaction(async (tx) => {
+                        let wajibAcc = member.savingsAccounts.find((a: any) => a.product.type === "wajib");
+
+                        // Create wajib account if not exists
+                        if (!wajibAcc && globalWProd) {
+                            wajibAcc = await tx.savingsAccount.create({
+                                data: {
+                                    memberId: member.id,
+                                    productId: globalWProd.id,
+                                    branchId: member.branchId,
+                                    balance: 0,
+                                    status: "active",
+                                    accountNo: `WJB-${member.memberNo || member.id}-${Date.now()}`,
+                                    openedDate: new Date(),
+                                },
+                                include: { product: true },
+                            });
+                        }
+
+                        if (!wajibAcc) throw new Error("Produk simpanan wajib tidak ditemukan");
+
+                        const currentBalance = Number(wajibAcc.balance);
+
+                        // Idempotency: check for existing deposit for this month
+                        const existingTx = await tx.savingsTransaction.findFirst({
+                            where: {
+                                accountId: wajibAcc.id,
+                                notes: notesLabel,
+                            },
+                        });
+
+                        if (existingTx) {
+                            const diff = tajibAmount - Number(existingTx.amount);
+                            if (diff !== 0) {
+                                await tx.savingsTransaction.create({
+                                    data: {
+                                        transactionNo: `IMP-KOR-${monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
+                                        accountId: wajibAcc.id,
+                                        memberId: member.id,
+                                        productId: wajibAcc.productId,
+                                        branchId: member.branchId,
+                                        type: diff > 0 ? 'deposit' : 'correction',
+                                        amount: Math.abs(diff),
+                                        balanceBefore: currentBalance,
+                                        balanceAfter: currentBalance + diff,
+                                        notes: `Koreksi Edit ${notesLabel}`,
+                                        transactionDate: txDate,
+                                        createdById: sysUserId,
+                                    },
+                                });
+                                await tx.savingsAccount.update({
+                                    where: { id: wajibAcc.id },
+                                    data: { balance: currentBalance + diff },
+                                });
+                            }
+                        } else {
+                            await tx.savingsTransaction.create({
+                                data: {
+                                    transactionNo: `IMP-${monthName.toUpperCase()}-${member.id}-${Date.now()}-${i}`,
+                                    accountId: wajibAcc.id,
+                                    memberId: member.id,
+                                    productId: wajibAcc.productId,
+                                    branchId: member.branchId,
+                                    type: 'deposit',
+                                    amount: tajibAmount,
+                                    balanceBefore: currentBalance,
+                                    balanceAfter: currentBalance + tajibAmount,
+                                    notes: notesLabel,
+                                    transactionDate: txDate,
+                                    createdById: sysUserId,
+                                },
+                            });
+                            await tx.savingsAccount.update({
+                                where: { id: wajibAcc.id },
+                                data: { balance: currentBalance + tajibAmount },
+                            });
+                        }
+                    });
+
+                    results.push({
+                        row: i + 2, nrp: member.nrp || nrp, nama: rawNama,
+                        tajib: tajibAmount,
+                        memberId: member.id, memberName: member.name,
+                        status: 'valid', reason: `Setoran Wajib ${monthName} ${periodYear}: ${tajibAmount}`,
+                    });
+                    successCount++;
+                } catch (e) {
+                    results.push({
+                        row: i + 2, nrp, nama: rawNama, tajib: tajibAmount,
+                        status: 'error', reason: 'Database Error: ' + e,
+                    });
+                    failCount++;
+                }
+            });
+        } else {
+            results.push({
+                row: i + 2, nrp: member.nrp || nrp, nama: rawNama, tajib: tajibAmount,
+                memberId: member.id, memberName: member.name,
+                status: 'valid', reason: `Akan dibuat setoran Wajib ${monthName} ${periodYear}`,
+                currentTajib: tajibAmount,
+            });
+            successCount++;
+        }
+    }
+
+    if (mode === "commit") {
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < commitTasks.length; i += CHUNK_SIZE) {
+            const chunk = commitTasks.slice(i, i + CHUNK_SIZE);
+            await Promise.all(chunk.map(fn => fn()));
+        }
+    }
+
+    return {
+        mode, type: "tajib",
+        totalRows: results.length,
+        success: successCount, failed: failCount,
+        preview: results,
+        allResults: mode === "commit" ? results : undefined,
+    };
+}
+
+// ==========================================
 // Tajib Import (Simpanan Wajib & Sejarah Mutasi)
 // ==========================================
-async function processTajibImport(headers: string[], dataRows: string[][], mode: string) {
+async function processTajibImport(headers: string[], dataRows: string[][], mode: string, periodMonth: string | null = null) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip") || h === "nrp/nip");
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
     
@@ -409,6 +620,15 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
             monthCols.push({ name: standardName, idx });
         }
     });
+
+    // ── Detect Simple TAJIP Format ──────────────────────────────────────
+    // TAJIP files only have NRP + TAJIB amount + NAMA (no saldo/monthly columns).
+    // When detected + periodMonth provided, create monthly wajib deposits for that period.
+    const isSimpleTajip = tajibIdx >= 0 && monthCols.length === 0 && pokokIdx === -1 && wajibIdx === -1 && sukarelaIdx === -1;
+
+    if (isSimpleTajip && periodMonth) {
+        return await processSimpleTajipImport(headers, dataRows, mode, periodMonth, nrpIdx, namaIdx, tajibIdx);
+    }
 
     const allMembers = await prisma.member.findMany({
         where: { deletedAt: null },

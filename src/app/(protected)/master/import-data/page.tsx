@@ -206,6 +206,10 @@ export default function ImportDataPage() {
     const [status, setStatus] = useState<ImportStatus>("idle");
     const [file, setFile] = useState<File | null>(null);
     const [result, setResult] = useState<ImportResult | null>(null);
+    const [tajibPeriod, setTajibPeriod] = useState<string>(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    });
     const [error, setError] = useState<string | null>(null);
     const [isResetting, setIsResetting] = useState(false);
     
@@ -246,6 +250,7 @@ export default function ImportDataPage() {
             formData.append("file", processedFile);
             formData.append("type", importType);
             formData.append("mode", "preview");
+            if (importType === "tajib") formData.append("periodMonth", tajibPeriod);
             
             const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "toko_history" ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             const res = await fetch(targetUrl, {
@@ -313,6 +318,7 @@ export default function ImportDataPage() {
             formData.append("file", processedFile);
             formData.append("type", importType);
             formData.append("mode", "commit");
+            if (importType === "tajib") formData.append("periodMonth", tajibPeriod);
 
             const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
             // Use AbortController with 5-minute timeout for large imports
@@ -463,7 +469,29 @@ export default function ImportDataPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            
+
+                            {importType === "tajib" && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Periode Bulan (TAJIP Sederhana)</label>
+                                    <Select value={tajibPeriod} onValueChange={setTajibPeriod}>
+                                        <SelectTrigger className="w-[200px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 24 }, (_, i) => {
+                                                const d = new Date();
+                                                d.setMonth(d.getMonth() - i, 1);
+                                                const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                                                const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+                                                const label = `${months[d.getMonth()]} ${d.getFullYear()}`;
+                                                return <SelectItem key={val} value={val}>{label}</SelectItem>;
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">Untuk format TAJIP sederhana (NRP+TAJIB+NAMA). Format saldo lengkap otomatis tanpa periode.</p>
+                                </div>
+                            )}
+
                             {importType !== "buku_kas" && (
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">File Excel/CSV</label>
