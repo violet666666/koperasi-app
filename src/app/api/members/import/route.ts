@@ -695,14 +695,18 @@ async function processTajibImport(headers: string[], dataRows: string[][], mode:
 }
 
 // ==========================================
-// Gaji Import
+// Gaji Import (POT GAJI sheet)
+// Reads: salary (GAJI BERSIH) + sisaGaji (JUMLAH GAJI DITERIMA / DITERIMA)
 // ==========================================
 async function processGajiImport(headers: string[], dataRows: string[][], mode: string) {
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip"));
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
-    // Prioritize "DITERIMA" (SISA GAJI = JUMLAH GAJI DITERIMA, col AK) over generic "GAJI" (col 3 GAJI POKOK)
-    const gajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
-    const finalGajiIdx = gajiIdx !== -1 ? gajiIdx : headers.findIndex(h => h.includes("gaji") || h.includes("bersih") || h.includes("salary"));
+
+    // Separate detection: sisaGaji (DITERIMA = Jumlah Gaji Diterima) vs salary (GAJI BERSIH)
+    const sisaGajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
+    const salaryIdx = headers.findIndex(h => h.includes("gaji") && h.includes("bersih"));
+    // Fallback: if no specific "GAJI BERSIH" column, use generic gaji/salary
+    const fallbackSalaryIdx = headers.findIndex(h => h.includes("gaji") || h.includes("salary"));
 
     if (namaIdx === -1) {
         return {
@@ -712,17 +716,18 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         };
     }
 
-    if (finalGajiIdx === -1) {
+    const hasAnyGajiColumn = sisaGajiIdx !== -1 || salaryIdx !== -1 || fallbackSalaryIdx !== -1;
+    if (!hasAnyGajiColumn) {
         return {
             success: 0, failed: 0,
-            error: "Kolom Gaji (cth: DITERIMA / BERSIH) tidak ditemukan di header file.",
+            error: "Kolom Gaji tidak ditemukan. Cth: GAJI BERSIH, DITERIMA, atau JUMLAH GAJI DITERIMA.",
             preview: [],
         };
     }
 
     const allMembers = await prisma.member.findMany({
         where: { deletedAt: null },
-        select: { id: true, name: true, nrp: true, memberNo: true, salary: true }
+        select: { id: true, name: true, nrp: true, memberNo: true, salary: true, sisaGaji: true }
     });
 
     const results: any[] = [];
@@ -735,37 +740,46 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 
         const nrp = nrpIdx >= 0 ? cleanNrp(row[nrpIdx] || '') : '';
         const rawNama = String(row[namaIdx] || '').trim();
-        
+
         if (!rawNama || rawNama.toUpperCase() === 'NAMA' || rawNama === '0') continue;
         if (/^\d+(\.\d+)?$/.test(rawNama)) continue; // skip numeric nama
 
-        const gaji = cleanNumber(row[finalGajiIdx] || 0);
+        // Read sisaGaji and salary from separate columns
+        const sisaGaji = sisaGajiIdx !== -1 ? cleanNumber(row[sisaGajiIdx] || 0) : 0;
+        const salary = salaryIdx !== -1 ? cleanNumber(row[salaryIdx] || 0) : (fallbackSalaryIdx !== -1 ? cleanNumber(row[fallbackSalaryIdx] || 0) : 0);
+
+        // Determine what gets saved to Member.salary:
+        // - If both columns exist: salary = GAJI BERSIH, sisaGaji = DITERIMA
+        // - If only DITERIMA: salary = DITERIMA (backward compat), sisaGaji = same
+        // - If only GAJI BERSIH: salary = GAJI BERSIH, sisaGaji = 0
+        const finalSalary = (salaryIdx !== -1 || (fallbackSalaryIdx !== -1 && sisaGajiIdx === -1)) ? salary : sisaGaji;
+        const finalSisaGaji = sisaGaji;
+
         const csvCleanName = cleanNameForMatch(rawNama);
 
         let matches: any[] = [];
-        
+
         // 1. Matched by NRP
         if (nrp) {
             matches = allMembers.filter(m => m.nrp === nrp || m.memberNo === nrp);
         }
-        
+
         // 2. Exact match on cleaned string
         if (matches.length === 0) {
             matches = allMembers.filter(m => cleanNameForMatch(m.name) === csvCleanName);
         }
-        
+
         // 3. Partial/Fuzzy match
         if (matches.length === 0) {
             matches = allMembers.filter(m => {
                 const dbName = cleanNameForMatch(m.name);
-                // Simple inclusion check if string length > 5
                 return (dbName.includes(csvCleanName) || csvCleanName.includes(dbName)) && csvCleanName.length >= 5;
             });
         }
 
         if (matches.length === 0) {
             results.push({
-                row: i + 2, nrp, nama: rawNama, gaji,
+                row: i + 2, nrp, nama: rawNama, gaji: finalSalary, sisaGaji: finalSisaGaji,
                 status: 'error', reason: 'Anggota tdk ditemukan (daftarkan dulu via Import Akun Anggota)',
             });
             failCount++;
@@ -774,7 +788,7 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
 
         if (matches.length > 1) {
             results.push({
-                row: i + 2, nrp, nama: rawNama, gaji,
+                row: i + 2, nrp, nama: rawNama, gaji: finalSalary, sisaGaji: finalSisaGaji,
                 status: 'error', reason: 'Ada 2+ kembaran nama, NRP dibutuhkan'
             });
             failCount++;
@@ -786,16 +800,22 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         if (mode === "commit") {
             await prisma.member.update({
                 where: { id: member.id },
-                data: { salary: gaji },
+                data: {
+                    salary: finalSalary,
+                    ...(finalSisaGaji > 0 ? { sisaGaji: finalSisaGaji } : {}),
+                },
             });
-            member.salary = gaji as any;
+            member.salary = finalSalary as any;
+            member.sisaGaji = finalSisaGaji as any;
         }
 
         results.push({
-            row: i + 2, nrp: member.nrp || nrp, nama: rawNama, gaji,
+            row: i + 2, nrp: member.nrp || nrp, nama: rawNama, gaji: finalSalary, sisaGaji: finalSisaGaji,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null,
             currentGaji: member.salary ? Number(member.salary) : null,
+            currentSisaGaji: member.sisaGaji ? Number(member.sisaGaji) : null,
+            salarySource: sisaGajiIdx !== -1 && salaryIdx !== -1 ? 'GAJI BERSIH + SISA GAJI' : sisaGajiIdx !== -1 ? 'SISA GAJI (DITERIMA)' : 'GAJI BERSIH',
         });
         successCount++;
     }
@@ -843,7 +863,7 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
 
     const allMembers = await prisma.member.findMany({
         where: { deletedAt: null },
-        select: { id: true, name: true, nrp: true, memberNo: true, salary: true, pangkat: true, noRekening: true }
+        select: { id: true, name: true, nrp: true, memberNo: true, salary: true, sisaGaji: true, pangkat: true, noRekening: true }
     });
 
     const results: any[] = [];
@@ -856,10 +876,10 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
         const pangkat = String(row[PANGKAT] || '').trim().toUpperCase();
         const rawRekening = String(row[REKENING] || '').trim();
         const rekening = rawRekening.replace(/['\- ]/g, '');
-        // Prefer SISA GAJI (JUMLAH GAJI DITERIMA, col AK=36) over GAJI BERSIH (col H=7)
+        // GAJI BERSIH (col H=7) → Member.salary; SISA GAJI / DITERIMA (col AK=36) → Member.sisaGaji
         const sisaGaji = row.length > SISA_GAJI ? cleanNumber(row[SISA_GAJI] || 0) : 0;
         const gajiBersih = cleanNumber(row[GAJI] || 0);
-        const gaji = sisaGaji > 0 ? sisaGaji : gajiBersih;
+        const gaji = gajiBersih > 0 ? gajiBersih : sisaGaji; // display value: prefer gajiBersih
 
         // Match by NRP
         let member = allMembers.find(m => m.nrp === nrp || m.memberNo === nrp);
@@ -876,23 +896,24 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                 try {
                     const newMember = await prisma.$transaction(async (tx) => {
                         const created = await autoRegisterMember(nrp, rawNama, tx, gaji > 0 ? gaji : undefined);
-                        // Update pangkat and noRekening after creation
+                        // Update pangkat, noRekening, sisaGaji after creation
                         await tx.member.update({
                             where: { id: created.id },
                             data: {
                                 ...(pangkat ? { pangkat } : {}),
                                 ...(rekening ? { noRekening: rekening } : {}),
+                                ...(sisaGaji > 0 ? { sisaGaji } : {}),
                             },
                         });
                         return { ...created, pangkat, noRekening: rekening };
                     });
-                    allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary, pangkat, noRekening: rekening });
+                    allMembers.push({ id: newMember.id, name: newMember.name, nrp: newMember.nrp, memberNo: newMember.memberNo, salary: newMember.salary, sisaGaji: sisaGaji as any, pangkat, noRekening: rekening });
 
                     results.push({
                         row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                         memberId: newMember.id, memberName: newMember.name,
                         status: 'valid', reason: null, isNewMember: true,
-                        salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
+                        salarySource: `GAJI BERSIH (col H)${sisaGaji > 0 ? ' + SISA GAJI (col AK)' : ''}`,
                     });
                     successCount++;
                 } catch (err) {
@@ -907,19 +928,20 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
                     row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
                     memberId: null, memberName: `[BARU] ${rawNama}`,
                     status: 'valid', reason: null, isNewMember: true,
-                    salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
+                    salarySource: `GAJI BERSIH (col H)${sisaGaji > 0 ? ' + SISA GAJI (col AK)' : ''}`,
                 });
                 successCount++;
             }
             continue;
         }
 
-        // Existing member — update salary, pangkat, noRekening
+        // Existing member — update salary (GAJI BERSIH), sisaGaji (JUMLAH DITERIMA), pangkat, noRekening
         if (mode === "commit") {
             await prisma.member.update({
                 where: { id: member.id },
                 data: {
-                    salary: gaji,
+                    salary: gajiBersih,
+                    ...(sisaGaji > 0 ? { sisaGaji } : {}),
                     ...(pangkat ? { pangkat } : {}),
                     ...(rekening ? { noRekening: rekening } : {}),
                 },
@@ -930,8 +952,9 @@ async function processGajiUraianImport(dataRows: string[][], mode: string) {
             row: idx + 2, nrp, nama: rawNama, gaji, gajiBersih, sisaGaji: sisaGaji > 0 ? sisaGaji : null, pangkat, rekening,
             memberId: member.id, memberName: member.name,
             status: 'valid', reason: null, isNewMember: false,
-            salarySource: sisaGaji > 0 ? 'SISA GAJI (col AK)' : 'GAJI BERSIH (col H)',
+            salarySource: `GAJI BERSIH (col H)${sisaGaji > 0 ? ' + SISA GAJI (col AK)' : ''}`,
             currentGaji: member.salary ? Number(member.salary) : null,
+            currentSisaGaji: member.sisaGaji ? Number(member.sisaGaji) : null,
         });
         successCount++;
     }

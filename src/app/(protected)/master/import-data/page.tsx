@@ -35,6 +35,7 @@ interface PreviewRow {
     nama: string;
     tunkin?: number;
     gaji?: number;
+    sisaGaji?: number;
     tajib?: number;
     memberId?: number;
     memberName?: string;
@@ -42,6 +43,7 @@ interface PreviewRow {
     reason: string | null;
     currentTunkin?: number | null;
     currentGaji?: number | null;
+    currentSisaGaji?: number | null;
     currentTajib?: number | null;
     isNewMember?: boolean;
     mutasiCount?: number;
@@ -49,6 +51,7 @@ interface PreviewRow {
     rekening?: string;
     totalBarang?: number;
     sisaSaldo?: number;
+    salarySource?: string;
 }
 
 interface ImportResult {
@@ -428,10 +431,10 @@ export default function ImportDataPage() {
                                             Tunjangan Kinerja (Tunkin)
                                         </SelectItem>
                                         <SelectItem value="gaji">
-                                            Gaji Bersih (POT GAJI)
+                                            Gaji Bersih & Sisa Gaji (POT GAJI)
                                         </SelectItem>
                                         <SelectItem value="gaji_uraian">
-                                            Gaji Bersih (Uraian Gaji) + Daftar Anggota
+                                            Gaji Bersih & Sisa Gaji (Uraian Gaji) + Daftar Anggota
                                         </SelectItem>
                                         <SelectItem value="tajib">
                                             Simpanan Wajib Per Bulan
@@ -543,11 +546,11 @@ export default function ImportDataPage() {
                                 </p>
                             ) : importType === "gaji" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Wajib ada kolom <strong>JUMLAH GAJI DITERIMA</strong> / GAJI BERSIH. Dari sheet <strong>POT GAJI</strong>.
+                                    Support <strong>.xls, .xlsx, .csv</strong>. Sistem akan mencari kecocokan bedasar <strong>NAMA</strong> (gelar akan diabaikan) atau <strong>NRP/NIP</strong> (jika ada). Jika ada kolom <strong>GAJI BERSIH</strong> akan disimpan sebagai Gaji, dan kolom <strong className="bg-yellow-200">DITERIMA / JUMLAH GAJI DITERIMA</strong> disimpan sebagai Sisa Gaji (untuk perhitungan plafon piutang 50%). Dari sheet <strong>POT GAJI</strong>.
                                 </p>
                             ) : importType === "gaji_uraian" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                                    Upload file <strong>Gaji POLRES/POLSEK (.xls)</strong>. Sistem membaca sheet <strong>URAIAN GAJI</strong> dengan posisi kolom tetap: <strong>PANGKAT</strong> (C), <strong>NAMA</strong> (D), <strong>NRP</strong> (E), <strong>NO REKENING</strong> (G), <strong className="bg-yellow-200">GAJI BERSIH</strong> (H). Anggota baru otomatis didaftarkan dengan NRP + NAMA + GAJI + PANGKAT + NO REKENING.
+                                    Upload file <strong>Gaji POLRES/POLSEK (.xls)</strong>. Sistem membaca sheet <strong>URAIAN GAJI</strong> dengan posisi kolom tetap: <strong>PANGKAT</strong> (C), <strong>NAMA</strong> (D), <strong>NRP</strong> (E), <strong>NO REKENING</strong> (G), <strong>GAJI BERSIH</strong> (H), <strong className="bg-yellow-200">JUMLAH GAJI DITERIMA / SISA GAJI</strong> (AK). <strong className="bg-yellow-200">Sisa Gaji</strong> digunakan untuk perhitungan plafon piutang anggota (50%). Anggota baru otomatis didaftarkan dengan NRP + NAMA + GAJI + PANGKAT + NO REKENING.
                                 </p>
                             ) : importType === "sejahtera" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
@@ -732,11 +735,17 @@ export default function ImportDataPage() {
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
                                                 <TableHead className="text-right">
-                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "update_pinjaman" ? "Sisa Saldo" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih Baru" : "Gaji Baru"}
+                                                    {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "update_pinjaman" ? "Sisa Saldo" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih (H)" : "Gaji Baru"}
                                                 </TableHead>
+                                                {(importType === "gaji" || importType === "gaji_uraian") && (
+                                                    <TableHead className="text-right">Sisa Gaji (AK)</TableHead>
+                                                )}
                                                 <TableHead className="text-right">
                                                     {importType === "tunkin" ? "Tunkin Saat Ini" : importType === "tajib" ? "Saldo Saat Ini" : importType === "sejahtera" ? "Keterangan" : importType === "migrasi_pinjaman" ? "Sisa Pokok" : importType === "update_pinjaman" ? "Saldo Saat Ini" : importType === "potongan" || importType === "toko_history" ? "Keterangan" : "Gaji Saat Ini"}
                                                 </TableHead>
+                                                {(importType === "gaji" || importType === "gaji_uraian") && (
+                                                    <TableHead className="text-right">Sisa Gaji Saat Ini</TableHead>
+                                                )}
                                                 {importType === "tajib" && (
                                                     <TableHead className="text-right">Skema Deteksi Data</TableHead>
                                                 )}
@@ -798,6 +807,20 @@ export default function ImportDataPage() {
                                                             ) : "-";
                                                         })()}
                                                     </TableCell>
+                                                    {(importType === "gaji" || importType === "gaji_uraian") && (
+                                                        <TableCell className="text-right font-mono">
+                                                            {(r as any).sisaGaji > 0 ? (
+                                                                <span className="text-blue-700 font-semibold">{formatCurrency((r as any).sisaGaji)}</span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-xs">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                    )}
+                                                    {(importType === "gaji" || importType === "gaji_uraian") && (
+                                                        <TableCell className="text-right font-mono text-muted-foreground">
+                                                            {(r as any).currentSisaGaji != null ? formatCurrency((r as any).currentSisaGaji) : "-"}
+                                                        </TableCell>
+                                                    )}
                                                     {importType === "tajib" && (
                                                         <TableCell className="text-right font-mono text-muted-foreground">
                                                             <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{r.reason}</span>
