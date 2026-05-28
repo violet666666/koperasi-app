@@ -64,7 +64,21 @@ export async function POST(request: Request) {
         }
 
         const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
-        const dataRows = rows.slice(headerRowIndex + 1);
+
+        // For gaji import with merged multi-row headers (POT GAJI sheets):
+        // Row 0 = group headers ("JML", "JUMLAH GAJI"), Row 1 = sub-headers ("GAJI", "DITERIMA").
+        // Merge them to get full column labels ("jml gaji", "jumlah gaji diterima").
+        if (importType === "gaji" && headerRowIndex + 1 < rows.length) {
+            const nextRow = rows[headerRowIndex + 1];
+            for (let c = 0; c < headers.length; c++) {
+                const sub = String(nextRow[c] || "").toLowerCase().trim();
+                if (sub && !headers[c].includes(sub)) {
+                    headers[c] = (headers[c] + " " + sub).trim();
+                }
+            }
+        }
+
+        const dataRows = rows.slice(headerRowIndex + (importType === "gaji" ? 2 : 1));
 
         let result;
         switch (importType) {
@@ -922,11 +936,13 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
     const nrpIdx = headers.findIndex(h => h.includes("nrp") || h.includes("nip"));
     const namaIdx = headers.findIndex(h => h.includes("nama") || h.includes("nmpeg"));
 
-    // Separate detection: sisaGaji (DITERIMA = Jumlah Gaji Diterima) vs salary (GAJI BERSIH)
+    // Separate detection: sisaGaji (DITERIMA = Jumlah Gaji Diterima) vs salary (GAJI BERSIH / JML GAJI)
     const sisaGajiIdx = headers.findIndex(h => h.includes("diterima") || h.includes("jumlah gaji"));
     const salaryIdx = headers.findIndex(h => h.includes("gaji") && h.includes("bersih"));
-    // Fallback: if no specific "GAJI BERSIH" column, use generic gaji/salary
-    const fallbackSalaryIdx = headers.findIndex(h => h.includes("gaji") || h.includes("salary"));
+    // Fallback: "jml gaji" (gross salary from POT GAJI merged header) or generic "gaji"/"salary"
+    const fallbackSalaryIdx = headers.findIndex(h =>
+        (h.includes("gaji") || h.includes("salary")) && !h.includes("diterima")
+    );
 
     if (namaIdx === -1) {
         return {
@@ -969,10 +985,11 @@ async function processGajiImport(headers: string[], dataRows: string[][], mode: 
         const salary = salaryIdx !== -1 ? cleanNumber(row[salaryIdx] || 0) : (fallbackSalaryIdx !== -1 ? cleanNumber(row[fallbackSalaryIdx] || 0) : 0);
 
         // Determine what gets saved to Member.salary:
-        // - If both columns exist: salary = GAJI BERSIH, sisaGaji = DITERIMA
+        // - If GAJI BERSIH exists: salary = GAJI BERSIH, sisaGaji = DITERIMA
+        // - If JML GAJI + DITERIMA both exist (POT GAJI): salary = JML GAJI (gross), sisaGaji = DITERIMA
         // - If only DITERIMA: salary = DITERIMA (backward compat), sisaGaji = same
         // - If only GAJI BERSIH: salary = GAJI BERSIH, sisaGaji = 0
-        const finalSalary = (salaryIdx !== -1 || (fallbackSalaryIdx !== -1 && sisaGajiIdx === -1)) ? salary : sisaGaji;
+        const finalSalary = (salaryIdx !== -1 || fallbackSalaryIdx !== -1) ? salary : sisaGaji;
         const finalSisaGaji = sisaGaji;
 
         const csvCleanName = cleanNameForMatch(rawNama);
