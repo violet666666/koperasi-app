@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
 
         // ── Single-account lookup: GET /api/savings/accounts?memberId=X&productId=Y ──

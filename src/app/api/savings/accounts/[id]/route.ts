@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await context.params;
         const account = await prisma.savingsAccount.findUnique({
             where: { id: parseInt(id) },
@@ -50,6 +54,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                     { status: 400 }
                 );
             }
+        }
+
+        // Guard: prevent closing/blocking account with non-zero balance
+        if (status && status !== "active" && Number(account.balance) !== 0) {
+            return NextResponse.json(
+                { message: `Rekening tidak dapat ditutup/diblokir karena masih memiliki saldo Rp ${Number(account.balance).toLocaleString("id-ID")}. Kosongkan saldo terlebih dahulu.` },
+                { status: 400 }
+            );
         }
 
         const updateData: Record<string, any> = {};

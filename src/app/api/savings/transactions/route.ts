@@ -15,6 +15,10 @@ function generateTransactionNo(prefix: string): string {
 // GET /api/savings/transactions
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,
@@ -84,6 +88,10 @@ export async function POST(request: Request) {
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const roleName = (session.user as any).role?.name || session.user.role;
+        if (roleName === "anggota") {
+            return NextResponse.json({ message: "Anggota tidak dapat membuat transaksi simpanan langsung" }, { status: 403 });
+        }
         const userId = Number((session.user as any).id);
 
         const body = await request.json();
@@ -111,6 +119,15 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 { message: "Produk simpanan tidak ditemukan" },
                 { status: 404 }
+            );
+        }
+
+        // Only allow deposit/withdrawal from this endpoint
+        // Correction type should only come from override saldo flow
+        if (data.type !== "deposit" && data.type !== "withdrawal") {
+            return NextResponse.json(
+                { message: "Tipe transaksi tidak valid. Gunakan 'deposit' atau 'withdrawal'." },
+                { status: 400 }
             );
         }
 

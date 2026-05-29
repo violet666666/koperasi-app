@@ -9,6 +9,10 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const transaction = await prisma.savingsTransaction.findUnique({
             where: { id: parseInt(id) },
@@ -41,6 +45,10 @@ export async function PUT(
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const roleName = (session.user as any).role?.name || session.user.role;
+        if (roleName === "anggota") {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
         const userId = Number((session.user as any).id);
         const { id } = await params;
         const txId = parseInt(id);
@@ -54,7 +62,7 @@ export async function PUT(
 
         const existing = await prisma.savingsTransaction.findUnique({
             where: { id: txId },
-            include: { account: true },
+            include: { account: true, member: { select: { name: true } } },
         });
 
         if (!existing) {
@@ -117,6 +125,35 @@ export async function PUT(
                 data: { balance: newAccountBalance },
             });
 
+            // 3. Sync linked CashBankTransaction if exists
+            if (existing.transactionNo) {
+                const cbt = await tx.cashBankTransaction.findFirst({
+                    where: { transactionNo: `CBT-${existing.transactionNo}` },
+                });
+                if (cbt) {
+                    const newCashEffect = type === "deposit" || type === "interest"
+                        ? Number(amount)
+                        : -Number(amount);
+                    const newCashBalance = Number(cbt.balanceBefore) + newCashEffect;
+
+                    await tx.cashBankTransaction.update({
+                        where: { id: cbt.id },
+                        data: {
+                            amount: Number(amount),
+                            type: (type === "deposit" || type === "interest") ? "in" : "out",
+                            balanceAfter: newCashBalance,
+                            description: `${type === "deposit" ? "Setoran" : "Penarikan"} Simpanan (diedit) — ${existing.member?.name || ""}`,
+                        },
+                    });
+
+                    // Adjust cash account balance by the diff
+                    await tx.cashBankAccount.update({
+                        where: { id: cbt.accountId },
+                        data: { currentBalance: { increment: balanceDiff } },
+                    });
+                }
+            }
+
             return [updated];
         });
 
@@ -150,6 +187,10 @@ export async function DELETE(
         const session = await auth();
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const roleName = (session.user as any).role?.name || session.user.role;
+        if (roleName === "anggota") {
+            return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const userId = Number((session.user as any).id);
         const { id } = await params;
