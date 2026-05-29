@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware"; // adjust path if needed
 import { createLoanApplicationSchema } from "@/lib/validations";
+import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
 
 function generateApplicationNo(date: Date): string {
     const year = date.getFullYear();
@@ -184,22 +185,17 @@ export async function POST(request: Request) {
 
             // 5. Record cash outflow (disbursement) to Cash/Bank
             // Gunakan akun kas/bank yang dipilih operator, fallback auto-detect jika tidak disediakan
-            let cashAccount;
-            if (data.cashBankAccountId) {
-                cashAccount = await tx.cashBankAccount.findFirst({
-                    where: { id: data.cashBankAccountId, isActive: true },
-                });
-                if (!cashAccount) {
-                    throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
-                }
-            } else {
-                cashAccount = await tx.cashBankAccount.findFirst({
-                    where: { branchId: member.branchId, isActive: true, type: "cash" },
-                    orderBy: { id: 'asc' },
-                });
+            const cashAccount = await resolveCashBankAccount(tx, {
+                cashBankAccountId: data.cashBankAccountId || null,
+                branchId: member.branchId,
+                preferredType: "cash",
+            });
+
+            if (!cashAccount) {
+                throw new Error("Tidak ada akun kas/bank aktif untuk pencairan. Hubungi operator.");
             }
 
-            if (cashAccount) {
+            {
                 const balBefore = Number(cashAccount.currentBalance);
                 const balAfter = balBefore - disbursedAmount;
 
