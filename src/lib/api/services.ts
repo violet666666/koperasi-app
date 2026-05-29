@@ -134,6 +134,12 @@ export const loansApi = {
     createPayment: (loanId: number, data: { amount: number; paymentMethod: string }) =>
         api.post(`/loans/${loanId}/payments`, data),
 
+    voidPayment:  (loanId: number, paymentId: number, reason?: string) =>
+        api.post<{ message: string; detail: string; data: any }>(
+            `/loans/${loanId}/payments/${paymentId}/void`,
+            { reason: reason || "" }
+        ),
+
     voidPinjaman: (loanId: number) =>
         api.post<{ message: string; status: string }>(`/loans/${loanId}/void`),
 };
