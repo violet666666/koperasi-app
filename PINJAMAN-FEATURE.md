@@ -1220,3 +1220,76 @@ Fitur VOID (pembatalan pinjaman setelah pencairan) "berhasil" setiap kali dijala
 
 *Diperbarui: 26 Mei 2026*
 *Total bug tercatat modul Pinjaman: 49 | Total fitur baru: 23*
+
+---
+
+## 🔴 BUG KAS/BANK — 29 Mei 2026 (Kas/Bank Selection Audit — 6 Fix)
+
+### KASBANK-1 (CRITICAL) — Mobile Loan Payment Field Name Salah
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED
+**Severity:** CRITICAL (CashBankTransaction tidak pernah ter-create di mobile — field name salah)
+**File:** `src/app/api/mobile/loan-payment/route.ts`
+
+**Root Cause:** Prisma model `CashBankTransaction` menggunakan field `accountId` (FK ke CashBankAccount), tapi mobile route menggunakan `cashBankAccountId` di `cashBankTransaction.create()`. Field yang salah = Prisma mengabaikan atau throw error = saldo kas tidak tercatat. Selain itu, field wajib `balanceBefore`/`balanceAfter` tidak disertakan, dan saldo diupdate via `{ increment }` yang rentan race condition.
+
+**Fix:** Extract `buildCashBankTransactionData()` helper yang menjamin field `accountId` digunakan. Ganti `{ increment }` dengan running balance pattern. Tambahkan validasi account aktif sebelum create transaction.
+
+### KASBANK-2 (HIGH) — Mobile Loan Payment Balance Tracking Non-Atomic
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED (covered by KASBANK-1)
+**File:** `src/app/api/mobile/loan-payment/route.ts`
+
+**Root Cause:** Balance update menggunakan `{ increment: numAmount }` yang tidak mencatat `balanceBefore`/`balanceAfter` dengan benar.
+
+**Fix:** Diganti ke running balance pattern (sama seperti web route).
+
+### KASBANK-3 (MEDIUM) — Mobile Kompen Hardcoded KAS-002
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED
+**File:** `src/app/api/mobile/loans-operator/kompen-disburse/route.ts`
+
+**Root Cause:** Route tidak menerima `cashBankAccountId` dari client, hardcoded lookup `code: "KAS-002"`. Jika KAS-002 tidak ada, fallback ke akun pertama tanpa preferensi tipe.
+
+**Fix:** Tambah `cashBankAccountId` ke body destructuring, gunakan `resolveCashBankAccount()` helper yang menerima pilihan operator atau auto-detect akun cash terkecil.
+
+### KASBANK-4 (MEDIUM) — Mobile Direct Disburse Silent Skip
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED
+**File:** `src/app/api/mobile/loans-operator/direct-disburse/route.ts`
+
+**Root Cause:** Jika tidak ada kas account ditemukan, route hanya skip CashBankTransaction tanpa error. Pencairan "berhasil" tapi saldo kas tidak berubah — inkonsisten dengan web route yang throw error.
+
+**Fix:** Throw error `"Tidak ada akun kas/bank aktif untuk pencairan"` jika tidak ada account ditemukan, konsisten dengan web route behavior.
+
+### KASBANK-5 (HIGH) — Web Kompen UI Tanpa Kas/Bank Dropdown
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED
+**File:** `src/app/(protected)/pinjaman/pengajuan/tambah/page.tsx`
+
+**Root Cause:** Section kompen tidak punya dropdown kas/bank, dan `handleKompenDisburse` melakukan inline fetch `/api/cash-bank` saat submit alih-alih menggunakan `selectedCashBankId` state yang sudah dimuat di mount.
+
+**Fix:** Tambahkan dropdown kas/bank ke section kompen (violet theme), validasi `selectedCashBankId` wajib sebelum submit, kirim `Number(selectedCashBankId)` langsung dari state.
+
+### KASBANK-6 (MEDIUM) — Web Kompen Inline Fetch Race Condition
+
+**Tanggal Ditemukan:** 29 Mei 2026
+**Status:** ✅ FIXED (covered by KASBANK-5)
+
+**Root Cause:** `handleKompenDisburse` melakukan `await fetch("/api/cash-bank")` saat submit untuk mendapatkan account ID, bukan menggunakan state yang sudah dimuat di mount. Race condition jika fetch gagal = `cashBankAccountId: null`.
+
+**Fix:** Diganti dengan `Number(selectedCashBankId)` dari state.
+
+**File Baru:**
+- `src/lib/kas-bank-loan-helpers.ts` — Helper functions: `buildCashBankTransactionData()`, `resolveCashBankAccount()`
+- `src/__tests__/kas-bank-loan-fixes.test.ts` — 8 unit tests untuk semua fix
+
+---
+
+*Diperbarui: 29 Mei 2026*
+*Total bug tercatat modul Pinjaman: 55 | Total fitur baru: 23*
