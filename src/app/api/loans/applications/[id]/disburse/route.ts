@@ -18,7 +18,8 @@ export async function POST(request: Request, { params }: Params) {
         }
 
         const { id } = await params;
-        
+        const body = await request.json().catch(() => ({} as Record<string, any>));
+
         const application = await prisma.loanApplication.findUnique({
             where: { id: parseInt(id) },
             include: { product: true, member: true }
@@ -136,12 +137,21 @@ export async function POST(request: Request, { params }: Params) {
             await tx.loanSchedule.createMany({ data: schedules });
 
             // 4. Record cash outflow (disbursement)
-            const cashAccount = await tx.cashBankAccount.findFirst({
-                where: { branchId: application.branchId, isActive: true, type: "cash", code: "KAS-002" },
-            }) ?? await tx.cashBankAccount.findFirst({
-                where: { branchId: application.branchId, isActive: true },
-                orderBy: { id: 'asc' },
-            });
+            // Gunakan akun kas/bank yang dipilih operator, fallback auto-detect jika tidak disediakan
+            let cashAccount;
+            if (body.cashBankAccountId) {
+                cashAccount = await tx.cashBankAccount.findFirst({
+                    where: { id: body.cashBankAccountId, isActive: true },
+                });
+                if (!cashAccount) {
+                    throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
+                }
+            } else {
+                cashAccount = await tx.cashBankAccount.findFirst({
+                    where: { branchId: application.branchId, isActive: true, type: "cash" },
+                    orderBy: { id: 'asc' },
+                });
+            }
 
             if (!cashAccount) {
                 throw new Error("Tidak ada akun Kas/Bank aktif untuk branch ini. Pencairan pinjaman gagal — hubungi admin untuk mengaktifkan akun Kas/Bank terlebih dahulu.");

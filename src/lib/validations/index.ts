@@ -149,6 +149,7 @@ export const createLoanApplicationSchema = z.object({
     notes: z.string().optional(),
     deductionSource: z.enum(["gaji", "tunkin", "bs"]).default("gaji"),
     backdatedDate: z.string().optional(), // For Operators inputting historical loans
+    cashBankAccountId: z.number().int().positive().optional(), // Akun kas/bank sumber dana pencairan
 });
 
 // Loan Payment validation schemas

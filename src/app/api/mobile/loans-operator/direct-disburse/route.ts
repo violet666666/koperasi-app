@@ -183,12 +183,21 @@ export async function POST(request: Request) {
             });
 
             // 5. Record cash outflow (disbursement) to Cash/Bank
-            const cashAccount = await tx.cashBankAccount.findFirst({
-                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
-            }) ?? await tx.cashBankAccount.findFirst({
-                where: { branchId: member.branchId, isActive: true },
-                orderBy: { id: 'asc' },
-            });
+            // Gunakan akun kas/bank yang dipilih operator, fallback auto-detect jika tidak disediakan
+            let cashAccount;
+            if (data.cashBankAccountId) {
+                cashAccount = await tx.cashBankAccount.findFirst({
+                    where: { id: data.cashBankAccountId, isActive: true },
+                });
+                if (!cashAccount) {
+                    throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
+                }
+            } else {
+                cashAccount = await tx.cashBankAccount.findFirst({
+                    where: { branchId: member.branchId, isActive: true, type: "cash" },
+                    orderBy: { id: 'asc' },
+                });
+            }
 
             if (cashAccount) {
                 const balBefore = Number(cashAccount.currentBalance);

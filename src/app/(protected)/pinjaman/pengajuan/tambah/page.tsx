@@ -90,6 +90,15 @@ function TambahPengajuanContent() {
     const [selectedExistingLoanId, setSelectedExistingLoanId] = React.useState("");
     const [kompenSimulasi, setKompenSimulasi] = React.useState<any>(null);
 
+    // Kas/Bank account selection for direct disburse
+    interface CashBankAccount {
+        id: number; code: string; name: string; type: "cash" | "bank";
+        bankName?: string | null; currentBalance: number;
+        unitType?: string | null; purpose?: string | null;
+    }
+    const [cashBankAccounts, setCashBankAccounts] = React.useState<CashBankAccount[]>([]);
+    const [selectedCashBankId, setSelectedCashBankId] = React.useState<string>("");
+
     // Fetch loan products from DB
     React.useEffect(() => {
         const loadProducts = async () => {
@@ -113,6 +122,21 @@ function TambahPengajuanContent() {
             }
         };
         loadProducts();
+    }, []);
+
+    // Fetch kas/bank accounts for direct disburse
+    React.useEffect(() => {
+        fetch("/api/master/cash-bank?perPage=50")
+            .then((r) => r.json())
+            .then((json) => {
+                let accounts: CashBankAccount[] = json.data || [];
+                // Filter: only main accounts (not unit-specific, not SHU-specific)
+                accounts = accounts.filter(a => !a.unitType && !a.purpose?.startsWith('shu_'));
+                setCashBankAccounts(accounts);
+                const firstCash = accounts.find(a => a.type === "cash");
+                if (firstCash) setSelectedCashBankId(String(firstCash.id));
+            })
+            .catch(() => toast.error("Gagal memuat akun Kas & Bank"));
     }, []);
 
     // Auto-select member from URL params
@@ -328,6 +352,7 @@ function TambahPengajuanContent() {
                     purpose: formData.purpose || "Pencairan Pinjaman",
                     deductionSource: formData.deductionSource,
                     ...(formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
+                    ...(selectedCashBankId ? { cashBankAccountId: Number(selectedCashBankId) } : {}),
                 }),
             });
 
@@ -915,10 +940,40 @@ function TambahPengajuanContent() {
                                     </p>
                                 </div>
                             </div>
+                            <div>
+                                <Label className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                                    <Banknote className="inline h-3.5 w-3.5 mr-1" />
+                                    Kas/Bank Sumber Dana
+                                </Label>
+                                <Select value={selectedCashBankId} onValueChange={setSelectedCashBankId}>
+                                    <SelectTrigger className="mt-1.5 border-amber-300 dark:border-amber-800">
+                                        <SelectValue placeholder={
+                                            cashBankAccounts.length === 0
+                                                ? "Memuat akun..."
+                                                : "Pilih akun kas/bank"
+                                        } />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {cashBankAccounts.map((acc) => (
+                                            <SelectItem key={acc.id} value={String(acc.id)}>
+                                                <span className="flex flex-col">
+                                                    <span className="font-medium text-sm">{acc.name}</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Saldo: {formatCurrency(Number(acc.currentBalance))}
+                                                    </span>
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-amber-700/80 dark:text-amber-500/80 mt-1">
+                                    Dana pencairan akan dikurangkan dari akun ini
+                                </p>
+                            </div>
                             <Button
                                 type="button"
                                 onClick={handleDirectDisburse}
-                                disabled={isLoading || !selectedMember || !calculation || !!amountError}
+                                disabled={isLoading || !selectedMember || !calculation || !!amountError || !selectedCashBankId}
                                 className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                                 size="lg"
                             >

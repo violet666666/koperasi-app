@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle, XCircle, Printer, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/constants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export default function PengajuanDetailPage() {
     const params = useParams();
@@ -16,6 +18,8 @@ export default function PengajuanDetailPage() {
     const [data, setData] = React.useState<any>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isActionLoading, setIsActionLoading] = React.useState(false);
+    const [cashBankAccounts, setCashBankAccounts] = React.useState<any[]>([]);
+    const [selectedCashBankId, setSelectedCashBankId] = React.useState<string>("");
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -36,6 +40,21 @@ export default function PengajuanDetailPage() {
         fetchData();
     }, [params.id]);
 
+    // Fetch kas/bank accounts for disbursement
+    React.useEffect(() => {
+        fetch("/api/master/cash-bank?perPage=50")
+            .then((r) => r.json())
+            .then((json) => {
+                let accounts: any[] = json.data || [];
+                // Filter: only main accounts (not unit-specific, not SHU-specific)
+                accounts = accounts.filter((a: any) => !a.unitType && !a.purpose?.startsWith('shu_'));
+                setCashBankAccounts(accounts);
+                const firstCash = accounts.find((a: any) => a.type === "cash");
+                if (firstCash) setSelectedCashBankId(String(firstCash.id));
+            })
+            .catch(() => toast.error("Gagal memuat akun Kas & Bank"));
+    }, []);
+
     const handleAction = async (action: "approve" | "reject" | "disburse") => {
         setIsActionLoading(true);
         try {
@@ -45,7 +64,10 @@ export default function PengajuanDetailPage() {
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ notes: "Action via UI" }),
+                body: JSON.stringify({
+                    notes: "Action via UI",
+                    ...(action === "disburse" && selectedCashBankId ? { cashBankAccountId: Number(selectedCashBankId) } : {}),
+                }),
             });
             
             if (res.ok) {
@@ -214,7 +236,37 @@ export default function PengajuanDetailPage() {
                                     <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
                                         Pinjaman telah di-Approve. Silakan panggil Anggota ybs untuk proses "Penghadapan". Jika fisik peminjam valid, tekan Cairkan.
                                     </div>
-                                    <Button onClick={() => handleAction("disburse")} disabled={isActionLoading} className="w-full" size="lg">
+                                    <div>
+                                        <Label className="text-sm font-medium">
+                                            <Banknote className="inline h-3.5 w-3.5 mr-1" />
+                                            Kas/Bank Sumber Dana
+                                        </Label>
+                                        <Select value={selectedCashBankId} onValueChange={setSelectedCashBankId}>
+                                            <SelectTrigger className="mt-1.5">
+                                                <SelectValue placeholder={
+                                                    cashBankAccounts.length === 0
+                                                        ? "Memuat akun..."
+                                                        : "Pilih akun kas/bank"
+                                                } />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cashBankAccounts.map((acc: any) => (
+                                                    <SelectItem key={acc.id} value={String(acc.id)}>
+                                                        <span className="flex flex-col">
+                                                            <span className="font-medium text-sm">{acc.name}</span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Saldo: {formatCurrency(Number(acc.currentBalance))}
+                                                            </span>
+                                                        </span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Dana pencairan akan dikurangkan dari akun ini
+                                        </p>
+                                    </div>
+                                    <Button onClick={() => handleAction("disburse")} disabled={isActionLoading || !selectedCashBankId} className="w-full" size="lg">
                                         <Banknote className="w-5 h-5 mr-2" />
                                         Cairkan & Cetak Kwitansi
                                     </Button>
