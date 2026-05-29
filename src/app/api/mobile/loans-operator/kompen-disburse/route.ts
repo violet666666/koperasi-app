@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
 
 // POST /api/mobile/loans-operator/kompen-disburse — Mobile kompen execution
 export async function POST(request: Request) {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { memberId, existingLoanId, productId, amount, tenorMonths, backdatedDate } = body;
+        const { memberId, existingLoanId, productId, amount, tenorMonths, backdatedDate, cashBankAccountId } = body;
 
         if (!memberId || !existingLoanId || !productId || !amount || !tenorMonths) {
             return NextResponse.json({ message: "Data tidak lengkap" }, { status: 400 });
@@ -130,11 +131,10 @@ export async function POST(request: Request) {
             });
 
             // 14. Record Cash/Bank transactions
-            const cashAccount = await tx.cashBankAccount.findFirst({
-                where: { branchId: member.branchId, isActive: true, type: "cash", code: "KAS-002" },
-            }) ?? await tx.cashBankAccount.findFirst({
-                where: { branchId: member.branchId, isActive: true },
-                orderBy: { id: 'asc' },
+            const cashAccount = await resolveCashBankAccount(tx, {
+                cashBankAccountId: cashBankAccountId ? Number(cashBankAccountId) : null,
+                branchId: member.branchId,
+                preferredType: "cash",
             });
 
             if (cashAccount) {
