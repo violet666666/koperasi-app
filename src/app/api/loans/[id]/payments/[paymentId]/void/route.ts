@@ -119,13 +119,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 paidDate: s.paidDate,
             }));
 
-            // 2. Rollback LoanSchedule entries
+            // 2. Rollback LoanSchedule entries (allocated schedules only)
             const rollbackOps = buildScheduleRollbackOps(allocations, mappedSchedules);
             for (const op of rollbackOps) {
                 await tx.loanSchedule.update({
                     where: { id: op.scheduleId },
                     data: op.data,
                 });
+            }
+
+            // 2b. For early_settlement: also revert unallocated schedules that were
+            // batch-marked as "paid" by the early settlement flow.
+            // The payment creation marks ALL remaining schedules as paid, not just allocated ones.
+            if (payment.paymentType === "early_settlement") {
+                const allocatedIds = allocations.map((a) => a.scheduleId);
+                const unallocatedPaid = await tx.loanSchedule.findMany({
+                    where: {
+                        loanId,
+                        id: { notIn: allocatedIds },
+                        status: "paid",
+                    },
+                });
+                for (const s of unallocatedPaid) {
+                    await tx.loanSchedule.update({
+                        where: { id: s.id },
+                        data: { status: "pending", paidDate: null },
+                    });
+                }
             }
 
             // 3. Fetch CashBankTransactions linked to this payment
@@ -195,12 +215,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 loan.status
             );
 
-            // For early_settlement: also restore outstanding to pre-payment values
+            // For early_settlement: recalculate outstanding from actual schedule state
+            // (not from payment.portions — early settlement skips interest, so interestPortion = 0)
             if (payment.paymentType === "early_settlement") {
-                // Early settlement set outstanding to 0 and status to paid_off.
-                // Reverse: restore outstanding from payment portions.
-                loanRollbackData.principalOutstanding = Number(payment.principalPortion);
-                loanRollbackData.interestOutstanding = Number(payment.interestPortion);
+                // All schedule rollbacks have already been applied above,
+                // so schedules now reflect the pre-payment state.
+                const allSchedules = await tx.loanSchedule.findMany({
+                    where: { loanId },
+                });
+                const totalPrincipalOut = allSchedules.reduce(
+                    (sum, s) => sum + Number(s.principalAmount) - Number(s.principalPaid), 0
+                );
+                const totalInterestOut = allSchedules.reduce(
+                    (sum, s) => sum + Number(s.interestAmount) - Number(s.interestPaid), 0
+                );
+                loanRollbackData.principalOutstanding = Math.max(0, totalPrincipalOut);
+                loanRollbackData.interestOutstanding = Math.max(0, totalInterestOut);
                 loanRollbackData.status = "active";
                 loanRollbackData.paidOffDate = null;
             }

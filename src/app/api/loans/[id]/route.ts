@@ -91,7 +91,7 @@ export async function PUT(request: Request, { params }: Params) {
         const loan = await prisma.loan.findUnique({
             where: { id: loanId },
             include: {
-                _count: { select: { payments: true } },
+                _count: { select: { payments: { where: { status: { not: "voided" } } } } },
                 member: { select: { name: true, memberNo: true } },
             },
         });
