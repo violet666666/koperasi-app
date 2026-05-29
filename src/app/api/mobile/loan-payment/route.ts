@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
 
 // GET /api/mobile/loan-payment?memberId=xxx — Get member's active loans
 export async function GET(request: Request) {
@@ -148,37 +149,58 @@ export async function POST(request: Request) {
 
             // 4. Create kas/bank entries if account selected
             if (cashBankAccountId) {
+                const cashAccount = await prisma.cashBankAccount.findFirst({
+                    where: { id: Number(cashBankAccountId), isActive: true },
+                });
+                if (!cashAccount) {
+                    throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
+                }
+                let bal = Number(cashAccount.currentBalance);
+
+                // Kas masuk - pokok
+                bal += principalOut;
                 transactions.push(
-                    // Kas masuk - pokok
                     prisma.cashBankTransaction.create({
-                        data: {
-                            cashBankAccountId: Number(cashBankAccountId),
-                            transactionDate: today,
+                        data: buildCashBankTransactionData({
+                            accountId: cashAccount.id,
+                            branchId: 1,
                             type: "in",
                             category: "angsuran_pokok",
                             amount: principalOut,
+                            balanceBefore: bal - principalOut,
+                            balanceAfter: bal,
                             description: `Pelunasan pokok pinjaman ${loan.loanNo} (${loan.member.name})`,
-                            referenceNo: paymentNo,
-                            createdById: Number(user.id),
-                        },
-                    }),
-                    // Kas masuk - penalti
-                    prisma.cashBankTransaction.create({
-                        data: {
-                            cashBankAccountId: Number(cashBankAccountId),
                             transactionDate: today,
-                            type: "in",
-                            category: "penalti_pelunasan",
-                            amount: penaltyFee,
-                            description: `Penalti pelunasan ${penaltyMultiplier}× bunga - ${loan.loanNo} (${loan.member.name})`,
-                            referenceNo: paymentNo,
                             createdById: Number(user.id),
-                        },
+                            referenceNo: paymentNo,
+                        }),
                     }),
-                    // Update saldo kas/bank
+                );
+                // Kas masuk - penalti
+                if (penaltyFee > 0) {
+                    bal += penaltyFee;
+                    transactions.push(
+                        prisma.cashBankTransaction.create({
+                            data: buildCashBankTransactionData({
+                                accountId: cashAccount.id,
+                                branchId: 1,
+                                type: "in",
+                                category: "penalti_pelunasan",
+                                amount: penaltyFee,
+                                balanceBefore: bal - penaltyFee,
+                                balanceAfter: bal,
+                                description: `Penalti pelunasan ${penaltyMultiplier}× bunga - ${loan.loanNo} (${loan.member.name})`,
+                                transactionDate: today,
+                                createdById: Number(user.id),
+                                referenceNo: paymentNo,
+                            }),
+                        }),
+                    );
+                }
+                transactions.push(
                     prisma.cashBankAccount.update({
-                        where: { id: Number(cashBankAccountId) },
-                        data: { currentBalance: { increment: numAmount } },
+                        where: { id: cashAccount.id },
+                        data: { currentBalance: bal },
                     }),
                 );
             }
@@ -243,42 +265,58 @@ export async function POST(request: Request) {
 
         // Kas/bank entries for regular installment
         if (cashBankAccountId) {
+            const cashAccount = await prisma.cashBankAccount.findFirst({
+                where: { id: Number(cashBankAccountId), isActive: true },
+            });
+            if (!cashAccount) {
+                throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
+            }
+            let bal = Number(cashAccount.currentBalance);
+
             if (principalPortion > 0) {
+                bal += principalPortion;
                 transactions.push(
                     prisma.cashBankTransaction.create({
-                        data: {
-                            cashBankAccountId: Number(cashBankAccountId),
-                            transactionDate: new Date(),
+                        data: buildCashBankTransactionData({
+                            accountId: cashAccount.id,
+                            branchId: 1,
                             type: "in",
                             category: "angsuran_pokok",
                             amount: principalPortion,
+                            balanceBefore: bal - principalPortion,
+                            balanceAfter: bal,
                             description: `Angsuran pokok ${loan.loanNo} (${loan.member.name})`,
-                            referenceNo: paymentNo,
+                            transactionDate: new Date(),
                             createdById: Number(user.id),
-                        },
+                            referenceNo: paymentNo,
+                        }),
                     }),
                 );
             }
             if (interestPortion > 0) {
+                bal += interestPortion;
                 transactions.push(
                     prisma.cashBankTransaction.create({
-                        data: {
-                            cashBankAccountId: Number(cashBankAccountId),
-                            transactionDate: new Date(),
+                        data: buildCashBankTransactionData({
+                            accountId: cashAccount.id,
+                            branchId: 1,
                             type: "in",
                             category: "jasa_pinjaman",
                             amount: interestPortion,
+                            balanceBefore: bal - interestPortion,
+                            balanceAfter: bal,
                             description: `Jasa/bunga pinjaman ${loan.loanNo} (${loan.member.name})`,
-                            referenceNo: paymentNo,
+                            transactionDate: new Date(),
                             createdById: Number(user.id),
-                        },
+                            referenceNo: paymentNo,
+                        }),
                     }),
                 );
             }
             transactions.push(
                 prisma.cashBankAccount.update({
-                    where: { id: Number(cashBankAccountId) },
-                    data: { currentBalance: { increment: numAmount } },
+                    where: { id: cashAccount.id },
+                    data: { currentBalance: bal },
                 }),
             );
         }
