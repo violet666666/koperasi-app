@@ -202,6 +202,18 @@ export async function POST(request: Request) {
             }
         }
 
+        // ── LoanPayment void fields ──────────────────────────────────
+        const hasPaymentStatus = await columnExists("loan_payments", "status");
+        if (!hasPaymentStatus) {
+            await prisma.$executeRaw`ALTER TABLE loan_payments ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'completed'`;
+            await prisma.$executeRaw`ALTER TABLE loan_payments ADD COLUMN voided_at TIMESTAMP`;
+            await prisma.$executeRaw`ALTER TABLE loan_payments ADD COLUMN voided_by_id INTEGER`;
+            await prisma.$executeRaw`ALTER TABLE loan_payments ADD COLUMN void_reason TEXT`;
+            results.push("Added loan_payments void tracking fields (status, voided_at, voided_by_id, void_reason)");
+        } else {
+            results.push("loan_payments void fields already exist");
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

@@ -41,6 +41,7 @@ model User {
   loanApplicationsCreated LoanApplication[]     @relation("LoanAppCreatedBy")
   loanApplicationsApproved LoanApplication[]    @relation("LoanAppApprovedBy")
   loanPayments            LoanPayment[]         @relation("PaymentCreatedBy")
+  voidedLoanPayments      LoanPayment[]         @relation("PaymentVoidedBy")
   cashBankTransactions    CashBankTransaction[] @relation("CashBankCreatedBy")
   approvalRequests        ApprovalRequest[]     @relation("ApprovalRequestedBy")
   approvedRequests        ApprovalRequest[]     @relation("ApprovalApprovedBy")
@@ -559,17 +560,25 @@ model LoanPayment {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
+  // Void/reversal tracking — matches SavingsTransaction pattern
+  status            String    @default("completed") // completed, voided
+  voidedAt          DateTime? @map("voided_at")
+  voidedById        Int?      @map("voided_by_id")
+  voidReason        String?   @map("void_reason")
+
   loan            Loan                      @relation(fields: [loanId], references: [id])
   member          Member                    @relation(fields: [memberId], references: [id])
   cashBankAccount CashBankAccount?          @relation(fields: [cashBankAccountId], references: [id])
   journal         Journal?                  @relation(fields: [journalId], references: [id])
   period          FiscalPeriod?             @relation(fields: [periodId], references: [id])
   createdBy       User                      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  voidedBy        User?                     @relation("PaymentVoidedBy", fields: [voidedById], references: [id])
   allocations     LoanPaymentAllocation[]
 
   @@index([paymentDate])
   @@index([loanId])
   @@index([memberId])
+  @@index([status])
   @@map("loan_payments")
 }
 
