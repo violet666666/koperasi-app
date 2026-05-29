@@ -122,7 +122,9 @@
       "Bash(where node *)",
       "Bash(Select-String \"error TS\")",
       "Bash(Measure-Object)",
-      "Bash(Select-Object -ExpandProperty Count)"
+      "Bash(Select-Object -ExpandProperty Count)",
+      "mcp__plugin_playwright_playwright__browser_network_request",
+      "Bash(Select-String \"unit-layanan/stats\")"
     ]
   },
   "enabledPlugins": {
