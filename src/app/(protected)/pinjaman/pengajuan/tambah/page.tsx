@@ -411,6 +411,7 @@ function TambahPengajuanContent() {
 
     const handleKompenDisburse = async () => {
         if (!selectedMember || !selectedExistingLoanId) { toast.error("Data tidak lengkap"); return; }
+        if (!selectedCashBankId) { toast.error("Pilih akun Kas/Bank tujuan terlebih dahulu"); return; }
         setIsLoading(true);
         try {
             const res = await fetch("/api/loans/kompen/disburse", {
@@ -423,11 +424,7 @@ function TambahPengajuanContent() {
                     amount: parseFloat(formData.amount),
                     tenorMonths: parseInt(formData.tenor_months),
                     paymentMethod: "bank_transfer",
-                    cashBankAccountId: await fetch("/api/cash-bank").then(r => r.json()).then(d => {
-                        const accounts = d.data || d.accounts || [];
-                        const cash = accounts.find((a: any) => a.type === "cash");
-                        return cash?.id || accounts[0]?.id || null;
-                    }).catch(() => null),
+                    cashBankAccountId: Number(selectedCashBankId),
                     ...(formData.backdatedDate ? { backdatedDate: formData.backdatedDate } : {}),
                 }),
             });
@@ -920,7 +917,37 @@ function TambahPengajuanContent() {
                                         <Separator />
                                         <div className="flex justify-between text-xs text-muted-foreground"><span>Angsuran/bln ({kompenSimulasi.newLoan.tenorMonths}x)</span><span>{formatCurrency(kompenSimulasi.newLoan.monthlyInstallment)}</span></div>
                                     </div>
-                                    <Button type="button" onClick={handleKompenDisburse} disabled={isLoading} className="w-full bg-violet-600 hover:bg-violet-700 text-white" size="lg">
+                                    <div>
+                                        <Label className="text-sm font-medium text-violet-800 dark:text-violet-400">
+                                            <Banknote className="inline h-3.5 w-3.5 mr-1" />
+                                            Kas/Bank Sumber Dana
+                                        </Label>
+                                        <Select value={selectedCashBankId} onValueChange={setSelectedCashBankId}>
+                                            <SelectTrigger className="mt-1.5 border-violet-300 dark:border-violet-800">
+                                                <SelectValue placeholder={
+                                                    cashBankAccounts.length === 0
+                                                        ? "Memuat akun..."
+                                                        : "Pilih akun kas/bank"
+                                                } />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cashBankAccounts.map((acc) => (
+                                                    <SelectItem key={acc.id} value={String(acc.id)}>
+                                                        <span className="flex flex-col">
+                                                            <span className="font-medium text-sm">{acc.name}</span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Saldo: {formatCurrency(Number(acc.currentBalance))}
+                                                            </span>
+                                                        </span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-violet-700/80 dark:text-violet-500/80 mt-1">
+                                            Dana kompen akan dicairkan melalui akun ini
+                                        </p>
+                                    </div>
+                                    <Button type="button" onClick={handleKompenDisburse} disabled={isLoading || !selectedCashBankId} className="w-full bg-violet-600 hover:bg-violet-700 text-white" size="lg">
                                         {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses Kompen...</> : <><Zap className="mr-2 h-4 w-4" />Proses Kompen & Cairkan</>}
                                     </Button>
                                 </div>
