@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     ShoppingCart, Banknote, QrCode, CreditCard, Clock,
     TrendingUp, ArrowRight, CheckCircle2, AlertCircle, Store,
-    Upload, Trash2, ImagePlus
+    Upload, Trash2, ImagePlus, RefreshCw
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import {
@@ -64,12 +64,24 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
     React.useEffect(() => { fetchStats(); }, [fetchStats]);
 
     // Refresh stats when the user returns to this page (e.g. after POS transaction)
+    // visibilitychange = tab/window berpindah, focus = kembali ke window (SPA navigation)
     React.useEffect(() => {
         const onVisible = () => {
             if (document.visibilityState === "visible") fetchStats();
         };
+        const onFocus = () => fetchStats();
         document.addEventListener("visibilitychange", onVisible);
-        return () => document.removeEventListener("visibilitychange", onVisible);
+        window.addEventListener("focus", onFocus);
+        return () => {
+            document.removeEventListener("visibilitychange", onVisible);
+            window.removeEventListener("focus", onFocus);
+        };
+    }, [fetchStats]);
+
+    // Auto-refresh setiap 60 detik agar data dashboard tetap real-time
+    React.useEffect(() => {
+        const interval = setInterval(fetchStats, 60_000);
+        return () => clearInterval(interval);
     }, [fetchStats]);
 
     const roleBadge = roleName === "admin" ? "Admin Unit" : "Kasir";
@@ -183,12 +195,23 @@ export function KasirDashboard({ unitType, roleName }: KasirDashboardProps) {
                         Ringkasan transaksi hari ini, {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                     </p>
                 </div>
-                <Button asChild size="lg" className="gap-2 shadow-md">
-                    <Link href={posLink}>
-                        <ShoppingCart className="h-5 w-5" />
-                        Buka Kasir POS
-                    </Link>
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchStats}
+                        disabled={loading}
+                        title="Refresh data dashboard"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button asChild size="lg" className="gap-2 shadow-md">
+                        <Link href={posLink}>
+                            <ShoppingCart className="h-5 w-5" />
+                            Buka Kasir POS
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* Today's KPI Cards */}

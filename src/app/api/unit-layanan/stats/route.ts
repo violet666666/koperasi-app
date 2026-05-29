@@ -40,6 +40,17 @@ export async function GET(request: Request) {
     const STORE_SALE_UNITS = ["toko", "resto_cafe", "coffe_latar", "resto", "cafe_lsp"];
     const isStoreSaleUnit = STORE_SALE_UNITS.includes(unitType);
 
+    // Alias mapping: user session mungkin punya "resto_cafe" tapi StoreSale menyimpan "resto"
+    // Sama seperti di /api/unit-transactions agar dashboard dan riwayat konsisten
+    const UNIT_ALIAS: Record<string, string[]> = {
+        resto_cafe: ["resto", "coffe_latar"],
+        resto: ["resto", "coffe_latar"],
+        coffe_latar: ["resto", "coffe_latar"],
+    };
+    const storeSaleUnitType: string | { in: string[] } = UNIT_ALIAS[unitType]
+        ? { in: UNIT_ALIAS[unitType] }
+        : unitType;
+
     try {
         const now = new Date();
 
@@ -80,9 +91,10 @@ export async function GET(request: Request) {
         });
 
         // Also count StoreSale for retail/F&B units
+        // Gunakan storeSaleUnitType (alias-normalized) bukan unitType mentah
         const rawTodayStoreSales = isStoreSaleUnit ? await prisma.storeSale.findMany({
             where: {
-                unitType,
+                unitType: storeSaleUnitType,
                 createdAt: { gte: todayStartWIB, lt: todayEndWIB },
             },
             select: { totalAmount: true, paymentMethod: true, metadata: true },
@@ -119,7 +131,7 @@ export async function GET(request: Request) {
         });
         
         const weeklyStoreTrxRaw = isStoreSaleUnit ? await prisma.storeSale.findMany({
-            where: { unitType, createdAt: { gte: weekStartWIB, lt: todayEndWIB } },
+            where: { unitType: storeSaleUnitType, createdAt: { gte: weekStartWIB, lt: todayEndWIB } },
             select: { createdAt: true, totalAmount: true, metadata: true },
         }) : [];
         
@@ -190,7 +202,7 @@ export async function GET(request: Request) {
 
         if (isStoreSaleUnit) {
             const recentStoreTrx = await prisma.storeSale.findMany({
-                where: { unitType },
+                where: { unitType: storeSaleUnitType },
                 orderBy: { createdAt: "desc" },
                 take: 10,
                 select: {
