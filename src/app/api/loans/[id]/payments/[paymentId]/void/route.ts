@@ -208,8 +208,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // ── Audit Log ─────────────────────────────────────────────
         await logAuditFromRequest(request, session, {
-            action: "VOID_PAYMENT" as any,
-            module: "pinjaman" as any,
+            action: "UPDATE",
+            module: "Pinjaman",
             description: `Void pembayaran angsuran ${payment.paymentNo} (Rp ${Number(payment.amount).toLocaleString("id-ID")}) pada pinjaman ID ${loanId}`,
             targetId: paymentId,
             targetType: "LoanPayment",
