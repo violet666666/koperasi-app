@@ -1291,5 +1291,66 @@ Fitur VOID (pembatalan pinjaman setelah pencairan) "berhasil" setiap kali dijala
 
 ---
 
-*Diperbarui: 29 Mei 2026*
-*Total bug tercatat modul Pinjaman: 55 | Total fitur baru: 23*
+## 🟢 FITUR BARU — 30 Mei 2026 (Void Angsuran Individual)
+
+### FEAT-VOID-PAYMENT — Void Pembayaran Angsuran Individual
+
+**Tanggal:** 30 Mei 2026
+**Status:** ✅ IMPLEMENTED
+**Severity:** Feature (Operator perlu membatalkan angsuran yang double-input / human error)
+**Use Case:** Operator tidak sengaja input angsuran 2x. Sebelumnya satu-satunya cara adalah VOID seluruh pinjaman (merusak semua data). Sekarang operator dapat membatalkan 1 pembayaran spesifik.
+
+**Komponen:**
+
+| # | File | Aksi | Fungsi |
+|---|------|------|--------|
+| 1 | `prisma/schema.prisma` | Modify | Tambah `status`, `voidedAt`, `voidedById`, `voidReason` ke model `LoanPayment` |
+| 2 | `src/app/api/admin/migrate/route.ts` | Modify | Migration kolom void ke NeonDB |
+| 3 | `src/lib/payment-void-helpers.ts` | Create | Helper: `calcPaymentCbReversalAmount`, `buildScheduleRollbackOps`, `buildLoanRollbackData`, `buildPaymentVoidResponse` |
+| 4 | `src/app/api/loans/[id]/payments/[paymentId]/void/route.ts` | Create | API endpoint POST void individual payment |
+| 5 | `src/lib/api/services.ts` | Modify | Tambah `voidPayment(loanId, paymentId, reason)` ke `loansApi` |
+| 6 | `src/lib/constants/index.ts` | Modify | Tambah `LOAN_PAYMENT_STATUS` constant |
+| 7 | `src/app/(protected)/pinjaman/[id]/page.tsx` | Modify | Tombol "Batalkan" + dialog konfirmasi di riwayat pembayaran |
+| 8 | `src/app/api/loans/[id]/route.ts` | Modify | Exclude voided payments dari GET + PUT `_count` |
+| 9 | `src/app/api/loans/[id]/payments/route.ts` | Modify | Exclude voided payments dari GET list |
+
+**Alur Void Angsuran (Atomic Transaction):**
+
+```
+Operator klik "Batalkan" di baris pembayaran
+  → Dialog konfirmasi: ketik paymentNo + alasan
+  → POST /api/loans/[id]/payments/[paymentId]/void
+  → Dalam prisma.$transaction (timeout 30s):
+      1. Rollback LoanSchedule (kurangi principalPaid/interestPaid/lateFeePaid,
+         revert status: paid→partial→pending, clear paidDate)
+      2. [Early Settlement] Revert unallocated schedules yang di-mark "paid"
+      3. Fetch CashBankTransactions linked to payment
+      4. Calculate reversal amount (sum actual CB amounts, bukan payment.amount)
+      5. Decrement CashBankAccount.currentBalance
+      6. Delete CashBankTransaction records
+      7. Delete LoanPaymentAllocation records
+      8. Soft-void LoanPayment (status→"voided", voidedAt, voidedById, voidReason)
+      9. Update Loan counters (decrement paid, increment outstanding)
+     10. [Early Settlement] Recalculate outstanding dari schedule state aktual
+         + reactivate loan (paid_off → active)
+  → Audit log
+  → UI re-fetch data, tampilkan "VOID" badge + opacity-50
+```
+
+**Validasi & Proteksi:**
+- Double-void dicegah (cek `payment.status === "voided"`)
+- Void pada pinjaman voided/written_off diblokir
+- Payment harus termasuk dalam loan yang dimaksud
+- Hanya `operator` dan `admin_sp` yang bisa void
+- GET endpoints otomatis exclude voided payments
+
+**Schema Pattern:** Mengikuti pattern yang sudah ada di `SavingsTransaction` (status + voidedAt + voidedById + voidReason).
+
+**File Baru:**
+- `src/lib/payment-void-helpers.ts` — 4 pure helper functions untuk reversal logic
+- `src/app/api/loans/[id]/payments/[paymentId]/void/route.ts` — API endpoint
+
+---
+
+*Diperbarui: 30 Mei 2026*
+*Total bug tercatat modul Pinjaman: 55 | Total fitur baru: 24*
