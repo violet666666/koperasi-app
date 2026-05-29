@@ -106,8 +106,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 where: { id: { in: scheduleIds } },
             });
 
+            // Map Prisma Decimal fields to numbers for the helper function
+            const mappedSchedules = currentSchedules.map((s) => ({
+                id: s.id,
+                principalAmount: Number(s.principalAmount),
+                interestAmount: Number(s.interestAmount),
+                lateFee: Number(s.lateFee),
+                principalPaid: Number(s.principalPaid),
+                interestPaid: Number(s.interestPaid),
+                lateFeePaid: Number(s.lateFeePaid),
+                status: s.status,
+                paidDate: s.paidDate,
+            }));
+
             // 2. Rollback LoanSchedule entries
-            const rollbackOps = buildScheduleRollbackOps(allocations, currentSchedules);
+            const rollbackOps = buildScheduleRollbackOps(allocations, mappedSchedules);
             for (const op of rollbackOps) {
                 await tx.loanSchedule.update({
                     where: { id: op.scheduleId },
