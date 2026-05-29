@@ -86,6 +86,15 @@ export default function PinjamanDetailPage() {
     const [voidConfirmationText, setVoidConfirmationText] = React.useState("");
     const [isVoiding, setIsVoiding] = React.useState(false);
 
+    // Payment Void State
+    const [voidPaymentDialog, setVoidPaymentDialog] = React.useState<{
+        isOpen: boolean;
+        payment: any | null;
+    }>({ isOpen: false, payment: null });
+    const [voidPaymentConfirm, setVoidPaymentConfirm] = React.useState("");
+    const [voidPaymentReason, setVoidPaymentReason] = React.useState("");
+    const [isVoidingPayment, setIsVoidingPayment] = React.useState(false);
+
     // Edit State
     const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
     const [isEditing, setIsEditing] = React.useState(false);
@@ -261,12 +270,46 @@ export default function PinjamanDetailPage() {
              toast.success((res as any).data?.message || "Pinjaman berhasil dibatalkan.");
              setIsVoidDialogOpen(false);
              // Pinjaman sudah di wipe, kembali ke daftar
-             router.replace("/pinjaman"); 
+             router.replace("/pinjaman");
         } catch (error: any) {
              console.error("Void Error", error);
              toast.error(error.response?.data?.message || "Gagal membatalkan pinjaman. Periksa server.");
         } finally {
              setIsVoiding(false);
+        }
+    };
+
+    const executePaymentVoid = async () => {
+        if (!voidPaymentDialog.payment) return;
+        if (voidPaymentConfirm !== voidPaymentDialog.payment.paymentNo) return;
+
+        setIsVoidingPayment(true);
+        try {
+            await loansApi.voidPayment(
+                loan.id,
+                voidPaymentDialog.payment.id,
+                voidPaymentReason || undefined
+            );
+            toast.success("Pembayaran berhasil dibatalkan (VOID)");
+
+            // Re-fetch loan data to reflect changes
+            const res = await loansApi.get(Number(params.id));
+            const fetchedLoan = res.data as any;
+            setLoan({
+                ...fetchedLoan,
+                productSnapshot: typeof fetchedLoan.productSnapshot === 'string'
+                    ? JSON.parse((fetchedLoan.productSnapshot as unknown) as string)
+                    : fetchedLoan.productSnapshot,
+            });
+            setSchedule(fetchedLoan.schedules || []);
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || "Gagal membatalkan pembayaran";
+            toast.error(msg);
+        } finally {
+            setIsVoidingPayment(false);
+            setVoidPaymentDialog({ isOpen: false, payment: null });
+            setVoidPaymentConfirm("");
+            setVoidPaymentReason("");
         }
     };
 
@@ -497,6 +540,74 @@ export default function PinjamanDetailPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* ── Dialog: Void Individual Payment ── */}
+            <Dialog open={voidPaymentDialog.isOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setVoidPaymentDialog({ isOpen: false, payment: null });
+                        setVoidPaymentConfirm("");
+                        setVoidPaymentReason("");
+                    }
+                }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive font-bold flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            Batalkan Pembayaran Angsuran
+                        </DialogTitle>
+                        <DialogDescription className="space-y-3 pt-3 text-base">
+                            <span>
+                                Anda akan membatalkan pembayaran <strong>{voidPaymentDialog.payment?.paymentNo}</strong> sebesar{" "}
+                                <strong>Rp {Number(voidPaymentDialog.payment?.amount || 0).toLocaleString("id-ID")}</strong>.
+                            </span>
+                            <span className="block text-red-600 font-semibold">
+                                Tindakan ini akan mengembalikan angsuran ke pinjaman dan membalikkan mutasi kas/bank.
+                            </span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-sm font-medium">Alasan Pembatalan</label>
+                            <Input
+                                value={voidPaymentReason}
+                                onChange={(e) => setVoidPaymentReason(e.target.value)}
+                                placeholder="Contoh: Double input, kesalahan data"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium">
+                                Ketik <strong>{voidPaymentDialog.payment?.paymentNo}</strong> untuk konfirmasi:
+                            </label>
+                            <Input
+                                value={voidPaymentConfirm}
+                                onChange={(e) => setVoidPaymentConfirm(e.target.value)}
+                                placeholder={voidPaymentDialog.payment?.paymentNo || "PAY-xxxxx-xxxxxx"}
+                                className="mt-1 font-mono"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline"
+                            onClick={() => {
+                                setVoidPaymentDialog({ isOpen: false, payment: null });
+                                setVoidPaymentConfirm("");
+                                setVoidPaymentReason("");
+                            }}>
+                            Batal
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={executePaymentVoid}
+                            disabled={voidPaymentConfirm !== voidPaymentDialog.payment?.paymentNo || isVoidingPayment}
+                        >
+                            {isVoidingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Batalkan Pembayaran
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Progress Card */}
             <Card>
                 <CardContent className="p-6">
@@ -714,12 +825,13 @@ export default function PinjamanDetailPage() {
                                             <TableHead className="text-right">Bunga</TableHead>
                                             <TableHead className="text-right">Total Dibayar</TableHead>
                                             <TableHead>Metode</TableHead>
+                                            <TableHead className="text-right">Aksi</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {loan.payments && loan.payments.length > 0 ? (
                                             loan.payments.map((payment: any) => (
-                                                 <TableRow key={payment.id} className={payment.paymentType === "early_settlement" ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}>
+                                                 <TableRow key={payment.id} className={`${payment.status === "voided" ? "opacity-50" : ""} ${payment.paymentType === "early_settlement" ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
                                                      <TableCell className="font-medium text-xs font-mono">{payment.paymentNo || '-'}</TableCell>
                                                      <TableCell>
                                                          {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}
@@ -740,11 +852,26 @@ export default function PinjamanDetailPage() {
                                                              <p className="text-xs text-amber-600 mt-0.5">Penalti: {formatCurrency(Number(payment.earlySettlementFee))}</p>
                                                          )}
                                                      </TableCell>
+                                                     <TableCell className="text-right">
+                                                         {payment.status === "voided" ? (
+                                                             <Badge variant="destructive" className="text-xs">VOID</Badge>
+                                                         ) : isOperator && loan?.status === "active" ? (
+                                                             <Button
+                                                                 variant="ghost"
+                                                                 size="sm"
+                                                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                 onClick={() => setVoidPaymentDialog({ isOpen: true, payment })}
+                                                             >
+                                                                 <Ban className="mr-1 h-3 w-3" />
+                                                                 Batalkan
+                                                             </Button>
+                                                         ) : null}
+                                                     </TableCell>
                                                  </TableRow>
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                                                <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                                     Belum ada histori pembayaran
                                                 </TableCell>
                                             </TableRow>
