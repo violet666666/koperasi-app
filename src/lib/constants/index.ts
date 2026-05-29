@@ -128,6 +128,11 @@ export const INSTALLMENT_STATUS = {
     overdue: { label: "Jatuh Tempo", color: "destructive" },
 } as const;
 
+export const LOAN_PAYMENT_STATUS = {
+    completed: { label: "Selesai", color: "success" as const },
+    voided: { label: "Dibatalkan", color: "destructive" as const },
+} as const;
+
 export const APPROVAL_STATUS = {
     pending: { label: "Menunggu", color: "warning" },
     approved: { label: "Disetujui", color: "success" },
