@@ -51,6 +51,22 @@ export async function GET(request: Request) {
         ? { in: UNIT_ALIAS[unitType] }
         : unitType;
 
+    // Label mapping — HARUS dideklarasikan sebelum dipakai di .map() di bawah
+    const unitLabel: Record<string, string> = {
+        toko: "Toko PRIMKOPPOL",
+        cuci_mobil: "Cuci Mobil",
+        barbershop: "Barbershop",
+        fitness: "Fitness",
+        playstation: "Playstation",
+        resto_cafe: "Resto & Cafe",
+        cafe_lsp: "Cafe LSP",
+        coffe_latar: "Coffe Latar",
+        resto: "Resto",
+        fotocopy: "Fotocopy",
+        laundry: "Laundry",
+        simpan_pinjam: "Simpan Pinjam",
+    };
+
     try {
         const now = new Date();
 
@@ -231,21 +247,6 @@ export async function GET(request: Request) {
                 })
             ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
         }
-
-        const unitLabel: Record<string, string> = {
-            toko: "Toko PRIMKOPPOL",
-            cuci_mobil: "Cuci Mobil",
-            barbershop: "Barbershop",
-            fitness: "Fitness",
-            playstation: "Playstation",
-            resto_cafe: "Resto & Cafe",
-            cafe_lsp: "Cafe LSP",
-            coffe_latar: "Coffe Latar",
-            resto: "Resto",
-            fotocopy: "Fotocopy",
-            laundry: "Laundry",
-            simpan_pinjam: "Simpan Pinjam",
-        };
 
         return NextResponse.json({
             data: {
