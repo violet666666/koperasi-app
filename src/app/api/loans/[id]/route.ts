@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: Params) {
                     orderBy: { installmentNo: "asc" },
                 },
                 payments: {
+                    where: { status: { not: "voided" } },
                     orderBy: { paymentDate: "desc" },
                     take: 10,
                 },
