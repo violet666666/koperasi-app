@@ -221,7 +221,6 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_all",
                 children: [
                     { title: "Dashboard Unit", href: "/manajemen-unit" },
-                    { title: "Pengaturan Unit", href: "/manajemen-unit/pengaturan" },
                 ],
             },
         ],

@@ -51,6 +51,7 @@ interface AggregatedStats {
 export default function ManajemenUnitPage() {
   const [stats, setStats] = React.useState<AggregatedStats | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function fetchStats() {
@@ -60,6 +61,7 @@ export default function ManajemenUnitPage() {
         setStats(json.data ?? null);
       } catch (error) {
         console.error("Failed to fetch unit stats:", error);
+        setError("Gagal memuat data unit. Silakan coba lagi.");
       } finally {
         setLoading(false);
       }
@@ -75,6 +77,12 @@ export default function ManajemenUnitPage() {
         title="Manajemen Unit"
         description="Pemantauan dan administrasi seluruh unit usaha koperasi"
       />
+
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

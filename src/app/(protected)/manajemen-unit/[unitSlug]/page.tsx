@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +32,7 @@ import {
   Shirt,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { getUnitBySlug, UNIT_TYPES } from "@/lib/constants/units";
+import { getUnitBySlug } from "@/lib/constants/units";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store, Coffee, UtensilsCrossed, Car, Scissors,
@@ -87,14 +85,12 @@ export default function UnitDetailPage() {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [transactions, setTransactions] = React.useState<Transaction[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [productPage, setProductPage] = React.useState(1);
-  const [txPage, setTxPage] = React.useState(1);
+  const [error, setError] = React.useState<string | null>(null);
   const [productTotal, setProductTotal] = React.useState(0);
   const [txTotal, setTxTotal] = React.useState(0);
 
   React.useEffect(() => {
     if (!unitConfig) return;
-    const unitType = Object.entries(UNIT_TYPES).find(([, v]) => v.slug === unitSlug)?.[0];
 
     async function fetchData() {
       try {
@@ -103,6 +99,10 @@ export default function UnitDetailPage() {
           fetch(`/api/manajemen-unit/${unitSlug}/products?page=1&limit=50`),
           fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25`),
         ]);
+
+        if (!statsRes.ok || !prodRes.ok || !txRes.ok) {
+          console.error("API error:", { stats: statsRes.status, products: prodRes.status, transactions: txRes.status });
+        }
 
         const [statsJson, prodJson, txJson] = await Promise.all([
           statsRes.json(),
@@ -121,6 +121,7 @@ export default function UnitDetailPage() {
         }
       } catch (error) {
         console.error("Failed to fetch unit detail:", error);
+        setError("Gagal memuat data unit. Silakan coba lagi.");
       } finally {
         setLoading(false);
       }
@@ -180,6 +181,12 @@ export default function UnitDetailPage() {
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
           <AlertTriangle className="h-4 w-4" />
           <span>{stats.lowStockCount} produk dengan stok menipis (≤ 5)</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          {error}
         </div>
       )}
 
