@@ -38,7 +38,7 @@ export async function GET(
 
     const isStore = ["toko", "resto", "cafe_lsp"].includes(unitType);
 
-    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx] =
+    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx, storePaymentBreakdown, topProductItems] =
       await Promise.all([
         prisma.storeProduct.count({ where: { unitType, deletedAt: null } }),
         prisma.storeProduct.count({ where: { unitType, isActive: true, deletedAt: null } }),
@@ -84,6 +84,33 @@ export async function GET(
           },
           select: { transactionDate: true, amount: true },
         }),
+        // 9. Payment method breakdown (today)
+        prisma.storeSale.groupBy({
+          by: ["paymentMethod"],
+          _sum: { totalAmount: true },
+          _count: true,
+          where: {
+            unitType,
+            createdAt: { gte: todayStartUTC },
+            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+          },
+        }),
+        // 10. Top 5 products by quantity sold (today, store units only)
+        isStore
+          ? prisma.storeSaleItem.groupBy({
+              by: ["productId"],
+              _sum: { quantity: true },
+              orderBy: { _sum: { quantity: "desc" } },
+              take: 5,
+              where: {
+                sale: {
+                  unitType,
+                  createdAt: { gte: todayStartUTC },
+                  NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                },
+              },
+            })
+          : Promise.resolve([]),
       ]);
 
     // Build weekly revenue map
@@ -118,6 +145,60 @@ export async function GET(
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, data]) => ({ date, ...data }));
 
+    // Service payment breakdown for non-store units
+    const servicePaymentBreakdown = !isStore
+      ? await prisma.unitTransaction.groupBy({
+          by: ["paymentMethod"],
+          _sum: { amount: true },
+          _count: true,
+          where: {
+            unitType,
+            transactionDate: { gte: todayStartUTC },
+            status: { not: "voided" },
+          },
+        })
+      : [];
+
+    // Resolve top product names
+    const topProducts = topProductItems.length > 0
+      ? await Promise.all(
+          (topProductItems as Array<{ productId: number; _sum: { quantity: number | null } }>).map(async (item) => {
+            const product = await prisma.storeProduct.findUnique({
+              where: { id: item.productId },
+              select: { name: true },
+            });
+            return {
+              productId: item.productId,
+              name: product?.name ?? "Unknown",
+              quantity: Number(item._sum.quantity ?? 0),
+            };
+          })
+        )
+      : [];
+
+    // Combine payment breakdown from store + service
+    const paymentMap = new Map<string, { amount: number; count: number }>();
+    for (const p of storePaymentBreakdown as Array<{ paymentMethod: string; _sum: { totalAmount: number | null }; _count: number }>) {
+      const method = p.paymentMethod || "cash";
+      const existing = paymentMap.get(method) ?? { amount: 0, count: 0 };
+      existing.amount += Number(p._sum.totalAmount ?? 0);
+      existing.count += p._count;
+      paymentMap.set(method, existing);
+    }
+    for (const p of servicePaymentBreakdown as Array<{ paymentMethod: string; _sum: { amount: number | null }; _count: number }>) {
+      const method = p.paymentMethod || "cash";
+      const existing = paymentMap.get(method) ?? { amount: 0, count: 0 };
+      existing.amount += Number(p._sum.amount ?? 0);
+      existing.count += p._count;
+      paymentMap.set(method, existing);
+    }
+    const paymentMethods = Array.from(paymentMap.entries()).map(([method, data]) => ({
+      method,
+      label: method === "cash" ? "Tunai" : method === "qris" ? "QRIS" : method === "salary_cut" ? "Potong Gaji" : method,
+      amount: data.amount,
+      count: data.count,
+    }));
+
     const raw: RawUnitDetail = {
       productCount,
       activeProductCount,
@@ -140,6 +221,8 @@ export async function GET(
         unitType,
         label: getUnitLabel(unitType),
         ...detail,
+        topProducts,
+        paymentMethods,
       },
     });
   } catch (error) {
