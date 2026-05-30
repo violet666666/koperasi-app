@@ -350,4 +350,54 @@ Implementasi Phase 1 juga memperbaiki issue audit sebelumnya:
 | `ba72396` | Payment breakdown + top products di detail stats API |
 | `f2d94f6` | UI: trend badge, payment breakdown, top products |
 
+### Phase 2 Insights (30 Mei 2026)
+
+| ID | Insight | Lokasi | Deskripsi |
+|---|---------|--------|-----------|
+| **I-02** | Jam Ramai (Peak Hours) | Detail → Ringkasan tab | Bar chart distribusi transaksi per jam (06:00–22:00 WIB). Highlight jam puncak (amber). |
+| **I-04** | Keuntungan (Profit) | Detail → Ringkasan tab | Total profit, margin %, top 3 produk paling menguntungkan. Store units only. |
+| **I-06** | Perbandingan Mingguan | Detail → Ringkasan tab | Dual-bar chart: minggu ini vs minggu lalu per hari. |
+
+#### Data Sources — Phase 2
+
+| Insight | Query Pattern | Tables |
+|---------|---------------|--------|
+| Peak Hours | Filter weekly data to today, group by WIB hour (JS) | StoreSale.createdAt / UnitTransaction.transactionDate |
+| Profit | StoreSaleItem.findMany today, computeProfitFromItems (pure) | StoreSaleItem (unitPrice, costPrice, quantity) → StoreProduct (name) |
+| Weekly Comparison | Extend weekly range to 14 days, split in JS | Same as Phase 1 weekly chart |
+
+#### API Response Changes — Phase 2
+
+**GET /api/manajemen-unit/{slug}/stats** — now additionally includes:
+```json
+{
+  "peakHours": [{ "hour": 8, "transactions": 5, "revenue": 75000 }],
+  "prevWeekRevenue": [{ "date": "2026-05-17", "revenue": 500000, "transactions": 12 }],
+  "todayProfit": 350000,
+  "profitMargin": 23.5,
+  "topProfitProducts": [{ "productId": 1, "name": "Nasi Goreng", "profit": 120000, "revenue": 180000, "margin": 66.67 }]
+}
+```
+Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present for store units.
+
+#### Pure Helper Functions
+
+| Function | File | Tests |
+|----------|------|-------|
+| `computePeakHours(records, wibOffset, minHour?, maxHour?)` | `manajemen-unit.ts` | 4 tests |
+| `computeProfitFromItems(items)` | `manajemen-unit.ts` | 4 tests |
+
+#### Spec Bugs Fixed During Implementation
+
+- Profit test expectation: spec had `29000` but correct math is `36000` — `(7000×2) + (5000×3) + (7000×1)`
+- Timezone: spec used `getHours()` (local time) → fixed to `getUTCHours()` to work correctly on both UTC servers and local dev machines
+
+#### Phase 2 Implementation Commits
+
+| Commit | Description |
+|--------|-------------|
+| `e7c47e2` | computePeakHours + computeProfitFromItems helpers with tests |
+| `c1b2100` | Peak hours, profit metrics, weekly comparison in detail stats API |
+| `299f5a6` | UI: peak hours chart, profit card, weekly comparison dual bars |
+
 *Diperbarui: 30 Mei 2026*
