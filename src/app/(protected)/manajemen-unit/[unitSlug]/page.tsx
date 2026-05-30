@@ -15,24 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ArrowLeft,
-  Package,
-  TrendingUp,
-  ShoppingCart,
-  BarChart3,
-  AlertTriangle,
-  Store,
-  Coffee,
-  UtensilsCrossed,
-  Car,
-  Scissors,
-  Dumbbell,
-  Gamepad2,
-  Printer,
-  Shirt,
-  TrendingDown,
-  CreditCard,
-  Trophy,
+  ArrowLeft, Package, TrendingUp, TrendingDown, ShoppingCart,
+  BarChart3, AlertTriangle, Store, Coffee, UtensilsCrossed,
+  Car, Scissors, Dumbbell, Gamepad2, Printer, Shirt, CreditCard, Trophy,
+  Clock, Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { getUnitBySlug } from "@/lib/constants/units";
@@ -53,6 +39,12 @@ interface UnitDetailStats {
   weekRevenue: { date: string; revenue: number; transactions: number }[];
   topProducts: { productId: number; name: string; quantity: number }[];
   paymentMethods: { method: string; label: string; amount: number; count: number }[];
+  // Phase 2 insights
+  peakHours: { hour: number; transactions: number; revenue: number }[];
+  prevWeekRevenue?: { date: string; revenue: number; transactions: number }[];
+  todayProfit?: number;
+  profitMargin?: number;
+  topProfitProducts?: { productId: number; name: string; profit: number; revenue: number; margin: number }[];
 }
 
 interface Product {
@@ -149,7 +141,15 @@ export default function UnitDetailPage() {
 
   const Icon = ICON_MAP[unitConfig.icon] ?? Store;
   const weekTotal = stats?.weekRevenue.reduce((s, d) => s + d.revenue, 0) ?? 0;
-  const maxRevenue = Math.max(...(stats?.weekRevenue.map((d) => d.revenue) ?? [1]), 1);
+  const maxRevenue = Math.max(
+    ...(stats?.weekRevenue.map((d) => d.revenue) ?? [1]),
+    ...(stats?.prevWeekRevenue?.map((d) => d.revenue) ?? [1]),
+    1,
+  );
+  const peakHourData = stats?.peakHours && stats.peakHours.some(h => h.transactions > 0) ? {
+    maxTx: Math.max(...stats.peakHours.map(h => h.transactions), 1),
+    peak: stats.peakHours.reduce((max, h) => h.transactions > max.transactions ? h : max, stats.peakHours[0]),
+  } : null;
 
   return (
     <div className="space-y-6">
@@ -211,31 +211,91 @@ export default function UnitDetailPage() {
         <TabsContent value="ringkasan" className="mt-4">
           <Card>
             <CardContent className="p-5">
-              <h3 className="font-semibold mb-4">Pendapatan 7 Hari Terakhir</h3>
+              <h3 className="font-semibold mb-4">Perbandingan Mingguan</h3>
               {loading ? (
                 <div className="h-40 bg-muted rounded animate-pulse" />
               ) : (
                 <>
+                  <div className="flex items-center gap-4 mb-2 text-[10px] text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-2 bg-muted-foreground/20 rounded" />
+                      Minggu lalu
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-2 bg-primary/80 rounded" />
+                      Minggu ini
+                    </div>
+                  </div>
                   <div className="flex items-end gap-1 h-40">
-                    {stats?.weekRevenue.map((day) => (
-                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatCurrency(day.revenue).replace("Rp", "").trim()}
-                        </span>
-                        <div
-                          className="w-full bg-primary/80 rounded-t"
-                          style={{ height: `${Math.max((day.revenue / maxRevenue) * 100, 2)}%` }}
-                        />
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(day.date).toLocaleDateString("id-ID", { weekday: "short" })}
-                        </span>
-                      </div>
-                    ))}
+                    {stats?.weekRevenue.map((day, i) => {
+                      const prevDay = stats?.prevWeekRevenue?.[i];
+                      return (
+                        <div key={day.date} className="flex-1 flex flex-col items-center">
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatCurrency(day.revenue).replace("Rp", "").trim()}
+                          </span>
+                          <div className="flex gap-px items-end h-32 w-full">
+                            {prevDay && (
+                              <div
+                                className="flex-1 bg-muted-foreground/20 rounded-t"
+                                style={{ height: `${Math.max((prevDay.revenue / maxRevenue) * 100, prevDay.revenue > 0 ? 4 : 0)}%` }}
+                                title={`Minggu lalu: ${formatCurrency(prevDay.revenue)}`}
+                              />
+                            )}
+                            <div
+                              className="flex-1 bg-primary/80 rounded-t"
+                              style={{ height: `${Math.max((day.revenue / maxRevenue) * 100, day.revenue > 0 ? 4 : 0)}%` }}
+                              title={`Minggu ini: ${formatCurrency(day.revenue)}`}
+                            />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(day.date).toLocaleDateString("id-ID", { weekday: "short" })}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="mt-4 pt-3 border-t text-sm text-muted-foreground">
                     Total minggu ini: <span className="font-semibold text-foreground">{formatCurrency(weekTotal)}</span>
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Peak Hours */}
+          <Card className="mt-4">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Jam Ramai Hari Ini</h3>
+              </div>
+              {loading ? (
+                <div className="h-28 bg-muted rounded animate-pulse" />
+              ) : peakHourData ? (
+                <>
+                  <div className="flex items-end gap-0.5 h-28">
+                    {stats?.peakHours?.map((h) => (
+                      <div key={h.hour} className="flex-1 flex flex-col items-center">
+                        <div
+                          className={`w-full rounded-t ${
+                            h.hour === peakHourData.peak.hour ? "bg-amber-500" : "bg-primary/50"
+                          }`}
+                          style={{ height: `${Math.max((h.transactions / peakHourData.maxTx) * 100, h.transactions > 0 ? 4 : 0)}%` }}
+                          title={`${h.hour}:00 — ${h.transactions} transaksi, ${formatCurrency(h.revenue)}`}
+                        />
+                        {h.hour % 3 === 0 && (
+                          <span className="text-[9px] text-muted-foreground mt-0.5">{h.hour}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Puncak: <span className="font-medium text-foreground">{peakHourData.peak.hour}:00</span> ({peakHourData.peak.transactions} transaksi)
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Belum ada transaksi hari ini</p>
               )}
             </CardContent>
           </Card>
@@ -297,6 +357,42 @@ export default function UnitDetailPage() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+          {/* Profit overview (store units only) */}
+          {stats?.todayProfit !== undefined && (
+            <Card className="mt-4">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold">Keuntungan Hari Ini</h3>
+                  </div>
+                  <Badge
+                    variant={(stats.profitMargin ?? 0) >= 20 ? "default" : (stats.profitMargin ?? 0) > 0 ? "secondary" : "destructive"}
+                    className="text-xs"
+                  >
+                    {stats.profitMargin?.toFixed(1)}% margin
+                  </Badge>
+                </div>
+                <div className="text-2xl font-bold">{formatCurrency(stats.todayProfit)}</div>
+                {stats.topProfitProducts && stats.topProfitProducts.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Produk paling menguntungkan:</p>
+                    {stats.topProfitProducts.slice(0, 3).map((p, i) => (
+                      <div key={p.productId} className="flex justify-between text-sm">
+                        <span>
+                          <span className="text-muted-foreground mr-1">{i + 1}.</span>
+                          {p.name}
+                        </span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          {formatCurrency(p.profit)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
