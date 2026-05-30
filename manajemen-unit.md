@@ -291,16 +291,14 @@ const serviceRevenue = !isStoreUnit
 |----------|-------|
 | **Bugs fixed in audit** | 4 (#1–#4) |
 | **Issues fixed by Phase 1+2** | 3 (#5, #6, #7) |
-| **Known issues remaining** | 3 (#8, #9, #10) |
+| **Issues fixed by UX Polish** | 3 (#8, #9, #10) |
+| **Known issues remaining** | 0 |
 | **Critical** | 0 |
 | **High** | 0 (all resolved) |
 | **Medium** | 0 |
-| **Low** | 3 (detail rendering, pagination, threshold) |
+| **Low** | 0 |
 
-**Remaining priority fixes:**
-1. **Issue #9** (LOW) — Add pagination UI for products + transactions
-2. **Issue #8** (LOW) — Show transaction detail in expandable rows
-3. **Issue #10** (LOW) — Configurable stock threshold
+**All known issues resolved. No remaining items.**
 
 ---
 

@@ -437,13 +437,16 @@ Route `/manajemen-unit` sekarang memiliki dashboard insight lengkap untuk monito
 | `src/lib/constants/units.ts` | UNIT_TYPES registry (9 units) + slug/name helpers |
 | `manajemen-unit.md` | Full audit & documentation |
 
-### 9.5 Known Remaining Issues
+### 9.5 UX Polish (30 Mei 2026)
 
-| Issue | Severity | Deskripsi |
-|-------|----------|-----------|
-| #8 | LOW | Transaction detail not fully rendered (items/description/member) |
-| #9 | LOW | No pagination UI for products (max 50) and transactions (max 25) |
-| #10 | LOW | Low stock threshold hardcoded to ≤ 5 |
+| Fix | Deskripsi |
+|-----|-----------|
+| Pagination UI | Products (50/page) dan Transactions (25/page) sekarang memiliki navigasi halaman |
+| Transaction Detail | Baris expandable: POS menampilkan item breakdown, service menampilkan member + keterangan |
+| Configurable Stock | Menggunakan `min_stock` per produk (default 5) bukan hardcoded threshold |
+| Export CSV | Tombol "Export CSV" di header detail — download CSV dengan semua insight data |
+
+All known issues resolved.
 
 ---
 
