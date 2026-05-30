@@ -87,6 +87,7 @@ export default function UnitDetailPage() {
   const [txTotal, setTxTotal] = React.useState(0);
   const [productPage, setProductPage] = React.useState(1);
   const [txPage, setTxPage] = React.useState(1);
+  const [expandedTxId, setExpandedTxId] = React.useState<number | null>(null);
 
   // Initial data fetch (all 3 APIs in parallel)
   React.useEffect(() => {
@@ -519,16 +520,57 @@ export default function UnitDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {transactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="font-mono text-xs">{tx.transactionNo}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(tx.amount)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">{tx.paymentMethod}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
-                          {new Date(tx.date).toLocaleString("id-ID")}
-                        </TableCell>
-                      </TableRow>
+                      <React.Fragment key={tx.id}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setExpandedTxId(expandedTxId === tx.id ? null : tx.id)}
+                        >
+                          <TableCell className="font-mono text-xs">
+                            <div className="flex items-center gap-1">
+                              {expandedTxId === tx.id
+                                ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              }
+                              {tx.transactionNo}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(tx.amount)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{tx.paymentMethod}</Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {new Date(tx.date).toLocaleString("id-ID")}
+                          </TableCell>
+                        </TableRow>
+                        {expandedTxId === tx.id && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="bg-muted/30 px-8 py-3">
+                              {tx.type === "pos" && tx.items && tx.items.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">Detail Item:</p>
+                                  {tx.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span>{item.productName} × {item.quantity}</span>
+                                      <span className="text-muted-foreground">{formatCurrency(item.price * item.quantity)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : tx.type === "service" ? (
+                                <div className="space-y-1 text-sm">
+                                  {tx.memberName && (
+                                    <p><span className="text-muted-foreground mr-1">Anggota:</span>{tx.memberName}</p>
+                                  )}
+                                  {tx.description && (
+                                    <p><span className="text-muted-foreground mr-1">Keterangan:</span>{tx.description}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">Tidak ada detail tambahan</p>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
