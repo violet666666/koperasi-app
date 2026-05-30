@@ -45,6 +45,10 @@ interface UnitDetailStats {
   todayProfit?: number;
   profitMargin?: number;
   topProfitProducts?: { productId: number; name: string; profit: number; revenue: number; margin: number }[];
+  // Phase 3 insights
+  allProductSales?: { productId: number; name: string; quantity: number; revenue: number }[];
+  salesRange?: "today" | "7d" | "30d";
+  salesSummary?: { totalProducts: number; totalItems: number; totalRevenue: number };
 }
 
 interface Product {
@@ -88,6 +92,7 @@ export default function UnitDetailPage() {
   const [productPage, setProductPage] = React.useState(1);
   const [txPage, setTxPage] = React.useState(1);
   const [expandedTxId, setExpandedTxId] = React.useState<number | null>(null);
+  const [salesRange, setSalesRange] = React.useState<"today" | "7d" | "30d">("today");
 
   // Initial data fetch (all 3 APIs in parallel)
   React.useEffect(() => {
@@ -98,7 +103,7 @@ export default function UnitDetailPage() {
     async function fetchData() {
       try {
         const [statsRes, prodRes, txRes] = await Promise.all([
-          fetch(`/api/manajemen-unit/${unitSlug}/stats`),
+          fetch(`/api/manajemen-unit/${unitSlug}/stats?range=today`),
           fetch(`/api/manajemen-unit/${unitSlug}/products?page=1&limit=50`),
           fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25`),
         ]);
@@ -159,6 +164,19 @@ export default function UnitDetailPage() {
       })
       .catch(console.error);
   }, [unitSlug, unitConfig, txPage]);
+
+  // Refetch stats when sales range changes (skip initial load — already fetched with today)
+  React.useEffect(() => {
+    if (!unitConfig || salesRange === "today") return;
+    setLoading(true);
+    fetch(`/api/manajemen-unit/${unitSlug}/stats?range=${salesRange}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.data) setStats(json.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [unitSlug, unitConfig, salesRange]);
 
   if (!unitConfig) {
     return (
@@ -468,24 +486,74 @@ export default function UnitDetailPage() {
               </CardContent>
             </Card>
           </div>
-          {stats?.topProducts && stats.topProducts.length > 0 && (
+          {unitConfig.category === "store" && (
             <Card className="mt-4">
               <CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Trophy className="h-4 w-4 text-amber-500" />
-                  <h3 className="font-semibold">Produk Terlaris Hari Ini</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    <h3 className="font-semibold">Penjualan Produk</h3>
+                  </div>
+                  <div className="flex rounded-lg border overflow-hidden">
+                    {([
+                      { value: "today" as const, label: "Hari Ini" },
+                      { value: "7d" as const, label: "7 Hari" },
+                      { value: "30d" as const, label: "30 Hari" },
+                    ]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setSalesRange(opt.value)}
+                        className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                          salesRange === opt.value
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {stats.topProducts.map((p, i) => (
-                    <div key={p.productId} className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-muted-foreground w-5 text-right">{i + 1}.</span>
-                      <div className="flex-1 flex items-center justify-between">
-                        <span className="text-sm font-medium">{p.name}</span>
-                        <Badge variant="secondary" className="text-xs">{p.quantity} terjual</Badge>
-                      </div>
+
+                {stats?.allProductSales && stats.allProductSales.length > 0 ? (
+                  <>
+                    <div className="max-h-80 overflow-y-auto space-y-2">
+                      {stats.allProductSales.map((p, i) => {
+                        const totalRevenue = stats.salesSummary?.totalRevenue ?? 1;
+                        const pct = totalRevenue > 0 ? Math.round((p.revenue / totalRevenue) * 100) : 0;
+                        return (
+                          <div key={p.productId}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-muted-foreground w-5 text-right">{i + 1}.</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium truncate">{p.name}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="secondary" className="text-xs">{p.quantity} terjual</Badge>
+                                    <span className="text-xs text-muted-foreground">{formatCurrency(p.revenue)}</span>
+                                  </div>
+                                </div>
+                                <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-amber-500/60 rounded-full transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-3 pt-3 border-t text-xs text-muted-foreground flex gap-4">
+                      <span>{stats.salesSummary?.totalProducts} produk</span>
+                      <span>{stats.salesSummary?.totalItems} item terjual</span>
+                      <span className="font-medium text-foreground">{formatCurrency(stats.salesSummary?.totalRevenue ?? 0)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Belum ada penjualan di periode ini</p>
+                )}
               </CardContent>
             </Card>
           )}
