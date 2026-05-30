@@ -24,6 +24,7 @@ export async function GET() {
     const wibNow = new Date(utcMs + wibOffset * 60000);
     const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
     const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
+    const yesterdayStartUTC = new Date(todayStartUTC.getTime() - 24 * 60 * 60 * 1000);
 
     const unitTypes = Object.keys(UNIT_TYPES);
 
@@ -88,12 +89,40 @@ export async function GET() {
         // Only count service transactions for non-store units
         const serviceTxCount = !isStoreUnit ? todayTransactions : 0;
 
+        // Yesterday revenue for trend comparison
+        const yesterdayStoreRevenue = isStoreUnit
+          ? await prisma.storeSale.aggregate({
+              _sum: { totalAmount: true },
+              where: {
+                unitType,
+                createdAt: { gte: yesterdayStartUTC, lt: todayStartUTC },
+                NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+              },
+            })
+          : { _sum: { totalAmount: 0 as any } };
+
+        const yesterdayServiceRevenue = !isStoreUnit
+          ? await prisma.unitTransaction.aggregate({
+              _sum: { amount: true },
+              where: {
+                unitType,
+                transactionDate: { gte: yesterdayStartUTC, lt: todayStartUTC },
+                status: { not: "voided" },
+              },
+            })
+          : { _sum: { amount: 0 as any } };
+
+        const yesterdayRevenue =
+          Number(yesterdayStoreRevenue._sum.totalAmount ?? 0) +
+          Number(yesterdayServiceRevenue._sum.amount ?? 0);
+
         return {
           unitType,
           productCount,
           activeProductCount,
           todayTransactionCount: storeTxCount + serviceTxCount,
           todayRevenue: storeRevenue + Number(serviceRevenue._sum.amount ?? 0),
+          yesterdayRevenue,
           lowStockCount,
         };
       })

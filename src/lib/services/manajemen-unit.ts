@@ -6,6 +6,7 @@ export interface RawUnitStats {
   activeProductCount: number;
   todayTransactionCount: number;
   todayRevenue: number;
+  yesterdayRevenue: number;
   lowStockCount: number;
 }
 
@@ -18,6 +19,8 @@ export interface UnitSummary {
   activeProductCount: number;
   todayTransactionCount: number;
   todayRevenue: number;
+  yesterdayRevenue: number;
+  revenueTrend: number | null; // percentage change, null if yesterday was 0
   lowStockCount: number;
 }
 
@@ -55,6 +58,9 @@ export function computeUnitDetail(raw: RawUnitDetail): UnitDetailStats {
 export function aggregateUnitStats(rawStats: RawUnitStats[]): AggregatedStats {
   const units: UnitSummary[] = rawStats.map((raw) => {
     const config = UNIT_TYPES[raw.unitType];
+    const trend = raw.yesterdayRevenue > 0
+      ? Math.round(((raw.todayRevenue - raw.yesterdayRevenue) / raw.yesterdayRevenue) * 100)
+      : null;
     return {
       unitType: raw.unitType,
       label: config?.label ?? raw.unitType,
@@ -64,6 +70,8 @@ export function aggregateUnitStats(rawStats: RawUnitStats[]): AggregatedStats {
       activeProductCount: raw.activeProductCount,
       todayTransactionCount: raw.todayTransactionCount,
       todayRevenue: raw.todayRevenue,
+      yesterdayRevenue: raw.yesterdayRevenue,
+      revenueTrend: trend,
       lowStockCount: raw.lowStockCount,
     };
   });
