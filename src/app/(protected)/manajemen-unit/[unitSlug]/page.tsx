@@ -185,6 +185,90 @@ export default function UnitDetailPage() {
     peak: stats.peakHours.reduce((max, h) => h.transactions > max.transactions ? h : max, stats.peakHours[0]),
   } : null;
 
+  const handleExportCSV = () => {
+    if (!stats) return;
+    const csvRows: string[] = [];
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+
+    // Section 1: Summary stats
+    csvRows.push("## Ringkasan Statistik");
+    csvRows.push("Metrik,Nilai");
+    csvRows.push(`Jumlah Produk,${stats.productCount}`);
+    csvRows.push(`Produk Aktif,${stats.activeProductCount}`);
+    csvRows.push(`Total Stok,${stats.totalStock}`);
+    csvRows.push(`Transaksi Hari Ini,${stats.todayTransactions}`);
+    csvRows.push(`Pendapatan Hari Ini,${stats.todayRevenue}`);
+    csvRows.push(`Rata-rata Transaksi,${stats.avgTransactionValue}`);
+    csvRows.push(`Stok Menipis,${stats.lowStockCount}`);
+    if (stats.todayProfit !== undefined) {
+      csvRows.push(`Keuntungan Hari Ini,${stats.todayProfit}`);
+      csvRows.push(`Margin Keuntungan (%),${stats.profitMargin?.toFixed(1) ?? "0.0"}`);
+    }
+    csvRows.push("");
+
+    // Section 2: Weekly revenue comparison
+    csvRows.push("## Pendapatan Mingguan");
+    csvRows.push("Tanggal,Pendapatan,Jumlah Transaksi,Pendapatan Minggu Lalu,Transaksi Minggu Lalu");
+    stats.weekRevenue.forEach((day, i) => {
+      const prev = stats.prevWeekRevenue?.[i];
+      csvRows.push([
+        day.date,
+        day.revenue,
+        day.transactions,
+        prev?.revenue ?? "",
+        prev?.transactions ?? "",
+      ].join(","));
+    });
+    csvRows.push("");
+
+    // Section 3: Peak hours
+    if (stats.peakHours && stats.peakHours.length > 0) {
+      csvRows.push("## Jam Ramai Hari Ini");
+      csvRows.push("Jam,Jumlah Transaksi,Pendapatan");
+      stats.peakHours.forEach(h => {
+        csvRows.push(`${h.hour}:00,${h.transactions},${h.revenue}`);
+      });
+      csvRows.push("");
+    }
+
+    // Section 4: Payment method breakdown
+    if (stats.paymentMethods && stats.paymentMethods.length > 0) {
+      csvRows.push("## Metode Pembayaran");
+      csvRows.push("Metode,Jumlah,Jumlah Transaksi");
+      stats.paymentMethods.forEach(pm => {
+        csvRows.push([escape(pm.label), pm.amount, pm.count].join(","));
+      });
+      csvRows.push("");
+    }
+
+    // Section 5: Top products
+    if (stats.topProducts && stats.topProducts.length > 0) {
+      csvRows.push("## Produk Terlaris");
+      csvRows.push("Peringkat,Produk,Jumlah Terjual");
+      stats.topProducts.forEach((p, i) => {
+        csvRows.push([i + 1, escape(p.name), p.quantity].join(","));
+      });
+      csvRows.push("");
+    }
+
+    // Section 6: Top profit products (store units)
+    if (stats.topProfitProducts && stats.topProfitProducts.length > 0) {
+      csvRows.push("## Produk Paling Menguntungkan");
+      csvRows.push("Peringkat,Produk,Keuntungan,Pendapatan,Margin (%)");
+      stats.topProfitProducts.forEach((p, i) => {
+        csvRows.push([i + 1, escape(p.name), p.profit, p.revenue, p.margin.toFixed(1)].join(","));
+      });
+    }
+
+    const blob = new Blob(["﻿" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `insight-${unitSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -205,6 +289,17 @@ export default function UnitDetailPage() {
               {unitConfig.category === "store" ? "Unit Toko/POS" : "Unit Layanan"}
             </Badge>
           </div>
+        </div>
+        <div className="ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!stats}
+            onClick={handleExportCSV}
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
