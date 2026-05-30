@@ -43,7 +43,7 @@ Operator memiliki akses **penuh** ke seluruh sidebar. Mekanisme: `manage_all` pe
 ### MANAJEMEN UNIT (operator-only)
 | Menu | Route | Anak |
 |------|-------|------|
-| Manajemen Unit | `/manajemen-unit` | Dashboard Unit, Pengaturan Unit |
+| Manajemen Unit | `/manajemen-unit` | Dashboard Unit |
 
 ### KOMUNIKASI
 | Menu | Route |
@@ -386,7 +386,68 @@ Response: { data: BillingPeriod[] } filtered by memberId
 
 ---
 
-## 9. Key Source Files
+## 9. Update 30 Mei 2026 — Manajemen Unit Insights
+
+### 9.1 Fitur Insight (Phase 1 + Phase 2)
+
+Route `/manajemen-unit` sekarang memiliki dashboard insight lengkap untuk monitoring real-time performa unit usaha.
+
+**Dashboard Utama** (`/manajemen-unit`):
+
+| Insight | Deskripsi |
+|---------|-----------|
+| Tren Pendapatan | Badge ↑/↓% per unit (vs kemarin) |
+| Summary Cards | Total unit, produk, transaksi, pendapatan hari ini |
+
+**Detail Unit** (`/manajemen-unit/[slug]`):
+
+| ID | Insight | Deskripsi | Ketersediaan |
+|----|---------|-----------|-------------|
+| I-01 | Tren Pendapatan | Pendapatan hari ini + dynamic trend icon vs rata-rata mingguan | Semua unit |
+| I-02 | Jam Ramai | Bar chart distribusi transaksi per jam (06:00–22:00 WIB), highlight jam puncak | Semua unit |
+| I-03 | Metode Pembayaran | Progress bar breakdown: Tunai vs QRIS vs Potong Gaji | Semua unit |
+| I-04 | Keuntungan | Total profit, margin %, top 3 produk paling menguntungkan | Store units only |
+| I-05 | Top 5 Produk | Produk terlaris hari ini berdasarkan quantity | Store units only |
+| I-06 | Perbandingan Mingguan | Dual-bar chart: minggu ini vs minggu lalu per hari | Semua unit |
+
+### 9.2 Bug Fixes (Phase 1+2 Side Effects)
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| #5 Double Revenue Counting | HIGH | `isStoreUnit` guard — store units hanya query StoreSale, service hanya UnitTransaction |
+| #6 Store Tx Count Inflation | MEDIUM | Same fix as #5 |
+| #7 Placeholder Payment Card | LOW | Diganti dengan data real (progress bar breakdown) |
+
+### 9.3 Spec Bugs Found During Implementation
+
+| Bug | Impact | Fix |
+|-----|--------|-----|
+| Profit math error | Test expectation `29000` seharusnya `36000` | Corrected in test |
+| `getHours()` timezone | Double WIB offset pada mesin UTC+7 | Changed to `getUTCHours()` |
+
+### 9.4 Key Source Files — Manajemen Unit
+
+| File | Fungsi |
+|------|--------|
+| `src/app/(protected)/manajemen-unit/page.tsx` | Dashboard — unit card grid + trend badges |
+| `src/app/(protected)/manajemen-unit/[unitSlug]/page.tsx` | Detail — stats + products + transactions + insights |
+| `src/app/api/manajemen-unit/stats/route.ts` | Aggregated stats API (9 units, trend data) |
+| `src/app/api/manajemen-unit/[unitSlug]/stats/route.ts` | Per-unit stats API (11 parallel queries, 14-day chart, profit, peak hours) |
+| `src/lib/services/manajemen-unit.ts` | Pure helpers: aggregateUnitStats, computeUnitDetail, computePeakHours, computeProfitFromItems |
+| `src/lib/constants/units.ts` | UNIT_TYPES registry (9 units) + slug/name helpers |
+| `manajemen-unit.md` | Full audit & documentation |
+
+### 9.5 Known Remaining Issues
+
+| Issue | Severity | Deskripsi |
+|-------|----------|-----------|
+| #8 | LOW | Transaction detail not fully rendered (items/description/member) |
+| #9 | LOW | No pagination UI for products (max 50) and transactions (max 25) |
+| #10 | LOW | Low stock threshold hardcoded to ≤ 5 |
+
+---
+
+## 10. Key Source Files
 
 | File | Fungsi |
 |------|--------|

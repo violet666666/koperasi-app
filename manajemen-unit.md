@@ -7,28 +7,30 @@
 
 ## 1. Architecture Overview
 
-### File Structure (14 files)
+### File Structure (16 files)
 
 ```
 src/app/(protected)/manajemen-unit/
-├── page.tsx                          # Dashboard — card grid of all 9 units
-└── [unitSlug]/page.tsx               # Detail — stats, products, transactions per unit
+├── page.tsx                          # Dashboard — card grid of all 9 units + trend badges
+└── [unitSlug]/page.tsx               # Detail — stats, products, transactions + insights per unit
 
 src/app/api/manajemen-unit/
-├── stats/route.ts                    # GET — aggregated stats for all units
+├── stats/route.ts                    # GET — aggregated stats for all units (incl. trend)
 └── [unitSlug]/
-    ├── stats/route.ts                # GET — per-unit detail stats + 7-day chart
+    ├── stats/route.ts                # GET — per-unit detail stats + 14-day chart + insights
     ├── products/route.ts             # GET — paginated product listing
     └── transactions/route.ts         # GET — paginated transaction listing
 
 src/lib/
 ├── constants/units.ts                # UNIT_TYPES registry (9 units) + helpers
-└── services/manajemen-unit.ts        # Pure business logic (aggregateUnitStats, computeUnitDetail)
+└── services/manajemen-unit.ts        # Pure business logic (aggregateUnitStats, computeUnitDetail,
+                                       #   computePeakHours, computeProfitFromItems)
 
 src/__tests__/
-├── manajemen-unit.test.ts            # Tests for aggregateUnitStats
-├── manajemen-unit-detail.test.ts     # Tests for computeUnitDetail
-└── unit-constants.test.ts            # Tests for UNIT_TYPES helpers
+├── manajemen-unit.test.ts            # Tests for aggregateUnitStats (6 tests)
+├── manajemen-unit-detail.test.ts     # Tests for computeUnitDetail (4 tests)
+├── manajemen-unit-peakhours-profit.test.ts  # Tests for peak hours + profit (8 tests)
+└── unit-constants.test.ts            # Tests for UNIT_TYPES helpers (7+ tests)
 ```
 
 ### Data Flow
@@ -248,9 +250,10 @@ const serviceRevenue = !isStoreUnit
 
 | Concern | Detail |
 |---------|--------|
-| **N+1 queries in stats** | Stats API loops over 9 unitTypes, running 6 queries each = 54 total DB queries per request |
-| **Extra sequential query** | In stats API, `serviceRevenue` query runs AFTER the `Promise.all` block (not parallelized) |
-| **Weekly data fetch all** | `[unitSlug]/stats` fetches ALL StoreSale + UnitTransaction records for 7 days (could be thousands) just to group by date |
+| **N+1 queries in stats** | Stats API loops over 9 unitTypes, running 7 queries each (incl. yesterday revenue) = 63 total DB queries per request |
+| **Extra sequential query** | In stats API, `serviceRevenue` and yesterday queries run AFTER the `Promise.all` block (not parallelized) |
+| **Weekly data fetch 14 days** | `[unitSlug]/stats` fetches ALL StoreSale + UnitTransaction records for 14 days (Phase 2 extended from 7) just to group by date. Peak hours reuses this data (no extra query) |
+| **Profit N+1 names** | Top 5 profitable products resolved via individual `findUnique` calls (same pattern as top products). Could use batch `findMany` with `where: { id: { in: [...] } }` |
 
 ---
 
@@ -275,9 +278,10 @@ const serviceRevenue = !isStoreUnit
 |-----------|-------|--------|
 | `manajemen-unit.test.ts` | aggregateUnitStats (6 tests) | ✅ Covers totals, mapping, empty, unknown, zero |
 | `manajemen-unit-detail.test.ts` | computeUnitDetail (4 tests) | ✅ Covers avg value, zero guard, rounding |
+| `manajemen-unit-peakhours-profit.test.ts` | computePeakHours (4) + computeProfitFromItems (4) | ✅ Covers WIB grouping, business hours, profit math, edge cases |
 | `unit-constants.test.ts` | UNIT_TYPES helpers (7+ tests) | ✅ Covers slug↔unitType, getLabel, getStore/getService |
 
-**Missing tests:** No integration tests for API routes. No tests for the page components.
+**Total:** 25 tests across 4 test files. No integration tests for API routes. No tests for the page components.
 
 ---
 
@@ -285,17 +289,18 @@ const serviceRevenue = !isStoreUnit
 
 | Category | Count |
 |----------|-------|
-| **Bugs fixed in this audit** | 4 (#1–#4) |
-| **Known issues documented** | 6 (#5–#10) |
+| **Bugs fixed in audit** | 4 (#1–#4) |
+| **Issues fixed by Phase 1+2** | 3 (#5, #6, #7) |
+| **Known issues remaining** | 3 (#8, #9, #10) |
 | **Critical** | 0 |
-| **High** | 1 (double revenue counting) |
-| **Medium** | 2 (transaction count, error handling) |
-| **Low** | 3 (placeholder, detail rendering, pagination, threshold) |
+| **High** | 0 (all resolved) |
+| **Medium** | 0 |
+| **Low** | 3 (detail rendering, pagination, threshold) |
 
-**Priority fix recommendation:**
-1. ~~**Issue #5 & #6** (HIGH) — Double counting~~ → **FIXED** in Phase 1 (insight implementation added `isStoreUnit` guard)
-2. **Issue #9** (LOW) — Add pagination UI
-3. **Issue #8** (LOW) — Show transaction detail in expandable rows
+**Remaining priority fixes:**
+1. **Issue #9** (LOW) — Add pagination UI for products + transactions
+2. **Issue #8** (LOW) — Show transaction detail in expandable rows
+3. **Issue #10** (LOW) — Configurable stock threshold
 
 ---
 
