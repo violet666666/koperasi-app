@@ -55,7 +55,8 @@ export async function GET(request: Request) {
                     totalTabunganWajib: 0, // Fallback, not strictly needed separately now
                     memberCount: data.memberCount
                 },
-                memberSHU: data.memberDistribution
+                memberSHU: data.memberDistribution,
+                unitBreakdown: data.unitBreakdown
             }
         });
 

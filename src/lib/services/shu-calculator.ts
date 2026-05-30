@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { getCarwashBonusPerTx } from "./shu-settings";
+import { UNIT_TYPES } from "@/lib/constants/units";
 
 function toNum(d: Decimal | number | null | undefined): number {
     if (d === null || d === undefined) return 0;
@@ -72,6 +73,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     if (journalLines.length > 0) {
         // Jika Jurnal Sistem sudah berjalan sempurna
+        // NOTE: Journal path mengandung seluruh income/expense dari posting jurnal.
+        // Voided StoreSale HPP sudah difilter di bawah, tapi income dari jurnal
+        // mungkin masih termasuk transaksi yang di-void jika jurnal pembalik belum dibuat.
         for (const line of journalLines) {
             const debit = toNum(line.debit);
             const credit = toNum(line.credit);
@@ -101,7 +105,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         });
         let cogsTotal = 0;
         soldItems.forEach(item => {
-            cogsTotal += item.quantity * toNum(item.product?.costPrice);
+            // Gunakan costPrice snapshot di StoreSaleItem (saat transaksi), fallback ke produk saat ini
+            const cp = toNum(item.costPrice);
+            cogsTotal += item.quantity * (cp > 0 ? cp : toNum(item.product?.costPrice));
         });
         if (cogsTotal > 0) {
             totalExpense += cogsTotal;
@@ -114,10 +120,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 where: { transactionDate: { gte: startDate, lte: endDate }, category: { in: ["biaya_operasional", "beban_operasional_unit"] } }
             }),
             prisma.cashBankTransaction.findMany({
-                where: { transactionDate: { gte: startDate, lte: endDate }, category: "lainnya", type: "in" }
+                where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: { notIn: ["savings", "loan", "transfer", "operational"] } }
             }),
             prisma.loanPayment.aggregate({
-                where: { paymentDate: { gte: startDate, lte: endDate } },
+                where: { paymentDate: { gte: startDate, lte: endDate }, status: { not: "voided" } },
                 _sum: { interestPortion: true }
             }),
             prisma.unitTransaction.aggregate({
@@ -137,13 +143,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         expensesTx.forEach(tx => totalExpense += toNum(tx.amount));
         if (totalExpense > 0) expenseAccounts["CB-EXP"] = { code: "CB-EXP", name: "Biaya Operasional (Kas & Unit)", amount: totalExpense };
 
-        let cbIncomeTotal = 0;
-        incomeTx.forEach(tx => {
-            const desc = (tx.description || "").toLowerCase();
-            if (!desc.includes("saldo") && !desc.includes("simpan") && !desc.includes("potong") && !desc.includes("angsur")) {
-                cbIncomeTotal += toNum(tx.amount);
-            }
-        });
+        const cbIncomeTotal = incomeTx.reduce((sum, tx) => sum + toNum(tx.amount), 0);
         totalIncome += cbIncomeTotal;
         if (cbIncomeTotal > 0) incomeAccounts["CB-INC"] = { code: "CB-INC", name: "Pendapatan Lainnya (Kas)", amount: cbIncomeTotal };
 
@@ -167,7 +167,8 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
         let cogsTotal = 0;
         soldItems.forEach(item => {
-            cogsTotal += item.quantity * toNum(item.product?.costPrice);
+            const cp = toNum(item.costPrice);
+            cogsTotal += item.quantity * (cp > 0 ? cp : toNum(item.product?.costPrice));
         });
         if (cogsTotal > 0) {
             totalExpense += cogsTotal;
@@ -176,6 +177,52 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     }
 
     const netSurplus = Math.max(0, totalIncome - totalExpense);
+
+    // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
+    const [storeSalesByUnit, unitTxByUnit] = await Promise.all([
+        prisma.storeSale.groupBy({
+            by: ['unitType'],
+            where: {
+                createdAt: { gte: startDate, lte: endDate },
+                NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+            },
+            _sum: { totalAmount: true },
+            _count: true,
+        }),
+        prisma.unitTransaction.groupBy({
+            by: ['unitType'],
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                isPaid: true,
+                status: "completed",
+            },
+            _sum: { amount: true },
+            _count: true,
+        }),
+    ]);
+
+    const unitBreakdown = [
+        ...storeSalesByUnit.map(s => {
+            const ut = s.unitType || "toko";
+            return {
+                unitType: ut,
+                label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
+                category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
+                revenue: toNum(s._sum.totalAmount),
+                transactionCount: s._count,
+            };
+        }),
+        ...unitTxByUnit.map(u => {
+            const ut = u.unitType;
+            return {
+                unitType: ut,
+                label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
+                category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
+                revenue: toNum(u._sum.amount),
+                transactionCount: u._count,
+            };
+        }),
+    ];
 
     // 2. Hitung Rasio Member vs Non-Member berdasarkan Omzet (parallel)
     let memberGrossIncome = 0;
@@ -237,7 +284,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 include: { product: { select: { type: true } } } 
             },
             loanPayments: {
-                where: { paymentDate: { gte: startDate, lte: endDate } },
+                where: { paymentDate: { gte: startDate, lte: endDate }, status: { not: "voided" } },
                 select: { principalPortion: true, interestPortion: true }
             },
             storeSales: {
@@ -363,14 +410,16 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
         allocationsMember,
         allocationsNonMember,
-        
+
         memberDistribution: memberDistribution.sort((a, b) => b.shuAmount - a.shuAmount),
 
         incomeDetails,
         expenseDetails: [
             ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
             ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : [])
-        ]
+        ],
+
+        unitBreakdown,
     };
 }
 

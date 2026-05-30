@@ -54,6 +54,7 @@ export async function GET(request: Request) {
                 incomeDetails: result.incomeDetails,
                 expenseDetails: result.expenseDetails,
                 topMembers,
+                unitBreakdown: result.unitBreakdown,
                 summary: {
                     totalSavingsAll: result.totalSavingsCapital,
                     totalLoanContribAll: 0,

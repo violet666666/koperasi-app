@@ -44,6 +44,7 @@ export async function GET(request: Request) {
             incomeDetails: data.incomeDetails,
             expenseDetails: data.expenseDetails,
             memberShu: paginatedMembers,
+            unitBreakdown: data.unitBreakdown,
             // Pagination metadata
             pagination: isExport ? undefined : {
                 page,
