@@ -403,4 +403,36 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 | `c1b2100` | Peak hours, profit metrics, weekly comparison in detail stats API |
 | `299f5a6` | UI: peak hours chart, profit card, weekly comparison dual bars |
 
+### Phase 3: Full Product Sales Breakdown (30 Mei 2026)
+
+| ID | Insight | Lokasi | Deskripsi |
+|---|---------|--------|-----------|
+| **I-07** | Penjualan Produk Lengkap | Detail → Ringkasan tab | Daftar SEMUA item terjual dengan quantity, revenue, dan contribution %. Range: hari ini / 7 hari / 30 hari. Store units only. |
+
+#### API Changes — Phase 3
+
+**GET /api/manajemen-unit/{slug}/stats?range=today|7d|30d** — now additionally includes for store units:
+
+```json
+{
+  "allProductSales": [
+    { "productId": 1, "name": "Nasi Goreng", "quantity": 15, "revenue": 225000 }
+  ],
+  "salesRange": "today",
+  "salesSummary": { "totalProducts": 10, "totalItems": 35, "totalRevenue": 635000 }
+}
+```
+
+- `topProducts` still returned (top 5 by quantity) for backward compatibility
+- `allProductSales` replaces Top 5 with full list, sorted by quantity desc
+- Product names resolved via batch `findMany` (no N+1)
+- Revenue computed from `StoreSaleItem.subtotal` (unitPrice × quantity − discount)
+
+#### Phase 3 Implementation Commits
+
+| Commit | Description |
+|--------|-------------|
+| `6a54660` | Stats API: range param, full product sales, batch name resolution |
+| `8cd9779` | UI: range toggle, scrollable sales list, summary footer |
+
 *Diperbarui: 30 Mei 2026*
