@@ -4,8 +4,8 @@ import { aggregateUnitStats, type RawUnitStats } from "@/lib/services/manajemen-
 describe("aggregateUnitStats", () => {
   it("returns correct totals from raw stats", () => {
     const raw: RawUnitStats[] = [
-      { unitType: "toko", productCount: 150, activeProductCount: 120, todayTransactionCount: 10, todayRevenue: 500000, lowStockCount: 3 },
-      { unitType: "cuci_mobil", productCount: 0, activeProductCount: 0, todayTransactionCount: 5, todayRevenue: 250000, lowStockCount: 0 },
+      { unitType: "toko", productCount: 150, activeProductCount: 120, todayTransactionCount: 10, todayRevenue: 500000, yesterdayRevenue: 400000, lowStockCount: 3 },
+      { unitType: "cuci_mobil", productCount: 0, activeProductCount: 0, todayTransactionCount: 5, todayRevenue: 250000, yesterdayRevenue: 200000, lowStockCount: 0 },
     ];
 
     const result = aggregateUnitStats(raw);
@@ -18,7 +18,7 @@ describe("aggregateUnitStats", () => {
 
   it("maps unitType to label and category correctly", () => {
     const raw: RawUnitStats[] = [
-      { unitType: "toko", productCount: 10, activeProductCount: 8, todayTransactionCount: 1, todayRevenue: 100, lowStockCount: 0 },
+      { unitType: "toko", productCount: 10, activeProductCount: 8, todayTransactionCount: 1, todayRevenue: 100, yesterdayRevenue: 0, lowStockCount: 0 },
     ];
 
     const result = aggregateUnitStats(raw);
@@ -40,7 +40,7 @@ describe("aggregateUnitStats", () => {
 
   it("handles unknown unitType with fallback", () => {
     const raw: RawUnitStats[] = [
-      { unitType: "new_unit", productCount: 5, activeProductCount: 3, todayTransactionCount: 2, todayRevenue: 1000, lowStockCount: 0 },
+      { unitType: "new_unit", productCount: 5, activeProductCount: 3, todayTransactionCount: 2, todayRevenue: 1000, yesterdayRevenue: 500, lowStockCount: 0 },
     ];
 
     const result = aggregateUnitStats(raw);
@@ -52,8 +52,8 @@ describe("aggregateUnitStats", () => {
 
   it("handles units with zero transactions", () => {
     const raw: RawUnitStats[] = [
-      { unitType: "fitness", productCount: 0, activeProductCount: 0, todayTransactionCount: 0, todayRevenue: 0, lowStockCount: 0 },
-      { unitType: "laundry", productCount: 0, activeProductCount: 0, todayTransactionCount: 0, todayRevenue: 0, lowStockCount: 0 },
+      { unitType: "fitness", productCount: 0, activeProductCount: 0, todayTransactionCount: 0, todayRevenue: 0, yesterdayRevenue: 0, lowStockCount: 0 },
+      { unitType: "laundry", productCount: 0, activeProductCount: 0, todayTransactionCount: 0, todayRevenue: 0, yesterdayRevenue: 0, lowStockCount: 0 },
     ];
 
     const result = aggregateUnitStats(raw);
@@ -65,9 +65,9 @@ describe("aggregateUnitStats", () => {
 
   it("sums products across all units", () => {
     const raw: RawUnitStats[] = [
-      { unitType: "toko", productCount: 100, activeProductCount: 80, todayTransactionCount: 5, todayRevenue: 500, lowStockCount: 2 },
-      { unitType: "cafe_lsp", productCount: 35, activeProductCount: 30, todayTransactionCount: 8, todayRevenue: 300, lowStockCount: 1 },
-      { unitType: "resto", productCount: 50, activeProductCount: 45, todayTransactionCount: 12, todayRevenue: 800, lowStockCount: 0 },
+      { unitType: "toko", productCount: 100, activeProductCount: 80, todayTransactionCount: 5, todayRevenue: 500, yesterdayRevenue: 450, lowStockCount: 2 },
+      { unitType: "cafe_lsp", productCount: 35, activeProductCount: 30, todayTransactionCount: 8, todayRevenue: 300, yesterdayRevenue: 350, lowStockCount: 1 },
+      { unitType: "resto", productCount: 50, activeProductCount: 45, todayTransactionCount: 12, todayRevenue: 800, yesterdayRevenue: 700, lowStockCount: 0 },
     ];
 
     const result = aggregateUnitStats(raw);

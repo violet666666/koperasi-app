@@ -30,6 +30,9 @@ import {
   Gamepad2,
   Printer,
   Shirt,
+  TrendingDown,
+  CreditCard,
+  Trophy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { getUnitBySlug } from "@/lib/constants/units";
@@ -48,6 +51,8 @@ interface UnitDetailStats {
   todayRevenue: number;
   avgTransactionValue: number;
   weekRevenue: { date: string; revenue: number; transactions: number }[];
+  topProducts: { productId: number; name: string; quantity: number }[];
+  paymentMethods: { method: string; label: string; amount: number; count: number }[];
 }
 
 interface Product {
@@ -241,13 +246,55 @@ export default function UnitDetailPage() {
             </Card>
             <Card>
               <CardContent className="p-5">
-                <h3 className="font-semibold mb-2">Metode Pembayaran</h3>
-                <div className="text-sm text-muted-foreground">
-                  Data detail metode pembayaran tersedia di tab Transaksi
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold">Metode Pembayaran Hari Ini</h3>
                 </div>
+                {stats?.paymentMethods && stats.paymentMethods.length > 0 ? (
+                  <div className="space-y-2">
+                    {stats.paymentMethods.map((pm) => {
+                      const total = stats.paymentMethods.reduce((s, p) => s + p.amount, 0);
+                      const pct = total > 0 ? Math.round((pm.amount / total) * 100) : 0;
+                      return (
+                        <div key={pm.method} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span>{pm.label}</span>
+                            <span className="text-muted-foreground">{formatCurrency(pm.amount)} ({pct}%)</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Belum ada transaksi hari ini</p>
+                )}
               </CardContent>
             </Card>
           </div>
+          {stats?.topProducts && stats.topProducts.length > 0 && (
+            <Card className="mt-4">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Trophy className="h-4 w-4 text-amber-500" />
+                  <h3 className="font-semibold">Produk Terlaris Hari Ini</h3>
+                </div>
+                <div className="space-y-2">
+                  {stats.topProducts.map((p, i) => (
+                    <div key={p.productId} className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-muted-foreground w-5 text-right">{i + 1}.</span>
+                      <div className="flex-1 flex items-center justify-between">
+                        <span className="text-sm font-medium">{p.name}</span>
+                        <Badge variant="secondary" className="text-xs">{p.quantity} terjual</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="produk" className="mt-4">

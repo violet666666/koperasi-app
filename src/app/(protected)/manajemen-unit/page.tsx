@@ -9,6 +9,7 @@ import {
   Layers,
   Package,
   TrendingUp,
+  TrendingDown,
   ShoppingBag,
   Store,
   Coffee,
@@ -44,6 +45,8 @@ interface AggregatedStats {
     activeProductCount: number;
     todayTransactionCount: number;
     todayRevenue: number;
+    yesterdayRevenue: number;
+    revenueTrend: number | null;
     lowStockCount: number;
   }[];
 }
@@ -161,9 +164,24 @@ export default function ManajemenUnitPage() {
                         Transaksi
                       </div>
                       <div className="col-span-2">
-                        <span className="block text-foreground font-medium">
-                          {formatCurrency(unitStat?.todayRevenue ?? 0)}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-foreground font-medium">
+                            {formatCurrency(unitStat?.todayRevenue ?? 0)}
+                          </span>
+                          {unitStat?.revenueTrend !== null && unitStat?.revenueTrend !== undefined && (
+                            <span className={`text-[10px] font-medium flex items-center gap-0.5 ${
+                              unitStat.revenueTrend >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}>
+                              {unitStat.revenueTrend >= 0
+                                ? <TrendingUp className="h-3 w-3" />
+                                : <TrendingDown className="h-3 w-3" />
+                              }
+                              {unitStat.revenueTrend >= 0 ? "+" : ""}{unitStat.revenueTrend}%
+                            </span>
+                          )}
+                        </div>
                         Pendapatan hari ini
                       </div>
                     </div>
