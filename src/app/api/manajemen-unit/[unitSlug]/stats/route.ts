@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { slugToUnitType, getUnitLabel } from "@/lib/constants/units";
-import { computeUnitDetail, type RawUnitDetail } from "@/lib/services/manajemen-unit";
+import { computeUnitDetail, type RawUnitDetail, computePeakHours, computeProfitFromItems } from "@/lib/services/manajemen-unit";
 
 export async function GET(
   _request: Request,
@@ -33,12 +33,12 @@ export async function GET(
     const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
     const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
 
-    // 7 days ago for weekly chart
-    const weekAgoUTC = new Date(todayStartUTC.getTime() - 6 * 24 * 60 * 60 * 1000);
+    // 14 days ago for weekly comparison chart (Phase 2)
+    const twoWeeksAgoUTC = new Date(todayStartUTC.getTime() - 13 * 24 * 60 * 60 * 1000);
 
     const isStore = ["toko", "resto", "cafe_lsp"].includes(unitType);
 
-    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx, storePaymentBreakdown, topProductItems] =
+    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx, storePaymentBreakdown, topProductItems, profitItems] =
       await Promise.all([
         prisma.storeProduct.count({ where: { unitType, deletedAt: null } }),
         prisma.storeProduct.count({ where: { unitType, isActive: true, deletedAt: null } }),
@@ -70,7 +70,7 @@ export async function GET(
         prisma.storeSale.findMany({
           where: {
             unitType,
-            createdAt: { gte: weekAgoUTC },
+            createdAt: { gte: twoWeeksAgoUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
           select: { createdAt: true, totalAmount: true },
@@ -79,7 +79,7 @@ export async function GET(
         prisma.unitTransaction.findMany({
           where: {
             unitType,
-            transactionDate: { gte: weekAgoUTC },
+            transactionDate: { gte: twoWeeksAgoUTC },
             status: { not: "voided" },
           },
           select: { transactionDate: true, amount: true },
@@ -111,12 +111,30 @@ export async function GET(
               },
             })
           : Promise.resolve([]),
+        // 11. Profit items for store units (today)
+        isStore
+          ? prisma.storeSaleItem.findMany({
+              where: {
+                sale: {
+                  unitType,
+                  createdAt: { gte: todayStartUTC },
+                  NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                },
+              },
+              select: {
+                unitPrice: true,
+                costPrice: true,
+                quantity: true,
+                productId: true,
+              },
+            })
+          : Promise.resolve([]),
       ]);
 
     // Build weekly revenue map
     const weekMap = new Map<string, { revenue: number; transactions: number }>();
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekAgoUTC.getTime() + i * 24 * 60 * 60 * 1000);
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(twoWeeksAgoUTC.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().slice(0, 10);
       weekMap.set(key, { revenue: 0, transactions: 0 });
     }
@@ -141,9 +159,72 @@ export async function GET(
       }
     }
 
-    const weekRevenue = Array.from(weekMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, data]) => ({ date, ...data }));
+    const allDays = Array.from(weekMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    const prevWeekRevenue = allDays.slice(0, 7).map(([date, data]) => ({ date, ...data }));
+    const weekRevenue = allDays.slice(7).map(([date, data]) => ({ date, ...data }));
+
+    // Peak hours: filter today's records from weekly data, group by WIB hour
+    const todayWIB = wibNow.toISOString().slice(0, 10);
+    const todayPeakRecords = (isStore
+      ? weekSales.filter(s => {
+          const wibDate = new Date(s.createdAt.getTime() + wibOffset * 60000);
+          return wibDate.toISOString().slice(0, 10) === todayWIB;
+        }).map(s => ({ date: s.createdAt, amount: Number(s.totalAmount) }))
+      : weekServiceTx.filter(t => {
+          const wibDate = new Date(t.transactionDate.getTime() + wibOffset * 60000);
+          return wibDate.toISOString().slice(0, 10) === todayWIB;
+        }).map(t => ({ date: t.transactionDate, amount: Number(t.amount) }))
+    );
+    const peakHours = computePeakHours(todayPeakRecords, wibOffset);
+
+    // Profit metrics (store units only)
+    let todayProfit = 0;
+    let profitMargin = 0;
+    let topProfitProducts: Array<{ productId: number; name: string; profit: number; revenue: number; margin: number }> = [];
+
+    if (isStore && (profitItems as any[]).length > 0) {
+      const normalizedItems = (profitItems as any[]).map((item: any) => ({
+        unitPrice: Number(item.unitPrice),
+        costPrice: Number(item.costPrice ?? 0),
+        quantity: item.quantity,
+        productId: item.productId,
+      }));
+
+      const profitResult = computeProfitFromItems(normalizedItems);
+      todayProfit = profitResult.todayProfit;
+
+      // Resolve top profit product names (top 5 by profit)
+      const sorted = Array.from(profitResult.productProfits.entries())
+        .sort(([, a], [, b]) => b.profit - a.profit)
+        .slice(0, 5);
+
+      topProfitProducts = await Promise.all(
+        sorted.map(async ([productId, data]) => {
+          const product = await prisma.storeProduct.findUnique({
+            where: { id: productId },
+            select: { name: true },
+          });
+          return {
+            productId,
+            name: product?.name ?? "Unknown",
+            profit: data.profit,
+            revenue: data.revenue,
+            margin: data.revenue > 0 ? Math.round((data.profit / data.revenue) * 10000) / 100 : 0,
+          };
+        })
+      );
+    }
+
+    // Use actual todayRevenue for margin calculation (includes discounts, taxes)
+    const detailTodayRevenue = isStore
+      ? Number(todaySales._sum.totalAmount ?? 0)
+      : Number(todayServiceTx._sum.amount ?? 0);
+
+    profitMargin = detailTodayRevenue > 0 && isStore
+      ? Math.round((todayProfit / detailTodayRevenue) * 10000) / 100
+      : 0;
 
     // Service payment breakdown for non-store units
     const servicePaymentBreakdown = !isStore
@@ -223,6 +304,9 @@ export async function GET(
         ...detail,
         topProducts,
         paymentMethods,
+        peakHours,
+        ...(isStore ? { todayProfit, profitMargin, topProfitProducts } : {}),
+        prevWeekRevenue,
       },
     });
   } catch (error) {
