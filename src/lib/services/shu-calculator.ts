@@ -115,9 +115,16 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
     } else {
         // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung Gross Margin (Laba Kotor) Langsung
+        // Kategori pengeluaran yang dihitung:
+        // - biaya_operasional: Biaya operasional umum koperasi
+        // - beban_unit: Beban operasional per unit usaha (toko, cafe, cuci mobil, dll)
+        // - hpp_toko: Pembelian barang/restocking (beda dari COGS per-item di StoreSaleItem)
+        // - hutang_mitra: Kewajiban bagi hasil mitra
+        const EXPENSE_CATEGORIES = ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"] as const;
+
         const [expensesTx, incomeTx, loanInterestAgg, unitTx, storeSalesInc, soldItems] = await Promise.all([
             prisma.cashBankTransaction.findMany({
-                where: { transactionDate: { gte: startDate, lte: endDate }, category: { in: ["biaya_operasional", "beban_operasional_unit"] } }
+                where: { transactionDate: { gte: startDate, lte: endDate }, type: "out", category: { in: [...EXPENSE_CATEGORIES] } }
             }),
             prisma.cashBankTransaction.findMany({
                 where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: { notIn: ["savings", "loan", "transfer", "operational"] } }
@@ -140,8 +147,25 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             }),
         ]);
 
-        expensesTx.forEach(tx => totalExpense += toNum(tx.amount));
-        if (totalExpense > 0) expenseAccounts["CB-EXP"] = { code: "CB-EXP", name: "Biaya Operasional (Kas & Unit)", amount: totalExpense };
+        // Breakdown pengeluaran per kategori untuk transparansi
+        const expenseByCategory: Record<string, number> = {};
+        expensesTx.forEach(tx => {
+            const cat = tx.category || "biaya_operasional";
+            expenseByCategory[cat] = (expenseByCategory[cat] || 0) + toNum(tx.amount);
+        });
+
+        const EXPENSE_LABELS: Record<string, { code: string; name: string }> = {
+            biaya_operasional: { code: "CB-OP", name: "Biaya Operasional Umum" },
+            beban_unit: { code: "CB-UNIT", name: "Beban Operasional Unit Usaha" },
+            hpp_toko: { code: "CB-HPP", name: "HPP / Pembelian Barang (Restocking)" },
+            hutang_mitra: { code: "CB-MITRA", name: "Kewajiban Bagi Hasil Mitra" },
+        };
+
+        for (const [cat, amount] of Object.entries(expenseByCategory)) {
+            totalExpense += amount;
+            const meta = EXPENSE_LABELS[cat] || { code: `CB-${cat.toUpperCase()}`, name: cat };
+            expenseAccounts[meta.code] = { code: meta.code, name: meta.name, amount };
+        }
 
         const cbIncomeTotal = incomeTx.reduce((sum, tx) => sum + toNum(tx.amount), 0);
         totalIncome += cbIncomeTotal;
@@ -179,7 +203,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     const netSurplus = Math.max(0, totalIncome - totalExpense);
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
-    const [storeSalesByUnit, unitTxByUnit] = await Promise.all([
+    const [storeSalesByUnit, unitTxByUnit, expenseByUnit] = await Promise.all([
         prisma.storeSale.groupBy({
             by: ['unitType'],
             where: {
@@ -199,7 +223,24 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _sum: { amount: true },
             _count: true,
         }),
+        // Pengeluaran per unit dari Kas & Bank (unitType field)
+        prisma.cashBankTransaction.groupBy({
+            by: ['unitType'],
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                type: "out",
+                category: { in: ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"] },
+                unitType: { not: null },
+            },
+            _sum: { amount: true },
+        }),
     ]);
+
+    // Build expense map per unitType
+    const unitExpenseMap: Record<string, number> = {};
+    expenseByUnit.forEach(e => {
+        if (e.unitType) unitExpenseMap[e.unitType] = toNum(e._sum.amount);
+    });
 
     const unitBreakdown = [
         ...storeSalesByUnit.map(s => {
@@ -209,6 +250,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
                 category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
                 revenue: toNum(s._sum.totalAmount),
+                expense: unitExpenseMap[ut] || 0,
                 transactionCount: s._count,
             };
         }),
@@ -219,6 +261,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
                 category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
                 revenue: toNum(u._sum.amount),
+                expense: unitExpenseMap[ut] || 0,
                 transactionCount: u._count,
             };
         }),

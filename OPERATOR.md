@@ -443,8 +443,19 @@ Route `/manajemen-unit` sekarang memiliki dashboard insight lengkap untuk monito
 |-----|-----------|
 | Pagination UI | Products (50/page) dan Transactions (25/page) sekarang memiliki navigasi halaman |
 | Transaction Detail | Baris expandable: POS menampilkan item breakdown, service menampilkan member + keterangan |
-| Configurable Stock | Menggunakan `min_stock` per produk (default 5) bukan hardcoded threshold |
+| Configurable Stock | API menggunakan `min_stock` per produk. UI highlight merah menggunakan `p.stock <= p.minStock`. |
 | Export CSV | Tombol "Export CSV" di header detail — download CSV dengan semua insight data |
+
+### 9.6 Re-Audit Fixes (30 Mei 2026)
+
+| Fix | Severity | Deskripsi |
+|-----|----------|-----------|
+| #11 Sales Range Refetch | MEDIUM | Toggle "Hari Ini" sekarang refetch data setelah pindah dari 7d/30d |
+| #12 Dashboard res.ok | LOW | Dashboard page sekarang cek `res.ok` sebelum `.json()` |
+| #13 Stock Threshold UI | LOW | Teks dan highlight stok menipis sekarang dinamis per produk (bukan hardcode ≤5) |
+| revenueTrend tests | LOW | 3 test baru: positive trend, negative trend, null when zero |
+
+Total tests: 34 (sebelumnya 31).
 
 All known issues resolved.
 

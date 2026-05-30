@@ -46,6 +46,7 @@ export async function GET(
           costPrice: true,
           stock: true,
           stockGdg: true,
+          minStock: true,
           isActive: true,
           productType: true,
           trackStock: true,

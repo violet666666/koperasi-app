@@ -60,6 +60,7 @@ export default function ManajemenUnitPage() {
     async function fetchStats() {
       try {
         const res = await fetch("/api/manajemen-unit/stats");
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
         const json = await res.json();
         setStats(json.data ?? null);
       } catch (error) {

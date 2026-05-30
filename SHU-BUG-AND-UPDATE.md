@@ -99,3 +99,24 @@ Sesuai kebijakan AD-ART, setiap anggota yang mencuci mobil di unit Cuci Mobil Ko
 - `src/app/api/mobile/summary/route.ts`: `carwashBonus` & `carwashCount` sudah diekspos ke estimasi SHU mobile.
 
 *Status: Mobile App kini SINKRON dengan Web App untuk fitur SHU Cuci Mobil.*
+
+---
+
+## 8. SINKRONISASI TOTAL BIAYA SHU DENGAN PENGELUARAN UNIT USAHA (30 Mei 2026)
+
+### H. Bug Kritis Sinkronisasi Biaya
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi |
+|:---|:---|:---|:---|:---|:---|
+| **14** | SHU Calculator Fallback | `src/lib/services/shu-calculator.ts` (L120) | 🔴 **CRITICAL** | **Kategori Expense Salah:** Query mencari `"beban_operasional_unit"` yang **tidak pernah ada** di database. Kategori sebenarnya adalah `"beban_unit"` (sesuai Zod validation & constants). Semua pengeluaran operasional unit (toko, cafe, cuci mobil, dll) **tidak pernah terhitung** → laba bersih SHU membengkak fiktif. | **✓ [CLOSED]** Diganti menjadi `"beban_unit"` dan ditambahkan validasi `type: "out"`. |
+| **15** | SHU Calculator Fallback | `src/lib/services/shu-calculator.ts` (L120) | 🟠 **HIGH** | **Pengeluaran `hpp_toko` & `hutang_mitra` Terlewat:** Fallback path hanya query `biaya_operasional`. Pembelian barang restocking dan kewajiban bagi hasil mitra 100% hilang dari total biaya. | **✓ [CLOSED]** Ditambahkan `"hpp_toko"` dan `"hutang_mitra"` ke filter kategori expense. Breakdown per kategori dipecah transparan. |
+| **16** | SHU Unit Breakdown | `src/lib/services/shu-calculator.ts` (L204) | 🟡 **MEDIUM** | **unitBreakdown Tanpa Expense:** `unitBreakdown` hanya menampilkan revenue per unit, tanpa data pengeluaran per unit. Operator tidak bisa melihat kontribusi laba bersih tiap unit usaha. | **✓ [CLOSED]** Ditambahkan `CashBankTransaction.groupBy({ by: ['unitType'] })` untuk expense per unit. Field `expense` kini tersedia di setiap entri `unitBreakdown`. |
+
+### I. Detail Perubahan Teknis
+
+- **Expense Categories Constant:** `EXPENSE_CATEGORIES = ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"]`
+- **Transparent Labels:** Setiap kategori expense sekarang memiliki kode dan label terpisah (`CB-OP`, `CB-UNIT`, `CB-HPP`, `CB-MITRA`) alih-alih satu label generik.
+- **Unit Expense Map:** `CashBankTransaction.groupBy` dengan filter `unitType: { not: null }` menghasilkan expense per unit yang di-merge ke `unitBreakdown`.
+- **Type Guard:** Ditambahkan `type: "out"` pada query expense untuk menghindari false positive dari transaksi masuk.
+
+*Diperbarui: 30 Mei 2026*

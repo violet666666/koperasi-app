@@ -58,6 +58,7 @@ interface Product {
   costPrice: number;
   stock: number;
   stockGdg: number;
+  minStock: number;
   isActive: boolean;
   productType: string;
   trackStock: boolean;
@@ -165,12 +166,21 @@ export default function UnitDetailPage() {
       .catch(console.error);
   }, [unitSlug, unitConfig, txPage]);
 
-  // Refetch stats when sales range changes (skip initial load — already fetched with today)
+  // Refetch stats when sales range changes
+  const isInitialMount = React.useRef(true);
   React.useEffect(() => {
-    if (!unitConfig || salesRange === "today") return;
+    if (!unitConfig) return;
+    // Skip on initial mount — data already fetched with today range
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     setLoading(true);
     fetch(`/api/manajemen-unit/${unitSlug}/stats?range=${salesRange}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
       .then(json => {
         if (json.data) setStats(json.data);
       })
@@ -337,7 +347,7 @@ export default function UnitDetailPage() {
       {stats && stats.lowStockCount > 0 && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
           <AlertTriangle className="h-4 w-4" />
-          <span>{stats.lowStockCount} produk dengan stok menipis (≤ 5)</span>
+          <span>{stats.lowStockCount} produk dengan stok menipis</span>
         </div>
       )}
 
@@ -620,7 +630,7 @@ export default function UnitDetailPage() {
                         <TableCell className="text-muted-foreground">{p.category ?? "-"}</TableCell>
                         <TableCell className="text-right">{formatCurrency(Number(p.sellPrice))}</TableCell>
                         <TableCell className="text-right">
-                          <span className={p.stock <= 5 ? "text-red-600 font-medium" : ""}>{p.stock}</span>
+                          <span className={p.stock <= (p.minStock ?? 5) ? "text-red-600 font-medium" : ""}>{p.stock}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={p.isActive ? "default" : "secondary"} className="text-xs">

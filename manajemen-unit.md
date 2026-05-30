@@ -281,7 +281,7 @@ const serviceRevenue = !isStoreUnit
 | `manajemen-unit-peakhours-profit.test.ts` | computePeakHours (4) + computeProfitFromItems (4) | ✅ Covers WIB grouping, business hours, profit math, edge cases |
 | `unit-constants.test.ts` | UNIT_TYPES helpers (7+ tests) | ✅ Covers slug↔unitType, getLabel, getStore/getService |
 
-**Total:** 25 tests across 4 test files. No integration tests for API routes. No tests for the page components.
+**Total:** 34 tests across 4 test files. No integration tests for API routes. No tests for the page components.
 
 ---
 
@@ -292,6 +292,7 @@ const serviceRevenue = !isStoreUnit
 | **Bugs fixed in audit** | 4 (#1–#4) |
 | **Issues fixed by Phase 1+2** | 3 (#5, #6, #7) |
 | **Issues fixed by UX Polish** | 3 (#8, #9, #10) |
+| **Bugs fixed in re-audit (30 Mei)** | 3 (#11, #12, #13) |
 | **Known issues remaining** | 0 |
 | **Critical** | 0 |
 | **High** | 0 (all resolved) |
@@ -436,3 +437,49 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 | `8cd9779` | UI: range toggle, scrollable sales list, summary footer |
 
 *Diperbarui: 30 Mei 2026*
+
+---
+
+## 10. Re-Audit Bugs (30 Mei 2026)
+
+### Issue #11 — Sales Range Toggle Tidak Refetch "Hari Ini" (FIXED)
+
+**Severity:** MEDIUM | **File:** `[unitSlug]/page.tsx`
+
+**Problem:** Saat user ganti range ke 7d/30d lalu kembali ke "Hari Ini", useEffect melakukan early return karena guard `salesRange === "today"`. Data `allProductSales` masih menampilkan data range sebelumnya.
+
+**Fix:** Ganti guard `salesRange === "today"` dengan `useRef` `isInitialMount` yang hanya skip refetch pada mount pertama.
+
+---
+
+### Issue #12 — Dashboard Tidak Cek `res.ok` (FIXED)
+
+**Severity:** LOW | **File:** `manajemen-unit/page.tsx`
+
+**Problem:** Dashboard page memanggil `.json()` tanpa cek `res.ok`. Response 403/500 bisa gagal parse.
+
+**Fix:** Tambah `if (!res.ok) throw new Error(...)` sebelum `.json()`.
+
+---
+
+### Issue #13 — UI Hardcode Stock Threshold (FIXED)
+
+**Severity:** LOW | **Files:** `[unitSlug]/page.tsx`, `products/route.ts`
+
+**Problem:** Teks "≤ 5" dan highlight merah hardcoded, padahal API sudah gunakan `min_stock` per produk.
+
+**Fix:**
+- Teks diubah menjadi generik (tanpa angka threshold)
+- Products API sekarang return `minStock` per produk
+- Highlight merah menggunakan `p.stock <= (p.minStock ?? 5)`
+
+---
+
+### Missing Test Coverage — `revenueTrend` (FIXED)
+
+3 test baru ditambahkan ke `manajemen-unit.test.ts`:
+- Positive trend (+25%)
+- Negative trend (-40%)
+- Null trend (yesterday = 0)
+
+**Total tests:** 34 (sebelumnya 31).

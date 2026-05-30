@@ -76,4 +76,35 @@ describe("aggregateUnitStats", () => {
     expect(result.totalTransactions).toBe(25);
     expect(result.totalRevenue).toBe(1600);
   });
+
+  it("computes positive revenue trend", () => {
+    const raw: RawUnitStats[] = [
+      { unitType: "toko", productCount: 10, activeProductCount: 8, todayTransactionCount: 5, todayRevenue: 500000, yesterdayRevenue: 400000, lowStockCount: 0 },
+    ];
+
+    const result = aggregateUnitStats(raw);
+
+    expect(result.units[0].revenueTrend).toBe(25); // +25%
+  });
+
+  it("computes negative revenue trend", () => {
+    const raw: RawUnitStats[] = [
+      { unitType: "cafe_lsp", productCount: 10, activeProductCount: 8, todayTransactionCount: 3, todayRevenue: 300000, yesterdayRevenue: 500000, lowStockCount: 0 },
+    ];
+
+    const result = aggregateUnitStats(raw);
+
+    expect(result.units[0].revenueTrend).toBe(-40); // -40%
+  });
+
+  it("returns null trend when yesterday revenue is zero", () => {
+    const raw: RawUnitStats[] = [
+      { unitType: "fitness", productCount: 0, activeProductCount: 0, todayTransactionCount: 2, todayRevenue: 100000, yesterdayRevenue: 0, lowStockCount: 0 },
+    ];
+
+    const result = aggregateUnitStats(raw);
+
+    expect(result.units[0].revenueTrend).toBeNull();
+  });
 });
+
