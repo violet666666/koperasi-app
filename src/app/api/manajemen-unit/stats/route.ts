@@ -66,26 +66,33 @@ export async function GET() {
             }),
           ]);
 
-        // For store units, revenue comes from StoreSale
-        // For service units, revenue comes from UnitTransaction
+        // Store units (toko, resto, cafe_lsp): revenue from StoreSale only
+        // Service units: revenue from UnitTransaction only
+        // Avoid double-counting by only querying the relevant source
+        const isStoreUnit = ["toko", "resto", "cafe_lsp"].includes(unitType);
         const storeRevenue = Number(todaySales._sum.totalAmount ?? 0);
         const storeTxCount = todaySales._count;
 
-        // Get service transaction revenue if applicable
-        const serviceRevenue = await prisma.unitTransaction.aggregate({
-          _sum: { amount: true },
-          where: {
-            unitType,
-            transactionDate: { gte: todayStartUTC },
-            status: { not: "voided" },
-          },
-        });
+        // Only count service revenue for non-store units
+        const serviceRevenue = !isStoreUnit
+          ? await prisma.unitTransaction.aggregate({
+              _sum: { amount: true },
+              where: {
+                unitType,
+                transactionDate: { gte: todayStartUTC },
+                status: { not: "voided" },
+              },
+            })
+          : { _sum: { amount: 0 as any } };
+
+        // Only count service transactions for non-store units
+        const serviceTxCount = !isStoreUnit ? todayTransactions : 0;
 
         return {
           unitType,
           productCount,
           activeProductCount,
-          todayTransactionCount: storeTxCount + todayTransactions,
+          todayTransactionCount: storeTxCount + serviceTxCount,
           todayRevenue: storeRevenue + Number(serviceRevenue._sum.amount ?? 0),
           lowStockCount,
         };

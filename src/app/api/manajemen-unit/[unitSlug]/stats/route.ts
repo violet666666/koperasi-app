@@ -95,6 +95,7 @@ export async function GET(
     }
 
     for (const s of weekSales) {
+      if (!isStore) continue; // Skip for service units
       const key = new Date(s.createdAt.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
       const entry = weekMap.get(key);
       if (entry) {
@@ -104,6 +105,7 @@ export async function GET(
     }
 
     for (const t of weekServiceTx) {
+      if (isStore) continue; // Skip for store units
       const key = new Date(t.transactionDate.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
       const entry = weekMap.get(key);
       if (entry) {
@@ -121,8 +123,13 @@ export async function GET(
       activeProductCount,
       totalStock: Number(stockResult._sum.stock ?? 0),
       lowStockCount,
-      todayTransactions: todaySales._count + todayServiceTx._count,
-      todayRevenue: Number(todaySales._sum.totalAmount ?? 0) + Number(todayServiceTx._sum.amount ?? 0),
+      // Store units only count StoreSale; service units only count UnitTransaction
+      todayTransactions: isStore
+        ? todaySales._count
+        : todayServiceTx._count,
+      todayRevenue: isStore
+        ? Number(todaySales._sum.totalAmount ?? 0)
+        : Number(todayServiceTx._sum.amount ?? 0),
       weekRevenue,
     };
 
