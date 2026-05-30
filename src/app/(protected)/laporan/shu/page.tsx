@@ -42,7 +42,8 @@ const shuExportColumns: ExportColumn[] = [
 ];
 
 interface SHUAllocation {
-    category: string;
+    key: string;
+    label: string;
     percentage: number;
     amount: number;
     description: string;
@@ -100,6 +101,7 @@ interface UnitBreakdown {
     label: string;
     category: "store" | "service";
     revenue: number;
+    expense: number;
     transactionCount: number;
 }
 
@@ -440,32 +442,48 @@ export default function LaporanSHUPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
-                                    {data.unitBreakdown
-                                        .sort((a, b) => b.revenue - a.revenue)
-                                        .map((unit) => {
-                                            const maxRevenue = Math.max(...data.unitBreakdown!.map(u => u.revenue));
-                                            const pct = maxRevenue > 0 ? (unit.revenue / maxRevenue) * 100 : 0;
-                                            return (
-                                                <div key={unit.unitType} className="space-y-1">
-                                                    <div className="flex justify-between text-sm">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`inline-block w-2 h-2 rounded-full ${unit.category === "store" ? "bg-emerald-500" : "bg-blue-500"}`} />
-                                                            <span className="font-medium">{unit.label}</span>
-                                                            <span className="text-xs text-muted-foreground">({unit.transactionCount} tx)</span>
-                                                        </div>
-                                                        <span className="font-medium tabular-nums text-emerald-600">{formatCurrency(unit.revenue)}</span>
-                                                    </div>
-                                                    <div className="w-full bg-muted rounded-full h-1.5">
-                                                        <div
-                                                            className={`h-1.5 rounded-full ${unit.category === "store" ? "bg-emerald-500" : "bg-blue-500"}`}
-                                                            style={{ width: `${Math.max(pct, 2)}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    }
+                                <div className="rounded-md border print:border-gray-300">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Unit Usaha</TableHead>
+                                                <TableHead className="text-right">Pendapatan</TableHead>
+                                                <TableHead className="text-right">Pengeluaran</TableHead>
+                                                <TableHead className="text-right">Laba/Rugi</TableHead>
+                                                <TableHead className="text-right w-20">Transaksi</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.unitBreakdown
+                                                .sort((a, b) => b.revenue - a.revenue)
+                                                .map((unit) => {
+                                                    const netProfit = unit.revenue - (unit.expense || 0);
+                                                    return (
+                                                        <TableRow key={unit.unitType}>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`inline-block w-2 h-2 rounded-full ${unit.category === "store" ? "bg-emerald-500" : "bg-blue-500"}`} />
+                                                                    <span className="font-medium">{unit.label}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums text-emerald-600 font-medium">
+                                                                {formatCurrency(unit.revenue)}
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums text-red-600 font-medium">
+                                                                {unit.expense ? formatCurrency(unit.expense) : "-"}
+                                                            </TableCell>
+                                                            <TableCell className={`text-right tabular-nums font-bold ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                                {formatCurrency(netProfit)}
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums text-muted-foreground">
+                                                                {unit.transactionCount}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            }
+                                        </TableBody>
+                                    </Table>
                                 </div>
                                 <div className="flex gap-4 mt-3 pt-3 border-t text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-500" /> Retail / F&B</span>
@@ -537,8 +555,8 @@ export default function LaporanSHUPage() {
                                     <TableBody>
                                         {data.allocationsMember?.length > 0 ? (
                                             data.allocationsMember.map((alloc) => (
-                                                <TableRow key={alloc.category}>
-                                                    <TableCell className="font-medium">{alloc.category}</TableCell>
+                                                <TableRow key={alloc.key}>
+                                                    <TableCell className="font-medium">{alloc.label}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
                                                             <Progress value={alloc.percentage} className="h-2 w-16 print:hidden" />
@@ -588,8 +606,8 @@ export default function LaporanSHUPage() {
                                     <TableBody>
                                         {data.allocationsNonMember?.length > 0 ? (
                                             data.allocationsNonMember.map((alloc) => (
-                                                <TableRow key={alloc.category}>
-                                                    <TableCell className="font-medium">{alloc.category}</TableCell>
+                                                <TableRow key={alloc.key}>
+                                                    <TableCell className="font-medium">{alloc.label}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
                                                             <Progress value={alloc.percentage} className="h-2 w-16 print:hidden" />

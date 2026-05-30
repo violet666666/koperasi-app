@@ -483,3 +483,27 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 - Null trend (yesterday = 0)
 
 **Total tests:** 34 (sebelumnya 31).
+
+---
+
+## 11. Deep Audit Fixes (30 Mei 2026 — Malam)
+
+### Issue #14 — Dashboard Silently Fails pada Invalid Data (FIXED)
+
+**Severity:** MEDIUM | **Files:** `manajemen-unit/page.tsx`, `[unitSlug]/page.tsx`
+
+**Problem:** Ketika API mengembalikan response 200 tapi `json.data` undefined (misal format response berubah atau error handling middleware), dashboard tetap menampilkan semua nilai 0 tanpa peringatan. User tidak tahu apakah datanya memang 0 atau ada masalah koneksi.
+
+**Fix:** Tambahkan `else setError("Data tidak valid dari server.")` setelah pengecekan `if (json.data)` pada kedua page.
+
+---
+
+### Issue #15 — Pagination Refetch Tanpa `res.ok` Validation (FIXED)
+
+**Severity:** LOW | **File:** `[unitSlug]/page.tsx`
+
+**Problem:** Dua useEffect untuk refetch produk dan transaksi saat halaman pagination berubah menggunakan `.then(res => res.json())` tanpa cek `res.ok`. Ini inkonsisten dengan fix #12 yang sudah menambahkan `res.ok` check pada dashboard dan initial data fetch.
+
+**Fix:** Tambahkan `.then(res => { if (!res.ok) throw new Error(...); return res.json(); })` pada kedua pagination refetch useEffect.
+
+*Diperbarui: 30 Mei 2026*

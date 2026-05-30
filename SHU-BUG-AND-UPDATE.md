@@ -120,3 +120,23 @@ Sesuai kebijakan AD-ART, setiap anggota yang mencuci mobil di unit Cuci Mobil Ko
 - **Type Guard:** Ditambahkan `type: "out"` pada query expense untuk menghindari false positive dari transaksi masuk.
 
 *Diperbarui: 30 Mei 2026*
+
+---
+
+## 9. DEEP AUDIT: UI SHU TIDAK SINKRON DENGAN BACKEND (30 Mei 2026 — Malam)
+
+### J. Bug UI Laporan SHU
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi |
+|:---|:---|:---|:---|:---|:---|
+| **17** | Laporan SHU — Unit Breakdown | `src/app/(protected)/laporan/shu/page.tsx` (L98-104) | 🔴 **CRITICAL** | **Interface `UnitBreakdown` Tidak Memiliki Field `expense`:** Meskipun `shu-calculator.ts` sudah mengembalikan `expense` per unit usaha (fix #16), interface TypeScript di halaman SHU tidak memiliki properti `expense`. Data pengeluaran per unit yang sudah dihitung backend **tidak pernah ditampilkan** ke operator. Visualisasi hanya menampilkan progress bar pendapatan tanpa perbandingan biaya. | **✓ [CLOSED]** Ditambahkan `expense: number` ke interface. Visualisasi diubah dari progress bar menjadi tabel dengan kolom: Unit Usaha, Pendapatan, Pengeluaran, Laba/Rugi, dan Transaksi. |
+| **18** | Laporan SHU — Tabel Alokasi | `src/app/(protected)/laporan/shu/page.tsx` (L540-541, L590-591) | 🟠 **HIGH** | **Kolom Kategori Menampilkan Key Teknis:** Kedua tabel alokasi (Member & Non-Member) menampilkan `alloc.category` yang berisi key teknis (`jasa_usaha`, `cadangan`), padahal data dari calculator sudah menyertakan `alloc.label` (`Jasa Anggota`, `Cadangan`). Operator melihat istilah teknis yang tidak dipahami. | **✓ [CLOSED]** Diganti `alloc.category` → `alloc.label` pada kedua tabel. React key juga diubah ke `alloc.key` untuk keunikan. |
+| **19** | Laporan SHU — Interface | `src/app/(protected)/laporan/shu/page.tsx` (L44-49) | 🟡 **MEDIUM** | **Interface `SHUAllocation` Tidak Selaras:** Interface memiliki field `category` padahal calculator mengirim `key` dan `label`. Ini menyebabkan TypeScript tidak error (dynamic typing via `as unknown as SHUData`) tapi data yang dirender salah/kosong. | **✓ [CLOSED]** Interface disesuaikan: `category` → `key` + `label`, sesuai output `calculateSystemSHU()`. |
+
+### K. Detail Perubahan UI
+
+- **Unit Breakdown Tabel:** Dari progress bar sederhana diubah menjadi `<Table>` dengan 5 kolom termasuk Pengeluaran dan Laba/Rugi per unit. Warna laba/rugi otomatis hijau/merah berdasarkan positif/negatif.
+- **Alokasi Display:** Kedua tabel (Member & Non-Member) kini menampilkan label yang human-readable sesuai konfigurasi AD-ART.
+- **Interface Alignment:** `SHUAllocation` kini memiliki `key: string` dan `label: string` menggantikan `category: string`.
+
+*Diperbarui: 30 Mei 2026*

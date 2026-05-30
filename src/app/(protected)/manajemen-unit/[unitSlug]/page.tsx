@@ -120,6 +120,8 @@ export default function UnitDetailPage() {
         ]);
 
         if (statsJson.data) setStats(statsJson.data);
+        else setError("Data statistik tidak valid.");
+        
         if (prodJson.data) {
           setProducts(prodJson.data);
           setProductTotal(prodJson.pagination?.total ?? 0);
@@ -142,7 +144,10 @@ export default function UnitDetailPage() {
   React.useEffect(() => {
     if (!unitConfig || productPage === 1) return;
     fetch(`/api/manajemen-unit/${unitSlug}/products?page=${productPage}&limit=50`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
       .then(json => {
         if (json.data) {
           setProducts(json.data);
@@ -156,7 +161,10 @@ export default function UnitDetailPage() {
   React.useEffect(() => {
     if (!unitConfig || txPage === 1) return;
     fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=${txPage}&limit=25`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
       .then(json => {
         if (json.data) {
           setTransactions(json.data);

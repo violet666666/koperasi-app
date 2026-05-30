@@ -62,7 +62,11 @@ export default function ManajemenUnitPage() {
         const res = await fetch("/api/manajemen-unit/stats");
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         const json = await res.json();
-        setStats(json.data ?? null);
+        if (json.data) {
+          setStats(json.data);
+        } else {
+          setError("Data tidak valid dari server.");
+        }
       } catch (error) {
         console.error("Failed to fetch unit stats:", error);
         setError("Gagal memuat data unit. Silakan coba lagi.");

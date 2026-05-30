@@ -457,6 +457,16 @@ Route `/manajemen-unit` sekarang memiliki dashboard insight lengkap untuk monito
 
 Total tests: 34 (sebelumnya 31).
 
+### 9.7 Deep Audit — SHU & Manajemen Unit (30 Mei 2026 — Malam)
+
+| Fix | Severity | Fitur | Deskripsi |
+|-----|----------|-------|-----------|
+| #17 Unit Breakdown Expense | 🔴 CRITICAL | SHU | Interface `UnitBreakdown` di halaman SHU tidak punya field `expense` — data pengeluaran per unit dari backend tidak pernah tampil. Diganti visualisasi progress bar menjadi tabel 5 kolom (Pendapatan, Pengeluaran, Laba/Rugi) |
+| #18 Allocation Labels | 🟠 HIGH | SHU | Tabel alokasi SHU menampilkan key teknis (`jasa_usaha`) bukan label readable (`Jasa Anggota`). Diganti `alloc.category` → `alloc.label` |
+| #19 Interface Alignment | 🟡 MEDIUM | SHU | Interface `SHUAllocation` punya `category` tapi calculator kirim `key` + `label`. Diselaraskan |
+| #14 Dashboard Invalid Data | 🟡 MEDIUM | Unit | Dashboard silently shows 0 saat `json.data` undefined. Ditambahkan error state |
+| #15 Pagination res.ok | 🟢 LOW | Unit | Refetch pagination produk/transaksi belum cek `res.ok` (inkonsisten dengan fix #12) |
+
 All known issues resolved.
 
 ---
