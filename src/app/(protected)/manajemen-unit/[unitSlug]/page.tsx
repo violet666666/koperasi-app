@@ -18,7 +18,7 @@ import {
   ArrowLeft, Package, TrendingUp, TrendingDown, ShoppingCart,
   BarChart3, AlertTriangle, Store, Coffee, UtensilsCrossed,
   Car, Scissors, Dumbbell, Gamepad2, Printer, Shirt, CreditCard, Trophy,
-  Clock, Banknote,
+  Clock, Banknote, ChevronDown, ChevronRight, Download,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { getUnitBySlug } from "@/lib/constants/units";
@@ -85,10 +85,15 @@ export default function UnitDetailPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [productTotal, setProductTotal] = React.useState(0);
   const [txTotal, setTxTotal] = React.useState(0);
+  const [productPage, setProductPage] = React.useState(1);
+  const [txPage, setTxPage] = React.useState(1);
 
+  // Initial data fetch (all 3 APIs in parallel)
   React.useEffect(() => {
     if (!unitConfig) return;
-
+    setProductPage(1);
+    setTxPage(1);
+    setLoading(true);
     async function fetchData() {
       try {
         const [statsRes, prodRes, txRes] = await Promise.all([
@@ -125,6 +130,34 @@ export default function UnitDetailPage() {
     }
     fetchData();
   }, [unitSlug, unitConfig]);
+
+  // Refetch products on page change (skip page 1 — already loaded)
+  React.useEffect(() => {
+    if (!unitConfig || productPage === 1) return;
+    fetch(`/api/manajemen-unit/${unitSlug}/products?page=${productPage}&limit=50`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.data) {
+          setProducts(json.data);
+          setProductTotal(json.pagination?.total ?? 0);
+        }
+      })
+      .catch(console.error);
+  }, [unitSlug, unitConfig, productPage]);
+
+  // Refetch transactions on page change (skip page 1)
+  React.useEffect(() => {
+    if (!unitConfig || txPage === 1) return;
+    fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=${txPage}&limit=25`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.data) {
+          setTransactions(json.data);
+          setTxTotal(json.pagination?.total ?? 0);
+        }
+      })
+      .catch(console.error);
+  }, [unitSlug, unitConfig, txPage]);
 
   if (!unitConfig) {
     return (
@@ -437,6 +470,34 @@ export default function UnitDetailPage() {
               )}
             </CardContent>
           </Card>
+          {productTotal > 50 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <p className="text-xs text-muted-foreground">
+                Menampilkan {((productPage - 1) * 50) + 1}–{Math.min(productPage * 50, productTotal)} dari {productTotal} produk
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={productPage <= 1}
+                  onClick={() => setProductPage(p => p - 1)}
+                >
+                  ← Sebelumnya
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Hal {productPage}/{Math.ceil(productTotal / 50)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={productPage >= Math.ceil(productTotal / 50)}
+                  onClick={() => setProductPage(p => p + 1)}
+                >
+                  Selanjutnya →
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="transaksi" className="mt-4">
@@ -474,6 +535,34 @@ export default function UnitDetailPage() {
               )}
             </CardContent>
           </Card>
+          {txTotal > 25 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <p className="text-xs text-muted-foreground">
+                Menampilkan {((txPage - 1) * 25) + 1}–{Math.min(txPage * 25, txTotal)} dari {txTotal} transaksi
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={txPage <= 1}
+                  onClick={() => setTxPage(p => p - 1)}
+                >
+                  ← Sebelumnya
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Hal {txPage}/{Math.ceil(txTotal / 25)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={txPage >= Math.ceil(txTotal / 25)}
+                  onClick={() => setTxPage(p => p + 1)}
+                >
+                  Selanjutnya →
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
