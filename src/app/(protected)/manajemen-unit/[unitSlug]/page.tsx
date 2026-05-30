@@ -178,7 +178,12 @@ export default function UnitDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard title="Produk" value={stats?.productCount ?? 0} icon={Package} sub={`${stats?.activeProductCount ?? 0} aktif`} />
         <StatCard title="Transaksi Hari Ini" value={stats?.todayTransactions ?? 0} icon={ShoppingCart} />
-        <StatCard title="Pendapatan Hari Ini" value={formatCurrency(stats?.todayRevenue ?? 0)} icon={TrendingUp} />
+        <StatCard
+          title="Pendapatan Hari Ini"
+          value={formatCurrency(stats?.todayRevenue ?? 0)}
+          icon={stats && stats.todayRevenue >= (stats.weekRevenue.reduce((s, d) => s + d.revenue, 0) / 7 || 0) ? TrendingUp : TrendingDown}
+          sub={stats ? `${formatCurrency(stats.weekRevenue.reduce((s, d) => s + d.revenue, 0))} minggu ini` : undefined}
+        />
         <StatCard title="Rata-rata Transaksi" value={formatCurrency(stats?.avgTransactionValue ?? 0)} icon={BarChart3} />
       </div>
 

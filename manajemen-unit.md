@@ -293,8 +293,61 @@ const serviceRevenue = !isStoreUnit
 | **Low** | 3 (placeholder, detail rendering, pagination, threshold) |
 
 **Priority fix recommendation:**
-1. **Issue #5 & #6** (HIGH) — Double counting of revenue/transactions for store units
+1. ~~**Issue #5 & #6** (HIGH) — Double counting~~ → **FIXED** in Phase 1 (insight implementation added `isStoreUnit` guard)
 2. **Issue #9** (LOW) — Add pagination UI
 3. **Issue #8** (LOW) — Show transaction detail in expandable rows
+
+---
+
+## 9. Unit Insights Feature (Phase 1 MVP — 30 Mei 2026)
+
+### Fitur Baru
+
+| ID | Insight | Lokasi | Deskripsi |
+|---|---------|--------|-----------|
+| **I-01** | Tren Pendapatan | Dashboard cards + Detail stats card | Bandingkan revenue hari ini vs kemarin. Tampilkan ↑/↓% badge. |
+| **I-03** | Metode Pembayaran | Detail → Ringkasan tab | Progress bar breakdown: Tunai vs QRIS vs Potong Gaji |
+| **I-05** | Top 5 Produk Terlaris | Detail → Ringkasan tab | Produk terlaris hari ini berdasarkan quantity (store units only) |
+
+### Data Sources
+
+| Insight | Query Pattern | Tables |
+|---------|---------------|--------|
+| Tren | `aggregate` today vs yesterday, same unit + void filter | StoreSale / UnitTransaction |
+| Payment | `groupBy` paymentMethod, today | StoreSale.groupBy + UnitTransaction.groupBy |
+| Top Products | StoreSaleItem.groupBy productId, sum quantity, take 5 | StoreSaleItem → StoreProduct (name lookup) |
+
+### API Response Changes
+
+**GET /api/manajemen-unit/stats** — each unit now includes:
+```json
+{
+  "yesterdayRevenue": 1500000,
+  "revenueTrend": 12
+}
+```
+- `revenueTrend`: percentage change vs yesterday. `null` if yesterday revenue was 0.
+
+**GET /api/manajemen-unit/{slug}/stats** — now includes:
+```json
+{
+  "topProducts": [{ "productId": 1, "name": "Nasi Goreng", "quantity": 15 }],
+  "paymentMethods": [{ "method": "cash", "label": "Tunai", "amount": 500000, "count": 8 }]
+}
+```
+
+### Side-effect Fixes
+
+Implementasi Phase 1 juga memperbaiki issue audit sebelumnya:
+- **Issue #5 & #6 (HIGH)** — Double revenue/transaction counting untuk store units. Sekarang menggunakan `isStoreUnit` guard: store units hanya query `StoreSale`, service units hanya query `UnitTransaction`.
+- **Issue #7 (LOW)** — Placeholder "Metode Pembayaran" card di detail page diganti dengan data real (progress bar breakdown).
+
+### Implementation Commits
+
+| Commit | Description |
+|--------|-------------|
+| `f08e333` | Revenue trend data (yesterday vs today) di stats API |
+| `ba72396` | Payment breakdown + top products di detail stats API |
+| `f2d94f6` | UI: trend badge, payment breakdown, top products |
 
 *Diperbarui: 30 Mei 2026*
