@@ -43,8 +43,15 @@ export async function GET(
         prisma.storeProduct.count({ where: { unitType, deletedAt: null } }),
         prisma.storeProduct.count({ where: { unitType, isActive: true, deletedAt: null } }),
         prisma.storeProduct.aggregate({ where: { unitType, isActive: true, deletedAt: null }, _sum: { stock: true } }),
+        // Low stock count (stock <= min_stock per product)
         isStore
-          ? prisma.storeProduct.count({ where: { unitType, stock: { lte: 5 }, isActive: true, deletedAt: null } })
+          ? prisma.$queryRaw<[{ count: bigint }]>`
+              SELECT COUNT(*)::int as count FROM store_products
+              WHERE unit_type = ${unitType}
+                AND is_active = true
+                AND deleted_at IS NULL
+                AND stock <= min_stock
+            `.then(r => Number(r[0].count))
           : Promise.resolve(0),
         // Today store sales
         prisma.storeSale.aggregate({
