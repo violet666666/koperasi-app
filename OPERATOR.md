@@ -544,6 +544,7 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | Dana Resiko Income | `Loan.adminFee` otomatis masuk sebagai Pendapatan SimpanPinjam |
 | Per-Unit Revenue Akurat | Revenue per unit sekarang mencakup StoreSale + UnitTransaction + CB income |
 | Payment Method Breakdown | Expandable rows per unit menunjukkan rincian Tunai/QRIS/Potong Gaji dengan persentase dan jumlah transaksi |
+| Audit Detail per Unit | Section baru "Audit Transaksi per Unit" dengan filter: pilih unit, jenis (pemasukan/pengeluaran), metode pembayaran (Tunai/QRIS/Potong Gaji). Tabel detail dengan paginasi dan ringkasan. |
 | Monthly Filter | Sudah ada sebelumnya, berfungsi baik |
 
 ### 11.2 Bug Fixes

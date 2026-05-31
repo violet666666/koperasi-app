@@ -114,6 +114,17 @@ interface UnitBreakdown {
     paymentMethodBreakdown: { method: string; label: string; amount: number; count: number }[];
 }
 
+interface AuditTx {
+    date: string;
+    description: string;
+    category: string;
+    type: "income" | "expense";
+    amount: number;
+    paymentMethod: string | null;
+    source: string;
+    referenceNo: string | null;
+}
+
 const MONTHS = [
     { value: "1", label: "Januari" },
     { value: "2", label: "Februari" },
@@ -200,6 +211,19 @@ export default function LaporanSHUPage() {
     const [printData, setPrintData] = React.useState<MemberSHU[] | null>(null);
     const [isExporting, setIsExporting] = React.useState(false);
 
+    // Unit Detail Audit state
+    const [auditUnit, setAuditUnit] = React.useState<string>("all");
+    const [auditType, setAuditType] = React.useState<string>("all");
+    const [auditMethod, setAuditMethod] = React.useState<string>("all");
+    const [auditData, setAuditData] = React.useState<{
+        transactions: AuditTx[];
+        summary: { totalIncome: number; totalExpense: number; netAmount: number; totalItems: number };
+        pagination: { page: number; perPage: number; totalItems: number; totalPages: number };
+    } | null>(null);
+    const [auditLoading, setAuditLoading] = React.useState(false);
+    const [auditPage, setAuditPage] = React.useState(1);
+    const [showAudit, setShowAudit] = React.useState(false);
+
     const yearOptions = React.useMemo(() => {
         const years: string[] = [];
         for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 5; y--) {
@@ -246,6 +270,41 @@ export default function LaporanSHUPage() {
     React.useEffect(() => {
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, [selectedYear, selectedMonth]);
+
+    // Fetch audit detail for a specific unit
+    const fetchAuditDetail = React.useCallback(async (page: number) => {
+        setAuditLoading(true);
+        try {
+            const params = new URLSearchParams({
+                year: selectedYear,
+                unitType: auditUnit,
+                type: auditType,
+                paymentMethod: auditMethod,
+                page: String(page),
+                perPage: "25",
+            });
+            if (selectedMonth !== "all") params.set("month", selectedMonth);
+            const res = await fetch(`/api/reports/shu/unit-detail?${params}`);
+            if (res.ok) {
+                const json = await res.json();
+                setAuditData(json.data);
+            } else {
+                setAuditData(null);
+            }
+        } catch {
+            setAuditData(null);
+        } finally {
+            setAuditLoading(false);
+        }
+    }, [selectedYear, selectedMonth, auditUnit, auditType, auditMethod]);
+
+    // Refetch when audit filters change
+    React.useEffect(() => {
+        if (showAudit && auditUnit !== "all") {
+            setAuditPage(1);
+            fetchAuditDetail(1);
+        }
+    }, [showAudit, auditUnit, auditType, auditMethod, selectedYear, selectedMonth, fetchAuditDetail]);
 
     const totalMemberContribution = data?.memberShu?.reduce((sum, m) => sum + m.totalContribution, 0) || 0;
     const totalMemberShuShare = data?.memberShu?.reduce((sum, m) => sum + m.shuShare, 0) || 0;
@@ -608,6 +667,204 @@ export default function LaporanSHUPage() {
                             </CardContent>
                         </Card>
                     )}
+
+                    {/* ===== AUDIT DETAIL: Filterable Transaction Table per Unit ===== */}
+                    <Card className="print:hidden">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    Audit Transaksi per Unit
+                                </CardTitle>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowAudit(!showAudit)}
+                                >
+                                    {showAudit ? "Tutup" : "Buka Audit"}
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Lihat detail pemasukan & pengeluaran per unit untuk audit manual. Filter berdasarkan metode pembayaran.
+                            </p>
+                        </CardHeader>
+                        {showAudit && (
+                            <CardContent className="space-y-4">
+                                {/* Filters */}
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <Select value={auditUnit} onValueChange={setAuditUnit}>
+                                        <SelectTrigger className="w-[160px]">
+                                            <SelectValue placeholder="Pilih Unit" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">-- Pilih Unit --</SelectItem>
+                                            {data?.unitBreakdown
+                                                ?.filter(u => u.unitType !== "_umum")
+                                                .sort((a, b) => b.revenue - a.revenue)
+                                                .map(u => (
+                                                    <SelectItem key={u.unitType} value={u.unitType}>
+                                                        {u.label}
+                                                    </SelectItem>
+                                                ))}
+                                            <SelectItem value="_umum">Beban Umum (SP)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={auditType} onValueChange={setAuditType}>
+                                        <SelectTrigger className="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Jenis</SelectItem>
+                                            <SelectItem value="income">Pemasukan</SelectItem>
+                                            <SelectItem value="expense">Pengeluaran</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={auditMethod} onValueChange={setAuditMethod}>
+                                        <SelectTrigger className="w-[150px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Metode</SelectItem>
+                                            <SelectItem value="cash">Tunai</SelectItem>
+                                            <SelectItem value="qris">QRIS</SelectItem>
+                                            <SelectItem value="salary_cut">Potong Gaji</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        size="sm"
+                                        disabled={auditUnit === "all" || auditLoading}
+                                        onClick={() => { setAuditPage(1); fetchAuditDetail(1); }}
+                                    >
+                                        {auditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Muat Data"}
+                                    </Button>
+                                </div>
+
+                                {auditUnit === "all" && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                        Pilih unit usaha terlebih dahulu untuk melihat rincian transaksi.
+                                    </p>
+                                )}
+
+                                {/* Summary */}
+                                {auditData && (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-center">
+                                            <p className="text-xs text-muted-foreground">Total Pemasukan</p>
+                                            <p className="text-lg font-bold text-emerald-600 tabular-nums">{formatCurrency(auditData.summary.totalIncome)}</p>
+                                        </div>
+                                        <div className="rounded-md bg-red-50 dark:bg-red-950/30 p-3 text-center">
+                                            <p className="text-xs text-muted-foreground">Total Pengeluaran</p>
+                                            <p className="text-lg font-bold text-red-600 tabular-nums">{formatCurrency(auditData.summary.totalExpense)}</p>
+                                        </div>
+                                        <div className={`rounded-md p-3 text-center ${auditData.summary.netAmount >= 0 ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-red-50 dark:bg-red-950/30"}`}>
+                                            <p className="text-xs text-muted-foreground">Selisih</p>
+                                            <p className={`text-lg font-bold tabular-nums ${auditData.summary.netAmount >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                {formatCurrency(auditData.summary.netAmount)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Transaction Table */}
+                                {auditData && auditData.transactions.length > 0 && (
+                                    <>
+                                        <div className="rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="w-[90px]">Tanggal</TableHead>
+                                                        <TableHead>Keterangan</TableHead>
+                                                        <TableHead className="w-[100px]">Jenis</TableHead>
+                                                        <TableHead className="w-[110px]">Metode</TableHead>
+                                                        <TableHead className="text-right w-[130px]">Jumlah</TableHead>
+                                                        <TableHead className="w-[80px]">No. Ref</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {auditData.transactions.map((tx, i) => (
+                                                        <TableRow key={`${tx.referenceNo}-${i}`}>
+                                                            <TableCell className="text-xs tabular-nums text-muted-foreground">
+                                                                {tx.date}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm max-w-[250px] truncate" title={tx.description}>
+                                                                {tx.description}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                                    tx.type === "income"
+                                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                                }`}>
+                                                                    {tx.type === "income" ? "Masuk" : "Keluar"}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs">
+                                                                {tx.paymentMethod ? (
+                                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                                        tx.paymentMethod === "Tunai" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" :
+                                                                        tx.paymentMethod === "QRIS" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" :
+                                                                        "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+                                                                    }`}>
+                                                                        {tx.paymentMethod}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">-</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className={`text-right tabular-nums font-medium ${tx.type === "income" ? "text-emerald-600" : "text-red-600"}`}>
+                                                                {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount)}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs font-mono text-muted-foreground">
+                                                                {tx.referenceNo || "-"}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                        {/* Pagination */}
+                                        {auditData.pagination.totalPages > 1 && (
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs text-muted-foreground">
+                                                    {auditData.pagination.totalItems} transaksi • Halaman {auditData.pagination.page} dari {auditData.pagination.totalPages}
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        variant="outline" size="sm"
+                                                        disabled={auditData.pagination.page <= 1 || auditLoading}
+                                                        onClick={() => {
+                                                            const p = auditData.pagination.page - 1;
+                                                            setAuditPage(p);
+                                                            fetchAuditDetail(p);
+                                                        }}
+                                                    >
+                                                        Sebelumnya
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline" size="sm"
+                                                        disabled={auditData.pagination.page >= auditData.pagination.totalPages || auditLoading}
+                                                        onClick={() => {
+                                                            const p = auditData.pagination.page + 1;
+                                                            setAuditPage(p);
+                                                            fetchAuditDetail(p);
+                                                        }}
+                                                    >
+                                                        Berikutnya
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {auditData && auditData.transactions.length === 0 && auditUnit !== "all" && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                        Tidak ada transaksi untuk unit ini dengan filter yang dipilih.
+                                    </p>
+                                )}
+                            </CardContent>
+                        )}
+                    </Card>
 
                     {/* Income & Expense Breakdown */}
                     {((data.incomeDetails && data.incomeDetails.length > 0) || (data.expenseDetails && data.expenseDetails.length > 0)) && (

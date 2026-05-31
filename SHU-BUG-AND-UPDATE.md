@@ -428,6 +428,8 @@ Dalam blok journal path (`if (journalLines.length > 0)`), **TAMBAHKAN** query pe
 | **30** | **UI Income Group Cards** | `src/app/(protected)/laporan/shu/page.tsx` | 3 card berwarna ditambahkan di bawah summary: hijau (Unit Usaha), biru (SimpanPinjam), kuning (Lainnya). Masing-masing dengan breakdown expandable per sumber pendapatan. |
 | **31** | **Payment Method Breakdown per Unit** | `src/lib/services/shu-calculator.ts` | StoreSale dan UnitTransaction di-groupBy berdasarkan `unitType + paymentMethod`. Hasilnya dimasukkan ke field `paymentMethodBreakdown` di setiap entri `unitBreakdown`. Metode: Tunai, QRIS, Potong Gaji. |
 | **32** | **UI Expandable Payment Method** | `src/app/(protected)/laporan/shu/page.tsx` | Tabel unit breakdown sekarang expandable — klik baris unit untuk melihat rincian metode pembayaran (Tunai/QRIS/Potong Gaji) dengan persentase, jumlah, dan count transaksi. Warna: hijau (Tunai), ungu (QRIS), oranye (Potong Gaji). |
+| **33** | **API Audit Detail per Unit** | `src/app/api/reports/shu/unit-detail/route.ts` | Endpoint baru `GET /api/reports/shu/unit-detail` yang mengembalikan daftar transaksi individual per unit. Mendukung filter: `unitType`, `type` (income/expense/all), `paymentMethod` (cash/qris/salary_cut/all), `year`, `month`, paginasi. Sumber data: StoreSale, UnitTransaction, CashBankTransaction. |
+| **34** | **UI Audit Table per Unit** | `src/app/(protected)/laporan/shu/page.tsx` | Section "Audit Transaksi per Unit" ditambahkan di bawah unit breakdown. Fitur: pilih unit dari dropdown, filter jenis (pemasukan/pengeluaran), filter metode pembayaran (Tunai/QRIS/Potong Gaji), tabel detail transaksi dengan paginasi, ringkasan total income/expense/selisih. |
 
 ### W. Detail Teknis
 
