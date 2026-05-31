@@ -29,6 +29,32 @@ const DEFAULT_SHU_CONFIG = {
     ]
 };
 
+// Kategori CashBankTransaction yang BUKAN expense operasional (blacklist approach)
+// Semua kategori selain ini dianggap sebagai pengeluaran operasional untuk SHU
+const NON_EXPENSE_CATEGORIES = [
+    "pencairan_pinjaman",    // Disbursement pinjaman, bukan expense
+    "transfer",               // Transfer antar rekening
+    "savings",                // Penarikan simpanan
+    "simpanan_pokok",         // Pengembalian simpanan
+    "simpanan_wajib",         // Pengembalian simpanan
+    "simpanan_sukarela",      // Penarikan simpanan
+    "angsuran_pokok",         // Bagian pokok angsuran, bukan expense
+    "void_penjualan_toko",    // Void/pembatalan, bukan real expense
+    "void_unit_transaction",  // Void/pembatalan, bukan real expense
+    "pendapatan_unit",        // Income bukan expense
+    "jasa_pinjaman",          // Income bukan expense
+];
+
+// Label mapping untuk CashBankTransaction expense categories
+const CB_EXPENSE_LABELS: Record<string, { code: string; name: string }> = {
+    biaya_operasional: { code: "CB-OP", name: "Biaya Operasional Umum" },
+    beban_unit: { code: "CB-UNIT", name: "Beban Operasional Unit Usaha" },
+    hpp_toko: { code: "CB-HPP", name: "HPP / Pembelian Barang (Restocking)" },
+    hutang_mitra: { code: "CB-MITRA", name: "Kewajiban Bagi Hasil Mitra" },
+    operational: { code: "CB-OPS", name: "Biaya Operasional (Legacy)" },
+    lainnya: { code: "CB-LAIN", name: "Pengeluaran Lainnya" },
+};
+
 export async function calculateSystemSHU(year: number, month?: number | null) {
     const isAllMonths = !month;
     let startDate: Date;
@@ -73,9 +99,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     if (journalLines.length > 0) {
         // Jika Jurnal Sistem sudah berjalan sempurna
-        // NOTE: Journal path mengandung seluruh income/expense dari posting jurnal.
-        // Voided StoreSale HPP sudah difilter di bawah, tapi income dari jurnal
-        // mungkin masih termasuk transaksi yang di-void jika jurnal pembalik belum dibuat.
+        // Income/expense dari posting jurnal akuntansi
         for (const line of journalLines) {
             const debit = toNum(line.debit);
             const credit = toNum(line.credit);
@@ -93,7 +117,6 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
 
         // COGS tidak dijurnal oleh store sales — hitung langsung dari StoreSaleItems
-        // Termasuk semua unit retail/F&B: toko, cafe_lsp, resto_cafe, coffe_latar, resto
         const soldItems = await prisma.storeSaleItem.findMany({
             where: {
                 sale: {
@@ -105,7 +128,6 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         });
         let cogsTotal = 0;
         soldItems.forEach(item => {
-            // Gunakan costPrice snapshot di StoreSaleItem (saat transaksi), fallback ke produk saat ini
             const cp = toNum(item.costPrice);
             cogsTotal += item.quantity * (cp > 0 ? cp : toNum(item.product?.costPrice));
         });
@@ -113,18 +135,45 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             totalExpense += cogsTotal;
             expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP (Modal Barang)", amount: cogsTotal };
         }
-    } else {
-        // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung Gross Margin (Laba Kotor) Langsung
-        // Kategori pengeluaran yang dihitung:
-        // - biaya_operasional: Biaya operasional umum koperasi
-        // - beban_unit: Beban operasional per unit usaha (toko, cafe, cuci mobil, dll)
-        // - hpp_toko: Pembelian barang/restocking (beda dari COGS per-item di StoreSaleItem)
-        // - hutang_mitra: Kewajiban bagi hasil mitra
-        const EXPENSE_CATEGORIES = ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"] as const;
 
+        // PENTING: CashBankTransaction yang BELUM dijurnal (journalId=NULL) juga harus
+        // masuk ke expense — ini adalah pengeluaran operasional unit (Kas Keluar) yang
+        // diinput operator tapi belum membentuk jurnal otomatis.
+        const nonJournaledExpenses = await prisma.cashBankTransaction.findMany({
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                type: "out",
+                journalId: null, // Hanya yang belum dijurnal (hindari double counting)
+                category: { notIn: NON_EXPENSE_CATEGORIES },
+            },
+        });
+
+        // Group by category dan tambahkan ke expense
+        const cbExpenseByCategory: Record<string, number> = {};
+        nonJournaledExpenses.forEach(tx => {
+            const cat = tx.category || "lainnya";
+            cbExpenseByCategory[cat] = (cbExpenseByCategory[cat] || 0) + toNum(tx.amount);
+        });
+
+        for (const [cat, amount] of Object.entries(cbExpenseByCategory)) {
+            totalExpense += amount;
+            const meta = CB_EXPENSE_LABELS[cat] || { code: `CB-${cat.toUpperCase().slice(0, 8)}`, name: `Kas Keluar: ${cat.replace(/_/g, " ")}` };
+            if (expenseAccounts[meta.code]) {
+                expenseAccounts[meta.code].amount += amount;
+            } else {
+                expenseAccounts[meta.code] = { code: meta.code, name: meta.name, amount };
+            }
+        }
+    } else {
+        // FALLBACK: Bila Jurnal belum terbentuk utuh, hitung langsung dari CashBankTransaction
+        // Menggunakan blacklist approach — semua type='out' dianggap expense KECUALI yang di-exclude
         const [expensesTx, incomeTx, loanInterestAgg, unitTx, storeSalesInc, soldItems] = await Promise.all([
             prisma.cashBankTransaction.findMany({
-                where: { transactionDate: { gte: startDate, lte: endDate }, type: "out", category: { in: [...EXPENSE_CATEGORIES] } }
+                where: {
+                    transactionDate: { gte: startDate, lte: endDate },
+                    type: "out",
+                    category: { notIn: NON_EXPENSE_CATEGORIES },
+                }
             }),
             prisma.cashBankTransaction.findMany({
                 where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: { notIn: ["savings", "loan", "transfer", "operational"] } }
@@ -150,20 +199,13 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         // Breakdown pengeluaran per kategori untuk transparansi
         const expenseByCategory: Record<string, number> = {};
         expensesTx.forEach(tx => {
-            const cat = tx.category || "biaya_operasional";
+            const cat = tx.category || "lainnya";
             expenseByCategory[cat] = (expenseByCategory[cat] || 0) + toNum(tx.amount);
         });
 
-        const EXPENSE_LABELS: Record<string, { code: string; name: string }> = {
-            biaya_operasional: { code: "CB-OP", name: "Biaya Operasional Umum" },
-            beban_unit: { code: "CB-UNIT", name: "Beban Operasional Unit Usaha" },
-            hpp_toko: { code: "CB-HPP", name: "HPP / Pembelian Barang (Restocking)" },
-            hutang_mitra: { code: "CB-MITRA", name: "Kewajiban Bagi Hasil Mitra" },
-        };
-
         for (const [cat, amount] of Object.entries(expenseByCategory)) {
             totalExpense += amount;
-            const meta = EXPENSE_LABELS[cat] || { code: `CB-${cat.toUpperCase()}`, name: cat };
+            const meta = CB_EXPENSE_LABELS[cat] || { code: `CB-${cat.toUpperCase().slice(0, 8)}`, name: `Kas Keluar: ${cat.replace(/_/g, " ")}` };
             expenseAccounts[meta.code] = { code: meta.code, name: meta.name, amount };
         }
 
@@ -203,6 +245,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     const netSurplus = Math.max(0, totalIncome - totalExpense);
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
+    // Menggunakan blacklist untuk menangkap SEMUA expense operasional
     const [storeSalesByUnit, unitTxByUnit, expenseByUnit] = await Promise.all([
         prisma.storeSale.groupBy({
             by: ['unitType'],
@@ -223,48 +266,71 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _sum: { amount: true },
             _count: true,
         }),
-        // Pengeluaran per unit dari Kas & Bank (unitType field)
+        // Pengeluaran per unit dari Kas & Bank — blacklist approach (termasuk NULL unitType)
         prisma.cashBankTransaction.groupBy({
             by: ['unitType'],
             where: {
                 transactionDate: { gte: startDate, lte: endDate },
                 type: "out",
-                category: { in: ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"] },
-                unitType: { not: null },
+                category: { notIn: NON_EXPENSE_CATEGORIES },
             },
             _sum: { amount: true },
+            _count: true,
         }),
     ]);
 
-    // Build expense map per unitType
+    // Build expense map per unitType (termasuk NULL sebagai 'umum')
     const unitExpenseMap: Record<string, number> = {};
+    let unallocatedExpense = 0;
+    let unallocatedExpenseCount = 0;
     expenseByUnit.forEach(e => {
-        if (e.unitType) unitExpenseMap[e.unitType] = toNum(e._sum.amount);
+        if (e.unitType && e.unitType !== "none" && e.unitType !== "simpan_pinjam") {
+            unitExpenseMap[e.unitType] = toNum(e._sum.amount);
+        } else {
+            // unitType=NULL, 'none', atau 'simpan_pinjam' → beban umum
+            unallocatedExpense += toNum(e._sum.amount);
+            unallocatedExpenseCount += (e as any)._count || 0;
+        }
     });
 
+    // Merge revenue dari StoreSale dan UnitTransaction ke satu map (hindari duplikat unit)
+    const unitRevenueMap: Record<string, { revenue: number; txCount: number }> = {};
+    for (const s of storeSalesByUnit) {
+        const ut = s.unitType || "toko";
+        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
+        unitRevenueMap[ut].revenue += toNum(s._sum.totalAmount);
+        unitRevenueMap[ut].txCount += s._count;
+    }
+    for (const u of unitTxByUnit) {
+        const ut = u.unitType;
+        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
+        unitRevenueMap[ut].revenue += toNum(u._sum.amount);
+        unitRevenueMap[ut].txCount += u._count;
+    }
+
+    // Gabungkan juga unit yang hanya punya expense tapi tidak punya revenue
+    for (const ut of Object.keys(unitExpenseMap)) {
+        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
+    }
+
     const unitBreakdown = [
-        ...storeSalesByUnit.map(s => {
-            const ut = s.unitType || "toko";
-            return {
-                unitType: ut,
-                label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
-                category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
-                revenue: toNum(s._sum.totalAmount),
-                expense: unitExpenseMap[ut] || 0,
-                transactionCount: s._count,
-            };
-        }),
-        ...unitTxByUnit.map(u => {
-            const ut = u.unitType;
-            return {
-                unitType: ut,
-                label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " "),
-                category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
-                revenue: toNum(u._sum.amount),
-                expense: unitExpenseMap[ut] || 0,
-                transactionCount: u._count,
-            };
-        }),
+        ...Object.entries(unitRevenueMap).map(([ut, data]) => ({
+            unitType: ut,
+            label: (UNIT_TYPES as Record<string, any>)[ut]?.label || ut.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            category: (UNIT_TYPES as Record<string, any>)[ut]?.category === "store" ? "store" as const : "service" as const,
+            revenue: data.revenue,
+            expense: unitExpenseMap[ut] || 0,
+            transactionCount: data.txCount,
+        })),
+        // Tambahkan baris "Beban Umum" untuk expense yang unitType=NULL/none
+        ...(unallocatedExpense > 0 ? [{
+            unitType: "_umum",
+            label: "Beban Umum (Belum Dialokasi)",
+            category: "service" as const,
+            revenue: 0,
+            expense: unallocatedExpense,
+            transactionCount: unallocatedExpenseCount,
+        }] : []),
     ];
 
     // 2. Hitung Rasio Member vs Non-Member berdasarkan Omzet (parallel)
