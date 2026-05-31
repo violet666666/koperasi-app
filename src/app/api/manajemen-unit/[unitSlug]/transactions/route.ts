@@ -29,6 +29,20 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "25");
     const skip = (page - 1) * limit;
 
+    // Date range filter
+    const range = searchParams.get("range") ?? "today";
+    const now = new Date();
+    const wibOffset = 7 * 60;
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const wibNow = new Date(utcMs + wibOffset * 60000);
+    const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
+    const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
+
+    const rangeDays = range === "30d" ? 30 : range === "7d" ? 7 : 1;
+    const rangeStartUTC = rangeDays > 1
+      ? new Date(todayStartUTC.getTime() - (rangeDays - 1) * 24 * 60 * 60 * 1000)
+      : todayStartUTC;
+
     const isStore = ["toko", "resto", "cafe_lsp"].includes(unitType);
 
     if (isStore) {
@@ -37,6 +51,7 @@ export async function GET(
         prisma.storeSale.findMany({
           where: {
             unitType,
+            createdAt: { gte: rangeStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
           select: {
@@ -61,6 +76,7 @@ export async function GET(
         prisma.storeSale.count({
           where: {
             unitType,
+            createdAt: { gte: rangeStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
         }),
@@ -86,7 +102,7 @@ export async function GET(
       // Service transactions from UnitTransaction
       const [transactions, total] = await Promise.all([
         prisma.unitTransaction.findMany({
-          where: { unitType, status: { not: "voided" } },
+          where: { unitType, transactionDate: { gte: rangeStartUTC }, status: { not: "voided" } },
           select: {
             id: true,
             transactionNo: true,
@@ -101,7 +117,7 @@ export async function GET(
           take: limit,
         }),
         prisma.unitTransaction.count({
-          where: { unitType, status: { not: "voided" } },
+          where: { unitType, transactionDate: { gte: rangeStartUTC }, status: { not: "voided" } },
         }),
       ]);
 

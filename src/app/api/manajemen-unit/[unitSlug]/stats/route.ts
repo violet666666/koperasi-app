@@ -155,7 +155,6 @@ export async function GET(
     }
 
     for (const s of weekSales) {
-      if (!isStore) continue; // Skip for service units
       const key = new Date(s.createdAt.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
       const entry = weekMap.get(key);
       if (entry) {
@@ -165,7 +164,6 @@ export async function GET(
     }
 
     for (const t of weekServiceTx) {
-      if (isStore) continue; // Skip for store units
       const key = new Date(t.transactionDate.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
       const entry = weekMap.get(key);
       if (entry) {

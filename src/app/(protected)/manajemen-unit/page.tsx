@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Layers,
   Package,
@@ -78,6 +79,12 @@ export default function ManajemenUnitPage() {
   }, []);
 
   const unitEntries = Object.entries(UNIT_TYPES) as [string, UnitConfig][];
+  const [categoryFilter, setCategoryFilter] = React.useState<"all" | "store" | "service">("all");
+
+  const filteredUnits = unitEntries.filter(([, config]) => {
+    if (categoryFilter === "all") return true;
+    return config.category === categoryFilter;
+  });
 
   return (
     <div className="space-y-6">
@@ -120,9 +127,29 @@ export default function ManajemenUnitPage() {
         />
       </div>
 
+      {/* Category filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Filter:</span>
+        {([
+          { value: "all" as const, label: "Semua" },
+          { value: "store" as const, label: "Toko/POS" },
+          { value: "service" as const, label: "Layanan" },
+        ]).map((opt) => (
+          <Button
+            key={opt.value}
+            variant={categoryFilter === opt.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter(opt.value)}
+            className="text-xs"
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+
       {/* Unit grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {unitEntries.map(([key, config]) => {
+        {filteredUnits.map(([key, config]) => {
           const unitStat = stats?.units.find((u) => u.unitType === key);
           const Icon = ICON_MAP[config.icon] ?? Store;
 

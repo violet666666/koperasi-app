@@ -18,7 +18,7 @@ import {
   ArrowLeft, Package, TrendingUp, TrendingDown, ShoppingCart,
   BarChart3, AlertTriangle, Store, Coffee, UtensilsCrossed,
   Car, Scissors, Dumbbell, Gamepad2, Printer, Shirt, CreditCard, Trophy,
-  Clock, Banknote, ChevronDown, ChevronRight, Download,
+  Clock, Banknote, ChevronDown, ChevronRight, Download, Search, Minus,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { getUnitBySlug } from "@/lib/constants/units";
@@ -94,6 +94,8 @@ export default function UnitDetailPage() {
   const [txPage, setTxPage] = React.useState(1);
   const [expandedTxId, setExpandedTxId] = React.useState<number | null>(null);
   const [salesRange, setSalesRange] = React.useState<"today" | "7d" | "30d">("today");
+  const [productSearch, setProductSearch] = React.useState("");
+  const [txRange, setTxRange] = React.useState<"today" | "7d" | "30d">("today");
 
   // Initial data fetch (all 3 APIs in parallel)
   React.useEffect(() => {
@@ -106,7 +108,7 @@ export default function UnitDetailPage() {
         const [statsRes, prodRes, txRes] = await Promise.all([
           fetch(`/api/manajemen-unit/${unitSlug}/stats?range=today`),
           fetch(`/api/manajemen-unit/${unitSlug}/products?page=1&limit=50`),
-          fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25`),
+          fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25&range=today`),
         ]);
 
         if (!statsRes.ok || !prodRes.ok || !txRes.ok) {
@@ -143,7 +145,7 @@ export default function UnitDetailPage() {
   // Refetch products on page change (skip page 1 — already loaded)
   React.useEffect(() => {
     if (!unitConfig || productPage === 1) return;
-    fetch(`/api/manajemen-unit/${unitSlug}/products?page=${productPage}&limit=50`)
+    fetch(`/api/manajemen-unit/${unitSlug}/products?page=${productPage}&limit=50${productSearch ? `&search=${encodeURIComponent(productSearch)}` : ""}`)
       .then(res => {
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         return res.json();
@@ -157,10 +159,32 @@ export default function UnitDetailPage() {
       .catch(console.error);
   }, [unitSlug, unitConfig, productPage]);
 
+  // Refetch products when search changes (debounced)
+  React.useEffect(() => {
+    if (!unitConfig) return;
+    const timer = setTimeout(() => {
+      setProductPage(1);
+      fetch(`/api/manajemen-unit/${unitSlug}/products?page=1&limit=50${productSearch ? `&search=${encodeURIComponent(productSearch)}` : ""}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
+          return res.json();
+        })
+        .then(json => {
+          if (json.data) {
+            setProducts(json.data);
+            setProductTotal(json.pagination?.total ?? 0);
+          }
+        })
+        .catch(console.error);
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitSlug, unitConfig, productSearch]);
+
   // Refetch transactions on page change (skip page 1)
   React.useEffect(() => {
     if (!unitConfig || txPage === 1) return;
-    fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=${txPage}&limit=25`)
+    fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=${txPage}&limit=25&range=${txRange}`)
       .then(res => {
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         return res.json();
@@ -172,7 +196,7 @@ export default function UnitDetailPage() {
         }
       })
       .catch(console.error);
-  }, [unitSlug, unitConfig, txPage]);
+  }, [unitSlug, unitConfig, txPage, txRange]);
 
   // Refetch stats when sales range changes
   const isInitialMount = React.useRef(true);
@@ -341,12 +365,20 @@ export default function UnitDetailPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Produk" value={stats?.productCount ?? 0} icon={Package} sub={`${stats?.activeProductCount ?? 0} aktif`} />
+        <StatCard
+          title={unitConfig.category === "store" ? "Produk" : "Layanan"}
+          value={stats?.productCount ?? 0}
+          icon={Package}
+          sub={`${stats?.activeProductCount ?? 0} aktif`}
+        />
         <StatCard title="Transaksi Hari Ini" value={stats?.todayTransactions ?? 0} icon={ShoppingCart} />
         <StatCard
           title="Pendapatan Hari Ini"
           value={formatCurrency(stats?.todayRevenue ?? 0)}
-          icon={stats && stats.todayRevenue >= (stats.weekRevenue.reduce((s, d) => s + d.revenue, 0) / 7 || 0) ? TrendingUp : TrendingDown}
+          icon={stats && stats.todayRevenue > 0
+            ? (stats.todayRevenue >= (stats.weekRevenue.reduce((s, d) => s + d.revenue, 0) / 7 || 0) ? TrendingUp : TrendingDown)
+            : Minus
+          }
           sub={stats ? `${formatCurrency(stats.weekRevenue.reduce((s, d) => s + d.revenue, 0))} minggu ini` : undefined}
         />
         <StatCard title="Rata-rata Transaksi" value={formatCurrency(stats?.avgTransactionValue ?? 0)} icon={BarChart3} />
@@ -460,7 +492,7 @@ export default function UnitDetailPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Belum ada transaksi hari ini</p>
+                <p className="text-sm text-muted-foreground">Belum ada transaksi hari ini — lihat chart mingguan di atas untuk data historis</p>
               )}
             </CardContent>
           </Card>
@@ -614,11 +646,24 @@ export default function UnitDetailPage() {
         </TabsContent>
 
         <TabsContent value="produk" className="mt-4">
+          {/* Product search */}
+          <div className="mb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Cari produk..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
           <Card>
             <CardContent className="p-0">
               {products.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  {loading ? "Memuat produk..." : "Tidak ada produk untuk unit ini"}
+                  {loading ? "Memuat produk..." : productSearch ? `Tidak ada produk yang cocok dengan "${productSearch}"` : "Tidak ada produk untuk unit ini"}
                 </div>
               ) : (
                 <Table>
@@ -683,11 +728,43 @@ export default function UnitDetailPage() {
         </TabsContent>
 
         <TabsContent value="transaksi" className="mt-4">
+          {/* Transaction date filter */}
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Periode:</span>
+            {([
+              { value: "today" as const, label: "Hari Ini" },
+              { value: "7d" as const, label: "7 Hari" },
+              { value: "30d" as const, label: "30 Hari" },
+            ]).map((opt) => (
+              <Button
+                key={opt.value}
+                variant={txRange === opt.value ? "default" : "outline"}
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  setTxRange(opt.value);
+                  setTxPage(1);
+                  // Refetch transactions
+                  fetch(`/api/manajemen-unit/${unitSlug}/transactions?page=1&limit=25&range=${opt.value}`)
+                    .then(res => res.ok ? res.json() : Promise.reject(res.status))
+                    .then(json => {
+                      if (json.data) {
+                        setTransactions(json.data);
+                        setTxTotal(json.pagination?.total ?? 0);
+                      }
+                    })
+                    .catch(console.error);
+                }}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
           <Card>
             <CardContent className="p-0">
               {transactions.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  {loading ? "Memuat transaksi..." : "Tidak ada transaksi hari ini"}
+                  {loading ? "Memuat transaksi..." : `Tidak ada transaksi ${txRange === "today" ? "hari ini" : txRange === "7d" ? "dalam 7 hari terakhir" : "dalam 30 hari terakhir"}`}
                 </div>
               ) : (
                 <Table>

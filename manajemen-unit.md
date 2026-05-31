@@ -507,3 +507,59 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 **Fix:** Tambahkan `.then(res => { if (!res.ok) throw new Error(...); return res.json(); })` pada kedua pagination refetch useEffect.
 
 *Diperbarui: 30 Mei 2026*
+
+---
+
+## 12. UI/UX Deep Audit & Fix (31 Mei 2026)
+
+### Issue #16 — Dashboard Tidak Ada Filter Kategori (FIXED)
+
+**Severity:** MEDIUM | **File:** `manajemen-unit/page.tsx`
+
+**Problem:** Dashboard menampilkan semua unit tanpa opsi filter. Operator harus scroll untuk mencari unit tertentu.
+
+**Fix:** Tambahkan filter buttons "Semua", "Toko/POS", "Layanan" di atas grid. Filter bekerja client-side karena data sudah dimuat seluruhnya.
+
+---
+
+### Issue #17 — Weekly Chart Tidak Gabungkan StoreSale + UnitTransaction (FIXED)
+
+**Severity:** HIGH | **File:** `api/manajemen-unit/[unitSlug]/stats/route.ts`
+
+**Problem:** Chart mingguan hanya menghitung salah satu source: StoreSale untuk store units ATAU UnitTransaction untuk service units. Unit "toko" yang memiliki kedua jenis transaksi (370 StoreSale + 51 UnitTransaction) hanya menampilkan satu sumber data.
+
+**Fix:** Hapus `if (!isStore) continue` dan `if (isStore) continue` pada loop pembuatan weekMap. Semua transaksi dari kedua source sekarang di-merge untuk semua unit types.
+
+---
+
+### Issue #18 — Products Tab Tidak Ada Search Filter (FIXED)
+
+**Severity:** MEDIUM | **File:** `[unitSlug]/page.tsx`
+
+**Problem:** Tab produk menampilkan hingga 1.825 produk tanpa kemampuan pencarian. Backend sudah support search parameter tapi frontend tidak menyediakannya.
+
+**Fix:** Tambahkan input search dengan ikon Search di atas tabel. Search menggunakan debounce 300ms untuk mengurangi API calls. Empty state menampilkan query yang dicari.
+
+---
+
+### Issue #19 — Transactions Tab Tidak Ada Date Filter (FIXED)
+
+**Severity:** MEDIUM | **Files:** `[unitSlug]/page.tsx`, `api/[unitSlug]/transactions/route.ts`
+
+**Problem:** Tab transaksi selalu menampilkan semua transaksi tanpa filter tanggal. Tidak ada cara untuk melihat transaksi hari ini saja atau dalam periode tertentu.
+
+**Fix:**
+- API: Tambahkan support `range` query parameter (today/7d/30d) dengan kalkulasi WIB timezone
+- UI: Tambahkan filter buttons "Hari Ini", "7 Hari", "30 Hari" di atas tabel. Empty state menyesuaikan berdasarkan range yang dipilih.
+
+---
+
+### Issue #20-22 — Stats Card Minor Fixes (FIXED)
+
+| # | Fix | Severity |
+|---|-----|----------|
+| #20 | Card "Produk" sekarang menampilkan "Layanan" untuk service units | LOW |
+| #21 | Icon `TrendingDown` tidak tampil saat `todayRevenue=0` — diganti `Minus` icon | LOW |
+| #22 | Peak hours empty state menampilkan konteks "lihat chart mingguan" | LOW |
+
+*Diperbarui: 31 Mei 2026*
