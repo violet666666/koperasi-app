@@ -426,6 +426,8 @@ Dalam blok journal path (`if (journalLines.length > 0)`), **TAMBAHKAN** query pe
 | **28** | **Per-Unit CB Income Merge** | `src/lib/services/shu-calculator.ts` | CB income per unitType di-merge ke `unitRevenueMap` yang sudah ada. Revenue per unit sekarang mencakup StoreSale + UnitTransaction + CB income. |
 | **29** | **API incomeGroups passthrough** | `src/app/api/reports/shu/route.ts` | Field `incomeGroups` ditambahkan ke response SHU API. |
 | **30** | **UI Income Group Cards** | `src/app/(protected)/laporan/shu/page.tsx` | 3 card berwarna ditambahkan di bawah summary: hijau (Unit Usaha), biru (SimpanPinjam), kuning (Lainnya). Masing-masing dengan breakdown expandable per sumber pendapatan. |
+| **31** | **Payment Method Breakdown per Unit** | `src/lib/services/shu-calculator.ts` | StoreSale dan UnitTransaction di-groupBy berdasarkan `unitType + paymentMethod`. Hasilnya dimasukkan ke field `paymentMethodBreakdown` di setiap entri `unitBreakdown`. Metode: Tunai, QRIS, Potong Gaji. |
+| **32** | **UI Expandable Payment Method** | `src/app/(protected)/laporan/shu/page.tsx` | Tabel unit breakdown sekarang expandable — klik baris unit untuk melihat rincian metode pembayaran (Tunai/QRIS/Potong Gaji) dengan persentase, jumlah, dan count transaksi. Warna: hijau (Tunai), ungu (QRIS), oranye (Potong Gaji). |
 
 ### W. Detail Teknis
 

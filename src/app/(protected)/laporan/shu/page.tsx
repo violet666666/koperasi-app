@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText, Loader2 } from "lucide-react";
+import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
@@ -111,6 +111,7 @@ interface UnitBreakdown {
     revenue: number;
     expense: number;
     transactionCount: number;
+    paymentMethodBreakdown: { method: string; label: string; amount: number; count: number }[];
 }
 
 const MONTHS = [
@@ -190,6 +191,7 @@ export default function LaporanSHUPage() {
     const [selectedMonth, setSelectedMonth] = React.useState("all");
     const [isLoading, setIsLoading] = React.useState(true);
     const [data, setData] = React.useState<SHUData | null>(null);
+    const [expandedUnits, setExpandedUnits] = React.useState<Set<string>>(new Set());
 
     // Server-side pagination state
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
@@ -505,6 +507,7 @@ export default function LaporanSHUPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
+                                                <TableHead className="w-8"></TableHead>
                                                 <TableHead>Unit Usaha</TableHead>
                                                 <TableHead className="text-right">Pendapatan</TableHead>
                                                 <TableHead className="text-right">Pengeluaran</TableHead>
@@ -517,27 +520,81 @@ export default function LaporanSHUPage() {
                                                 .sort((a, b) => b.revenue - a.revenue)
                                                 .map((unit) => {
                                                     const netProfit = unit.revenue - (unit.expense || 0);
+                                                    const isExpanded = expandedUnits.has(unit.unitType);
+                                                    const hasMethods = unit.paymentMethodBreakdown && unit.paymentMethodBreakdown.length > 0;
                                                     return (
-                                                        <TableRow key={unit.unitType}>
-                                                            <TableCell>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`inline-block w-2 h-2 rounded-full ${unit.category === "store" ? "bg-emerald-500" : "bg-blue-500"}`} />
-                                                                    <span className="font-medium">{unit.label}</span>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right tabular-nums text-emerald-600 font-medium">
-                                                                {formatCurrency(unit.revenue)}
-                                                            </TableCell>
-                                                            <TableCell className="text-right tabular-nums text-red-600 font-medium">
-                                                                {unit.expense ? formatCurrency(unit.expense) : "-"}
-                                                            </TableCell>
-                                                            <TableCell className={`text-right tabular-nums font-bold ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                                                                {formatCurrency(netProfit)}
-                                                            </TableCell>
-                                                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                                                                {unit.transactionCount}
-                                                            </TableCell>
-                                                        </TableRow>
+                                                        <React.Fragment key={unit.unitType}>
+                                                            <TableRow
+                                                                className={hasMethods ? "cursor-pointer hover:bg-muted/50" : ""}
+                                                                onClick={() => {
+                                                                    if (hasMethods) {
+                                                                        setExpandedUnits(prev => {
+                                                                            const next = new Set(prev);
+                                                                            if (next.has(unit.unitType)) next.delete(unit.unitType);
+                                                                            else next.add(unit.unitType);
+                                                                            return next;
+                                                                        });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <TableCell className="w-8 py-2">
+                                                                    {hasMethods ? (
+                                                                        isExpanded
+                                                                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                    ) : null}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`inline-block w-2 h-2 rounded-full ${unit.category === "store" ? "bg-emerald-500" : "bg-blue-500"}`} />
+                                                                        <span className="font-medium">{unit.label}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right tabular-nums text-emerald-600 font-medium">
+                                                                    {formatCurrency(unit.revenue)}
+                                                                </TableCell>
+                                                                <TableCell className="text-right tabular-nums text-red-600 font-medium">
+                                                                    {unit.expense ? formatCurrency(unit.expense) : "-"}
+                                                                </TableCell>
+                                                                <TableCell className={`text-right tabular-nums font-bold ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                                    {formatCurrency(netProfit)}
+                                                                </TableCell>
+                                                                <TableCell className="text-right tabular-nums text-muted-foreground">
+                                                                    {unit.transactionCount}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                            {/* Payment Method Breakdown (expandable) */}
+                                                            {isExpanded && hasMethods && (
+                                                                <TableRow className="bg-muted/30">
+                                                                    <TableCell colSpan={6} className="p-0">
+                                                                        <div className="px-12 py-3 space-y-2">
+                                                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                                                                                Rincian Metode Pembayaran
+                                                                            </p>
+                                                                            <div className="grid grid-cols-3 gap-3">
+                                                                                {unit.paymentMethodBreakdown.map(pm => {
+                                                                                    const pct = unit.revenue > 0 ? Math.round((pm.amount / unit.revenue) * 100) : 0;
+                                                                                    const methodColor =
+                                                                                        pm.method === "cash" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" :
+                                                                                        pm.method === "qris" ? "text-purple-600 bg-purple-50 dark:bg-purple-950/30" :
+                                                                                        "text-orange-600 bg-orange-50 dark:bg-orange-950/30";
+                                                                                    return (
+                                                                                        <div key={pm.method} className={`rounded-md p-3 ${methodColor}`}>
+                                                                                            <div className="flex items-center justify-between mb-1">
+                                                                                                <span className="text-xs font-medium">{pm.label}</span>
+                                                                                                <span className="text-xs tabular-nums">{pct}%</span>
+                                                                                            </div>
+                                                                                            <p className="text-sm font-bold tabular-nums">{formatCurrency(pm.amount)}</p>
+                                                                                            <p className="text-xs mt-0.5 opacity-70">{pm.count} transaksi</p>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
+                                                        </React.Fragment>
                                                     );
                                                 })
                                             }

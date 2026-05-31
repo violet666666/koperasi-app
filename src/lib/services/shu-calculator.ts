@@ -365,7 +365,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
     // Menggunakan blacklist untuk menangkap SEMUA expense operasional
-    const [storeSalesByUnit, unitTxByUnit, expenseByUnit, incomeByUnit] = await Promise.all([
+    const [storeSalesByUnit, unitTxByUnit, expenseByUnit, incomeByUnit,
+           storeSalesByMethod, unitTxByMethod,
+    ] = await Promise.all([
         prisma.storeSale.groupBy({
             by: ['unitType'],
             where: {
@@ -408,7 +410,57 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _sum: { amount: true },
             _count: true,
         }),
+        // === PAYMENT METHOD BREAKDOWN: StoreSale per unitType + paymentMethod ===
+        prisma.storeSale.groupBy({
+            by: ['unitType', 'paymentMethod'],
+            where: {
+                createdAt: { gte: startDate, lte: endDate },
+                NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+            },
+            _sum: { totalAmount: true },
+            _count: true,
+        }),
+        // === PAYMENT METHOD BREAKDOWN: UnitTransaction per unitType + paymentMethod ===
+        prisma.unitTransaction.groupBy({
+            by: ['unitType', 'paymentMethod'],
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                isPaid: true,
+                status: "completed",
+            },
+            _sum: { amount: true },
+            _count: true,
+        }),
     ]);
+
+    // === Build payment method breakdown per unit ===
+    // Normalize: salary_cut → Potong Gaji, qris → QRIS, cash → Tunai
+    const METHOD_LABELS: Record<string, string> = {
+        cash: "Tunai",
+        qris: "QRIS",
+        salary_cut: "Potong Gaji",
+        bank_transfer: "Transfer Bank",
+        credit: "Potong Gaji",
+    };
+    type MethodBreakdown = { method: string; label: string; amount: number; count: number };
+    const unitMethodMap: Record<string, Record<string, MethodBreakdown>> = {};
+
+    function addMethodEntry(unitKey: string, method: string | null, amount: number, count: number) {
+        const m = method || "cash";
+        if (!unitMethodMap[unitKey]) unitMethodMap[unitKey] = {};
+        if (!unitMethodMap[unitKey][m]) {
+            unitMethodMap[unitKey][m] = { method: m, label: METHOD_LABELS[m] || m, amount: 0, count: 0 };
+        }
+        unitMethodMap[unitKey][m].amount += amount;
+        unitMethodMap[unitKey][m].count += count;
+    }
+
+    for (const s of storeSalesByMethod) {
+        addMethodEntry(s.unitType || "toko", s.paymentMethod, toNum(s._sum.totalAmount), s._count);
+    }
+    for (const u of unitTxByMethod) {
+        addMethodEntry(u.unitType, u.paymentMethod, toNum(u._sum.amount), u._count);
+    }
 
     // Build expense map per unitType (termasuk NULL sebagai 'umum')
     const unitExpenseMap: Record<string, number> = {};
@@ -459,6 +511,8 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             revenue: data.revenue,
             expense: unitExpenseMap[ut] || 0,
             transactionCount: data.txCount,
+            paymentMethodBreakdown: Object.values(unitMethodMap[ut] || {})
+                .sort((a, b) => b.amount - a.amount),
         })),
         // Tambahkan baris "Beban Umum" untuk expense yang unitType=NULL/none
         ...(unallocatedExpense > 0 ? [{
@@ -468,6 +522,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             revenue: 0,
             expense: unallocatedExpense,
             transactionCount: unallocatedExpenseCount,
+            paymentMethodBreakdown: [] as MethodBreakdown[],
         }] : []),
     ];
 

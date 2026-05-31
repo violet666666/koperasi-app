@@ -543,6 +543,7 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | Income 3-Group Cards | 3 card berwarna di Laporan SHU: Unit Usaha (hijau), SimpanPinjam (biru), Lainnya (kuning) |
 | Dana Resiko Income | `Loan.adminFee` otomatis masuk sebagai Pendapatan SimpanPinjam |
 | Per-Unit Revenue Akurat | Revenue per unit sekarang mencakup StoreSale + UnitTransaction + CB income |
+| Payment Method Breakdown | Expandable rows per unit menunjukkan rincian Tunai/QRIS/Potong Gaji dengan persentase dan jumlah transaksi |
 | Monthly Filter | Sudah ada sebelumnya, berfungsi baik |
 
 ### 11.2 Bug Fixes
