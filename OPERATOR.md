@@ -514,7 +514,26 @@ Untuk meningkatkan kenyamanan operator saat memantau data unit usaha, dilakukan 
 
 ---
 
-## 11. Key Source Files
+### 10.3 ⚠️ Bug Aktif: SHU Bersih = Rp 0 (Ditemukan: 1 Juni 2026, 01:16 WIB)
+
+**Status:** OPEN — Belum diperbaiki, hanya dicatat.
+
+Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal path), SHU Bersih turun menjadi **Rp 0** karena:
+- Journal path membaca income hanya dari JournalLine type=income (**Rp 95jt**)
+- Tapi expense sekarang termasuk CB non-journaled (**Rp 2,58M**)
+- `Math.max(0, 95jt - 2.58M) = 0`
+
+**Akar masalah:** Pendapatan riil koperasi (CB type=in Rp 6,85M, UnitTransaction Rp 66jt, LoanPayment Rp 234jt) tidak masuk ke `totalIncome` saat journal path aktif. Fix sebelumnya menambah expense tanpa menambah income yang setara — menciptakan asimetri fatal.
+
+**Dampak:** Seluruh alokasi SHU (anggota & non-anggota) = Rp 0.
+
+> Dokumentasi lengkap: **SHU-BUG-AND-UPDATE.md Section 11** (RC-5 & RC-6)
+
+*Ditemukan: 1 Juni 2026, 01:16 WIB*
+
+---
+
+## 12. Key Source Files
 
 | File | Fungsi |
 |------|--------|
@@ -528,3 +547,4 @@ Untuk meningkatkan kenyamanan operator saat memantau data unit usaha, dilakukan 
 | `src/app/api/billing/generate/route.ts` | Billing period generation + custom dates |
 | `src/app/api/unit-transactions/[id]/member/route.ts` | Edit NRP on transactions |
 | `akun-primkoppol.md` | Test accounts documentation |
+| `src/lib/services/shu-calculator.ts` | Kalkulator SHU utama (⚠️ bug aktif Section 10.3) |

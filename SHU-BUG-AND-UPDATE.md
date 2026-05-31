@@ -311,3 +311,100 @@ SESUDAH FIX:
 ```
 
 *Diperbarui: 31 Mei 2026*
+
+---
+
+## 11. BUG: SHU BERSIH = 0 SETELAH FIX EXPENSE (Ditemukan: 1 Juni 2026, 01:16 WIB)
+
+> **Status:** ⚠️ OPEN — Belum diperbaiki, hanya dicatat.
+> **Pelapor:** Operator (via pengecekan manual UI Laporan SHU)
+> **Waktu Penemuan:** 2026-06-01T01:16:33+07:00 (Minggu, 1 Juni 2026 dini hari)
+
+### O. Deskripsi Bug
+
+Setelah fix Section 10 (penambahan CashBankTransaction expense non-journaled ke journal path), **SHU Bersih (Net Surplus) menjadi Rp 0**. Seluruh alokasi SHU anggota dan non-anggota otomatis bernilai Rp 0 karena diturunkan dari `netSurplus`.
+
+### P. Hasil Diagnostik Database (1 Juni 2026, 01:17 WIB)
+
+Script `diagnose-shu-zero.ts` dan `diagnose-shu-income.ts` dijalankan langsung ke database production:
+
+```
+TOTAL INCOME (journal path):  Rp 95.346.900     ← Hanya dari 3 akun jurnal type=income
+TOTAL EXPENSE:                Rp 2.579.253.741  ← Dari CB non-journaled (fix Section 10)
+NET SURPLUS (raw):            Rp -2.483.906.841
+NET SURPLUS (clamped):        Rp 0              ← Math.max(0, income - expense) = 0
+```
+
+### Q. Akar Masalah (Root Cause)
+
+| No | Root Cause | Dampak |
+|:---|:---|:---|
+| **RC-5** | **Journal Path hanya membaca income dari JournalLine type=income (Rp 95jt)**. Sumber pendapatan utama koperasi (CashBankTransaction type=in, UnitTransaction, LoanPayment interest) **TIDAK MASUK** ke totalIncome saat journal path aktif. | totalIncome = Rp 95jt vs totalExpense = Rp 2,58M → deficit Rp 2,48M → SHU = 0 |
+| **RC-6** | **Asimetri antara income dan expense pada journal path.** Fix Section 10 menambahkan CB expense non-journaled (Rp 2,58M), tetapi TIDAK menambahkan CB income non-journaled yang setara. Expense bertambah tanpa income yang seimbang. | Ketidakseimbangan besar antara sisi pendapatan dan pengeluaran |
+
+### R. Data Pendapatan yang Hilang dari Journal Path
+
+Diagnostic menemukan sumber pendapatan riil koperasi yang **tidak tercakup** oleh JournalLine:
+
+| Sumber Pendapatan | Jumlah Tx | Nilai Rp | Status di Journal Path |
+|:---|:---|:---|:---|
+| CashBankTransaction type=in (non-journaled) | 2.795 tx | **Rp 6.849.722.199** | ❌ TIDAK MASUK |
+| UnitTransaction (completed, isPaid) | 1.587 tx | **Rp 66.130.900** | ❌ TIDAK MASUK |
+| LoanPayment interest | — | **Rp 234.394.832** | ❌ TIDAK MASUK (hanya Rp 95jt via jurnal) |
+| StoreSale | 0 tx | Rp 0 | N/A (semua via CB) |
+| **TOTAL PENDAPATAN RIIL** | — | **Rp 8.175.049.502** | — |
+
+**Rincian CB type=in terbesar per kategori:**
+
+| Kategori | Jumlah Tx | Nilai Rp |
+|:---|:---|:---|
+| `lainnya` | 59 tx | Rp 5.837.218.366 |
+| `biaya_operasional` | 20 tx | Rp 868.149.433 |
+| `angsuran_pokok` | 153 tx | Rp 691.081.571 |
+| `(null)` | 7 tx | Rp 423.633.408 |
+| `pendapatan_unit` | 1.473 tx | Rp 65.271.000 |
+| `pendapatan_toko` | 1.152 tx | Rp 52.028.400 |
+
+### S. Lokasi Bug di Kode
+
+**File:** `src/lib/services/shu-calculator.ts`
+**Baris:** 100–117 (blok `if (journalLines.length > 0)`)
+
+```typescript
+// MASALAH: Blok ini HANYA membaca income dari JournalLine type=income
+// tetapi setelah fix Section 10, expense ditambahkan dari CB non-journaled.
+// Akibatnya income << expense → netSurplus = 0
+if (journalLines.length > 0) {
+    for (const line of journalLines) {
+        if (line.account.type === "income") {
+            totalIncome += credit - debit;  // ← Hanya Rp 95jt
+        } else if (line.account.type === "expense") {
+            totalExpense += debit - credit;
+        }
+    }
+    // ... kemudian menambahkan CB expense non-journaled (Rp 2,58M) ...
+    // ... TAPI TIDAK menambahkan CB income non-journaled (Rp 6,85M) ...
+}
+```
+
+**Baris kritis:** `const netSurplus = Math.max(0, totalIncome - totalExpense);` (Line 245)
+
+### T. Solusi yang Direkomendasikan (Belum Diimplementasi)
+
+Dalam blok journal path (`if (journalLines.length > 0)`), **TAMBAHKAN** query pendapatan non-journaled yang simetris dengan expense non-journaled, yaitu:
+
+1. **CashBankTransaction type=in yang `journalId=NULL`** — Pendapatan kas masuk yang belum dijurnal (Rp 6,85M). Gunakan blacklist kategori non-income serupa dengan pendekatan expense (exclude: `savings`, `transfer`, `angsuran_pokok`, `simpanan_*`, `pencairan_pinjaman`).
+2. **UnitTransaction (completed, isPaid)** — Pendapatan unit layanan (Rp 66jt). Perlu cek apakah sudah tercatat di jurnal atau belum.
+3. **LoanPayment interestPortion** — Pendapatan jasa pinjaman (Rp 234jt). Perlu cek selisih antara jurnal (Rp 95jt) dan total langsung (Rp 234jt).
+
+> ⚠️ **PERHATIAN:** Harus hati-hati agar tidak terjadi double-counting income. Pendapatan yang sudah masuk via JournalLine type=income **TIDAK BOLEH** dihitung ulang dari CashBankTransaction. Gunakan filter `journalId = null` yang sama seperti pada sisi expense.
+
+### U. Dampak Jika Tidak Diperbaiki
+
+- **SHU Bersih = Rp 0** untuk seluruh periode 2026
+- **Alokasi SHU anggota = Rp 0** (Jasa Modal, Jasa Usaha, SHU Cuci Mobil tetap terhitung tapi pool = 0)
+- **Alokasi SHU non-anggota = Rp 0** (Cadangan, Pendidikan, Sosial, Pegawai)
+- Laporan SHU menampilkan pendapatan sangat kecil relatif terhadap pengeluaran
+
+*Ditemukan: 1 Juni 2026, 01:16 WIB*
+*Dicatat: 1 Juni 2026, 01:18 WIB*
