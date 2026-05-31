@@ -562,4 +562,21 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 | #21 | Icon `TrendingDown` tidak tampil saat `todayRevenue=0` — diganti `Minus` icon | LOW |
 | #22 | Peak hours empty state menampilkan konteks "lihat chart mingguan" | LOW |
 
+---
+
+### Issue #23 — Beban Unit pada Unit Breakdown Bernilai Nol (FIXED)
+
+**Severity:** HIGH | **File:** `src/lib/services/shu-calculator.ts`
+
+**Problem:** Meskipun UI untuk Unit Breakdown telah diubah dari progress bar menjadi tabel 5 kolom (Issue #17), data pengeluaran (beban) per unit usaha di laporan SHU tetap bernilai Rp 0 atau tidak akurat. Hal ini disebabkan oleh:
+1. Whitelist kategori pengeluaran (`EXPENSE_CATEGORIES`) terlalu sempit, mengabaikan pengeluaran besar berkategori `operational` dan `lainnya` (Rp 1.62M terlewat).
+2. Jalur kalkulasi *Journal Path* (3.984 baris data) sepenuhnya mengabaikan transaksi pengeluaran dari `CashBankTransaction` yang diinput manual oleh operator namun belum dijurnal otomatis (Rp 2.58B terlewat).
+3. Sebanyak 99% transaksi pengeluaran operasional di database memiliki `unitType = NULL`.
+
+**Fix:**
+1. Mengubah mekanisme filter pengeluaran dari whitelist sempit menjadi blacklist (`NON_EXPENSE_CATEGORIES`) agar dapat mencakup seluruh biaya operasional riil (`biaya_operasional`, `beban_unit`, `operational`, `lainnya`).
+2. Menggabungkan pengeluaran dari `CashBankTransaction` yang memiliki `journalId = null` (belum dijurnal) ke dalam kalkulasi *Journal Path*, lengkap dengan deduplikasi aman (transaksi yang sudah dijurnal dilewati).
+3. Mengelompokkan transaksi pengeluaran tanpa label unit (`unitType = null/none`) sebagai **"Beban Umum (Belum Dialokasi)"** agar perhitungan laporan SHU tetap seimbang dan transparan.
+4. Koreksi ini berhasil menyuntikkan **+Rp 2.578.988.041** beban operasional riil ke kalkulator SHU, membuat kolom "Pengeluaran" pada tabel Unit Breakdown menampilkan angka real-time yang akurat.
+
 *Diperbarui: 31 Mei 2026*

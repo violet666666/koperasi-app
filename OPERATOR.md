@@ -469,9 +469,52 @@ Total tests: 34 (sebelumnya 31).
 
 All known issues resolved.
 
+## 10. Update 31 Mei 2026 — Sinkronisasi Beban SHU & UI/UX Manajemen Unit
+
+### 10.1 Sinkronisasi Database-Level Beban Biaya SHU
+
+Telah dilakukan investigasi dan perbaikan mendalam terhadap masalah ketidaksinkronan data total beban biaya SHU dengan pengeluaran operasional riil unit usaha koperasi pada basis data.
+
+**Temuan Akar Masalah (Database-Level Root Causes):**
+- **RC-1 (Journal Path Ignored Expenses):** Jalur kalkulasi berbasis Jurnal (3.984 baris di database) sama sekali tidak mengikutsertakan transaksi pengeluaran dari `CashBankTransaction` (transaksi kas/bank keluar yang diinput manual oleh operator namun belum dibuatkan jurnal otomatisnya). Dampaknya, **Rp 2.578.988.041** beban operasional terlewatkan dari perhitungan SHU.
+- **RC-2 (NULL Unit Type):** Sebanyak 99% transaksi pengeluaran bermerek `biaya_operasional` tercatat dengan `unitType = NULL`. Ini menyebabkan pemecahan beban per unit usaha selalu menghasilkan angka Rp 0.
+- **RC-3 (Whitelist Terlalu Sempit):** Kategori pengeluaran operasional bernilai besar seperti `operational` (164 transaksi) dan `lainnya` (86 transaksi) tidak masuk dalam whitelist `EXPENSE_CATEGORIES` yang lama. Hal ini menyembunyikan pengeluaran sebesar **Rp 1.620.055.001**.
+- **RC-4 (StoreSale Revenue 0):** Seluruh pendapatan toko dicatat langsung via transaksi kas/bank atau unit transaction, sehingga StoreSale bernilai kosong.
+
+**Penyelesaian Teknis (100% CLOSED):**
+1. **Merge Journal & CashBankTransaction:** Logika kalkulator di `shu-calculator.ts` dirombak. Ketika sistem masuk ke jalur jurnal (`journalLines.length > 0`), kalkulator sekarang mengambil pengeluaran dari `CashBankTransaction` yang belum dijurnal (`journalId = null`).
+2. **Penerapan Metode Blacklist:** Whitelist kategori pengeluaran dihapus. Sistem kini mendeteksi pengeluaran dengan metode blacklist (`NON_EXPENSE_CATEGORIES`), menyaring keluar transaksi non-biaya seperti `pencairan_pinjaman`, `transfer`, dan `savings`. Ini menjamin seluruh pengeluaran riil (`biaya_operasional`, `beban_unit`, `operational`, `lainnya`) terhitung secara aman dan otomatis.
+3. **Deduplikasi Aman:** Untuk menghindari risiko perhitungan ganda (*double-counting*), transaksi kas/bank yang sudah memiliki `journalId` dilewatkan (karena nilainya sudah terwakili di baris jurnal).
+4. **Beban Umum (Belum Dialokasi):** Transaksi pengeluaran yang tidak memiliki label unit (`unitType = null/none`) sekarang otomatis dikelompokkan ke dalam kategori **"Beban Umum (Belum Dialokasi)"** sehingga visualisasi laporan SHU tetap seimbang dan akurat.
+
+**Dampak Angka Hasil Perbaikan:**
+- Total beban biaya SHU bertambah presisi sebesar **+Rp 2.578.988.041** (mengoreksi laba bersih fiktif sebelumnya).
+- Distribusi pengeluaran per unit tampil secara real-time di UI:
+  - Unit Toko: Rp 118.641.401
+  - Unit Cuci Mobil: Rp 14.814.700
+  - Unit Cafe LSP: Rp 2.292.500
+  - Beban Umum: Rp 2.367.366.565
+
 ---
 
-## 10. Key Source Files
+### 10.2 Penyempurnaan 8 Poin UI/UX Manajemen Unit
+
+Untuk meningkatkan kenyamanan operator saat memantau data unit usaha, dilakukan penyempurnaan menyeluruh pada antarmuka *Manajemen Unit* agar lebih premium dan responsif:
+
+| ID | Perbaikan / Fitur | Tingkat Kepentingan | Lokasi File | Deskripsi |
+|---|---|---|---|---|
+| **U1** | Dashboard Category Filter | MEDIUM | `manajemen-unit/page.tsx` | Menyediakan filter kategori di atas grid dashboard ("Semua", "Toko/POS", "Layanan") agar operator dapat mengelompokkan 9 unit usaha dengan cepat tanpa scroll berlebih. |
+| **U2** | Label "Layanan" Dinamis | LOW | `[unitSlug]/page.tsx` | Mengubah label kartu statistik "Produk" menjadi "Layanan" secara dinamis khusus untuk unit berbentuk jasa/layanan (seperti cuci mobil, barbershop, dll.). |
+| **U3** | Penggabungan Grafik Mingguan | HIGH | `api/[unitSlug]/stats/route.ts` | Menggabungkan data mingguan dari `StoreSale` dan `UnitTransaction` secara simultan untuk semua unit. Menjamin visualisasi grafik tren mingguan pada unit campuran seperti Toko tampil utuh. |
+| **U4** | Search Filter Produk | MEDIUM | `[unitSlug]/page.tsx` | Menambahkan kolom pencarian produk dengan ikon search dan debounce 300ms untuk menangani pencarian responsif pada ribuan item di unit retail. |
+| **U5** | Date Filter & API Transaksi | MEDIUM | `[unitSlug]/page.tsx`, `api/[unitSlug]/transactions/route.ts` | Menambahkan opsi filter rentang waktu ("Hari Ini", "7 Hari", "30 Hari") pada tabel transaksi unit detail, didukung parameter `range` di backend API. |
+| **U6** | Custom Empty State Jam Ramai | LOW | `[unitSlug]/page.tsx` | Mengganti tampilan kosong yang kaku jika transaksi hari ini belum ada dengan petunjuk edukatif agar operator memeriksa grafik mingguan. |
+| **U7** | Clean Trend Icon (Revenue=0) | LOW | `[unitSlug]/page.tsx` | Menghilangkan ikon `TrendingDown` (merah) yang bias negatif saat pendapatan unit hari ini Rp 0, digantikan dengan ikon `Minus` (netral) yang bersih. |
+| **U8** | Laba/Rugi Unit Minus Terlacak | LOW | `[unitSlug]/page.tsx` | Memastikan unit usaha yang hanya mencatatkan biaya pengeluaran (tanpa pendapatan) tetap muncul dengan laba bersih bernilai minus di visualisasi laporan. |
+
+---
+
+## 11. Key Source Files
 
 | File | Fungsi |
 |------|--------|
