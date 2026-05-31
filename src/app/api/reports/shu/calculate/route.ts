@@ -12,9 +12,11 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const year = searchParams.get("year") || new Date().getFullYear().toString();
         const yearNum = parseInt(year);
+        const monthParam = searchParams.get("month");
+        const month = monthParam && monthParam !== "all" ? parseInt(monthParam) : null;
 
         // Fetch data from SSOT
-        const data = await calculateSystemSHU(yearNum, null);
+        const data = await calculateSystemSHU(yearNum, month);
 
         // Helper to find exact allocation amount based on key
         const getAllocM = (key: string) => data.allocationsMember.find(a => a.key === key)?.amount || 0;

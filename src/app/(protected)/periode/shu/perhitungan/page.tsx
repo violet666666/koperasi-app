@@ -26,6 +26,7 @@ import {
     Download,
     Loader2,
     RefreshCw,
+    CalendarDays,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { toast } from "sonner";
@@ -113,9 +114,20 @@ const columns: ColumnDef<MemberSHU>[] = [
 export default function SHUCalculationPage() {
     const now = new Date();
     const [selectedYear, setSelectedYear] = React.useState<string>(String(now.getFullYear()));
+    const [selectedMonth, setSelectedMonth] = React.useState<string>("all");
     const [shuData, setShuData] = React.useState<SHUCalculation | null>(null);
     const [memberSHU, setMemberSHU] = React.useState<MemberSHU[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+
+    const MONTHS = [
+        { value: "1", label: "Januari" }, { value: "2", label: "Februari" },
+        { value: "3", label: "Maret" }, { value: "4", label: "April" },
+        { value: "5", label: "Mei" }, { value: "6", label: "Juni" },
+        { value: "7", label: "Juli" }, { value: "8", label: "Agustus" },
+        { value: "9", label: "September" }, { value: "10", label: "Oktober" },
+        { value: "11", label: "November" }, { value: "12", label: "Desember" },
+    ];
+    const isMonthlyView = selectedMonth !== "all";
 
     const yearOptions = React.useMemo(() => {
         const years: string[] = [];
@@ -129,10 +141,12 @@ export default function SHUCalculationPage() {
     const fetchData = React.useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/reports/shu/calculate?year=${selectedYear}`);
+            const params = new URLSearchParams({ year: selectedYear });
+            if (selectedMonth !== "all") params.set("month", selectedMonth);
+            const res = await fetch(`/api/reports/shu/calculate?${params}`);
             if (!res.ok) throw new Error("Gagal mengambil data perhitungan SHU");
             const json = await res.json();
-            
+
             if (json.data) {
                 setShuData(json.data.shuData);
                 setMemberSHU(json.data.memberSHU);
@@ -143,7 +157,7 @@ export default function SHUCalculationPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedYear]);
+    }, [selectedYear, selectedMonth]);
 
     React.useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -193,11 +207,14 @@ export default function SHUCalculationPage() {
                 }
             />
 
-            {/* Year Selector */}
+            {/* Year & Month Selector */}
             <Card>
                 <CardContent className="p-4">
                     <div className="flex flex-wrap gap-4 items-center">
-                        <span className="text-sm text-muted-foreground">Tahun Buku:</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <CalendarDays className="h-4 w-4" />
+                            <span>Periode:</span>
+                        </div>
                         <Select value={selectedYear} onValueChange={setSelectedYear}>
                             <SelectTrigger className="w-[120px]">
                                 <SelectValue />
@@ -208,6 +225,22 @@ export default function SHUCalculationPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                            <SelectTrigger className="w-[150px]">
+                                <SelectValue placeholder="Semua Bulan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Semua Bulan (Tahunan)</SelectItem>
+                                {MONTHS.map(m => (
+                                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {isMonthlyView && (
+                            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                Proyeksi Bulanan
+                            </span>
+                        )}
                         {shuData && statusBadge(shuData.status)}
                         {shuData && (
                             <span className="text-xs text-muted-foreground">
@@ -215,6 +248,11 @@ export default function SHUCalculationPage() {
                             </span>
                         )}
                     </div>
+                    {isMonthlyView && (
+                        <p className="text-xs text-muted-foreground mt-2 ml-6">
+                            SHU resmi dibagi setahun sekali saat RAT. Ini adalah proyeksi per bulan untuk audit operasional.
+                        </p>
+                    )}
                 </CardContent>
             </Card>
 
