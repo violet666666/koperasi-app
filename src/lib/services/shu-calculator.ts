@@ -43,6 +43,22 @@ const NON_EXPENSE_CATEGORIES = [
     "void_unit_transaction",  // Void/pembatalan, bukan real expense
     "pendapatan_unit",        // Income bukan expense
     "jasa_pinjaman",          // Income bukan expense
+    "penalti_pelunasan",      // Income bukan expense
+    "dana_resiko",            // Income bukan expense
+];
+
+// Kategori CashBankTransaction type=in yang BUKAN pendapatan riil (blacklist approach)
+// Semua kategori selain ini dianggap sebagai pendapatan untuk SHU
+const NON_INCOME_CATEGORIES = [
+    "savings",              // Penarikan simpanan
+    "simpanan_pokok",       // Setoran simpanan pokok (modal, bukan revenue)
+    "simpanan_wajib",       // Setoran simpanan wajib (modal, bukan revenue)
+    "simpanan_sukarela",    // Setoran simpanan sukarela (modal, bukan revenue)
+    "setoran_simpanan",     // Setoran simpanan (mobile)
+    "transfer",             // Transfer antar rekening (bukan revenue)
+    "pencairan_pinjaman",   // Pencairan pinjaman (bukan revenue)
+    "angsuran_pokok",       // Pembayaran pokok pinjaman (hutang, bukan revenue)
+    "loan",                 // Generic loan reference (member portal)
 ];
 
 // Label mapping untuk CashBankTransaction expense categories
@@ -54,6 +70,41 @@ const CB_EXPENSE_LABELS: Record<string, { code: string; name: string }> = {
     operational: { code: "CB-OPS", name: "Biaya Operasional (Legacy)" },
     lainnya: { code: "CB-LAIN", name: "Pengeluaran Lainnya" },
 };
+
+// Label mapping untuk CashBankTransaction income categories
+const CB_INCOME_LABELS: Record<string, { code: string; name: string }> = {
+    jasa_pinjaman: { code: "SP-JASA", name: "Jasa Pinjaman (Bunga)" },
+    dana_resiko: { code: "SP-RESIKO", name: "Dana Resiko (Admin Fee)" },
+    pendapatan_unit: { code: "UNT-REV", name: "Pendapatan Unit Layanan" },
+    pendapatan_toko: { code: "TOKO-REV", name: "Pendapatan Toko" },
+    operational: { code: "OPS-REV", name: "Pemasukan Operasional" },
+    lainnya: { code: "INC-LAIN", name: "Pendapatan Lainnya" },
+    biaya_operasional: { code: "OPS-MISC", name: "Pendapatan Operasional Lain" },
+    penalti_pelunasan: { code: "SP-PENALTI", name: "Penalti Pelunasan Dipercepat" },
+};
+
+// Mapping CB income categories → income group
+const INCOME_GROUP_MAP: Record<string, "unit" | "sp" | "lainnya"> = {
+    pendapatan_unit: "unit",
+    pendapatan_toko: "unit",
+    operational: "unit",
+    jasa_pinjaman: "sp",
+    dana_resiko: "sp",
+    penalti_pelunasan: "sp",
+    biaya_operasional: "lainnya",
+    lainnya: "lainnya",
+};
+
+// SP categories untuk kategorisasi income dari CB
+const SP_CATEGORIES = new Set(["jasa_pinjaman", "dana_resiko", "penalti_pelunasan"]);
+const UNIT_CATEGORIES = new Set(["pendapatan_unit", "pendapatan_toko", "operational"]);
+
+interface IncomeGroup {
+    key: string;
+    label: string;
+    amount: number;
+    details: { code: string; name: string; amount: number }[];
+}
 
 export async function calculateSystemSHU(year: number, month?: number | null) {
     const isAllMonths = !month;
@@ -113,6 +164,59 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 totalExpense += amount;
                 if (!expenseAccounts[line.account.code]) expenseAccounts[line.account.code] = { code: line.account.code, name: line.account.name, amount: 0 };
                 expenseAccounts[line.account.code].amount += amount;
+            }
+        }
+
+        // === INCOME MERGE: CB type=in non-journaled ===
+        // Simetris dengan expense merge: tambahkan pendapatan dari CashBankTransaction
+        // yang belum dijurnal (journalId=NULL). Ini mencakup: jasa_pinjaman,
+        // pendapatan_unit, pendapatan_toko, operational, dana_resiko, lainnya, dll.
+        const nonJournaledIncome = await prisma.cashBankTransaction.findMany({
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                type: "in",
+                journalId: null, // Hanya yang belum dijurnal (hindari double counting)
+                category: { notIn: NON_INCOME_CATEGORIES },
+            },
+        });
+
+        const cbIncomeByCategory: Record<string, number> = {};
+        nonJournaledIncome.forEach(tx => {
+            const cat = tx.category || "lainnya";
+            cbIncomeByCategory[cat] = (cbIncomeByCategory[cat] || 0) + toNum(tx.amount);
+        });
+
+        for (const [cat, amount] of Object.entries(cbIncomeByCategory)) {
+            totalIncome += amount;
+            const meta = CB_INCOME_LABELS[cat] || {
+                code: `INC-${cat.toUpperCase().slice(0, 8)}`,
+                name: `Pendapatan: ${cat.replace(/_/g, " ")}`,
+            };
+            if (incomeAccounts[meta.code]) {
+                incomeAccounts[meta.code].amount += amount;
+            } else {
+                incomeAccounts[meta.code] = { code: meta.code, name: meta.name, amount };
+            }
+        }
+
+        // === DANA RESIKO: Query langsung dari Loan.adminFee ===
+        // Dana Resiko = 2% admin fee dari pencairan pinjaman. Tidak tercatat sebagai CB
+        // karena dikurangi dari pencairan (member terima principal - adminFee).
+        // Untuk SHU, query langsung dari tabel Loan.
+        const danaResikoAgg = await prisma.loan.aggregate({
+            where: {
+                disbursementDate: { gte: startDate, lte: endDate },
+                status: { in: ["active", "paid_off"] },
+            },
+            _sum: { adminFee: true },
+        });
+        const danaResikoTotal = toNum(danaResikoAgg._sum.adminFee);
+        if (danaResikoTotal > 0) {
+            totalIncome += danaResikoTotal;
+            if (incomeAccounts["SP-RESIKO"]) {
+                incomeAccounts["SP-RESIKO"].amount += danaResikoTotal;
+            } else {
+                incomeAccounts["SP-RESIKO"] = { code: "SP-RESIKO", name: "Dana Resiko (Admin Fee)", amount: danaResikoTotal };
             }
         }
 
@@ -240,13 +344,28 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             totalExpense += cogsTotal;
             expenseAccounts["ST-COGS"] = { code: "ST-COGS", name: "HPP Toko (Modal Barang)", amount: cogsTotal };
         }
+
+        // === DANA RESIKO (Fallback Path) ===
+        // Query langsung dari Loan.adminFee — tidak tercatat sebagai CB
+        const danaResikoFallback = await prisma.loan.aggregate({
+            where: {
+                disbursementDate: { gte: startDate, lte: endDate },
+                status: { in: ["active", "paid_off"] },
+            },
+            _sum: { adminFee: true },
+        });
+        const danaResikoAmount = toNum(danaResikoFallback._sum.adminFee);
+        if (danaResikoAmount > 0) {
+            totalIncome += danaResikoAmount;
+            incomeAccounts["SP-RESIKO"] = { code: "SP-RESIKO", name: "Dana Resiko (Admin Fee)", amount: danaResikoAmount };
+        }
     }
 
     const netSurplus = Math.max(0, totalIncome - totalExpense);
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
     // Menggunakan blacklist untuk menangkap SEMUA expense operasional
-    const [storeSalesByUnit, unitTxByUnit, expenseByUnit] = await Promise.all([
+    const [storeSalesByUnit, unitTxByUnit, expenseByUnit, incomeByUnit] = await Promise.all([
         prisma.storeSale.groupBy({
             by: ['unitType'],
             where: {
@@ -277,6 +396,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _sum: { amount: true },
             _count: true,
         }),
+        // Pendapatan per unit dari Kas & Bank (CB type=in non-journaled, non-savings)
+        prisma.cashBankTransaction.groupBy({
+            by: ['unitType'],
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                type: "in",
+                journalId: null,
+                category: { notIn: NON_INCOME_CATEGORIES },
+            },
+            _sum: { amount: true },
+            _count: true,
+        }),
     ]);
 
     // Build expense map per unitType (termasuk NULL sebagai 'umum')
@@ -293,7 +424,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
     });
 
-    // Merge revenue dari StoreSale dan UnitTransaction ke satu map (hindari duplikat unit)
+    // Merge revenue dari StoreSale, UnitTransaction, dan CB income ke satu map
     const unitRevenueMap: Record<string, { revenue: number; txCount: number }> = {};
     for (const s of storeSalesByUnit) {
         const ut = s.unitType || "toko";
@@ -306,6 +437,13 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
         unitRevenueMap[ut].revenue += toNum(u._sum.amount);
         unitRevenueMap[ut].txCount += u._count;
+    }
+    // Merge CB income per unitType (pendapatan_toko, pendapatan_unit, dll.)
+    for (const i of incomeByUnit) {
+        const ut = i.unitType || "simpan_pinjam";
+        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
+        unitRevenueMap[ut].revenue += toNum(i._sum.amount);
+        unitRevenueMap[ut].txCount += i._count;
     }
 
     // Gabungkan juga unit yang hanya punya expense tapi tidak punya revenue
@@ -499,6 +637,37 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     const incomeDetails = Object.values(incomeAccounts).sort((a, b) => b.amount - a.amount);
     const expenseDetails = Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount);
 
+    // === KATEGORISASI INCOME KE 3 GRUP ===
+    // Pendapatan Unit Usaha, Pendapatan SimpanPinjam (SP), Pendapatan Lainnya
+    const incomeGroups: IncomeGroup[] = [
+        { key: "unit", label: "Pendapatan Unit Usaha", amount: 0, details: [] },
+        { key: "sp", label: "Pendapatan SimpanPinjam (SP)", amount: 0, details: [] },
+        { key: "lainnya", label: "Pendapatan Lainnya", amount: 0, details: [] },
+    ];
+
+    for (const detail of incomeDetails) {
+        // Cari group berdasarkan code pattern
+        let groupKey: "unit" | "sp" | "lainnya" = "lainnya";
+
+        if (detail.code.startsWith("4")) {
+            // Chart of accounts 4xxx = akun income jurnal → default ke SP
+            groupKey = "sp";
+        } else if (detail.code === "UNT-REV" || detail.code === "TOKO-REV" || detail.code === "OPS-REV" || detail.code === "UT-INC" || detail.code === "ST-INC") {
+            groupKey = "unit";
+        } else if (detail.code === "SP-JASA" || detail.code === "SP-RESIKO" || detail.code === "SP-PENALTI" || detail.code === "LN-INC") {
+            groupKey = "sp";
+        } else if (detail.code === "CB-INC" || detail.code === "INC-LAIN" || detail.code === "OPS-MISC") {
+            groupKey = "lainnya";
+        } else if (detail.code.startsWith("INC-")) {
+            // Unknown income category → lainnya
+            groupKey = "lainnya";
+        }
+
+        const group = incomeGroups.find(g => g.key === groupKey)!;
+        group.amount += detail.amount;
+        group.details.push({ code: detail.code, name: detail.name, amount: detail.amount });
+    }
+
     return {
         year,
         month,
@@ -523,6 +692,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         memberDistribution: memberDistribution.sort((a, b) => b.shuAmount - a.shuAmount),
 
         incomeDetails,
+        incomeGroups, // NEW: 3-group income breakdown
         expenseDetails: [
             ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
             ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : [])

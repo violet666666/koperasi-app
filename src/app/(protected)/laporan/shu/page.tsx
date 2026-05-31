@@ -70,6 +70,13 @@ interface IncomeExpenseDetail {
     amount: number;
 }
 
+interface IncomeGroup {
+    key: string;
+    label: string;
+    amount: number;
+    details: { code: string; name: string; amount: number }[];
+}
+
 interface PaginationMeta {
     page: number;
     perPage: number;
@@ -89,6 +96,7 @@ interface SHUData {
     allocationsMember: SHUAllocation[];
     allocationsNonMember: SHUAllocation[];
     incomeDetails: IncomeExpenseDetail[];
+    incomeGroups: IncomeGroup[];
     expenseDetails: IncomeExpenseDetail[];
     memberShu: MemberSHU[];
     memberSharePercent: number;
@@ -432,6 +440,57 @@ export default function LaporanSHUPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Income Group Summary — 3 kategori pendapatan */}
+                    {data.incomeGroups && data.incomeGroups.length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            {data.incomeGroups.map(group => {
+                                const isUnit = group.key === "unit";
+                                const isSP = group.key === "sp";
+                                const colorClass = isUnit
+                                    ? "border-emerald-200 dark:border-emerald-800"
+                                    : isSP
+                                    ? "border-blue-200 dark:border-blue-800"
+                                    : "border-amber-200 dark:border-amber-800";
+                                const textClass = isUnit
+                                    ? "text-emerald-600"
+                                    : isSP
+                                    ? "text-blue-600"
+                                    : "text-amber-600";
+                                const bgClass = isUnit
+                                    ? "bg-emerald-50 dark:bg-emerald-950/30"
+                                    : isSP
+                                    ? "bg-blue-50 dark:bg-blue-950/30"
+                                    : "bg-amber-50 dark:bg-amber-950/30";
+                                const icon = isUnit ? "🏪" : isSP ? "🏦" : "📦";
+                                return (
+                                    <Card key={group.key} className={`${colorClass} print:border-gray-300 print:shadow-none`}>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-lg">{icon}</span>
+                                                <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+                                            </div>
+                                            <p className={`text-xl font-bold tabular-nums ${textClass}`}>
+                                                {formatCurrency(group.amount)}
+                                            </p>
+                                            {group.details.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t space-y-1">
+                                                    {group.details.map(d => (
+                                                        <div key={d.code} className="flex justify-between text-xs">
+                                                            <span className="text-muted-foreground truncate mr-2">{d.name}</span>
+                                                            <span className={`tabular-nums font-medium ${textClass}`}>
+                                                                {formatCurrency(d.amount)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Per-Unit Revenue Breakdown */}
                     {data.unitBreakdown && data.unitBreakdown.length > 0 && (

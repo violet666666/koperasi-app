@@ -316,9 +316,10 @@ SESUDAH FIX:
 
 ## 11. BUG: SHU BERSIH = 0 SETELAH FIX EXPENSE (Ditemukan: 1 Juni 2026, 01:16 WIB)
 
-> **Status:** ⚠️ OPEN — Belum diperbaiki, hanya dicatat.
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
 > **Pelapor:** Operator (via pengecekan manual UI Laporan SHU)
 > **Waktu Penemuan:** 2026-06-01T01:16:33+07:00 (Minggu, 1 Juni 2026 dini hari)
+> **Waktu Penyelesaian:** 2026-06-01 (hari yang sama)
 
 ### O. Deskripsi Bug
 
@@ -408,3 +409,64 @@ Dalam blok journal path (`if (journalLines.length > 0)`), **TAMBAHKAN** query pe
 
 *Ditemukan: 1 Juni 2026, 01:16 WIB*
 *Dicatat: 1 Juni 2026, 01:18 WIB*
+*Ditutup: 1 Juni 2026*
+
+---
+
+## 12. FIX: SHU INCOME MERGE + DANA RESIKO + INCOME GROUPS (1 Juni 2026)
+
+### V. Perubahan yang Dilakukan
+
+| No | Perubahan | File | Deskripsi |
+|:---|:---|:---|:---|
+| **24** | **CB Income Merge (Journal Path)** | `src/lib/services/shu-calculator.ts` | Menambahkan query `CashBankTransaction type=in, journalId=NULL` yang simetris dengan expense merge (Section 10). Income sekarang mencakup: jasa_pinjaman, pendapatan_unit, pendapatan_toko, operational, lainnya, dan semua kategori non-blacklist. |
+| **25** | **NON_INCOME_CATEGORIES Blacklist** | `src/lib/services/shu-calculator.ts` | Pendekatan blacklist baru untuk income — exclude: savings, simpanan_*, transfer, pencairan_pinjaman, angsuran_pokok, loan, setoran_simpanan. Semua kategori lainnya dianggap pendapatan riil. |
+| **26** | **Dana Resiko sebagai Pendapatan SP** | `src/lib/services/shu-calculator.ts` | Query langsung `Loan.adminFee` (agregat dari semua pinjaman yang dicairkan dalam periode). Ditambahkan sebagai income account `SP-RESIKO`. Bekerja untuk semua loan termasuk yang di-import (tanpa CB entries). |
+| **27** | **3-Group Income Categorization** | `src/lib/services/shu-calculator.ts` | Income dikelompokkan menjadi: (1) Pendapatan Unit Usaha (toko, unit layanan), (2) Pendapatan SimpanPinjam (jasa pinjaman, dana resiko), (3) Pendapatan Lainnya. Field `incomeGroups` ditambahkan ke return object. |
+| **28** | **Per-Unit CB Income Merge** | `src/lib/services/shu-calculator.ts` | CB income per unitType di-merge ke `unitRevenueMap` yang sudah ada. Revenue per unit sekarang mencakup StoreSale + UnitTransaction + CB income. |
+| **29** | **API incomeGroups passthrough** | `src/app/api/reports/shu/route.ts` | Field `incomeGroups` ditambahkan ke response SHU API. |
+| **30** | **UI Income Group Cards** | `src/app/(protected)/laporan/shu/page.tsx` | 3 card berwarna ditambahkan di bawah summary: hijau (Unit Usaha), biru (SimpanPinjam), kuning (Lainnya). Masing-masing dengan breakdown expandable per sumber pendapatan. |
+
+### W. Detail Teknis
+
+**Blacklist Income Categories:**
+```
+NON_INCOME_CATEGORIES = [
+    savings, simpanan_pokok, simpanan_wajib, simpanan_sukarela,
+    setoran_simpanan, transfer, pencairan_pinjaman, angsuran_pokok, loan
+]
+```
+
+**Income Group Mapping:**
+- `unit`: pendapatan_unit, pendapatan_toko, operational
+- `sp`: jasa_pinjaman, dana_resiko, penalti_pelunasan, chart-of-accounts 4xxx
+- `lainnya`: biaya_operasional (type=in), lainnya, dan sisanya
+
+**Dana Resiko Query:**
+```sql
+SELECT SUM(admin_fee) FROM loan
+WHERE disbursement_date BETWEEN startDate AND endDate
+  AND status IN ('active', 'paid_off')
+```
+
+**Double-Counting Guard:**
+- CB income merge menggunakan `journalId: null` — hanya transaksi yang belum dijurnal
+- Dana Resiko diquery langsung dari Loan (tidak melalui CB) — zero double-counting risk
+- Per-unit revenue: CB income + StoreSale + UnitTransaction di-merge ke satu map
+
+### X. Dampak Perbaikan
+
+```
+SEBELUM FIX (Section 11):
+  totalIncome (journal path) = Rp 95.346.900 (hanya JournalLine)
+  totalExpense               = Rp 2.579.253.741 (journal + CB non-journaled)
+  NET SURPLUS                = Rp 0 (clamped)
+
+SESUDAH FIX:
+  totalIncome = JournalLine + CB type=in non-journaled + Dana Resiko
+              = Rp 95jt + Rp 6,85M (CB income) + Rp X jt (Dana Resiko)
+  totalExpense = Rp 2,58M (unchanged)
+  NET SURPLUS  = > 0 (income sekarang melebihi expense)
+```
+
+*Status: Modul SHU kini memiliki income tracking lengkap dan kategorisasi 3 grup pendapatan.*

@@ -42,6 +42,7 @@ export async function GET(request: Request) {
             allocationsMember: data.allocationsMember,
             allocationsNonMember: data.allocationsNonMember,
             incomeDetails: data.incomeDetails,
+            incomeGroups: data.incomeGroups,
             expenseDetails: data.expenseDetails,
             memberShu: paginatedMembers,
             unitBreakdown: data.unitBreakdown,

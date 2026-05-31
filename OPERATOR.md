@@ -514,22 +514,45 @@ Untuk meningkatkan kenyamanan operator saat memantau data unit usaha, dilakukan 
 
 ---
 
-### 10.3 ⚠️ Bug Aktif: SHU Bersih = Rp 0 (Ditemukan: 1 Juni 2026, 01:16 WIB)
+### 10.3 ✅ Bug CLOSED: SHU Bersih = Rp 0 (Diperbaiki: 1 Juni 2026)
 
-**Status:** OPEN — Belum diperbaiki, hanya dicatat.
+**Status:** CLOSED — Diperbaiki 1 Juni 2026.
 
-Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal path), SHU Bersih turun menjadi **Rp 0** karena:
-- Journal path membaca income hanya dari JournalLine type=income (**Rp 95jt**)
-- Tapi expense sekarang termasuk CB non-journaled (**Rp 2,58M**)
-- `Math.max(0, 95jt - 2.58M) = 0`
+Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal path), SHU Bersih turun menjadi **Rp 0** karena asimetri income/expense. Sekarang telah diperbaiki dengan menambahkan CB income merge yang simetris.
 
-**Akar masalah:** Pendapatan riil koperasi (CB type=in Rp 6,85M, UnitTransaction Rp 66jt, LoanPayment Rp 234jt) tidak masuk ke `totalIncome` saat journal path aktif. Fix sebelumnya menambah expense tanpa menambah income yang setara — menciptakan asimetri fatal.
+**Perbaikan yang dilakukan:**
+- **CB Income Merge:** Query `CashBankTransaction type=in, journalId=NULL` ditambahkan ke journal path — menangkap jasa_pinjaman, pendapatan_unit, pendapatan_toko, operational, lainnya
+- **Dana Resiko:** Query langsung `Loan.adminFee` dari tabel Loan — mencatat pendapatan admin fee sebagai income SP
+- **3-Group Categorization:** Income dikelompokkan menjadi Pendapatan Unit Usaha, Pendapatan SimpanPinjam (SP), Pendapatan Lainnya
+- **Per-Unit Income:** CB income per unitType di-merge ke unitBreakdown yang sudah ada
+- **UI Income Cards:** 3 card berwarna (hijau/biru/kuning) ditambahkan di Laporan SHU
 
-**Dampak:** Seluruh alokasi SHU (anggota & non-anggota) = Rp 0.
-
-> Dokumentasi lengkap: **SHU-BUG-AND-UPDATE.md Section 11** (RC-5 & RC-6)
+> Dokumentasi lengkap: **SHU-BUG-AND-UPDATE.md Section 11 & 12**
 
 *Ditemukan: 1 Juni 2026, 01:16 WIB*
+*Ditutup: 1 Juni 2026*
+
+---
+
+## 11. Update 1 Juni 2026 — SHU Income Fix & Categorization
+
+### 11.1 Fitur Baru
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| Income 3-Group Cards | 3 card berwarna di Laporan SHU: Unit Usaha (hijau), SimpanPinjam (biru), Lainnya (kuning) |
+| Dana Resiko Income | `Loan.adminFee` otomatis masuk sebagai Pendapatan SimpanPinjam |
+| Per-Unit Revenue Akurat | Revenue per unit sekarang mencakup StoreSale + UnitTransaction + CB income |
+| Monthly Filter | Sudah ada sebelumnya, berfungsi baik |
+
+### 11.2 Bug Fixes
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| SHU Bersih = Rp 0 | 🔴 CRITICAL | ✅ CLOSED | Asimetri income/expense di journal path — income hanya dari JournalLine (~Rp 95jt) sementara expense dari CB non-journaled (~Rp 2,58M) |
+| Dana Resiko tidak masuk SHU | 🟠 HIGH | ✅ CLOSED | `Loan.adminFee` tidak pernah tercatat sebagai income — sekarang diquery langsung dari tabel Loan |
+| Income tidak terkategorisasi | 🟡 MEDIUM | ✅ CLOSED | Pendapatan bercampur tanpa pengelompokan — sekarang 3 grup: Unit, SP, Lainnya |
+| Unit revenue tidak akurat | 🟡 MEDIUM | ✅ CLOSED | Revenue per unit hanya dari StoreSale/UnitTransaction — sekarang ditambah CB income |
 
 ---
 
@@ -547,4 +570,4 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | `src/app/api/billing/generate/route.ts` | Billing period generation + custom dates |
 | `src/app/api/unit-transactions/[id]/member/route.ts` | Edit NRP on transactions |
 | `akun-primkoppol.md` | Test accounts documentation |
-| `src/lib/services/shu-calculator.ts` | Kalkulator SHU utama (⚠️ bug aktif Section 10.3) |
+| `src/lib/services/shu-calculator.ts` | Kalkulator SHU utama — income merge + 3-group categorization (✅ fixed Section 11.2) |
