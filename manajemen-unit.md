@@ -580,3 +580,39 @@ Note: `todayProfit`, `profitMargin`, and `topProfitProducts` are only present fo
 4. Koreksi ini berhasil menyuntikkan **+Rp 2.578.988.041** beban operasional riil ke kalkulator SHU, membuat kolom "Pengeluaran" pada tabel Unit Breakdown menampilkan angka real-time yang akurat.
 
 *Diperbarui: 31 Mei 2026*
+
+---
+
+## 13. Data Sync Fix — Timezone, Alias & Source Merge (1 Juni 2026)
+
+### Root Causes
+
+| # | Issue | Dampak |
+|---|-------|--------|
+| RC-1 | `@db.Date` timezone mismatch — `UnitTransaction.transactionDate` stored as UTC midnight, but filter used `todayStartUTC` (WIB midnight → UTC offset) | Transaksi hari ini **tidak muncul** untuk semua service units |
+| RC-2 | Missing unitType alias — DB stores `play_station`, `resto_cafe`, `coffe_latar` but queries only matched exact canonical types | PlayStation menunjukkan 0 transaksi; Resto kehilangan data |
+| RC-3 | Source split too rigid — store units only queried StoreSale, service only UnitTransaction | Toko (370 StoreSale + 51 UnitTransaction) kehilangan 12% data |
+| RC-4 | Profit null costPrice — items without costPrice defaulted to 0, showing fake 100% margin | Margin keuntungan tidak realistis |
+| RC-5 | Payment breakdown not range-aware — always filtered by "today" regardless of range selector | Breakdown tidak berubah saat user ganti 7d/30d |
+| RC-6 | Trend icon compared against weekly average including today | Bias perbandingan yang tidak adil |
+
+### Fixes Applied
+
+| Phase | File | Fix |
+|-------|------|-----|
+| 1a | `src/lib/constants/units.ts` | Added `UNIT_TYPE_ALIASES`, `STORE_SALE_ALIASES`, `unitTypeFilter()`, `storeSaleUnitTypeFilter()` |
+| 1b | `src/lib/services/manajemen-unit.ts` | Added `computeWIBBoundaries()` — separate boundaries for `@db.Date` vs `DateTime` fields |
+| 2 | `api/manajemen-unit/stats/route.ts` | Alias-aware queries, merged both sources, `COALESCE(min_stock, 5)` fix |
+| 3 | `api/manajemen-unit/[unitSlug]/stats/route.ts` | Alias + timezone + merge + null costPrice filter + range-aware payments + weekly chart alias |
+| 4a | `api/manajemen-unit/[unitSlug]/transactions/route.ts` | Alias + timezone for transaction listing |
+| 4b | `[unitSlug]/page.tsx` | Range-aware payment title, trend compares vs prev 6 days average |
+
+### Key Technical Insight
+
+`UnitTransaction.transactionDate` uses `@db.Date` which stores pure dates at UTC midnight (e.g. `2026-06-01T00:00:00.000Z`). Using `{ gte: todayStartUTC }` (which is `2026-05-31T17:00:00.000Z` on WIB midnight) would incorrectly include yesterday's records. The fix uses `{ gte: todayDateUTC, lt: tomorrowDateUTC }` where `todayDateUTC = new Date(Date.UTC(year, month, date))` — pure UTC midnight matching the `@db.Date` storage format.
+
+### Commit
+
+`3d5851a` (railway-migration)
+
+*Diperbarui: 1 Juni 2026*
