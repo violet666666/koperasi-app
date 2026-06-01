@@ -21,12 +21,14 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, Printer, PieChart, Users, Percent, CalendarDays, FileText, Loader2, ChevronDown, ChevronRight, Eye } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/patterns/data-table";
 import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+import { SHUDetailDialog } from "./_components/shu-detail-dialog";
+import type { SHUSource, IncomeGroupFilter, CalculationData } from "./_types";
 
 const shuExportColumns: ExportColumn[] = [
     { header: "NRP", key: "memberNo", width: 14 },
@@ -223,6 +225,29 @@ export default function LaporanSHUPage() {
     const [auditLoading, setAuditLoading] = React.useState(false);
     const [auditPage, setAuditPage] = React.useState(1);
     const [showAudit, setShowAudit] = React.useState(false);
+
+    // Detail Dialog state
+    const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [dialogSource, setDialogSource] = React.useState<SHUSource>("income");
+    const [dialogTitle, setDialogTitle] = React.useState("");
+    const [dialogIncomeGroup, setDialogIncomeGroup] = React.useState<IncomeGroupFilter | undefined>(undefined);
+    const [dialogSummaryData, setDialogSummaryData] = React.useState<{ code: string; name: string; amount: number }[]>([]);
+    const [dialogSummaryTotal, setDialogSummaryTotal] = React.useState(0);
+
+    const openDetailDialog = React.useCallback((
+        source: SHUSource,
+        title: string,
+        summaryData: { code: string; name: string; amount: number }[],
+        total: number,
+        incomeGroup?: IncomeGroupFilter,
+    ) => {
+        setDialogSource(source);
+        setDialogTitle(title);
+        setDialogSummaryData(summaryData);
+        setDialogSummaryTotal(total);
+        setDialogIncomeGroup(incomeGroup);
+        setDialogOpen(true);
+    }, []);
 
     const yearOptions = React.useMemo(() => {
         const years: string[] = [];
@@ -482,21 +507,77 @@ export default function LaporanSHUPage() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
-                                <div>
+                                <div
+                                    className="rounded-lg p-2 -m-2 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/20 cursor-pointer group relative"
+                                    title="Klik untuk detail"
+                                    onClick={() => openDetailDialog(
+                                        "income",
+                                        "Detail: Total Pendapatan",
+                                        data.incomeDetails || [],
+                                        data.totalIncome || 0,
+                                    )}
+                                >
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Eye className="h-3.5 w-3.5 text-emerald-500" />
+                                    </div>
                                     <p className="text-sm text-muted-foreground">Total Pendapatan</p>
-                                    <p className="text-xl font-semibold text-emerald-600">{formatCurrency(data.totalIncome || 0)}</p>
+                                    <p className="text-xl font-semibold text-emerald-600 border-b border-dashed border-emerald-300 inline-block">
+                                        {formatCurrency(data.totalIncome || 0)}
+                                    </p>
                                 </div>
-                                <div>
+                                <div
+                                    className="rounded-lg p-2 -m-2 transition-colors hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer group relative"
+                                    title="Klik untuk detail"
+                                    onClick={() => openDetailDialog(
+                                        "expense",
+                                        "Detail: Total Beban",
+                                        data.expenseDetails || [],
+                                        data.totalExpense || 0,
+                                    )}
+                                >
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Eye className="h-3.5 w-3.5 text-red-500" />
+                                    </div>
                                     <p className="text-sm text-muted-foreground">Total Beban</p>
-                                    <p className="text-xl font-semibold text-red-600">{formatCurrency(data.totalExpense || 0)}</p>
+                                    <p className="text-xl font-semibold text-red-600 border-b border-dashed border-red-300 inline-block">
+                                        {formatCurrency(data.totalExpense || 0)}
+                                    </p>
                                 </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">SHU dari Anggota (80%)</p>
-                                    <p className="text-xl font-semibold">{formatCurrency(data.memberNetIncome)}</p>
+                                <div
+                                    className="rounded-lg p-2 -m-2 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer group relative"
+                                    title="Klik untuk detail kalkulasi"
+                                    onClick={() => openDetailDialog(
+                                        "member_surplus",
+                                        "Detail: SHU dari Anggota",
+                                        data.allocationsMember?.map(a => ({ code: a.key, name: a.label, amount: a.amount })) || [],
+                                        data.memberNetIncome || 0,
+                                    )}
+                                >
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Eye className="h-3.5 w-3.5 text-blue-500" />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">SHU dari Anggota ({data.memberSharePercent || 50}%)</p>
+                                    <p className="text-xl font-semibold border-b border-dashed border-blue-300 inline-block">
+                                        {formatCurrency(data.memberNetIncome)}
+                                    </p>
                                 </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">SHU dari Non-Anggota (20%)</p>
-                                    <p className="text-xl font-semibold">{formatCurrency(data.nonMemberNetIncome)}</p>
+                                <div
+                                    className="rounded-lg p-2 -m-2 transition-colors hover:bg-amber-50 dark:hover:bg-amber-950/20 cursor-pointer group relative"
+                                    title="Klik untuk detail kalkulasi"
+                                    onClick={() => openDetailDialog(
+                                        "non_member_surplus",
+                                        "Detail: SHU dari Non-Anggota",
+                                        data.allocationsNonMember?.map(a => ({ code: a.key, name: a.label, amount: a.amount })) || [],
+                                        data.nonMemberNetIncome || 0,
+                                    )}
+                                >
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Eye className="h-3.5 w-3.5 text-amber-500" />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">SHU dari Non-Anggota ({100 - (data.memberSharePercent || 50)}%)</p>
+                                    <p className="text-xl font-semibold border-b border-dashed border-amber-300 inline-block">
+                                        {formatCurrency(data.nonMemberNetIncome)}
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
@@ -518,20 +599,34 @@ export default function LaporanSHUPage() {
                                     : isSP
                                     ? "text-blue-600"
                                     : "text-amber-600";
-                                const bgClass = isUnit
-                                    ? "bg-emerald-50 dark:bg-emerald-950/30"
+                                const hoverClass = isUnit
+                                    ? "hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40"
                                     : isSP
-                                    ? "bg-blue-50 dark:bg-blue-950/30"
-                                    : "bg-amber-50 dark:bg-amber-950/30";
+                                    ? "hover:bg-blue-50/50 dark:hover:bg-blue-950/40"
+                                    : "hover:bg-amber-50/50 dark:hover:bg-amber-950/40";
                                 const icon = isUnit ? "🏪" : isSP ? "🏦" : "📦";
                                 return (
-                                    <Card key={group.key} className={`${colorClass} print:border-gray-300 print:shadow-none`}>
+                                    <Card
+                                        key={group.key}
+                                        className={`${colorClass} print:border-gray-300 print:shadow-none transition-colors cursor-pointer ${hoverClass} group relative`}
+                                        onClick={() => openDetailDialog(
+                                            "income",
+                                            `Detail: ${group.label}`,
+                                            group.details,
+                                            group.amount,
+                                            group.key as IncomeGroupFilter,
+                                        )}
+                                        title="Klik untuk detail transaksi"
+                                    >
                                         <CardContent className="p-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="text-lg">{icon}</span>
-                                                <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-lg">{icon}</span>
+                                                    <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+                                                </div>
+                                                <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
                                             </div>
-                                            <p className={`text-xl font-bold tabular-nums ${textClass}`}>
+                                            <p className={`text-xl font-bold tabular-nums ${textClass} border-b border-dashed inline-block ${isUnit ? "border-emerald-300" : isSP ? "border-blue-300" : "border-amber-300"}`}>
                                                 {formatCurrency(group.amount)}
                                             </p>
                                             {group.details.length > 0 && (
@@ -1090,6 +1185,57 @@ export default function LaporanSHUPage() {
                 <div className="text-center py-12 text-muted-foreground">
                     Tidak ada data SHU untuk periode ini
                 </div>
+            )}
+
+            {/* ===== SHU DETAIL DIALOG ===== */}
+            {data && (
+                <SHUDetailDialog
+                    open={dialogOpen}
+                    onOpenChange={setDialogOpen}
+                    source={dialogSource}
+                    title={dialogTitle}
+                    periodLabel={periodDisplay}
+                    summaryData={dialogSummaryData}
+                    summaryTotal={dialogSummaryTotal}
+                    incomeGroup={dialogIncomeGroup}
+                    year={parseInt(selectedYear)}
+                    month={selectedMonth !== "all" ? parseInt(selectedMonth) : null}
+                    calculationData={
+                        dialogSource === "member_surplus" || dialogSource === "non_member_surplus"
+                            ? {
+                                totalIncome: data.totalIncome || 0,
+                                totalExpense: data.totalExpense || 0,
+                                netSurplus: data.totalShu || 0,
+                                totalCarwashBonus: data.memberShu?.reduce((s, m) => s + (m.carwashBonus || 0), 0) || 0,
+                                carwashCount: data.memberShu?.reduce((s, m) => s + (m.carwashCount || 0), 0) || 0,
+                                adjustedNetSurplus: data.totalShu || 0,
+                                memberRatio: data.memberSharePercent ? data.memberSharePercent / 100 : 0.8,
+                                nonMemberRatio: data.memberSharePercent ? (100 - data.memberSharePercent) / 100 : 0.2,
+                                memberGrossIncome: 0,
+                                nonMemberGrossIncome: 0,
+                                memberSurplus: data.memberNetIncome || 0,
+                                nonMemberSurplus: data.nonMemberNetIncome || 0,
+                                jasaModalPool: 0,
+                                jasaUsahaPool: 0,
+                                allocations: dialogSource === "member_surplus"
+                                    ? (data.allocationsMember || []).map(a => ({
+                                        key: a.key,
+                                        label: a.label,
+                                        percentage: a.percentage,
+                                        amount: a.amount,
+                                        description: a.description,
+                                    }))
+                                    : (data.allocationsNonMember || []).map(a => ({
+                                        key: a.key,
+                                        label: a.label,
+                                        percentage: a.percentage,
+                                        amount: a.amount,
+                                        description: a.description,
+                                    })),
+                            } as CalculationData
+                            : undefined
+                    }
+                />
             )}
         </div>
     );
