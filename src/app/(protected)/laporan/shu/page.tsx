@@ -711,11 +711,11 @@ export default function LaporanSHUPage() {
                         </div>
                     )}
 
-                    {/* Expense Group Summary — 2 kategori beban (Operasional + Unit; Lainnya dikecualikan dari SHU) */}
-                    {data.expenseGroups && data.expenseGroups.filter(g => g.key !== "lainnya" && g.amount > 0).length > 0 && (
+                    {/* Expense Group Summary — hanya Beban Unit Usaha (Operasional Umum & Lainnya dikecualikan dari SHU) */}
+                    {data.expenseGroups && data.expenseGroups.filter(g => g.key === "unit_beban" && g.amount > 0).length > 0 && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <p className="col-span-full text-sm font-semibold text-muted-foreground -mb-2">Beban Operasional</p>
-                            {data.expenseGroups.filter(g => g.key !== "lainnya" && g.amount > 0).map(group => {
+                            {data.expenseGroups.filter(g => g.key === "unit_beban" && g.amount > 0).map(group => {
                                 const isOperasional = group.key === "operasional";
                                 const isUnitBeban = group.key === "unit_beban";
                                 const colorClass = isOperasional
