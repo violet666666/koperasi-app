@@ -46,6 +46,8 @@ const NON_EXPENSE_CATEGORIES = [
     "jasa_pinjaman",          // Income bukan expense
     "penalti_pelunasan",      // Income bukan expense
     "dana_resiko",            // Income bukan expense
+    // --- Dikecualikan dari SHU ---
+    "lainnya",                // Pengeluaran non-operasional → tidak relevan untuk SHU per-anggota
 ];
 
 // Kategori CashBankTransaction type=in yang BUKAN pendapatan riil (blacklist approach)
@@ -60,6 +62,9 @@ const NON_INCOME_CATEGORIES = [
     "pencairan_pinjaman",   // Pencairan pinjaman (bukan revenue)
     "angsuran_pokok",       // Pembayaran pokok pinjaman (hutang, bukan revenue)
     "loan",                 // Generic loan reference (member portal)
+    // --- Dikecualikan dari SHU (tidak dari unit/SP) ---
+    "lainnya",              // Pendapatan non-operasional → memperbesar SHU tidak wajar
+    "biaya_operasional",    // Pendapatan operasional lain (type=in, non-core) → memperbesar SHU
 ];
 
 // Label mapping untuk CashBankTransaction expense categories
@@ -175,6 +180,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             const debit = toNum(line.debit);
             const credit = toNum(line.credit);
             if (line.account.type === "income") {
+                // Skip "Pendapatan Lain-lain" (accounts 43xx-45xx) — tidak relevan untuk SHU
+                const code = line.account.code || "";
+                if (code.startsWith("43") || code.startsWith("44") || code.startsWith("45")) continue;
                 const amount = credit - debit;
                 totalIncome += amount;
                 if (!incomeAccounts[line.account.code]) incomeAccounts[line.account.code] = { code: line.account.code, name: line.account.name, amount: 0 };
@@ -202,7 +210,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
         const cbIncomeByCategory: Record<string, number> = {};
         nonJournaledIncome.forEach(tx => {
-            const cat = tx.category || "lainnya";
+            // Skip null category entries (dianggap "lainnya" — bukan income inti SHU)
+            if (!tx.category) return;
+            const cat = tx.category;
             cbIncomeByCategory[cat] = (cbIncomeByCategory[cat] || 0) + toNum(tx.amount);
         });
 
@@ -300,7 +310,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 }
             }),
             prisma.cashBankTransaction.findMany({
-                where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: { notIn: ["savings", "loan", "transfer", "operational"] } }
+                where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: { notIn: [...NON_INCOME_CATEGORIES, "operational"] } }
             }),
             prisma.loanPayment.aggregate({
                 where: { paymentDate: { gte: startDate, lte: endDate }, status: { not: "voided" } },

@@ -15,6 +15,8 @@ const NON_EXPENSE_CATEGORIES = [
   "simpanan_wajib", "simpanan_sukarela", "angsuran_pokok",
   "void_penjualan_toko", "void_unit_transaction", "pendapatan_unit",
   "jasa_pinjaman", "penalti_pelunasan", "dana_resiko",
+  // --- Dikecualikan dari SHU ---
+  "lainnya",                // Pengeluaran non-operasional
 ];
 
 const NON_INCOME_CATEGORIES = [
@@ -27,6 +29,9 @@ const NON_INCOME_CATEGORIES = [
   // NOTE: pendapatan_toko is NOT excluded because StoreSale table is empty (RC-4).
   // CB entries with category "pendapatan_toko" are the actual toko income source.
   // StoreSale direct query still runs but returns 0 items — no double counting risk.
+  // --- Dikecualikan dari SHU (tidak dari unit/SP) ---
+  "lainnya",              // Pendapatan non-operasional
+  "biaya_operasional",    // Pendapatan operasional lain (type=in, non-core)
 ];
 
 const CB_INCOME_LABELS: Record<string, string> = {

@@ -595,10 +595,10 @@ export default function LaporanSHUPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Income Group Summary — 3 kategori pendapatan */}
-                    {data.incomeGroups && data.incomeGroups.length > 0 && (
-                        <div className="grid gap-4 sm:grid-cols-3">
-                            {data.incomeGroups.map(group => {
+                    {/* Income Group Summary — 2 kategori pendapatan (Unit + SP; Lainnya dikecualikan dari SHU) */}
+                    {data.incomeGroups && data.incomeGroups.filter(g => g.key !== "lainnya" && g.amount > 0).length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            {data.incomeGroups.filter(g => g.key !== "lainnya" && g.amount > 0).map(group => {
                                 const isUnit = group.key === "unit";
                                 const isSP = group.key === "sp";
                                 const colorClass = isUnit
@@ -711,11 +711,11 @@ export default function LaporanSHUPage() {
                         </div>
                     )}
 
-                    {/* Expense Group Summary — 3 kategori beban */}
-                    {data.expenseGroups && data.expenseGroups.length > 0 && (
-                        <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Expense Group Summary — 2 kategori beban (Operasional + Unit; Lainnya dikecualikan dari SHU) */}
+                    {data.expenseGroups && data.expenseGroups.filter(g => g.key !== "lainnya" && g.amount > 0).length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <p className="col-span-full text-sm font-semibold text-muted-foreground -mb-2">Beban Operasional</p>
-                            {data.expenseGroups.map(group => {
+                            {data.expenseGroups.filter(g => g.key !== "lainnya" && g.amount > 0).map(group => {
                                 const isOperasional = group.key === "operasional";
                                 const isUnitBeban = group.key === "unit_beban";
                                 const colorClass = isOperasional
