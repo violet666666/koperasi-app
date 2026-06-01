@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { auth } from "@/lib/auth";
 
 function toNum(d: Decimal | number | null | undefined): number {
   if (d === null || d === undefined) return 0;
@@ -18,6 +19,11 @@ const NON_EXPENSE_CATEGORIES = [
 const NON_INCOME_CATEGORIES = [
   "savings", "simpanan_pokok", "simpanan_wajib", "simpanan_sukarela",
   "setoran_simpanan", "transfer", "pencairan_pinjaman", "angsuran_pokok", "loan",
+  // These categories are queried directly from their source tables to avoid double counting:
+  "jasa_pinjaman",    // → LoanPayment.interestPortion (direct query)
+  "dana_resiko",      // → Loan.adminFee (direct query)
+  "pendapatan_unit",  // → UnitTransaction (direct query)
+  "pendapatan_toko",  // → StoreSale (direct query)
 ];
 
 const CB_INCOME_LABELS: Record<string, string> = {
@@ -74,6 +80,13 @@ interface FlatTx {
 }
 
 export async function GET(request: NextRequest) {
+  // Auth check — financial data requires authentication
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
   const { searchParams } = request.nextUrl;
   const year = parseInt(searchParams.get("year") || "0");
   const month = searchParams.get("month") ? parseInt(searchParams.get("month")!) : null;
@@ -430,4 +443,12 @@ export async function GET(request: NextRequest) {
       pagination: { page, perPage, totalItems, totalPages },
     },
   });
+
+  } catch (error) {
+    console.error("GET /api/reports/shu/detail-transactions error:", error);
+    return NextResponse.json(
+      { message: "Failed to load detail transactions" },
+      { status: 500 }
+    );
+  }
 }

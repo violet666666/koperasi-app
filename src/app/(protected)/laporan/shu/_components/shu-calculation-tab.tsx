@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { formatCurrency } from "@/lib/constants";
-import { ArrowDown, CheckCircle2, Minus, Eye } from "lucide-react";
+import { ArrowDown, CheckCircle2, Eye } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import type { CalculationData } from "../_types";
 

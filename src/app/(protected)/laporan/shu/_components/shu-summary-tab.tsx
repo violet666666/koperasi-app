@@ -56,7 +56,7 @@ export function SHUSummaryTab({ items, total, variant, onCategoryClick }: SHUSum
           </TableHeader>
           <TableBody>
             {sorted.map((item) => {
-              const pct = total > 0 ? ((item.amount / total) * 100) : 0;
+              const pct = total !== 0 ? Math.abs((item.amount / total) * 100) : 0;
               return (
                 <TableRow
                   key={item.code}

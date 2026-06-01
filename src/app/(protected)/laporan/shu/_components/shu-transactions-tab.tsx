@@ -105,7 +105,7 @@ export function SHUTransactionsTab({
 
   // Update category filter when parent sends a new selectedCategory
   React.useEffect(() => {
-    if (initialCategory) setFilterCategory(initialCategory);
+    setFilterCategory(initialCategory || "all");
   }, [initialCategory]);
 
   // Build category options: use availableCategories prop OR byCategory from API

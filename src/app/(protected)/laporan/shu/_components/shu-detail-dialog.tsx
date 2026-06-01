@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PieChart, TrendingDown, Users, Building2, Package } from "lucide-react";
+import { PieChart, TrendingDown, Users, Building2 } from "lucide-react";
 import { SHUSummaryTab } from "./shu-summary-tab";
 import { SHUTransactionsTab } from "./shu-transactions-tab";
 import { SHUCalculationTab } from "./shu-calculation-tab";
@@ -90,6 +90,7 @@ export function SHUDetailDialog({
     if (open) {
       setActiveTab("summary");
       setCategoryDrillDown(null);
+      setNestedSource(null);
     }
   }, [open]);
 

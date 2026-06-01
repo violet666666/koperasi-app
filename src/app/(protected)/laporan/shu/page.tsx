@@ -1202,37 +1202,52 @@ export default function LaporanSHUPage() {
                     month={selectedMonth !== "all" ? parseInt(selectedMonth) : null}
                     calculationData={
                         dialogSource === "member_surplus" || dialogSource === "non_member_surplus"
-                            ? {
-                                totalIncome: data.totalIncome || 0,
-                                totalExpense: data.totalExpense || 0,
-                                netSurplus: data.totalShu || 0,
-                                totalCarwashBonus: data.memberShu?.reduce((s, m) => s + (m.carwashBonus || 0), 0) || 0,
-                                carwashCount: data.memberShu?.reduce((s, m) => s + (m.carwashCount || 0), 0) || 0,
-                                adjustedNetSurplus: data.totalShu || 0,
-                                memberRatio: data.memberSharePercent ? data.memberSharePercent / 100 : 0.8,
-                                nonMemberRatio: data.memberSharePercent ? (100 - data.memberSharePercent) / 100 : 0.2,
-                                memberGrossIncome: 0,
-                                nonMemberGrossIncome: 0,
-                                memberSurplus: data.memberNetIncome || 0,
-                                nonMemberSurplus: data.nonMemberNetIncome || 0,
-                                jasaModalPool: 0,
-                                jasaUsahaPool: 0,
-                                allocations: dialogSource === "member_surplus"
-                                    ? (data.allocationsMember || []).map(a => ({
-                                        key: a.key,
-                                        label: a.label,
-                                        percentage: a.percentage,
-                                        amount: a.amount,
-                                        description: a.description,
-                                    }))
-                                    : (data.allocationsNonMember || []).map(a => ({
-                                        key: a.key,
-                                        label: a.label,
-                                        percentage: a.percentage,
-                                        amount: a.amount,
-                                        description: a.description,
-                                    })),
-                            } as CalculationData
+                            ? (() => {
+                                const totalCarwashBonus = data.memberShu?.reduce((s, m) => s + (m.carwashBonus || 0), 0) || 0;
+                                const carwashCount = data.memberShu?.reduce((s, m) => s + (m.carwashCount || 0), 0) || 0;
+                                const rawNetSurplus = (data.totalIncome || 0) - (data.totalExpense || 0);
+                                const netSurplus = Math.max(0, rawNetSurplus);
+                                const adjustedNetSurplus = Math.max(0, netSurplus - totalCarwashBonus);
+                                const memberRatio = data.memberSharePercent ? data.memberSharePercent / 100 : 0.8;
+                                const nonMemberRatio = data.memberSharePercent ? (100 - data.memberSharePercent) / 100 : 0.2;
+                                // Estimate gross income from ratio for display purposes
+                                const totalGross = data.totalIncome || 0;
+                                const memberGrossIncome = Math.round(totalGross * memberRatio);
+                                const nonMemberGrossIncome = Math.round(totalGross * nonMemberRatio);
+                                const memberSurplus = Math.round(adjustedNetSurplus * memberRatio);
+                                const nonMemberSurplus = adjustedNetSurplus - memberSurplus;
+                                return {
+                                    totalIncome: data.totalIncome || 0,
+                                    totalExpense: data.totalExpense || 0,
+                                    netSurplus,
+                                    totalCarwashBonus,
+                                    carwashCount,
+                                    adjustedNetSurplus,
+                                    memberRatio,
+                                    nonMemberRatio,
+                                    memberGrossIncome,
+                                    nonMemberGrossIncome,
+                                    memberSurplus,
+                                    nonMemberSurplus,
+                                    jasaModalPool: 0,
+                                    jasaUsahaPool: 0,
+                                    allocations: dialogSource === "member_surplus"
+                                        ? (data.allocationsMember || []).map(a => ({
+                                            key: a.key,
+                                            label: a.label,
+                                            percentage: a.percentage,
+                                            amount: a.amount,
+                                            description: a.description,
+                                        }))
+                                        : (data.allocationsNonMember || []).map(a => ({
+                                            key: a.key,
+                                            label: a.label,
+                                            percentage: a.percentage,
+                                            amount: a.amount,
+                                            description: a.description,
+                                        })),
+                                } as CalculationData;
+                            })()
                             : undefined
                     }
                 />
