@@ -263,6 +263,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     };
 
     // Income Dialog (Catat Pemasukan)
+    const [editIncomeId, setEditIncomeId] = React.useState<number | null>(null);
     const [showIncomeDialog, setShowIncomeDialog] = React.useState(false);
     const [incomeAmount, setIncomeAmount] = React.useState("");
     const [incomeDesc, setIncomeDesc] = React.useState("");
@@ -270,8 +271,15 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [isSavingIncome, setIsSavingIncome] = React.useState(false);
     const [incomeReceiptFile, setIncomeReceiptFile] = React.useState<File | null>(null);
     const [incomeReceiptPreview, setIncomeReceiptPreview] = React.useState<string | null>(null);
+    const [keepExistingIncomeReceipt, setKeepExistingIncomeReceipt] = React.useState(true);
     const [incomePaymentMethod, setIncomePaymentMethod] = React.useState("cash");
     const incomeFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Bulk select for batch payment method change
+    const [selectedExpenseIds, setSelectedExpenseIds] = React.useState<Set<number>>(new Set());
+    const [selectedIncomeIds, setSelectedIncomeIds] = React.useState<Set<number>>(new Set());
+    const [bulkPaymentMethod, setBulkPaymentMethod] = React.useState<string>("cash");
+    const [isBulkUpdating, setIsBulkUpdating] = React.useState(false);
 
     const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -338,7 +346,8 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         }
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/unit/${unitSlug}/operational-expense/${deleteTarget.id}?reason=${encodeURIComponent(deleteReason.trim())}`, { method: "DELETE" });
+            const basePath = deleteTarget.type === "income" ? "operational-income" : "operational-expense";
+            const res = await fetch(`/api/unit/${unitSlug}/${basePath}/${deleteTarget.id}?reason=${encodeURIComponent(deleteReason.trim())}`, { method: "DELETE" });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
             toast.success(deleteTarget.type === "income" ? "Pemasukan berhasil dihapus" : "Pengeluaran berhasil dihapus");
@@ -371,11 +380,24 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     };
 
     const handleOpenAddIncome = () => {
+        setEditIncomeId(null);
         setIncomeAmount("");
         setIncomeDesc("");
         setIncomeDate(new Date().toISOString().split("T")[0]);
         setIncomePaymentMethod("cash");
         clearIncomeFile();
+        setShowIncomeDialog(true);
+    };
+
+    const handleOpenEditIncome = (inc: OperationalExpense) => {
+        setEditIncomeId(inc.id);
+        setIncomeAmount(inc.amount.toString());
+        setIncomeDesc(inc.description);
+        setIncomeDate(new Date(inc.date).toISOString().split("T")[0]);
+        setIncomePaymentMethod(inc.paymentMethod || "cash");
+        setIncomeReceiptFile(null);
+        setIncomeReceiptPreview(inc.receiptImagePath || null);
+        setKeepExistingIncomeReceipt(true);
         setShowIncomeDialog(true);
     };
 
@@ -390,14 +412,20 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             formData.append("transactionDate", incomeDate);
             formData.append("paymentMethod", incomePaymentMethod);
             if (incomeReceiptFile) formData.append("receipt", incomeReceiptFile);
+            formData.append("keepExistingReceipt", String(keepExistingIncomeReceipt));
 
-            const res = await fetch(`/api/unit/${unitSlug}/operational-income`, {
-                method: "POST",
+            const isEdit = editIncomeId !== null;
+            const url = isEdit
+                ? `/api/unit/${unitSlug}/operational-income/${editIncomeId}`
+                : `/api/unit/${unitSlug}/operational-income`;
+
+            const res = await fetch(url, {
+                method: isEdit ? "PUT" : "POST",
                 body: formData,
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.message);
-            toast.success(`Pemasukan Rp${Number(incomeAmount).toLocaleString("id-ID")} berhasil dicatat`);
+            toast.success(isEdit ? "Pemasukan berhasil diperbarui" : `Pemasukan Rp${Number(incomeAmount).toLocaleString("id-ID")} berhasil dicatat`);
             setShowIncomeDialog(false);
             clearIncomeFile();
             fetchLaporan(page);
@@ -405,6 +433,61 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             toast.error(err.message || "Gagal menyimpan pemasukan");
         } finally {
             setIsSavingIncome(false);
+        }
+    };
+
+    // Bulk select helpers
+    const toggleExpenseSelect = (id: number, checked: boolean | "indeterminate") => {
+        setSelectedExpenseIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
+    const toggleIncomeSelect = (id: number, checked: boolean | "indeterminate") => {
+        setSelectedIncomeIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
+    const toggleAllExpenses = (checked: boolean | "indeterminate") => {
+        if (checked) setSelectedExpenseIds(new Set(expenses.map(e => e.id)));
+        else setSelectedExpenseIds(new Set());
+    };
+
+    const toggleAllIncomes = (checked: boolean | "indeterminate") => {
+        if (checked) setSelectedIncomeIds(new Set(incomes.map(i => i.id)));
+        else setSelectedIncomeIds(new Set());
+    };
+
+    const handleBulkUpdateMethod = async (type: "expense" | "income") => {
+        const ids = type === "expense" ? [...selectedExpenseIds] : [...selectedIncomeIds];
+        if (ids.length === 0) {
+            toast.error("Pilih minimal 1 transaksi");
+            return;
+        }
+        setIsBulkUpdating(true);
+        try {
+            const res = await fetch(`/api/unit/${unitSlug}/operational-batch/update-method`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, paymentMethod: bulkPaymentMethod, type }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success(json.message);
+            if (type === "expense") setSelectedExpenseIds(new Set());
+            else setSelectedIncomeIds(new Set());
+            fetchLaporan(page);
+        } catch (err: any) {
+            toast.error(err.message || "Gagal mengubah metode");
+        } finally {
+            setIsBulkUpdating(false);
         }
     };
 
@@ -1382,10 +1465,51 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <CardHeader className="print:hidden">
                             <CardTitle className="text-base text-red-700">Rincian Pengeluaran Operasional</CardTitle>
                         </CardHeader>
+                        {/* Batch action bar — visible when items are selected */}
+                        {selectedExpenseIds.size > 0 && (
+                            <div className="mx-6 mb-2 print:hidden flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <span className="text-sm font-medium text-amber-800">
+                                    {selectedExpenseIds.size} dipilih
+                                </span>
+                                <Select value={bulkPaymentMethod} onValueChange={setBulkPaymentMethod}>
+                                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                                        <SelectValue placeholder="Metode..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {OPS_PAYMENT_METHODS.map(m => (
+                                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    size="sm"
+                                    className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                                    disabled={isBulkUpdating}
+                                    onClick={() => handleBulkUpdateMethod("expense")}
+                                >
+                                    {isBulkUpdating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                                    Ubah Metode
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    onClick={() => setSelectedExpenseIds(new Set())}
+                                >
+                                    Batal
+                                </Button>
+                            </div>
+                        )}
                         <CardContent className="p-0">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-red-50/50">
+                                    <TableHead className="w-[40px] print:hidden">
+                                        <Checkbox
+                                            checked={expenses.length > 0 && selectedExpenseIds.size === expenses.length}
+                                            onCheckedChange={toggleAllExpenses}
+                                        />
+                                    </TableHead>
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
@@ -1397,7 +1521,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </TableHeader>
                             <TableBody>
                                 {expenses.map((exp) => (
-                                    <TableRow key={exp.id}>
+                                    <TableRow key={exp.id} className={selectedExpenseIds.has(exp.id) ? "bg-amber-50/50" : undefined}>
+                                        <TableCell className="print:hidden">
+                                            <Checkbox
+                                                checked={selectedExpenseIds.has(exp.id)}
+                                                onCheckedChange={(c) => toggleExpenseSelect(exp.id, c)}
+                                            />
+                                        </TableCell>
                                         <TableCell className="text-xs tabular-nums">
                                             {new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
                                         </TableCell>
@@ -1448,6 +1578,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </TableBody>
                             <TableFooter className="print:hidden">
                                 <TableRow className="bg-red-50 font-bold">
+                                    <TableCell className="print:hidden" />
                                     <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
                                     <TableCell className="text-right tabular-nums text-red-700 font-bold">
                                         {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
@@ -1479,22 +1610,69 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         <CardHeader className="print:hidden">
                             <CardTitle className="text-base text-emerald-700">Rincian Pemasukan Operasional</CardTitle>
                         </CardHeader>
+                        {/* Batch action bar — visible when items are selected */}
+                        {selectedIncomeIds.size > 0 && (
+                            <div className="mx-6 mb-2 print:hidden flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                <span className="text-sm font-medium text-emerald-800">
+                                    {selectedIncomeIds.size} dipilih
+                                </span>
+                                <Select value={bulkPaymentMethod} onValueChange={setBulkPaymentMethod}>
+                                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                                        <SelectValue placeholder="Metode..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {OPS_PAYMENT_METHODS.map(m => (
+                                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    size="sm"
+                                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    disabled={isBulkUpdating}
+                                    onClick={() => handleBulkUpdateMethod("income")}
+                                >
+                                    {isBulkUpdating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                                    Ubah Metode
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    onClick={() => setSelectedIncomeIds(new Set())}
+                                >
+                                    Batal
+                                </Button>
+                            </div>
+                        )}
                         <CardContent className="p-0">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-emerald-50/50">
+                                    <TableHead className="w-[40px] print:hidden">
+                                        <Checkbox
+                                            checked={incomes.length > 0 && selectedIncomeIds.size === incomes.length}
+                                            onCheckedChange={toggleAllIncomes}
+                                        />
+                                    </TableHead>
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
                                     <TableHead className="text-center">Metode</TableHead>
                                     <TableHead className="text-center print:hidden">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
-                                    {isAdmin && <TableHead className="text-center w-[80px] print:hidden">Aksi</TableHead>}
+                                    {isAdmin && <TableHead className="text-center w-[120px] print:hidden">Aksi</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {incomes.map((inc) => (
-                                    <TableRow key={inc.id}>
+                                    <TableRow key={inc.id} className={selectedIncomeIds.has(inc.id) ? "bg-emerald-50/50" : undefined}>
+                                        <TableCell className="print:hidden">
+                                            <Checkbox
+                                                checked={selectedIncomeIds.has(inc.id)}
+                                                onCheckedChange={(c) => toggleIncomeSelect(inc.id, c)}
+                                            />
+                                        </TableCell>
                                         <TableCell className="text-xs tabular-nums">
                                             {new Date(inc.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
                                         </TableCell>
@@ -1524,9 +1702,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         </TableCell>
                                         {isAdmin && (
                                             <TableCell className="text-center print:hidden">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteIncome(inc.id)}>
-                                                    🗑️
-                                                </Button>
+                                                <div className="flex justify-center flex-nowrap gap-2">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleOpenEditIncome(inc)}>
+                                                        ✏️
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleDeleteIncome(inc.id)}>
+                                                        🗑️
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         )}
                                     </TableRow>
@@ -1534,6 +1717,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </TableBody>
                             <TableFooter className="print:hidden">
                                 <TableRow className="bg-emerald-50 font-bold">
+                                    <TableCell className="print:hidden" />
                                     <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">TOTAL PEMASUKAN OPERASIONAL</TableCell>
                                     <TableCell className="text-right tabular-nums text-emerald-700 font-bold">
                                         {formatCurrency(incomes.reduce((s, e) => s + e.amount, 0))}
@@ -1709,11 +1893,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <TrendingUp className="h-5 w-5 text-emerald-500" />
-                            Catat Pemasukan Operasional
+                            {editIncomeId ? "Ubah Pemasukan Operasional" : "Catat Pemasukan Operasional"}
                         </DialogTitle>
                         <DialogDescription>
-                            Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll.
-                            Akan langsung mengkredit kas unit ini.
+                            {editIncomeId
+                                ? "Edit data pemasukan operasional unit ini."
+                                : "Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll. Akan langsung mengkredit kas unit ini."}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1815,7 +2000,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             disabled={isSavingIncome || !incomeAmount || !incomeDesc}
                         >
                             {isSavingIncome ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            Simpan Pemasukan
+                            {editIncomeId ? "Simpan Perubahan" : "Simpan Pemasukan"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
