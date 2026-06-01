@@ -724,9 +724,17 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         // Cari group berdasarkan code pattern
         let groupKey: "unit" | "sp" | "lainnya" = "lainnya";
 
-        if (detail.code.startsWith("4")) {
-            // Chart of accounts 4xxx = akun income jurnal → default ke SP
+        if (detail.code.startsWith("41")) {
+            // Chart of accounts 41xx = Pendapatan Usaha Simpan Pinjam → SP
+            // (4101 Bunga Pinjaman, 4102 Admin Pinjaman, 4103 Denda)
             groupKey = "sp";
+        } else if (detail.code.startsWith("42")) {
+            // Chart of accounts 42xx = Pendapatan Usaha Unit → Unit
+            // (4201 Pendapatan Toko, 4202-4204 Unit layanan lainnya)
+            groupKey = "unit";
+        } else if (detail.code.startsWith("43") || detail.code.startsWith("44") || detail.code.startsWith("45")) {
+            // Chart of accounts 43xx-45xx = Pendapatan Lain-lain → Lainnya
+            groupKey = "lainnya";
         } else if (detail.code === "UNT-REV" || detail.code === "TOKO-REV" || detail.code === "OPS-REV" || detail.code === "UT-INC" || detail.code === "ST-INC") {
             groupKey = "unit";
         } else if (detail.code === "SP-JASA" || detail.code === "SP-RESIKO" || detail.code === "SP-PENALTI" || detail.code === "LN-INC") {

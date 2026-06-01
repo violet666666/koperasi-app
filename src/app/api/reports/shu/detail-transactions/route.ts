@@ -24,7 +24,9 @@ const NON_INCOME_CATEGORIES = [
   "jasa_pinjaman",    // → LoanPayment.interestPortion (direct query)
   "dana_resiko",      // → Loan.adminFee (direct query)
   "pendapatan_unit",  // → UnitTransaction (direct query)
-  "pendapatan_toko",  // → StoreSale (direct query)
+  // NOTE: pendapatan_toko is NOT excluded because StoreSale table is empty (RC-4).
+  // CB entries with category "pendapatan_toko" are the actual toko income source.
+  // StoreSale direct query still runs but returns 0 items — no double counting risk.
 ];
 
 const CB_INCOME_LABELS: Record<string, string> = {
@@ -124,7 +126,10 @@ export async function GET(request: NextRequest) {
     // handled by direct queries below (LoanPayment, DanaResiko, UnitTransaction, StoreSale).
     // Otherwise the same income appears both from CB and from direct query = double counting.
     const DIRECT_QUERY_CATEGORIES: Record<string, string[]> = {
-      unit: ["pendapatan_unit", "pendapatan_toko"], // handled by UnitTransaction/StoreSale queries
+      unit: ["pendapatan_unit"], // Only UnitTransaction handles this directly.
+        // NOTE: pendapatan_toko is NOT here because StoreSale table is empty (RC-4).
+        // CB entries with category "pendapatan_toko" are the actual toko income source.
+        // StoreSale direct query still runs (returns 0 items) — no double counting risk.
       sp: ["jasa_pinjaman", "dana_resiko"],           // handled by LoanPayment/Loan queries
       lainnya: [],
     };
