@@ -123,23 +123,23 @@ export async function GET(request: NextRequest) {
       ? category
       : { notIn: NON_INCOME_CATEGORIES };
 
+    // NOTE: CashBankTransaction does NOT have paymentMethod or referenceNo fields.
+    // Use transactionNo as the reference identifier. paymentMethod is always null for CB.
     const cbIncome = await prisma.cashBankTransaction.findMany({
       where: {
         transactionDate: { gte: startDate, lte: endDate },
         type: "in",
         journalId: null,
         category: cbCategoryFilter as any,
-        ...(paymentMethod ? { paymentMethod } : {}),
         ...(search ? { description: { contains: search, mode: "insensitive" } } : {}),
       },
       select: {
         id: true,
+        transactionNo: true,
         transactionDate: true,
         description: true,
         category: true,
         amount: true,
-        paymentMethod: true,
-        referenceNo: true,
         unitType: true,
       },
     });
@@ -156,9 +156,9 @@ export async function GET(request: NextRequest) {
         categoryLabel: CB_INCOME_LABELS[cat] || `Pendapatan: ${cat.replace(/_/g, " ")}`,
         type: "income",
         amount: toNum(tx.amount),
-        paymentMethod: tx.paymentMethod,
+        paymentMethod: null, // CB transactions don't have payment method
         source: "cash_bank",
-        referenceNo: tx.referenceNo,
+        referenceNo: tx.transactionNo,
         unitType: tx.unitType,
         rawDate: tx.transactionDate,
       });
@@ -247,6 +247,7 @@ export async function GET(request: NextRequest) {
         },
         select: {
           id: true,
+          transactionNo: true,
           transactionDate: true,
           description: true,
           amount: true,
@@ -266,7 +267,7 @@ export async function GET(request: NextRequest) {
           amount: toNum(tx.amount),
           paymentMethod: tx.paymentMethod,
           source: "unit_transaction",
-          referenceNo: tx.id,
+          referenceNo: tx.transactionNo,
           unitType: tx.unitType,
           rawDate: tx.transactionDate,
         });
@@ -283,6 +284,7 @@ export async function GET(request: NextRequest) {
         },
         select: {
           id: true,
+          saleNo: true,
           createdAt: true,
           totalAmount: true,
           paymentMethod: true,
@@ -301,7 +303,7 @@ export async function GET(request: NextRequest) {
           amount: toNum(sale.totalAmount),
           paymentMethod: sale.paymentMethod,
           source: "store_sale",
-          referenceNo: sale.id,
+          referenceNo: sale.saleNo,
           unitType: sale.unitType,
           rawDate: sale.createdAt,
         });
@@ -314,6 +316,7 @@ export async function GET(request: NextRequest) {
       ? category
       : { notIn: NON_EXPENSE_CATEGORIES };
 
+    // NOTE: CashBankTransaction does NOT have paymentMethod or referenceNo fields.
     const cbExpense = await prisma.cashBankTransaction.findMany({
       where: {
         transactionDate: { gte: startDate, lte: endDate },
@@ -324,12 +327,11 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        transactionNo: true,
         transactionDate: true,
         description: true,
         category: true,
         amount: true,
-        paymentMethod: true,
-        referenceNo: true,
         unitType: true,
       },
     });
@@ -345,9 +347,9 @@ export async function GET(request: NextRequest) {
         categoryLabel: CB_EXPENSE_LABELS[cat] || `Pengeluaran: ${cat.replace(/_/g, " ")}`,
         type: "expense",
         amount: toNum(tx.amount),
-        paymentMethod: tx.paymentMethod,
+        paymentMethod: null, // CB transactions don't have payment method
         source: "cash_bank",
-        referenceNo: tx.referenceNo,
+        referenceNo: tx.transactionNo,
         unitType: tx.unitType,
         rawDate: tx.transactionDate,
       });
