@@ -645,3 +645,59 @@ SESUDAH FIX:
 Total pada tab Transaksi detail dialog (Rp 7,08M) lebih tinggi dari summary card (Rp 7,02M). Ini terjadi karena API `detail-transactions` meng-query SEMUA `LoanPayment` secara langsung (termasuk yang sudah di-jurnal), sementara Kalkulator SHU menggunakan `JournalLine` + CB non-journaled yang menghindari double-counting dengan journal path. Ini adalah **discrepancy level desain** yang sudah ada sebelumnya, bukan regresi dari fix apapun.
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 16. FITUR BARU: SP MONTHLY BREAKDOWN, EXPENSE GROUPS & PENDAPATAN LAINNYA DETAIL (1 Juni 2026)
+
+### OO. Deskripsi Fitur
+
+Tiga peningkatan signifikan pada Laporan SHU untuk meningkatkan transparansi dan auditability:
+
+1. **Pendapatan SimpanPinjam (SP) — Rincian Bulanan**: Card SP sekarang memiliki expandable mini-table yang menampilkan Jasa Pinjaman, Dana Resiko, dan Penalti per bulan. Detail dialog SP memiliki tab baru "📊 Rincian Bulanan" dengan chart BarChart + tabel lengkap + link ke `/pinjaman/laporan-jasa` dan `/pinjaman/laporan-dana-resiko`.
+
+2. **Beban Operasional — 3 Group Cards**: Ditambahkan 3 card beban (mirip income groups): (1) Beban Operasional Umum (merah), (2) Beban Unit Usaha (oranye), (3) Beban Lainnya (abu-abu). Masing-masing clickable → detail dialog dengan filter grup.
+
+3. **Pendapatan Lainnya — Label lebih deskriptif**: Kategori income `lainnya` mendapat label yang lebih jelas di dalam card dan detail dialog.
+
+### PP. Perubahan Teknis
+
+| No | Perubahan | File | Deskripsi |
+|:---|:---|:---|:---|
+| **45** | **SP Monthly Breakdown** | `src/lib/services/shu-calculator.ts` | Query baru: `LoanPayment` (interestPortion), `Loan` (adminFee), `CB` (penalti_pelunasan) — grouped by YYYY-MM → `SPMonthlyItem[]` |
+| **46** | **Expense Groups** | `src/lib/services/shu-calculator.ts` | 3 grup expense: `operasional` (CB-OP, CB-OPS, CW-SHU), `unit_beban` (CB-UNIT, ST-COGS, CB-HPP, CB-MITRA), `lainnya` (CB-LAIN) |
+| **47** | **API passthrough** | `src/app/api/reports/shu/route.ts` | Field `spMonthlyBreakdown` dan `expenseGroups` ditambahkan ke response |
+| **48** | **Expense Group Filter** | `src/app/api/reports/shu/detail-transactions/route.ts` | Parameter baru `expenseGroup` + `GROUP_EXPENSE_CATEGORIES` mapping |
+| **49** | **SP Monthly Tab** | `_components/shu-sp-monthly-tab.tsx` (BARU) | Recharts BarChart + summary cards + tabel bulanan + link laporan |
+| **50** | **Dialog Enhancement** | `_components/shu-detail-dialog.tsx` | Tab "Rincian Bulanan" untuk SP, expense group filtering, `expenseGroup` prop |
+| **51** | **SP Mini-Table** | `src/app/(protected)/laporan/shu/page.tsx` | `<details>` expandable di dalam card SP: tabel 4 kolom (Bulan, Jasa, DR, Total) |
+| **52** | **Expense Group Cards** | `src/app/(protected)/laporan/shu/page.tsx` | 3 card berwarna (merah/oranye/abu-abu) di bawah income group cards |
+| **53** | **Types** | `_types.ts` | `SPMonthlyItem`, `ExpenseGroup`, `ExpenseGroupFilter` |
+
+### QQ. Data Produksi Terverifikasi
+
+**SP Monthly Breakdown (2026):**
+
+| Bulan | Jasa Pinjaman | Dana Resiko | Total |
+|:------|------:|------:|------:|
+| Januari | Rp 44.688.000 | Rp 1.780.000 | Rp 46.468.000 |
+| Februari | Rp 44.638.333 | Rp 176.000 | Rp 44.814.333 |
+| Maret | Rp 45.193.333 | Rp 8.010.000 | Rp 53.203.333 |
+| April | Rp 44.805.333 | Rp 17.870.000 | Rp 62.675.333 |
+| Mei | Rp 55.069.833 | Rp 30.960.000 | Rp 90.849.833 |
+
+**Expense Groups (2026):**
+
+| Grup | Label | Jumlah |
+|:-----|:------|-------:|
+| `operasional` | Beban Operasional Umum | Rp 1.031.155.040 |
+| `unit_beban` | Beban Unit Usaha | Rp 63.213.300 |
+| `lainnya` | Beban Lainnya | Rp 1.485.149.401 |
+
+### RR. Pola Desain
+
+- **SP Monthly**: 3 query paralel (`Promise.all`) → group by `YYYY-MM` → merge → sort kronologis. Menggunakan filter yang sama dengan kalkulasi SHU (`status: { not: "voided" }` untuk LoanPayment, `status: { in: ["active", "paid_off"] }` untuk Loan).
+- **Expense Groups**: Mapping berbasis kode akun yang sudah ada (`CB-OP`, `ST-COGS`, dll). Zero additional query — hanya re-kategorisasi dari `expenseAccounts` yang sudah terhitung.
+- **UI Pattern**: Konsisten dengan income group cards yang sudah ada — warna berbeda (merah/oranye/abu), icon berbeda, tapi struktur card identik.
+
+*Diperbarui: 1 Juni 2026*

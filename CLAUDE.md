@@ -119,6 +119,6 @@ NODE_ENV           — development/production
 
 | File | Content |
 |------|---------|
-| `SHU-BUG-AND-UPDATE.md` | SHU module bug history & fixes (15 sections) |
-| `OPERATOR.md` | Operator role audit, features, API matrix (14 sections) |
+| `SHU-BUG-AND-UPDATE.md` | SHU module bug history & fixes (16 sections) |
+| `OPERATOR.md` | Operator role audit, features, API matrix (15 sections) |
 | `akun-primkoppol.md` | Test accounts for production |

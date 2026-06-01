@@ -658,4 +658,44 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | `src/app/(protected)/laporan/shu/_components/shu-summary-tab.tsx` | Tab ringkasan per kategori |
 | `src/app/(protected)/laporan/shu/_components/shu-transactions-tab.tsx` | Tab daftar transaksi (lazy fetch) |
 | `src/app/(protected)/laporan/shu/_components/shu-calculation-tab.tsx` | Tab langkah kalkulasi (7-step) |
+| `src/app/(protected)/laporan/shu/_components/shu-sp-monthly-tab.tsx` | Tab rincian bulanan SP (BarChart + tabel + link) |
 | `src/app/(protected)/laporan/shu/_types.ts` | Shared TypeScript interfaces |
+
+---
+
+## 15. SHU Detail Enhancement: SP Monthly Breakdown & Expense Groups (1 Juni 2026)
+
+### 15.1 Fitur Baru
+
+| Fitur | Deskripsi | Lokasi |
+|-------|-----------|--------|
+| **SP Monthly Mini-Table** | Expandable tabel bulanan (Jasa Pinjaman, Dana Resiko, Penalti) di dalam card SP income | Card "Pendapatan SimpanPinjam (SP)" |
+| **SP Monthly Tab** | Tab "📊 Rincian Bulanan" di detail dialog SP — BarChart + tabel + link ke laporan lengkap | Detail Dialog (income, group=sp) |
+| **Expense Group Cards** | 3 card beban berwarna: Operasional Umum (merah), Unit Usaha (oranye), Lainnya (abu-abu) | Bawah income group cards |
+| **Expense Group Filtering** | Filter transaksi beban berdasarkan grup (operasional/unit_beban/lainnya) | Detail Dialog (expense) |
+| **Link ke Laporan** | Link ke `/pinjaman/laporan-jasa` dan `/pinjaman/laporan-dana-resiko` dari card SP | Card SP + SP Monthly Tab |
+
+### 15.2 API Updates
+
+| Endpoint | Parameter Baru | Deskripsi |
+|----------|---------------|-----------|
+| `GET /api/reports/shu` | — | Response sekarang termasuk `spMonthlyBreakdown[]` dan `expenseGroups[]` |
+| `GET /api/reports/shu/detail-transactions` | `expenseGroup` | Filter expense by group: `operasional`, `unit_beban`, `lainnya` |
+
+### 15.3 Data Produksi
+
+**SP Monthly (2026):** 5 bulan terdata, total SP = Rp 298.010.332
+
+**Expense Groups (2026):**
+- Beban Operasional Umum: Rp 1.031.155.040
+- Beban Unit Usaha: Rp 63.213.300
+- Beban Lainnya: Rp 1.485.149.401
+
+### 15.4 Source Files
+
+| File | Fungsi |
+|------|--------|
+| `src/lib/services/shu-calculator.ts` | SP monthly query (Promise.all 3 sumber) + expense grouping |
+| `src/app/(protected)/laporan/shu/_components/shu-sp-monthly-tab.tsx` | Komponen baru: BarChart + summary + tabel bulanan |
+| `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | Tab "Rincian Bulanan" + expenseGroup prop |
+| `src/app/api/reports/shu/detail-transactions/route.ts` | `expenseGroup` filter param |
