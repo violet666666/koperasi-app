@@ -558,7 +558,35 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 
 ---
 
-## 12. Key Source Files
+## 12. Update 1 Juni 2026 (Siang) — SHU Detail Dialog Breakdown
+
+### 12.1 Fitur Baru: Detail Dialog
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| Klik Detail pada Card SHU | Klik Total Pendapatan/Total Beban/SHU Anggota/SHU Non-Anggota → buka dialog detail |
+| Income Group Card Click | Klik 3 card (Unit Usaha, SimpanPinjam, Lainnya) → buka dialog filtered per grup |
+| Tab Ringkasan | Tabel breakdown per kategori dengan kode, nama, jumlah, dan persentase |
+| Tab Transaksi | Daftar transaksi individual (lazy-loaded, paginated, filterable) dari 5 sumber data |
+| Tab Kalkulasi | Step-by-step calculation flow untuk SHU Anggota/Non-Anggota (7 langkah visual) |
+| Nested Drill-down | Dari kalkulasi tab bisa buka dialog income/expense untuk verifikasi |
+| Visual Cues | Hover highlight + eye icon + dashed underline pada semua clickable metric |
+| API detail-transactions | `GET /api/reports/shu/detail-transactions` — flat transaction list dengan filter + pagination |
+
+### 12.2 File yang Dibuat
+
+| File | Fungsi |
+|------|--------|
+| `src/app/(protected)/laporan/shu/_types.ts` | Shared TypeScript interfaces |
+| `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | Dialog utama dengan tab switching |
+| `src/app/(protected)/laporan/shu/_components/shu-summary-tab.tsx` | Tab ringkasan per kategori |
+| `src/app/(protected)/laporan/shu/_components/shu-transactions-tab.tsx` | Tab daftar transaksi (lazy fetch) |
+| `src/app/(protected)/laporan/shu/_components/shu-calculation-tab.tsx` | Tab langkah kalkulasi |
+| `src/app/api/reports/shu/detail-transactions/route.ts` | API: flat paginated transaction list |
+
+---
+
+## 13. Key Source Files
 
 | File | Fungsi |
 |------|--------|

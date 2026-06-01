@@ -474,3 +474,61 @@ SESUDAH FIX:
 ```
 
 *Status: Modul SHU kini memiliki income tracking lengkap dan kategorisasi 3 grup pendapatan.*
+
+---
+
+## 13. FITUR BARU: DETAIL DIALOG BREAKDOWN SHU (1 Juni 2026)
+
+### Y. Deskripsi Fitur
+
+Operator sekarang dapat **mengklik setiap card/angka pada Laporan SHU** untuk membuka dialog pop-up yang menampilkan **rincian darimana angka tersebut berasal**. Fitur ini menjawab kebutuhan transparansi dan auditability saat RAT maupun pemeriksaan internal.
+
+### Z. 5 Konteks Dialog
+
+| Klik Card | Dialog Title | Tab 1 (Ringkasan) | Tab 2 (Detail) |
+|-----------|-------------|-------------------|----------------|
+| **Total Pendapatan** | "Detail: Total Pendapatan" | Tabel breakdown per kategori (SP-JASA, TOKO-REV, dll) dengan % | Daftar transaksi individual (paginated, filterable) |
+| **Total Beban** | "Detail: Total Beban" | Tabel breakdown per kategori (CB-OP, CB-UNIT, HPP, dll) dengan % | Daftar transaksi individual (paginated, filterable) |
+| **SHU Anggota** | "Detail: SHU dari Anggota" | Tabel alokasi (Jasa Anggota, Jasa Simpanan, dll) | Langkah kalkulasi step-by-step |
+| **SHU Non-Anggota** | "Detail: SHU dari Non-Anggota" | Tabel alokasi (Cadangan, Pendidikan, dll) | Langkah kalkulasi step-by-step |
+| **Income Group Card** | "Detail: Pendapatan [Unit/SP/Lainnya]" | Breakdown per sumber dalam grup | Transaksi yang masuk grup tsb |
+
+### AA. File yang Dibuat/Dimodifikasi
+
+| File | Status | Deskripsi |
+|------|--------|-----------|
+| `src/app/(protected)/laporan/shu/_types.ts` | **BARU** | Shared TypeScript interfaces untuk dialog |
+| `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | **BARU** | Dialog utama — komposisi 3 tab |
+| `src/app/(protected)/laporan/shu/_components/shu-summary-tab.tsx` | **BARU** | Tab ringkasan per kategori (zero API call) |
+| `src/app/(protected)/laporan/shu/_components/shu-transactions-tab.tsx` | **BARU** | Tab daftar transaksi (lazy fetch, paginated) |
+| `src/app/(protected)/laporan/shu/_components/shu-calculation-tab.tsx` | **BARU** | Tab langkah kalkulasi (member/non-member surplus) |
+| `src/app/api/reports/shu/detail-transactions/route.ts` | **BARU** | API endpoint: flat transaction list + filter + pagination |
+| `src/app/(protected)/laporan/shu/page.tsx` | **MODIFIKASI** | Visual cues (hover, icon, dashed underline) + dialog state + handlers |
+
+### BB. API Endpoint: `GET /api/reports/shu/detail-transactions`
+
+| Parameter | Tipe | Required | Deskripsi |
+|-----------|------|----------|-----------|
+| `year` | number | ✅ | Tahun |
+| `month` | number | ❌ | Bulan (null = semua) |
+| `source` | string | ✅ | `"income"` atau `"expense"` |
+| `category` | string | ❌ | Filter kategori spesifik |
+| `incomeGroup` | string | ❌ | Filter grup: `"unit"`, `"sp"`, `"lainnya"` |
+| `paymentMethod` | string | ❌ | `"cash"`, `"qris"`, `"salary_cut"` |
+| `search` | string | ❌ | Pencarian keterangan |
+| `page` | number | ❌ | Default: 1 |
+| `perPage` | number | ❌ | Default: 25, max: 100 |
+
+**Sumber data income:** CashBankTransaction type=in + LoanPayment interest + Loan.adminFee + UnitTransaction + StoreSale
+**Sumber data expense:** CashBankTransaction type=out + StoreSaleItem COGS
+
+### CC. Fitur UX
+
+- **Visual cues**: Setiap card clickable memiliki hover highlight + ikon 👁️ muncul saat hover + dashed underline pada angka
+- **Tab Ringkasan**: Zero latency — menggunakan data yang sudah ada di client state
+- **Tab Transaksi**: Lazy fetch — hanya load saat tab diklik, dengan filter kategori/metode/pencarian + paginasi
+- **Tab Kalkulasi**: Step-by-step flow dengan visual vertikal (Pendapatan → Beban → SHU Bersih → Cuci Mobil → Adjusted → Rasio → Final)
+- **Nested drill-down**: Dari kalkulasi tab bisa klik drill-down ke dialog income/expense
+- **Category click-to-filter**: Klik baris kategori di tab ringkasan → otomatis pindah ke tab transaksi dengan filter aktif
+
+*Ditambahkan: 1 Juni 2026*
