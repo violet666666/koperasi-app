@@ -119,11 +119,25 @@ export async function GET(request: NextRequest) {
 
   if (source === "income") {
     // 1. CashBankTransaction type=in, journalId=NULL (non-income categories filtered)
-    const cbCategoryFilter = incomeGroup
-      ? { in: GROUP_CATEGORIES[incomeGroup] }
-      : category
-      ? category
-      : { notIn: NON_INCOME_CATEGORIES };
+    //
+    // CRITICAL: When filtering by incomeGroup, we must EXCLUDE categories that are
+    // handled by direct queries below (LoanPayment, DanaResiko, UnitTransaction, StoreSale).
+    // Otherwise the same income appears both from CB and from direct query = double counting.
+    const DIRECT_QUERY_CATEGORIES: Record<string, string[]> = {
+      unit: ["pendapatan_unit", "pendapatan_toko"], // handled by UnitTransaction/StoreSale queries
+      sp: ["jasa_pinjaman", "dana_resiko"],           // handled by LoanPayment/Loan queries
+      lainnya: [],
+    };
+    let cbCategoryFilter: any;
+    if (incomeGroup && GROUP_CATEGORIES[incomeGroup]) {
+      const directCats = DIRECT_QUERY_CATEGORIES[incomeGroup] || [];
+      const cbOnlyCats = GROUP_CATEGORIES[incomeGroup].filter(cat => !directCats.includes(cat));
+      cbCategoryFilter = cbOnlyCats.length > 0 ? { in: cbOnlyCats } : { in: ["_none_match_"] };
+    } else if (category) {
+      cbCategoryFilter = category;
+    } else {
+      cbCategoryFilter = { notIn: NON_INCOME_CATEGORIES };
+    }
 
     // NOTE: CashBankTransaction does NOT have paymentMethod or referenceNo fields.
     // Use transactionNo as the reference identifier. paymentMethod is always null for CB.
@@ -166,8 +180,9 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 2. LoanPayment interestPortion (only if no specific category filter or SP group)
-    if (!category || incomeGroup === "sp") {
+    // 2. LoanPayment interestPortion — only for SP group or no group filter (avoid leaking to lainnya/unit)
+    const shouldQueryLoanPayments = (!incomeGroup || incomeGroup === "sp") && (!category || category === "jasa_pinjaman");
+    if (shouldQueryLoanPayments) {
       const loanPayments = await prisma.loanPayment.findMany({
         where: {
           paymentDate: { gte: startDate, lte: endDate },
@@ -202,8 +217,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 3. Loan.adminFee (Dana Resiko) — only if no category filter or SP group
-    if (!category || incomeGroup === "sp") {
+    // 3. Loan.adminFee (Dana Resiko) — only for SP group or no group filter
+    const shouldQueryDanaResiko = (!incomeGroup || incomeGroup === "sp") && (!category || category === "dana_resiko");
+    if (shouldQueryDanaResiko) {
       const danaResikoLoans = await prisma.loan.findMany({
         where: {
           disbursementDate: { gte: startDate, lte: endDate },
@@ -238,8 +254,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 4. UnitTransaction (completed, isPaid) — only if unit group or no filter
-    if (!category && !incomeGroup || incomeGroup === "unit") {
+    // 4. UnitTransaction (completed, isPaid) — only for unit group or no group filter
+    const shouldQueryUnitTx = (!incomeGroup || incomeGroup === "unit") && (!category || category === "pendapatan_unit");
+    if (shouldQueryUnitTx) {
       const unitTx = await prisma.unitTransaction.findMany({
         where: {
           transactionDate: { gte: startDate, lte: endDate },
@@ -276,8 +293,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 5. StoreSale (non-voided) — only if unit group or no filter
-    if (!category && !incomeGroup || incomeGroup === "unit") {
+    // 5. StoreSale (non-voided) — only for unit group or no group filter
+    const shouldQueryStoreSale = (!incomeGroup || incomeGroup === "unit") && (!category || category === "pendapatan_toko");
+    if (shouldQueryStoreSale) {
       const storeSales = await prisma.storeSale.findMany({
         where: {
           createdAt: { gte: startDate, lte: endDate },
