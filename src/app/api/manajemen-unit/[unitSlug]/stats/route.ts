@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugToUnitType, getUnitLabel } from "@/lib/constants/units";
-import { computeUnitDetail, type RawUnitDetail, computePeakHours, computeProfitFromItems } from "@/lib/services/manajemen-unit";
+import { slugToUnitType, getUnitLabel, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { computeUnitDetail, computeWIBBoundaries, type RawUnitDetail, computePeakHours, computeProfitFromItems } from "@/lib/services/manajemen-unit";
 
 export async function GET(
   request: Request,
@@ -25,13 +25,12 @@ export async function GET(
       return NextResponse.json({ message: "Unit not found" }, { status: 404 });
     }
 
-    // WIB today boundary
-    const now = new Date();
-    const wibOffset = 7 * 60;
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const wibNow = new Date(utcMs + wibOffset * 60000);
-    const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
-    const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
+    // WIB boundaries — separate for DateTime fields and @db.Date fields
+    const {
+      todayStartUTC, yesterdayStartUTC,
+      todayDateUTC, tomorrowDateUTC, yesterdayDateUTC,
+      wibOffset,
+    } = computeWIBBoundaries();
 
     // Parse range parameter for product sales breakdown (Phase 3)
     const url = new URL(request.url);
@@ -41,77 +40,94 @@ export async function GET(
     const rangeStartUTC = rangeDays > 1
       ? new Date(todayStartUTC.getTime() - (rangeDays - 1) * 24 * 60 * 60 * 1000)
       : todayStartUTC;
+    const rangeStartDateUTC = rangeDays > 1
+      ? new Date(todayDateUTC.getTime() - (rangeDays - 1) * 24 * 60 * 60 * 1000)
+      : todayDateUTC;
 
     // 14 days ago for weekly comparison chart (Phase 2)
     const twoWeeksAgoUTC = new Date(todayStartUTC.getTime() - 13 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgoDateUTC = new Date(todayDateUTC.getTime() - 13 * 24 * 60 * 60 * 1000);
 
     const isStore = ["toko", "resto", "cafe_lsp"].includes(unitType);
+    const utFilter = unitTypeFilter(unitType);
+    const ssFilter = storeSaleUnitTypeFilter(unitType);
 
-    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx, storePaymentBreakdown, topProductItems, profitItems] =
+    const [productCount, activeProductCount, stockResult, lowStockCount, todaySales, todayServiceTx, weekSales, weekServiceTx, storePaymentBreakdown, servicePaymentBreakdown, topProductItems, profitItems] =
       await Promise.all([
         prisma.storeProduct.count({ where: { unitType, deletedAt: null } }),
         prisma.storeProduct.count({ where: { unitType, isActive: true, deletedAt: null } }),
         prisma.storeProduct.aggregate({ where: { unitType, isActive: true, deletedAt: null }, _sum: { stock: true } }),
-        // Low stock count (stock <= min_stock per product)
+        // Low stock count (stock <= COALESCE(min_stock, 5) per product)
         isStore
           ? prisma.$queryRaw<[{ count: bigint }]>`
               SELECT COUNT(*)::int as count FROM store_products
               WHERE unit_type = ${unitType}
                 AND is_active = true
                 AND deleted_at IS NULL
-                AND stock <= min_stock
+                AND stock <= COALESCE(min_stock, 5)
             `.then(r => Number(r[0].count))
           : Promise.resolve(0),
-        // Today store sales
+        // Today store sales — alias-aware + DateTime
         prisma.storeSale.aggregate({
           _sum: { totalAmount: true },
           _count: true,
           where: {
-            unitType,
+            unitType: ssFilter as string,
             createdAt: { gte: todayStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
         }),
-        // Today service transactions
+        // Today service transactions — alias-aware + @db.Date
         prisma.unitTransaction.aggregate({
           _sum: { amount: true },
           _count: true,
           where: {
-            unitType,
-            transactionDate: { gte: todayStartUTC },
+            unitType: utFilter,
+            transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
             status: { not: "voided" },
           },
         }),
-        // Weekly store sales grouped by date
+        // Weekly store sales — alias-aware + DateTime
         prisma.storeSale.findMany({
           where: {
-            unitType,
+            unitType: ssFilter as string,
             createdAt: { gte: twoWeeksAgoUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
           select: { createdAt: true, totalAmount: true },
         }),
-        // Weekly service transactions grouped by date
+        // Weekly service transactions — alias-aware + @db.Date
         prisma.unitTransaction.findMany({
           where: {
-            unitType,
-            transactionDate: { gte: twoWeeksAgoUTC },
+            unitType: utFilter,
+            transactionDate: { gte: twoWeeksAgoDateUTC },
             status: { not: "voided" },
           },
           select: { transactionDate: true, amount: true },
         }),
-        // 9. Payment method breakdown (today)
+        // Payment method breakdown (StoreSale) — alias-aware, range-aware
         prisma.storeSale.groupBy({
           by: ["paymentMethod"],
           _sum: { totalAmount: true },
           _count: true,
           where: {
-            unitType,
-            createdAt: { gte: todayStartUTC },
+            unitType: ssFilter as string,
+            createdAt: { gte: rangeStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
         }),
-        // 10. All products sold by quantity (range-aware, store units only)
+        // Payment method breakdown (UnitTransaction) — alias-aware, range-aware
+        prisma.unitTransaction.groupBy({
+          by: ["paymentMethod"],
+          _sum: { amount: true },
+          _count: true,
+          where: {
+            unitType: utFilter,
+            transactionDate: { gte: rangeStartDateUTC, lt: tomorrowDateUTC },
+            status: { not: "voided" },
+          },
+        }),
+        // All products sold by quantity (range-aware, store units only)
         isStore
           ? prisma.storeSaleItem.groupBy({
               by: ["productId"],
@@ -119,19 +135,20 @@ export async function GET(
               orderBy: { _sum: { quantity: "desc" } },
               where: {
                 sale: {
-                  unitType,
+                  unitType: ssFilter as string,
                   createdAt: { gte: rangeStartUTC },
                   NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
                 },
               },
             })
           : Promise.resolve([]),
-        // 11. Profit items for store units (today)
+        // Profit items for store units (today) — filter out null costPrice
         isStore
           ? prisma.storeSaleItem.findMany({
               where: {
+                costPrice: { not: null },
                 sale: {
-                  unitType,
+                  unitType: ssFilter as string,
                   createdAt: { gte: todayStartUTC },
                   NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
                 },
@@ -146,14 +163,15 @@ export async function GET(
           : Promise.resolve([]),
       ]);
 
-    // Build weekly revenue map
+    // Build weekly revenue map (merge both StoreSale + UnitTransaction for ALL unit types)
     const weekMap = new Map<string, { revenue: number; transactions: number }>();
     for (let i = 0; i < 14; i++) {
-      const d = new Date(twoWeeksAgoUTC.getTime() + i * 24 * 60 * 60 * 1000);
+      const d = new Date(todayDateUTC.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().slice(0, 10);
       weekMap.set(key, { revenue: 0, transactions: 0 });
     }
 
+    // Merge StoreSale into weekMap (DateTime → WIB date key)
     for (const s of weekSales) {
       const key = new Date(s.createdAt.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
       const entry = weekMap.get(key);
@@ -163,8 +181,9 @@ export async function GET(
       }
     }
 
+    // Merge UnitTransaction into weekMap (@db.Date → direct date key)
     for (const t of weekServiceTx) {
-      const key = new Date(t.transactionDate.getTime() + wibOffset * 60000).toISOString().slice(0, 10);
+      const key = t.transactionDate.toISOString().slice(0, 10);
       const entry = weekMap.get(key);
       if (entry) {
         entry.revenue += Number(t.amount);
@@ -179,29 +198,30 @@ export async function GET(
     const weekRevenue = allDays.slice(7).map(([date, data]) => ({ date, ...data }));
 
     // Peak hours: filter today's records from weekly data, group by WIB hour
-    const todayWIB = wibNow.toISOString().slice(0, 10);
-    const todayPeakRecords = (isStore
-      ? weekSales.filter(s => {
-          const wibDate = new Date(s.createdAt.getTime() + wibOffset * 60000);
-          return wibDate.toISOString().slice(0, 10) === todayWIB;
-        }).map(s => ({ date: s.createdAt, amount: Number(s.totalAmount) }))
-      : weekServiceTx.filter(t => {
-          const wibDate = new Date(t.transactionDate.getTime() + wibOffset * 60000);
-          return wibDate.toISOString().slice(0, 10) === todayWIB;
-        }).map(t => ({ date: t.transactionDate, amount: Number(t.amount) }))
-    );
+    const todayWIB = new Date(Date.now() + wibOffset * 60000 + new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const todayPeakRecords = [
+      // StoreSale records for today
+      ...weekSales.filter(s => {
+        const wibDate = new Date(s.createdAt.getTime() + wibOffset * 60000);
+        return wibDate.toISOString().slice(0, 10) === todayWIB;
+      }).map(s => ({ date: s.createdAt, amount: Number(s.totalAmount) })),
+      // UnitTransaction records for today
+      ...weekServiceTx.filter(t => {
+        return t.transactionDate.toISOString().slice(0, 10) === todayWIB;
+      }).map(t => ({ date: t.transactionDate, amount: Number(t.amount) })),
+    ];
     const peakHours = computePeakHours(todayPeakRecords, wibOffset);
 
-    // Profit metrics (store units only)
+    // Profit metrics (store units only) — null costPrice already filtered at query level
     let todayProfit = 0;
     let profitMargin = 0;
     let topProfitProducts: Array<{ productId: number; name: string; profit: number; revenue: number; margin: number }> = [];
 
-    type ProfitItemRow = { unitPrice: number; costPrice: number | null; quantity: number; productId: number };
+    type ProfitItemRow = { unitPrice: number; costPrice: number; quantity: number; productId: number };
     if (isStore && (profitItems as ProfitItemRow[]).length > 0) {
       const normalizedItems = (profitItems as ProfitItemRow[]).map(item => ({
         unitPrice: Number(item.unitPrice),
-        costPrice: Number(item.costPrice ?? 0),
+        costPrice: Number(item.costPrice),
         quantity: item.quantity,
         productId: item.productId,
       }));
@@ -209,7 +229,7 @@ export async function GET(
       const profitResult = computeProfitFromItems(normalizedItems);
       todayProfit = profitResult.todayProfit;
 
-      // Resolve top profit product names (top 5 by profit)
+      // Resolve top profit product names (top 5 by profit) — batch findMany, no N+1
       const sorted = Array.from(profitResult.productProfits.entries())
         .sort(([, a], [, b]) => b.profit - a.profit)
         .slice(0, 5);
@@ -230,28 +250,14 @@ export async function GET(
       }));
     }
 
-    // Use actual todayRevenue for margin calculation (includes discounts, taxes)
-    const detailTodayRevenue = isStore
-      ? Number(todaySales._sum.totalAmount ?? 0)
-      : Number(todayServiceTx._sum.amount ?? 0);
+    // Total today revenue from both sources
+    const detailTodayRevenue =
+      Number(todaySales._sum.totalAmount ?? 0) +
+      Number(todayServiceTx._sum.amount ?? 0);
 
     profitMargin = detailTodayRevenue > 0 && isStore
       ? Math.round((todayProfit / detailTodayRevenue) * 10000) / 100
       : 0;
-
-    // Service payment breakdown for non-store units
-    const servicePaymentBreakdown = !isStore
-      ? await prisma.unitTransaction.groupBy({
-          by: ["paymentMethod"],
-          _sum: { amount: true },
-          _count: true,
-          where: {
-            unitType,
-            transactionDate: { gte: todayStartUTC },
-            status: { not: "voided" },
-          },
-        })
-      : [];
 
     // Resolve all product sales with names (batch findMany — no N+1)
     type ProductSaleRow = { productId: number; _sum: { quantity: number | null; subtotal: number | null } };
@@ -291,7 +297,7 @@ export async function GET(
       totalRevenue: allProductSales.reduce((s, p) => s + p.revenue, 0),
     };
 
-    // Combine payment breakdown from store + service
+    // Combine payment breakdown from both StoreSale + UnitTransaction
     const paymentMap = new Map<string, { amount: number; count: number }>();
     for (const p of storePaymentBreakdown as Array<{ paymentMethod: string; _sum: { totalAmount: number | null }; _count: number }>) {
       const method = p.paymentMethod || "cash";
@@ -319,13 +325,9 @@ export async function GET(
       activeProductCount,
       totalStock: Number(stockResult._sum.stock ?? 0),
       lowStockCount,
-      // Store units only count StoreSale; service units only count UnitTransaction
-      todayTransactions: isStore
-        ? todaySales._count
-        : todayServiceTx._count,
-      todayRevenue: isStore
-        ? Number(todaySales._sum.totalAmount ?? 0)
-        : Number(todayServiceTx._sum.amount ?? 0),
+      // Merge both sources for ALL unit types
+      todayTransactions: todaySales._count + todayServiceTx._count,
+      todayRevenue: detailTodayRevenue,
       weekRevenue,
     };
 

@@ -376,10 +376,10 @@ export default function UnitDetailPage() {
           title="Pendapatan Hari Ini"
           value={formatCurrency(stats?.todayRevenue ?? 0)}
           icon={stats && stats.todayRevenue > 0
-            ? (stats.todayRevenue >= (stats.weekRevenue.reduce((s, d) => s + d.revenue, 0) / 7 || 0) ? TrendingUp : TrendingDown)
+            ? (stats.todayRevenue >= (stats.weekRevenue.slice(0, -1).reduce((s, d) => s + d.revenue, 0) / Math.max(1, stats.weekRevenue.length - 1) || 0) ? TrendingUp : TrendingDown)
             : Minus
           }
-          sub={stats ? `${formatCurrency(stats.weekRevenue.reduce((s, d) => s + d.revenue, 0))} minggu ini` : undefined}
+          sub={stats ? `${formatCurrency(stats.weekRevenue.slice(0, -1).reduce((s, d) => s + d.revenue, 0))} avg 6 hari lalu` : undefined}
         />
         <StatCard title="Rata-rata Transaksi" value={formatCurrency(stats?.avgTransactionValue ?? 0)} icon={BarChart3} />
       </div>
@@ -510,7 +510,7 @@ export default function UnitDetailPage() {
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold">Metode Pembayaran Hari Ini</h3>
+                  <h3 className="font-semibold">Metode Pembayaran {salesRange === "7d" ? "7 Hari Terakhir" : salesRange === "30d" ? "30 Hari Terakhir" : "Hari Ini"}</h3>
                 </div>
                 {stats?.paymentMethods && stats.paymentMethods.length > 0 ? (
                   <div className="space-y-2">

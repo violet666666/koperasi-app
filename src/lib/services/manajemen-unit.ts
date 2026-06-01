@@ -1,5 +1,54 @@
 import { UNIT_TYPES, getUnitLabel, unitTypeToSlug } from "@/lib/constants/units";
 
+/**
+ * Computes WIB-aware date boundaries for querying both DateTime and @db.Date fields.
+ *
+ * Key insight: UnitTransaction.transactionDate is @db.Date (stored as pure date at UTC midnight),
+ * while StoreSale.createdAt is DateTime (full timestamp with timezone).
+ * They need different boundary representations:
+ * - DateTime: use { gte: todayStartWIB, lt: tomorrowStartWIB }
+ * - @db.Date:  use { gte: todayDateUTC } (the date string at UTC midnight)
+ */
+export function computeWIBBoundaries(now = new Date()) {
+  const wibOffset = 7 * 60; // WIB = UTC+7 in minutes
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const wibNow = new Date(utcMs + wibOffset * 60000);
+
+  // WIB start of today (local time calculation in WIB)
+  const todayStartWIB = new Date(
+    wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0
+  );
+  // Convert back to UTC for DateTime field queries
+  const todayStartUTC = new Date(todayStartWIB.getTime() - wibOffset * 60000);
+  const tomorrowStartUTC = new Date(todayStartUTC.getTime() + 24 * 60 * 60 * 1000);
+  const yesterdayStartUTC = new Date(todayStartUTC.getTime() - 24 * 60 * 60 * 1000);
+
+  // For @db.Date fields: the date is stored at UTC midnight, so we compare against the WIB date
+  // E.g. if WIB says "2026-06-01", the @db.Date field stores "2026-06-01T00:00:00.000Z"
+  const todayDateUTC = new Date(
+    Date.UTC(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0)
+  );
+  const tomorrowDateUTC = new Date(todayDateUTC.getTime() + 24 * 60 * 60 * 1000);
+  const yesterdayDateUTC = new Date(todayDateUTC.getTime() - 24 * 60 * 60 * 1000);
+
+  return {
+    /** For DateTime fields (StoreSale.createdAt): gte boundary for "today in WIB" */
+    todayStartUTC,
+    /** For DateTime fields: start of tomorrow (exclusive upper bound) */
+    tomorrowStartUTC,
+    /** For DateTime fields: start of yesterday */
+    yesterdayStartUTC,
+    /** For @db.Date fields (UnitTransaction.transactionDate): gte boundary for today */
+    todayDateUTC,
+    /** For @db.Date fields: tomorrow date (exclusive upper bound) */
+    tomorrowDateUTC,
+    /** For @db.Date fields: yesterday date */
+    yesterdayDateUTC,
+    /** WIB offset in minutes (420 for UTC+7) */
+    wibOffset,
+  };
+}
+
 export interface RawUnitStats {
   unitType: string;
   productCount: number;

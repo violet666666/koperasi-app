@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugToUnitType } from "@/lib/constants/units";
+import { slugToUnitType, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { computeWIBBoundaries } from "@/lib/services/manajemen-unit";
 
 export async function GET(
   request: Request,
@@ -29,28 +30,31 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "25");
     const skip = (page - 1) * limit;
 
-    // Date range filter
+    // Date range filter — uses computeWIBBoundaries for correct timezone handling
     const range = searchParams.get("range") ?? "today";
-    const now = new Date();
-    const wibOffset = 7 * 60;
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const wibNow = new Date(utcMs + wibOffset * 60000);
-    const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
-    const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
+    const {
+      todayStartUTC,
+      todayDateUTC, tomorrowDateUTC,
+    } = computeWIBBoundaries();
 
     const rangeDays = range === "30d" ? 30 : range === "7d" ? 7 : 1;
     const rangeStartUTC = rangeDays > 1
       ? new Date(todayStartUTC.getTime() - (rangeDays - 1) * 24 * 60 * 60 * 1000)
       : todayStartUTC;
+    const rangeStartDateUTC = rangeDays > 1
+      ? new Date(todayDateUTC.getTime() - (rangeDays - 1) * 24 * 60 * 60 * 1000)
+      : todayDateUTC;
 
     const isStore = ["toko", "resto", "cafe_lsp"].includes(unitType);
+    const utFilter = unitTypeFilter(unitType);
+    const ssFilter = storeSaleUnitTypeFilter(unitType);
 
     if (isStore) {
-      // Store transactions from StoreSale
+      // Store transactions from StoreSale — alias-aware
       const [sales, total] = await Promise.all([
         prisma.storeSale.findMany({
           where: {
-            unitType,
+            unitType: ssFilter as string,
             createdAt: { gte: rangeStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
@@ -75,7 +79,7 @@ export async function GET(
         }),
         prisma.storeSale.count({
           where: {
-            unitType,
+            unitType: ssFilter as string,
             createdAt: { gte: rangeStartUTC },
             NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
           },
@@ -99,10 +103,14 @@ export async function GET(
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     } else {
-      // Service transactions from UnitTransaction
+      // Service transactions from UnitTransaction — alias-aware, @db.Date field
       const [transactions, total] = await Promise.all([
         prisma.unitTransaction.findMany({
-          where: { unitType, transactionDate: { gte: rangeStartUTC }, status: { not: "voided" } },
+          where: {
+            unitType: utFilter,
+            transactionDate: { gte: rangeStartDateUTC, lt: tomorrowDateUTC },
+            status: { not: "voided" },
+          },
           select: {
             id: true,
             transactionNo: true,
@@ -117,7 +125,11 @@ export async function GET(
           take: limit,
         }),
         prisma.unitTransaction.count({
-          where: { unitType, transactionDate: { gte: rangeStartUTC }, status: { not: "voided" } },
+          where: {
+            unitType: utFilter,
+            transactionDate: { gte: rangeStartDateUTC, lt: tomorrowDateUTC },
+            status: { not: "voided" },
+          },
         }),
       ]);
 

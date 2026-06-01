@@ -51,3 +51,44 @@ export type FbUnitType = (typeof FB_UNITS)[number];
 export function isFbUnit(unitType: string | null | undefined): boolean {
   return !!unitType && (FB_UNITS as readonly string[]).includes(unitType);
 }
+
+/**
+ * Alias mapping for UnitTransaction.unitType.
+ * DB stores various spellings but UNIT_TYPES uses the canonical form.
+ * e.g. DB has "play_station" but UNIT_TYPES key is "playstation"
+ */
+export const UNIT_TYPE_ALIASES: Record<string, string[]> = {
+  playstation: ["playstation", "play_station"],
+  resto: ["resto", "resto_cafe"],
+  cafe_lsp: ["cafe_lsp", "coffe_latar"],
+};
+
+/**
+ * Alias mapping for StoreSale.unitType.
+ * StoreSale stores the unit type used at sale creation time.
+ */
+export const STORE_SALE_ALIASES: Record<string, string[]> = {
+  toko: ["toko"],
+  resto: ["resto", "resto_cafe", "coffe_latar"],
+  cafe_lsp: ["cafe_lsp"],
+  playstation: ["playstation"],
+};
+
+/**
+ * Returns a Prisma-compatible filter for UnitTransaction.unitType.
+ * If the canonical type has aliases, returns `{ in: aliases }` to match all variants.
+ * Otherwise returns the string directly for exact match.
+ */
+export function unitTypeFilter(canonicalType: string): string | { in: string[] } {
+  const aliases = UNIT_TYPE_ALIASES[canonicalType];
+  return aliases ? { in: aliases } : canonicalType;
+}
+
+/**
+ * Returns a Prisma-compatible filter for StoreSale.unitType.
+ * Works the same as unitTypeFilter but uses STORE_SALE_ALIASES.
+ */
+export function storeSaleUnitTypeFilter(canonicalType: string): string | { in: string[] } {
+  const aliases = STORE_SALE_ALIASES[canonicalType];
+  return aliases ? { in: aliases } : canonicalType;
+}

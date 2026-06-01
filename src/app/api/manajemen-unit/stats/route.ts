@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { UNIT_TYPES } from "@/lib/constants/units";
-import { aggregateUnitStats, type RawUnitStats } from "@/lib/services/manajemen-unit";
+import { UNIT_TYPES, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { aggregateUnitStats, computeWIBBoundaries, type RawUnitStats } from "@/lib/services/manajemen-unit";
 
 export async function GET() {
   try {
@@ -17,23 +17,24 @@ export async function GET() {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    // WIB today boundary
-    const now = new Date();
-    const wibOffset = 7 * 60;
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const wibNow = new Date(utcMs + wibOffset * 60000);
-    const todayStart = new Date(wibNow.getFullYear(), wibNow.getMonth(), wibNow.getDate(), 0, 0, 0, 0);
-    const todayStartUTC = new Date(todayStart.getTime() - wibOffset * 60000);
-    const yesterdayStartUTC = new Date(todayStartUTC.getTime() - 24 * 60 * 60 * 1000);
+    // WIB today boundary — uses computeWIBBoundaries for correct @db.Date handling
+    const {
+      todayStartUTC, yesterdayStartUTC,
+      todayDateUTC, tomorrowDateUTC, yesterdayDateUTC,
+    } = computeWIBBoundaries();
 
     const unitTypes = Object.keys(UNIT_TYPES);
 
     // Fetch stats per unitType in parallel
     const rawStats: RawUnitStats[] = await Promise.all(
       unitTypes.map(async (unitType) => {
-        const [productCount, activeProductCount, lowStockCount, todaySales, todayTransactions] =
+        const utFilter = unitTypeFilter(unitType);
+        const ssFilter = storeSaleUnitTypeFilter(unitType);
+        const isStoreUnit = ["toko", "resto", "cafe_lsp"].includes(unitType);
+
+        const [productCount, activeProductCount, lowStockCount, todaySales, todayUnitTxCount] =
           await Promise.all([
-            // Product count
+            // Product count (always use exact unitType — products are stored with canonical types)
             prisma.storeProduct.count({
               where: { unitType, deletedAt: null },
             }),
@@ -42,79 +43,67 @@ export async function GET() {
               where: { unitType, isActive: true, deletedAt: null },
             }),
             // Low stock count (stock <= min_stock per product)
-            unitType === "toko" || unitType === "resto" || unitType === "cafe_lsp"
+            isStoreUnit
               ? prisma.$queryRaw<[{ count: bigint }]>`
                   SELECT COUNT(*)::int as count FROM store_products
                   WHERE unit_type = ${unitType}
                     AND is_active = true
                     AND deleted_at IS NULL
-                    AND stock <= min_stock
+                    AND stock <= COALESCE(min_stock, 5)
                 `.then(r => Number(r[0].count))
               : Promise.resolve(0),
-            // Today's store sales revenue (for store-type units)
+            // Today's store sales revenue — uses alias filter + DateTime field
             prisma.storeSale.aggregate({
               _sum: { totalAmount: true },
               _count: true,
               where: {
-                unitType,
+                unitType: ssFilter as string,
                 createdAt: { gte: todayStartUTC },
                 NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
               },
             }),
-            // Today's unit transactions (for service-type units)
+            // Today's unit transactions count — uses alias filter + @db.Date field
             prisma.unitTransaction.count({
               where: {
-                unitType,
-                transactionDate: { gte: todayStartUTC },
+                unitType: utFilter,
+                transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
                 status: { not: "voided" },
               },
             }),
           ]);
 
-        // Store units (toko, resto, cafe_lsp): revenue from StoreSale only
-        // Service units: revenue from UnitTransaction only
-        // Avoid double-counting by only querying the relevant source
-        const isStoreUnit = ["toko", "resto", "cafe_lsp"].includes(unitType);
+        // Service revenue from UnitTransaction (alias-aware, @db.Date)
+        const serviceRevenueResult = await prisma.unitTransaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            unitType: utFilter,
+            transactionDate: { gte: todayDateUTC, lt: tomorrowDateUTC },
+            status: { not: "voided" },
+          },
+        });
+
         const storeRevenue = Number(todaySales._sum.totalAmount ?? 0);
-        const storeTxCount = todaySales._count;
+        const serviceRevenue = Number(serviceRevenueResult._sum.amount ?? 0);
+        const serviceTxCount = todayUnitTxCount;
 
-        // Only count service revenue for non-store units
-        const serviceRevenue = !isStoreUnit
-          ? await prisma.unitTransaction.aggregate({
-              _sum: { amount: true },
-              where: {
-                unitType,
-                transactionDate: { gte: todayStartUTC },
-                status: { not: "voided" },
-              },
-            })
-          : { _sum: { amount: 0 as any } };
+        // Yesterday revenue for trend comparison (both sources)
+        const yesterdayStoreRevenue = await prisma.storeSale.aggregate({
+          _sum: { totalAmount: true },
+          where: {
+            unitType: ssFilter as string,
+            createdAt: { gte: yesterdayStartUTC, lt: todayStartUTC },
+            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+          },
+        });
 
-        // Only count service transactions for non-store units
-        const serviceTxCount = !isStoreUnit ? todayTransactions : 0;
-
-        // Yesterday revenue for trend comparison
-        const yesterdayStoreRevenue = isStoreUnit
-          ? await prisma.storeSale.aggregate({
-              _sum: { totalAmount: true },
-              where: {
-                unitType,
-                createdAt: { gte: yesterdayStartUTC, lt: todayStartUTC },
-                NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
-              },
-            })
-          : { _sum: { totalAmount: 0 as any } };
-
-        const yesterdayServiceRevenue = !isStoreUnit
-          ? await prisma.unitTransaction.aggregate({
-              _sum: { amount: true },
-              where: {
-                unitType,
-                transactionDate: { gte: yesterdayStartUTC, lt: todayStartUTC },
-                status: { not: "voided" },
-              },
-            })
-          : { _sum: { amount: 0 as any } };
+        const yesterdayServiceRevenue = await prisma.unitTransaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            unitType: utFilter,
+            transactionDate: { gte: yesterdayDateUTC, lt: todayDateUTC },
+            status: { not: "voided" },
+          },
+        });
 
         const yesterdayRevenue =
           Number(yesterdayStoreRevenue._sum.totalAmount ?? 0) +
@@ -124,8 +113,8 @@ export async function GET() {
           unitType,
           productCount,
           activeProductCount,
-          todayTransactionCount: storeTxCount + serviceTxCount,
-          todayRevenue: storeRevenue + Number(serviceRevenue._sum.amount ?? 0),
+          todayTransactionCount: todaySales._count + serviceTxCount,
+          todayRevenue: storeRevenue + serviceRevenue,
           yesterdayRevenue,
           lowStockCount,
         };
