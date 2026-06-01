@@ -787,3 +787,13 @@ Detail API dan Calculator menggunakan sumber data berbeda untuk jasa pinjaman da
 | Jasa Anggota | Rp 87.765.493 | **Rp 152.000** (carwash only) |
 | Income Lainnya | Rp 6.705.367.799 | **Rp 0** (excluded) |
 | Expense Lainnya | Rp 1.485.149.401 | **Rp 0** (excluded) |
+
+### 18.4 Bug Fix: Voided Income Phantom SHU (1 Juni 2026 — Malam)
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| Voided income phantom SHU | 🔴 CRITICAL | ✅ CLOSED | 30 transaksi voided (Rp 3.020.600) tetap masuk sebagai income SHU karena CB income asli tidak diupdate saat void. Void reversal masuk NON_EXPENSE_CATEGORIES → netto phantom income. Fix: void exclusion query + sale ref matching. |
+
+**Commit:** `13c36cf` (railway-migration)
+
+*Diperbarui: 1 Juni 2026*

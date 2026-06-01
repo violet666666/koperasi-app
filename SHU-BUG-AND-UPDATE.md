@@ -891,3 +891,64 @@ Akibatnya: totalIncome ~Rp 7M − totalExpense ~Rp 2.58M = netSurplus ~Rp 4.4M �
 **Catatan:** Setelah pengecualian, pendapatan inti (Rp 315K) < beban inti (Rp 1.094M) → SHU Bersih = Rp 0. Jasa Anggota Rp 152K berasal murni dari bonus SHU Cuci Mobil (76 transaksi × Rp 2.000). SHU sekarang hanya menghitung: **Pendapatan Unit**, **Pengeluaran Unit**, dan **Pendapatan SimpanPinjam (SP)**.
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 20. BUG: Voided Income Tetap Masuk SHU — 30 Transaksi Phantom (1 Juni 2026 — Malam)
+
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
+> **Commit:** `13c36cf` (railway-migration)
+> **Ditemukan:** Operator melihat transaksi test "Resto dan Cafe" Rp 28.000 masih muncul di Laporan SHU padahal sudah di-void
+
+### DDD. Deskripsi Bug
+
+Saat transaksi di-void (StoreSale atau UnitTransaction), sistem membuat:
+1. **StoreSale/UnitTransaction** → ditandai voided ✅
+2. **CB reversal** (`void_penjualan_toko` / `void_unit_transaction`, type=out) → dibuat ✅
+3. **CB income asli** (`pendapatan_toko` / `pendapatan_unit`, type=in) → **TIDAK diupdate** ❌
+
+SHU calculator menghitung income dari CB type=in (termasuk yang sudah di-void), tapi void reversal masuk `NON_EXPENSE_CATEGORIES` (diexclude dari expense). Netto: **+amount phantom income** per transaksi voided.
+
+### EEE. Dampak Sistemik
+
+Bukan hanya transaksi test Resto Rp 28.000 — **30 transaksi voided** total senilai **Rp 3.020.600** salah masuk sebagai income SHU:
+
+| Unit | Jumlah Voided | Total Phantom |
+|:-----|------:|------:|
+| Toko | 19 transaksi | Rp 2.061.600 |
+| Cafe LSP | 8 transaksi | Rp 530.000 |
+| Resto | 1 transaksi | Rp 28.000 |
+| Cuci Mobil | 2 transaksi | Rp 401.000 |
+| **Total** | **30 transaksi** | **Rp 3.020.600** |
+
+### FFF. Perbaikan
+
+| # | Perubahan | File | Deskripsi |
+|:---|:---|:---|:---|
+| **58** | **VOID_CATEGORIES constant** | `shu-calculator.ts` | Konstanta top-level untuk void reversal categories |
+| **59** | **Void exclusion query** | `shu-calculator.ts` | Query CB void reversal → extract sale refs via regex → build voidedSaleRefSet |
+| **60** | **Income loop skip** | `shu-calculator.ts` | nonJournaledIncome.forEach() skip CB income yang description-nya mengandung voided sale ref |
+| **61** | **Per-unit income exclusion** | `shu-calculator.ts` | incomeByUnit groupBy query menambahkan VOID_CATEGORIES ke category filter |
+| **62** | **Detail API sync** | `detail-transactions/route.ts` | Void exclusion query + filter yang sama di CB income loop untuk dialog detail SHU |
+
+### GGG. Regex Pattern
+
+```typescript
+const SALE_REF_REGEX = /\b([A-Z]{2}-\d{8}-\d{4}|CM\d{12})\b/g;
+// Menangkap: TK-30052026-0049, RS-14052026-0001, CF-29052026-0013, CM250520260036
+```
+
+### HHH. Hasil Verifikasi
+
+```
+SEBELUM FIX:
+  CB income masuk SHU:  1.270 items, Rp 70.578.600
+  Void phantom income:     30 items, Rp  3.020.600 ← salah masuk
+  Active income:        1.240 items, Rp 67.558.000
+
+SESUDAH FIX:
+  CB income masuk SHU:  1.240 items, Rp 67.558.000
+  Void phantom income:      0 items, Rp        0 ← terexcluded ✅
+```
+
+*Diperbarui: 1 Juni 2026*
