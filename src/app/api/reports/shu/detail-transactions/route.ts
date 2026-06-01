@@ -151,6 +151,25 @@ export async function GET(request: NextRequest) {
 
     // NOTE: CashBankTransaction does NOT have paymentMethod or referenceNo fields.
     // Use transactionNo as the reference identifier. paymentMethod is always null for CB.
+
+    // Void exclusion: CB income yang sudah di-void harus dikecualikan dari daftar
+    const VOID_CATS = ["void_penjualan_toko", "void_unit_transaction"];
+    const voidedRefs = await prisma.cashBankTransaction.findMany({
+      where: {
+        transactionDate: { gte: startDate, lte: endDate },
+        category: { in: VOID_CATS },
+      },
+      select: { description: true },
+    });
+    const voidedRefSet = new Set<string>();
+    const REF_RE = /\b([A-Z]{2}-\d{8}-\d{4}|CM\d{12})\b/g;
+    voidedRefs.forEach(v => {
+      let m;
+      while ((m = REF_RE.exec(v.description)) !== null) {
+        voidedRefSet.add(m[1]);
+      }
+    });
+
     const cbIncome = await prisma.cashBankTransaction.findMany({
       where: {
         transactionDate: { gte: startDate, lte: endDate },
@@ -174,6 +193,13 @@ export async function GET(request: NextRequest) {
       const cat = tx.category || "lainnya";
       // Category filter if specific category requested
       if (category && cat !== category) return;
+      // Skip CB income yang memiliki void reversal (phantom income)
+      const desc = tx.description || "";
+      let isVoided = false;
+      for (const ref of voidedRefSet) {
+        if (desc.includes(ref)) { isVoided = true; break; }
+      }
+      if (isVoided) return;
       allTransactions.push({
         id: tx.id,
         date: tx.transactionDate.toISOString(),

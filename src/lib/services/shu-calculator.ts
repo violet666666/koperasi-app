@@ -30,6 +30,10 @@ const DEFAULT_SHU_CONFIG = {
     ]
 };
 
+// Void reversal categories — CB income dengan kategori ini atau yang memiliki
+// void reversal terkait harus dikecualikan dari SHU income
+const VOID_CATEGORIES = ["void_penjualan_toko", "void_unit_transaction"];
+
 // Kategori CashBankTransaction yang BUKAN expense operasional (blacklist approach)
 // Semua kategori selain ini dianggap sebagai pengeluaran operasional untuk SHU
 const NON_EXPENSE_CATEGORIES = [
@@ -195,6 +199,27 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             }
         }
 
+        // === VOID EXCLUSION: CB income yang sudah di-void harus dikecualikan ===
+        // Saat transaksi di-void, sistem membuat CB reversal (void_penjualan_toko/
+        // void_unit_transaction) tapi TIDAK update CB income asli. Void reversal masuk
+        // NON_EXPENSE_CATEGORIES (bukan expense riil), jadi income asli tetap terhitung
+        // sebagai phantom income. Fix: query void reversal, extract sale refs, exclude.
+        const voidedCbRefs = await prisma.cashBankTransaction.findMany({
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                category: { in: VOID_CATEGORIES },
+            },
+            select: { description: true },
+        });
+        const voidedSaleRefSet = new Set<string>();
+        const SALE_REF_REGEX = /\b([A-Z]{2}-\d{8}-\d{4}|CM\d{12})\b/g;
+        voidedCbRefs.forEach(v => {
+            let m;
+            while ((m = SALE_REF_REGEX.exec(v.description)) !== null) {
+                voidedSaleRefSet.add(m[1]);
+            }
+        });
+
         // === INCOME MERGE: CB type=in non-journaled ===
         // Simetris dengan expense merge: tambahkan pendapatan dari CashBankTransaction
         // yang belum dijurnal (journalId=NULL). Ini mencakup: jasa_pinjaman,
@@ -212,6 +237,13 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         nonJournaledIncome.forEach(tx => {
             // Skip null category entries (dianggap "lainnya" — bukan income inti SHU)
             if (!tx.category) return;
+            // Skip income CB yang memiliki void reversal (phantom income)
+            const desc = tx.description || "";
+            let isVoided = false;
+            for (const ref of voidedSaleRefSet) {
+                if (desc.includes(ref)) { isVoided = true; break; }
+            }
+            if (isVoided) return;
             const cat = tx.category;
             cbIncomeByCategory[cat] = (cbIncomeByCategory[cat] || 0) + toNum(tx.amount);
         });
@@ -429,13 +461,14 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _count: true,
         }),
         // Pendapatan per unit dari Kas & Bank (CB type=in non-journaled, non-savings)
+        // Note: void reversal exclusion applied below (after groupBy, per-unit level)
         prisma.cashBankTransaction.groupBy({
             by: ['unitType'],
             where: {
                 transactionDate: { gte: startDate, lte: endDate },
                 type: "in",
                 journalId: null,
-                category: { notIn: NON_INCOME_CATEGORIES },
+                category: { notIn: [...NON_INCOME_CATEGORIES, ...VOID_CATEGORIES] },
             },
             _sum: { amount: true },
             _count: true,
