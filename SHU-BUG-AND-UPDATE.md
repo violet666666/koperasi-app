@@ -845,3 +845,49 @@ Setelah fix, masih ada selisih antara Calculator (Card) dan Detail API untuk Uni
 **Detail API SP (Rp 298M) lebih akurat** dari Card SP (Rp 85.9M) karena menangkap SEMUA bunga pinjaman dari LoanPayment, bukan hanya yang terekam di sistem akuntansi. Untuk menyelaraskan, perlu mengubah calculator agar menggunakan direct LoanPayment query — task terpisah.
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 19. FIX: Exclude Pendapatan Lainnya & Beban Lainnya dari SHU (1 Juni 2026 — Malam)
+
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
+> **Commit:** `29b87b4` (railway-migration)
+> **Ditemukan:** Operator melaporkan SHU per-anggota membengkak (NRP 76070802 = Rp 7.317.744) karena "Pendapatan Lainnya" dan "Beban Lainnya" mempengaruhi kalkulasi
+
+### AAA. Deskripsi Bug
+
+SHU per-anggota membengkak secara tidak wajar karena kalkulator memasukkan seluruh pendapatan dan beban ke perhitungan SHU, termasuk yang bukan dari operasi inti koperasi:
+
+1. **"Pendapatan Lainnya" (Rp 6.705.367.799)** — CB type=in dengan kategori `lainnya` (Rp ~5.84M) dan `biaya_operasional` type=in (Rp ~868M). Juga mencakup akun jurnal 43xx-45xx. Ini adalah pendapatan non-operasional yang memperbesar totalIncome fiktif.
+2. **"Beban Lainnya" (Rp 1.485.149.401)** — CB type=out dengan kategori `lainnya`. Pengeluaran non-operasional yang juga termasuk dalam totalExpense.
+
+Akibatnya: totalIncome ~Rp 7M − totalExpense ~Rp 2.58M = netSurplus ~Rp 4.4M → Jasa Anggota = **Rp 87.765.493** (seharusnya jauh lebih kecil).
+
+### BBB. Perbaikan
+
+| # | Perubahan | File | Deskripsi |
+|:---|:---|:---|:---|
+| **51** | **NON_INCOME_CATEGORIES** | `shu-calculator.ts` | Ditambahkan `"lainnya"` dan `"biaya_operasional"` → CB income non-operasional dikecualikan |
+| **52** | **NON_EXPENSE_CATEGORIES** | `shu-calculator.ts` | Ditambahkan `"lainnya"` → CB expense non-operasional dikecualikan |
+| **53** | **Journal income loop skip** | `shu-calculator.ts` | Akun 43xx-45xx (Pendapatan Lain-lain) di-skip dari totalIncome |
+| **54** | **Null category skip** | `shu-calculator.ts` | CB entries tanpa kategori (null → dianggap "lainnya") di-skip |
+| **55** | **Fallback path sync** | `shu-calculator.ts` | Inline filter diupdate untuk konsistensi dengan blacklist utama |
+| **56** | **Detail API blacklist sync** | `detail-transactions/route.ts` | NON_INCOME_CATEGORIES dan NON_EXPENSE_CATEGORIES diselaraskan |
+| **57** | **UI card hide** | `page.tsx` | Income/expense group "Lainnya" di-filter dari render (grid 3→2 cols) |
+
+### CCC. Hasil Verifikasi Production
+
+| Metrik | Sebelum Fix | Sesudah Fix |
+|--------|------------|-------------|
+| Income Group Cards | 3 (Unit + SP + **Lainnya**) | **2** (Unit + SP) |
+| Expense Group Cards | 3 (Op + Unit + **Lainnya**) | **2** (Op + Unit) |
+| Pendapatan Lainnya | Rp 6.705.367.799 | **Rp 0** (dikecualikan) |
+| Beban Lainnya | Rp 1.485.149.401 | **Rp 0** (dikecualikan) |
+| Total Pendapatan | ~Rp 7.020.000.000 | **Rp 315.670.000** |
+| Total Beban | ~Rp 2.579.000.000 | **Rp 1.094.374.340** |
+| Jasa Anggota | Rp 87.765.493 | **Rp 152.000** |
+| NRP 76070802 SHU | Rp 7.317.744 | ~Rp 10.000 (carwash only) |
+
+**Catatan:** Setelah pengecualian, pendapatan inti (Rp 315K) < beban inti (Rp 1.094M) → SHU Bersih = Rp 0. Jasa Anggota Rp 152K berasal murni dari bonus SHU Cuci Mobil (76 transaksi × Rp 2.000). SHU sekarang hanya menghitung: **Pendapatan Unit**, **Pengeluaran Unit**, dan **Pendapatan SimpanPinjam (SP)**.
+
+*Diperbarui: 1 Juni 2026*

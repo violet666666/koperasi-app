@@ -751,3 +751,39 @@ Detail API dan Calculator menggunakan sumber data berbeda untuk jasa pinjaman da
 - Detail API: Direct LoanPayment/UnitTransaction → semua data riil dari tabel sumber
 - Detail API **lebih akurat** untuk SP (Rp 298M vs Rp 85.9M calculator)
 - Sinkronisasi penuh membutuhkan perubahan calculator ke direct queries — task terpisah
+
+---
+
+## 18. Update 1 Juni 2026 (Malam) — Fix: Exclude Pendapatan/Beban Lainnya dari SHU
+
+### 18.1 Bug Fix
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| Pendapatan/Beban Lainnya inflate SHU | 🔴 CRITICAL | ✅ CLOSED | "Pendapatan Lainnya" (Rp 6.7B dari CB `lainnya` + `biaya_operasional` type=in) dan "Beban Lainnya" (Rp 1.48B dari CB `lainnya` type=out) memperbesar SHU per-anggota secara tidak wajar. NRP 76070802 dapat Rp 7.3M, Jasa Anggota total Rp 87.7M. |
+
+**Commit:** `29b87b4` (railway-migration)
+
+### 18.2 Perubahan Teknis
+
+- **NON_INCOME_CATEGORIES:** Ditambah `"lainnya"` dan `"biaya_operasional"` — CB income non-operasional dikecualikan
+- **NON_EXPENSE_CATEGORIES:** Ditambah `"lainnya"` — CB expense non-operasional dikecualikan
+- **Journal income loop:** Akun 43xx-45xx (Pendapatan Lain-lain) di-skip dari totalIncome
+- **Null category CB entries:** Di-skip (dianggap "lainnya")
+- **UI:** Income/expense "Lainnya" cards di-hide (grid 3→2 cols), hanya menampilkan Unit + SP income dan Operasional + Unit beban
+- **Detail API:** Blacklists diselaraskan dengan calculator
+
+### 18.3 Dampak
+
+**SHU sekarang hanya menghitung:**
+1. **Pendapatan Unit** (pendapatan_unit, pendapatan_toko, operational)
+2. **Pendapatan SimpanPinjam** (jasa_pinjaman, dana_resiko, penalti_pelunasan)
+3. **Pengeluaran Unit** (biaya_operasional, beban_unit, hpp_toko, hutang_mitra)
+
+| Metrik | Sebelum | Sesudah |
+|--------|---------|---------|
+| Total Pendapatan | ~Rp 7.02M | **Rp 315.670.000** |
+| Total Beban | ~Rp 2.58M | **Rp 1.094.374.340** |
+| Jasa Anggota | Rp 87.765.493 | **Rp 152.000** (carwash only) |
+| Income Lainnya | Rp 6.705.367.799 | **Rp 0** (excluded) |
+| Expense Lainnya | Rp 1.485.149.401 | **Rp 0** (excluded) |
