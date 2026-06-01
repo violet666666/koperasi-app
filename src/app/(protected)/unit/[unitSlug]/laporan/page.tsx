@@ -595,11 +595,17 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         try {
             const allData = await fetchAllData();
             if (!allData) return;
-            // Temporarily set all data for print, then restore
+            // Temporarily set all data for print, then restore after dialog closes
             const currentData = data;
             setData(allData);
-            // Small delay to ensure DOM updates before printing
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Use requestAnimationFrame to ensure React has flushed DOM updates
+            await new Promise<void>(resolve => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        resolve();
+                    });
+                });
+            });
             window.print();
             // Restore paginated data after print dialog closes
             setData(currentData);
@@ -617,25 +623,35 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             const allData = await fetchAllData();
             if (!allData) return;
 
-            const ExcelJS = await import("xlsx");
-            const headerRow = ["No.", "Tanggal", "No. Transaksi", "Keterangan"];
-            if (isCuciMobil) headerRow.push("Plat Nomor");
-            headerRow.push("Anggota/Pelanggan", "Metode", "Nominal", "Status");
+            const XLSX = await import("xlsx");
+
+            // ── Number format helper for IDR in Excel ──────────────────────
+            const fmtIDR = '"Rp"#,##0';
+
+            const orgHeader = "PRIMKOPPOL RESOR LUMAJANG";
+            const unitHeader = `UNIT ${unitInfo.label.toUpperCase()}`;
+            const periodHeader = `Periode: ${allData.periodLabel}`;
+
+            // ── Sheet 1: Transaksi Penjualan (POS) ─────────────────────────
+            const txCols = isCuciMobil
+                ? ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Plat Nomor", "Anggota/Pelanggan", "Metode", "Nominal", "Status"]
+                : ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Anggota/Pelanggan", "Metode", "Nominal", "Status"];
 
             const allTxForExport = allData.transactions.filter(tx => methodFilters.has(tx.paymentMethod));
 
-            const exportData: any[][] = [
-                ["PRIMKOPPOL RESOR LUMAJANG"],
-                [`UNIT ${unitInfo.label.toUpperCase()}`],
-                ["LAPORAN TRANSAKSI & PENDAPATAN"],
-                [`Periode: ${allData.periodLabel}`],
+            const txRows: any[][] = [
+                [orgHeader],
+                [unitHeader],
+                ["LAPORAN TRANSAKSI PENJUALAN"],
+                [periodHeader],
                 [],
-                headerRow,
+                txCols,
             ];
+
             allTxForExport.forEach((tx, i) => {
-                const row = [
+                const row: any[] = [
                     i + 1,
-                    new Date(tx.date).toLocaleDateString("id-ID"),
+                    new Date(tx.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
                     tx.no,
                     tx.description,
                 ];
@@ -643,43 +659,167 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 row.push(
                     tx.memberName || "-",
                     METHOD_LABEL[tx.paymentMethod] || tx.paymentMethod,
-                    tx.amount,
-                    tx.status === "completed" ? "Selesai" : tx.status
+                    { v: tx.amount, t: "n", z: fmtIDR },
+                    tx.status === "completed" ? "Selesai" : tx.status,
                 );
-                exportData.push(row);
+                txRows.push(row);
             });
-            exportData.push([]);
-            if (isCuciMobil) {
-                const expBagiKaryawan = Math.floor(allData.summary.totalPendapatan * 0.5);
-                const expBagianKoperasiKotor = allData.summary.totalPendapatan - expBagiKaryawan;
-                const expPotonganSHU = allData.summary.potonganSHUMember;
-                const expLabaBersih = expBagianKoperasiKotor - allData.summary.totalPengeluaran - expPotonganSHU + allData.summary.totalPemasukan;
 
-                exportData.push(["", "", "", "TOTAL PENDAPATAN KOTOR", "", "", allData.summary.totalPendapatan, ""]);
-                exportData.push(["", "", "", "  ├ Tunai", "", "", allData.summary.tunai, ""]);
-                exportData.push(["", "", "", "  ├ QRIS", "", "", allData.summary.qris, ""]);
-                exportData.push(["", "", "", "  └ Potong Gaji", "", "", allData.summary.potongGaji, ""]);
-                exportData.push(["", "", "", "BAGI HASIL KARYAWAN (50%)", "", "", -expBagiKaryawan, ""]);
-                exportData.push(["", "", "", "BAGIAN KOPERASI (KOTOR)", "", "", expBagianKoperasiKotor, ""]);
+            const txColWidths = isCuciMobil
+                ? [5, 14, 24, 30, 14, 22, 12, 18, 10]
+                : [5, 14, 24, 30, 22, 12, 18, 10];
+
+            const ws1 = XLSX.utils.aoa_to_sheet(txRows);
+            ws1["!cols"] = txColWidths.map(w => ({ wch: w }));
+            // Merge org header across all columns
+            const mergeCount = txCols.length - 1;
+            ws1["!merges"] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: mergeCount } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: mergeCount } },
+            ];
+
+            // ── Sheet 2: Pengeluaran Operasional ──────────────────────────
+            const expData = allData.operationalExpenses || [];
+            const expRows: any[][] = [
+                [orgHeader],
+                [unitHeader],
+                ["LAPORAN PENGELUARAN OPERASIONAL"],
+                [periodHeader],
+                [],
+                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Metode", "Nominal"],
+            ];
+
+            expData.forEach((exp, i) => {
+                expRows.push([
+                    i + 1,
+                    new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
+                    exp.transactionNo,
+                    exp.description,
+                    METHOD_LABEL[exp.paymentMethod || "cash"] || "Tunai",
+                    { v: exp.amount, t: "n", z: fmtIDR },
+                ]);
+            });
+            // Total row
+            const totalExpense = expData.reduce((s, e) => s + e.amount, 0);
+            expRows.push([]);
+            expRows.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", { v: totalExpense, t: "n", z: fmtIDR }]);
+
+            const ws2 = XLSX.utils.aoa_to_sheet(expRows);
+            ws2["!cols"] = [5, 14, 26, 35, 12, 18].map(w => ({ wch: w }));
+            ws2["!merges"] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
+            ];
+
+            // ── Sheet 3: Pemasukan Operasional ────────────────────────────
+            const incData = allData.operationalIncomes || [];
+            const incRows: any[][] = [
+                [orgHeader],
+                [unitHeader],
+                ["LAPORAN PEMASUKAN OPERASIONAL"],
+                [periodHeader],
+                [],
+                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Metode", "Nominal"],
+            ];
+
+            incData.forEach((inc, i) => {
+                incRows.push([
+                    i + 1,
+                    new Date(inc.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
+                    inc.transactionNo,
+                    inc.description,
+                    METHOD_LABEL[inc.paymentMethod || "cash"] || "Tunai",
+                    { v: inc.amount, t: "n", z: fmtIDR },
+                ]);
+            });
+            const totalIncome = incData.reduce((s, e) => s + e.amount, 0);
+            incRows.push([]);
+            incRows.push(["", "", "", "TOTAL PEMASUKAN OPERASIONAL", "", { v: totalIncome, t: "n", z: fmtIDR }]);
+
+            const ws3 = XLSX.utils.aoa_to_sheet(incRows);
+            ws3["!cols"] = [5, 14, 26, 35, 12, 18].map(w => ({ wch: w }));
+            ws3["!merges"] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
+            ];
+
+            // ── Sheet 4: Ringkasan Keuangan ────────────────────────────────
+            const summaryRows: any[][] = [
+                [orgHeader],
+                [unitHeader],
+                ["RINGKASAN KEUANGAN"],
+                [periodHeader],
+                [],
+                ["Keterangan", "", "Nominal"],
+            ];
+
+            if (isCuciMobil) {
+                const cmBagiKaryawan = Math.floor(allData.summary.totalPendapatan * 0.5);
+                const cmBagianKoperasiKotor = allData.summary.totalPendapatan - cmBagiKaryawan;
+                const cmPotonganSHU = allData.summary.potonganSHUMember;
+                const cmLabaBersih = cmBagianKoperasiKotor - allData.summary.totalPengeluaran - cmPotonganSHU + allData.summary.totalPemasukan;
+
+                summaryRows.push(
+                    ["Total Pendapatan Kotor (Penjualan)", "", { v: allData.summary.totalPendapatan, t: "n", z: fmtIDR }],
+                    ["  ├ Tunai", "", { v: allData.summary.tunai, t: "n", z: fmtIDR }],
+                    ["  ├ QRIS", "", { v: allData.summary.qris, t: "n", z: fmtIDR }],
+                    ["  └ Potong Gaji", "", { v: allData.summary.potongGaji, t: "n", z: fmtIDR }],
+                    ["Bagi Hasil Karyawan (50%)", "", { v: -cmBagiKaryawan, t: "n", z: fmtIDR }],
+                    ["Bagian Koperasi (Kotor)", "", { v: cmBagianKoperasiKotor, t: "n", z: fmtIDR }],
+                );
                 if (allData.summary.totalPemasukan > 0) {
-                    exportData.push(["", "", "", "PEMASUKAN OPERASIONAL", "", "", allData.summary.totalPemasukan, ""]);
+                    summaryRows.push(["Pemasukan Operasional", "", { v: allData.summary.totalPemasukan, t: "n", z: fmtIDR }]);
                 }
-                exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", -allData.summary.totalPengeluaran, ""]);
-                if (expPotonganSHU > 0) {
-                    exportData.push(["", "", "", `POTONGAN SHU LANGSUNG (${allData.summary.jumlahCuciAnggota} cuci × Rp${allData.summary.shuPerCuci.toLocaleString("id-ID")})`, "", "", -expPotonganSHU, ""]);
+                summaryRows.push(["Total Pengeluaran Operasional", "", { v: -allData.summary.totalPengeluaran, t: "n", z: fmtIDR }]);
+                if (cmPotonganSHU > 0) {
+                    summaryRows.push([`Potongan SHU Langsung (${allData.summary.jumlahCuciAnggota} cuci × Rp${allData.summary.shuPerCuci.toLocaleString("id-ID")})`, "", { v: -cmPotonganSHU, t: "n", z: fmtIDR }]);
                 }
-                exportData.push(["", "", "", "LABA BERSIH KOPERASI", "", "", expLabaBersih, ""]);
+                summaryRows.push(
+                    [],
+                    ["LABA BERSIH KOPERASI", "", { v: cmLabaBersih, t: "n", z: fmtIDR }],
+                );
             } else {
-                exportData.push(["", "", "", "TOTAL PENDAPATAN", "", "", allData.summary.totalPendapatan, ""]);
-                exportData.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", "", allData.summary.totalPengeluaran, ""]);
-                exportData.push(["", "", "", "LABA BERSIH", "", "", allData.summary.laba, ""]);
+                summaryRows.push(
+                    ["Total Pendapatan (Penjualan)", "", { v: allData.summary.totalPendapatan, t: "n", z: fmtIDR }],
+                    ["Total Pengeluaran Operasional", "", { v: -allData.summary.totalPengeluaran, t: "n", z: fmtIDR }],
+                );
+                if (allData.summary.totalPemasukan > 0) {
+                    summaryRows.push(["Total Pemasukan Operasional", "", { v: allData.summary.totalPemasukan, t: "n", z: fmtIDR }]);
+                }
+                summaryRows.push(
+                    [],
+                    ["LABA BERSIH", "", { v: allData.summary.laba, t: "n", z: fmtIDR }],
+                );
             }
 
-            const ws = ExcelJS.utils.aoa_to_sheet(exportData);
-            const wb = ExcelJS.utils.book_new();
-            ExcelJS.utils.book_append_sheet(wb, ws, "Laporan");
-            ExcelJS.writeFile(wb, `Laporan_${unitInfo.label}_${allData.periodLabel}.xlsx`);
-        } catch {
+            const ws4 = XLSX.utils.aoa_to_sheet(summaryRows);
+            ws4["!cols"] = [{ wch: 40 }, { wch: 5 }, { wch: 20 }];
+            ws4["!merges"] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
+            ];
+
+            // ── Build workbook with all sheets ─────────────────────────────
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws1, "Transaksi Penjualan");
+            if (expData.length > 0) XLSX.utils.book_append_sheet(wb, ws2, "Pengeluaran Operasional");
+            if (incData.length > 0) XLSX.utils.book_append_sheet(wb, ws3, "Pemasukan Operasional");
+            XLSX.utils.book_append_sheet(wb, ws4, "Ringkasan Keuangan");
+
+            const safeName = unitInfo.label.replace(/[^a-zA-Z0-9]/g, "_");
+            XLSX.writeFile(wb, `Laporan_${safeName}_${allData.periodLabel}.xlsx`);
+
+            toast.success(`Excel berhasil diexport (${allTxForExport.length} transaksi, ${expData.length} pengeluaran, ${incData.length} pemasukan)`);
+        } catch (err) {
+            console.error("Excel export error:", err);
             toast.error("Gagal export Excel");
         } finally {
             setIsExporting(false);
@@ -1606,6 +1746,18 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             {/* ── Operational Incomes Table ───────────────────────────────────── */}
             {incomes.length > 0 && (
                 <div className="print:break-before-page print:pt-10">
+                    {/* Print-only kop surat for income section */}
+                    <div className="hidden print:flex flex-col items-center justify-center text-center mb-6">
+                        <div className="logo-frame-sedang mb-2">
+                            <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-black">PRIMKOPPOL RESOR LUMAJANG</p>
+                            <h1 className="text-base font-bold text-black uppercase">UNIT {unitInfo.label}</h1>
+                            <h2 className="text-sm font-bold text-black">LAPORAN PEMASUKAN OPERASIONAL</h2>
+                            <p className="text-xs text-black mt-0.5">Periode: {data?.periodLabel || "-"}</p>
+                        </div>
+                    </div>
                     <Card className="print:border-0 print:shadow-none">
                         <CardHeader className="print:hidden">
                             <CardTitle className="text-base text-emerald-700">Rincian Pemasukan Operasional</CardTitle>
@@ -1728,10 +1880,19 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                         </Table>
                     </CardContent>
                 </Card>
+                {/* Cetak: Total Pemasukan - tampil SEKALI di akhir tabel pemasukan */}
+                <div className="hidden print:block border-t-2 border-emerald-700 pt-2 mt-1 mb-2 text-sm">
+                    <table className="w-full">
+                        <tbody>
+                            <tr className="font-bold">
+                                <td className="py-1 text-right pr-4">TOTAL PEMASUKAN OPERASIONAL</td>
+                                <td className="py-1 text-right tabular-nums text-emerald-800">{formatCurrency(incomes.reduce((s, e) => s + e.amount, 0))}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 </div>
             )}
-
-            {/* ── Lampiran Bukti Print (only visible when printing) ─────────── */}
             {expenses.some(e => e.receiptImagePath) && (
                 <div className="hidden print:block">
                     {expenses.filter(e => e.receiptImagePath).map((exp, idx) => (
@@ -1758,11 +1919,45 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </div>
             )}
 
-            {/* ── Tanda Tangan Print (only visible when printing) ─────────── */}
-            <div className="hidden print:flex justify-end mt-8">
+            {/* ── Lampiran Bukti Pemasukan Print (only visible when printing) ── */}
+            {incomes.some(inc => inc.receiptImagePath) && (
+                <div className="hidden print:block">
+                    {incomes.filter(inc => inc.receiptImagePath).map((inc, idx) => (
+                        <div key={`bukti-inc-${inc.id}`} className="break-before-page pt-10">
+                            <div className="flex flex-col items-center justify-center text-center mb-6">
+                                <div className="logo-frame-sedang mb-2">
+                                    <img src="/LogoPrimkoppol.png" alt="Logo Primkoppol" className="logo-inner-sedang" />
+                                </div>
+                                <h1 className="text-base font-bold uppercase mt-2">BUKTI RINCIAN PEMASUKAN</h1>
+                            </div>
+                            <div className="flex flex-col items-center text-center">
+                                <h2 className="text-sm font-bold mb-1">{idx+1}. KETERANGAN : {inc.description.toUpperCase()}</h2>
+                                <h3 className="text-sm font-medium mb-4">TANGGAL : {new Date(inc.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }).toUpperCase()}</h3>
+                                <div className="border p-2 max-w-[80%] mx-auto mt-2 inline-block">
+                                    <img
+                                        src={inc.receiptImagePath ?? undefined}
+                                        alt={`Bukti ${inc.description}`}
+                                        className="max-w-full max-h-[550px] object-contain border border-slate-100 placeholder-slate-50 text-[8px]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <div className="hidden print:flex justify-between mt-8 px-8">
                 <div className="text-center text-sm text-black">
                     <p>Lumajang, {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
-                    <p className="mt-1">Mengetahui, Admin Unit</p>
+                    <p className="mt-1">Pembuat Laporan,</p>
+                    <p className="text-xs text-gray-600">Admin Unit {unitInfo.label}</p>
+                    <div className="mt-14 border-t border-black pt-1 min-w-[200px]">
+                        <p>( ______________________ )</p>
+                    </div>
+                </div>
+                <div className="text-center text-sm text-black">
+                    <p>Lumajang, {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <p className="mt-1">Mengetahui,</p>
+                    <p className="text-xs text-gray-600">Operator PRIMKOPPOL</p>
                     <div className="mt-14 border-t border-black pt-1 min-w-[200px]">
                         <p>( ______________________ )</p>
                     </div>
