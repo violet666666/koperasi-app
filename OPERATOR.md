@@ -718,3 +718,36 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 - Detail dialog "Pendapatan Lainnya": 1,184 item → **79 item** (hapus 1,105 SP items yang bocor)
 - Total amount "Lainnya": Rp 6,998,558,631 → **Rp 6,705,367,799** (hapus Rp 293M duplikasi)
 - Zero cross-group leakage: setiap grup hanya berisi kategori yang benar
+
+---
+
+## 17. Update 1 Juni 2026 (Sore) — Fix: Akun 4201 Salah SP + Pendapatan Toko Hilang
+
+### 17.1 Bug Fix
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| Akun 4201 salah masuk SP | 🔴 CRITICAL | ✅ CLOSED | Calculator menggunakan `startsWith("4")` yang merutekan SEMUA akun 4xxx ke SP, termasuk 4201 "Pendapatan Toko/Unit" (Rp 97M). Fix: `startsWith("41")` → SP, `startsWith("42")` → Unit, `startsWith("43+")` → Lainnya. |
+| Pendapatan toko hilang dari detail Unit | 🟠 HIGH | ✅ CLOSED | `DIRECT_QUERY_CATEGORIES` mengecualikan `pendapatan_toko` dari CB query karena mengharapkan StoreSale, tapi StoreSale kosong (RC-4). Fix: hapus dari DIRECT_QUERY_CATEGORIES & NON_INCOME_CATEGORIES. |
+
+**Commit:** `f16c6eb` (railway-migration)
+
+### 17.2 Dampak
+
+**Calculator incomeGroups:**
+- Card Unit: Rp 130.625.000 → **Rp 228.423.700** (4201 "Pendapatan Toko" pindah ke Unit ✅)
+- Card SP: Rp 182.947.100 → **Rp 85.851.000** (4201 keluar dari SP ✅)
+- Card Lainnya: Rp 6.705.367.799 → **Rp 6.705.367.799** (tidak berubah ✅)
+
+**Detail-transactions API:**
+- Unit detail: Rp 78.208.400 → **Rp 131.836.200** (+1.194 items pendapatan_toko senilai Rp 53.627.800 ✅)
+- SP detail: Rp 298.010.832 → Rp 298.010.832 (tidak berubah)
+- Lainnya detail: Rp 6.705.367.799 → Rp 6.705.367.799 (tidak berubah ✅)
+
+### 17.3 Sisa Discrepancy (Design Difference)
+
+Detail API dan Calculator menggunakan sumber data berbeda untuk jasa pinjaman dan pendapatan unit:
+- Calculator: JournalLine + CB non-journaled → subset yang terekam di akuntansi
+- Detail API: Direct LoanPayment/UnitTransaction → semua data riil dari tabel sumber
+- Detail API **lebih akurat** untuk SP (Rp 298M vs Rp 85.9M calculator)
+- Sinkronisasi penuh membutuhkan perubahan calculator ke direct queries — task terpisah

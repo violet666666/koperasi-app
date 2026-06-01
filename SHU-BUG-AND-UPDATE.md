@@ -767,3 +767,81 @@ const cbOnlyCats = GROUP_CATEGORIES[incomeGroup].filter(cat => !directCats.inclu
 | **Cross-group leakage** | ❌ Ya | **✅ Zero** |
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 18. BUG: Akun 4201 Salah Kategorisasi ke SP + Pendapatan Toko Hilang dari Detail Unit (1 Juni 2026 — Sore)
+
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
+> **Commit:** `f16c6eb` (railway-migration)
+> **Ditemukan:** Saat verifikasi total Rp income groups vs card amounts
+
+### WW. Deskripsi Bug
+
+Setelah verifikasi ulang total Rp (bukan hanya item count) pada semua 3 income group, ditemukan 2 bug:
+
+1. **Akun 4201 "Pendapatan Toko" salah masuk SP group** — Calculator menggunakan aturan `detail.code.startsWith("4")` yang merutekan SEMUA akun 4xxx ke SP. Padahal chart of accounts:
+   - 4101-4103 = Pendapatan Usaha Simpan Pinjam → **seharusnya SP**
+   - 4201 = Pendapatan Toko/Unit → **seharusnya Unit**
+   - Akibatnya: Rp 97.096.100 pendapatan toko/unit salah masuk SP card
+
+2. **Pendapatan toko (Rp 53.627.800, 1.194 items) hilang dari detail dialog Unit** — `DIRECT_QUERY_CATEGORIES` mengecualikan `pendapatan_toko` dari CB query karena mengharapkan StoreSale handle itu. Tapi tabel StoreSale kosong (RC-4).
+
+### XX. Perbaikan
+
+**Bug #49 — Calculator incomeGroups categorization (`shu-calculator.ts`):**
+
+```typescript
+// SEBELUM (BUG): semua 4xxx → SP
+if (detail.code.startsWith("4")) {
+    groupKey = "sp";
+}
+
+// SESUDAH (FIX): spesifik per sub-range
+if (detail.code.startsWith("41")) {
+    groupKey = "sp";    // 4101 Bunga, 4102 Admin, 4103 Denda
+} else if (detail.code.startsWith("42")) {
+    groupKey = "unit";  // 4201 Pendapatan Toko/Unit
+} else if (detail.code.startsWith("43") || ...) {
+    groupKey = "lainnya"; // 43xx+ Lain-lain
+}
+```
+
+**Bug #50 — Detail-transactions API (`detail-transactions/route.ts`):**
+- Hapus `pendapatan_toko` dari `DIRECT_QUERY_CATEGORIES` → CB entries `pendapatan_toko` kembali muncul di unit detail
+- Hapus `pendapatan_toko` dari `NON_INCOME_CATEGORIES` → CB entries muncul juga saat no-group filter
+
+### YY. Hasil Verifikasi Production
+
+**Calculator incomeGroups (Card amounts):**
+
+| Grup | Sebelum Fix | Sesudah Fix |
+|------|------------|-------------|
+| **Unit** | Rp 130.625.000 | **Rp 228.423.700** (4201 masuk ✅) |
+| **SP** | Rp 182.947.100 (termasuk 4201 salah) | **Rp 85.851.000** (4201 keluar ✅) |
+| **Lainnya** | Rp 6.705.367.799 | **Rp 6.705.367.799** (tidak berubah ✅) |
+
+**Detail-transactions API (Dialog amounts):**
+
+| Grup | Sebelum Fix | Sesudah Fix |
+|------|------------|-------------|
+| Unit items | 1,644 (tanpa pendapatan_toko) | **2,838** (pendapatan_toko 1,194 items kembali ✅) |
+| Unit amount | Rp 78.208.400 | **Rp 131.836.200** (+Rp 53.627.800 pendapatan_toko ✅) |
+| SP items | 1,122 | 1,122 (tidak berubah) |
+| SP amount | Rp 298.010.832 | Rp 298.010.832 (tidak berubah) |
+| Lainnya items | 79 | 79 (tidak berubah ✅) |
+| Lainnya amount | Rp 6.705.367.799 | Rp 6.705.367.799 (tidak berubah ✅) |
+
+### ZZ. Sisa Discrepancy (Design Difference — Bukan Bug)
+
+Setelah fix, masih ada selisih antara Calculator (Card) dan Detail API untuk Unit & SP karena keduanya menggunakan **sumber data fundamental yang berbeda**:
+
+| Komponen | Calculator (Card) | Detail API | Selisih |
+|----------|-------------------|------------|---------|
+| Jasa Pinjaman | JournalLine + CB non-journaled: Rp 22.2M | ALL LoanPayment interest: Rp 234.4M | Rp 212.2M |
+| Pendapatan Toko | CB entries: Rp 53.6M | CB entries: Rp 53.6M | ✅ 0 |
+| 4201 Journal | Rp 97.4M (masuk Unit) | Tidak diakses (no journal query) | Rp 97.4M |
+
+**Detail API SP (Rp 298M) lebih akurat** dari Card SP (Rp 85.9M) karena menangkap SEMUA bunga pinjaman dari LoanPayment, bukan hanya yang terekam di sistem akuntansi. Untuk menyelaraskan, perlu mengubah calculator agar menggunakan direct LoanPayment query — task terpisah.
+
+*Diperbarui: 1 Juni 2026*
