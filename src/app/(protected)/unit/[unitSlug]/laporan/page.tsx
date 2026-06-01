@@ -93,7 +93,14 @@ const METHOD_LABEL: Record<string, string> = {
     cash: "Tunai",
     qris: "QRIS",
     salary_cut: "Potong Gaji",
+    lainnya: "Lainnya",
 };
+
+const OPS_PAYMENT_METHODS = [
+    { value: "cash", label: "Tunai" },
+    { value: "qris", label: "QRIS" },
+    { value: "lainnya", label: "Lainnya" },
+] as const;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface LaporanTransaction {
@@ -141,6 +148,7 @@ interface OperationalExpense {
     description: string;
     amount: number;
     receiptImagePath?: string | null;
+    paymentMethod?: string | null;
 }
 
 interface LaporanData {
@@ -218,6 +226,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [expenseReceiptFile, setExpenseReceiptFile] = React.useState<File | null>(null);
     const [expenseReceiptPreview, setExpenseReceiptPreview] = React.useState<string | null>(null);
     const [keepExistingReceipt, setKeepExistingReceipt] = React.useState(true);
+    const [expensePaymentMethod, setExpensePaymentMethod] = React.useState("cash");
     const expenseFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Submit Laporan ke Operator
@@ -230,12 +239,22 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // Checkbox method filters
     const [methodFilters, setMethodFilters] = React.useState<Set<string>>(new Set(["cash", "qris", "salary_cut"]));
+    const [opsMethodFilter, setOpsMethodFilter] = React.useState<Set<string>>(new Set(["cash", "qris", "lainnya"]));
 
     // Transaction detail modal
     const [selectedTx, setSelectedTx] = React.useState<LaporanTransaction | null>(null);
 
     const toggleMethod = (method: string, checked: boolean | "indeterminate") => {
         setMethodFilters(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(method);
+            else next.delete(method);
+            return next;
+        });
+    };
+
+    const toggleOpsMethod = (method: string, checked: boolean | "indeterminate") => {
+        setOpsMethodFilter(prev => {
             const next = new Set(prev);
             if (checked) next.add(method);
             else next.delete(method);
@@ -251,6 +270,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [isSavingIncome, setIsSavingIncome] = React.useState(false);
     const [incomeReceiptFile, setIncomeReceiptFile] = React.useState<File | null>(null);
     const [incomeReceiptPreview, setIncomeReceiptPreview] = React.useState<string | null>(null);
+    const [incomePaymentMethod, setIncomePaymentMethod] = React.useState("cash");
     const incomeFileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleExpenseFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,6 +304,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setExpenseAmount("");
         setExpenseDesc("");
         setExpenseDate(new Date().toISOString().split("T")[0]);
+        setExpensePaymentMethod("cash");
         clearExpenseFile();
         setShowExpenseDialog(true);
     };
@@ -293,6 +314,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setExpenseAmount(exp.amount.toString());
         setExpenseDesc(exp.description);
         setExpenseDate(new Date(exp.date).toISOString().split("T")[0]);
+        setExpensePaymentMethod(exp.paymentMethod || "cash");
         setExpenseReceiptFile(null);
         setExpenseReceiptPreview(exp.receiptImagePath || null);
         setKeepExistingReceipt(true);
@@ -352,6 +374,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setIncomeAmount("");
         setIncomeDesc("");
         setIncomeDate(new Date().toISOString().split("T")[0]);
+        setIncomePaymentMethod("cash");
         clearIncomeFile();
         setShowIncomeDialog(true);
     };
@@ -365,6 +388,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             formData.append("amount", String(Number(incomeAmount)));
             formData.append("description", incomeDesc.trim());
             formData.append("transactionDate", incomeDate);
+            formData.append("paymentMethod", incomePaymentMethod);
             if (incomeReceiptFile) formData.append("receipt", incomeReceiptFile);
 
             const res = await fetch(`/api/unit/${unitSlug}/operational-income`, {
@@ -595,6 +619,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             formData.append("amount", String(Number(expenseAmount)));
             formData.append("description", expenseDesc.trim());
             formData.append("transactionDate", expenseDate);
+            formData.append("paymentMethod", expensePaymentMethod);
             if (expenseReceiptFile) {
                 formData.append("receipt", expenseReceiptFile);
             }
@@ -667,14 +692,22 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     }
 
     const rawTransactions = data?.transactions || [];
-    const expenses = data?.operationalExpenses || [];
-    const incomes = data?.operationalIncomes || [];
+    const rawExpenses = data?.operationalExpenses || [];
+    const rawIncomes = data?.operationalIncomes || [];
     const rawSummary = data?.summary;
 
     // Apply checkbox method filters client-side (for display only, not summary)
     const transactions = React.useMemo(() => {
         return rawTransactions.filter(tx => methodFilters.has(tx.paymentMethod));
     }, [rawTransactions, methodFilters]);
+
+    const expenses = React.useMemo(() => {
+        return rawExpenses.filter(e => opsMethodFilter.has(e.paymentMethod || "cash"));
+    }, [rawExpenses, opsMethodFilter]);
+
+    const incomes = React.useMemo(() => {
+        return rawIncomes.filter(i => opsMethodFilter.has(i.paymentMethod || "cash"));
+    }, [rawIncomes, opsMethodFilter]);
 
     // Summary always comes from server (full period data, unaffected by pagination or method filters)
     const summary = rawSummary;
@@ -1313,6 +1346,24 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     </table>
                 </div>
             )}
+            {/* ── Ops Method Filter (shown when there are operational expenses or incomes) ── */}
+            {(rawExpenses.length > 0 || rawIncomes.length > 0) && (
+                <div className="flex flex-wrap gap-x-5 gap-y-2 items-center print:hidden">
+                    <span className="text-sm text-muted-foreground font-medium">Metode Bayar (Operasional):</span>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={opsMethodFilter.has("cash")} onCheckedChange={(c) => toggleOpsMethod("cash", c)} />
+                        <Banknote className="h-3.5 w-3.5 text-emerald-600" /> Tunai
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={opsMethodFilter.has("qris")} onCheckedChange={(c) => toggleOpsMethod("qris", c)} />
+                        <QrCode className="h-3.5 w-3.5 text-blue-600" /> QRIS
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <Checkbox checked={opsMethodFilter.has("lainnya")} onCheckedChange={(c) => toggleOpsMethod("lainnya", c)} />
+                        <CreditCard className="h-3.5 w-3.5 text-indigo-600" /> Lainnya
+                    </label>
+                </div>
+            )}
             {expenses.length > 0 && (
 
                 <div className="print:break-before-page print:pt-10">
@@ -1338,6 +1389,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
+                                    <TableHead className="text-center">Metode</TableHead>
                                     <TableHead className="text-center print:hidden">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
                                     {isAdmin && <TableHead className="text-center w-[120px] print:hidden">Aksi</TableHead>}
@@ -1353,6 +1405,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
                                         </TableCell>
                                         <TableCell className="text-sm">{exp.description}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="outline" className="text-xs gap-1">
+                                                {exp.paymentMethod === "qris" ? <QrCode className="h-3 w-3 text-blue-600" />
+                                                : exp.paymentMethod === "lainnya" ? <CreditCard className="h-3 w-3 text-indigo-600" />
+                                                : <Banknote className="h-3 w-3 text-emerald-600" />}
+                                                {METHOD_LABEL[exp.paymentMethod || "cash"] || "Tunai"}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="text-center print:hidden">
                                             {exp.receiptImagePath ? (
                                                 <a
@@ -1388,7 +1448,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </TableBody>
                             <TableFooter className="print:hidden">
                                 <TableRow className="bg-red-50 font-bold">
-                                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
                                     <TableCell className="text-right tabular-nums text-red-700 font-bold">
                                         {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
                                     </TableCell>
@@ -1426,6 +1486,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TableHead>Tanggal</TableHead>
                                     <TableHead>No. Transaksi</TableHead>
                                     <TableHead>Keterangan</TableHead>
+                                    <TableHead className="text-center">Metode</TableHead>
                                     <TableHead className="text-center print:hidden">Bukti</TableHead>
                                     <TableHead className="text-right">Nominal</TableHead>
                                     {isAdmin && <TableHead className="text-center w-[80px] print:hidden">Aksi</TableHead>}
@@ -1441,6 +1502,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                             <span className="font-mono text-xs text-muted-foreground">{inc.transactionNo}</span>
                                         </TableCell>
                                         <TableCell className="text-sm">{inc.description}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="outline" className="text-xs gap-1">
+                                                {inc.paymentMethod === "qris" ? <QrCode className="h-3 w-3 text-blue-600" />
+                                                : inc.paymentMethod === "lainnya" ? <CreditCard className="h-3 w-3 text-indigo-600" />
+                                                : <Banknote className="h-3 w-3 text-emerald-600" />}
+                                                {METHOD_LABEL[inc.paymentMethod || "cash"] || "Tunai"}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="text-center print:hidden">
                                             {inc.receiptImagePath ? (
                                                 <a href={inc.receiptImagePath} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs underline">
@@ -1465,7 +1534,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </TableBody>
                             <TableFooter className="print:hidden">
                                 <TableRow className="bg-emerald-50 font-bold">
-                                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-right">TOTAL PEMASUKAN OPERASIONAL</TableCell>
+                                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">TOTAL PEMASUKAN OPERASIONAL</TableCell>
                                     <TableCell className="text-right tabular-nums text-emerald-700 font-bold">
                                         {formatCurrency(incomes.reduce((s, e) => s + e.amount, 0))}
                                     </TableCell>
@@ -1561,6 +1630,17 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 value={expenseDate}
                                 onChange={(e) => setExpenseDate(e.target.value)}
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Metode Pembayaran</Label>
+                            <Select value={expensePaymentMethod} onValueChange={setExpensePaymentMethod}>
+                                <SelectTrigger><SelectValue placeholder="Pilih metode" /></SelectTrigger>
+                                <SelectContent>
+                                    {OPS_PAYMENT_METHODS.map(m => (
+                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* Upload Foto Bukti */}
@@ -1668,6 +1748,17 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 value={incomeDate}
                                 onChange={(e) => setIncomeDate(e.target.value)}
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Metode Pembayaran</Label>
+                            <Select value={incomePaymentMethod} onValueChange={setIncomePaymentMethod}>
+                                <SelectTrigger><SelectValue placeholder="Pilih metode" /></SelectTrigger>
+                                <SelectContent>
+                                    {OPS_PAYMENT_METHODS.map(m => (
+                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* Upload Foto Bukti */}

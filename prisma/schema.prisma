@@ -644,6 +644,7 @@ model CashBankTransaction {
   referenceId   Int?     @map("reference_id")
   description   String?
   unitType      String?  @map("unit_type")     // cuci_mobil, toko, fitness, resto, dll
+  paymentMethod String?  @map("payment_method") // cash, qris, lainnya — for operational income/expense
   memberId      Int?     @map("member_id")     // FK ke Member (opsional, untuk SHU tracking)
   transactionDate DateTime @map("transaction_date") @db.Date
   journalId     Int?     @map("journal_id")

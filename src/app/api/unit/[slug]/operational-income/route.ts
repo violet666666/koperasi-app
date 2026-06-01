@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
+const VALID_PAYMENT_METHODS = ["cash", "qris", "lainnya"];
+
 /**
  * POST /api/unit/[slug]/operational-income
- * Body: FormData { amount, description, transactionDate?, receipt? (file) }
+ * Body: FormData { amount, description, transactionDate?, receipt? (file), paymentMethod? }
  *
  * Mencatat pemasukan operasional unit di luar transaksi POS kasir.
  * Contoh: pendapatan sewa lahan, pemasukan lama yang belum tercatat, dll.
@@ -41,6 +43,7 @@ export async function POST(
         let amount: number;
         let description: string;
         let transactionDate: string | null = null;
+        let paymentMethod: string = "cash";
         let receiptImagePath: string | null = null;
 
         const contentType = request.headers.get("content-type") || "";
@@ -50,6 +53,8 @@ export async function POST(
             amount = Number(formData.get("amount"));
             description = String(formData.get("description") || "").trim();
             transactionDate = formData.get("transactionDate") as string | null;
+            const pm = String(formData.get("paymentMethod") || "cash");
+            if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
 
             const receiptFile = formData.get("receipt") as File | null;
             if (receiptFile && receiptFile.size > 0) {
@@ -84,6 +89,8 @@ export async function POST(
             amount = Number(body.amount);
             description = String(body.description || "").trim();
             transactionDate = body.transactionDate || null;
+            const pm = body.paymentMethod || "cash";
+            if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
         }
 
         if (!amount || amount <= 0) {
@@ -134,6 +141,7 @@ export async function POST(
                     balanceBefore,
                     balanceAfter: Number(updatedAccount.currentBalance),
                     unitType: unitType,
+                    paymentMethod,
                     description: descWithMeta,
                     transactionDate: txDate,
                     createdById: currentUserId,
@@ -149,6 +157,7 @@ export async function POST(
                 newBalance: Number(cashTx.balanceAfter),
                 receiptImagePath,
                 description,
+                paymentMethod,
             },
         }, { status: 201 });
 

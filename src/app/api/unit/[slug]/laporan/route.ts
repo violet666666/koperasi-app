@@ -388,6 +388,7 @@ export async function GET(
                         description: description,
                         amount: Number(e.amount),
                         receiptImagePath: receiptImagePath,
+                        paymentMethod: e.paymentMethod || null,
                     };
                 }),
                 operationalIncomes: operationalIncomes.map((e) => {
@@ -403,6 +404,7 @@ export async function GET(
                         description: description,
                         amount: Number(e.amount),
                         receiptImagePath: receiptImagePath,
+                        paymentMethod: e.paymentMethod || null,
                     };
                 }),
             }

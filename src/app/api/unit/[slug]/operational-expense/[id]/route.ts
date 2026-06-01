@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 // Max file size: 2MB
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
+const VALID_PAYMENT_METHODS = ["cash", "qris", "lainnya"];
+
 // Helper to check Operator or Admin Unit access
 async function checkAccess(slug: string) {
     const session = await auth();
@@ -151,6 +153,8 @@ export async function PUT(
         const transactionDate = formData.get("transactionDate") as string | null;
         const receiptFile = formData.get("receipt") as File | null;
         let keepExistingReceipt = formData.get("keepExistingReceipt") === "true"; // flag khusus jika file tidak diganti
+        const pm = String(formData.get("paymentMethod") || "cash");
+        const paymentMethod = VALID_PAYMENT_METHODS.includes(pm) ? pm : "cash";
 
         if (!amount || amount <= 0) {
             return NextResponse.json({ message: "Nominal pengeluaran harus lebih dari 0." }, { status: 400 });
@@ -291,6 +295,7 @@ export async function PUT(
                     amount: amount,
                     description: descWithMeta,
                     transactionDate: txDate,
+                    paymentMethod,
                     balanceBefore: newBalanceBefore,
                     balanceAfter: newBalanceAfter
                 }
