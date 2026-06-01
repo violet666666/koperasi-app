@@ -700,4 +700,70 @@ Tiga peningkatan signifikan pada Laporan SHU untuk meningkatkan transparansi dan
 - **Expense Groups**: Mapping berbasis kode akun yang sudah ada (`CB-OP`, `ST-COGS`, dll). Zero additional query — hanya re-kategorisasi dari `expenseAccounts` yang sudah terhitung.
 - **UI Pattern**: Konsisten dengan income group cards yang sudah ada — warna berbeda (merah/oranye/abu), icon berbeda, tapi struktur card identik.
 
+---
+
+## 17. BUG: SP Income Bocor ke Semua Grup di Detail Dialog (1 Juni 2026 — Sore)
+
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
+> **Commit:** `7df2979` (railway-migration)
+> **Ditemukan:** Operator melihat "Pendapatan Lainnya" sangat besar dan mengandung jasa pinjaman (SP) di dalamnya
+
+### SS. Deskripsi Bug
+
+Saat operator membuka detail dialog "Pendapatan Lainnya" di `/laporan/shu`, transaksi `jasa_pinjaman` (1.000 item, Rp 234M) dan `dana_resiko` (105 item, Rp 58M) **bocor masuk ke semua grup** (lainnya, unit, dan sp). Ini menyebabkan:
+
+1. **Duplikasi masif**: Income yang sama muncul di 3 grup sekaligus
+2. **Total item di "lainnya" membengkak**: dari seharusnya 79 item menjadi 1.184 item
+3. **Total amount di "lainnya" inflated**: dari Rp 6,705,367,799 menjadi Rp 6,998,558,631
+
+### TT. Akar Masalah (4 Bug dalam `detail-transactions/route.ts`)
+
+| # | Baris | Bug | Dampak |
+|:---|:------|-----|--------|
+| **45** | L170 | `if (!category || incomeGroup === "sp")` — saat `incomeGroup="lainnya"`, `category=null` sehingga `!category=true` → LoanPayment query **selalu jalan** | 1.000 item `jasa_pinjaman` (Rp 234M) bocor ke lainnya & unit |
+| **46** | L206 | Kondisi sama untuk DanaResiko query | 105 item `dana_resiko` (Rp 58M) bocor ke lainnya & unit |
+| **47** | L242, L280 | `if (!category && !incomeGroup || incomeGroup === "unit")` — operator precedence salah | UnitTransaction/StoreSale tidak terfilter dengan benar |
+| **48** | L122-127 | `GROUP_CATEGORIES` override `NON_INCOME_CATEGORIES` saat group filter aktif | CB entries `jasa_pinjaman` muncul di CB query DAN LoanPayment direct query = **double counting** |
+
+### UU. Perbaikan
+
+**Fix #45-47: Conditional logic untuk direct queries**
+
+```typescript
+// SEBELUM (BUG): !category selalu true saat filter by group (category=null)
+if (!category || incomeGroup === "sp") { ... }
+
+// SESUDAH (FIX): hanya jalan untuk grup yang benar atau tanpa filter
+const shouldQueryLoanPayments = (!incomeGroup || incomeGroup === "sp") && (!category || category === "jasa_pinjaman");
+if (shouldQueryLoanPayments) { ... }
+```
+
+**Fix #48: CB filter menghindari double counting**
+
+```typescript
+// SEBELUM (BUG): GROUP_CATEGORIES override langsung, tanpa exclude direct-queried categories
+const cbCategoryFilter = incomeGroup
+    ? { in: GROUP_CATEGORIES[incomeGroup] }  // ← includes jasa_pinjaman for SP group!
+    : ...
+
+// SESUDAH (FIX): subtract categories yang di-handle oleh direct queries
+const DIRECT_QUERY_CATEGORIES = {
+    sp: ["jasa_pinjaman", "dana_resiko"],
+    unit: ["pendapatan_unit", "pendapatan_toko"],
+    lainnya: [],
+};
+const cbOnlyCats = GROUP_CATEGORIES[incomeGroup].filter(cat => !directCats.includes(cat));
+```
+
+### VV. Hasil Verifikasi Production
+
+| Grup | Sebelum Fix | Sesudah Fix |
+|------|------------|-------------|
+| **Lainnya items** | **1,184** (bocor) | **79** ✅ |
+| **Lainnya amount** | Rp 6,998,558,631 | **Rp 6,705,367,799** ✅ |
+| Lainnya kategori | 4 (ada jasa_pinjaman + dana_resiko) | **2** (hanya lainnya + biaya_operasional) ✅ |
+| SP kategori | 3 (benar) | **3** (jasa_pinjaman + dana_resiko + penalti_pelunasan) ✅ |
+| Unit kategori | 4 (bocor SP) | **2** (pendapatan_unit + operational) ✅ |
+| **Cross-group leakage** | ❌ Ya | **✅ Zero** |
+
 *Diperbarui: 1 Juni 2026*

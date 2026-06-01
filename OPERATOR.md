@@ -699,3 +699,22 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | `src/app/(protected)/laporan/shu/_components/shu-sp-monthly-tab.tsx` | Komponen baru: BarChart + summary + tabel bulanan |
 | `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | Tab "Rincian Bulanan" + expenseGroup prop |
 | `src/app/api/reports/shu/detail-transactions/route.ts` | `expenseGroup` filter param |
+
+---
+
+## 16. Update 1 Juni 2026 (Sore) — Fix: SP Income Bocor ke Detail Dialog Lainnya
+
+### 16.1 Bug Fix
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| SP income leaking to all groups | 🔴 CRITICAL | ✅ CLOSED | `jasa_pinjaman` (1,000 items, Rp 234M) dan `dana_resiko` (105 items, Rp 58M) bocor ke semua income group di detail dialog karena conditional logic salah (`!category || incomeGroup === "sp"` selalu true saat category=null). Fix: conditional hanya aktif untuk grup yang benar. |
+| CB + Direct double counting | 🔴 CRITICAL | ✅ CLOSED | Saat filter `incomeGroup=sp`, CB query mengembalikan `jasa_pinjaman` entries (via GROUP_CATEGORIES override) DAN LoanPayment direct query juga mengembalikan data yang sama = double counting. Fix: CB filter sekarang mengecualikan categories yang di-handle oleh direct queries. |
+
+**Commit:** `7df2979` (railway-migration)
+
+### 16.2 Dampak
+
+- Detail dialog "Pendapatan Lainnya": 1,184 item → **79 item** (hapus 1,105 SP items yang bocor)
+- Total amount "Lainnya": Rp 6,998,558,631 → **Rp 6,705,367,799** (hapus Rp 293M duplikasi)
+- Zero cross-group leakage: setiap grup hanya berisi kategori yang benar
