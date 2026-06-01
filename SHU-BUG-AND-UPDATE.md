@@ -532,3 +532,68 @@ Operator sekarang dapat **mengklik setiap card/angka pada Laporan SHU** untuk me
 - **Category click-to-filter**: Klik baris kategori di tab ringkasan → otomatis pindah ke tab transaksi dengan filter aktif
 
 *Ditambahkan: 1 Juni 2026*
+
+---
+
+## 14. CODE REVIEW FIXES — DETAIL DIALOG BREAKDOWN (1 Juni 2026)
+
+> **Status:** ✅ CLOSED — Diperbaiki 1 Juni 2026
+> **Metode:** Code review oleh subagent (2 reviewer paralel)
+
+### DD. Temuan dan Perbaikan
+
+| # | Severity | File | Temuan | Perbaikan |
+|---|----------|------|--------|-----------|
+| **35** | 🔴 **CRITICAL** | `detail-transactions/route.ts` | **API tanpa autentikasi:** Endpoint mengembalikan data keuangan (semua transaksi income/expense) tanpa auth check. Bandingan: semua endpoint SHU lainnya (`calculate`, `distribute`) sudah punya `auth()`. | Ditambahkan `const session = await auth()` + 401 check di awal handler |
+| **36** | 🔴 **CRITICAL** | `detail-transactions/route.ts` | **Double counting income:** CB query mengembalikan `jasa_pinjaman`, `dana_resiko`, `pendapatan_unit`, `pendapatan_toko` yang SAMA WAKTunya di-query langsung dari LoanPayment, Loan.adminFee, UnitTransaction, StoreSale → jumlah income di dialog 2x lipat dari summary card | Ditambahkan 4 kategori (`jasa_pinjaman`, `dana_resiko`, `pendapatan_unit`, `pendapatan_toko`) ke `NON_INCOME_CATEGORIES` blacklist agar CB query hanya menangkap income yang TIDAK di-query dari tabel langsung |
+| **37** | 🔴 **CRITICAL** | `page.tsx` (calculationData) | **SHU Adjusted = SHU Bersih:** `adjustedNetSurplus` diset sama dengan `data.totalShu`, sehingga deduksi Cuci Mobil (Rp 2.000/tx) terlihat dikurangi tapi angka tidak berubah — visual menyesatkan operator | Diganti kalkulasi: `adjustedNetSurplus = max(0, netSurplus - totalCarwashBonus)` menggunakan `totalIncome - totalExpense` sebagai base, bukan `data.totalShu` |
+| **38** | 🔴 **CRITICAL** | `page.tsx` (calculationData) | **memberGrossIncome dan nonMemberGrossIncome = 0:** Kedua field di-hardcode ke 0. Rasio bar menunjukkan persentase benar tapi jumlah Rp selalu "Rp 0" | Diubah: `memberGrossIncome = totalIncome * memberRatio`, `nonMemberGrossIncome = totalIncome * nonMemberRatio` |
+| **39** | 🟠 **HIGH** | `detail-transactions/route.ts` | **Tanpa try-catch:** Jika Prisma query gagal (timeout, connection error), error propagates sebagai unhandled exception → generic 500 tanpa logging | Ditambahkan try-catch wrapper + `console.error()` logging |
+| **40** | 🟠 **HIGH** | `shu-transactions-tab.tsx` | **Stale category filter:** `if (initialCategory) setFilterCategory(...)` — saat dialog ditutup dan dibuka ulang, `initialCategory = null` tapi guard mencegah reset ke "all". Filter dropdown tetap terkunci di kategori sebelumnya | Guard dihapus: `setFilterCategory(initialCategory || "all")` — null/undefined sekarang mereset ke "all" |
+| **41** | 🟠 **HIGH** | `shu-detail-dialog.tsx` | **Nested dialog state leak:** `nestedSource` tidak direset saat dialog utama buka ulang. Jika user sebelumnya klik drill-down di calculation tab, nested dialog bisa flash saat dialog dibuka untuk income/expense | Ditambahkan `setNestedSource(null)` ke reset effect |
+| **42** | 🟡 **MEDIUM** | `shu-summary-tab.tsx` | **Percentage guard `total > 0`:** Jika semua expense items bernilai negatif, `total = 0` membuat semua persentase menampilkan 0% meskipun ada amount non-zero | Diganti ke `total !== 0` + `Math.abs()` untuk menangani total negatif |
+| **43** | 🟢 **LOW** | Multiple files | **Unused imports:** `Package` di dialog, `Minus` di calculation-tab | Dihapus |
+
+### EE. Catatan Teknis
+
+**Pola double counting yang ditemukan:**
+
+```
+CB Query (NON_INCOME_CATEGORIES lama):
+  → Mengembalikan CB rows dengan category "jasa_pinjaman" (Rp 234jt)
+  
+Direct LoanPayment Query:
+  → Mengembalikan LoanPayment.interestPortion (Rp 234jt)
+  
+Total di dialog: Rp 468jt ← DOUBLE! vs Summary card: Rp 234jt
+```
+
+**Fix:** Kategori yang di-query langsung dari tabel sumber dimasukkan ke blacklist CB query. Ini menjamin:
+- CB income query → hanya mengembalikan income yang TIDAK ada tabel khusus (operational, lainnya, dll)
+- LoanPayment query → jasa pinjaman dari tabel pinjaman
+- Loan.adminFee query → dana resiko dari tabel loan
+- UnitTransaction query → pendapatan unit dari tabel unit
+- StoreSale query → pendapatan toko dari tabel store
+
+**Perbaikan calculation tab:**
+
+```
+SEBELUM FIX:
+  Pendapatan  Rp 8,17M
+  Beban       Rp 2,58M
+  SHU Bersih  Rp 5,59M
+  Cuci Mobil  -Rp 120rb
+  SHU Adjusted Rp 5,59M ← SAMA (BUG)
+
+SESUDAH FIX:
+  Pendapatan  Rp 8,17M
+  Beban       Rp 2,58M
+  SHU Bersih  Rp 5,59M  (totalIncome - totalExpense)
+  Cuci Mobil  -Rp 120rb
+  SHU Adjusted Rp 5,58M  (netSurplus - carwashBonus) ← BERUBAH
+  
+  Rasio Anggota: 80% → Rp 6,54M  (totalIncome * 0.8)
+  Rasio Non-Anggota: 20% → Rp 1,63M  (totalIncome * 0.2)
+```
+
+*Diperbarui: 1 Juni 2026*

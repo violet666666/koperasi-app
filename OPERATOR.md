@@ -571,7 +571,7 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | Tab Kalkulasi | Step-by-step calculation flow untuk SHU Anggota/Non-Anggota (7 langkah visual) |
 | Nested Drill-down | Dari kalkulasi tab bisa buka dialog income/expense untuk verifikasi |
 | Visual Cues | Hover highlight + eye icon + dashed underline pada semua clickable metric |
-| API detail-transactions | `GET /api/reports/shu/detail-transactions` — flat transaction list dengan filter + pagination |
+| API detail-transactions | `GET /api/reports/shu/detail-transactions` — flat transaction list dengan filter + pagination (auth required) |
 
 ### 12.2 File yang Dibuat
 
@@ -582,7 +582,23 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | `src/app/(protected)/laporan/shu/_components/shu-summary-tab.tsx` | Tab ringkasan per kategori |
 | `src/app/(protected)/laporan/shu/_components/shu-transactions-tab.tsx` | Tab daftar transaksi (lazy fetch) |
 | `src/app/(protected)/laporan/shu/_components/shu-calculation-tab.tsx` | Tab langkah kalkulasi |
-| `src/app/api/reports/shu/detail-transactions/route.ts` | API: flat paginated transaction list |
+| `src/app/api/reports/shu/detail-transactions/route.ts` | API: flat paginated transaction list (auth guarded) |
+
+### 12.3 Code Review Fixes (Post-Implementation)
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 35 | 🔴 CRITICAL | API endpoint tanpa auth — data keuangan bisa diakses publik | Ditambahkan `auth()` + 401 check |
+| 36 | 🔴 CRITICAL | Double counting income — CB `jasa_pinjaman`/`dana_resiko`/`pendapatan_unit`/`pendapatan_toko` terhitung 2x (CB + direct query) | 4 kategori ditambahkan ke `NON_INCOME_CATEGORIES` blacklist |
+| 37 | 🔴 CRITICAL | `adjustedNetSurplus` = `netSurplus` — deduksi Cuci Mobil tidak berpengaruh di calculation tab | Kalkulasi dirombak: `adjustedNetSurplus = max(0, netSurplus - carwashBonus)` |
+| 38 | 🔴 CRITICAL | `memberGrossIncome` = 0 — rasio bar menunjukkan "Rp 0" padahal persentase benar | `memberGrossIncome = totalIncome * memberRatio` |
+| 39 | 🟠 HIGH | API tanpa error handling — Prisma error → unhandled exception | Ditambahkan try-catch + console.error logging |
+| 40 | 🟠 HIGH | Stale category filter — dropdown terkunci setelah dialog buka ulang | Guard dihapus: null/undefined sekarang reset ke "all" |
+| 41 | 🟠 HIGH | Nested dialog state leak — `nestedSource` tidak reset | Ditambahkan ke reset effect |
+| 42 | 🟡 MEDIUM | Percentage guard `total > 0` gagal untuk total negatif | Diganti `total !== 0` + `Math.abs()` |
+| 43 | 🟢 LOW | Unused imports (`Package`, `Minus`) | Dihapus |
+
+> Dokumentasi lengkap bug: **SHU-BUG-AND-UPDATE.md Section 14**
 
 ---
 
