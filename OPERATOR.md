@@ -617,3 +617,45 @@ Setelah fix Section 10.1 (penambahan pengeluaran CB non-journaled ke journal pat
 | `src/app/api/unit-transactions/[id]/member/route.ts` | Edit NRP on transactions |
 | `akun-primkoppol.md` | Test accounts documentation |
 | `src/lib/services/shu-calculator.ts` | Kalkulator SHU utama — income merge + 3-group categorization (✅ fixed Section 11.2) |
+
+---
+
+## 14. Update 1 Juni 2026 (Siang) — Live Testing SHU Detail Dialog
+
+### 14.1 Bug Fix: detail-transactions API 500
+
+| Bug | Severity | Status | Deskripsi |
+|-----|----------|--------|-----------|
+| detail-transactions API 500 | 🔴 CRITICAL | ✅ CLOSED | Route meng-select `paymentMethod` dan `referenceNo` dari `CashBankTransaction` yang tidak memiliki field tersebut. Fix: gunakan `transactionNo` sebagai reference, `paymentMethod: null`. |
+
+**File diperbaiki:** `src/app/api/reports/shu/detail-transactions/route.ts` — Commit `e0fcc50`
+
+### 14.2 Playwright E2E Test Results (Production)
+
+**URL:** `www.primkoppol.site/laporan/shu` | **Akun:** `operator@koperasi.com`
+
+| # | Test Case | Hasil |
+|---|-----------|:---:|
+| 1 | SHU page load — data lengkap (Total SHU Rp 4,44M, 829 anggota) | ✅ |
+| 2 | Card Total Pendapatan → Detail Dialog (9 kategori, Total Rp 7,02M) | ✅ |
+| 3 | Tab Ringkasan — instant load, client-side data, clickable rows | ✅ |
+| 4 | Tab Daftar Transaksi — lazy fetch 2.830 tx, 114 halaman, filter | ✅ |
+| 5 | Card SHU Anggota → Tab Kalkulasi (7-step visual flow) | ✅ |
+| 6 | Fix #37 verified: adjustedNetSurplus ≠ netSurplus (Cuci Mobil deducted) | ✅ |
+| 7 | Fix #38 verified: memberGrossIncome = Rp 2,17M (bukan Rp 0) | ✅ |
+| 8 | Fix #35 verified: API 401 tanpa session | ✅ |
+| 9 | Nested drill-down buttons di Kalkulasi tab | ✅ |
+| 10 | Income Group Cards (3x) clickable → filtered dialog | ✅ |
+| 11 | Unit Breakdown Table (7 unit + Beban Umum) | ✅ |
+| 12 | Member SHU Table (829 anggota, semua kolom) | ✅ |
+
+### 14.3 Key Source Files (Update)
+
+| File | Fungsi |
+|------|--------|
+| `src/app/api/reports/shu/detail-transactions/route.ts` | API flat transaction list + filter + pagination (✅ fixed #44) |
+| `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | Dialog utama — 3 tab (Ringkasan, Transaksi, Kalkulasi) |
+| `src/app/(protected)/laporan/shu/_components/shu-summary-tab.tsx` | Tab ringkasan per kategori |
+| `src/app/(protected)/laporan/shu/_components/shu-transactions-tab.tsx` | Tab daftar transaksi (lazy fetch) |
+| `src/app/(protected)/laporan/shu/_components/shu-calculation-tab.tsx` | Tab langkah kalkulasi (7-step) |
+| `src/app/(protected)/laporan/shu/_types.ts` | Shared TypeScript interfaces |

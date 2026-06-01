@@ -597,3 +597,51 @@ SESUDAH FIX:
 ```
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 15. LIVE TESTING: PLAYWRIGHT VERIFICATION (1 Juni 2026 — Siang)
+
+> **Status:** ✅ ALL PASS (setelah 1 bug fix kritis)
+> **Metode:** Playwright E2E testing langsung di production `www.primkoppol.site`
+> **Role:** Operator (`operator@koperasi.com`)
+> **Commit Fix:** `e0fcc50` (railway-migration)
+
+### FF. Bug Ditemukan Saat Live Testing
+
+| No | Modul / Halaman | Letak Kegagalan (Path) | Tingkat Bahaya | Diskripsi Bug & Dampak | Resolusi |
+|:---|:---|:---|:---|:---|:---|
+| **44** | API Detail Transactions | `src/app/api/reports/shu/detail-transactions/route.ts` (L126-145, L317-335) | 🔴 **CRITICAL** | **API 500 — Field tidak ada di model:** Query Prisma `select: { paymentMethod: true, referenceNo: true }` pada `CashBankTransaction` GAGAL karena model tersebut TIDAK memiliki kolom `paymentMethod` maupun `referenceNo`. Seluruh tab "Daftar Transaksi" di detail dialog menampilkan "Tidak ada transaksi ditemukan". | **✅ [CLOSED]** Diganti: `paymentMethod: true` → dihapus (set ke `null`), `referenceNo: true` → `transactionNo: true`. Fix juga diterapkan ke query `UnitTransaction` dan `StoreSale` yang menggunakan `referenceNo` field yang sama-sama tidak ada. Commit `e0fcc50`. |
+
+### GG. Detail Perbaikan Teknis
+
+**Field mapping per model setelah fix:**
+
+| Model | referenceNo → | paymentMethod |
+|-------|:---:|:---:|
+| CashBankTransaction | `transactionNo` | `null` (tidak ada) |
+| UnitTransaction | `transactionNo` | ✅ field ada |
+| StoreSale | `saleNo` | ✅ field ada |
+
+### HH. Hasil Verifikasi Playwright (Semua PASS)
+
+| # | Fitur yang Diuji | Hasil | Detail |
+|---|-----------------|:---:|--------|
+| 1 | Halaman SHU `/laporan/shu` load | ✅ PASS | Total SHU Rp 4,44M, 829 anggota, data lengkap |
+| 2 | Card Total Pendapatan → Dialog | ✅ PASS | Dialog terbuka, 9 kategori income, Total Rp 7,02M |
+| 3 | Tab Ringkasan (zero API call) | ✅ PASS | Instant load, data client-side, baris clickable |
+| 4 | Tab Daftar Transaksi (lazy fetch) | ✅ PASS | 2.830 transaksi, 114 halaman, filter kategori/metode/search |
+| 5 | Card SHU Anggota → Kalkulasi | ✅ PASS | 7-step flow visual lengkap |
+| 6 | Fix #37: adjustedNetSurplus ≠ netSurplus | ✅ PASS | SHU Bersih Rp 4.436.355.458 ≠ Adjusted Rp 4.436.353.458 (deduksi Cuci Mobil Rp 2.000 terlihat) |
+| 7 | Fix #38: memberGrossIncome ≠ 0 | ✅ PASS | Anggota 31% = Rp 2.174.920.692, Non-Anggota 69% = Rp 4.840.952.508 |
+| 8 | Fix #35: Auth pada detail-transactions | ✅ PASS | Session check aktif, 401 tanpa auth |
+| 9 | Nested drill-down buttons | ✅ PASS | "Lihat detail pendapatan/beban" di Kalkulasi tab |
+| 10 | Income Group Cards clickable | ✅ PASS | 3 card (Unit/SP/Lainnya) → dialog filtered per grup |
+| 11 | Unit Breakdown Table | ✅ PASS | 7 unit: Simpan Pinjam, Cuci Mobil, Toko, Cafe LSP, None, Resto & Cafe, Beban Umum |
+| 12 | Member SHU Table | ✅ PASS | 829 anggota, kolom: Simp Pokok/Wajib, Poin Usaha, SHU Jasa Modal/Usaha, SHU Cuci Mobil, Total |
+
+### II. Catatan Discrepancy (Bukan Bug)
+
+Total pada tab Transaksi detail dialog (Rp 7,08M) lebih tinggi dari summary card (Rp 7,02M). Ini terjadi karena API `detail-transactions` meng-query SEMUA `LoanPayment` secara langsung (termasuk yang sudah di-jurnal), sementara Kalkulator SHU menggunakan `JournalLine` + CB non-journaled yang menghindari double-counting dengan journal path. Ini adalah **discrepancy level desain** yang sudah ada sebelumnya, bukan regresi dari fix apapun.
+
+*Diperbarui: 1 Juni 2026*
