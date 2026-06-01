@@ -10,6 +10,10 @@ npm run test:watch       # Watch mode
 npm run lint             # ESLint
 npx playwright test      # E2E tests
 
+# Mobile (separate package.json in mobile/)
+cd mobile && npx expo start    # Expo dev server
+cd mobile && npx eas build     # EAS build (Play Store)
+
 # Database
 npm run db:generate      # Regenerate Prisma client
 npm run db:migrate       # Run migrations
@@ -40,7 +44,7 @@ src/
       barbershop/ fitness/ fotocopy/ laundry/ play-station/
       cuci-mobil/ resto/ cafe-lsp/
     portal/            — Member self-service portal
-    api/               — 90+ API route handlers
+    api/               — 90+ API route handlers (pattern: app/api/[resource]/route.ts)
       mobile/          — Dedicated mobile API endpoints
   components/          — Shared UI components
   lib/
@@ -74,6 +78,7 @@ DATABASE_URL       — Neon PostgreSQL pooled connection
 DIRECT_URL         — Neon PostgreSQL direct connection (migrations)
 NEXTAUTH_SECRET    — Auth secret
 NEXTAUTH_URL       — Base URL
+NODE_ENV           — development/production
 ```
 
 ## Role System
@@ -102,6 +107,7 @@ NEXTAUTH_URL       — Base URL
 - Files stored as Base64 in DB (`UploadedFile`) — Vercel has read-only filesystem
 - `SystemSetting` is a singleton model (id defaults to "global")
 - **NEVER include SP-IMP/* loans in CashBankTransaction** — corrupts BRI balance
+- React Compiler is enabled (`babel-plugin-react-compiler`) — avoid unnecessary `useMemo`/`useCallback`
 
 ## Branches & Deploy
 
