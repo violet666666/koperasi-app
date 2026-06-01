@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { auth } from "@/lib/auth";
+import { GROUP_EXPENSE_CATEGORIES } from "@/lib/services/shu-calculator";
 
 function toNum(d: Decimal | number | null | undefined): number {
   if (d === null || d === undefined) return 0;
@@ -93,6 +94,7 @@ export async function GET(request: NextRequest) {
   const source = searchParams.get("source") as "income" | "expense";
   const category = searchParams.get("category") || null;
   const incomeGroup = searchParams.get("incomeGroup") as "unit" | "sp" | "lainnya" | null;
+  const expenseGroup = searchParams.get("expenseGroup") as "operasional" | "unit_beban" | "lainnya" | null;
   const paymentMethod = searchParams.get("paymentMethod") || null;
   const search = searchParams.get("search") || null;
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -312,9 +314,15 @@ export async function GET(request: NextRequest) {
   } else {
     // source === "expense"
     // 1. CashBankTransaction type=out, journalId=NULL
-    const cbCategoryFilter = category
-      ? category
-      : { notIn: NON_EXPENSE_CATEGORIES };
+    // Support expenseGroup filter for grouped expense display
+    let cbCategoryFilter: any;
+    if (category) {
+      cbCategoryFilter = category;
+    } else if (expenseGroup && GROUP_EXPENSE_CATEGORIES[expenseGroup]) {
+      cbCategoryFilter = { in: GROUP_EXPENSE_CATEGORIES[expenseGroup] };
+    } else {
+      cbCategoryFilter = { notIn: NON_EXPENSE_CATEGORIES };
+    }
 
     // NOTE: CashBankTransaction does NOT have paymentMethod or referenceNo fields.
     const cbExpense = await prisma.cashBankTransaction.findMany({
@@ -355,8 +363,8 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 2. StoreSaleItem COGS
-    if (!category) {
+    // 2. StoreSaleItem COGS (show when no specific category filter or when unit_beban group)
+    if (!category && (!expenseGroup || expenseGroup === "unit_beban")) {
       const soldItems = await prisma.storeSaleItem.findMany({
         where: {
           sale: {

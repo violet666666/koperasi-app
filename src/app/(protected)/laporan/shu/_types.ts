@@ -96,3 +96,24 @@ export type SHUSource = "income" | "expense" | "member_surplus" | "non_member_su
 
 /** Income group filter (only for source="income") */
 export type IncomeGroupFilter = "unit" | "sp" | "lainnya";
+
+/** Expense group filter (only for source="expense") */
+export type ExpenseGroupFilter = "operasional" | "unit_beban" | "lainnya";
+
+/** Monthly breakdown of SimpanPinjam income */
+export interface SPMonthlyItem {
+  month: string;         // "2026-01"
+  monthLabel: string;    // "Januari 2026"
+  jasaPinjaman: number;
+  danaResiko: number;
+  penalti: number;
+  total: number;
+}
+
+/** Grouped expense category (mirrors income group structure) */
+export interface ExpenseGroup {
+  key: string;
+  label: string;
+  amount: number;
+  details: { code: string; name: string; amount: number }[];
+}

@@ -43,7 +43,9 @@ export async function GET(request: Request) {
             allocationsNonMember: data.allocationsNonMember,
             incomeDetails: data.incomeDetails,
             incomeGroups: data.incomeGroups,
+            spMonthlyBreakdown: data.spMonthlyBreakdown,
             expenseDetails: data.expenseDetails,
+            expenseGroups: data.expenseGroups,
             memberShu: paginatedMembers,
             unitBreakdown: data.unitBreakdown,
             // Pagination metadata

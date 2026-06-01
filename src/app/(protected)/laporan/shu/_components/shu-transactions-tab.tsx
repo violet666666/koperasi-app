@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import type { DetailTransaction, DetailTransactionsResponse, CategoryBreakdown } from "../_types";
+import type { DetailTransaction, DetailTransactionsResponse, CategoryBreakdown, ExpenseGroupFilter } from "../_types";
 
 interface SHUTransactionsTabProps {
   /** "income" or "expense" — determines API source param */
@@ -31,6 +31,8 @@ interface SHUTransactionsTabProps {
   month?: number | null;
   /** Income group filter (only for source=income) */
   incomeGroup?: "unit" | "sp" | "lainnya" | null;
+  /** Expense group filter (only for source=expense) */
+  expenseGroup?: ExpenseGroupFilter | null;
   /** Pre-selected category (from summary tab click) */
   selectedCategory?: string | null;
   /** Available categories from summary data (for filter dropdown) */
@@ -42,6 +44,7 @@ export function SHUTransactionsTab({
   year,
   month,
   incomeGroup,
+  expenseGroup,
   selectedCategory: initialCategory,
   availableCategories,
 }: SHUTransactionsTabProps) {
@@ -78,6 +81,7 @@ export function SHUTransactionsTab({
       if (month) params.set("month", String(month));
       if (filterCategory !== "all") params.set("category", filterCategory);
       if (incomeGroup) params.set("incomeGroup", incomeGroup);
+      if (expenseGroup) params.set("expenseGroup", expenseGroup);
       if (filterMethod !== "all") params.set("paymentMethod", filterMethod);
       if (filterSearch) params.set("search", filterSearch);
 
@@ -96,7 +100,7 @@ export function SHUTransactionsTab({
     } finally {
       setIsLoading(false);
     }
-  }, [year, month, source, filterCategory, incomeGroup, filterMethod, filterSearch]);
+  }, [year, month, source, filterCategory, incomeGroup, expenseGroup, filterMethod, filterSearch]);
 
   // Refetch when filters change
   React.useEffect(() => {

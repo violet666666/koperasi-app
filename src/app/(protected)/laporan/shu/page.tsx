@@ -28,7 +28,7 @@ import { formatCurrency } from "@/lib/constants";
 import { reportsApi } from "@/lib/api";
 import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 import { SHUDetailDialog } from "./_components/shu-detail-dialog";
-import type { SHUSource, IncomeGroupFilter, CalculationData } from "./_types";
+import type { SHUSource, IncomeGroupFilter, ExpenseGroupFilter, CalculationData, SPMonthlyItem } from "./_types";
 
 const shuExportColumns: ExportColumn[] = [
     { header: "NRP", key: "memberNo", width: 14 },
@@ -79,6 +79,13 @@ interface IncomeGroup {
     details: { code: string; name: string; amount: number }[];
 }
 
+interface ExpenseGroupData {
+    key: string;
+    label: string;
+    amount: number;
+    details: { code: string; name: string; amount: number }[];
+}
+
 interface PaginationMeta {
     page: number;
     perPage: number;
@@ -99,7 +106,9 @@ interface SHUData {
     allocationsNonMember: SHUAllocation[];
     incomeDetails: IncomeExpenseDetail[];
     incomeGroups: IncomeGroup[];
+    spMonthlyBreakdown?: SPMonthlyItem[];
     expenseDetails: IncomeExpenseDetail[];
+    expenseGroups?: ExpenseGroupData[];
     memberShu: MemberSHU[];
     memberSharePercent: number;
     pagination?: PaginationMeta;
@@ -231,6 +240,7 @@ export default function LaporanSHUPage() {
     const [dialogSource, setDialogSource] = React.useState<SHUSource>("income");
     const [dialogTitle, setDialogTitle] = React.useState("");
     const [dialogIncomeGroup, setDialogIncomeGroup] = React.useState<IncomeGroupFilter | undefined>(undefined);
+    const [dialogExpenseGroup, setDialogExpenseGroup] = React.useState<ExpenseGroupFilter | undefined>(undefined);
     const [dialogSummaryData, setDialogSummaryData] = React.useState<{ code: string; name: string; amount: number }[]>([]);
     const [dialogSummaryTotal, setDialogSummaryTotal] = React.useState(0);
 
@@ -240,12 +250,14 @@ export default function LaporanSHUPage() {
         summaryData: { code: string; name: string; amount: number }[],
         total: number,
         incomeGroup?: IncomeGroupFilter,
+        expenseGroup?: ExpenseGroupFilter,
     ) => {
         setDialogSource(source);
         setDialogTitle(title);
         setDialogSummaryData(summaryData);
         setDialogSummaryTotal(total);
         setDialogIncomeGroup(incomeGroup);
+        setDialogExpenseGroup(expenseGroup);
         setDialogOpen(true);
     }, []);
 
@@ -605,6 +617,10 @@ export default function LaporanSHUPage() {
                                     ? "hover:bg-blue-50/50 dark:hover:bg-blue-950/40"
                                     : "hover:bg-amber-50/50 dark:hover:bg-amber-950/40";
                                 const icon = isUnit ? "🏪" : isSP ? "🏦" : "📦";
+
+                                // SP monthly data for this card
+                                const spMonthly = isSP ? data.spMonthlyBreakdown : undefined;
+
                                 return (
                                     <Card
                                         key={group.key}
@@ -627,6 +643,120 @@ export default function LaporanSHUPage() {
                                                 <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
                                             </div>
                                             <p className={`text-xl font-bold tabular-nums ${textClass} border-b border-dashed inline-block ${isUnit ? "border-emerald-300" : isSP ? "border-blue-300" : "border-amber-300"}`}>
+                                                {formatCurrency(group.amount)}
+                                            </p>
+                                            {group.details.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t space-y-1">
+                                                    {group.details.map(d => (
+                                                        <div key={d.code} className="flex justify-between text-xs">
+                                                            <span className="text-muted-foreground truncate mr-2">{d.name}</span>
+                                                            <span className={`tabular-nums font-medium ${textClass}`}>
+                                                                {formatCurrency(d.amount)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* SP Monthly Mini-Table — expandable inside card */}
+                                            {isSP && spMonthly && spMonthly.length > 0 && (
+                                                <details className="mt-3 pt-2 border-t border-blue-200 dark:border-blue-800">
+                                                    <summary className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1">
+                                                        📊 Rincian Bulanan ({spMonthly.length} bulan)
+                                                    </summary>
+                                                    <div className="mt-2 max-h-[200px] overflow-y-auto">
+                                                        <table className="w-full text-[10px]">
+                                                            <thead>
+                                                                <tr className="text-muted-foreground border-b">
+                                                                    <th className="text-left py-1 font-medium">Bulan</th>
+                                                                    <th className="text-right py-1 font-medium">Jasa</th>
+                                                                    <th className="text-right py-1 font-medium">DR</th>
+                                                                    <th className="text-right py-1 font-medium">Total</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {spMonthly.map(m => (
+                                                                    <tr key={m.month} className="border-b border-muted/30">
+                                                                        <td className="py-0.5 text-muted-foreground">{m.monthLabel.replace(` ${data.period}`, "")}</td>
+                                                                        <td className="py-0.5 text-right tabular-nums text-blue-600">{formatCurrency(m.jasaPinjaman)}</td>
+                                                                        <td className="py-0.5 text-right tabular-nums text-indigo-600">{formatCurrency(m.danaResiko)}</td>
+                                                                        <td className="py-0.5 text-right tabular-nums font-medium">{formatCurrency(m.total)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        <a
+                                                            href="/pinjaman/laporan-jasa"
+                                                            className="text-[10px] text-blue-600 hover:underline"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            📅 Laporan Jasa →
+                                                        </a>
+                                                        <a
+                                                            href="/pinjaman/laporan-dana-resiko"
+                                                            className="text-[10px] text-indigo-600 hover:underline"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            📅 Laporan DR →
+                                                        </a>
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Expense Group Summary — 3 kategori beban */}
+                    {data.expenseGroups && data.expenseGroups.length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <p className="col-span-full text-sm font-semibold text-muted-foreground -mb-2">Beban Operasional</p>
+                            {data.expenseGroups.map(group => {
+                                const isOperasional = group.key === "operasional";
+                                const isUnitBeban = group.key === "unit_beban";
+                                const colorClass = isOperasional
+                                    ? "border-red-200 dark:border-red-800"
+                                    : isUnitBeban
+                                    ? "border-orange-200 dark:border-orange-800"
+                                    : "border-gray-200 dark:border-gray-700";
+                                const textClass = isOperasional
+                                    ? "text-red-600"
+                                    : isUnitBeban
+                                    ? "text-orange-600"
+                                    : "text-gray-600";
+                                const hoverClass = isOperasional
+                                    ? "hover:bg-red-50/50 dark:hover:bg-red-950/40"
+                                    : isUnitBeban
+                                    ? "hover:bg-orange-50/50 dark:hover:bg-orange-950/40"
+                                    : "hover:bg-gray-50/50 dark:hover:bg-gray-950/40";
+                                const icon = isOperasional ? "🏢" : isUnitBeban ? "🔧" : "📋";
+                                return (
+                                    <Card
+                                        key={group.key}
+                                        className={`${colorClass} print:border-gray-300 print:shadow-none transition-colors cursor-pointer ${hoverClass} group relative`}
+                                        onClick={() => openDetailDialog(
+                                            "expense",
+                                            `Detail: ${group.label}`,
+                                            group.details,
+                                            group.amount,
+                                            undefined,
+                                            group.key as ExpenseGroupFilter,
+                                        )}
+                                        title="Klik untuk detail transaksi"
+                                    >
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-lg">{icon}</span>
+                                                    <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+                                                </div>
+                                                <Eye className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                                            </div>
+                                            <p className={`text-xl font-bold tabular-nums ${textClass} border-b border-dashed inline-block ${isOperasional ? "border-red-300" : isUnitBeban ? "border-orange-300" : "border-gray-300"}`}>
                                                 {formatCurrency(group.amount)}
                                             </p>
                                             {group.details.length > 0 && (
@@ -1198,6 +1328,8 @@ export default function LaporanSHUPage() {
                     summaryData={dialogSummaryData}
                     summaryTotal={dialogSummaryTotal}
                     incomeGroup={dialogIncomeGroup}
+                    expenseGroup={dialogExpenseGroup}
+                    spMonthlyBreakdown={data?.spMonthlyBreakdown}
                     year={parseInt(selectedYear)}
                     month={selectedMonth !== "all" ? parseInt(selectedMonth) : null}
                     calculationData={

@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { getCarwashBonusPerTx } from "./shu-settings";
 import { UNIT_TYPES } from "@/lib/constants/units";
+import type { SPMonthlyItem, ExpenseGroup } from "@/app/(protected)/laporan/shu/_types";
 
 function toNum(d: Decimal | number | null | undefined): number {
     if (d === null || d === undefined) return 0;
@@ -98,6 +99,25 @@ const INCOME_GROUP_MAP: Record<string, "unit" | "sp" | "lainnya"> = {
 // SP categories untuk kategorisasi income dari CB
 const SP_CATEGORIES = new Set(["jasa_pinjaman", "dana_resiko", "penalti_pelunasan"]);
 const UNIT_CATEGORIES = new Set(["pendapatan_unit", "pendapatan_toko", "operational"]);
+
+// Mapping expense account codes → expense group
+const EXPENSE_GROUP_MAP: Record<string, string> = {
+    "CB-OP": "operasional",
+    "CB-OPS": "operasional",
+    "CW-SHU": "operasional",
+    "CB-UNIT": "unit_beban",
+    "ST-COGS": "unit_beban",
+    "CB-HPP": "unit_beban",
+    "CB-MITRA": "unit_beban",
+    "CB-LAIN": "lainnya",
+};
+
+// Mapping expense account codes → expense group (for detail-transactions API)
+export const GROUP_EXPENSE_CATEGORIES: Record<string, string[]> = {
+    operasional: ["biaya_operasional", "operational"],
+    unit_beban: ["beban_unit", "hpp_toko", "hutang_mitra"],
+    lainnya: ["lainnya"],
+};
 
 interface IncomeGroup {
     key: string;
@@ -723,6 +743,79 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         group.details.push({ code: detail.code, name: detail.name, amount: detail.amount });
     }
 
+    // === SP MONTHLY BREAKDOWN ===
+    // Rincian bulanan Pendapatan SimpanPinjam (Jasa Pinjaman, Dana Resiko, Penalti)
+    const [spPaymentsByMonth, spLoansByMonth, spPenaltiByMonth] = await Promise.all([
+        // Jasa Pinjaman per bulan (dari LoanPayment.interestPortion)
+        prisma.loanPayment.findMany({
+            where: { paymentDate: { gte: startDate, lte: endDate }, status: { not: "voided" } },
+            select: { paymentDate: true, interestPortion: true },
+        }),
+        // Dana Resiko per bulan (dari Loan.adminFee, berdasarkan tanggal pencairan)
+        prisma.loan.findMany({
+            where: { disbursementDate: { gte: startDate, lte: endDate }, status: { in: ["active", "paid_off"] }, adminFee: { gt: 0 } },
+            select: { disbursementDate: true, adminFee: true },
+        }),
+        // Penalti Pelunasan per bulan (dari CB category penalti_pelunasan)
+        prisma.cashBankTransaction.findMany({
+            where: { transactionDate: { gte: startDate, lte: endDate }, type: "in", category: "penalti_pelunasan", journalId: null },
+            select: { transactionDate: true, amount: true },
+        }),
+    ]);
+
+    // Group each by YYYY-MM
+    const monthMap = new Map<string, { jasa: number; danaResiko: number; penalti: number }>();
+    const ensureMonth = (m: string) => {
+        if (!monthMap.has(m)) monthMap.set(m, { jasa: 0, danaResiko: 0, penalti: 0 });
+        return monthMap.get(m)!;
+    };
+
+    spPaymentsByMonth.forEach(lp => {
+        const m = lp.paymentDate.toISOString().slice(0, 7);
+        ensureMonth(m).jasa += toNum(lp.interestPortion);
+    });
+    spLoansByMonth.forEach(loan => {
+        const m = loan.disbursementDate.toISOString().slice(0, 7);
+        ensureMonth(m).danaResiko += toNum(loan.adminFee);
+    });
+    spPenaltiByMonth.forEach(tx => {
+        const m = tx.transactionDate.toISOString().slice(0, 7);
+        ensureMonth(m).penalti += toNum(tx.amount);
+    });
+
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const spMonthlyBreakdown: SPMonthlyItem[] = Array.from(monthMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([m, d]) => ({
+            month: m,
+            monthLabel: `${monthNames[parseInt(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`,
+            jasaPinjaman: d.jasa,
+            danaResiko: d.danaResiko,
+            penalti: d.penalti,
+            total: d.jasa + d.danaResiko + d.penalti,
+        }));
+
+    // === EXPENSE GROUPS ===
+    // Kategorisasi expense ke 3 grup (mirip income groups)
+    const expenseGroups: ExpenseGroup[] = [
+        { key: "operasional", label: "Beban Operasional Umum", amount: 0, details: [] },
+        { key: "unit_beban", label: "Beban Unit Usaha", amount: 0, details: [] },
+        { key: "lainnya", label: "Beban Lainnya", amount: 0, details: [] },
+    ];
+
+    // Include CW-SHU in the expense details for grouping
+    const allExpenseDetails = [
+        ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
+        ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : []),
+    ];
+
+    for (const detail of allExpenseDetails) {
+        const groupKey = EXPENSE_GROUP_MAP[detail.code] || "lainnya";
+        const group = expenseGroups.find(g => g.key === groupKey)!;
+        group.amount += detail.amount;
+        group.details.push({ code: detail.code, name: detail.name, amount: detail.amount });
+    }
+
     return {
         year,
         month,
@@ -747,11 +840,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         memberDistribution: memberDistribution.sort((a, b) => b.shuAmount - a.shuAmount),
 
         incomeDetails,
-        incomeGroups, // NEW: 3-group income breakdown
-        expenseDetails: [
-            ...Object.values(expenseAccounts).sort((a, b) => b.amount - a.amount),
-            ...(totalCarwashBonus > 0 ? [{ code: "CW-SHU", name: "Beban SHU Cuci Mobil (Rp 2.000/transaksi)", amount: totalCarwashBonus }] : [])
-        ],
+        incomeGroups, // 3-group income breakdown
+        spMonthlyBreakdown, // SP monthly breakdown (Jasa, Dana Resiko, Penalti per bulan)
+        expenseDetails: allExpenseDetails,
+        expenseGroups, // 3-group expense breakdown
 
         unitBreakdown,
     };
