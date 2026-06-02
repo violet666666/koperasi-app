@@ -124,7 +124,12 @@
       "Bash(Measure-Object)",
       "Bash(Select-Object -ExpandProperty Count)",
       "mcp__plugin_playwright_playwright__browser_network_request",
-      "Bash(Select-String \"unit-layanan/stats\")"
+      "Bash(Select-String \"unit-layanan/stats\")",
+      "Skill(remember:remember)",
+      "Bash(wc -l CLAUDE.md)",
+      "Bash(head -50 CLAUDE.md)",
+      "Bash(ls .env.example)",
+      "Bash(cat .env.example)"
     ]
   },
   "enabledPlugins": {

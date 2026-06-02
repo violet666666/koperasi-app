@@ -221,6 +221,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 permission: "manage_all",
                 children: [
                     { title: "Dashboard Unit", href: "/manajemen-unit" },
+                    { title: "Insight Penjualan", href: "/unit-insight", icon: TrendingDown },
                 ],
             },
         ],
@@ -396,6 +397,10 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Laporan Penjualan", href: "/unit/[unitSlug]/laporan", icon: BarChart2,
+                permission: "manage_toko",
+            },
+            {
+                title: "Insight Penjualan", href: "/unit-insight", icon: TrendingDown,
                 permission: "manage_toko",
             },
         ],
@@ -652,6 +657,10 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Laporan Penjualan", href: "/resto/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Insight Penjualan", href: "/unit-insight", icon: TrendingDown,
                 permission: "manage_unit_transactions",
             },
         ],
@@ -1136,6 +1145,10 @@ export const adminCafeLspNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Laporan Penjualan", href: "/unit/cafe-lsp/laporan", icon: BarChart2,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Insight Penjualan", href: "/unit-insight", icon: TrendingDown,
                 permission: "manage_unit_transactions",
             },
         ],

@@ -70,6 +70,7 @@ prisma/schema.prisma   — 45 models, PostgreSQL
 | `src/lib/constants/navigation.ts` | Sidebar nav config + role filtering |
 | `src/app/(protected)/layout.tsx` | Route guard per role |
 | `src/lib/hooks/use-auth.tsx` | Auth hook + permissions |
+| `src/lib/export-utils.ts` | Universal export (Excel via SheetJS, PDF via browser print, thermal receipts, kwitansi) |
 
 ## Environment Variables
 
@@ -100,7 +101,9 @@ NODE_ENV           — development/production
 
 ## Gotchas
 
-- **CashBankTransaction** has NO `paymentMethod` or `referenceNo` fields — use `transactionNo` as reference
+- **CashBankTransaction** has nullable `paymentMethod` (`cash`/`qris`/`lainnya`) — only for operational income/expense, null for other CB types
+- **Two export systems exist**: `src/lib/export-utils.ts` (primary, browser-print PDF) and `src/lib/utils/export.ts` (secondary, jsPDF) — check both before adding export features
+- **Unit laporan page** (`unit/[unitSlug]/laporan/page.tsx`, ~2100 lines) is shared by ALL 10+ unit types — changes affect every unit
 - **StoreSale** uses `saleNo`, `UnitTransaction` uses `transactionNo` for references
 - Column names are `snake_case` in DB (`@map`) but `camelCase` in Prisma models
 - `StoreSale.metadata` is JSON — void check uses `NOT: { metadata: { path: ["isVoided"], equals: true } }`
@@ -119,6 +122,6 @@ NODE_ENV           — development/production
 
 | File | Content |
 |------|---------|
-| `SHU-BUG-AND-UPDATE.md` | SHU module bug history & fixes (16 sections) |
-| `OPERATOR.md` | Operator role audit, features, API matrix (15 sections) |
+| `SHU-BUG-AND-UPDATE.md` | SHU module bug history & fixes (19 sections) |
+| `OPERATOR.md` | Operator role audit, features, API matrix (18 sections) |
 | `akun-primkoppol.md` | Test accounts for production |
