@@ -108,7 +108,7 @@ export async function GET(
             productSalesRaw,
             dailySalesRaw,
             allActiveProducts,
-            lastSoldDates,
+            lastSoldRaw,
             thisWeekSalesRaw,
             lastWeekSalesRaw,
         ] = await Promise.all([
@@ -164,14 +164,20 @@ export async function GET(
             }),
 
             // 4. Last sold date per product (for stagnant detection)
-            prisma.$queryRaw<Array<{ productId: number; lastSoldAt: Date }>>`
-                SELECT ssi.product_id as "productId", MAX(ss.created_at) as "lastSoldAt"
-                FROM store_sale_items ssi
-                JOIN store_sales ss ON ssi.sale_id = ss.id
-                WHERE ss.unit_type = ${ssFilter}
-                  AND (ss.metadata->>'isVoided' IS NULL OR ss.metadata->>'isVoided' != 'true')
-                GROUP BY ssi.product_id
-            `,
+            // Use Prisma-native query instead of raw SQL to avoid ssFilter type mismatch
+            prisma.storeSaleItem.findMany({
+                where: {
+                    sale: {
+                        unitType: ssFilter,
+                        NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                    },
+                },
+                select: {
+                    productId: true,
+                    sale: { select: { createdAt: true } },
+                },
+                orderBy: { sale: { createdAt: "desc" } },
+            }),
 
             // 5. This week sales per product (for weekly comparison)
             prisma.storeSaleItem.groupBy({
@@ -261,6 +267,18 @@ export async function GET(
             productName: p.name,
             stock: p.stock,
         }));
+
+        // Transform lastSoldRaw (multiple items per product) into unique last-sold dates
+        const lastSoldDates: { productId: number; lastSoldAt: Date }[] = (() => {
+            const map = new Map<number, Date>();
+            for (const item of lastSoldRaw) {
+                const existing = map.get(item.productId);
+                if (!existing || item.sale.createdAt > existing) {
+                    map.set(item.productId, item.sale.createdAt);
+                }
+            }
+            return Array.from(map.entries()).map(([productId, lastSoldAt]) => ({ productId, lastSoldAt }));
+        })();
 
         // Weekly comparison
         const thisWeekSales: RawProductSale[] = thisWeekSalesRaw.map(s => ({
