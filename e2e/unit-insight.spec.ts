@@ -86,8 +86,8 @@ test.describe("Unit Insight — Admin Toko", () => {
     test("should load insight page with header and range label", async ({ page }) => {
         await page.goto(`${BASE_URL}/unit-insight`);
         await waitForInsightPage(page);
-        // Range label should appear
-        await expect(page.getByText(/Hari Terakhir|Hari Ini/)).toBeVisible({ timeout: 10000 });
+        // Range label in subtitle paragraph
+        await expect(page.getByText(/7 Hari Terakhir.*Toko/)).toBeVisible({ timeout: 10000 });
     });
 
     test("should show range filter buttons", async ({ page }) => {
@@ -214,16 +214,15 @@ test.describe("Unit Insight — Operator", () => {
     test("should show unit selector for operator", async ({ page }) => {
         await page.goto(`${BASE_URL}/unit-insight`);
         await waitForInsightPage(page);
-        // Operator sees unit selector buttons — use text content match
-        await expect(page.locator('button:has-text("Toko")').first()).toBeVisible({ timeout: 10000 });
+        // Operator sees unit selector buttons with full unit names
+        await expect(page.getByRole("button", { name: "Toko PRIMKOPPOL" })).toBeVisible({ timeout: 10000 });
     });
 
     test("should switch to resto unit", async ({ page }) => {
         await page.goto(`${BASE_URL}/unit-insight`);
         await waitForInsightPage(page);
         // Click resto button
-        const restoBtn = page.locator('button:has-text("Resto")').first();
-        await restoBtn.click();
+        await page.getByRole("button", { name: "Resto & Cafe" }).click();
         // Wait for data reload
         await page.waitForTimeout(3000);
         // Page should still show heading
@@ -241,8 +240,7 @@ test.describe("Unit Insight — Operator", () => {
         const tokoText = await tokoBadge.textContent();
 
         // Switch to cafe-lsp
-        const cafeBtn = page.locator('button:has-text("Cafe LSP")').first();
-        await cafeBtn.click();
+        await page.getByRole("button", { name: "Cafe LSP" }).click();
         await page.waitForTimeout(3000);
 
         // Stagnant count should differ

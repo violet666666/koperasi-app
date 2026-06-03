@@ -98,9 +98,10 @@ const RANGE_PRESETS = [
 export default function UnitInsightPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const roleName = typeof user?.role === "string" ? user.role : "";
+    const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const userUnitType = (user as any)?.unitType as string | null;
-    const isOperator = roleName === "operator";
+    const permissions = (user as any)?.permissions ?? [];
+    const isOperator = permissions.includes("manage_all");
 
     // Determine which unit slug to use
     const [selectedSlug, setSelectedSlug] = React.useState<string>(() => {
