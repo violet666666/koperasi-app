@@ -138,6 +138,8 @@ export default function UnitInsightPage() {
     const [weeklyPageSize, setWeeklyPageSize] = React.useState(50);
     const [stagnantPage, setStagnantPage] = React.useState(1);
     const [stagnantPageSize, setStagnantPageSize] = React.useState(50);
+    const [recapPage, setRecapPage] = React.useState(1);
+    const [recapPageSize, setRecapPageSize] = React.useState(50);
 
     // Fetch data
     const fetchData = React.useCallback(async () => {
@@ -179,6 +181,7 @@ export default function UnitInsightPage() {
         setRankingPage(1);
         setWeeklyPage(1);
         setStagnantPage(1);
+        setRecapPage(1);
     }, [data, rankingSort, searchQuery]);
 
     // Build chart data from trend
@@ -222,6 +225,17 @@ export default function UnitInsightPage() {
         const start = (stagnantPage - 1) * stagnantPageSize;
         return items.slice(start, start + stagnantPageSize);
     }, [data?.stagnant.items, stagnantPage, stagnantPageSize]);
+
+    // Recap data = all products from bestSelling (complete list, sorted by qty desc)
+    const recapData = React.useMemo(() => {
+        return data?.ranking.bestSelling ?? [];
+    }, [data?.ranking.bestSelling]);
+
+    const paginatedRecap = React.useMemo(() => {
+        if (recapPageSize === ALL_ITEMS) return recapData;
+        const start = (recapPage - 1) * recapPageSize;
+        return recapData.slice(start, start + recapPageSize);
+    }, [recapData, recapPage, recapPageSize]);
 
     // ─── Export handlers (bypass pagination — uses full dataset) ──────
     const unitLabel = data ? getUnitLabel(data.unitType) : "";
@@ -306,6 +320,28 @@ export default function UnitInsightPage() {
         } else {
             exportToPDF(items as unknown as Record<string, unknown>[], cols, title, fileName, {
                 subtitle: `Produk tidak terjual ≥ ${data.stagnant.threshold} hari • ${rangeLabel} • ${unitLabel}`,
+            });
+        }
+    }, [data, unitLabel, rangeLabel]);
+
+    const handleExportRecap = React.useCallback((format: "pdf" | "excel") => {
+        if (!data) return;
+        const cols: ExportColumn[] = [
+            { header: "No", key: "no", width: 6 },
+            { header: "Produk", key: "productName", width: 35 },
+            { header: "Total Qty Terjual", key: "quantity", width: 16 },
+            { header: "Total Revenue", key: "revenue", width: 22, format: (v) => formatCurrency(v as number) },
+            { header: "Kontribusi %", key: "contribution", width: 14, format: (v) => `${((v as number) * 100).toFixed(1)}%` },
+        ];
+        const items = data.ranking.bestSelling.map((p, i) => ({ ...p, no: i + 1 }));
+        const title = `Rekap Penjualan — ${unitLabel}`;
+        const fileName = `rekap_${data.unitType}_${data.rangeFrom}_${data.rangeTo}`;
+
+        if (format === "excel") {
+            exportToExcel(items as unknown as Record<string, unknown>[], cols, fileName, "Rekap Penjualan");
+        } else {
+            exportToPDF(items as unknown as Record<string, unknown>[], cols, title, fileName, {
+                subtitle: `${rangeLabel} • ${unitLabel} • ${data.ranking.summary.totalProducts} produk • Total: ${data.ranking.summary.totalItems} item • ${formatCurrency(data.ranking.summary.totalRevenue)}`,
             });
         }
     }, [data, unitLabel, rangeLabel]);
@@ -464,10 +500,14 @@ export default function UnitInsightPage() {
             {/* ─── Tabs ─────────────────────────────────── */}
             {data && (
                 <Tabs defaultValue="ranking" className="space-y-4">
-                    <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex">
+                    <TabsList className="w-full sm:w-auto grid grid-cols-5 sm:inline-flex">
                         <TabsTrigger value="ranking" className="text-xs">
                             <Trophy className="h-3 w-3 mr-1 hidden sm:inline" />
                             Ranking
+                        </TabsTrigger>
+                        <TabsTrigger value="recap" className="text-xs">
+                            <BarChart3 className="h-3 w-3 mr-1 hidden sm:inline" />
+                            Rekap
                         </TabsTrigger>
                         <TabsTrigger value="trend" className="text-xs">
                             <TrendingUp className="h-3 w-3 mr-1 hidden sm:inline" />
@@ -596,6 +636,98 @@ export default function UnitInsightPage() {
                                             totalItems={filteredRanking.length}
                                             onPageChange={setRankingPage}
                                             onPageSizeChange={setRankingPageSize}
+                                        />
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* ─── Tab: Rekap Penjualan ─────────────── */}
+                    <TabsContent value="recap">
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <CardTitle className="text-base">📋 Rekap Penjualan</CardTitle>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Total penjualan per produk — {data?.rangeLabel ?? ""}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="text-xs h-7 px-2"
+                                            onClick={() => handleExportRecap("excel")}
+                                            disabled={!data || recapData.length === 0}
+                                        >
+                                            <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
+                                        </Button>
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="text-xs h-7 px-2"
+                                            onClick={() => handleExportRecap("pdf")}
+                                            disabled={!data || recapData.length === 0}
+                                        >
+                                            <Download className="h-3 w-3 mr-1" /> PDF
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {recapData.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-8">
+                                        Tidak ada data penjualan untuk periode ini
+                                    </p>
+                                ) : (
+                                    <>
+                                        {/* Summary row */}
+                                        <div className="flex items-center gap-4 mb-3 px-3 py-2 bg-muted/50 rounded-lg text-xs">
+                                            <span className="text-muted-foreground">
+                                                {data!.ranking.summary.totalProducts} produk •{" "}
+                                                {data!.ranking.summary.totalItems.toLocaleString("id-ID")} item terjual •{" "}
+                                                <span className="font-semibold">{formatCurrency(data!.ranking.summary.totalRevenue)}</span>
+                                            </span>
+                                        </div>
+                                        <div className="space-y-0">
+                                            {/* Header */}
+                                            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3 py-1.5 border-b">
+                                                <div className="col-span-1">No</div>
+                                                <div className="col-span-5">Produk</div>
+                                                <div className="col-span-3 text-right">Total Qty</div>
+                                                <div className="col-span-3 text-right">Total Revenue</div>
+                                            </div>
+                                            {paginatedRecap.map((product, idx) => {
+                                                const globalIdx = (recapPageSize === ALL_ITEMS ? 0 : (recapPage - 1) * recapPageSize) + idx;
+                                                return (
+                                                    <div
+                                                        key={product.productId}
+                                                        className="grid grid-cols-12 gap-2 items-center text-sm px-3 py-2 rounded-lg hover:bg-muted/50"
+                                                    >
+                                                        <div className="col-span-1 text-muted-foreground text-xs">
+                                                            {globalIdx + 1}
+                                                        </div>
+                                                        <div className="col-span-5 truncate font-medium">
+                                                            {product.productName}
+                                                        </div>
+                                                        <div className="col-span-3 text-right tabular-nums">
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {product.quantity} pcs
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="col-span-3 text-right text-xs tabular-nums text-muted-foreground">
+                                                            {formatCurrency(product.revenue)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <PaginationControls
+                                            page={recapPage}
+                                            pageSize={recapPageSize}
+                                            totalItems={recapData.length}
+                                            onPageChange={setRecapPage}
+                                            onPageSizeChange={setRecapPageSize}
                                         />
                                     </>
                                 )}
