@@ -16,6 +16,7 @@ import {
     ArrowUpDown, Calendar, RefreshCw, Trophy, ChevronDown,
     ChevronUp, ArrowRight, Search,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+    Download, FileSpreadsheet,
 } from "lucide-react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -24,6 +25,7 @@ import {
 import { useAuth } from "@/lib/hooks/use-auth";
 import { formatCurrency } from "@/lib/constants";
 import { unitTypeToSlug, getUnitLabel } from "@/lib/constants/units";
+import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -220,6 +222,93 @@ export default function UnitInsightPage() {
         const start = (stagnantPage - 1) * stagnantPageSize;
         return items.slice(start, start + stagnantPageSize);
     }, [data?.stagnant.items, stagnantPage, stagnantPageSize]);
+
+    // ─── Export handlers (bypass pagination — uses full dataset) ──────
+    const unitLabel = data ? getUnitLabel(data.unitType) : "";
+    const rangeLabel = data?.rangeLabel ?? "";
+
+    const handleExportRanking = React.useCallback((format: "pdf" | "excel") => {
+        if (!data) return;
+        const bestCols: ExportColumn[] = [
+            { header: "Rank", key: "rank", width: 6 },
+            { header: "Produk", key: "productName", width: 35 },
+            { header: "Qty Terjual", key: "quantity", width: 14 },
+            { header: "Revenue", key: "revenue", width: 20, format: (v) => formatCurrency(v as number) },
+            { header: "Kontribusi %", key: "contribution", width: 14, format: (v) => `${((v as number) * 100).toFixed(1)}%` },
+        ];
+        const mapToRows = (list: RankedProduct[]) => list.map((p, i) => ({ ...p, rank: i + 1 }));
+        const title = `Ranking Penjualan — ${unitLabel}`;
+        const fileName = `ranking_${data.unitType}_${data.rangeFrom}_${data.rangeTo}`;
+
+        if (format === "excel") {
+            // Multi-sheet: Terlaris + Kurang Laris
+            const bestData = mapToRows(data.ranking.bestSelling);
+            const worstData = mapToRows(data.ranking.worstSelling);
+            exportToExcel(bestData, bestCols, `${fileName}_terlaris`, "Terlaris");
+            // Second sheet needs separate call — export worst as separate file for clarity
+            exportToExcel(worstData, bestCols, `${fileName}_kurang_laris`, "Kurang Laris");
+        } else {
+            const allData = mapToRows(
+                rankingSort === "best" ? data.ranking.bestSelling : data.ranking.worstSelling
+            );
+            exportToPDF(allData, bestCols, title, fileName, {
+                subtitle: `${rangeLabel} • ${unitLabel} • ${data.ranking.summary.totalProducts} produk • ${data.ranking.summary.totalItems} item terjual`,
+            });
+        }
+    }, [data, unitLabel, rangeLabel, rankingSort]);
+
+    const handleExportWeekly = React.useCallback((format: "pdf" | "excel") => {
+        if (!data) return;
+        const cols: ExportColumn[] = [
+            { header: "Produk", key: "productName", width: 35 },
+            { header: "Minggu Ini (Qty)", key: "thisWeekQty", width: 16 },
+            { header: "Minggu Lalu (Qty)", key: "lastWeekQty", width: 16 },
+            { header: "Revenue Minggu Ini", key: "thisWeekRevenue", width: 22, format: (v) => formatCurrency(v as number) },
+            { header: "Revenue Minggu Lalu", key: "lastWeekRevenue", width: 22, format: (v) => formatCurrency(v as number) },
+            {
+                header: "Perubahan %", key: "qtyChange", width: 14,
+                format: (v) => v === null ? "BARU" : `${((v as number) * 100).toFixed(1)}%`,
+            },
+        ];
+        const items = data.weeklyComparison.items;
+        const title = `Perbandingan Mingguan — ${unitLabel}`;
+        const fileName = `mingguan_${data.unitType}_${data.rangeFrom}_${data.rangeTo}`;
+
+        if (format === "excel") {
+            exportToExcel(items as unknown as Record<string, unknown>[], cols, fileName, "Mingguan");
+        } else {
+            exportToPDF(items as unknown as Record<string, unknown>[], cols, title, fileName, {
+                subtitle: `${rangeLabel} • ${unitLabel}`,
+            });
+        }
+    }, [data, unitLabel, rangeLabel]);
+
+    const handleExportStagnant = React.useCallback((format: "pdf" | "excel") => {
+        if (!data) return;
+        const cols: ExportColumn[] = [
+            { header: "Produk", key: "productName", width: 35 },
+            { header: "Stok", key: "stock", width: 8 },
+            {
+                header: "Terakhir Terjual", key: "lastSoldAt", width: 18,
+                format: (v) => v ? new Date(v as string).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Belum pernah",
+            },
+            {
+                header: "Hari Tanpa Penjualan", key: "daysSinceSale", width: 20,
+                format: (v) => (v as number) >= 999 ? "Belum pernah" : `${v} hari`,
+            },
+        ];
+        const items = data.stagnant.items;
+        const title = `Item Stagnan — ${unitLabel}`;
+        const fileName = `stagnan_${data.unitType}_${data.rangeFrom}_${data.rangeTo}`;
+
+        if (format === "excel") {
+            exportToExcel(items as unknown as Record<string, unknown>[], cols, fileName, "Stagnan");
+        } else {
+            exportToPDF(items as unknown as Record<string, unknown>[], cols, title, fileName, {
+                subtitle: `Produk tidak terjual ≥ ${data.stagnant.threshold} hari • ${rangeLabel} • ${unitLabel}`,
+            });
+        }
+    }, [data, unitLabel, rangeLabel]);
 
     // Operator unit selector
     const storeUnits = [
@@ -430,6 +519,24 @@ export default function UnitInsightPage() {
                                                 <TrendingDown className="h-3 w-3 mr-1" /> Kurang Laris
                                             </Button>
                                         </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                size="sm" variant="outline"
+                                                className="text-xs h-7 px-2"
+                                                onClick={() => handleExportRanking("excel")}
+                                                disabled={!data || filteredRanking.length === 0}
+                                            >
+                                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
+                                            </Button>
+                                            <Button
+                                                size="sm" variant="outline"
+                                                className="text-xs h-7 px-2"
+                                                onClick={() => handleExportRanking("pdf")}
+                                                disabled={!data || filteredRanking.length === 0}
+                                            >
+                                                <Download className="h-3 w-3 mr-1" /> PDF
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -589,10 +696,32 @@ export default function UnitInsightPage() {
                     <TabsContent value="weekly">
                         <Card>
                             <CardHeader className="pb-3">
-                                <CardTitle className="text-base">Perbandingan Mingguan</CardTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    Minggu ini vs minggu lalu per produk
-                                </p>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <CardTitle className="text-base">Perbandingan Mingguan</CardTitle>
+                                        <p className="text-xs text-muted-foreground">
+                                            Minggu ini vs minggu lalu per produk
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="text-xs h-7 px-2"
+                                            onClick={() => handleExportWeekly("excel")}
+                                            disabled={!data || data.weeklyComparison.items.length === 0}
+                                        >
+                                            <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
+                                        </Button>
+                                        <Button
+                                            size="sm" variant="outline"
+                                            className="text-xs h-7 px-2"
+                                            onClick={() => handleExportWeekly("pdf")}
+                                            disabled={!data || data.weeklyComparison.items.length === 0}
+                                        >
+                                            <Download className="h-3 w-3 mr-1" /> PDF
+                                        </Button>
+                                    </div>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {data.weeklyComparison.items.length === 0 ? (
@@ -657,9 +786,29 @@ export default function UnitInsightPage() {
                                             Produk tidak terjual ≥ {data.stagnant.threshold} hari terakhir
                                         </p>
                                     </div>
-                                    <Badge variant={data.stagnant.items.length > 0 ? "destructive" : "secondary"}>
-                                        {data.stagnant.items.length} item
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant={data.stagnant.items.length > 0 ? "destructive" : "secondary"}>
+                                            {data.stagnant.items.length} item
+                                        </Badge>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                size="sm" variant="outline"
+                                                className="text-xs h-7 px-2"
+                                                onClick={() => handleExportStagnant("excel")}
+                                                disabled={!data || data.stagnant.items.length === 0}
+                                            >
+                                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
+                                            </Button>
+                                            <Button
+                                                size="sm" variant="outline"
+                                                className="text-xs h-7 px-2"
+                                                onClick={() => handleExportStagnant("pdf")}
+                                                disabled={!data || data.stagnant.items.length === 0}
+                                            >
+                                                <Download className="h-3 w-3 mr-1" /> PDF
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent>
