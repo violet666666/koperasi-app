@@ -29,9 +29,9 @@ export async function GET(
 
         const permissions = (session.user as { permissions?: string[] }).permissions ?? [];
         const isOperator = permissions.includes("manage_all");
-        const isAdmin = session.user.role === "admin";
+        const isUnitAdmin = permissions.includes("manage_toko") || permissions.includes("manage_unit_transactions");
 
-        if (!isOperator && !isAdmin) {
+        if (!isOperator && !isUnitAdmin) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
