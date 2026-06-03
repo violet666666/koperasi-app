@@ -9,9 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
     TrendingUp, TrendingDown, AlertTriangle, Package, BarChart3,
     ArrowUpDown, Calendar, RefreshCw, Trophy, ChevronDown,
     ChevronUp, ArrowRight, Search,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -93,6 +97,9 @@ const RANGE_PRESETS = [
     { value: "30d", label: "30 Hari" },
 ] as const;
 
+const PAGE_SIZE_OPTIONS = [10, 50, 100] as const;
+const ALL_ITEMS = -1; // sentinel: show all rows in one page
+
 // ─── Component ────────────────────────────────────────────
 
 export default function UnitInsightPage() {
@@ -121,6 +128,14 @@ export default function UnitInsightPage() {
     const [rankingSort, setRankingSort] = React.useState<"best" | "worst">("best");
     const [searchQuery, setSearchQuery] = React.useState("");
     const [selectedTrendItems, setSelectedTrendItems] = React.useState<number[]>([]);
+
+    // Per-tab pagination state
+    const [rankingPage, setRankingPage] = React.useState(1);
+    const [rankingPageSize, setRankingPageSize] = React.useState(50);
+    const [weeklyPage, setWeeklyPage] = React.useState(1);
+    const [weeklyPageSize, setWeeklyPageSize] = React.useState(50);
+    const [stagnantPage, setStagnantPage] = React.useState(1);
+    const [stagnantPageSize, setStagnantPageSize] = React.useState(50);
 
     // Fetch data
     const fetchData = React.useCallback(async () => {
@@ -157,6 +172,13 @@ export default function UnitInsightPage() {
         }
     }, [data?.dailyTrend.series]);
 
+    // Reset pagination when data source or filters change
+    React.useEffect(() => {
+        setRankingPage(1);
+        setWeeklyPage(1);
+        setStagnantPage(1);
+    }, [data, rankingSort, searchQuery]);
+
     // Build chart data from trend
     const chartData = React.useMemo(() => {
         if (!data?.dailyTrend) return [];
@@ -177,6 +199,27 @@ export default function UnitInsightPage() {
         if (!searchQuery) return list;
         return list.filter(p => p.productName.toLowerCase().includes(searchQuery.toLowerCase()));
     }, [data?.ranking, rankingSort, searchQuery]);
+
+    // Paginated slices for each tab
+    const paginatedRanking = React.useMemo(() => {
+        if (rankingPageSize === ALL_ITEMS) return filteredRanking;
+        const start = (rankingPage - 1) * rankingPageSize;
+        return filteredRanking.slice(start, start + rankingPageSize);
+    }, [filteredRanking, rankingPage, rankingPageSize]);
+
+    const paginatedWeekly = React.useMemo(() => {
+        const items = data?.weeklyComparison.items ?? [];
+        if (weeklyPageSize === ALL_ITEMS) return items;
+        const start = (weeklyPage - 1) * weeklyPageSize;
+        return items.slice(start, start + weeklyPageSize);
+    }, [data?.weeklyComparison.items, weeklyPage, weeklyPageSize]);
+
+    const paginatedStagnant = React.useMemo(() => {
+        const items = data?.stagnant.items ?? [];
+        if (stagnantPageSize === ALL_ITEMS) return items;
+        const start = (stagnantPage - 1) * stagnantPageSize;
+        return items.slice(start, start + stagnantPageSize);
+    }, [data?.stagnant.items, stagnantPage, stagnantPageSize]);
 
     // Operator unit selector
     const storeUnits = [
@@ -396,46 +439,58 @@ export default function UnitInsightPage() {
                                         Tidak ada data penjualan untuk periode ini
                                     </p>
                                 ) : (
-                                    <div className="space-y-1">
-                                        {filteredRanking.map((product, idx) => (
-                                            <div
-                                                key={product.productId}
-                                                className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
-                                            >
-                                                <span className={`text-sm font-bold w-8 text-center ${
-                                                    rankingSort === "best" && idx < 3 ? "text-amber-500" : "text-muted-foreground"
-                                                }`}>
-                                                    {idx + 1}
-                                                </span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium truncate">{product.productName}</p>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full ${
-                                                                    rankingSort === "best"
-                                                                        ? "bg-emerald-500"
-                                                                        : "bg-red-400"
-                                                                }`}
-                                                                style={{ width: `${Math.max(product.contribution * 100, 2)}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground w-10 text-right">
-                                                            {(product.contribution * 100).toFixed(1)}%
+                                    <>
+                                        <div className="space-y-1">
+                                            {paginatedRanking.map((product, idx) => {
+                                                const globalIdx = (rankingPageSize === ALL_ITEMS ? 0 : (rankingPage - 1) * rankingPageSize) + idx;
+                                                return (
+                                                    <div
+                                                        key={product.productId}
+                                                        className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
+                                                    >
+                                                        <span className={`text-sm font-bold w-8 text-center ${
+                                                            rankingSort === "best" && globalIdx < 3 ? "text-amber-500" : "text-muted-foreground"
+                                                        }`}>
+                                                            {globalIdx + 1}
                                                         </span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium truncate">{product.productName}</p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${
+                                                                            rankingSort === "best"
+                                                                                ? "bg-emerald-500"
+                                                                                : "bg-red-400"
+                                                                        }`}
+                                                                        style={{ width: `${Math.max(product.contribution * 100, 2)}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-xs text-muted-foreground w-10 text-right">
+                                                                    {(product.contribution * 100).toFixed(1)}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {product.quantity} pcs
+                                                            </Badge>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                                {formatCurrency(product.revenue)}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="text-right shrink-0">
-                                                    <Badge variant="secondary" className="text-xs">
-                                                        {product.quantity} pcs
-                                                    </Badge>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        {formatCurrency(product.revenue)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <PaginationControls
+                                            page={rankingPage}
+                                            pageSize={rankingPageSize}
+                                            totalItems={filteredRanking.length}
+                                            onPageChange={setRankingPage}
+                                            onPageSizeChange={setRankingPageSize}
+                                        />
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -545,38 +600,47 @@ export default function UnitInsightPage() {
                                         Tidak ada data perbandingan
                                     </p>
                                 ) : (
-                                    <div className="space-y-1">
-                                        {/* Header */}
-                                        <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3 py-1.5 border-b">
-                                            <div className="col-span-4">Produk</div>
-                                            <div className="col-span-2 text-right">Minggu Ini</div>
-                                            <div className="col-span-2 text-right">Minggu Lalu</div>
-                                            <div className="col-span-2 text-right">Revenue</div>
-                                            <div className="col-span-2 text-right">Perubahan</div>
-                                        </div>
-                                        {data.weeklyComparison.items.map(item => (
-                                            <div
-                                                key={item.productId}
-                                                className="grid grid-cols-12 gap-2 items-center text-sm px-3 py-2 rounded-lg hover:bg-muted/50"
-                                            >
-                                                <div className="col-span-4 truncate font-medium">
-                                                    {item.productName}
-                                                </div>
-                                                <div className="col-span-2 text-right tabular-nums">
-                                                    {item.thisWeekQty} pcs
-                                                </div>
-                                                <div className="col-span-2 text-right tabular-nums text-muted-foreground">
-                                                    {item.lastWeekQty} pcs
-                                                </div>
-                                                <div className="col-span-2 text-right tabular-nums">
-                                                    {formatCurrency(item.thisWeekRevenue)}
-                                                </div>
-                                                <div className="col-span-2 text-right">
-                                                    <ChangeBadge change={item.qtyChange} />
-                                                </div>
+                                    <>
+                                        <div className="space-y-1">
+                                            {/* Header */}
+                                            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3 py-1.5 border-b">
+                                                <div className="col-span-4">Produk</div>
+                                                <div className="col-span-2 text-right">Minggu Ini</div>
+                                                <div className="col-span-2 text-right">Minggu Lalu</div>
+                                                <div className="col-span-2 text-right">Revenue</div>
+                                                <div className="col-span-2 text-right">Perubahan</div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            {paginatedWeekly.map(item => (
+                                                <div
+                                                    key={item.productId}
+                                                    className="grid grid-cols-12 gap-2 items-center text-sm px-3 py-2 rounded-lg hover:bg-muted/50"
+                                                >
+                                                    <div className="col-span-4 truncate font-medium">
+                                                        {item.productName}
+                                                    </div>
+                                                    <div className="col-span-2 text-right tabular-nums">
+                                                        {item.thisWeekQty} pcs
+                                                    </div>
+                                                    <div className="col-span-2 text-right tabular-nums text-muted-foreground">
+                                                        {item.lastWeekQty} pcs
+                                                    </div>
+                                                    <div className="col-span-2 text-right tabular-nums">
+                                                        {formatCurrency(item.thisWeekRevenue)}
+                                                    </div>
+                                                    <div className="col-span-2 text-right">
+                                                        <ChangeBadge change={item.qtyChange} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <PaginationControls
+                                            page={weeklyPage}
+                                            pageSize={weeklyPageSize}
+                                            totalItems={data.weeklyComparison.items.length}
+                                            onPageChange={setWeeklyPage}
+                                            onPageSizeChange={setWeeklyPageSize}
+                                        />
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -607,40 +671,49 @@ export default function UnitInsightPage() {
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-1">
-                                        <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3 py-1.5 border-b">
-                                            <div className="col-span-4">Produk</div>
-                                            <div className="col-span-2 text-right">Stok</div>
-                                            <div className="col-span-3 text-right">Terakhir Terjual</div>
-                                            <div className="col-span-3 text-right">Hari Tanpa Penjualan</div>
-                                        </div>
-                                        {data.stagnant.items.map(item => (
-                                            <div
-                                                key={item.productId}
-                                                className="grid grid-cols-12 gap-2 items-center text-sm px-3 py-2 rounded-lg hover:bg-muted/50"
-                                            >
-                                                <div className="col-span-4 truncate font-medium">
-                                                    {item.productName}
-                                                </div>
-                                                <div className="col-span-2 text-right tabular-nums">
-                                                    <Badge variant="outline">{item.stock}</Badge>
-                                                </div>
-                                                <div className="col-span-3 text-right text-muted-foreground text-xs">
-                                                    {item.lastSoldAt
-                                                        ? new Date(item.lastSoldAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
-                                                        : "Belum pernah"}
-                                                </div>
-                                                <div className="col-span-3 text-right">
-                                                    <Badge
-                                                        variant={item.daysSinceSale >= 30 ? "destructive" : item.daysSinceSale >= 14 ? "secondary" : "outline"}
-                                                        className="text-xs"
-                                                    >
-                                                        {item.daysSinceSale >= 999 ? "Belum pernah" : `${item.daysSinceSale} hari`}
-                                                    </Badge>
-                                                </div>
+                                    <>
+                                        <div className="space-y-1">
+                                            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3 py-1.5 border-b">
+                                                <div className="col-span-4">Produk</div>
+                                                <div className="col-span-2 text-right">Stok</div>
+                                                <div className="col-span-3 text-right">Terakhir Terjual</div>
+                                                <div className="col-span-3 text-right">Hari Tanpa Penjualan</div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            {paginatedStagnant.map(item => (
+                                                <div
+                                                    key={item.productId}
+                                                    className="grid grid-cols-12 gap-2 items-center text-sm px-3 py-2 rounded-lg hover:bg-muted/50"
+                                                >
+                                                    <div className="col-span-4 truncate font-medium">
+                                                        {item.productName}
+                                                    </div>
+                                                    <div className="col-span-2 text-right tabular-nums">
+                                                        <Badge variant="outline">{item.stock}</Badge>
+                                                    </div>
+                                                    <div className="col-span-3 text-right text-muted-foreground text-xs">
+                                                        {item.lastSoldAt
+                                                            ? new Date(item.lastSoldAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                                                            : "Belum pernah"}
+                                                    </div>
+                                                    <div className="col-span-3 text-right">
+                                                        <Badge
+                                                            variant={item.daysSinceSale >= 30 ? "destructive" : item.daysSinceSale >= 14 ? "secondary" : "outline"}
+                                                            className="text-xs"
+                                                        >
+                                                            {item.daysSinceSale >= 999 ? "Belum pernah" : `${item.daysSinceSale} hari`}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <PaginationControls
+                                            page={stagnantPage}
+                                            pageSize={stagnantPageSize}
+                                            totalItems={data.stagnant.items.length}
+                                            onPageChange={setStagnantPage}
+                                            onPageSizeChange={setStagnantPageSize}
+                                        />
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -652,6 +725,92 @@ export default function UnitInsightPage() {
 }
 
 // ─── Sub-Components ───────────────────────────────────────
+
+function PaginationControls({
+    page, pageSize, totalItems, onPageChange, onPageSizeChange,
+}: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+}) {
+    if (totalItems === 0) return null;
+
+    const totalPages = pageSize === ALL_ITEMS ? 1 : Math.max(1, Math.ceil(totalItems / pageSize));
+    const start = pageSize === ALL_ITEMS ? 1 : (page - 1) * pageSize + 1;
+    const end = pageSize === ALL_ITEMS ? totalItems : Math.min(page * pageSize, totalItems);
+
+    return (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t mt-3">
+            <p className="text-xs text-muted-foreground">
+                Menampilkan {start}–{end} dari {totalItems} data
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+                {/* Page size selector */}
+                <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Tampilkan:</span>
+                    <Select
+                        value={pageSize === ALL_ITEMS ? "all" : String(pageSize)}
+                        onValueChange={(v) => {
+                            onPageSizeChange(v === "all" ? ALL_ITEMS : Number(v));
+                            onPageChange(1);
+                        }}
+                    >
+                        <SelectTrigger className="h-7 text-xs w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {PAGE_SIZE_OPTIONS.map(s => (
+                                <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                            ))}
+                            <SelectItem value="all">Semua</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Page navigation */}
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="outline" size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(1)}
+                        disabled={page <= 1}
+                    >
+                        <ChevronsLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="outline" size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(page - 1)}
+                        disabled={page <= 1}
+                    >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs px-1.5 tabular-nums min-w-[60px] text-center">
+                        {page} / {totalPages}
+                    </span>
+                    <Button
+                        variant="outline" size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(page + 1)}
+                        disabled={page >= totalPages}
+                    >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="outline" size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(totalPages)}
+                        disabled={page >= totalPages}
+                    >
+                        <ChevronsRight className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 function SummaryCard({
     title,
