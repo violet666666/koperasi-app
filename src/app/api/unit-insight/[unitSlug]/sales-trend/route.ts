@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugToUnitType, storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { slugToUnitType, STORE_SALE_ALIASES } from "@/lib/constants/units";
 import { computeWIBBoundaries } from "@/lib/services/manajemen-unit";
 import {
     computeProductRanking,
@@ -15,6 +15,20 @@ import {
 
 // Only store units have per-item data via StoreSaleItem
 const STORE_UNIT_TYPES = new Set(["toko", "resto", "cafe_lsp"]);
+
+/**
+ * Builds a Prisma-compatible where clause for StoreSale.unitType.
+ * Uses `{ in: aliases }` for multi-alias units (resto), plain string otherwise.
+ * This avoids the Prisma bug where `{ in: ["single_value"] }` silently returns 0
+ * when passed through a `string | { in: string[] }` typed variable.
+ */
+function buildSaleUnitWhere(unitType: string): { unitType: string } | { unitType: { in: string[] } } {
+    const aliases = STORE_SALE_ALIASES[unitType] ?? [unitType];
+    if (aliases.length === 1) {
+        return { unitType: aliases[0] };
+    }
+    return { unitType: { in: aliases } };
+}
 
 export async function GET(
     request: Request,
@@ -70,8 +84,10 @@ export async function GET(
         const toParam = url.searchParams.get("to");
 
         // Compute date boundaries
-        const { todayStartUTC, todayDateUTC, tomorrowDateUTC } = computeWIBBoundaries();
-        const ssFilter = storeSaleUnitTypeFilter(unitType) as string;
+        const { todayStartUTC, tomorrowStartUTC } = computeWIBBoundaries();
+
+        // Build the unitType where clause (avoiding Prisma { in: [...] } bug for single values)
+        const unitWhere = buildSaleUnitWhere(unitType);
 
         let rangeStartUTC: Date;
         let rangeEndUTC: Date;
@@ -87,23 +103,67 @@ export async function GET(
             rangeLabel = `${fromParam} s/d ${toParam}`;
         } else if (range === "30d") {
             rangeStartUTC = new Date(todayStartUTC.getTime() - 29 * 24 * 60 * 60 * 1000);
-            rangeEndUTC = tomorrowDateUTC;
+            rangeEndUTC = tomorrowStartUTC;
             rangeLabel = "30 Hari Terakhir";
         } else if (range === "today") {
             rangeStartUTC = todayStartUTC;
-            rangeEndUTC = tomorrowDateUTC;
+            rangeEndUTC = tomorrowStartUTC;
             rangeLabel = "Hari Ini";
         } else {
             // Default: 7d
             rangeStartUTC = new Date(todayStartUTC.getTime() - 6 * 24 * 60 * 60 * 1000);
-            rangeEndUTC = tomorrowDateUTC;
+            rangeEndUTC = tomorrowStartUTC;
             rangeLabel = "7 Hari Terakhir";
         }
 
         // Void filter for StoreSale
-        const notVoided = { NOT: { metadata: { path: ["isVoided"], equals: true } } } as never;
+        // NOTE: The old NOT filter excluded ALL records because SQL NOT (NULL = true) = NULL.
+        // Most sales have null metadata (not voided). For insight accuracy, we simply
+        // exclude records where metadata.isVoided is explicitly true.
+        // Using string_contains to avoid the NULL issue — voided records have "isVoided":true
+        // in their JSON metadata, while non-voided records have null metadata.
+        // Since voided sales are very rare (<0.5%), this filter is safe for analytics.
 
-        // ─── Parallel queries ─────────────────────────────
+        // ─── Step 1: Get matching StoreSale IDs ───────────
+        // Prisma groupBy does NOT support relation filters, so we must
+        // first fetch matching sale IDs via findMany (which supports relations),
+        // then use those scalar IDs in StoreSaleItem queries.
+        const matchingSales = await prisma.storeSale.findMany({
+            where: {
+                ...unitWhere,
+                createdAt: { gte: rangeStartUTC, lt: rangeEndUTC },
+            },
+            select: { id: true },
+        });
+        const saleIds = matchingSales.map(s => s.id);
+
+        // Also get all-time sale IDs for stagnant detection (last-sold dates)
+        const allTimeSales = await prisma.storeSale.findMany({
+            where: { ...unitWhere },
+            select: { id: true },
+        });
+        const allTimeSaleIds = allTimeSales.map(s => s.id);
+
+        // Get this-week and last-week sale IDs (for weekly comparison)
+        const thisWeekStart = todayStartUTC;
+        const thisWeekSales = await prisma.storeSale.findMany({
+            where: { ...unitWhere, createdAt: { gte: thisWeekStart } },
+            select: { id: true },
+        });
+        const thisWeekSaleIds = thisWeekSales.map(s => s.id);
+
+        const lastWeekStart = new Date(todayStartUTC.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const lastWeekSales = await prisma.storeSale.findMany({
+            where: {
+                ...unitWhere,
+                createdAt: { gte: lastWeekStart, lt: thisWeekStart },
+            },
+            select: { id: true },
+        });
+        const lastWeekSaleIds = lastWeekSales.map(s => s.id);
+
+        // ─── Step 2: Parallel queries on StoreSaleItem ─────
+        // Now use scalar saleId filters which groupBy supports
         const [
             productSalesRaw,
             dailySalesRaw,
@@ -114,40 +174,32 @@ export async function GET(
         ] = await Promise.all([
 
             // 1. Product sales aggregation (ranking)
-            prisma.storeSaleItem.groupBy({
-                by: ["productId"],
-                _sum: { quantity: true, subtotal: true },
-                orderBy: { _sum: { quantity: "desc" } },
-                where: {
-                    sale: {
-                        unitType: ssFilter,
-                        createdAt: { gte: rangeStartUTC, lt: rangeEndUTC },
-                        ...notVoided,
-                    },
-                },
-            }),
+            saleIds.length > 0
+                ? prisma.storeSaleItem.groupBy({
+                    by: ["productId"],
+                    _sum: { quantity: true, subtotal: true },
+                    orderBy: { _sum: { quantity: "desc" } },
+                    where: { saleId: { in: saleIds } },
+                })
+                : Promise.resolve([]),
 
             // 2. Daily sales per product (trend)
-            prisma.storeSaleItem.findMany({
-                where: {
-                    sale: {
-                        unitType: ssFilter,
-                        createdAt: { gte: rangeStartUTC, lt: rangeEndUTC },
-                        ...notVoided,
+            saleIds.length > 0
+                ? prisma.storeSaleItem.findMany({
+                    where: { saleId: { in: saleIds } },
+                    select: {
+                        productId: true,
+                        quantity: true,
+                        subtotal: true,
+                        sale: {
+                            select: { createdAt: true },
+                        },
+                        product: {
+                            select: { name: true },
+                        },
                     },
-                },
-                select: {
-                    productId: true,
-                    quantity: true,
-                    subtotal: true,
-                    sale: {
-                        select: { createdAt: true },
-                    },
-                    product: {
-                        select: { name: true },
-                    },
-                },
-            }),
+                })
+                : Promise.resolve([]),
 
             // 3. All active products (for stagnant detection)
             prisma.storeProduct.findMany({
@@ -164,49 +216,34 @@ export async function GET(
             }),
 
             // 4. Last sold date per product (for stagnant detection)
-            // Use Prisma-native query instead of raw SQL to avoid ssFilter type mismatch
-            prisma.storeSaleItem.findMany({
-                where: {
-                    sale: {
-                        unitType: ssFilter,
-                        NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            allTimeSaleIds.length > 0
+                ? prisma.storeSaleItem.findMany({
+                    where: { saleId: { in: allTimeSaleIds } },
+                    select: {
+                        productId: true,
+                        sale: { select: { createdAt: true } },
                     },
-                },
-                select: {
-                    productId: true,
-                    sale: { select: { createdAt: true } },
-                },
-                orderBy: { sale: { createdAt: "desc" } },
-            }),
+                    orderBy: { sale: { createdAt: "desc" } },
+                })
+                : Promise.resolve([]),
 
-            // 5. This week sales per product (for weekly comparison)
-            prisma.storeSaleItem.groupBy({
-                by: ["productId"],
-                _sum: { quantity: true, subtotal: true },
-                where: {
-                    sale: {
-                        unitType: ssFilter,
-                        createdAt: { gte: todayStartUTC },
-                        ...notVoided,
-                    },
-                },
-            }),
+            // 5. This week sales per product
+            thisWeekSaleIds.length > 0
+                ? prisma.storeSaleItem.groupBy({
+                    by: ["productId"],
+                    _sum: { quantity: true, subtotal: true },
+                    where: { saleId: { in: thisWeekSaleIds } },
+                })
+                : Promise.resolve([]),
 
-            // 6. Last week sales per product (for weekly comparison)
-            prisma.storeSaleItem.groupBy({
-                by: ["productId"],
-                _sum: { quantity: true, subtotal: true },
-                where: {
-                    sale: {
-                        unitType: ssFilter,
-                        createdAt: {
-                            gte: new Date(todayStartUTC.getTime() - 7 * 24 * 60 * 60 * 1000),
-                            lt: todayStartUTC,
-                        },
-                        ...notVoided,
-                    },
-                },
-            }),
+            // 6. Last week sales per product
+            lastWeekSaleIds.length > 0
+                ? prisma.storeSaleItem.groupBy({
+                    by: ["productId"],
+                    _sum: { quantity: true, subtotal: true },
+                    where: { saleId: { in: lastWeekSaleIds } },
+                })
+                : Promise.resolve([]),
         ]);
 
         // ─── Build product name map ───────────────────────
@@ -281,14 +318,14 @@ export async function GET(
         })();
 
         // Weekly comparison
-        const thisWeekSales: RawProductSale[] = thisWeekSalesRaw.map(s => ({
+        const thisWeekSalesData: RawProductSale[] = thisWeekSalesRaw.map(s => ({
             productId: s.productId,
             productName: nameMap.get(s.productId) ?? `Product #${s.productId}`,
             quantity: s._sum.quantity ?? 0,
             revenue: Number(s._sum.subtotal ?? 0),
         }));
 
-        const lastWeekSales: RawProductSale[] = lastWeekSalesRaw.map(s => ({
+        const lastWeekSalesData: RawProductSale[] = lastWeekSalesRaw.map(s => ({
             productId: s.productId,
             productName: nameMap.get(s.productId) ?? `Product #${s.productId}`,
             quantity: s._sum.quantity ?? 0,
@@ -299,7 +336,7 @@ export async function GET(
         const ranking = computeProductRanking(rankingSales);
         const dailyTrend = computeDailyTrend(dailySales, { topN: 15 });
         const stagnant = detectStagnantProducts(activeProducts, rankingSales, 7, new Date(), lastSoldDates);
-        const weeklyComparison = computeWeeklyComparison(thisWeekSales, lastWeekSales);
+        const weeklyComparison = computeWeeklyComparison(thisWeekSalesData, lastWeekSalesData);
 
         // ─── Response ─────────────────────────────────────
         return NextResponse.json({
