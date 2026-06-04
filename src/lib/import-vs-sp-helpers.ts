@@ -62,7 +62,9 @@ export const MONTH_NAME_MAP: Record<string, number> = {
   ags: 7,
   okt: 9,
   nov: 10,
+  nop: 10,
   des: 11,
+  sept: 8,
   // English (fallback)
   january: 0,
   february: 1,

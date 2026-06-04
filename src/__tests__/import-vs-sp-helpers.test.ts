@@ -146,6 +146,22 @@ describe("parseExcelDate", () => {
     expect(d!.getMonth()).toBe(4); // May = 4
     expect(d!.getDate()).toBe(6);
   });
+
+  it("parses 'sept' alias for september: '15 SEPT 2025'", () => {
+    const d = parseExcelDate("15 SEPT 2025");
+    expect(d).not.toBeNull();
+    expect(d!.getFullYear()).toBe(2025);
+    expect(d!.getMonth()).toBe(8); // September = 8
+    expect(d!.getDate()).toBe(15);
+  });
+
+  it("parses 'nop' alias for november: '20 NOP 2024'", () => {
+    const d = parseExcelDate("20 NOP 2024");
+    expect(d).not.toBeNull();
+    expect(d!.getFullYear()).toBe(2024);
+    expect(d!.getMonth()).toBe(10); // November = 10
+    expect(d!.getDate()).toBe(20);
+  });
 });
 
 // =================================================================

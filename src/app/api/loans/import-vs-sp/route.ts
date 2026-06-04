@@ -194,7 +194,7 @@ export async function POST(request: Request) {
       currentOutstanding: number | null;
       monthlyCount: number;
       newPaymentsCount: number;
-      status: "valid" | "failed" | "skip_zero";
+      status: "UPDATE" | "NEW_LOAN" | "NEW_MEMBER" | "SKIP_ZERO" | "ERROR" | "FAILED";
       reason: string;
       isNewMember: boolean;
     }
@@ -204,6 +204,10 @@ export async function POST(request: Request) {
     let successCount = 0;
     let failCount = 0;
     const commitTasks: (() => Promise<void>)[] = [];
+
+    // Track IDs for batch record (only NEWLY created)
+    const committedPaymentIds: number[] = [];
+    const committedNewMemberIds: number[] = [];
 
     // Track snapshots for undo
     const preImportSnapshots: Record<string, unknown> = {};
@@ -224,7 +228,36 @@ export async function POST(request: Request) {
       if (SUMMARY_KEYWORDS.some((kw) => upperNama.includes(kw))) continue;
 
       const pinjam = cleanNumber(row[COL.PINJAM]);
-      if (pinjam <= 0) continue;
+      if (pinjam <= 0) {
+        // Record SKIP_ZERO rows for visibility in preview
+        results.push({
+          row: i + DATA_START_ROW + 1,
+          nrp: nrp || "-",
+          nama: rawNama,
+          pangkat: String(row[COL.PANGKAT] || "").trim(),
+          pinjam,
+          selama: 0,
+          jasa: 0,
+          angsuran: 0,
+          potBulan: 0,
+          totalBulan: 0,
+          jumlahSd: 0,
+          sisaSaldo: 0,
+          tglPinjam: null,
+          deductionSource: "gaji",
+          memberId: null,
+          memberName: rawNama,
+          loanId: null,
+          loanNo: null,
+          currentOutstanding: null,
+          monthlyCount: 0,
+          newPaymentsCount: 0,
+          status: "SKIP_ZERO",
+          reason: "Pinjaman ≤ 0, dilewati",
+          isNewMember: false,
+        });
+        continue;
+      }
 
       const selama = cleanNumber(row[COL.SELAMA]) || 12;
       const jasa = cleanNumber(row[COL.JASA]);
@@ -269,18 +302,18 @@ export async function POST(request: Request) {
         if (tglPinjam) {
           existingLoan = memberLoans.find((l) => {
             const amountMatch =
-              Math.abs(Number(l.principalAmount) - pinjam) / pinjam < 0.05;
+              Math.abs(Number(l.principalAmount) - pinjam) / pinjam < 0.01;
             const dateMatch =
               l.disbursementDate &&
               Math.abs(l.disbursementDate.getTime() - tglPinjam.getTime()) <
-                7 * 24 * 60 * 60 * 1000;
+                30 * 24 * 60 * 60 * 1000;
             return amountMatch && dateMatch;
           });
         }
         // Strategy 2: Amount only
         if (!existingLoan) {
           existingLoan = memberLoans.find(
-            (l) => Math.abs(Number(l.principalAmount) - pinjam) / pinjam < 0.05,
+            (l) => Math.abs(Number(l.principalAmount) - pinjam) / pinjam < 0.01,
           );
         }
       }
@@ -329,7 +362,11 @@ export async function POST(request: Request) {
         currentOutstanding: existingLoan ? Number(existingLoan.principalOutstanding) : null,
         monthlyCount: hasPayment ? 1 : 0,
         newPaymentsCount,
-        status: "valid",
+        status: isNewMember
+          ? "NEW_MEMBER"
+          : isNewLoan
+            ? "NEW_LOAN"
+            : "UPDATE",
         reason: isNewMember
           ? `Buat baru (anggota baru + pinjaman), ${hasPayment ? "1 pembayaran" : "tanpa pembayaran"}`
           : isNewLoan
@@ -391,6 +428,7 @@ export async function POST(request: Request) {
                     },
                   });
                   activeMemberId = newMember.id;
+                  committedNewMemberIds.push(newMember.id);
 
                   const anggotaRole = await tx.role.findUnique({ where: { name: "anggota" } });
                   if (anggotaRole) {
@@ -469,7 +507,13 @@ export async function POST(request: Request) {
                       interestMethod: product.interestMethod || "flat",
                       monthlyInstallment: schedPrincipal + taskData.jasa,
                       principalPaid: taskData.jumlahSd,
-                      interestPaid: taskData.totalBulan * taskData.jasa,
+                      interestPaid:
+                        taskData.angsuran + taskData.jasa > 0
+                          ? Math.round(
+                              taskData.jumlahSd *
+                                (taskData.jasa / (taskData.angsuran + taskData.jasa)),
+                            )
+                          : taskData.totalBulan * taskData.jasa,
                       lateFeePaid: 0,
                       principalOutstanding: taskData.sisaSaldo,
                       interestOutstanding: Math.max(
@@ -541,7 +585,13 @@ export async function POST(request: Request) {
                   // Update loan fields
                   const totalInterest = taskData.jasa * taskData.selama;
                   const paidCount = taskData.totalBulan;
-                  const updatedInterestPaid = paidCount * taskData.jasa;
+                  const updatedInterestPaid =
+                    taskData.angsuran + taskData.jasa > 0
+                      ? Math.round(
+                          taskData.jumlahSd *
+                            (taskData.jasa / (taskData.angsuran + taskData.jasa)),
+                        )
+                      : paidCount * taskData.jasa;
                   const schedPrincipal = Math.floor(taskData.pinjam / taskData.selama);
                   const applicationDate = taskData.tglPinjam || new Date();
 
@@ -619,10 +669,10 @@ export async function POST(request: Request) {
                     },
                   });
                   if (!existing) {
-                    const principalPortion = Math.min(taskData.angsuran, taskData.potBulan);
-                    const interestPortion = taskData.potBulan - principalPortion;
+                    const principalPortion = taskData.angsuran;
+                    const interestPortion = taskData.jasa;
 
-                    await tx.loanPayment.create({
+                    const payment = await tx.loanPayment.create({
                       data: {
                         paymentNo: nextPaymentNo(),
                         loanId: loanId!,
@@ -639,6 +689,7 @@ export async function POST(request: Request) {
                         createdById: adminId,
                       },
                     });
+                    committedPaymentIds.push(payment.id);
                   }
                 }
               },
@@ -648,7 +699,7 @@ export async function POST(request: Request) {
           } catch (err) {
             failCount++;
             console.error("Commit task error:", err);
-            results[resultIdx].status = "failed";
+            results[resultIdx].status = "FAILED";
             results[resultIdx].reason = String((err as Error)?.message || err);
           }
         });
@@ -656,6 +707,8 @@ export async function POST(request: Request) {
     }
 
     // ── Execute commit tasks in batches of 5 ────────────────────
+    let batchId: number | undefined;
+    let batchNo = "";
     if (mode === "commit" && commitTasks.length > 0) {
       const BATCH = 5;
       for (let i = 0; i < commitTasks.length; i += BATCH) {
@@ -664,19 +717,24 @@ export async function POST(request: Request) {
 
       // ── Create ImportBatch record for undo ────────────────────
       try {
-        const batchNo = `IMP-VSSP-${period.year}${String(period.monthNum).padStart(2, "0")}-${Date.now().toString(36).toUpperCase()}`;
+        // Generate batchNo in spec format: VS-SP/NNNN/PRIM/ROMAN_MONTH/YEAR
+        const existingBatches = await prisma.importBatch.count({
+          where: {
+            type: "import_vs_sp",
+            period: `${period.monthName} ${period.year}`,
+          },
+        });
+        const batchSeq = existingBatches + 1;
+        const romanMonth = ROMAWI[period.monthNum - 1];
+        batchNo = `VS-SP/${String(batchSeq).padStart(4, "0")}/PRIM/${romanMonth}/${period.year}`;
 
-        // Collect affected IDs from results
+        // Collect loan IDs from results (for both new and updated)
         const loanIds: number[] = [];
-        const paymentIds: number[] = [];
-        const memberIds: number[] = [];
-
         for (const r of results) {
-          if (r.memberId) memberIds.push(r.memberId);
           if (r.loanId) loanIds.push(r.loanId);
         }
 
-        await prisma.importBatch.create({
+        const batch = await prisma.importBatch.create({
           data: {
             batchNo,
             type: "import_vs_sp",
@@ -687,12 +745,13 @@ export async function POST(request: Request) {
             successCount,
             errorCount: failCount,
             loanIds,
-            paymentIds,
-            memberIds,
+            paymentIds: committedPaymentIds,
+            memberIds: committedNewMemberIds,
             preImportSnapshots: JSON.parse(JSON.stringify(preImportSnapshots)),
             createdById: adminId,
           },
         });
+        batchId = batch.id;
       } catch (batchErr) {
         console.error("Failed to create ImportBatch record:", batchErr);
         // Non-fatal — import already succeeded
@@ -722,18 +781,37 @@ export async function POST(request: Request) {
       // Non-fatal audit logging failure
     }
 
+    // ── Build summary breakdown ───────────────────────────────────
+    const summary = {
+      total: results.length,
+      update: results.filter((r) => r.status === "UPDATE").length,
+      newLoan: results.filter((r) => r.status === "NEW_LOAN").length,
+      newMember: results.filter((r) => r.status === "NEW_MEMBER").length,
+      skip: results.filter((r) => r.status === "SKIP_ZERO").length,
+      error: results.filter((r) => r.status === "ERROR").length,
+    };
+
+    const periodLabel = `${period.monthName.toUpperCase()} ${period.year}`;
+
+    if (mode === "preview") {
+      return NextResponse.json({
+        period: periodLabel,
+        periodInfo: { monthNum: period.monthNum, monthName: period.monthName, year: period.year },
+        availableSheets: workbook.SheetNames,
+        summary,
+        rows: results,
+      });
+    }
+
+    // Commit mode response
     return NextResponse.json({
-      data: {
-        mode,
-        type: "import_vs_sp",
-        period: `${period.monthName} ${period.year}`,
-        sheetName: resolvedSheetName,
-        totalRows: results.length,
-        success: mode === "commit" ? successCount : validCount,
-        failed: failCount,
-        preview: results,
-        allResults: mode === "commit" ? results : undefined,
-      },
+      period: periodLabel,
+      batchId: batchId ?? "",
+      batchNo,
+      imported: successCount,
+      failed: failCount,
+      summary,
+      rows: results,
     });
   } catch (error) {
     console.error("POST /api/loans/import-vs-sp error:", error);
