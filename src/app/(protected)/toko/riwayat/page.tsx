@@ -258,7 +258,7 @@ export default function RiwayatTransaksiPage() {
             cashReceived: sale.cashReceived ?? undefined,
             changeAmount: sale.changeAmount ?? undefined,
         };
-        generateKasirReceiptPDF(receiptData);
+        generateKasirReceiptPDF(receiptData, "80mm");
     };
 
     const isVoided = (s: Sale) => s.metadata && typeof s.metadata === "object" && s.metadata.isVoided;

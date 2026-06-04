@@ -136,11 +136,11 @@ export default function RiwayatTransaksiUnitPage() {
     };
 
     const FB_UNIT_CONFIG: Record<string, { label: string; paper: "58mm" | "80mm" }> = {
-        toko: { label: "STRUK PENJUALAN TOKO", paper: "58mm" },
+        toko: { label: "STRUK PENJUALAN TOKO", paper: "80mm" },
         resto: { label: "STRUK RESTO & CAFE", paper: "80mm" },
         resto_cafe: { label: "STRUK RESTO & CAFE", paper: "80mm" },
         coffe_latar: { label: "STRUK RESTO & CAFE", paper: "80mm" },
-        cafe_lsp: { label: "STRUK CAFE LSP", paper: "58mm" },
+        cafe_lsp: { label: "STRUK CAFE LSP", paper: "80mm" },
     };
 
     const canReprint = (tx: EnrichedTransaction) => {

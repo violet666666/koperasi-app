@@ -99,7 +99,7 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 | Split Bill | ✅ | ✅ |
 | Modifier | ✅ | ✅ |
 | Notes per item | ❌ | ✅ |
-| Struk | 58mm | 80mm |
+| Struk | 80mm | 80mm |
 
 ---
 

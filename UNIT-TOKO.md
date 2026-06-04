@@ -17,7 +17,7 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 ### 02 Mei 2026 - Perbaikan Massal Toko (Bug Fix Sprint)
 - **Cetak Ulang Struk:** Tombol "Cetak Ulang Struk" ditambahkan di detail dialog riwayat transaksi toko (`/transaksi-unit/riwayat?unitType=toko`), memanggil `generateKasirReceiptPDF`.
 - **Notifikasi Terisolasi per Unit:** Semua endpoint notifikasi kini memfilter admin berdasarkan `unitType` sehingga admin toko tidak menerima notifikasi unit lain.
-- **Print Thermal 58mm:** CSS print dioptimalkan untuk C58BT-Pro 58mm thermal printer — `height: fit-content`, `page-break-inside: avoid`, window height dikurangi.
+- **Print Thermal 80mm:** CSS print dioptimalkan untuk 80mm thermal printer — `height: fit-content`, `page-break-inside: avoid`, window height dikurangi.
 - **Stats Produk Akurat:** API products mengembalikan aggregate stats (`totalStock`, `totalValue`, `outOfStock`) dari query database, bukan dari data halaman terpaginasi.
 - **Import Stok Aman:** Produk existing yang di-reimport tidak lagi ke-overwrite field stock.
 
@@ -57,14 +57,14 @@ Sistem toko beroperasi pada modul `StoreSale` yang berbeda dengan `UnitTransacti
 | **BUG-084** | 2 Mei 26 | **Notifikasi Bocor ke Unit Lain.** Solusi: Helper `getNotificationRecipients(unitType)` memfilter admin berdasarkan unitType, diterapkan di 5 endpoint notifikasi (stock, sales, void, batches). | ✅ FIXED |
 | **BUG-085** | 2 Mei 26 | **Import Produk Overwrite Stok yang Ada.** Solusi: `upsert` update hanya mengubah name/category/costPrice/sellPrice/unit — field stock tidak di-overwrite saat update produk existing. | ✅ FIXED |
 | **BUG-086** | 2 Mei 26 | **Stok Tidak Terbaca dari Kolom Total/Stock di Excel.** Solusi: Fallback jika Excel tidak punya kolom Gdg/Toko, kolom Total/Stock digunakan sebagai `stockToko`. | ✅ FIXED |
-| **BUG-087** | 2 Mei 26 | **Print Struk 58mm Kertas Berlebihan.** Solusi: CSS `html/body { height: fit-content; min-height: 0; max-height: none; }` + `page-break-inside: avoid` + kurangi window.open height ke 300px. | ✅ FIXED |
+| **BUG-087** | 2 Mei 26 | **Print Struk 80mm Kertas Berlebihan.** Solusi: CSS `html/body { height: fit-content; min-height: 0; max-height: none; }` + `page-break-inside: avoid` + kurangi window.open height ke 300px. | ✅ FIXED |
 | **BUG-088** | 2 Mei 26 | **Stats Manajemen Produk Salah karena Pagination.** Solusi: API mengembalikan `stats` (totalProducts, totalStock, totalValue, outOfStock, lowStock) dari aggregate query terpisah, bukan dari data halaman. | ✅ FIXED |
 
 ### 02 Mei 2026 - Sprint 2: Shift Edit & Print Audit
 
 **Fitur Baru:**
 - **Edit Uang Fisik Shift (Admin Only):** Admin dapat mengedit `closingCash` pada shift yang sudah ditutup via tombol "Edit Fisik" di detail shift. `cashDifference` otomatis dihitung ulang. Perubahan tercatat di audit log. API: `PUT /api/toko/shifts/[id]`.
-- **Print Thermal Audit:** Seluruh code path cetak struk (7 jalur desktop, 3 jalur mobile) diaudit untuk C58BT-Pro 58mm. Semua CSS `@media print` kini konsisten: `html/body { height: auto; min-height: 0; max-height: none; }` + `@page { size: 58mm auto; margin: 0; }`. Tidak ada `page-break-inside: avoid` pada elemen blok. Print trigger menggunakan `setTimeout(500ms)` bukan `window.onload`.
+- **Print Thermal Audit:** Seluruh code path cetak struk (7 jalur desktop, 3 jalur mobile) diaudit untuk 80mm thermal printer. Semua CSS `@media print` kini konsisten: `html/body { height: auto; min-height: 0; max-height: none; }` + `@page { size: 80mm auto; margin: 0; }`. Tidak ada `page-break-inside: avoid` pada elemen blok. Print trigger menggunakan `setTimeout(500ms)` bukan `window.onload`.
 
 **Bug Fixes:**
 | **BUG-089** | 2 Mei 26 | **Print Struk Masih Panjang (Round 3).** Solusi: `html, body { height: fit-content; min-height: 0; }` juga ditambahkan di non-print CSS baseline. `window.open` height dikurangi ke 300px di semua jalur. | ✅ FIXED |
@@ -248,7 +248,7 @@ Void → Kembalikan stockToko + stock
 
 ### Catatan Teknis
 - Semua reverse bersifat **non-fatal** (try-catch) — jika gagal, void tetap jalan tapi di-log ke console
-- Receipt default ke **58mm** (sesuai printer thermal yang dipakai kasir toko)
+- Receipt default ke **80mm** (sesuai printer thermal yang dipakai kasir toko)
 - Filter void di shift close & stats menggunakan manual filter karena Prisma tidak support filter JSON field di aggregate/groupBy
 
 ---

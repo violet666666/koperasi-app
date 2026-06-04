@@ -408,8 +408,8 @@ export default function KasirPage() {
             };
             setLastReceipt(receiptData);
             
-            // Auto trigger pdf download/print window for 58mm POS thermal
-            generateKasirReceiptPDF(receiptData);
+            // Auto trigger pdf download/print window for 80mm POS thermal
+            generateKasirReceiptPDF(receiptData, "80mm");
 
             setCart([]);
             setPaymentAmount("");
@@ -798,7 +798,7 @@ export default function KasirPage() {
                             </Button>
 
                             <Button variant="outline" className="w-full" disabled={!lastReceipt}
-                                onClick={() => lastReceipt && generateKasirReceiptPDF(lastReceipt)}>
+                                onClick={() => lastReceipt && generateKasirReceiptPDF(lastReceipt, "80mm")}>
                                 <Receipt className="mr-2 h-4 w-4" />Cetak Struk Transaksi Terakhir
                             </Button>
                         </CardContent>
