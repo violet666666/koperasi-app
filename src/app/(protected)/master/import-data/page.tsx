@@ -320,14 +320,15 @@ export default function ImportDataPage() {
                 return;
             }
 
-            setResult(json.data);
+            // vs_sp returns flat response (no .data wrapper); other types wrap in .data
+            const resultData = importType === "vs_sp" ? json : json.data;
+            setResult(resultData);
 
             // vs_sp: extract sheet list, period, summary from preview response
             if (importType === "vs_sp") {
-                const vsData = json.data;
-                setAvailableSheets(vsData.availableSheets || []);
-                setDetectedPeriod(vsData.period || "");
-                setVsSpSummary(vsData.summary || null);
+                setAvailableSheets(resultData?.availableSheets || []);
+                setDetectedPeriod(resultData?.period || "");
+                setVsSpSummary(resultData?.summary || null);
             }
 
             toast.success("File berhasil di-parse. Silakan review data di bawah.");
@@ -386,15 +387,16 @@ export default function ImportDataPage() {
                 return;
             }
 
-            setResult(json.data);
+            // vs_sp returns flat response (no .data wrapper)
+            const resultData = importType === "vs_sp" ? json : json.data;
+            setResult(resultData);
 
             // vs_sp: update summary from commit response
             if (importType === "vs_sp") {
-                const vsData = json.data;
-                setVsSpSummary(vsData.summary || null);
+                setVsSpSummary(resultData?.summary || null);
             }
 
-            toast.success(`Berhasil menyimpan ${json.data.success} data.`);
+            toast.success(`Berhasil menyimpan ${resultData?.success ?? resultData?.imported ?? 0} data.`);
             setStatus("done");
         } catch (err: any) {
             const msg = err?.name === "AbortError"
@@ -437,14 +439,25 @@ export default function ImportDataPage() {
         }
     };
 
-    const validRows = result?.preview.filter(r => r.status === "valid") || [];
-    const errorRows = result?.preview.filter(r => r.status === "error") || [];
+    // Normalize: vs_sp uses flat rows[] with status UPDATE/NEW_LOAN/etc
+    // Other types use preview[] with status "valid"/"error"
+    const isVsSp = importType === "vs_sp";
+    const allRows = isVsSp ? (result?.rows || []) : (result?.preview || []);
+    const validRows = isVsSp
+        ? allRows.filter((r: any) => ["UPDATE", "NEW_LOAN", "NEW_MEMBER"].includes(r.status))
+        : allRows.filter((r: any) => r.status === "valid");
+    const errorRows = isVsSp
+        ? allRows.filter((r: any) => ["ERROR", "SKIP_ZERO"].includes(r.status))
+        : allRows.filter((r: any) => r.status === "error");
+    const resultSuccess = isVsSp ? (result?.summary?.total || 0) : result?.success;
+    const resultFailed = isVsSp ? (result?.summary?.error || 0) : result?.failed;
+    const resultTotal = isVsSp ? (result?.summary?.total || 0) : result?.totalRows;
 
     // Pagination calculations
-    const totalValidPages = Math.ceil(result?.success ? result.success / ITEMS_PER_PAGE : 0);
+    const totalValidPages = Math.ceil(resultSuccess / ITEMS_PER_PAGE);
     const validPageRows = validRows.slice((validPage - 1) * ITEMS_PER_PAGE, validPage * ITEMS_PER_PAGE);
 
-    const totalErrorPages = Math.ceil(result?.failed ? result.failed / ITEMS_PER_PAGE : 0);
+    const totalErrorPages = Math.ceil(resultFailed / ITEMS_PER_PAGE);
     const errorPageRows = errorRows.slice((errorPage - 1) * ITEMS_PER_PAGE, errorPage * ITEMS_PER_PAGE);
 
     return (
@@ -712,7 +725,7 @@ export default function ImportDataPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Total Baris</p>
-                                    <p className="text-2xl font-bold">{result.totalRows}</p>
+                                    <p className="text-2xl font-bold">{resultTotal}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -723,7 +736,7 @@ export default function ImportDataPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Data Valid</p>
-                                    <p className="text-2xl font-bold text-emerald-600">{result.success}</p>
+                                    <p className="text-2xl font-bold text-emerald-600">{resultSuccess}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -734,7 +747,7 @@ export default function ImportDataPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Data Error</p>
-                                    <p className="text-2xl font-bold text-red-600">{result.failed}</p>
+                                    <p className="text-2xl font-bold text-red-600">{resultFailed}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -783,17 +796,17 @@ export default function ImportDataPage() {
                         </Button>
                         <Button
                             onClick={handleImport}
-                            disabled={status === "importing" || result.success === 0}
+                            disabled={status === "importing" || resultSuccess === 0}
                         >
                             {status === "importing" ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Mengimport {result.success} data...
+                                    Mengimport {resultSuccess} data...
                                 </>
                             ) : (
                                 <>
                                     <Upload className="mr-2 h-4 w-4" />
-                                    Import {result.success} Data Valid
+                                    Import {resultSuccess} Data Valid
                                 </>
                             )}
                         </Button>
@@ -805,7 +818,7 @@ export default function ImportDataPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2 text-red-700">
                                     <XCircle className="h-4 w-4" />
-                                    Daftar Data Error ({result.failed} baris)
+                                    Daftar Data Error ({resultFailed} baris)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -836,7 +849,7 @@ export default function ImportDataPage() {
                                 {totalErrorPages > 1 ? (
                                     <div className="bg-muted/30 border-t px-4 py-3 flex items-center justify-between">
                                         <p className="text-xs text-muted-foreground">
-                                            Menampilkan {((errorPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(errorPage * ITEMS_PER_PAGE, result.failed)} dari {result.failed} error
+                                            Menampilkan {((errorPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(errorPage * ITEMS_PER_PAGE, resultFailed)} dari {resultFailed} error
                                         </p>
                                         <div className="flex gap-2">
                                             <Button 
@@ -860,7 +873,7 @@ export default function ImportDataPage() {
                                 ) : (
                                     <div className="bg-muted/30 border-t px-4 py-3">
                                         <p className="text-xs text-center text-muted-foreground">
-                                            Menampilkan semua {result.failed} error
+                                            Menampilkan semua {resultFailed} error
                                         </p>
                                     </div>
                                 )}
@@ -874,7 +887,7 @@ export default function ImportDataPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2 text-emerald-700">
                                     <CheckCircle2 className="h-4 w-4" />
-                                    Pratinjau Data Valid ({result.success} baris)
+                                    Pratinjau Data Valid ({resultSuccess} baris)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -1027,7 +1040,7 @@ export default function ImportDataPage() {
                                 {totalValidPages > 1 ? (
                                     <div className="bg-muted/30 border-t px-4 py-3 flex items-center justify-between">
                                         <p className="text-xs text-muted-foreground">
-                                            Menampilkan {((validPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(validPage * ITEMS_PER_PAGE, result.success)} dari {result.success} data
+                                            Menampilkan {((validPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(validPage * ITEMS_PER_PAGE, resultSuccess)} dari {resultSuccess} data
                                         </p>
                                         <div className="flex gap-2">
                                             <Button 
@@ -1051,7 +1064,7 @@ export default function ImportDataPage() {
                                 ) : (
                                     <div className="bg-muted/30 border-t px-4 py-3">
                                         <p className="text-xs text-center text-muted-foreground">
-                                            Menampilkan semua {result.success} data valid
+                                            Menampilkan semua {resultSuccess} data valid
                                         </p>
                                     </div>
                                 )}
@@ -1070,9 +1083,9 @@ export default function ImportDataPage() {
                         </div>
                         <h3 className="text-xl font-bold text-emerald-800">Import Berhasil!</h3>
                         <p className="text-muted-foreground text-center">
-                            <strong>{result.success}</strong> data berhasil diupdate
-                            {result.failed > 0 && (
-                                <>, <strong className="text-red-600">{result.failed}</strong> data gagal</>
+                            <strong>{resultSuccess}</strong> data berhasil diupdate
+                            {resultFailed > 0 && (
+                                <>, <strong className="text-red-600">{resultFailed}</strong> data gagal</>
                             )}
                         </p>
                         <Button onClick={handleReset} variant="outline">
