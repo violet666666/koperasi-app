@@ -291,110 +291,119 @@ export default function AnggotaDetailPage() {
         }
     };
 
-    // Data loading
-    React.useEffect(() => {
+    // Data loading — extracted so visibility listener can also call it
+    const fetchData = React.useCallback(async () => {
         if (!params.id) return;
+        setIsLoading(true);
+        try {
+            // Fetch member detail
+            const response = await membersApi.get(Number(params.id));
+            const apiData = (response.data as any).data || response.data;
 
-        async function fetchData() {
-            setIsLoading(true);
+            // Map API camelCase to frontend snake_case
+            const memberData: Member = {
+                id: apiData.id,
+                member_no: apiData.memberNo || apiData.member_no,
+                branch_id: apiData.branchId || apiData.branch_id,
+                branch: apiData.branch,
+                name: apiData.name,
+                nik: apiData.nik,
+                gender: apiData.gender,
+                birth_date: apiData.birthDate || apiData.birth_date,
+                birth_place: apiData.birthPlace || apiData.birth_place,
+                marital_status: apiData.maritalStatus || apiData.marital_status,
+                phone: apiData.phone,
+                email: apiData.email,
+                address: apiData.address,
+                city: apiData.city,
+                province: apiData.province,
+                join_date: apiData.joinDate || apiData.join_date,
+                status: apiData.status,
+                created_at: apiData.createdAt || apiData.created_at,
+                updated_at: apiData.updatedAt || apiData.updated_at,
+                salary: apiData.salary ? Number(apiData.salary) : undefined,
+                tunles_kinerja: apiData.tunlesKinerja ? Number(apiData.tunlesKinerja) : undefined,
+                sisa_gaji: apiData.sisaGaji ? Number(apiData.sisaGaji) : undefined,
+            };
+            setMember(memberData);
+
+            // Map camelCase API -> snake_case frontend
+            const loansData = apiData.summary?.loans || {};
+            setSummary({
+                member_id: memberData.id,
+                member_no: memberData.member_no,
+                name: memberData.name,
+                savings: {
+                    total: apiData.summary?.savings?.total || 0,
+                    by_type: apiData.summary?.savings?.byType || [],
+                },
+                loans: {
+                    active_count: loansData.activeCount || 0,
+                    total_outstanding: loansData.totalOutstanding || 0,
+                    total_principal_outstanding: loansData.totalPrincipalOutstanding || 0,
+                    total_interest_outstanding: loansData.totalInterestOutstanding || 0,
+                    next_installment: loansData.nextInstallment || null,
+                    overdue_amount: loansData.overdueAmount || 0,
+                    overdue_days: loansData.overdueDays || 0,
+                },
+                net_position: apiData.summary?.netPosition || 0,
+                estimasi_shu: apiData.summary?.estimasi_shu || 0,
+                unitPiutang: apiData.summary?.unitPiutang,
+            });
+
+            // Set loan details
+            setLoanDetails((apiData.loanDetails || []).map((l: any) => ({
+                ...l,
+                disbursementDate: l.disbursementDate,
+                firstDueDate: l.firstDueDate,
+                lastDueDate: l.lastDueDate,
+                paidOffDate: l.paidOffDate,
+            })));
+
+
+            // Fetch Tabungan Sejahtera
             try {
-                // Fetch member detail
-                const response = await membersApi.get(Number(params.id));
-                const apiData = (response.data as any).data || response.data;
+                const sejahteraRes = await fetch(`/api/members/${params.id}/sejahtera`);
+                if (sejahteraRes.ok) {
+                    const sejData = await sejahteraRes.json();
+                    setSejahteraHistory(sejData.data || []);
+                }
+            } catch(e) { console.error("Failed to fetch sejahtera:", e); }
 
-                // Map API camelCase to frontend snake_case
-                const memberData: Member = {
-                    id: apiData.id,
-                    member_no: apiData.memberNo || apiData.member_no,
-                    branch_id: apiData.branchId || apiData.branch_id,
-                    branch: apiData.branch,
-                    name: apiData.name,
-                    nik: apiData.nik,
-                    gender: apiData.gender,
-                    birth_date: apiData.birthDate || apiData.birth_date,
-                    birth_place: apiData.birthPlace || apiData.birth_place,
-                    marital_status: apiData.maritalStatus || apiData.marital_status,
-                    phone: apiData.phone,
-                    email: apiData.email,
-                    address: apiData.address,
-                    city: apiData.city,
-                    province: apiData.province,
-                    join_date: apiData.joinDate || apiData.join_date,
-                    status: apiData.status,
-                    created_at: apiData.createdAt || apiData.created_at,
-                    updated_at: apiData.updatedAt || apiData.updated_at,
-                    salary: apiData.salary ? Number(apiData.salary) : undefined,
-                    tunles_kinerja: apiData.tunlesKinerja ? Number(apiData.tunlesKinerja) : undefined,
-                    sisa_gaji: apiData.sisaGaji ? Number(apiData.sisaGaji) : undefined,
-                };
-                setMember(memberData);
+            // Fetch Buku Anggota transactions
+            try {
+                const bookRes = await fetch(`/api/members/${params.id}/transactions`);
+                if (bookRes.ok) {
+                    const bookData = await bookRes.json();
+                    setBookTransactions(bookData.data?.transactions || []);
+                    setBookSummary({
+                        totalSimpanan: bookData.data?.totalSimpanan || 0,
+                        sisaPinjaman: bookData.data?.sisaPinjaman || 0,
+                    });
+                }
+            } catch(e) { console.error("Failed to fetch transactions:", e); }
 
-                // Map camelCase API -> snake_case frontend
-                const loansData = apiData.summary?.loans || {};
-                setSummary({
-                    member_id: memberData.id,
-                    member_no: memberData.member_no,
-                    name: memberData.name,
-                    savings: {
-                        total: apiData.summary?.savings?.total || 0,
-                        by_type: apiData.summary?.savings?.byType || [],
-                    },
-                    loans: {
-                        active_count: loansData.activeCount || 0,
-                        total_outstanding: loansData.totalOutstanding || 0,
-                        total_principal_outstanding: loansData.totalPrincipalOutstanding || 0,
-                        total_interest_outstanding: loansData.totalInterestOutstanding || 0,
-                        next_installment: loansData.nextInstallment || null,
-                        overdue_amount: loansData.overdueAmount || 0,
-                        overdue_days: loansData.overdueDays || 0,
-                    },
-                    net_position: apiData.summary?.netPosition || 0,
-                    estimasi_shu: apiData.summary?.estimasi_shu || 0,
-                    unitPiutang: apiData.summary?.unitPiutang,
-                });
-
-                // Set loan details
-                setLoanDetails((apiData.loanDetails || []).map((l: any) => ({
-                    ...l,
-                    disbursementDate: l.disbursementDate,
-                    firstDueDate: l.firstDueDate,
-                    lastDueDate: l.lastDueDate,
-                    paidOffDate: l.paidOffDate,
-                })));
-
-
-                // Fetch Tabungan Sejahtera
-                try {
-                    const sejahteraRes = await fetch(`/api/members/${params.id}/sejahtera`);
-                    if (sejahteraRes.ok) {
-                        const sejData = await sejahteraRes.json();
-                        setSejahteraHistory(sejData.data || []);
-                    }
-                } catch(e) { console.error("Failed to fetch sejahtera:", e); }
-
-                // Fetch Buku Anggota transactions
-                try {
-                    const bookRes = await fetch(`/api/members/${params.id}/transactions`);
-                    if (bookRes.ok) {
-                        const bookData = await bookRes.json();
-                        setBookTransactions(bookData.data?.transactions || []);
-                        setBookSummary({
-                            totalSimpanan: bookData.data?.totalSimpanan || 0,
-                            sisaPinjaman: bookData.data?.sisaPinjaman || 0,
-                        });
-                    }
-                } catch(e) { console.error("Failed to fetch transactions:", e); }
-
-            } catch (error) {
-                console.error("Failed to fetch member:", error);
-                setMember(null);
-            } finally {
-                setIsLoading(false);
-            }
+        } catch (error) {
+            console.error("Failed to fetch member:", error);
+            setMember(null);
+        } finally {
+            setIsLoading(false);
         }
-
-        fetchData();
     }, [params.id]);
+
+    // Initial data load
+    React.useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Re-fetch when page regains visibility (e.g., back from edit, browser back, mobile tab switch)
+    React.useEffect(() => {
+        const refetch = () => {
+            if (document.visibilityState === 'visible') fetchData();
+        };
+        document.addEventListener('visibilitychange', refetch);
+        return () => document.removeEventListener('visibilitychange', refetch);
+    }, [fetchData]);
 
     if (isLoading) {
         return (

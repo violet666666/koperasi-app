@@ -203,7 +203,9 @@ export default function EditAnggotaPage() {
 
             await membersApi.update(memberId, payload);
             toast.success("Data anggota berhasil diperbarui");
-            router.push(`/anggota/${memberId}`);
+            // Full page reload to bypass Next.js client-side router cache
+            // so detail page re-fetches fresh data (e.g. updated plafonPiutang)
+            window.location.href = `/anggota/${memberId}`;
         } catch (error: any) {
             const msg = error?.response?.data?.message || "Gagal memperbarui data anggota";
             toast.error(msg);
