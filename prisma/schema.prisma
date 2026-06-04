@@ -61,6 +61,7 @@ model User {
   billingPeriodsProcessed BillingPeriod[]        @relation("BillingProcessedBy")
   billingItemsPaid        BillingItem[]          @relation("BillingItemPaidBy")
   payrollPeriods           PayrollPeriod[]
+  importBatches            ImportBatch[]       @relation("ImportBatchCreator")
 
   @@index([roleId])
   @@index([isActive])
@@ -594,6 +595,27 @@ model LoanPaymentAllocation {
   schedule LoanSchedule @relation(fields: [scheduleId], references: [id])
 
   @@map("loan_payment_allocations")
+}
+
+model ImportBatch {
+  id                  Int      @id @default(autoincrement())
+  batchNo             String   @unique
+  type                String   @default("import_vs_sp")
+  fileName            String
+  sheetName           String
+  period              String
+  totalRows           Int      @default(0)
+  successCount        Int      @default(0)
+  errorCount          Int      @default(0)
+  loanIds             Json     @default("[]")
+  paymentIds          Json     @default("[]")
+  memberIds           Json     @default("[]")
+  preImportSnapshots  Json     @default("{}")
+  createdById         Int
+  createdBy           User     @relation(fields: [createdById], references: [id], name: "ImportBatchCreator")
+  createdAt           DateTime @default(now())
+
+  @@map("import_batches")
 }
 
 // =================================================================
