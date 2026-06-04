@@ -26,7 +26,7 @@ import {
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
 
-type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "update_pinjaman" | "potongan" | "buku_kas" | "toko_history";
+type ImportType = "tunkin" | "gaji" | "gaji_uraian" | "tajib" | "akun_anggota" | "sejahtera" | "migrasi_pinjaman" | "update_pinjaman" | "vs_sp" | "potongan" | "buku_kas" | "toko_history";
 type ImportStatus = "idle" | "uploading" | "previewing" | "importing" | "done";
 
 interface PreviewRow {
@@ -39,7 +39,7 @@ interface PreviewRow {
     tajib?: number;
     memberId?: number;
     memberName?: string;
-    status: "valid" | "error" | "new_member";
+    status: "valid" | "error" | "new_member" | string;
     reason: string | null;
     currentTunkin?: number | null;
     currentGaji?: number | null;
@@ -52,6 +52,16 @@ interface PreviewRow {
     totalBarang?: number;
     sisaSaldo?: number;
     salarySource?: string;
+    // vs_sp specific fields
+    memberMatch?: string;
+    pinjam?: number;
+    angsuran?: number;
+    jasa?: number;
+    potBulan?: number;
+    totalBulan?: number;
+    jumlahSd?: number;
+    loanNo?: string;
+    notes?: string;
 }
 
 interface ImportResult {
@@ -80,6 +90,7 @@ function findBestSheet(XLSX: any, workbook: any, type: ImportType): string {
         akun_anggota: [["nrp", "nip"]],
         sejahtera: [[]],
         migrasi_pinjaman: [["pinjam", "selama", "angsuran", "saldo"]],
+        vs_sp: [["pinjam", "sisa saldo", "klasifikasi"]],
         potongan: [["tajib", "barang"]],
         buku_kas: [[]],
         toko_history: [[]],
@@ -98,6 +109,7 @@ function findBestSheet(XLSX: any, workbook: any, type: ImportType): string {
         akun_anggota: ["anggota", "member"],
         sejahtera: [],
         migrasi_pinjaman: ["pinjam", "piutang", "rincian"],
+        vs_sp: ["gaji"],
         potongan: ["barang", "potongan"],
         buku_kas: [],
         toko_history: [],
@@ -212,7 +224,20 @@ export default function ImportDataPage() {
     });
     const [error, setError] = useState<string | null>(null);
     const [isResetting, setIsResetting] = useState(false);
-    
+
+    // vs_sp specific states
+    const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+    const [selectedSheet, setSelectedSheet] = useState("GAJI");
+    const [detectedPeriod, setDetectedPeriod] = useState("");
+    const [vsSpSummary, setVsSpSummary] = useState<{
+        total: number;
+        update: number;
+        newLoan: number;
+        newMember: number;
+        skip: number;
+        error: number;
+    } | null>(null);
+
     // Pagination states
     const [validPage, setValidPage] = useState(1);
     const [errorPage, setErrorPage] = useState(1);
@@ -237,7 +262,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'toko_history') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'vs_sp' || importType === 'toko_history') {
                 processedFile = file; // These APIs read .xlsx natively
             } else {
                 const XLSX = await import("xlsx");
@@ -251,8 +276,15 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "preview");
             if (importType === "tajib") formData.append("periodMonth", tajibPeriod);
-            
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "toko_history" ? "/api/toko/sales/import-history" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            if (importType === "vs_sp") formData.append("sheetName", selectedSheet);
+
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import"
+                : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi"
+                : importType === "update_pinjaman" ? "/api/loans/import-update"
+                : importType === "vs_sp" ? "/api/loans/import-vs-sp"
+                : importType === "toko_history" ? "/api/toko/sales/import-history"
+                : importType === "potongan" ? "/api/transactions/import-potongan"
+                : "/api/members/import";
             const res = await fetch(targetUrl, {
                 method: "POST",
                 body: formData,
@@ -289,6 +321,15 @@ export default function ImportDataPage() {
             }
 
             setResult(json.data);
+
+            // vs_sp: extract sheet list, period, summary from preview response
+            if (importType === "vs_sp") {
+                const vsData = json.data;
+                setAvailableSheets(vsData.availableSheets || []);
+                setDetectedPeriod(vsData.period || "");
+                setVsSpSummary(vsData.summary || null);
+            }
+
             toast.success("File berhasil di-parse. Silakan review data di bawah.");
             setStatus("previewing");
         } catch (err) {
@@ -297,7 +338,7 @@ export default function ImportDataPage() {
             toast.error("Internal Server Error saat memproses file.");
             setStatus("idle");
         }
-    }, [file, importType]);
+    }, [file, importType, selectedSheet, tajibPeriod]);
 
     const handleImport = useCallback(async () => {
         if (!file) return;
@@ -305,7 +346,7 @@ export default function ImportDataPage() {
 
         try {
             let processedFile: File;
-            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'potongan') {
+            if (file.name.toLowerCase().endsWith('.csv') || importType === 'sejahtera' || importType === 'migrasi_pinjaman' || importType === 'update_pinjaman' || importType === 'vs_sp' || importType === 'potongan') {
                 processedFile = file;
             } else {
                 const XLSX = await import("xlsx");
@@ -319,8 +360,14 @@ export default function ImportDataPage() {
             formData.append("type", importType);
             formData.append("mode", "commit");
             if (importType === "tajib") formData.append("periodMonth", tajibPeriod);
+            if (importType === "vs_sp") formData.append("sheetName", selectedSheet);
 
-            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import" : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi" : importType === "update_pinjaman" ? "/api/loans/import-update" : importType === "potongan" ? "/api/transactions/import-potongan" : "/api/members/import";
+            const targetUrl = importType === "sejahtera" ? "/api/sejahtera/import"
+                : importType === "migrasi_pinjaman" ? "/api/loans/import-migrasi"
+                : importType === "update_pinjaman" ? "/api/loans/import-update"
+                : importType === "vs_sp" ? "/api/loans/import-vs-sp"
+                : importType === "potongan" ? "/api/transactions/import-potongan"
+                : "/api/members/import";
             // Use AbortController with 5-minute timeout for large imports
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 300000);
@@ -340,6 +387,13 @@ export default function ImportDataPage() {
             }
 
             setResult(json.data);
+
+            // vs_sp: update summary from commit response
+            if (importType === "vs_sp") {
+                const vsData = json.data;
+                setVsSpSummary(vsData.summary || null);
+            }
+
             toast.success(`Berhasil menyimpan ${json.data.success} data.`);
             setStatus("done");
         } catch (err: any) {
@@ -350,7 +404,7 @@ export default function ImportDataPage() {
             toast.error(msg);
             setStatus("previewing");
         }
-    }, [file, importType]);
+    }, [file, importType, selectedSheet, tajibPeriod]);
 
     const handleExport = useCallback(async () => {
         window.open("/api/members/export?format=csv", "_blank");
@@ -363,6 +417,9 @@ export default function ImportDataPage() {
         setStatus("idle");
         setValidPage(1);
         setErrorPage(1);
+        setAvailableSheets([]);
+        setDetectedPeriod("");
+        setVsSpSummary(null);
     }, []);
 
     const handleResetTunkin = async () => {
@@ -457,6 +514,9 @@ export default function ImportDataPage() {
                                         <SelectItem value="update_pinjaman">
                                             Update Pinjaman SP (Periode 2026)
                                         </SelectItem>
+                                        <SelectItem value="vs_sp">
+                                            Import VS SP (Per Bulan)
+                                        </SelectItem>
                                         <SelectItem value="potongan">
                                             Potongan Gaji Bulanan (Barang Primkoppol)
                                         </SelectItem>
@@ -526,6 +586,30 @@ export default function ImportDataPage() {
                             </div>
                         )}
 
+                        {/* vs_sp: Sheet selector + Period badge */}
+                        {importType === "vs_sp" && availableSheets.length > 0 && (
+                            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium">Sheet:</label>
+                                    <Select value={selectedSheet} onValueChange={setSelectedSheet}>
+                                        <SelectTrigger className="w-48">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableSheets.map(s => (
+                                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {detectedPeriod && (
+                                    <Badge variant="outline" className="text-sm px-3 py-1">
+                                        Periode: {detectedPeriod}
+                                    </Badge>
+                                )}
+                            </div>
+                        )}
+
                         {file && importType !== "buku_kas" && (
                             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
                                 <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
@@ -592,6 +676,10 @@ export default function ImportDataPage() {
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Upload file <strong>RINCIAN PIUTANG SP (.xlsx) — Sheet2</strong>. Update saldo pinjaman existing + catat pembayaran bulanan 2026 (<strong className="bg-yellow-200">Jan s/d Mei</strong>). Kolom: <strong>NRP</strong> (E), <strong>PINJAM</strong> (F), <strong>SELAMA</strong> (G), <strong>ANGSURAN</strong> (I), <strong>SISA SALDO</strong> (T). Pinjaman baru otomatis dibuat jika belum ada. <strong>Tidak mempengaruhi Kas/Jurnal.</strong>
                                 </p>
+                            ) : importType === "vs_sp" ? (
+                                <p className="text-xs text-blue-700 dark:text-blue-400">
+                                    Upload file <strong>Rincian Piutang VS-SP (.xlsx)</strong>. Sistem otomatis mendeteksi <strong className="bg-yellow-200">periode bulan</strong> dan <strong>daftar sheet</strong> dari file. Pilih sheet yang berisi data potongan (biasanya <strong>GAJI</strong>). Kolom: <strong>NRP</strong>, <strong>NAMA</strong>, <strong>PINJAM</strong>, <strong>ANGSURAN</strong>, <strong>POT BULAN INI</strong>, <strong>TERBAYAR</strong>, <strong>SISA SALDO</strong>. Status: UPDATE (pinjaman existing), NEW_LOAN (pinjaman baru), NEW_MEMBER (anggota + pinjaman baru).
+                                </p>
                             ) : importType === "potongan" ? (
                                 <p className="text-xs text-blue-700 dark:text-blue-400">
                                     Upload file <strong>Barang Primkoppol (.xlsx)</strong>. File ini berisi <strong>multi-sheet</strong> (per bulan). Kolom: <strong className="bg-yellow-200">NRP, TAJIB, BARANG, SP, JUMLAH, NAMA</strong>. Saat commit, TAJIB akan <strong>diakumulasi ke Simpanan Wajib</strong> anggota. Data BARANG dan SP dicatat sebagai informasi.
@@ -651,6 +739,42 @@ export default function ImportDataPage() {
                             </CardContent>
                         </Card>
                     </div>
+
+                    {/* vs_sp: Breakdown summary cards */}
+                    {importType === "vs_sp" && vsSpSummary && (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <Card className="border-green-200 bg-green-50/50">
+                                <CardContent className="p-3 text-center">
+                                    <p className="text-xs text-green-600 font-medium">UPDATE</p>
+                                    <p className="text-xl font-bold text-green-700">{vsSpSummary.update}</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-yellow-200 bg-yellow-50/50">
+                                <CardContent className="p-3 text-center">
+                                    <p className="text-xs text-yellow-600 font-medium">PINJAMAN BARU</p>
+                                    <p className="text-xl font-bold text-yellow-700">{vsSpSummary.newLoan}</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-blue-200 bg-blue-50/50">
+                                <CardContent className="p-3 text-center">
+                                    <p className="text-xs text-blue-600 font-medium">ANGGOTA BARU</p>
+                                    <p className="text-xl font-bold text-blue-700">{vsSpSummary.newMember}</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-gray-200 bg-gray-50/50">
+                                <CardContent className="p-3 text-center">
+                                    <p className="text-xs text-gray-500 font-medium">SKIP</p>
+                                    <p className="text-xl font-bold text-gray-600">{vsSpSummary.skip}</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="border-red-200 bg-red-50/50">
+                                <CardContent className="p-3 text-center">
+                                    <p className="text-xs text-red-600 font-medium">ERROR</p>
+                                    <p className="text-xl font-bold text-red-700">{vsSpSummary.error}</p>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex gap-2">
@@ -762,6 +886,7 @@ export default function ImportDataPage() {
                                                 <TableHead>NRP/NIP</TableHead>
                                                 <TableHead>Nama (CSV)</TableHead>
                                                 <TableHead>Nama (DB)</TableHead>
+                                                {importType !== "vs_sp" && (<>
                                                 <TableHead className="text-right">
                                                     {importType === "tunkin" ? "Tunkin Baru" : importType === "tajib" ? "Simulasi JML Excel" : importType === "sejahtera" ? "Data Mutasi" : importType === "migrasi_pinjaman" ? "Pokok Pinjaman" : importType === "update_pinjaman" ? "Sisa Saldo" : importType === "toko_history" ? "Total Belanja (Barang)" : importType === "potongan" ? "Total TAJIB" : importType === "gaji_uraian" ? "Gaji Bersih (H)" : "Gaji Baru"}
                                                 </TableHead>
@@ -776,6 +901,20 @@ export default function ImportDataPage() {
                                                 )}
                                                 {importType === "tajib" && (
                                                     <TableHead className="text-right">Skema Deteksi Data</TableHead>
+                                                )}
+                                                </>)}
+                                                {importType === "vs_sp" && (
+                                                    <>
+                                                        <TableHead>Status</TableHead>
+                                                        <TableHead>Match</TableHead>
+                                                        <TableHead>Nama Anggota</TableHead>
+                                                        <TableHead className="text-right">Pinjaman</TableHead>
+                                                        <TableHead className="text-right">Pot Bulan Ini</TableHead>
+                                                        <TableHead className="text-right">Terbayar</TableHead>
+                                                        <TableHead className="text-right">Sisa Saldo</TableHead>
+                                                        <TableHead>No Pinjaman</TableHead>
+                                                        <TableHead>Catatan</TableHead>
+                                                    </>
                                                 )}
                                             </TableRow>
                                         </TableHeader>
@@ -798,6 +937,7 @@ export default function ImportDataPage() {
                                                             </span>
                                                         ) : (r.memberName || r.nama)}
                                                     </TableCell>
+                                                    {importType !== "vs_sp" && (<>
                                                     <TableCell className="text-right font-mono">
                                                         {importType === "akun_anggota" && r.isNewMember === false ? (
                                                             <Badge variant="outline" className="text-[10px] text-muted-foreground font-normal border-dashed">Dilewati</Badge>
@@ -853,6 +993,30 @@ export default function ImportDataPage() {
                                                         <TableCell className="text-right font-mono text-muted-foreground">
                                                             <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{r.reason}</span>
                                                         </TableCell>
+                                                    )}
+                                                    </>)}
+                                                    {importType === "vs_sp" && (
+                                                        <>
+                                                            <TableCell>
+                                                                <Badge variant={
+                                                                    r.status === "UPDATE" ? "default" :
+                                                                    r.status === "NEW_LOAN" ? "secondary" :
+                                                                    r.status === "NEW_MEMBER" ? "outline" :
+                                                                    r.status === "SKIP_ZERO" ? "secondary" :
+                                                                    "destructive"
+                                                                }>
+                                                                    {r.status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground">{r.memberMatch || "-"}</TableCell>
+                                                            <TableCell className="font-medium">{r.memberName || r.nama}</TableCell>
+                                                            <TableCell className="text-right text-sm">{formatCurrency(r.pinjam || 0)}</TableCell>
+                                                            <TableCell className="text-right text-sm">{formatCurrency(r.potBulan || 0)}</TableCell>
+                                                            <TableCell className="text-right text-sm">{formatCurrency(r.jumlahSd || 0)}</TableCell>
+                                                            <TableCell className="text-right text-sm font-medium">{formatCurrency(r.sisaSaldo || 0)}</TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground">{r.loanNo || "-"}</TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground">{r.notes || "-"}</TableCell>
+                                                        </>
                                                     )}
                                                 </TableRow>
                                             ))}
