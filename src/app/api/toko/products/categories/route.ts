@@ -15,7 +15,8 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const unitType = searchParams.get("unitType") || undefined;
+        const rawUnitType = searchParams.get("unitType") || undefined;
+        const unitType = rawUnitType ? (normalizeUnitType(rawUnitType) || rawUnitType) : undefined;
 
         if (unitType && isFbUnit(unitType)) {
             // Auto-backfill: link products with matching category string but no categoryId FK
