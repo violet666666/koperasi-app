@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 function checkUnitAccess(session: any, product: { unitType: string | null }): boolean {
     const role = session.user.role as string;
     if (role === "operator") return true;
     const userUnitType = (session.user as { unitType?: string }).unitType;
     if (!userUnitType) return true;
-    return product.unitType === userUnitType;
+    return isSameUnit(product.unitType, userUnitType);
 }
 
 // GET single product
