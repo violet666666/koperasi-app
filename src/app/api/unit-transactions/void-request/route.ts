@@ -411,6 +411,17 @@ export async function POST(request: Request) {
                 const fbMeta: any = fallbackSale.metadata ? (typeof fallbackSale.metadata === 'object' ? fallbackSale.metadata : JSON.parse(fallbackSale.metadata as string)) : {};
                 if (fbMeta.isVoided) return NextResponse.json({ message: "Transaksi ini sudah dibatalkan." }, { status: 409 });
 
+                // Authorization checks for non-operator users
+                if (session.user.role === "kasir" && fallbackSale.createdById !== currentUserId) {
+                    return NextResponse.json({ message: "Kasir hanya dapat mengajukan void untuk transaksi miliknya sendiri." }, { status: 403 });
+                }
+                if (session.user.role === "kasir") {
+                    const userUnitType = (session.user as Record<string, unknown>).unitType as string | undefined;
+                    if (userUnitType && !isSameUnit(fallbackSale.unitType, userUnitType)) {
+                        return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
+                    }
+                }
+
                 if (isOperator) {
                     // Operator void flow — same logic as above but for fallback sale
                     await prisma.$transaction(async (tx) => {
@@ -459,12 +470,14 @@ export async function POST(request: Request) {
                             });
                             if (originalCashTx) {
                                 const voidAmount = Number(fallbackSale.totalAmount);
+                                // Atomic decrement FIRST to prevent TOCTOU race
                                 const updatedAccount = await tx.cashBankAccount.update({
                                     where: { id: originalCashTx.accountId },
                                     data: { currentBalance: { decrement: voidAmount } },
                                 });
                                 const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
-                                await tx.cashBankTransaction.create({
+
+                                const voidCashTx = await tx.cashBankTransaction.create({
                                     data: {
                                         transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
                                         accountId: originalCashTx.accountId,
@@ -480,6 +493,20 @@ export async function POST(request: Request) {
                                         createdById: currentUserId,
                                     },
                                 });
+
+                                // Adjust running balance chain for subsequent transactions
+                                const balanceImpact = -voidAmount;
+                                await tx.$executeRaw`
+                                    UPDATE "cash_bank_transactions"
+                                    SET
+                                        "balance_before" = "balance_before" + ${balanceImpact},
+                                        "balance_after" = "balance_after" + ${balanceImpact}
+                                    WHERE "account_id" = ${originalCashTx.accountId}
+                                      AND (
+                                          "transaction_date" > ${now}
+                                          OR ("transaction_date" = ${now} AND "id" > ${voidCashTx.id})
+                                      )
+                                `;
                             }
                         }
 
