@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
-import { isFbUnit } from "@/lib/constants/units";
+import { isFbUnit, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
         // Build where clause
         const where: Record<string, unknown> = {
-            ...(unitType && { unitType }),
+            ...(unitType && { unitType: storeSaleUnitTypeFilter(unitType) }),
         };
 
         if (fromDate || toDate) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
         const sortBy = searchParams.get("sortBy") || "createdAt";
         const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
-        const where: any = { unitType };
+        const where: any = { unitType: storeSaleUnitTypeFilter(unitType) };
         if (from || to) {
             where.createdAt = {};
             if (from) where.createdAt.gte = new Date(from);

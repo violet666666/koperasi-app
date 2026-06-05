@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { storeSaleUnitTypeFilter, unitTypeFilter } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -125,7 +126,7 @@ export async function GET(
         // tercatat di StoreSale — menghindari duplikasi pendapatan.
         let unitTransactions: any[] = [];
         const unitTxWhere: any = {
-            unitType,
+            unitType: unitTypeFilter(unitType),
             transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
             status: { notIn: ["voided"] },
         };
@@ -163,7 +164,7 @@ export async function GET(
         if (usesStoreSales) {
             const storeSaleQuery = {
                 where: {
-                    unitType,
+                    unitType: storeSaleUnitTypeFilter(unitType),
                     createdAt: { gte: dateFrom, lte: dateTo },
                 },
                 include: {

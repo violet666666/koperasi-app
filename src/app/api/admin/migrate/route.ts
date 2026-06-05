@@ -61,6 +61,14 @@ export async function POST(request: Request) {
         `;
         results.push(`Backfilled track_stock for ${backfillStock} rows`);
 
+        // Backfill: Set trackStock=false for non-inventory units (resto, cafe_lsp)
+        const backfillNonInventory = await prisma.$executeRaw`
+            UPDATE store_products SET track_stock = false
+            WHERE unit_type IN ('resto', 'resto_cafe', 'coffe_latar', 'cafe_lsp')
+            AND track_stock = true AND deleted_at IS NULL
+        `;
+        results.push(`Set trackStock=false for ${backfillNonInventory} non-inventory products (resto/cafe_lsp)`);
+
         // ── Member table columns ──────────────────────────────────────
         const memberColumns: [string, string][] = [
             ["occupation", "TEXT"],
