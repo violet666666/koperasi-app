@@ -50,8 +50,8 @@ export function PrintReceiptButton({ receiptData }: PrintReceiptButtonProps) {
                     <title>Bukti Transaksi - ${receiptData.receiptNo}</title>
                     <style>
                         * { margin: 0; padding: 0; box-sizing: border-box; }
-                        body { 
-                            font-family: 'Courier New', monospace; 
+                        body {
+                            font-family: 'Courier New', monospace;
                             padding: 20px;
                             font-size: 12px;
                         }
@@ -66,18 +66,17 @@ export function PrintReceiptButton({ receiptData }: PrintReceiptButtonProps) {
                 </head>
                 <body>
                     ${receiptHTML}
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() { window.print(); }, 400);
+                        };
+                    </script>
                 </body>
                 </html>
             `);
 
             printWindow.document.close();
-            printWindow.focus();
-
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-                toast.success("Bukti transaksi dicetak");
-            }, 250);
+            toast.success("Bukti transaksi dicetak");
         } catch (error) {
             console.error("Print error:", error);
             toast.error("Gagal mencetak bukti transaksi");

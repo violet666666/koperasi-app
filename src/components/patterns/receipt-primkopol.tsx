@@ -60,7 +60,11 @@ export function ReceiptPrimkopol({
         if (!printContents) return;
         const pw = paperSize === "58mm" ? "58mm" : "80mm";
         const w = window.open("", "_blank", "width=300,height=800");
-        if (!w) return;
+        if (!w) {
+            // Pop-up diblokir browser (umum di tablet) — beri feedback ke user
+            alert("Pop-up diblokir oleh browser. Mohon izinkan pop-up untuk mencetak struk, lalu coba lagi.");
+            return;
+        }
         w.document.write(`
             <!DOCTYPE html>
             <html>
@@ -111,16 +115,22 @@ export function ReceiptPrimkopol({
                     }
                 </style>
             </head>
-            <body>${printContents}</body>
+            <body>${printContents}
+                <script>
+                    // Gunakan onload + buffer agar print() dipanggil setelah DOM siap
+                    // Penting untuk tablet/perangkat lambat
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            // Jangan auto-close — biarkan user menutup sendiri setelah print selesai
+                            // Auto-close terlalu cepat bisa membatalkan dialog print di tablet
+                        }, 400);
+                    };
+                </script>
+            </body>
             </html>
         `);
         w.document.close();
-        setTimeout(() => {
-            if (!w.closed) {
-                w.print();
-                setTimeout(() => { if (!w.closed) w.close(); }, 1000);
-            }
-        }, 500);
     };
 
     return (

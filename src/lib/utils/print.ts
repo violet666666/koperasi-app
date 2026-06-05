@@ -32,18 +32,16 @@ export function printElement(elementId: string, title?: string): void {
         </head>
         <body>
             ${element.innerHTML}
+            <script>
+                window.onload = function() {
+                    setTimeout(function() { window.print(); }, 400);
+                };
+            </script>
         </body>
         </html>
     `);
 
     printWindow.document.close();
-    printWindow.focus();
-
-    // Print after content loads
-    setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-    }, 250);
 }
 
 /**
