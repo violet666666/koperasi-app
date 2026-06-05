@@ -14,8 +14,11 @@ interface StoredPrinter {
 const STORAGE_KEY = "thermal_printer";
 
 const SERVICE_UUID = "0000ff00-0000-1000-8000-00805f9b34fb";
+const SERVICE_UUID_ALT = "000018f0-0000-1000-8000-00805f9b34fb"; // Some RPP02N firmware
 const CHAR_UUID_FF02 = "0000ff02-0000-1000-8000-00805f9b34fb";
 const CHAR_UUID_FF01 = "0000ff01-0000-1000-8000-00805f9b34fb";
+const CHAR_UUID_2AF0 = "00002af0-0000-1000-8000-00805f9b34fb"; // Some printers
+const SERIAL_BAUD = 115200; // RPP02N commonly uses 115200
 
 function loadStored(): StoredPrinter | null {
   if (typeof window === "undefined") return null;
@@ -95,7 +98,7 @@ export function useThermalPrinter(): UseThermalPrinterReturn {
 
   async function openSerialPort(port: SerialPort): Promise<void> {
     if (!port.readable || !port.writable) {
-      await port.open({ baudRate: 9600 });
+      await port.open({ baudRate: SERIAL_BAUD });
     }
   }
 
@@ -104,12 +107,32 @@ export function useThermalPrinter(): UseThermalPrinterReturn {
   async function getWriteCharacteristic(
     server: BluetoothRemoteGATTServer
   ): Promise<BluetoothRemoteGATTCharacteristic> {
-    const service = await server.getPrimaryService(SERVICE_UUID);
-    try {
-      return await service.getCharacteristic(CHAR_UUID_FF02);
-    } catch {
-      return await service.getCharacteristic(CHAR_UUID_FF01);
+    // Try multiple service UUIDs — different RPP02N firmware versions use different ones
+    const serviceUUIDs = [SERVICE_UUID, SERVICE_UUID_ALT];
+    let service: BluetoothRemoteGATTService | null = null;
+    for (const uuid of serviceUUIDs) {
+      try {
+        service = await server.getPrimaryService(uuid);
+        console.log(`[thermal] Found service: ${uuid}`);
+        break;
+      } catch {
+        continue;
+      }
     }
+    if (!service) throw new Error("Service thermal printer tidak ditemukan");
+
+    // Try multiple characteristic UUIDs
+    const charUUIDs = [CHAR_UUID_FF02, CHAR_UUID_FF01, CHAR_UUID_2AF0];
+    for (const uuid of charUUIDs) {
+      try {
+        const char = await service.getCharacteristic(uuid);
+        console.log(`[thermal] Found characteristic: ${uuid}`);
+        return char;
+      } catch {
+        continue;
+      }
+    }
+    throw new Error("Characteristic thermal printer tidak ditemukan");
   }
 
   function handleBtDisconnect() {
@@ -188,7 +211,9 @@ export function useThermalPrinter(): UseThermalPrinterReturn {
       }
 
       const server = await device.gatt!.connect();
+      console.log(`[thermal] Connected to: ${device.name} (id: ${device.id})`);
       const characteristic = await getWriteCharacteristic(server);
+      console.log(`[thermal] Characteristic acquired, ready to print`);
 
       device.addEventListener("gattserverdisconnected", handleBtDisconnect);
 
@@ -236,9 +261,11 @@ export function useThermalPrinter(): UseThermalPrinterReturn {
     setIsPrinting(true);
     try {
       await openSerialPort(port);
+      console.log(`[thermal] USB: Sending ${data.length} bytes at ${SERIAL_BAUD} baud`);
       const writer = port.writable!.getWriter();
       try {
         await writer.write(data);
+        console.log("[thermal] USB: Write complete!");
       } finally {
         writer.releaseLock();
       }
@@ -264,22 +291,29 @@ export function useThermalPrinter(): UseThermalPrinterReturn {
       // Reconnect if necessary
       let characteristic = btCharRef.current;
       if (!characteristic) {
+        console.log("[thermal] Reconnecting to device...");
         const server = await device.gatt.connect();
         characteristic = await getWriteCharacteristic(server);
         btCharRef.current = characteristic;
       }
 
       const chunks = chunkBytes(data, 100);
-      const writeFn = characteristic.properties.writeWithoutResponse
-        ? characteristic.writeValueWithoutResponse.bind(characteristic)
-        : characteristic.writeValue.bind(characteristic);
+      console.log(`[thermal] Sending ${data.length} bytes in ${chunks.length} chunks`);
 
-      for (const chunk of chunks) {
-        await writeFn(chunk as unknown as BufferSource);
+      const useWithoutResponse = characteristic.properties.writeWithoutResponse;
+      console.log(`[thermal] Write method: ${useWithoutResponse ? "writeWithoutResponse" : "writeValue"}`);
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (useWithoutResponse) {
+          await characteristic.writeValueWithoutResponse(chunks[i] as unknown as BufferSource);
+        } else {
+          await characteristic.writeValue(chunks[i] as unknown as BufferSource);
+        }
         // Small delay between chunks to avoid buffer overflow
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
+      console.log("[thermal] Print complete!");
       return true;
     } catch (err: unknown) {
       const msg = classifyError(err);
