@@ -125,20 +125,25 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 |---------|-----|-----------|-----|
 | 5 Jun 2026 | Void transaksi `SL-*` gagal ("tidak ditemukan") | `STORE_SALE_PREFIXES` di void-request route tidak punya `"SL-"`, lookup jatuh ke UnitTransaction → 404 | Tambah `"SL-"` ke prefix list + fallback `StoreSale.findUnique` |
 | 5 Jun 2026 | Unit Insight page blank untuk admin Resto | `STORE_UNIT_TYPES` hanya `["toko","resto","cafe_lsp"]` — `resto_cafe` di-reject 400 + `StoreProduct` tanpa alias expansion | Alias normalize via reverse lookup + expand whitelist + alias expansion di product query |
+| 5 Jun 2026 | QRIS management 403 untuk admin `resto_cafe` | QRIS endpoint pakai exact match `userUnitType !== unitType`, `resto_cafe` ≠ `resto` → blocked | Ganti ke `isSameUnit()` untuk alias-aware RBAC |
+| 5 Jun 2026 | Alias `UNIT_TYPE_ALIASES` salah: `coffe_latar` di `cafe_lsp` | `UNIT_TYPE_ALIASES.cafe_lsp` include `coffe_latar`, padahal `coffe_latar` produknya = Resto (Ayam Bakar, Ayam Katsu) | Pindah `coffe_latar` dari `cafe_lsp` ke `resto` aliases |
+| 5 Jun 2026 | Duplicated alias maps tidak konsisten | `unit-transactions/route.ts` dan `unit-layanan/stats/route.ts` punya alias map sendiri tanpa `resto_cafe` | Unify semua alias map: `resto` → `["resto", "resto_cafe", "coffe_latar"]` |
 
 ## Data Isolation: Resto vs Cafe LSP
 
 | Aspek | Resto & Cafe | Cafe LSP |
 |-------|-------------|----------|
 | unitType | `resto` / `resto_cafe` / `coffe_latar` | `cafe_lsp` |
+| Produk khas | Ayam Bakar, Nasi Goreng, Ice Americano | Butterscotch, Matcha Latte, Banana Cheese |
 | API aliases | `STORE_SALE_ALIASES["resto"]` = `["resto", "resto_cafe", "coffe_latar"]` | `STORE_SALE_ALIASES["cafe_lsp"]` = `["cafe_lsp"]` |
+| RBAC (isSameUnit) | `normalizeUnitType("resto_cafe")` → `"resto"` | `normalizeUnitType("cafe_lsp")` → `"cafe_lsp"` |
 | Akun admin | `admincafe@koperasi.com` | `admincafelsp@koperasi.com` |
-| Menu khas | Nasi Goreng, Ayam Bakar, Ice Americano | Butterscotch, Matcha Latte, Cookies & Cream |
 | Insight terpisah | ✅ | ✅ |
-| RBAC cross-access | ❌ Admin Resto → 403 Cafe-LSP | ❌ Admin Cafe-LSP → 403 Resto |
+| QRIS terpisah | ✅ | ✅ |
+| Cross-access | ❌ Admin Resto → 403 Cafe-LSP | ❌ Admin Cafe-LSP → 403 Resto |
 
 ## Changelog
 
-- **5 Jun 2026** — Fix void `SL-` prefix (legacy resto transactions). Fix unit insight blank untuk admin resto_cafe (alias normalization). Tambah security: auth checks + balance chain di void fallback path. Data isolation verified: Resto vs Cafe-LSP terpisah.
+- **5 Jun 2026** — Fix void `SL-` prefix. Fix unit insight alias normalization. Fix QRIS RBAC (`isSameUnit`). Fix `UNIT_TYPE_ALIASES`: `coffe_latar` belongs to Resto not Cafe-LSP. Unify all duplicated alias maps across 4 files. Data isolation verified: Resto vs Cafe-LSP terpisah.
 - **21 Mei 2026** — Sidebar dipangkas 12→10 item. Hapus Bahan Baku, Manajemen Batch dari sidebar admin. Default `trackStock=false` untuk produk baru. HPP manual tooltip di form Tambah Menu.
 - **18 Mei 2026** — Edit NRP fix, operator hierarchy cleanup.
