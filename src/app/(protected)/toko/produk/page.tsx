@@ -98,6 +98,8 @@ export default function TokoProdukPage() {
     const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set());
     const [bulkAction, setBulkAction] = React.useState<string>("");
     const [bulkValue, setBulkValue] = React.useState("");
+    const [bulkStockGdg, setBulkStockGdg] = React.useState("");
+    const [bulkStockToko, setBulkStockToko] = React.useState("");
     const [bulkCategory, setBulkCategory] = React.useState("");
     const [bulkUnit, setBulkUnit] = React.useState("");
     const [showBulkDialog, setShowBulkDialog] = React.useState(false);
@@ -549,6 +551,8 @@ export default function TokoProdukPage() {
     const openBulkAction = (action: string) => {
         setBulkAction(action);
         setBulkValue("");
+        setBulkStockGdg("");
+        setBulkStockToko("");
         setBulkCategory("");
         setBulkUnit("");
         setShowBulkDialog(true);
@@ -576,7 +580,23 @@ export default function TokoProdukPage() {
                 ids: Array.from(selectedIds),
                 action: bulkAction,
             };
-            if (bulkAction === "set_stock" || bulkAction === "set_price") {
+            if (bulkAction === "set_stock") {
+                const gdg = bulkStockGdg !== "" ? Number(bulkStockGdg) : undefined;
+                const toko = bulkStockToko !== "" ? Number(bulkStockToko) : undefined;
+                if (gdg === undefined && toko === undefined) {
+                    toast.error("Masukkan minimal stok gudang atau stok toko");
+                    setIsBulkProcessing(false);
+                    return;
+                }
+                if ((gdg !== undefined && isNaN(gdg)) || (toko !== undefined && isNaN(toko))) {
+                    toast.error("Masukkan nilai stok yang valid");
+                    setIsBulkProcessing(false);
+                    return;
+                }
+                body.stockGdg = gdg;
+                body.stockToko = toko;
+            }
+            if (bulkAction === "set_price") {
                 if (!bulkValue || isNaN(Number(bulkValue))) {
                     toast.error("Masukkan nilai yang valid");
                     setIsBulkProcessing(false);
@@ -1168,10 +1188,39 @@ export default function TokoProdukPage() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    {(bulkAction === "set_stock" || bulkAction === "set_price") && (
+                    {bulkAction === "set_stock" && (
+                        <div className="space-y-3 py-2">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Stok Gudang</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={bulkStockGdg}
+                                        onChange={(e) => setBulkStockGdg(e.target.value)}
+                                        placeholder="Contoh: 50"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Stok Toko / Etalase</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={bulkStockToko}
+                                        onChange={(e) => setBulkStockToko(e.target.value)}
+                                        placeholder="Contoh: 30"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Total stok per produk: <strong>{(Number(bulkStockGdg) || 0) + (Number(bulkStockToko) || 0)}</strong> pcs</p>
+                        </div>
+                    )}
+
+                    {bulkAction === "set_price" && (
                         <div className="space-y-2 py-2">
-                            <Label>{bulkAction === "set_stock" ? "Nilai Stok Baru" : "Harga Baru (Rp)"}</Label>
-                            {bulkAction === "set_price" && (() => {
+                            <Label>Harga Baru (Rp)</Label>
+                            {(() => {
                                 const manualProducts = filteredProducts.filter(p => selectedIds.has(p.id) && isManualPriceCategory(p.category));
                                 return manualProducts.length > 0 ? (
                                     <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-2.5 text-xs">
@@ -1190,7 +1239,7 @@ export default function TokoProdukPage() {
                                 min={0}
                                 value={bulkValue}
                                 onChange={(e) => setBulkValue(e.target.value)}
-                                placeholder={bulkAction === "set_stock" ? "Contoh: 100" : "Contoh: 15000"}
+                                placeholder="Contoh: 15000"
                                 autoFocus
                             />
                         </div>
@@ -1296,7 +1345,7 @@ export default function TokoProdukPage() {
                         <Button
                             variant={bulkAction.startsWith("zero") || bulkAction === "deactivate" ? "destructive" : "default"}
                             onClick={executeBulk}
-                            disabled={isBulkProcessing || ((bulkAction === "set_stock" || bulkAction === "set_price") && !bulkValue) || (bulkAction === "set_category" && !bulkCategory.trim()) || (bulkAction === "set_unit" && !bulkUnit.trim())}
+                            disabled={isBulkProcessing || (bulkAction === "set_stock" && !bulkStockGdg && !bulkStockToko) || (bulkAction === "set_price" && !bulkValue) || (bulkAction === "set_category" && !bulkCategory.trim()) || (bulkAction === "set_unit" && !bulkUnit.trim())}
                         >
                             {isBulkProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                             {isBulkProcessing ? "Memproses..." : `Ya, ${getBulkActionLabel()}`}

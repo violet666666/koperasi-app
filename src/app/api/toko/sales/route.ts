@@ -268,7 +268,8 @@ export async function POST(request: Request) {
                 }
 
                 // Hybrid stock check: racikan products check ingredient stock, retail checks product stock
-                const isRacikan = product.trackStock === false;
+                const nonInventoryUnits = ["cafe_lsp", "resto", "resto_cafe", "coffe_latar"];
+                const isRacikan = product.trackStock === false || nonInventoryUnits.includes(product.unitType || "");
                 if (!product.isService) {
                     if (isRacikan) {
                         // Check ingredient stock for racikan products

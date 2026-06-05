@@ -28,7 +28,7 @@ export async function PUT(request: Request) {
         const userId = Number(session.user.id);
         const unitType = (session.user as any).unitType || "toko";
         const body = await request.json();
-        const { ids, action, value, category } = body;
+        const { ids, action, value, category, stockGdg, stockToko } = body;
 
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return NextResponse.json({ message: "Pilih minimal 1 produk" }, { status: 400 });
@@ -69,59 +69,80 @@ export async function PUT(request: Request) {
                 actionLabel = "Stok & harga dinolkan";
                 isStockAction = true;
                 break;
-            case "set_stock":
-                if (value === undefined || value === null) {
+            case "set_stock": {
+                // Support both old format (single value) and new format (separate stockGdg/stockToko)
+                const hasSeparate = stockGdg !== undefined || stockToko !== undefined;
+                const gdgVal = stockGdg !== undefined ? Number(stockGdg) : undefined;
+                const tokoVal = stockToko !== undefined ? Number(stockToko) : undefined;
+                const totalVal = value !== undefined ? Number(value) : undefined;
+
+                if (hasSeparate) {
+                    if ((gdgVal !== undefined && (isNaN(gdgVal) || gdgVal < 0)) ||
+                        (tokoVal !== undefined && (isNaN(tokoVal) || tokoVal < 0))) {
+                        return NextResponse.json({ message: "Nilai stok tidak valid" }, { status: 400 });
+                    }
+                } else if (totalVal === undefined || isNaN(totalVal) || totalVal < 0) {
                     return NextResponse.json({ message: "Nilai stok harus diisi" }, { status: 400 });
                 }
-                if (Number(value) < 0) {
-                    return NextResponse.json({ message: "Stok tidak boleh negatif" }, { status: 400 });
-                }
-                // Preserve stockGdg/stockToko distribution when setting stock
-                // Read current products first to maintain ratio
+
                 const productsForSet = await prisma.storeProduct.findMany({
                     where: { id: { in: validIds } },
                     select: { id: true, stockGdg: true, stockToko: true, stock: true },
                 });
-                const newStockVal = Number(value);
 
-                // Wrap entire set_stock loop in a transaction for atomicity
                 await prisma.$transaction(async (tx) => {
                     for (const p of productsForSet) {
-                        const totalCurrent = Number(p.stockGdg) + Number(p.stockToko);
-                        if (totalCurrent === 0) {
-                            // No existing distribution — put everything in gudang by default
-                            await tx.storeProduct.update({
-                                where: { id: p.id },
-                                data: { stock: newStockVal, stockGdg: newStockVal, stockToko: 0 },
-                            });
+                        let newGdg: number, newToko: number;
+
+                        if (hasSeparate) {
+                            // New format: use provided values, keep existing for omitted fields
+                            newGdg = gdgVal !== undefined ? gdgVal : Number(p.stockGdg);
+                            newToko = tokoVal !== undefined ? tokoVal : Number(p.stockToko);
                         } else {
-                            const gdgRatio = Number(p.stockGdg) / totalCurrent;
-                            const newGdg = Math.round(newStockVal * gdgRatio);
-                            const newToko = newStockVal - newGdg;
-                            await tx.storeProduct.update({
-                                where: { id: p.id },
-                                data: { stock: newStockVal, stockGdg: newGdg, stockToko: newToko },
-                            });
+                            // Legacy format: distribute total proportionally
+                            const newStockVal = totalVal!;
+                            const totalCurrent = Number(p.stockGdg) + Number(p.stockToko);
+                            if (totalCurrent === 0) {
+                                newGdg = newStockVal;
+                                newToko = 0;
+                            } else {
+                                const gdgRatio = Number(p.stockGdg) / totalCurrent;
+                                newGdg = Math.round(newStockVal * gdgRatio);
+                                newToko = newStockVal - newGdg;
+                            }
                         }
-                        const diff = newStockVal - (p.stock || 0);
+
+                        const newTotal = newGdg + newToko;
+                        const diff = newTotal - (p.stock || 0);
+
+                        await tx.storeProduct.update({
+                            where: { id: p.id },
+                            data: { stock: newTotal, stockGdg: newGdg, stockToko: newToko },
+                        });
+
                         if (diff !== 0) {
                             await tx.storeStockMovement.create({
                                 data: {
                                     productId: p.id,
                                     type: diff > 0 ? "in" : "out",
                                     quantity: Math.abs(diff),
-                                    reference: `Set Stok Massal ke ${newStockVal}`,
-                                    notes: `Sebelumnya: ${p.stock}`, operatorId: userId,
+                                    reference: `Set Stok Massal (Gdg:${newGdg}, Toko:${newToko})`,
+                                    notes: `Sebelumnya: Gdg=${p.stockGdg}, Toko=${p.stockToko}`,
+                                    operatorId: userId,
                                 },
                             });
                         }
                     }
                 });
 
+                const desc = hasSeparate
+                    ? `Stok diset (Gudang: ${gdgVal ?? 'tetap'}, Toko: ${tokoVal ?? 'tetap'}) untuk ${productsForSet.length} produk`
+                    : `Stok diset ke ${totalVal} untuk ${productsForSet.length} produk`;
                 return NextResponse.json({
-                    message: `Stok diset ke ${value} untuk ${productsForSet.length} produk`,
+                    message: desc,
                     data: { count: productsForSet.length },
                 });
+            }
             case "set_price":
                 if (value === undefined || value === null) {
                     return NextResponse.json({ message: "Nilai harga harus diisi" }, { status: 400 });
