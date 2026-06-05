@@ -352,12 +352,7 @@ export default function CafeLspKasirPage() {
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
         if (shiftOpen === false) { toast.error("Buka shift terlebih dahulu!"); return; }
-        for (const item of cart) {
-            if (item.product.stock !== undefined && item.product.stock !== null && item.quantity > item.product.stock) {
-                toast.error(`Stok "${item.product.name}" tidak cukup (sisa: ${item.product.stock}, diminta: ${item.quantity})`);
-                return;
-            }
-        }
+        // Note: No client-side stock validation for Cafe — products are always available
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kas kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota untuk potong gaji"); return; }
 

@@ -300,13 +300,7 @@ export default function RestoKasirPage() {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
         if (shiftOpen === false) { toast.error("Buka shift terlebih dahulu!"); return; }
-        // Validate stock availability before sending to API
-        for (const item of cart) {
-            if (item.product.stock !== undefined && item.product.stock !== null && item.quantity > item.product.stock) {
-                toast.error(`Stok "${item.product.name}" tidak cukup (sisa: ${item.product.stock}, diminta: ${item.quantity})`);
-                return;
-            }
-        }
+        // Note: No client-side stock validation for Resto/Cafe — F&B products are always available
         if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kas kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 
