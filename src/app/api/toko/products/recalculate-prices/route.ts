@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 /**
  * POST /api/toko/products/recalculate-prices
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
-                unitType: unitType,
+                unitType: storeSaleUnitTypeFilter(unitType),
                 ...(excludedCategories.length > 0 ? {
                     NOT: {
                         category: { in: excludedCategories },
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
             where: {
                 deletedAt: null,
                 costPrice: { gt: 0 },
-                unitType: unitType,
+                unitType: storeSaleUnitTypeFilter(unitType),
                 category: { in: excludedCategories },
             },
         }) : 0;

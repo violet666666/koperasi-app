@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 // DELETE /api/toko/products/reset — Hapus semua produk toko (soft-delete) — admin/operator only
 export async function DELETE(request: Request) {
@@ -19,7 +20,7 @@ export async function DELETE(request: Request) {
         // Count existing products first — filter by unit
         const unitType = (session.user as any).unitType || "toko";
         const count = await prisma.storeProduct.count({
-            where: { deletedAt: null, unitType: unitType },
+            where: { deletedAt: null, unitType: storeSaleUnitTypeFilter(unitType) },
         });
 
         if (count === 0) {
@@ -31,7 +32,7 @@ export async function DELETE(request: Request) {
 
         // Check if any products in this unit have active sale items
         const unitProductIds = await prisma.storeProduct.findMany({
-            where: { deletedAt: null, unitType: unitType },
+            where: { deletedAt: null, unitType: storeSaleUnitTypeFilter(unitType) },
             select: { id: true },
         });
         const productIdList = unitProductIds.map(p => p.id);

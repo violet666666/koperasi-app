@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
-import { isFbUnit } from "@/lib/constants/units";
+import { isFbUnit, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 // GET /api/toko/products - List store products (with server-side pagination)
 export async function GET(request: Request) {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
             deletedAt: null,
             isActive: true,
             productType,
-            ...(unitType && { unitType: unitType }),
+            ...(unitType && { unitType: storeSaleUnitTypeFilter(unitType) }),
             ...categoryFilter,
             ...(search && {
                 OR: [

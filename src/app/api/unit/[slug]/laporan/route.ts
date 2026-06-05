@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { storeSaleUnitTypeFilter, unitTypeFilter } from "@/lib/constants/units";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,8 +36,8 @@ export async function GET(
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
 
-        // Access control: kasir/admin can only access their own unit
-        if (!isOperator && userUnitType && userUnitType !== unitType) {
+        // Access control: kasir/admin can only access their own unit (alias-aware)
+        if (!isOperator && userUnitType && !isSameUnit(userUnitType, unitType)) {
             return NextResponse.json({ message: "Akses ditolak. Anda tidak terdaftar di unit ini." }, { status: 403 });
         }
 

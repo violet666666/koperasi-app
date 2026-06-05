@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import crypto from "crypto";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { logAuditFromRequest } from "@/lib/audit-logger";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -404,7 +405,7 @@ export async function POST(request: Request) {
         // FIX: Unit type isolation for kasir
         if (session.user.role === "kasir") {
             const userUnitType = (session.user as Record<string, unknown>).unitType as string | undefined;
-            if (userUnitType && transaction.unitType !== userUnitType) {
+            if (userUnitType && !isSameUnit(transaction.unitType, userUnitType)) {
                 return NextResponse.json(
                     { message: "Anda tidak memiliki akses ke unit ini." },
                     { status: 403 }

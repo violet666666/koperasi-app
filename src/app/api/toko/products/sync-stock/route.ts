@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 /**
  * POST /api/toko/products/sync-stock
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
         // Ambil semua produk aktif — filter by unit
         const unitType = (session.user as any).unitType || "toko";
         const allProducts = await prisma.storeProduct.findMany({
-            where: { deletedAt: null, unitType: unitType },
+            where: { deletedAt: null, unitType: storeSaleUnitTypeFilter(unitType) },
             select: { id: true, stock: true, stockGdg: true, stockToko: true, name: true, sku: true },
         });
 

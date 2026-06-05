@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
+import { unitTypeFilter } from "@/lib/constants/units";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
         }
 
         if (effectiveUnitType && effectiveUnitType !== "all") {
-            where.unitType = effectiveUnitType;
+            where.unitType = unitTypeFilter(effectiveUnitType);
         }
 
         if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {

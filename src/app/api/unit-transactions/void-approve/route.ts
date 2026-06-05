@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import crypto from "crypto";
 import { sendPushNotification } from "@/lib/expo-push";
 import { logAuditFromRequest } from "@/lib/audit-logger";
-
+import { isSameUnit } from "@/lib/unit-aliases";
 export const dynamic = "force-dynamic";
 
 // Transaction timeout config — default Prisma interactive tx timeout = 5s
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
             const reqMeta: any = typeof approvalReq.metadata === 'string'
                 ? JSON.parse(approvalReq.metadata)
                 : approvalReq.metadata || {};
-            if (reqMeta.unitType && reqMeta.unitType !== userUnitType) {
+            if (reqMeta.unitType && !isSameUnit(reqMeta.unitType, userUnitType)) {
                 return NextResponse.json(
                     { message: `Anda (admin ${userUnitType}) tidak memiliki izin untuk memproses void dari unit ${reqMeta.unitType}.` },
                     { status: 403 }
