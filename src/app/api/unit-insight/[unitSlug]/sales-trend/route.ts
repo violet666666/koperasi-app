@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { slugToUnitType, STORE_SALE_ALIASES } from "@/lib/constants/units";
+import { slugToUnitType, STORE_SALE_ALIASES, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { computeWIBBoundaries } from "@/lib/services/manajemen-unit";
 import {
     computeProductRanking,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/services/unit-insight";
 
 // Only store units have per-item data via StoreSaleItem
-const STORE_UNIT_TYPES = new Set(["toko", "resto", "cafe_lsp"]);
+const STORE_UNIT_TYPES = new Set(["toko", "resto", "cafe_lsp", "resto_cafe", "coffe_latar"]);
 
 /**
  * Builds a Prisma-compatible where clause for StoreSale.unitType.
@@ -51,7 +51,18 @@ export async function GET(
 
         // ─── Validate unit slug ───────────────────────────
         const { unitSlug } = await params;
-        const unitType = slugToUnitType(unitSlug);
+        let unitType = slugToUnitType(unitSlug);
+        if (!unitType) {
+            // slugToUnitType may return null for alias slugs like "resto-cafe" → "resto_cafe"
+            // Try reverse lookup: normalize slug to canonical unitType via STORE_SALE_ALIASES
+            const rawType = unitSlug.replace(/-/g, "_");
+            for (const [canonical, aliases] of Object.entries(STORE_SALE_ALIASES)) {
+                if (aliases.includes(rawType) || canonical === rawType) {
+                    unitType = canonical;
+                    break;
+                }
+            }
+        }
         if (!unitType) {
             return NextResponse.json({ message: "Unit not found" }, { status: 404 });
         }
@@ -204,7 +215,7 @@ export async function GET(
             // 3. All active products (for stagnant detection)
             prisma.storeProduct.findMany({
                 where: {
-                    unitType,
+                    ...(STORE_SALE_ALIASES[unitType] ? { unitType: { in: STORE_SALE_ALIASES[unitType] } } : { unitType }),
                     isActive: true,
                     deletedAt: null,
                 },

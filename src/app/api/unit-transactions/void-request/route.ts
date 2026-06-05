@@ -60,10 +60,10 @@ export async function POST(request: Request) {
 
         // 1. PENANGANAN TRANSAKSI TOKO (StoreSale)
         // StoreSale uses unit-specific prefixes: TK (Toko), RS (Resto), CF (Cafe LSP), PS (PlayStation),
-        // CL (Coffe Latar), RC (Resto Cafe). Legacy: POS-, TS-.
+        // CL (Coffe Latar), RC (Resto Cafe). Legacy: POS-, TS-, SL- (offline sync/legacy format).
         // Also UnitTransaction can use TK-/TS- prefixes for Potong Gaji.
         // We try StoreSale first; if not found, fall-through to UnitTransaction below.
-        const STORE_SALE_PREFIXES = ["POS-", "TK-", "TS-", "RS-", "PS-", "CF-", "CL-", "RC-"];
+        const STORE_SALE_PREFIXES = ["POS-", "TK-", "TS-", "RS-", "PS-", "CF-", "CL-", "RC-", "SL-"];
         const isStoreSaleCandidate = STORE_SALE_PREFIXES.some(p => String(transactionNo).startsWith(p));
         if (isStoreSaleCandidate) {
             const storeSale = await prisma.storeSale.findUnique({
@@ -397,7 +397,187 @@ export async function POST(request: Request) {
             include: { member: { select: { id: true, name: true, nrp: true } }, createdBy: { select: { id: true, name: true } } },
         });
 
-        if (!transaction) return NextResponse.json({ message: `Transaksi ${transactionNo} tidak ditemukan.` }, { status: 404 });
+        if (!transaction) {
+            // FALLBACK: Try StoreSale regardless of prefix — handles legacy/unknown prefixes
+            const fallbackSale = await prisma.storeSale.findUnique({
+                where: { saleNo: String(transactionNo) },
+                include: { member: true, createdBy: true, items: true },
+            });
+            if (fallbackSale) {
+                // Re-enter the StoreSale void logic by re-dispatching
+                // For simplicity, return a descriptive error so user retries via StoreSale path
+                // after the prefix list is updated. But since we already added the prefix,
+                // this fallback mainly catches edge cases.
+                const fbMeta: any = fallbackSale.metadata ? (typeof fallbackSale.metadata === 'object' ? fallbackSale.metadata : JSON.parse(fallbackSale.metadata as string)) : {};
+                if (fbMeta.isVoided) return NextResponse.json({ message: "Transaksi ini sudah dibatalkan." }, { status: 409 });
+
+                if (isOperator) {
+                    // Operator void flow — same logic as above but for fallback sale
+                    await prisma.$transaction(async (tx) => {
+                        const fresh = await tx.storeSale.findUnique({ where: { id: fallbackSale.id } });
+                        const freshMeta: any = fresh?.metadata ? (typeof fresh.metadata === 'object' ? fresh.metadata : JSON.parse(fresh.metadata as string)) : {};
+                        if (freshMeta.isVoided) throw new Error("ALREADY_VOIDED");
+
+                        // Restore stock
+                        for (const item of fallbackSale.items) {
+                            const prod = await tx.storeProduct.findUnique({ where: { id: item.productId } });
+                            if (prod && !prod.isService) {
+                                const qty = Math.abs(item.quantity);
+                                const newStockGdg = prod.stockGdg + qty;
+                                const newStock = prod.stockToko + newStockGdg;
+                                await tx.storeProduct.update({
+                                    where: { id: item.productId },
+                                    data: { stockGdg: newStockGdg, stock: newStock },
+                                });
+                                await tx.storeStockMovement.create({
+                                    data: {
+                                        productId: item.productId,
+                                        type: "in",
+                                        quantity: qty,
+                                        reference: `VOID ${fallbackSale.saleNo}`,
+                                        notes: `Pengembalian stok (void fallback)`,
+                                        operatorId: currentUserId,
+                                    },
+                                });
+                            }
+                        }
+
+                        fbMeta.isVoided = true;
+                        fbMeta.voidReason = reason;
+                        fbMeta.voidedById = currentUserId;
+                        fbMeta.voidedAt = now.toISOString();
+
+                        await tx.storeSale.update({
+                            where: { id: fallbackSale.id },
+                            data: { metadata: fbMeta },
+                        });
+
+                        // Reverse CashBankTransaction if cash/QRIS
+                        if (fallbackSale.paymentMethod === "cash" || fallbackSale.paymentMethod === "qris") {
+                            const originalCashTx = await tx.cashBankTransaction.findFirst({
+                                where: { description: { contains: fallbackSale.saleNo } },
+                            });
+                            if (originalCashTx) {
+                                const voidAmount = Number(fallbackSale.totalAmount);
+                                const updatedAccount = await tx.cashBankAccount.update({
+                                    where: { id: originalCashTx.accountId },
+                                    data: { currentBalance: { decrement: voidAmount } },
+                                });
+                                const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
+                                await tx.cashBankTransaction.create({
+                                    data: {
+                                        transactionNo: `TK-VOID-${Date.now().toString(36).toUpperCase()}`,
+                                        accountId: originalCashTx.accountId,
+                                        branchId: originalCashTx.branchId,
+                                        type: "out",
+                                        category: "void_penjualan_toko",
+                                        amount: voidAmount,
+                                        balanceBefore,
+                                        balanceAfter: Number(updatedAccount.currentBalance),
+                                        unitType: fallbackSale.unitType || "toko",
+                                        description: `[VOID] Pembatalan ${fallbackSale.saleNo}`,
+                                        transactionDate: now,
+                                        createdById: currentUserId,
+                                    },
+                                });
+                            }
+                        }
+
+                        // Reverse journal if exists
+                        if (fallbackSale.journalId) {
+                            const originalJournal = await tx.journal.findUnique({
+                                where: { id: fallbackSale.journalId },
+                                include: { lines: true },
+                            });
+                            if (originalJournal) {
+                                const reverseJournal = await tx.journal.create({
+                                    data: {
+                                        journalNo: `RV-${Date.now().toString(36).toUpperCase()}`,
+                                        branchId: originalJournal.branchId,
+                                        transactionDate: now,
+                                        description: `[VOID] Pembalik ${originalJournal.journalNo} - ${fallbackSale.saleNo}`,
+                                        sourceType: "store_sale_void",
+                                        periodId: originalJournal.periodId,
+                                        isPosted: true,
+                                        createdById: currentUserId,
+                                    },
+                                });
+                                if (originalJournal.lines.length > 0) {
+                                    await tx.journalLine.createMany({
+                                        data: originalJournal.lines.map((line: any) => ({
+                                            journalId: reverseJournal.id,
+                                            accountId: line.accountId,
+                                            debit: Number(line.credit),
+                                            credit: Number(line.debit),
+                                            description: `[VOID] ${line.description || ""}`,
+                                        })),
+                                    });
+                                }
+                            }
+                        }
+                    }, { timeout: 30000 });
+
+                    try {
+                        await logAuditFromRequest(request, session, {
+                            action: "DELETE", module: "Toko",
+                            description: `VOID (fallback) transaksi ${fallbackSale.saleNo} oleh Operator — ${reason}`,
+                            targetId: fallbackSale.id, targetType: "StoreSale",
+                            oldData: { saleNo: fallbackSale.saleNo, totalAmount: Number(fallbackSale.totalAmount) },
+                            unitType: fallbackSale.unitType || "toko",
+                        });
+                    } catch (e) { /* audit failure non-critical */ }
+
+                    return NextResponse.json({
+                        message: "Transaksi berhasil dibatalkan. Stok telah dikembalikan.",
+                        data: { transactionNo: fallbackSale.saleNo, status: "voided" },
+                    });
+                } else {
+                    // Non-operator: create approval request
+                    await prisma.$transaction(async (tx) => {
+                        fbMeta.voidPending = true;
+                        fbMeta.voidPendingReason = reason;
+                        fbMeta.voidRequestedById = currentUserId;
+                        fbMeta.voidRequestedAt = now.toISOString();
+                        await tx.storeSale.update({
+                            where: { id: fallbackSale.id },
+                            data: { metadata: fbMeta },
+                        });
+                        const requestNo = generateVoidRequestNo(fallbackSale.saleNo);
+                        const existing = await tx.approvalRequest.findUnique({ where: { requestNo } });
+                        if (existing) throw new Error(`ApprovalRequest ${requestNo} sudah ada.`);
+                        await tx.approvalRequest.create({
+                            data: {
+                                requestNo,
+                                type: "void_store_sale",
+                                referenceType: "store_sale",
+                                referenceId: fallbackSale.id,
+                                branchId: branchIdToUse,
+                                amount: fallbackSale.totalAmount,
+                                description: `Pembatalan Transaksi [${fallbackSale.saleNo}] — ${reason}`,
+                                requestedById: currentUserId,
+                                requestedAt: now,
+                                status: "pending",
+                                metadata: {
+                                    saleId: fallbackSale.id,
+                                    saleNo: fallbackSale.saleNo,
+                                    unitType: fallbackSale.unitType || "toko",
+                                    voidReason: reason,
+                                    itemCount: fallbackSale.items.length,
+                                    memberName: fallbackSale.member?.name || "Walk-in",
+                                },
+                            },
+                        });
+                    }, { timeout: 15000 });
+
+                    return NextResponse.json({
+                        message: `Permintaan void untuk transaksi ${transactionNo} telah dikirim ke Admin.`,
+                        data: { transactionNo: fallbackSale.saleNo, status: "pending_void" },
+                    });
+                }
+            }
+
+            return NextResponse.json({ message: `Transaksi ${transactionNo} tidak ditemukan.` }, { status: 404 });
+        }
         if (transaction.status !== "completed") return NextResponse.json({ message: `Status transaksi saat ini sudah berstatus: ${transaction.status}` }, { status: 409 });
         if (session.user.role === "kasir" && transaction.createdById !== currentUserId) {
             return NextResponse.json({ message: "Kasir hanya dapat mengajukan void untuk transaksi miliknya sendiri." }, { status: 403 });
