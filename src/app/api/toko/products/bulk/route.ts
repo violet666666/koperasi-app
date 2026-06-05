@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 /**
  * PUT /api/toko/products/bulk
@@ -40,9 +41,10 @@ export async function PUT(request: Request) {
 
         const numericIds = ids.map(Number);
 
-        // Validate all products belong to the user's unit
+        // Validate all products belong to the user's unit (use alias-aware filter)
+        const unitFilter = storeSaleUnitTypeFilter(unitType);
         const unitProducts = await prisma.storeProduct.findMany({
-            where: { id: { in: numericIds }, unitType: unitType },
+            where: { id: { in: numericIds }, unitType: unitFilter },
             select: { id: true },
         });
         const validIds = unitProducts.map(p => p.id);
