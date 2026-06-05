@@ -36,17 +36,19 @@ export async function GET(req: Request) {
             if (from) where.createdAt.gte = new Date(from);
             if (to) where.createdAt.lte = new Date(new Date(to).setHours(23, 59, 59, 999));
         }
-        // Exclude voided sales (use OR to include rows with null metadata or no isVoided key)
-        where.OR = [
-            { metadata: { equals: null } },
-            { NOT: { metadata: { path: ["isVoided"], equals: true } } },
-        ];
 
-        const sales = await prisma.storeSale.findMany({
+        // NOTE: Void filtering is done in JavaScript (not Prisma) to avoid the PostgreSQL
+        // JSON NULL issue — when `isVoided` key is absent, `metadata->'isVoided'` returns
+        // SQL NULL, and `NOT NULL` evaluates to NULL (falsy), incorrectly filtering out
+        // active sales that were created before the void feature was added.
+        const allSales = await prisma.storeSale.findMany({
             where,
             include: { items: { include: { product: true } } },
             orderBy: { [sortBy]: sortOrder },
         });
+
+        // Exclude voided sales in JavaScript — correctly handles missing isVoided key
+        const sales = allSales.filter(s => !s.metadata || !(s.metadata as Record<string, unknown>)?.isVoided);
 
         // Summary
         const totalRevenue = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
