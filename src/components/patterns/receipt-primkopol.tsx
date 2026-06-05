@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { BluetoothPrintButton } from "./bluetooth-print-button";
 
 export interface ReceiptData {
     notaNo: string;
@@ -236,11 +237,12 @@ export function ReceiptPrimkopol({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
                 <Button onClick={handlePrint} size="sm" className="gap-2">
                     <Printer className="h-4 w-4" />
                     Cetak Struk
                 </Button>
+                <BluetoothPrintButton receiptData={data} paperSize={paperSize} />
                 {onClose && (
                     <Button onClick={onClose} size="sm" variant="outline">
                         Tutup
