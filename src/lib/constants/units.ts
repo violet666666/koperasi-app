@@ -78,17 +78,29 @@ export const STORE_SALE_ALIASES: Record<string, string[]> = {
  * Returns a Prisma-compatible filter for UnitTransaction.unitType.
  * If the canonical type has aliases, returns `{ in: aliases }` to match all variants.
  * Otherwise returns the string directly for exact match.
+ * Also normalizes alias types (e.g. "resto_cafe" → finds canonical "resto").
  */
 export function unitTypeFilter(canonicalType: string): string | { in: string[] } {
   const aliases = UNIT_TYPE_ALIASES[canonicalType];
-  return aliases ? { in: aliases } : canonicalType;
+  if (aliases) return { in: aliases };
+  // Input might be an alias — find which canonical type it belongs to
+  for (const [key, vals] of Object.entries(UNIT_TYPE_ALIASES)) {
+    if (vals.includes(canonicalType)) return { in: vals };
+  }
+  return canonicalType;
 }
 
 /**
  * Returns a Prisma-compatible filter for StoreSale.unitType.
  * Works the same as unitTypeFilter but uses STORE_SALE_ALIASES.
+ * Also normalizes alias types (e.g. "resto_cafe" → finds canonical "resto").
  */
 export function storeSaleUnitTypeFilter(canonicalType: string): string | { in: string[] } {
   const aliases = STORE_SALE_ALIASES[canonicalType];
-  return aliases ? { in: aliases } : canonicalType;
+  if (aliases) return { in: aliases };
+  // Input might be an alias — find which canonical type it belongs to
+  for (const [key, vals] of Object.entries(STORE_SALE_ALIASES)) {
+    if (vals.includes(canonicalType)) return { in: vals };
+  }
+  return canonicalType;
 }
