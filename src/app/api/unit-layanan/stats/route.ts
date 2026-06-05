@@ -43,9 +43,9 @@ export async function GET(request: Request) {
     // Alias mapping: user session mungkin punya "resto_cafe" tapi StoreSale menyimpan "resto"
     // Sama seperti di /api/unit-transactions agar dashboard dan riwayat konsisten
     const UNIT_ALIAS: Record<string, string[]> = {
-        resto_cafe: ["resto", "coffe_latar"],
-        resto: ["resto", "coffe_latar"],
-        coffe_latar: ["resto", "coffe_latar"],
+        resto_cafe: ["resto", "resto_cafe", "coffe_latar"],
+        resto: ["resto", "resto_cafe", "coffe_latar"],
+        coffe_latar: ["resto", "resto_cafe", "coffe_latar"],
     };
     const storeSaleUnitType: string | { in: string[] } = UNIT_ALIAS[unitType]
         ? { in: UNIT_ALIAS[unitType] }

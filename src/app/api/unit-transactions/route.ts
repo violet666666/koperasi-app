@@ -185,9 +185,9 @@ export async function GET(request: Request) {
         // Also include aliases: resto_cafe → resto (products stored as "resto" but admins have "resto_cafe")
         const storeBasedUnits = ["toko", "cafe_lsp", "playstation", "resto", "coffe_latar", "resto_cafe"];
         const UNIT_ALIAS: Record<string, string[]> = {
-            resto_cafe: ["resto", "coffe_latar"],
-            resto: ["resto", "coffe_latar"],
-            coffe_latar: ["resto", "coffe_latar"],
+            resto_cafe: ["resto", "resto_cafe", "coffe_latar"],
+            resto: ["resto", "resto_cafe", "coffe_latar"],
+            coffe_latar: ["resto", "resto_cafe", "coffe_latar"],
         };
         const includeStoreSales = !effectiveUnitType || effectiveUnitType === "all" || storeBasedUnits.includes(effectiveUnitType);
 

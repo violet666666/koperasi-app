@@ -59,8 +59,8 @@ export function isFbUnit(unitType: string | null | undefined): boolean {
  */
 export const UNIT_TYPE_ALIASES: Record<string, string[]> = {
   playstation: ["playstation", "play_station"],
-  resto: ["resto", "resto_cafe"],
-  cafe_lsp: ["cafe_lsp", "coffe_latar"],
+  resto: ["resto", "resto_cafe", "coffe_latar"],
+  cafe_lsp: ["cafe_lsp"],
 };
 
 /**

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
         // Unit isolation: non-operator only see their own unit
         const hasManageAll = session.user.permissions?.includes("manage_all");
         const userUnitType = (session.user as any).unitType as string | undefined;
-        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+        if (!hasManageAll && userUnitType && !isSameUnit(userUnitType, unitType.replace(/-/g, "_"))) {
             return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
         }
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
         // Unit isolation: admin hanya bisa upload QRIS untuk unit sendiri
         const hasManageAll = session.user.permissions?.includes("manage_all");
         const userUnitType = (session.user as any).unitType as string | undefined;
-        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+        if (!hasManageAll && userUnitType && !isSameUnit(userUnitType, unitType.replace(/-/g, "_"))) {
             return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
         }
 
@@ -138,7 +139,7 @@ export async function DELETE(request: Request) {
         // Unit isolation: admin hanya bisa hapus QRIS untuk unit sendiri
         const hasManageAll = session.user.permissions?.includes("manage_all");
         const userUnitType = (session.user as any).unitType as string | undefined;
-        if (!hasManageAll && userUnitType && userUnitType !== unitType.replace(/-/g, "_")) {
+        if (!hasManageAll && userUnitType && !isSameUnit(userUnitType, unitType.replace(/-/g, "_"))) {
             return NextResponse.json({ message: "Anda tidak memiliki akses ke unit ini." }, { status: 403 });
         }
 
