@@ -139,29 +139,40 @@ export async function GET(
         // Prisma groupBy does NOT support relation filters, so we must
         // first fetch matching sale IDs via findMany (which supports relations),
         // then use those scalar IDs in StoreSaleItem queries.
+        //
+        // Void filtering: Done in JavaScript (not Prisma) to avoid the PostgreSQL
+        // JSON NULL issue — when `isVoided` key is absent, `metadata->'isVoided'`
+        // returns SQL NULL, and `NOT NULL` evaluates to NULL (falsy), incorrectly
+        // filtering out active sales.
         const matchingSales = await prisma.storeSale.findMany({
             where: {
                 ...unitWhere,
                 createdAt: { gte: rangeStartUTC, lt: rangeEndUTC },
             },
-            select: { id: true },
+            select: { id: true, metadata: true },
         });
-        const saleIds = matchingSales.map(s => s.id);
+        const saleIds = matchingSales
+            .filter(s => !s.metadata || !(s.metadata as Record<string, unknown>)?.isVoided)
+            .map(s => s.id);
 
         // Also get all-time sale IDs for stagnant detection (last-sold dates)
         const allTimeSales = await prisma.storeSale.findMany({
             where: { ...unitWhere },
-            select: { id: true },
+            select: { id: true, metadata: true },
         });
-        const allTimeSaleIds = allTimeSales.map(s => s.id);
+        const allTimeSaleIds = allTimeSales
+            .filter(s => !s.metadata || !(s.metadata as Record<string, unknown>)?.isVoided)
+            .map(s => s.id);
 
         // Get this-week and last-week sale IDs (for weekly comparison)
         const thisWeekStart = todayStartUTC;
         const thisWeekSales = await prisma.storeSale.findMany({
             where: { ...unitWhere, createdAt: { gte: thisWeekStart } },
-            select: { id: true },
+            select: { id: true, metadata: true },
         });
-        const thisWeekSaleIds = thisWeekSales.map(s => s.id);
+        const thisWeekSaleIds = thisWeekSales
+            .filter(s => !s.metadata || !(s.metadata as Record<string, unknown>)?.isVoided)
+            .map(s => s.id);
 
         const lastWeekStart = new Date(todayStartUTC.getTime() - 7 * 24 * 60 * 60 * 1000);
         const lastWeekSales = await prisma.storeSale.findMany({
@@ -169,9 +180,11 @@ export async function GET(
                 ...unitWhere,
                 createdAt: { gte: lastWeekStart, lt: thisWeekStart },
             },
-            select: { id: true },
+            select: { id: true, metadata: true },
         });
-        const lastWeekSaleIds = lastWeekSales.map(s => s.id);
+        const lastWeekSaleIds = lastWeekSales
+            .filter(s => !s.metadata || !(s.metadata as Record<string, unknown>)?.isVoided)
+            .map(s => s.id);
 
         // ─── Step 2: Parallel queries on StoreSaleItem ─────
         // Now use scalar saleId filters which groupBy supports
