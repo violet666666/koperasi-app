@@ -197,8 +197,12 @@ export async function GET(
         const unitType = slug.replace(/-/g, "_");
 
         // RBAC: same as POST — admin unit or operator only
-        const access = await checkAccess(slug);
-        if (!access.authorized) {
+        const roleName = session.user.role;
+        const userUnitType = (session.user as any).unitType;
+        const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
+        const isAdminUnit = roleName === "admin" && isSameUnit(userUnitType, unitType);
+
+        if (!isOperator && !isAdminUnit) {
             return NextResponse.json({ message: "Hanya Admin Unit atau Operator yang dapat melihat pengeluaran." }, { status: 403 });
         }
 

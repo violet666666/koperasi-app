@@ -142,6 +142,9 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 | 8 Jun 2026 | Fitur Laporan Resto tidak ada catat pengeluaran | `/resto/laporan` pakai legacy standalone page (237 baris) — hanya ringkasan penjualan, tidak ada CRUD pengeluaran/pemasukan | Redirect ke shared unit laporan `/unit/resto/laporan` (2312 baris): full features (pengeluaran, pemasukan, laba bersih, HPP, Excel, print, pagination) |
 | 8 Jun 2026 | Admin `resto_cafe` dapat 403 saat catat pengeluaran operasional | 8 operational API pakai exact match `userUnitType === unitType` — `"resto_cafe" !== "resto"` → blocked | Ganti ke `isSameUnit()` di: operational-expense (2), operational-income (2), operational-batch (1), submit-review (1) |
 | 8 Jun 2026 | Laporan API tidak temukan pengeluaran alias `RESTO_CAFE` | `description contains [RESTO]` hanya match prefix exact — lepas `RESTO_CAFE` dan `COFFE_LATAR` | Ganti ke `unitType: storeSaleUnitTypeFilter(unitType)` + regex `^\[[A-Z_]+\]` untuk parsing |
+| 8 Jun 2026 | Admin `resto_cafe` tidak bisa akses halaman Laporan `/unit/resto/laporan` | Client-side exact match `userUnitType !== unitType` — `"resto_cafe" !== "resto"` → `isWrongUnit=true`, page blocked | Ganti ke `isSameUnit()` di client-side `isAdmin` dan `isWrongUnit` check |
+| 8 Jun 2026 | Riwayat `useEffect` bypass normalisasi unitType | `setFilterUnit(urlUnitType)` tanpa `normalizeUnitType()` — navigasi langsung ke `?unitType=resto_cafe` tidak normalisasi | Tambah `normalizeUnitType()` di `useEffect` sebelum `setFilterUnit` |
+| 8 Jun 2026 | GET `/api/unit/[slug]/operational-expense` 500 error | `checkAccess(slug)` dipanggil tapi tidak pernah didefinisikan di file → ReferenceError | Ganti ke inline RBAC check (sama pattern dengan POST handler): `isSameUnit` + role check |
 
 ## Data Isolation: Resto vs Cafe LSP
 
@@ -158,11 +161,15 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 
 ## Changelog
 
-- **8 Jun 2026** — **4 fix major:**
+- **8 Jun 2026** — **7 fix major:**
   1. Fix "Produk bukan milik unit" across 13 API files: all `unitType !==` exact matches replaced with `isSameUnit()` alias-aware comparison. Security: `isSameUnit()` fail-closed (null → false).
   2. Fix menu baru tersimpan `"resto_cafe"`: tambah `normalizeUnitType()` di POST `/api/toko/products` — DB selalu simpan bentuk kanonikal `"resto"`.
   3. Redirect `/resto/laporan` → `/unit/resto/laporan` (shared page 2312 baris). Fitur baru: catat pengeluaran/pemasukan operasional, laba bersih, HPP, Excel 4-sheet, print kop surat, pagination, submit ke operator.
   4. Fix 8 operational API RBAC (exact match → `isSameUnit`) + laporan API expense query alias-aware (`description contains` → `storeSaleUnitTypeFilter` + regex parsing).
+  5. Fix Laporan page client-side gate: `userUnitType !== unitType` → `isSameUnit()` — admin `resto_cafe` bisa akses `/unit/resto/laporan`.
+  6. Fix Riwayat `useEffect` normalization: `setFilterUnit(urlUnitType)` tanpa normalize → tambah `normalizeUnitType()`.
+  7. Fix GET `/api/unit/[slug]/operational-expense` 500: undefined `checkAccess()` → inline RBAC check dengan `isSameUnit()`.
+  - **Verified**: LAPORAN & Riwayat data isolation — 0 cafe_lsp leaks, 81 transaksi RS- only, expense CRUD end-to-end tested.
 - **5 Jun 2026** — Fix insight revenue bubble (Rp 497K→Rp 269K): voided sales excluded via JS filter. Fix laporan page kosong. Fix void `SL-` prefix. Fix QRIS RBAC. Fix `UNIT_TYPE_ALIASES`. Data isolation verified: Resto vs Cafe-LSP terpisah, produk "LSP" names are Resto products.
 - **21 Mei 2026** — Sidebar dipangkas 12→10 item. Hapus Bahan Baku, Manajemen Batch dari sidebar admin. Default `trackStock=false` untuk produk baru. HPP manual tooltip di form Tambah Menu.
 - **18 Mei 2026** — Edit NRP fix, operator hierarchy cleanup.

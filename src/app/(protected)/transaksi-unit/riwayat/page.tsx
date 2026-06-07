@@ -278,9 +278,9 @@ export default function RiwayatTransaksiUnitPage() {
     React.useEffect(() => {
         // If URL specifies a unit, respect it; otherwise use auth unitType for non-operators
         if (urlUnitType) {
-            setFilterUnit(urlUnitType);
+            setFilterUnit(normalizeUnitType(urlUnitType) || urlUnitType);
         } else if (userUnitType && !isOperator) {
-            setFilterUnit(userUnitType);
+            setFilterUnit(normalizeUnitType(userUnitType) || userUnitType);
         }
     }, [urlUnitType, userUnitType, isOperator]);
 

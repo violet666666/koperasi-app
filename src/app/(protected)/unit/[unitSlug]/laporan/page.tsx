@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SortableHeader } from "@/components/ui/sortable-header";
@@ -175,9 +176,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name ?? "";
     const userUnitType = (user as any)?.unitType as string | null | undefined;
     const isOperator = roleName === "operator" || user?.permissions?.includes("manage_all");
-    const isAdmin = roleName === "admin" && userUnitType === unitType;
+    const isAdmin = roleName === "admin" && isSameUnit(userUnitType, unitType);
     const hasAccess = isOperator || isAdmin;
-    const isWrongUnit = !isOperator && userUnitType && userUnitType !== unitType;
+    const isWrongUnit = !isOperator && userUnitType && !isSameUnit(userUnitType, unitType);
 
     const [period, setPeriod] = React.useState("month");
     const [dateFrom, setDateFrom] = React.useState(() => {
