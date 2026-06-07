@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         const userUnitType = (session.user as { unitType?: string }).unitType || null;
         const unitType = searchParams.get("unitType") || userUnitType || null;
         // Non-operator users can only see their own unit
-        if (role !== "operator" && userUnitType && unitType && !isSameUnit(unitType, userUnitType)) {
+        if (role !== "operator" && !isSameUnit(unitType, userUnitType)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));

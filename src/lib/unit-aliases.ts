@@ -12,6 +12,6 @@ export function normalizeUnitType(unitType: string | null | undefined): string |
 }
 
 export function isSameUnit(a: string | null | undefined, b: string | null | undefined): boolean {
-    if (!a || !b) return true;
+    if (!a || !b) return false; // fail-closed: reject if either side is null/undefined
     return normalizeUnitType(a) === normalizeUnitType(b);
 }

@@ -42,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
         const body = await request.json();
 
         // Admin cannot modify packages of other units unless they are operator
-        if (session.user.role === "admin" && !isSameUnit(session.user.unitType, unitType) && session.user.unitType !== null) {
+        if (session.user.role === "admin" && !isSameUnit(session.user.unitType, unitType)) {
             return NextResponse.json({ message: "Anda tidak berhak memodifikasi paket unit ini" }, { status: 403 });
         }
 
