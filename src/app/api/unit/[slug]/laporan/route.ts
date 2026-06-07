@@ -340,7 +340,7 @@ export async function GET(
                 include: { product: { select: { unitType: true } } },
             });
             totalWriteOff = writeoffMovements
-                .filter((m) => m.product?.unitType === unitType)
+                .filter((m) => isSameUnit(m.product?.unitType, unitType))
                 .reduce((acc, m) => acc + (Number(m.costAtTime) || 0) * m.quantity, 0);
         }
 

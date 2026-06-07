@@ -128,6 +128,9 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 | 5 Jun 2026 | QRIS management 403 untuk admin `resto_cafe` | QRIS endpoint pakai exact match `userUnitType !== unitType`, `resto_cafe` ≠ `resto` → blocked | Ganti ke `isSameUnit()` untuk alias-aware RBAC |
 | 5 Jun 2026 | Alias `UNIT_TYPE_ALIASES` salah: `coffe_latar` di `cafe_lsp` | `UNIT_TYPE_ALIASES.cafe_lsp` include `coffe_latar`, padahal `coffe_latar` produknya = Resto (Ayam Bakar, Ayam Katsu) | Pindah `coffe_latar` dari `cafe_lsp` ke `resto` aliases |
 | 5 Jun 2026 | Duplicated alias maps tidak konsisten | `unit-transactions/route.ts` dan `unit-layanan/stats/route.ts` punya alias map sendiri tanpa `resto_cafe` | Unify semua alias map: `resto` → `["resto", "resto_cafe", "coffe_latar"]` |
+| 5 Jun 2026 | Laporan `/resto/laporan` kosong (0 transaksi) | Prisma JSON NULL bug: `NOT: { metadata: { path: ["isVoided"], equals: true } }` — saat key `isVoided` tidak ada di JSON, `metadata->'isVoided'` return SQL NULL, `NOT NULL` → NULL (falsy), semua transaksi aktif tersaring | Pindah void filter dari Prisma ke JavaScript post-filter: `allSales.filter(s => !s.metadata || !s.metadata?.isVoided)` |
+| 5 Jun 2026 | Insight revenue menggelembung (Rp 497K vs Rp 269K) | Insight API tidak memfilter voided sales sama sekali — filter Prisma NOT sebelumnya dihapus karena bug, tapi tidak diganti JS filter. 16 voided sales ikut terhitung | Tambah JS void filter di 4 query (range, allTime, thisWeek, lastWeek) |
+| 8 Jun 2026 | "Produk 'Air Mineral' bukan milik unit Resto" saat checkout | `sales/route.ts` dan `split-bill/route.ts` pakai exact match `product.unitType !== unitType` — produk disimpan sebagai `"resto_cafe"` tapi request kirim `"resto"` → gagal | Ganti semua 16 exact match `unitType` di 13 file API ke `isSameUnit()`: sales, split-bill, products/recipe, shifts (3), cashier-identities (3), unit-transactions (2), packages (3), laporan |
 
 ## Data Isolation: Resto vs Cafe LSP
 
@@ -144,6 +147,7 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 
 ## Changelog
 
-- **5 Jun 2026** — Fix void `SL-` prefix. Fix unit insight alias normalization. Fix QRIS RBAC (`isSameUnit`). Fix `UNIT_TYPE_ALIASES`: `coffe_latar` belongs to Resto not Cafe-LSP. Unify all duplicated alias maps across 4 files. Data isolation verified: Resto vs Cafe-LSP terpisah.
+- **8 Jun 2026** — Fix "Produk bukan milik unit" across 13 API files: all `unitType !==` exact matches replaced with `isSameUnit()` alias-aware comparison. Affects checkout (sales + split-bill), shift RBAC (3 files), cashier identity (3 files), product recipe, unit-transactions (2 files), packages (3 files), laporan write-off filter.
+- **5 Jun 2026** — Fix insight revenue bubble (Rp 497K→Rp 269K): voided sales excluded via JS filter. Fix laporan page kosong. Fix void `SL-` prefix. Fix QRIS RBAC. Fix `UNIT_TYPE_ALIASES`. Data isolation verified: Resto vs Cafe-LSP terpisah, produk "LSP" names are Resto products.
 - **21 Mei 2026** — Sidebar dipangkas 12→10 item. Hapus Bahan Baku, Manajemen Batch dari sidebar admin. Default `trackStock=false` untuk produk baru. HPP manual tooltip di form Tambah Menu.
 - **18 Mei 2026** — Edit NRP fix, operator hierarchy cleanup.

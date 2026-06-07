@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/lib/split-bill";
 import { isFbUnit } from "@/lib/constants/units";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { getPlafonPiutang } from "@/lib/plafon";
 
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
                 const product = productMap.get(item.productId);
                 if (!product) throw new Error(`Produk ID ${item.productId} tidak ditemukan`);
                 if (!product.isActive || product.deletedAt) throw new Error(`Produk "${product.name}" tidak aktif`);
-                if (product.unitType !== unitTypeVal) throw new Error(`Produk "${product.name}" bukan milik unit ${unitTypeVal}`);
+                if (!isSameUnit(product.unitType, unitTypeVal)) throw new Error(`Produk "${product.name}" bukan milik unit ${unitTypeVal}`);
 
                 const isRacikan = product.trackStock === false;
                 if (!product.isService) {

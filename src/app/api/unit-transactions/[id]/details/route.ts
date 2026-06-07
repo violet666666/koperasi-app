@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 /**
  * PATCH /api/unit-transactions/[id]/details
@@ -62,7 +63,7 @@ export async function PATCH(
         }
 
         // Admin hanya bisa edit transaksi di unitnya sendiri
-        if (isAdmin && !isOperator && userUnitType && tx.unitType !== userUnitType) {
+        if (isAdmin && !isOperator && userUnitType && !isSameUnit(tx.unitType, userUnitType)) {
             return NextResponse.json({ message: "Anda hanya dapat mengedit transaksi di unit Anda sendiri" }, { status: 403 });
         }
 

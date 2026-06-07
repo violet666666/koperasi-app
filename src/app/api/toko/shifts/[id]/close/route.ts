@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // PUT /api/toko/shifts/[id]/close — Tutup shift
 export async function PUT(
@@ -49,7 +50,7 @@ export async function PUT(
         }
 
         // Admin hanya bisa tutup shift di unit sendiri
-        if (isAdmin && shift.unitType !== sessionUser.unitType) {
+        if (isAdmin && !isSameUnit(shift.unitType, sessionUser.unitType)) {
             return NextResponse.json({ message: "Anda tidak memiliki akses untuk menutup shift di unit ini" }, { status: 403 });
         }
 

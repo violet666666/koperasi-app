@@ -242,7 +242,7 @@ export async function POST(request: Request) {
                 if (!shift || shift.status !== "open") {
                     throw new Error("Shift tidak valid atau sudah ditutup");
                 }
-                if (shift.unitType !== shiftUnit) {
+                if (!isSameUnit(shift.unitType, shiftUnit)) {
                     throw new Error("Shift tidak sesuai dengan unit");
                 }
             }
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
                 if (!product.isActive || product.deletedAt) {
                     throw new Error(`Produk "${product.name}" tidak aktif atau sudah dihapus`);
                 }
-                if (product.unitType !== unitType) {
+                if (!isSameUnit(product.unitType, unitType)) {
                     throw new Error(`Produk "${product.name}" bukan milik unit ${unitType}`);
                 }
 

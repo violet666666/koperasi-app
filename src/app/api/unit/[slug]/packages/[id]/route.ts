@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function PUT(request: Request, context: { params: Promise<{ slug: s
         const packageId = parseInt(id);
         const body = await request.json();
 
-        if (session.user.role === "admin" && session.user.unitType !== unitType && session.user.unitType !== null) {
+        if (session.user.role === "admin" && !isSameUnit(session.user.unitType, unitType) && session.user.unitType !== null) {
             return NextResponse.json({ message: "Anda tidak berhak memodifikasi paket unit ini" }, { status: 403 });
         }
 
@@ -31,7 +32,7 @@ export async function PUT(request: Request, context: { params: Promise<{ slug: s
             return NextResponse.json({ message: "Paket tidak ditemukan" }, { status: 404 });
         }
 
-        if (existingPackage.unitType !== unitType) {
+        if (!isSameUnit(existingPackage.unitType, unitType)) {
             return NextResponse.json({ message: "Paket ini bukan milik unit ini" }, { status: 400 });
         }
 
@@ -69,7 +70,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ slug
         const unitType = slug.replace(/-/g, '_');
         const packageId = parseInt(id);
 
-        if (session.user.role === "admin" && session.user.unitType !== unitType && session.user.unitType !== null) {
+        if (session.user.role === "admin" && !isSameUnit(session.user.unitType, unitType) && session.user.unitType !== null) {
             return NextResponse.json({ message: "Anda tidak berhak memodifikasi paket unit ini" }, { status: 403 });
         }
 

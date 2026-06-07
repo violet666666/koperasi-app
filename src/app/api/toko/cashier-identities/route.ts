@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 const ALLOWED_ROLES = ["admin", "operator"];
 
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
         }
         const adminUnitType = (session.user as any).unitType;
-        if (role !== "operator" && targetUser.unitType !== adminUnitType) {
+        if (role !== "operator" && !isSameUnit(targetUser.unitType, adminUnitType)) {
             return NextResponse.json({ message: "User bukan dari unit Anda" }, { status: 403 });
         }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // PUT /api/toko/shifts/[id] — Admin edit closingCash on a closed shift
@@ -46,7 +47,7 @@ export async function PUT(
         }
 
         // Admin hanya bisa edit shift di unit sendiri
-        if (isAdmin && shift.unitType !== sessionUser.unitType) {
+        if (isAdmin && !isSameUnit(shift.unitType, sessionUser.unitType)) {
             return NextResponse.json({ message: "Anda tidak memiliki akses ke shift di unit ini" }, { status: 403 });
         }
 

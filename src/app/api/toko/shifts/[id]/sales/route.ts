@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 // GET /api/toko/shifts/[id]/sales — Ambil semua transaksi dalam shift
 export async function GET(
@@ -42,7 +43,7 @@ export async function GET(
         if (isKasir && !isOwner) {
             return NextResponse.json({ message: "Anda tidak memiliki akses" }, { status: 403 });
         }
-        if (isAdmin && shift.unitType !== sessionUser?.unitType) {
+        if (isAdmin && !isSameUnit(shift.unitType, sessionUser?.unitType)) {
             return NextResponse.json({ message: "Anda tidak memiliki akses" }, { status: 403 });
         }
         if (!isKasir && !isAdmin && !isOperator) {

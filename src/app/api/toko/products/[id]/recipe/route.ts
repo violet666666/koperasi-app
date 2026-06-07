@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 const ALLOWED_ROLES = ["admin", "operator"];
 
@@ -15,7 +16,7 @@ async function validateUnitAccess(session: any, productId: number): Promise<Resp
         where: { id: productId },
         select: { unitType: true },
     });
-    if (!product || product.unitType !== user.unitType) {
+    if (!product || !isSameUnit(product.unitType, user.unitType)) {
         return NextResponse.json({ message: "Produk tidak ditemukan di unit Anda" }, { status: 403 });
     }
     return null;

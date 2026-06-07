@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
         const body = await request.json();
 
         // Admin cannot modify packages of other units unless they are operator
-        if (session.user.role === "admin" && session.user.unitType !== unitType && session.user.unitType !== null) {
+        if (session.user.role === "admin" && !isSameUnit(session.user.unitType, unitType) && session.user.unitType !== null) {
             return NextResponse.json({ message: "Anda tidak berhak memodifikasi paket unit ini" }, { status: 403 });
         }
 

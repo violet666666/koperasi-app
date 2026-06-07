@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 const ALLOWED_ROLES = ["admin", "operator"];
 
@@ -31,7 +32,7 @@ export async function PUT(
         // Admin unit isolation: verify identity belongs to admin's unit
         if (role === "admin") {
             const parentUser = await prisma.user.findUnique({ where: { id: existing.parentUserId } });
-            if (parentUser?.unitType !== session.user.unitType) {
+            if (!isSameUnit(parentUser?.unitType, session.user.unitType)) {
                 return NextResponse.json({ message: "Forbidden" }, { status: 403 });
             }
         }
@@ -118,7 +119,7 @@ export async function DELETE(
         // Admin unit isolation
         if (role === "admin") {
             const parentUser = await prisma.user.findUnique({ where: { id: existing.parentUserId } });
-            if (parentUser?.unitType !== session.user.unitType) {
+            if (!isSameUnit(parentUser?.unitType, session.user.unitType)) {
                 return NextResponse.json({ message: "Forbidden" }, { status: 403 });
             }
         }
