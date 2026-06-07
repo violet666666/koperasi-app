@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { isSameUnit } from "@/lib/unit-aliases";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,7 @@ export async function POST(
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
-        const isAdminUnit = roleName === "admin" && userUnitType === unitType;
+        const isAdminUnit = roleName === "admin" && isSameUnit(userUnitType, unitType);
 
         if (!isOperator && !isAdminUnit) {
             return NextResponse.json({ message: "Hanya Admin Unit atau Operator yang dapat mencatat pengeluaran." }, { status: 403 });
@@ -204,7 +206,7 @@ export async function GET(
             where: {
                 type: "out",
                 category: "operational",
-                unitType: unitType,
+                unitType: storeSaleUnitTypeFilter(unitType),
             },
             orderBy: { transactionDate: "desc" },
             take: 100,
@@ -213,8 +215,8 @@ export async function GET(
         return NextResponse.json({
             data: expenses.map((e) => {
                 const raw = e.description ?? "";
-                const prefix = `[${unitType.toUpperCase()}] Pengeluaran Operasional: `;
-                const withoutPrefix = raw.replace(prefix, "");
+                // Strip any alias variant prefix: [RESTO], [RESTO_CAFE], [COFFE_LATAR], etc.
+                const withoutPrefix = raw.replace(/^\[[A-Z_]+\]\s*Pengeluaran Operasional:\s*/, "");
                 // Parse receipt path dari suffix ||RECEIPT:/path
                 const receiptSplit = withoutPrefix.split("||RECEIPT:");
                 const description = receiptSplit[0];

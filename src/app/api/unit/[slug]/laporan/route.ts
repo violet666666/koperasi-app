@@ -190,11 +190,13 @@ export async function GET(
         }
 
         // ── Fetch Operational Expenses (CashBankTransaction) ─────────────────
+        // Use alias-aware unitType filter instead of fragile description contains
+        const opsUnitTypeFilter = storeSaleUnitTypeFilter(unitType);
         const operationalExpenses = await prisma.cashBankTransaction.findMany({
             where: {
                 type: "out",
                 category: "operational",
-                description: { contains: `[${unitType.toUpperCase()}]` },
+                unitType: opsUnitTypeFilter,
                 transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
             },
             orderBy: { transactionDate: "desc" },
@@ -205,7 +207,7 @@ export async function GET(
             where: {
                 type: "in",
                 category: "operational",
-                description: { contains: `[${unitType.toUpperCase()}]` },
+                unitType: opsUnitTypeFilter,
                 transactionDate: { gte: dateFromDbDate, lte: dateToDbDate },
             },
             orderBy: { transactionDate: "desc" },
@@ -380,7 +382,8 @@ export async function GET(
                 operationalExpenses: operationalExpenses.map((e) => {
                     const rawDesc = e.description || "";
                     const parts = rawDesc.split("||RECEIPT:");
-                    const description = parts[0].replace(`[${unitType.toUpperCase()}] Pengeluaran Operasional: `, "");
+                    // Strip any alias variant prefix: [RESTO], [RESTO_CAFE], [COFFE_LATAR], etc.
+                    const description = parts[0].replace(/^\[[A-Z_]+\]\s*Pengeluaran Operasional:\s*/, "");
                     const receiptImagePath = parts[1] || null;
 
                     return {
@@ -396,7 +399,8 @@ export async function GET(
                 operationalIncomes: operationalIncomes.map((e) => {
                     const rawDesc = e.description || "";
                     const parts = rawDesc.split("||RECEIPT:");
-                    const description = parts[0].replace(`[${unitType.toUpperCase()}] Pemasukan Operasional: `, "");
+                    // Strip any alias variant prefix: [RESTO], [RESTO_CAFE], [COFFE_LATAR], etc.
+                    const description = parts[0].replace(/^\[[A-Z_]+\]\s*Pemasukan Operasional:\s*/, "");
                     const receiptImagePath = parts[1] || null;
 
                     return {

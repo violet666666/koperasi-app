@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 /**
  * POST /api/unit/[slug]/laporan/submit-review
@@ -34,7 +35,7 @@ export async function POST(
         }
 
         // Admin hanya bisa submit laporan unitnya sendiri
-        if (isAdmin && !isOperator && userUnitType && userUnitType !== unitType) {
+        if (isAdmin && !isOperator && !isSameUnit(userUnitType, unitType)) {
             return NextResponse.json({ message: "Anda hanya dapat submit laporan unit Anda sendiri" }, { status: 403 });
         }
 

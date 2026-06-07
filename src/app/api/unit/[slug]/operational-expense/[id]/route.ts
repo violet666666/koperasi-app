@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAuditFromRequest } from "@/lib/audit-logger";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ async function checkAccess(slug: string) {
     const roleName = session.user.role;
     const userUnitType = (session.user as any).unitType;
     const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
-    const isAdminUnit = roleName === "admin" && userUnitType === unitType;
+    const isAdminUnit = roleName === "admin" && isSameUnit(userUnitType, unitType);
 
     if (!isOperator && !isAdminUnit) {
         return { authorized: false, session, unitType };

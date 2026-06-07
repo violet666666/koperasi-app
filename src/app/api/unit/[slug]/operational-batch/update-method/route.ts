@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAuditFromRequest } from "@/lib/audit-logger";
+import { isSameUnit } from "@/lib/unit-aliases";
+import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,7 @@ export async function PATCH(
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
-        const isAdminUnit = roleName === "admin" && userUnitType === unitType;
+        const isAdminUnit = roleName === "admin" && isSameUnit(userUnitType, unitType);
 
         if (!isOperator && !isAdminUnit) {
             return NextResponse.json({ message: "Hanya Admin Unit atau Operator yang dapat mengubah metode pembayaran." }, { status: 403 });
@@ -58,13 +60,13 @@ export async function PATCH(
 
         const txType = type === "expense" ? "out" : "in";
 
-        // Verify all IDs belong to this unit's operational transactions
+        // Verify all IDs belong to this unit's operational transactions (alias-aware)
         const transactions = await prisma.cashBankTransaction.findMany({
             where: {
                 id: { in: ids },
                 type: txType,
                 category: "operational",
-                description: { contains: `[${unitType.toUpperCase()}]` },
+                unitType: storeSaleUnitTypeFilter(unitType),
             },
             select: { id: true, transactionNo: true },
         });

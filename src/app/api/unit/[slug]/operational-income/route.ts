@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function POST(
         const roleName = session.user.role;
         const userUnitType = (session.user as any).unitType;
         const isOperator = roleName === "operator" || session.user.permissions?.includes("manage_all");
-        const isAdminUnit = roleName === "admin" && userUnitType === unitType;
+        const isAdminUnit = roleName === "admin" && isSameUnit(userUnitType, unitType);
 
         if (!isOperator && !isAdminUnit) {
             return NextResponse.json({ message: "Hanya Admin Unit atau Operator yang dapat mencatat pemasukan." }, { status: 403 });

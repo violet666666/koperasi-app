@@ -656,7 +656,7 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
         title: "LAPORAN & KEUANGAN",
         items: [
             {
-                title: "Laporan Penjualan", href: "/resto/laporan", icon: BarChart2,
+                title: "Laporan Penjualan", href: "/unit/resto/laporan", icon: BarChart2,
                 permission: "manage_unit_transactions",
             },
             {
