@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { isSameUnit } from "@/lib/unit-aliases";
+import { isSameUnit, normalizeUnitType } from "@/lib/unit-aliases";
 import { isFbUnit, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
 // GET /api/toko/products - List store products (with server-side pagination)
@@ -196,6 +196,10 @@ export async function POST(request: Request) {
         const { sku, name, category, costPrice, sellPrice, discountType, discountValue, stock, stockGdg, stockToko, minStock, unit, isService, imageUrl, unitType, productType, trackStock, categoryId, menuType, taxType, taxRate, posColor, variantGroupId } = body;
         const nonInventoryUnits = ["cafe_lsp", "resto", "resto_cafe", "coffe_latar"];
 
+        // Normalize unitType to canonical form (e.g. "resto_cafe" → "resto")
+        // This ensures DB always stores the canonical alias, preventing checkout mismatches
+        const normalizedUnitType = normalizeUnitType(unitType) || unitType || "toko";
+
         if (!sku || !name || sellPrice === undefined || sellPrice === null) {
             return NextResponse.json(
                 { message: "SKU, Nama Produk, dan Harga Jual wajib diisi" },
@@ -233,10 +237,10 @@ export async function POST(request: Request) {
                         stockToko: stockToko || 0,
                         minStock: minStock || 5,
                         unit: unit || "pcs",
-                        unitType: unitType || "toko",
+                        unitType: normalizedUnitType,
                         isService: isService || false,
                         productType: productType || "finished",
-                        trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
+                        trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(normalizedUnitType),
                         ...(categoryId !== undefined && { categoryId }),
                         ...(menuType !== undefined && { menuType }),
                         ...(taxType !== undefined && { taxType }),
@@ -270,10 +274,10 @@ export async function POST(request: Request) {
                 stockToko: stockToko || 0,
                 minStock: minStock || 5,
                 unit: unit || "pcs",
-                unitType: unitType || "toko",
+                unitType: normalizedUnitType,
                 isService: isService || false,
                 productType: productType || "finished",
-                trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(unitType || ""),
+                trackStock: trackStock !== undefined ? trackStock : !nonInventoryUnits.includes(normalizedUnitType),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(menuType !== undefined && { menuType }),
                 ...(taxType !== undefined && { taxType }),
