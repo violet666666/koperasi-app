@@ -142,6 +142,21 @@ export const loansApi = {
 
     voidPinjaman: (loanId: number) =>
         api.post<{ message: string; status: string }>(`/loans/${loanId}/void`),
+
+    correctStatus: (loanId: number, data: {
+        targetStatus: string;
+        reason: string;
+        corrections: {
+            principalPaid: number;
+            interestPaid: number;
+            principalOutstanding: number;
+            interestOutstanding: number;
+        };
+    }) =>
+        api.post<{ message: string; detail: string; data: any }>(
+            `/loans/${loanId}/correct-status`,
+            data
+        ),
 };
 
 // ============================================================

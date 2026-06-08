@@ -177,6 +177,81 @@ export default function PinjamanDetailPage() {
     const canEdit = isOperator && loan.status === "active";
     const canVoid = isOperator && loan.status === "active";
 
+    // ── Anomaly Detection ─────────────────────────────────────
+    const anomalies = React.useMemo(() => {
+        if (!loan) return [] as string[];
+        const list: string[] = [];
+        if (loan.status === "paid_off") {
+            const nonVoidedPayments = (loan.payments || []).filter((p: any) => p.status !== "voided").length;
+            if (nonVoidedPayments === 0) list.push("PHANTOM_LUNAS");
+            if (Number(loan.principalPaid || 0) === 0) list.push("ZERO_PAID");
+            if (Number(loan.principalOutstanding || 0) > 0) list.push("OUTSTANDING_MISMATCH");
+        }
+        return list;
+    }, [loan]);
+
+    const canCorrectStatus = isOperator && loan.status === "paid_off" && anomalies.length > 0;
+
+    // ── Status Correction State ───────────────────────────────
+    const [isCorrectStatusDialogOpen, setIsCorrectStatusDialogOpen] = React.useState(false);
+    const [isCorrectingStatus, setIsCorrectingStatus] = React.useState(false);
+    const [correctStatusForm, setCorrectStatusForm] = React.useState({
+        principalPaid: "0",
+        interestPaid: "0",
+        principalOutstanding: "",
+        interestOutstanding: "",
+        reason: "",
+    });
+    const [correctStatusConfirm, setCorrectStatusConfirm] = React.useState("");
+
+    const openCorrectStatusDialog = () => {
+        const defPrincipalOutstanding = Number(loan.principalAmount) - Number(loan.principalPaid || 0);
+        const defInterestOutstanding = Number(loan.interestAmount || 0) - Number(loan.interestPaid || 0);
+        setCorrectStatusForm({
+            principalPaid: String(Number(loan.principalPaid || 0)),
+            interestPaid: String(Number(loan.interestPaid || 0)),
+            principalOutstanding: String(Math.max(0, defPrincipalOutstanding)),
+            interestOutstanding: String(Math.max(0, defInterestOutstanding)),
+            reason: "",
+        });
+        setCorrectStatusConfirm("");
+        setIsCorrectStatusDialogOpen(true);
+    };
+
+    const executeCorrectStatus = async () => {
+        if (correctStatusConfirm !== loan.loanNo) return;
+        setIsCorrectingStatus(true);
+        try {
+            const res = await loansApi.correctStatus(Number(loan.id), {
+                targetStatus: "active",
+                reason: correctStatusForm.reason,
+                corrections: {
+                    principalPaid: Number(correctStatusForm.principalPaid),
+                    interestPaid: Number(correctStatusForm.interestPaid),
+                    principalOutstanding: Number(correctStatusForm.principalOutstanding),
+                    interestOutstanding: Number(correctStatusForm.interestOutstanding),
+                },
+            });
+            toast.success((res as any).message || "Status berhasil dikoreksi.");
+            setIsCorrectStatusDialogOpen(false);
+            // Refresh loan data
+            const refreshed = await loansApi.get(Number(params.id));
+            const refreshedLoan = (refreshed as any).data;
+            setLoan({
+                ...refreshedLoan,
+                productSnapshot: typeof refreshedLoan.productSnapshot === "string"
+                    ? JSON.parse(refreshedLoan.productSnapshot)
+                    : refreshedLoan.productSnapshot,
+            });
+            setSchedule(refreshedLoan.schedules || []);
+        } catch (error: any) {
+            const msg = error.response?.data?.message || error.message || "Gagal mengoreksi status.";
+            toast.error(msg);
+        } finally {
+            setIsCorrectingStatus(false);
+        }
+    };
+
     // Edit helpers
     const openEditDialog = () => {
         const fmtDate = (d: string | null) => {
@@ -334,6 +409,12 @@ export default function PinjamanDetailPage() {
                                 Batalkan (VOID)
                             </Button>
                         )}
+                        {canCorrectStatus && (
+                            <Button variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30" onClick={openCorrectStatusDialog}>
+                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                Koreksi Status
+                            </Button>
+                        )}
                         {loan.status === "active" && (
                             <Button asChild>
                                 <Link href={`/pinjaman/angsuran/bayar?loan_id=${loan.id}`}>
@@ -345,6 +426,41 @@ export default function PinjamanDetailPage() {
                     </div>
                 }
             />
+
+            {/* ── Anomaly Warning Banner ────────────────────────────────── */}
+            {anomalies.length > 0 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                            <p className="font-semibold text-amber-800 dark:text-amber-200">
+                                Anomali Data Terdeteksi
+                            </p>
+                            <div className="text-sm text-amber-700 dark:text-amber-300 mt-1 space-y-1">
+                                {anomalies.includes("PHANTOM_LUNAS") && (
+                                    <p>Pinjaman berstatus <strong>LUNAS</strong> namun tidak memiliki riwayat pembayaran. Data mungkin keliru akibat proses import.</p>
+                                )}
+                                {anomalies.includes("ZERO_PAID") && (
+                                    <p>Pokok terbayar = <strong>Rp 0</strong> padahal status LUNAS.</p>
+                                )}
+                                {anomalies.includes("OUTSTANDING_MISMATCH") && (
+                                    <p>Masih terdapat sisa pokok outstanding padahal status LUNAS.</p>
+                                )}
+                            </div>
+                            {isOperator && (
+                                <Button
+                                    variant="outline"
+                                    className="mt-3 border-amber-400 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-950/50"
+                                    onClick={openCorrectStatusDialog}
+                                >
+                                    <AlertTriangle className="mr-2 h-4 w-4" />
+                                    Koreksi Status
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Edit Pinjaman Dialog ──────────────────────────────────── */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -535,6 +651,153 @@ export default function PinjamanDetailPage() {
                         <Button variant="destructive" onClick={executeVoid} disabled={voidConfirmationText !== "VOID" || isVoiding}>
                             {isVoiding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Eksekusi Void
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Status Correction Dialog ───────────────────────────────── */}
+            <Dialog open={isCorrectStatusDialogOpen} onOpenChange={setIsCorrectStatusDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="h-5 w-5" />
+                            Koreksi Status Pinjaman
+                        </DialogTitle>
+                        <DialogDescription className="space-y-2 pt-2">
+                            <p>
+                                Pinjaman <strong>{loan.loanNo}</strong> saat ini berstatus <Badge className="ml-1">LUNAS</Badge>
+                                {" "}namun terdeteksi memiliki data anomali.
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                Tindakan ini akan mengembalikan status ke <strong>AKTIF</strong> dan me-regenerasi jadwal angsuran.
+                            </p>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* Before/After Summary */}
+                        <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                            <p className="text-sm font-semibold">Ringkasan Perubahan</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                <span className="text-muted-foreground">Status</span>
+                                <span><s className="text-red-500">LUNAS</s> → <strong className="text-emerald-600">AKTIF</strong></span>
+
+                                <span className="text-muted-foreground">Sisa Pokok</span>
+                                <span>
+                                    <s className="text-red-500">{formatCurrency(Number(loan.principalOutstanding || 0))}</s>
+                                    {" → "}
+                                    <strong className="text-emerald-600">{formatCurrency(Number(correctStatusForm.principalOutstanding || 0))}</strong>
+                                </span>
+
+                                <span className="text-muted-foreground">Sisa Bunga</span>
+                                <span>
+                                    <s className="text-red-500">{formatCurrency(Number(loan.interestOutstanding || 0))}</s>
+                                    {" → "}
+                                    <strong className="text-emerald-600">{formatCurrency(Number(correctStatusForm.interestOutstanding || 0))}</strong>
+                                </span>
+
+                                <span className="text-muted-foreground">Pokok Terbayar</span>
+                                <span>
+                                    <s className="text-red-500">{formatCurrency(Number(loan.principalPaid || 0))}</s>
+                                    {" → "}
+                                    <strong>{formatCurrency(Number(correctStatusForm.principalPaid || 0))}</strong>
+                                </span>
+
+                                <span className="text-muted-foreground">Bunga Terbayar</span>
+                                <span>
+                                    <s className="text-red-500">{formatCurrency(Number(loan.interestPaid || 0))}</s>
+                                    {" → "}
+                                    <strong>{formatCurrency(Number(correctStatusForm.interestPaid || 0))}</strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Correction Fields */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Pokok Terbayar (Rp)</label>
+                                <Input
+                                    type="number"
+                                    value={correctStatusForm.principalPaid}
+                                    onChange={(e) => setCorrectStatusForm(f => ({ ...f, principalPaid: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Bunga Terbayar (Rp)</label>
+                                <Input
+                                    type="number"
+                                    value={correctStatusForm.interestPaid}
+                                    onChange={(e) => setCorrectStatusForm(f => ({ ...f, interestPaid: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Sisa Pokok (Rp)</label>
+                                <Input
+                                    type="number"
+                                    value={correctStatusForm.principalOutstanding}
+                                    onChange={(e) => setCorrectStatusForm(f => ({ ...f, principalOutstanding: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Sisa Bunga (Rp)</label>
+                                <Input
+                                    type="number"
+                                    value={correctStatusForm.interestOutstanding}
+                                    onChange={(e) => setCorrectStatusForm(f => ({ ...f, interestOutstanding: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Reason */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Alasan Koreksi <span className="text-destructive">*</span></label>
+                            <Textarea
+                                value={correctStatusForm.reason}
+                                onChange={(e) => setCorrectStatusForm(f => ({ ...f, reason: e.target.value }))}
+                                placeholder="Jelaskan alasan koreksi, misalnya: Data import bermasalah, SISA_SALDO kosong..."
+                                rows={2}
+                            />
+                            {correctStatusForm.reason.length > 0 && correctStatusForm.reason.length < 10 && (
+                                <p className="text-xs text-destructive">Minimal 10 karakter ({correctStatusForm.reason.length}/10)</p>
+                            )}
+                        </div>
+
+                        {/* Confirmation */}
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium">
+                                Ketik nomor pinjaman <strong className="font-mono">{loan.loanNo}</strong> untuk konfirmasi:
+                            </label>
+                            <Input
+                                value={correctStatusConfirm}
+                                onChange={(e) => setCorrectStatusConfirm(e.target.value)}
+                                placeholder={loan.loanNo}
+                                className="font-mono text-sm"
+                            />
+                        </div>
+
+                        {/* Warning */}
+                        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm text-amber-700 dark:text-amber-400">
+                            <strong>⚠️ Perhatian:</strong> Jadwal angsuran ({loan.tenorMonths} bulan) akan di-regenerasi. Status cicilan yang sudah tercatat akan dihitung ulang berdasarkan Pokok Terbayar yang Anda masukkan.
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCorrectStatusDialogOpen(false)}>
+                            Batal
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                            disabled={
+                                correctStatusConfirm !== loan.loanNo
+                                || correctStatusForm.reason.trim().length < 10
+                                || isCorrectingStatus
+                            }
+                            onClick={executeCorrectStatus}
+                        >
+                            {isCorrectingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Eksekusi Koreksi
                         </Button>
                     </DialogFooter>
                 </DialogContent>
