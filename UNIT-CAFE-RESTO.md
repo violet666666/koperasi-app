@@ -62,6 +62,7 @@ Unit Resto & Cafe (Latar) — dine-in + takeaway. Kasir kelola denah meja dinami
 |---|---|
 | Denah meja dinamis + takeaway | ✅ |
 | Dine-in vs Takeaway diff (KDS, Riwayat, Laporan) | ✅ |
+| Biaya Takeaway (Rp 1.000/item, configurable) | ✅ |
 | Kitchen Order Ticket (KOT) → Kitchen Display | ✅ |
 | Grid menu visual + filter kategori | ✅ |
 | Keranjang per meja + qty +/- | ✅ |
@@ -123,7 +124,8 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 | `src/app/(protected)/resto/laporan/page.tsx` | Redirect → `/unit/resto/laporan` (shared unit laporan page) |
 | `src/app/(protected)/unit/[unitSlug]/laporan/page.tsx` | Shared laporan: CRUD pengeluaran/pemasukan, Excel, print, HPP, pagination |
 | `src/app/api/toko/products/route.ts` | Produk API (`trackStock` default false) |
-| `src/app/api/toko/sales/route.ts` | Checkout (shared) |
+| `src/app/api/toko/sales/route.ts` | Checkout (shared) — includes takeaway surcharge validation |
+| `src/app/api/toko/takeaway-surcharge/route.ts` | **NEW** — GET/PUT surcharge config (`AppSetting`) |
 | `src/app/api/kitchen-orders/route.ts` | Kitchen orders (KDS) |
 
 ---
@@ -163,6 +165,17 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 
 ## Changelog
 
+- **9 Jun 2026** — **Takeaway surcharge feature (10 files):**
+  1. New API: `GET/PUT /api/toko/takeaway-surcharge` — config stored in `AppSetting` key `takeaway_surcharge_resto` (default Rp 1,000/item, enabled=true)
+  2. Sales API: server-side validation + recomputation of surcharge from DB config, stored in `StoreSale.metadata`
+  3. Split-bill: proportional surcharge distribution across bills based on item count
+  4. POS kasir: surcharge computed per-item for takeaway tables, displayed as separate cart line (Subtotal + Biaya Takeaway + Total)
+  5. Modifier page: admin toggle ON/OFF + adjustable nominal per item
+  6. Receipt 80mm: "Biaya Takeaway (N)" line before TOTAL in `ReceiptPrimkopol`
+  7. Export utils: `KasirReceiptData` extended with `takeawaySurcharge`/`takeawaySurchargeQty`
+  8. Riwayat: surcharge info in detail dialog (total + per-item breakdown)
+  9. Laporan: surcharge breakdown in Dine-In vs Takeaway card
+  10. mapStoreSale: expose `takeawaySurcharge`/`takeawaySurchargePerItem` from metadata
 - **9 Jun 2026** — **Dine-in vs Takeaway differentiation (6 files):**
   1. Schema: Add `orderType` (dine_in/takeaway/counter) column to `KitchenOrder` model.
   2. KDS: Fix `formatOrderLabel()` — takeaway shows queue number, not "Meja null". Fix `validateKitchenOrder()` — only require tableNumber for dine_in, not takeaway. Add `getOrderTypeStyle()` for visual distinction (sky=dine-in, orange=takeaway, purple=counter).
