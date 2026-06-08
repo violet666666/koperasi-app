@@ -29,6 +29,11 @@ export default function ModifiersAdminPage() {
     const [isDirty, setIsDirty] = React.useState(false);
     const [editOption, setEditOption] = React.useState<{ groupIdx: number; optionIdx: number } | null>(null);
 
+    // Takeaway surcharge config
+    const [surchargeEnabled, setSurchargeEnabled] = React.useState(true);
+    const [surchargeAmount, setSurchargeAmount] = React.useState(1000);
+    const [isSavingSurcharge, setIsSavingSurcharge] = React.useState(false);
+
     // Load products
     React.useEffect(() => {
         async function load() {
@@ -41,6 +46,37 @@ export default function ModifiersAdminPage() {
         }
         load();
     }, []);
+
+    // Load takeaway surcharge config
+    React.useEffect(() => {
+        async function loadSurcharge() {
+            try {
+                const res = await fetch("/api/toko/takeaway-surcharge");
+                if (res.ok) {
+                    const json = await res.json();
+                    setSurchargeEnabled(json.data.enabled);
+                    setSurchargeAmount(json.data.amountPerItem);
+                }
+            } catch { /* non-critical */ }
+        }
+        loadSurcharge();
+    }, []);
+
+    const handleSaveSurcharge = async () => {
+        setIsSavingSurcharge(true);
+        try {
+            const res = await fetch("/api/toko/takeaway-surcharge", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: surchargeEnabled, amountPerItem: surchargeAmount }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+            toast.success("Pengaturan biaya takeaway disimpan!");
+        } catch (error: any) {
+            toast.error(error.message || "Gagal menyimpan pengaturan");
+        } finally { setIsSavingSurcharge(false); }
+    };
 
     // Load modifiers when product selected
     React.useEffect(() => {
@@ -136,6 +172,47 @@ export default function ModifiersAdminPage() {
                     ) : undefined
                 }
             />
+
+            {/* ── Takeaway Surcharge Config ──────────────────────────────── */}
+            <Card className="border-orange-200 bg-orange-50/30">
+                <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Settings2 className="h-4 w-4 text-orange-600" />
+                            <h3 className="font-semibold text-sm">Biaya Tambahan Takeaway</h3>
+                        </div>
+                        <button
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${surchargeEnabled ? "bg-orange-500" : "bg-slate-300"}`}
+                            onClick={() => setSurchargeEnabled(!surchargeEnabled)}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${surchargeEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                    </div>
+                    {surchargeEnabled && (
+                        <div className="flex items-center gap-3">
+                            <Label className="text-xs text-slate-500 whitespace-nowrap">Nominal per item</Label>
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-slate-400">Rp</span>
+                                <Input
+                                    type="number"
+                                    className="h-8 w-28 text-sm"
+                                    min={0}
+                                    step={500}
+                                    value={surchargeAmount}
+                                    onChange={e => setSurchargeAmount(Number(e.target.value) || 0)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <p className="text-[11px] text-slate-400">
+                        Berlaku untuk semua pesanan takeaway (T-*). Tidak berlaku untuk dine-in.
+                    </p>
+                    <Button size="sm" onClick={handleSaveSurcharge} disabled={isSavingSurcharge} className="bg-orange-600 hover:bg-orange-700">
+                        {isSavingSurcharge ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Simpan Pengaturan
+                    </Button>
+                </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Product List */}
