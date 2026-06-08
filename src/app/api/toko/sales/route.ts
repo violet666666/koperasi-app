@@ -320,6 +320,26 @@ export async function POST(request: Request) {
                 validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice: totalUnitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0, taxAmount });
             }
 
+            // ── Takeaway surcharge validation ─────────────────────────────
+            let takeawaySurcharge = 0;
+            let takeawaySurchargePerItem = 0;
+            const isTakeaway = (metadata as Record<string, unknown>)?.orderType === "takeaway";
+            if (isTakeaway && Number(body.takeawaySurcharge) > 0) {
+                const surchargeSetting = await prisma.appSetting.findUnique({ where: { key: "takeaway_surcharge_resto" } });
+                const surchargeConfig = surchargeSetting ? JSON.parse(surchargeSetting.value) : null;
+                if (surchargeConfig?.enabled) {
+                    const totalQty = validatedItems.reduce((s, vi) => s + vi.quantity, 0);
+                    const expected = totalQty * surchargeConfig.amountPerItem;
+                    const clientSent = Number(body.takeawaySurcharge);
+                    if (clientSent !== expected) {
+                        throw new Error(`Nominal biaya takeaway tidak valid (diharapkan ${expected}, dikirim ${clientSent})`);
+                    }
+                    takeawaySurcharge = expected;
+                    takeawaySurchargePerItem = surchargeConfig.amountPerItem;
+                    totalAmount += takeawaySurcharge;
+                }
+            }
+
             // Validate payment
             if (method === "cash") {
                 if ((cashReceived || 0) < totalAmount) {
@@ -433,7 +453,10 @@ export async function POST(request: Request) {
                     paymentMethod: method,
                     cashReceived: (method === "cash" || method === "qris") ? payment : 0,
                     changeAmount,
-                    metadata: metadata ? metadata : null,
+                    metadata: metadata ? {
+                        ...(typeof metadata === "object" ? metadata : {}),
+                        ...(takeawaySurcharge > 0 ? { takeawaySurcharge, takeawaySurchargePerItem } : {}),
+                    } : (takeawaySurcharge > 0 ? { takeawaySurcharge, takeawaySurchargePerItem } : null),
                     journalId,
                     periodId: currentPeriod?.id || null,
                     shiftId,
