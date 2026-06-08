@@ -132,6 +132,7 @@ interface LaporanSummary {
     dineInCount: number;
     takeawayCount: number;
     counterCount: number;
+    takeawaySurchargeTotal: number;
     totalPengeluaran: number;
     totalPemasukan: number;
     potonganSHUMember: number;
@@ -1204,6 +1205,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <p className="text-xs text-muted-foreground">Takeaway</p>
                                 <p className="font-bold text-orange-700">{formatCurrency(summary.takeaway)}</p>
                                 <p className="text-[10px] text-muted-foreground">{summary.takeawayCount} nota</p>
+                                {summary.takeawaySurchargeTotal > 0 && (
+                                    <p className="text-[10px] text-orange-500 mt-1">
+                                        Termasuk biaya takeaway: {formatCurrency(summary.takeawaySurchargeTotal)}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </CardContent>

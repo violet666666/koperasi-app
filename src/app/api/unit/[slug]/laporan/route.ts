@@ -240,8 +240,11 @@ export async function GET(
                 if (orderType === "takeaway") { acc.takeaway += amount; acc.takeawayCount += 1; }
                 else if (orderType === "counter") { acc.counter += amount; acc.counterCount += 1; }
                 else { acc.dineIn += amount; acc.dineInCount += 1; }
+                // Takeaway surcharge breakdown
+                const surcharge = (meta as Record<string, unknown>).takeawaySurcharge as number | null;
+                if (surcharge) acc.takeawaySurchargeTotal += surcharge;
                 return acc;
-            }, { total: 0, count: 0, tunai: 0, qris: 0, potongGaji: 0, dineIn: 0, takeaway: 0, counter: 0, dineInCount: 0, takeawayCount: 0, counterCount: 0 });
+            }, { total: 0, count: 0, tunai: 0, qris: 0, potongGaji: 0, dineIn: 0, takeaway: 0, counter: 0, dineInCount: 0, takeawayCount: 0, counterCount: 0, takeawaySurchargeTotal: 0 });
         };
 
         const unitTxAgg = aggregateUnitTx(unitTransactions);
@@ -372,6 +375,7 @@ export async function GET(
                     dineInCount: usesStoreSales ? storeSaleAgg.dineInCount : 0,
                     takeawayCount: usesStoreSales ? storeSaleAgg.takeawayCount : 0,
                     counterCount: usesStoreSales ? storeSaleAgg.counterCount : 0,
+                    takeawaySurchargeTotal: usesStoreSales ? storeSaleAgg.takeawaySurchargeTotal : 0,
                     totalPengeluaran: totalExpenses,
                     totalPemasukan: totalOpIncome, // Pemasukan manual di luar POS
                     // Potongan SHU Langsung (khusus cuci_mobil)
