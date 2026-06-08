@@ -662,6 +662,8 @@ export interface KasirReceiptData {
     cashReceived?: number;
     changeAmount?: number;
     unitLabel?: string;
+    takeawaySurcharge?: number;
+    takeawaySurchargeQty?: number;
 }
 
 /**
@@ -749,6 +751,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
 <table style="margin-top:3px;"><thead><tr>
   <th style="text-align:left;">Produk</th><th>Qty</th><th style="text-align:right;">@Hrg</th><th style="text-align:right;">Sub</th>
 </tr></thead><tbody>${itemRows}</tbody>
+${data.takeawaySurcharge && data.takeawaySurchargeQty ? `<tbody><tr><td colspan="3" style="padding:1px 0;">Biaya Takeaway (${data.takeawaySurchargeQty})</td><td style="text-align:right;">${formatRp(data.takeawaySurcharge)}</td></tr></tbody>` : ""}
 <tfoot><tr class="total-row">
   <td colspan="3">TOTAL</td>
   <td style="text-align:right;">${formatRp(data.totalAmount)}</td>
