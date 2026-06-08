@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { items, payments, unitType, customerName, tableNo, orderType, shiftId: reqShiftId, memberId, splitGroupId: existingGroupId, metadata: reqMetadata } = body;
+        const { items, payments, unitType, customerName, tableNo, orderType, shiftId: reqShiftId, memberId, splitGroupId: existingGroupId, metadata: reqMetadata, takeawaySurcharge: _ts } = body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "items required" }, { status: 400 });
@@ -142,6 +142,26 @@ export async function POST(req: Request) {
                 orderTotal += subtotal;
 
                 validatedItems.push({ productId: product.id, quantity: item.quantity, unitPrice: totalUnitPrice, subtotal, discount, costPrice: Number(product.costPrice) || 0, taxAmount });
+            }
+
+            // ── Takeaway surcharge validation ─────────────────────────────
+            let takeawaySurcharge = 0;
+            let takeawaySurchargePerItem = 0;
+            const isTakeawayOrder = orderType === "takeaway" || (reqMetadata as Record<string, unknown>)?.orderType === "takeaway";
+            if (isTakeawayOrder && Number(body.takeawaySurcharge) > 0) {
+                const surchargeSetting = await prisma.appSetting.findUnique({ where: { key: "takeaway_surcharge_resto" } });
+                const surchargeConfig = surchargeSetting ? JSON.parse(surchargeSetting.value) : null;
+                if (surchargeConfig?.enabled) {
+                    const totalQty = validatedItems.reduce((s, vi) => s + vi.quantity, 0);
+                    const expected = totalQty * surchargeConfig.amountPerItem;
+                    const clientSent = Number(body.takeawaySurcharge);
+                    if (clientSent !== expected) {
+                        throw new Error(`Nominal biaya takeaway tidak valid (diharapkan ${expected}, dikirim ${clientSent})`);
+                    }
+                    takeawaySurcharge = expected;
+                    takeawaySurchargePerItem = surchargeConfig.amountPerItem;
+                    orderTotal += takeawaySurcharge;
+                }
             }
 
             // Verify payment total matches server-computed total
@@ -267,6 +287,17 @@ export async function POST(req: Request) {
                 };
                 if (tableNo) saleMetadata.tableNo = tableNo;
                 if (payment.memberId) saleMetadata.memberId = payment.memberId;
+
+                // Distribute takeaway surcharge proportionally across split bills
+                if (takeawaySurcharge > 0) {
+                    const billQty = allocatedItems.reduce((s: number, vi: { quantity: number }) => s + vi.quantity, 0);
+                    const totalQty = validatedItems.reduce((s, vi) => s + vi.quantity, 0);
+                    const billSurcharge = totalQty > 0 ? Math.round((billQty / totalQty) * takeawaySurcharge) : 0;
+                    if (billSurcharge > 0) {
+                        saleMetadata.takeawaySurcharge = billSurcharge;
+                        saleMetadata.takeawaySurchargePerItem = takeawaySurchargePerItem;
+                    }
+                }
 
                 const sale = await tx.storeSale.create({
                     data: {
