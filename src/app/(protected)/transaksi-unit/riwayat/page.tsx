@@ -47,6 +47,8 @@ type EnrichedTransaction = UnitTransaction & {
     changeAmount?: number | null;
     orderType?: string | null;
     tableNo?: string | null;
+    takeawaySurcharge?: number | null;
+    takeawaySurchargePerItem?: number | null;
     voidReason?: string | null;
     voidRequestedAt?: string | null;
     voidRequestedBy?: string | null;
@@ -1052,6 +1054,15 @@ export default function RiwayatTransaksiUnitPage() {
                                         <p className="text-xs text-muted-foreground flex items-center gap-1"><Utensils className="h-3 w-3" /> Jenis Order</p>
                                         <Badge variant="outline" className={`text-xs ${detailTx.orderType === "takeaway" ? "border-orange-300 text-orange-700" : detailTx.orderType === "counter" ? "border-purple-300 text-purple-700" : "border-sky-300 text-sky-700"}`}>
                                             {detailTx.orderType === "dine_in" ? `Dine In${detailTx.tableNo ? ` — ${detailTx.tableNo}` : ""}` : detailTx.orderType === "takeaway" ? "Takeaway" : detailTx.orderType === "counter" ? "Counter" : detailTx.orderType}
+                                        </Badge>
+                                    </div>
+                                )}
+                                {detailTx.orderType === "takeaway" && detailTx.takeawaySurcharge != null && detailTx.takeawaySurcharge > 0 && (
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Biaya Takeaway</p>
+                                        <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                                            {formatCurrency(detailTx.takeawaySurcharge)}
+                                            {detailTx.takeawaySurchargePerItem ? ` (${Math.round(detailTx.takeawaySurcharge / detailTx.takeawaySurchargePerItem)} item × ${formatCurrency(detailTx.takeawaySurchargePerItem)})` : ""}
                                         </Badge>
                                     </div>
                                 )}

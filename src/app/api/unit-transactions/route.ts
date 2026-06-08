@@ -25,6 +25,8 @@ function mapStoreSale(s: Record<string, unknown>) {
 
     const orderType = (metadataObj as Record<string, unknown>).orderType as string | null || null;
     const tableNo = (metadataObj as Record<string, unknown>).tableNo as string | null || null;
+    const takeawaySurcharge = (metadataObj as Record<string, unknown>).takeawaySurcharge as number | null || null;
+    const takeawaySurchargePerItem = (metadataObj as Record<string, unknown>).takeawaySurchargePerItem as number | null || null;
 
     return {
         id: (s.id as number) + 1000000,
@@ -43,6 +45,8 @@ function mapStoreSale(s: Record<string, unknown>) {
         status: effectiveStatus,
         orderType,
         tableNo,
+        takeawaySurcharge,
+        takeawaySurchargePerItem,
         voidReason,
         voidRequestedAt,
         voidRequestedBy,
