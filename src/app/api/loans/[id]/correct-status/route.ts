@@ -3,6 +3,11 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logAuditFromRequest } from "@/lib/audit-logger";
 
+/** Compact number formatter for error messages */
+function formatNumber(n: number) {
+    return n.toLocaleString("id-ID");
+}
+
 /**
  * POST /api/loans/[id]/correct-status
  *
@@ -111,6 +116,23 @@ export async function POST(
                 ? Number(corrections.interestOutstanding)
                 : interestAmount - newInterestPaid
         );
+
+        // Sanitize reason to prevent log injection
+        const sanitizedReason = reason.trim().replace(/[\n\r\t]/g, " ").replace(/[\x00-\x1F\x7F]/g, "");
+
+        // Data integrity: principal paid + outstanding should equal principal amount (±1 for rounding)
+        if (Math.abs((newPrincipalPaid + newPrincipalOutstanding) - principalAmount) > 1) {
+            return NextResponse.json(
+                { message: `Data tidak konsisten: Pokok Terbayar (${formatNumber(newPrincipalPaid)}) + Sisa Pokok (${formatNumber(newPrincipalOutstanding)}) harus sama dengan Pokok Pinjaman (${formatNumber(principalAmount)}).` },
+                { status: 400 }
+            );
+        }
+        if (Math.abs((newInterestPaid + newInterestOutstanding) - interestAmount) > 1) {
+            return NextResponse.json(
+                { message: `Data tidak konsisten: Bunga Terbayar + Sisa Bunga harus sama dengan Total Bunga (${formatNumber(interestAmount)}).` },
+                { status: 400 }
+            );
+        }
 
         // Snapshot old data for audit
         const oldData = {
@@ -221,7 +243,7 @@ export async function POST(
             await logAuditFromRequest(request, session, {
                 action: "UPDATE",
                 module: "Pinjaman",
-                description: `Koreksi status pinjaman ${loan.loanNo}: LUNAS → AKTIF. Alasan: ${reason.trim()}`,
+                description: `Koreksi status pinjaman ${loan.loanNo}: LUNAS → AKTIF. Alasan: ${sanitizedReason}`,
                 targetId: loanId,
                 targetType: "loan",
                 oldData,

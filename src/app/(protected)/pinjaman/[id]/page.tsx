@@ -114,6 +114,31 @@ export default function PinjamanDetailPage() {
          : (session?.user?.role as any)?.name ?? "";
     const isOperator = roleName === "operator" || roleName === "admin_sp";
 
+    // ── Status Correction State (hooks must be before any early returns) ──
+    const [isCorrectStatusDialogOpen, setIsCorrectStatusDialogOpen] = React.useState(false);
+    const [isCorrectingStatus, setIsCorrectingStatus] = React.useState(false);
+    const [correctStatusForm, setCorrectStatusForm] = React.useState({
+        principalPaid: "0",
+        interestPaid: "0",
+        principalOutstanding: "",
+        interestOutstanding: "",
+        reason: "",
+    });
+    const [correctStatusConfirm, setCorrectStatusConfirm] = React.useState("");
+
+    // ── Anomaly Detection (before early returns) ──────────────
+    const anomalies = React.useMemo(() => {
+        if (!loan) return [] as string[];
+        const list: string[] = [];
+        if (loan.status === "paid_off") {
+            const nonVoidedPayments = (loan.payments || []).filter((p: any) => p.status !== "voided").length;
+            if (nonVoidedPayments === 0) list.push("PHANTOM_LUNAS");
+            if (Number(loan.principalPaid || 0) === 0) list.push("ZERO_PAID");
+            if (Number(loan.principalOutstanding || 0) > 0) list.push("OUTSTANDING_MISMATCH");
+        }
+        return list;
+    }, [loan]);
+
     React.useEffect(() => {
         async function fetchLoanData() {
             if (!params.id) return;
@@ -177,32 +202,7 @@ export default function PinjamanDetailPage() {
     const canEdit = isOperator && loan.status === "active";
     const canVoid = isOperator && loan.status === "active";
 
-    // ── Anomaly Detection ─────────────────────────────────────
-    const anomalies = React.useMemo(() => {
-        if (!loan) return [] as string[];
-        const list: string[] = [];
-        if (loan.status === "paid_off") {
-            const nonVoidedPayments = (loan.payments || []).filter((p: any) => p.status !== "voided").length;
-            if (nonVoidedPayments === 0) list.push("PHANTOM_LUNAS");
-            if (Number(loan.principalPaid || 0) === 0) list.push("ZERO_PAID");
-            if (Number(loan.principalOutstanding || 0) > 0) list.push("OUTSTANDING_MISMATCH");
-        }
-        return list;
-    }, [loan]);
-
     const canCorrectStatus = isOperator && loan.status === "paid_off" && anomalies.length > 0;
-
-    // ── Status Correction State ───────────────────────────────
-    const [isCorrectStatusDialogOpen, setIsCorrectStatusDialogOpen] = React.useState(false);
-    const [isCorrectingStatus, setIsCorrectingStatus] = React.useState(false);
-    const [correctStatusForm, setCorrectStatusForm] = React.useState({
-        principalPaid: "0",
-        interestPaid: "0",
-        principalOutstanding: "",
-        interestOutstanding: "",
-        reason: "",
-    });
-    const [correctStatusConfirm, setCorrectStatusConfirm] = React.useState("");
 
     const openCorrectStatusDialog = () => {
         const defPrincipalOutstanding = Number(loan.principalAmount) - Number(loan.principalPaid || 0);
