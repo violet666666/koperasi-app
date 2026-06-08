@@ -531,8 +531,11 @@ export async function POST(request: Request) {
                         applicationDate.getMonth() + taskData.selama,
                         1,
                       ),
-                      status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
-                      paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                      // Guard: only mark paid_off if sisaSaldo ≤ 0 AND some payments exist.
+                      // Prevents empty Excel SISA_SALDO (→ cleanNumber → 0) from falsely
+                      // marking a never-paid loan as LUNAS.
+                      status: (taskData.sisaSaldo <= 0 && (taskData.jumlahSd > 0 || taskData.totalBulan >= taskData.selama)) ? "paid_off" : "active",
+                      paidOffDate: (taskData.sisaSaldo <= 0 && (taskData.jumlahSd > 0 || taskData.totalBulan >= taskData.selama)) ? new Date() : null,
                       disbursedById: adminId,
                     },
                   });
@@ -625,8 +628,9 @@ export async function POST(request: Request) {
                         applicationDate.getMonth() + taskData.selama,
                         1,
                       ),
-                      status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
-                      paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                      // Guard: only mark paid_off if sisaSaldo ≤ 0 AND some payments exist
+                      status: (taskData.sisaSaldo <= 0 && (taskData.jumlahSd > 0 || taskData.totalBulan >= taskData.selama)) ? "paid_off" : "active",
+                      paidOffDate: (taskData.sisaSaldo <= 0 && (taskData.jumlahSd > 0 || taskData.totalBulan >= taskData.selama)) ? new Date() : null,
                     },
                   });
 

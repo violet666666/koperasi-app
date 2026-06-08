@@ -298,8 +298,9 @@ export async function POST(request: Request) {
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
-                                        status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
-                                        paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                                        // Guard: only mark paid_off if sisaSaldo ≤ 0 AND some payments exist
+                                        status: (taskData.sisaSaldo <= 0 && (taskData.jumlah > 0 || taskData.terbayar >= taskData.selama)) ? "paid_off" : "active",
+                                        paidOffDate: (taskData.sisaSaldo <= 0 && (taskData.jumlah > 0 || taskData.terbayar >= taskData.selama)) ? new Date() : null,
                                         disbursedById: adminId,
                                     },
                                 });
@@ -498,8 +499,9 @@ export async function POST(request: Request) {
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
-                                        status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
-                                        paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                                        // Guard: only mark paid_off if sisaSaldo ≤ 0 AND some payments exist
+                                        status: (taskData.sisaSaldo <= 0 && (taskData.jumlah > 0 || taskData.terbayar >= taskData.selama)) ? "paid_off" : "active",
+                                        paidOffDate: (taskData.sisaSaldo <= 0 && (taskData.jumlah > 0 || taskData.terbayar >= taskData.selama)) ? new Date() : null,
                                         disbursedById: adminId,
                                     },
                                 });
@@ -556,8 +558,9 @@ export async function POST(request: Request) {
                                         disbursementDate: applicationDate,
                                         firstDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + 1, 1),
                                         lastDueDate: new Date(applicationDate.getFullYear(), applicationDate.getMonth() + taskData.selama, 1),
-                                        status: taskData.sisaSaldo <= 0 ? "paid_off" : "active",
-                                        paidOffDate: taskData.sisaSaldo <= 0 ? new Date() : null,
+                                        // Guard: only mark paid_off if sisaSaldo ≤ 0 AND some payments exist
+                                        status: (taskData.sisaSaldo <= 0 && (updatedPrincipalPaid > 0 || taskData.terbayar >= taskData.selama)) ? "paid_off" : "active",
+                                        paidOffDate: (taskData.sisaSaldo <= 0 && (updatedPrincipalPaid > 0 || taskData.terbayar >= taskData.selama)) ? new Date() : null,
                                     },
                                 });
 
