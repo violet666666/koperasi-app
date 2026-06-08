@@ -155,6 +155,9 @@ export default function RestoKasirPage() {
     const [showModifierDialog, setShowModifierDialog] = React.useState(false);
     const [modifierProduct, setModifierProduct] = React.useState<Product | null>(null);
 
+    // Takeaway surcharge config
+    const [surchargeConfig, setSurchargeConfig] = React.useState<{ enabled: boolean; amountPerItem: number } | null>(null);
+
     React.useEffect(() => {
         async function fetchProducts() {
             setIsLoading(true);
@@ -236,7 +239,13 @@ export default function RestoKasirPage() {
         const modTotal = item.modifierTotal || 0;
         return sum + ((item.product.price + modTotal) * item.quantity);
     }, 0);
-    const change = Number(paymentAmount) - subtotal;
+    const isTakeaway = activeTable?.type === "takeaway";
+    const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const takeawaySurcharge = (isTakeaway && surchargeConfig?.enabled && totalQty > 0)
+        ? totalQty * surchargeConfig.amountPerItem
+        : 0;
+    const grandTotal = subtotal + takeawaySurcharge;
+    const change = Number(paymentAmount) - grandTotal;
 
     const handleModifierConfirm = (selections: ModifierGroupWithSelection[], modifierTotal: number) => {
         if (!modifierProduct || !activeTable) return;
@@ -296,12 +305,26 @@ export default function RestoKasirPage() {
         return () => clearTimeout(timer);
     }, [activeTable?.customerName, selectedMember]);
 
+    // Load takeaway surcharge config
+    React.useEffect(() => {
+        async function loadSurchargeConfig() {
+            try {
+                const res = await fetch("/api/toko/takeaway-surcharge");
+                if (res.ok) {
+                    const json = await res.json();
+                    setSurchargeConfig(json.data);
+                }
+            } catch { /* non-critical */ }
+        }
+        loadSurchargeConfig();
+    }, []);
+
     const processPayment = async (method: "cash" | "qris" | "salary_cut") => {
         if (!activeTable) return;
         if (cart.length === 0) { toast.error("Pesanan kosong"); return; }
         if (shiftOpen === false) { toast.error("Buka shift terlebih dahulu!"); return; }
         // Note: No client-side stock validation for Resto/Cafe — F&B products are always available
-        if (method === "cash" && Number(paymentAmount) < subtotal) { toast.error("Pembayaran kas kurang"); return; }
+        if (method === "cash" && Number(paymentAmount) < grandTotal) { toast.error("Pembayaran kas kurang"); return; }
         if (method === "salary_cut" && !selectedMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 
         setIsProcessing(true);
@@ -340,10 +363,11 @@ export default function RestoKasirPage() {
                         return acc;
                     }, {} as Record<string, any[]>),
                 },
+                ...(isTakeaway && takeawaySurcharge > 0 ? { takeawaySurcharge, takeawaySurchargePerItem: surchargeConfig?.amountPerItem || 0 } : {}),
             };
-            
+
             if (method === "cash") body.cashReceived = Number(paymentAmount);
-            if (method === "qris") body.cashReceived = subtotal;
+            if (method === "qris") body.cashReceived = grandTotal;
             if (method === "salary_cut") body.memberId = selectedMember?.id;
 
             const res = await fetch("/api/toko/sales", {
@@ -386,7 +410,7 @@ export default function RestoKasirPage() {
                 namaAnggota: selectedMember?.name || activeTable.customerName || "Tamu",
                 kesatuan: "-",
                 keterangan: `Restoran / Latar Cafe - ${activeTable.type === "dine_in" ? "Dine In" : "Takeaway"} [${activeTable.label}]`,
-                total: subtotal,
+                total: grandTotal,
                 metode: method === "cash" ? "Tunai" : (method === "qris" ? "QRIS" : "Potong Gaji"),
                 kasir: user?.name || "Kasir Resto",
                 unitType: sessionUnitType,
@@ -398,6 +422,7 @@ export default function RestoKasirPage() {
                         : "";
                     return { name: i.product.name + modLabel, qty: i.quantity, price: unitPrice, subtotal: unitPrice * i.quantity };
                 }),
+                ...(takeawaySurcharge > 0 ? { takeawaySurcharge, takeawaySurchargeQty: totalQty } : {}),
             };
             setLastReceipt(receiptInfo);
             setShowReceipt(true);
@@ -738,10 +763,22 @@ export default function RestoKasirPage() {
                     </CardContent>
                     <div className="shrink-0 bg-white border-t p-4 space-y-4">
                         <div className="flex justify-between items-end">
-                            <span className="text-sm font-semibold text-slate-500">Subtotal</span>
+                            <span className="text-sm font-semibold text-slate-500">{takeawaySurcharge > 0 ? "Subtotal" : "Total"}</span>
                             <span className="text-2xl font-black tracking-tight text-slate-800">{formatCurrency(subtotal)}</span>
                         </div>
-                        
+                        {takeawaySurcharge > 0 && (
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-orange-600 font-medium">Biaya Takeaway ({totalQty} item)</span>
+                                <span className="font-bold text-orange-700">{formatCurrency(takeawaySurcharge)}</span>
+                            </div>
+                        )}
+                        {takeawaySurcharge > 0 && (
+                            <div className="flex justify-between items-end pt-1">
+                                <span className="text-sm font-bold text-slate-600">Total</span>
+                                <span className="text-2xl font-black tracking-tight text-slate-800">{formatCurrency(grandTotal)}</span>
+                            </div>
+                        )}
+
                         <div className="flex gap-2">
                             <Input type="number" placeholder="Tunai Diterima..." className="h-12 text-lg font-mono text-center flex-1"
                                 value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
@@ -750,7 +787,7 @@ export default function RestoKasirPage() {
                                 <Trash2 className="h-5 w-5" />
                             </Button>
                         </div>
-                        {change >= 0 && subtotal > 0 && (
+                        {change >= 0 && grandTotal > 0 && (
                             <p className="text-sm text-emerald-600 font-medium">Kembalian: {formatCurrency(change)}</p>
                         )}
 
@@ -948,6 +985,7 @@ export default function RestoKasirPage() {
                                             tableNo: activeTable.label,
                                             orderType: activeTable.type,
                                             shiftId: activeShiftId || undefined,
+                                            ...(isTakeaway && takeawaySurcharge > 0 ? { takeawaySurcharge, takeawaySurchargePerItem: surchargeConfig?.amountPerItem || 0 } : {}),
                                         }),
                                     });
                                     const json = await res.json();

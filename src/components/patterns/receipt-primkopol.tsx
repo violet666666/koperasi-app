@@ -18,6 +18,8 @@ export interface ReceiptData {
     unitType?: string;
     isVoid?: boolean;
     items?: Array<{ name: string; qty: number; price: number; subtotal: number }>;
+    takeawaySurcharge?: number;
+    takeawaySurchargeQty?: number;
 }
 
 interface ReceiptPrimkopolProps {
@@ -212,6 +214,14 @@ export function ReceiptPrimkopol({
                 )}
 
                 <div className="divider" />
+
+                {/* Takeaway surcharge */}
+                {data.takeawaySurcharge != null && data.takeawaySurcharge > 0 && data.takeawaySurchargeQty && (
+                    <div className="row" style={{ fontSize: '10px' }}>
+                        <span>Biaya Takeaway ({data.takeawaySurchargeQty})</span>
+                        <span>{formatRupiah(data.takeawaySurcharge)}</span>
+                    </div>
+                )}
 
                 {/* Total */}
                 <div className="row bold">
