@@ -52,6 +52,8 @@ import {
     Dumbbell,
     Store,
     UtensilsCrossed,
+    Utensils,
+    Coffee,
     Shirt,
     AlertCircle,
     ShieldX,
@@ -124,6 +126,12 @@ interface LaporanSummary {
     tunai: number;
     qris: number;
     potongGaji: number;
+    dineIn: number;
+    takeaway: number;
+    counter: number;
+    dineInCount: number;
+    takeawayCount: number;
+    counterCount: number;
     totalPengeluaran: number;
     totalPemasukan: number;
     potonganSHUMember: number;
@@ -938,6 +946,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
     const isCuciMobil = unitType === "cuci_mobil";
+    const isRestoUnit = ["resto", "resto_cafe", "coffe_latar", "cafe_lsp"].includes(unitType);
     const bagiHasilKaryawan = isCuciMobil && summary ? Math.floor(summary.totalPendapatan * 0.5) : 0;
     const bagianKoperasiKotor = isCuciMobil && summary ? summary.totalPendapatan - bagiHasilKaryawan : 0;
     const potonganSHU = isCuciMobil && summary ? summary.potonganSHUMember : 0;
@@ -1164,6 +1173,37 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <div>
                                 <p className="text-xs text-muted-foreground">Potong Gaji (Piutang)</p>
                                 <p className="font-bold">{formatCurrency(summary.potongGaji)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── Dine-In vs Takeaway Breakdown (F&B units only) ───────────── */}
+            {summary && !isLoading && isRestoUnit && (summary.dineIn > 0 || summary.takeaway > 0) && (
+                <Card className="print:hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Rincian Dine-In vs Takeaway</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-50 border border-sky-200">
+                            <div className="rounded-lg bg-sky-100 p-2 text-sky-600">
+                                <Utensils className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Dine In</p>
+                                <p className="font-bold text-sky-700">{formatCurrency(summary.dineIn)}</p>
+                                <p className="text-[10px] text-muted-foreground">{summary.dineInCount} nota</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 border border-orange-200">
+                            <div className="rounded-lg bg-orange-100 p-2 text-orange-600">
+                                <Coffee className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Takeaway</p>
+                                <p className="font-bold text-orange-700">{formatCurrency(summary.takeaway)}</p>
+                                <p className="text-[10px] text-muted-foreground">{summary.takeawayCount} nota</p>
                             </div>
                         </div>
                     </CardContent>

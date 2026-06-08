@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { unitTransactionsApi, type UnitTransaction } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car, ChevronDown, ChevronRight, Eye, Receipt, Package, Tag, User, Clock, CreditCard, AlertTriangle, ShoppingBag, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { Plus, Download, FileText, XCircle, Pencil, Search, Loader2, Printer, Car, ChevronDown, ChevronRight, Eye, Receipt, Package, Tag, User, Clock, CreditCard, AlertTriangle, ShoppingBag, ChevronsUpDown, ChevronUp, Utensils } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +45,8 @@ type EnrichedTransaction = UnitTransaction & {
     customerName?: string | null;
     cashReceived?: number | null;
     changeAmount?: number | null;
+    orderType?: string | null;
+    tableNo?: string | null;
     voidReason?: string | null;
     voidRequestedAt?: string | null;
     voidRequestedBy?: string | null;
@@ -63,6 +65,8 @@ const txExportColumns: ExportColumn[] = [
     { header: "Anggota", key: "member.name", width: 25 },
     { header: "NRP", key: "member.nrp", width: 12 },
     { header: "Unit", key: "unitType", width: 15 },
+    { header: "Jenis Order", key: "orderType", width: 14, format: (v) => v === "dine_in" ? "Dine In" : v === "takeaway" ? "Takeaway" : v === "counter" ? "Counter" : "-" },
+    { header: "No. Meja", key: "tableNo", width: 12, format: (v) => v || "-" },
     { header: "Plat Nomor", key: "notes", width: 14, format: (v) => parsePlat(v as string) || "-" },
     { header: "Keterangan", key: "description", width: 30 },
     { header: "Nominal", key: "amount", width: 18, format: (v) => formatCurrency(Number(v || 0)) },
@@ -502,6 +506,11 @@ export default function RiwayatTransaksiUnitPage() {
                         return (
                             <div className="flex flex-col gap-1">
                                 <Badge variant="outline" className={`text-[10px] w-fit ${getPaymentColor(tx.paymentMethod)}`}>{getPaymentLabel(tx.paymentMethod)}</Badge>
+                                {tx.orderType && (
+                                    <Badge variant="outline" className={`text-[10px] w-fit ${tx.orderType === "takeaway" ? "border-orange-300 text-orange-700" : tx.orderType === "counter" ? "border-purple-300 text-purple-700" : "border-sky-300 text-sky-700"}`}>
+                                        {tx.orderType === "dine_in" ? `Dine In${tx.tableNo ? ` • ${tx.tableNo}` : ""}` : tx.orderType === "takeaway" ? "Takeaway" : tx.orderType === "counter" ? "Counter" : tx.orderType}
+                                    </Badge>
+                                )}
                                 {renderStatus(tx)}
                             </div>
                         );
@@ -1038,6 +1047,14 @@ export default function RiwayatTransaksiUnitPage() {
                                     <p className="text-xs text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3" /> Metode Bayar</p>
                                     <Badge variant="outline" className={`text-xs ${getPaymentColor(detailTx.paymentMethod)}`}>{getPaymentLabel(detailTx.paymentMethod)}</Badge>
                                 </div>
+                                {detailTx.orderType && (
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1"><Utensils className="h-3 w-3" /> Jenis Order</p>
+                                        <Badge variant="outline" className={`text-xs ${detailTx.orderType === "takeaway" ? "border-orange-300 text-orange-700" : detailTx.orderType === "counter" ? "border-purple-300 text-purple-700" : "border-sky-300 text-sky-700"}`}>
+                                            {detailTx.orderType === "dine_in" ? `Dine In${detailTx.tableNo ? ` — ${detailTx.tableNo}` : ""}` : detailTx.orderType === "takeaway" ? "Takeaway" : detailTx.orderType === "counter" ? "Counter" : detailTx.orderType}
+                                        </Badge>
+                                    </div>
+                                )}
                                 <div className="space-y-1">
                                     <p className="text-xs text-muted-foreground flex items-center gap-1">Status</p>
                                     {(() => {

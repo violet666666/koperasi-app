@@ -354,6 +354,31 @@ export default function RestoKasirPage() {
 
             toast.success(`Bill Meja ${activeTable.label} Lunas!`);
 
+            // Send order to kitchen display (fire-and-forget)
+            try {
+                const isDineIn = activeTable.type === "dine_in";
+                const tableNumMatch = activeTable.label.match(/(\d+)/);
+                await fetch("/api/kitchen-orders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        unitType: "resto",
+                        orderType: activeTable.type,
+                        saleId: json.data.id || null,
+                        tableNumber: isDineIn && tableNumMatch ? parseInt(tableNumMatch[1]) : null,
+                        queueNumber: isDineIn ? null : activeTable.label.replace("Takeaway ", "T-"),
+                        items: cart.map(i => ({
+                            name: i.product.name,
+                            qty: i.quantity,
+                            notes: i.notes || undefined,
+                        })),
+                        notes: null,
+                    }),
+                });
+            } catch (kitchenErr) {
+                console.warn("[RestoPOS] Kitchen order failed (non-fatal):", kitchenErr);
+            }
+
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.saleNo,
                 tanggal: new Date().toLocaleString("id-ID"),
@@ -552,10 +577,28 @@ export default function RestoKasirPage() {
                             </div>
                         )}
                     </div>
-                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0" disabled={cart.length === 0} onClick={() => {
+                    <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0" disabled={cart.length === 0} onClick={async () => {
                         if (cart.length === 0) { toast.error("Pesanan kosong, tidak ada yang dicetak ke dapur."); return; }
                         const kotItems = cart.map(i => `${i.quantity}x ${i.product.name}${i.notes ? ` (${i.notes})` : ""}`).join(", ");
-                        toast.success(`KOT Dapur dicatat — ${cart.length} item: ${kotItems}`);
+                        try {
+                            const isDineIn = activeTable.type === "dine_in";
+                            const tableNumMatch = activeTable.label.match(/(\d+)/);
+                            await fetch("/api/kitchen-orders", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    unitType: "resto",
+                                    orderType: activeTable.type,
+                                    tableNumber: isDineIn && tableNumMatch ? parseInt(tableNumMatch[1]) : null,
+                                    queueNumber: isDineIn ? null : activeTable.label.replace("Takeaway ", "T-"),
+                                    items: cart.map(i => ({ name: i.product.name, qty: i.quantity, notes: i.notes || undefined })),
+                                    notes: null,
+                                }),
+                            });
+                            toast.success(`KOT Dapur dikirim — ${cart.length} item: ${kotItems}`);
+                        } catch {
+                            toast.success(`KOT Dapur dicatat — ${cart.length} item: ${kotItems}`);
+                        }
                     }}><Printer className="h-4 w-4 mr-2" /> KOT Dapur</Button>
                 </div>
             </div>
@@ -903,6 +946,7 @@ export default function RestoKasirPage() {
                                             shiftUnitType: sessionUnitType,
                                             customerName: activeTable.customerName || "Tamu",
                                             tableNo: activeTable.label,
+                                            orderType: activeTable.type,
                                             shiftId: activeShiftId || undefined,
                                         }),
                                     });

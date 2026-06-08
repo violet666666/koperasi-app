@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { formatOrderLabel, formatElapsed } from "@/lib/kds";
+import { formatOrderLabel, formatElapsed, getOrderTypeStyle } from "@/lib/kds";
 
 interface KitchenOrder {
     id: string;
     unitType: string;
+    orderType: string | null;
     tableNumber: number | null;
     queueNumber: string | null;
     status: string;
@@ -101,57 +102,65 @@ export default function KDSPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                    {activeOrders.map((order) => (
-                        <div
-                            key={order.id}
-                            className={`border-2 rounded-xl p-3 sm:p-4 shadow-sm ${STATUS_COLORS[order.status]}`}
-                        >
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-lg font-bold">
-                                    {formatOrderLabel(order)}
-                                </span>
-                                <span className="text-xs px-2 py-1 rounded-full bg-white/60">
-                                    {STATUS_LABELS[order.status]}
-                                </span>
-                            </div>
-
-                            <div className="space-y-1 mb-3">
-                                {order.items.map((item, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-sm">
-                                        <span className="font-mono font-bold text-base">
-                                            {item.qty}x
+                    {activeOrders.map((order) => {
+                        const typeStyle = getOrderTypeStyle(order.orderType);
+                        return (
+                            <div
+                                key={order.id}
+                                className={`border-2 rounded-xl p-3 sm:p-4 shadow-sm ${STATUS_COLORS[order.status]} ${typeStyle.border}`}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg font-bold">
+                                            {formatOrderLabel(order)}
                                         </span>
-                                        <span>{item.name}</span>
-                                        {item.notes && (
-                                            <span className="text-xs opacity-75 italic">
-                                                ({item.notes})
-                                            </span>
-                                        )}
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${typeStyle.badge}`}>
+                                            {typeStyle.label}
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-white/60">
+                                        {STATUS_LABELS[order.status]}
+                                    </span>
+                                </div>
 
-                            {order.notes && (
-                                <p className="text-xs italic opacity-75 mb-2">Catatan: {order.notes}</p>
-                            )}
+                                <div className="space-y-1 mb-3">
+                                    {order.items.map((item, i) => (
+                                        <div key={i} className="flex items-center gap-2 text-sm">
+                                            <span className="font-mono font-bold text-base">
+                                                {item.qty}x
+                                            </span>
+                                            <span>{item.name}</span>
+                                            {item.notes && (
+                                                <span className="text-xs opacity-75 italic">
+                                                    ({item.notes})
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
 
-                            <div className="flex items-center justify-between mt-3 pt-2 border-t border-black/10">
-                                <span className="text-xs opacity-75">
-                                    {formatElapsed(new Date(order.createdAt), now)}
-                                </span>
-                                {NEXT_ACTION[order.status] && (
-                                    <button
-                                        onClick={() =>
-                                            updateStatus(order.id, NEXT_ACTION[order.status].status)
-                                        }
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${NEXT_ACTION[order.status].color}`}
-                                    >
-                                        {NEXT_ACTION[order.status].label}
-                                    </button>
+                                {order.notes && (
+                                    <p className="text-xs italic opacity-75 mb-2">Catatan: {order.notes}</p>
                                 )}
+
+                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-black/10">
+                                    <span className="text-xs opacity-75">
+                                        {formatElapsed(new Date(order.createdAt), now)}
+                                    </span>
+                                    {NEXT_ACTION[order.status] && (
+                                        <button
+                                            onClick={() =>
+                                                updateStatus(order.id, NEXT_ACTION[order.status].status)
+                                            }
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${NEXT_ACTION[order.status].color}`}
+                                        >
+                                            {NEXT_ACTION[order.status].label}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -161,14 +170,17 @@ export default function KDSPage() {
                         Baru Disajikan
                     </h2>
                     <div className="flex gap-2 flex-wrap">
-                        {servedOrders.map((order) => (
-                            <span
-                                key={order.id}
-                                className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-sm"
-                            >
-                                {formatOrderLabel(order)}
-                            </span>
-                        ))}
+                        {servedOrders.map((order) => {
+                            const typeStyle = getOrderTypeStyle(order.orderType);
+                            return (
+                                <span
+                                    key={order.id}
+                                    className={`px-3 py-1 rounded-full text-sm border ${typeStyle.badge}`}
+                                >
+                                    {formatOrderLabel(order)}
+                                </span>
+                            );
+                        })}
                     </div>
                 </div>
             )}

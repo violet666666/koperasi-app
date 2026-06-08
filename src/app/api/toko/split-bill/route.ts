@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { items, payments, unitType, customerName, tableNo, shiftId: reqShiftId, memberId, splitGroupId: existingGroupId, metadata: reqMetadata } = body;
+        const { items, payments, unitType, customerName, tableNo, orderType, shiftId: reqShiftId, memberId, splitGroupId: existingGroupId, metadata: reqMetadata } = body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json({ message: "items required" }, { status: 400 });
@@ -261,7 +261,8 @@ export async function POST(req: Request) {
                 const saleMetadata: any = {
                     splitGroupId: groupId,
                     splitPaymentMethod: method,
-                    orderType: tableNo ? "dine_in" : "takeaway",
+                    // orderType: explicit from client > metadata > fallback inference from tableNo
+                    orderType: orderType || reqMetadata?.orderType || (tableNo && !tableNo.toLowerCase().includes("takeaway") ? "dine_in" : "takeaway"),
                     ...(reqMetadata || {}),
                 };
                 if (tableNo) saleMetadata.tableNo = tableNo;

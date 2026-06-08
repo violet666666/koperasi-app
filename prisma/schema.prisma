@@ -1347,6 +1347,7 @@ model KitchenOrder {
   id              String    @id @default(cuid())
   unitType        String    @map("unit_type") // "resto", "cafe_lsp", "resto_cafe", "coffe_latar"
   saleId          String?   @map("sale_id")   // link to StoreSale (set after checkout)
+  orderType       String?   @default("dine_in") @map("order_type") // dine_in | takeaway | counter
   tableNumber     Int?      @map("table_number")
   queueNumber     String?   @map("queue_number")
   status          String    @default("pending") // pending | preparing | ready | served

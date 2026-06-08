@@ -61,6 +61,8 @@ Unit Resto & Cafe (Latar) — dine-in + takeaway. Kasir kelola denah meja dinami
 | Fitur | Status |
 |---|---|
 | Denah meja dinamis + takeaway | ✅ |
+| Dine-in vs Takeaway diff (KDS, Riwayat, Laporan) | ✅ |
+| Kitchen Order Ticket (KOT) → Kitchen Display | ✅ |
 | Grid menu visual + filter kategori | ✅ |
 | Keranjang per meja + qty +/- | ✅ |
 | Notes per item (max 60 char) | ✅ |
@@ -161,6 +163,13 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 
 ## Changelog
 
+- **9 Jun 2026** — **Dine-in vs Takeaway differentiation (6 files):**
+  1. Schema: Add `orderType` (dine_in/takeaway/counter) column to `KitchenOrder` model.
+  2. KDS: Fix `formatOrderLabel()` — takeaway shows queue number, not "Meja null". Fix `validateKitchenOrder()` — only require tableNumber for dine_in, not takeaway. Add `getOrderTypeStyle()` for visual distinction (sky=dine-in, orange=takeaway, purple=counter).
+  3. POS: Checkout now sends KitchenOrder to `/api/kitchen-orders` API (fire-and-forget). KOT button actually calls kitchen-orders API instead of just showing toast.
+  4. Split-bill: Fix `orderType` inference — use explicit `orderType` from request body, fallback to smart tableNo check.
+  5. Riwayat: Show orderType badge (Dine In/Takeaway) in column + detail dialog + Excel export.
+  6. Laporan: Add "Rincian Dine-In vs Takeaway" breakdown card for F&B units with revenue per type.
 - **8 Jun 2026** — **7 fix major:**
   1. Fix "Produk bukan milik unit" across 13 API files: all `unitType !==` exact matches replaced with `isSameUnit()` alias-aware comparison. Security: `isSameUnit()` fail-closed (null → false).
   2. Fix menu baru tersimpan `"resto_cafe"`: tambah `normalizeUnitType()` di POST `/api/toko/products` — DB selalu simpan bentuk kanonikal `"resto"`.

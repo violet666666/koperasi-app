@@ -68,6 +68,7 @@ export async function POST(req: Request) {
         const order = await prisma.kitchenOrder.create({
             data: {
                 unitType: body.unitType,
+                orderType: body.orderType || "dine_in",
                 saleId: body.saleId || null,
                 tableNumber: body.tableNumber || null,
                 queueNumber: body.queueNumber || null,

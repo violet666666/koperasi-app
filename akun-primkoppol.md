@@ -4,13 +4,21 @@
 >
 > Gunakan Railway deploy hanya untuk final verification setelah local test lolos.
 
+PASTIKAN ANDA MENGGUNAKAN AKUN TESTING YANG SESUAI !!
+
+GUNAKAN AKUN OPERATOR UNTUK FITUR OPERATOR !
+
+GUNAKAN AKUN ADMIN UNIT UNTUK FITUR ADMIN UNIT !
+
+GUNAKAN AKUN KASIR UNTUK FITUR KASIR !
+
 | Email | Password | Role | Unit | Keterangan |
 |-------|----------|------|------|------------|
 | **Testing Lokal (`npm run dev` → `localhost:3000`)** | | | | |
-| operator@koperasi.com | password123 | operator | — | Akses penuh semua fitur (manage_all) |
-| admintoko@koperasi.com | KHUSUADMIN | admin | toko | Admin unit toko |
-| admincafe@koperasi.com | password123 | admin | resto_cafe | Admin unit Resto & Cafe (Latar) |
-| admincafelsp@koperasi.com | password123 | admin | cafe_lsp | Admin unit Cafe LSP |
+| <operator@koperasi.com> | password123 | operator | — | Akses penuh semua fitur (manage_all) |
+| <admintoko@koperasi.com> | KHUSUADMIN | admin | toko | Admin unit toko |
+| <admincafe@koperasi.com> | password123 | admin | resto_cafe | Admin unit Resto & Cafe (Latar) |
+| <admincafelsp@koperasi.com> | password123 | admin | cafe_lsp | Admin unit Cafe LSP |
 
 | **Production (`www.primkoppol.site`)** | | | | |
 

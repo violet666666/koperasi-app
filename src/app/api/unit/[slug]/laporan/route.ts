@@ -234,8 +234,14 @@ export async function GET(
                 if (sale.paymentMethod === "cash") acc.tunai += amount;
                 else if (sale.paymentMethod === "qris") acc.qris += amount;
                 else if (sale.paymentMethod === "salary_cut") acc.potongGaji += amount;
+                // Dine-in vs takeaway breakdown (from metadata)
+                const meta = typeof sale.metadata === "string" ? JSON.parse(sale.metadata) : sale.metadata || {};
+                const orderType = (meta as Record<string, unknown>).orderType as string || "dine_in";
+                if (orderType === "takeaway") { acc.takeaway += amount; acc.takeawayCount += 1; }
+                else if (orderType === "counter") { acc.counter += amount; acc.counterCount += 1; }
+                else { acc.dineIn += amount; acc.dineInCount += 1; }
                 return acc;
-            }, { total: 0, count: 0, tunai: 0, qris: 0, potongGaji: 0 });
+            }, { total: 0, count: 0, tunai: 0, qris: 0, potongGaji: 0, dineIn: 0, takeaway: 0, counter: 0, dineInCount: 0, takeawayCount: 0, counterCount: 0 });
         };
 
         const unitTxAgg = aggregateUnitTx(unitTransactions);
@@ -359,6 +365,13 @@ export async function GET(
                     tunai: (usesStoreSales ? storeSaleAgg.tunai : 0) + unitTxAgg.tunai,
                     qris: (usesStoreSales ? storeSaleAgg.qris : 0) + unitTxAgg.qris,
                     potongGaji: (usesStoreSales ? storeSaleAgg.potongGaji : 0) + unitTxAgg.potongGaji,
+                    // Dine-in vs takeaway breakdown
+                    dineIn: usesStoreSales ? storeSaleAgg.dineIn : 0,
+                    takeaway: usesStoreSales ? storeSaleAgg.takeaway : 0,
+                    counter: usesStoreSales ? storeSaleAgg.counter : 0,
+                    dineInCount: usesStoreSales ? storeSaleAgg.dineInCount : 0,
+                    takeawayCount: usesStoreSales ? storeSaleAgg.takeawayCount : 0,
+                    counterCount: usesStoreSales ? storeSaleAgg.counterCount : 0,
                     totalPengeluaran: totalExpenses,
                     totalPemasukan: totalOpIncome, // Pemasukan manual di luar POS
                     // Potongan SHU Langsung (khusus cuci_mobil)

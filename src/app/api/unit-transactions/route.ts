@@ -23,6 +23,9 @@ function mapStoreSale(s: Record<string, unknown>) {
 
     const effectiveStatus = isVoided ? "voided" : isVoidPending ? "pending_void" : "completed";
 
+    const orderType = (metadataObj as Record<string, unknown>).orderType as string | null || null;
+    const tableNo = (metadataObj as Record<string, unknown>).tableNo as string | null || null;
+
     return {
         id: (s.id as number) + 1000000,
         transactionNo: s.saleNo,
@@ -38,6 +41,8 @@ function mapStoreSale(s: Record<string, unknown>) {
         changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
         notes: `Total Item: ${items.length}`,
         status: effectiveStatus,
+        orderType,
+        tableNo,
         voidReason,
         voidRequestedAt,
         voidRequestedBy,

@@ -129,7 +129,21 @@
       "Bash(wc -l CLAUDE.md)",
       "Bash(head -50 CLAUDE.md)",
       "Bash(ls .env.example)",
-      "Bash(cat .env.example)"
+      "Bash(cat .env.example)",
+      "PowerShell(npm list *)",
+      "Bash(Select-Object -First 40)",
+      "PowerShell(git *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(findstr LISTENING)",
+      "Bash(npx playwright *)",
+      "Bash(dir /s /b \"src\\\\app\\\\\\(protected\\)\\\\toko\\\\produk\\\\page.tsx\" \"src\\\\app\\\\api\\\\toko\\\\products\\\\route.ts\" \"src\\\\app\\\\api\\\\toko\\\\products\\\\[id]\\\\route.ts\")",
+      "Bash(Remove-Item *)",
+      "Bash(taskkill //F //IM chrome.exe)",
+      "Bash(git *)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(where gh *)",
+      "Bash(timeout 180 bash *)"
     ]
   },
   "enabledPlugins": {
