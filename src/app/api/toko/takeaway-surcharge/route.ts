@@ -25,8 +25,14 @@ export async function GET() {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
         }
 
-        const setting = await prisma.appSetting.findUnique({ where: { key: SETTING_KEY } });
-        const config = setting ? JSON.parse(setting.value) : DEFAULT_CONFIG;
+        let setting = await prisma.appSetting.findUnique({ where: { key: SETTING_KEY } });
+        if (!setting) {
+            // Auto-seed default config so sales API always finds it
+            setting = await prisma.appSetting.create({
+                data: { key: SETTING_KEY, value: JSON.stringify(DEFAULT_CONFIG), label: "Biaya Takeaway Resto" },
+            });
+        }
+        const config = JSON.parse(setting.value);
         return NextResponse.json({ data: config });
     } catch (error) {
         console.error("[TakeawaySurcharge] GET error:", error);
