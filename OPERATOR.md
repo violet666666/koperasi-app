@@ -1,7 +1,7 @@
 # Operator Role — Audit & Documentation
 
 > Role: `operator` | Permission: `manage_all` | Deskripsi: Super Admin sistem
-> Branch: `railway-migration` | Updated: 2 Juni 2026
+> Branch: `railway-migration` | Updated: 9 Juni 2026
 
 ---
 
@@ -25,6 +25,10 @@ Operator memiliki akses **penuh** ke seluruh sidebar. Mekanisme: `manage_all` pe
 | Menu | Route | Anak |
 |------|-------|------|
 | Tagihan Piutang | `/tagihan` | Rekap Piutang, Riwayat Tagihan |
+
+**Billing Lifecycle:** `Draft` → (settle semua) → `Diproses` (= final/selesai). Draft bisa partial settle per anggota. "Diproses" = semua lunas, uang masuk kas/bank, tidak bisa di-toggle lagi. Hapus = reverse semua isPaid.
+
+**Status di Riwayat:** Setelah settle, transaksi salary_cut berubah: badge "LUNAS" (hijau), keterangan "(Potong Gaji - Lunas)" / "(Potong Gaji ✓ Lunas)" di portal anggota. Mekanisme: `StoreSale.metadata.isSettled = true`.
 
 ### AKUNTANSI (operator + admin)
 | Menu | Route | Anak |
@@ -172,8 +176,10 @@ if (user.permissions.includes("manage_all")) return; // bypasses all guards
 | `prisma/seed-staging.ts` | Role + permission seed data |
 | `src/lib/services/shu-calculator.ts` | SHU calculator — income merge + 3-group categorization + CB income merge |
 | `src/lib/export-utils.ts` | PDF generator + Excel export (piutang, kwitansi, dll) |
-| `src/app/api/admin/migrate/route.ts` | Migration endpoint (DB schema sync) |
+| `src/app/api/admin/migrate/route.ts` | Migration endpoint (DB schema sync + StoreSale isSettled backfill) |
 | `src/app/api/billing/generate/route.ts` | Billing period generation + custom dates |
+| `src/app/api/billing/[periodId]/process/route.ts` | Billing settlement: mark items paid, update source UT + StoreSale, create CashBank |
+| `src/app/api/member-portal/transactions/route.ts` | Member portal transaction history (unit/savings/loan) with isSettled check |
 | `src/app/api/reports/shu/detail-transactions/route.ts` | SHU detail API — flat paginated transaction list (auth guarded) |
 | `src/app/(protected)/laporan/shu/_components/shu-detail-dialog.tsx` | SHU dialog — 3 tab (Ringkasan, Transaksi, Kalkulasi) |
 | `src/app/(protected)/laporan/shu/_components/shu-sp-monthly-tab.tsx` | SP monthly breakdown tab |
@@ -216,6 +222,9 @@ if (user.permissions.includes("manage_all")) return; // bypasses all guards
 | 1 | Pendapatan Toko Restore | `pendapatan_toko` dihapus dari DIRECT_QUERY_CATEGORIES & NON_INCOME_CATEGORIES |
 | 1 | Exclude Pendapatan/Beban Lainnya | `lainnya` + `biaya_operasional` type=in ditambahkan ke blacklist. SHU hanya hitung Unit + SP income |
 | 1 | Voided Income Fix | 30 voided CB (Rp 3.02M) diexclude dari SHU income via void exclusion query |
+| 9 | Print Nota Encoding Fix | `Intl.NumberFormat` currency style sisipkan U+00A0 NBSP → karakter Rusia di print window. Fix: `formatRupiah()` ASCII-only + `<meta charset="utf-8">` di 6 file |
+| 9 | Takeaway Surcharge | Resto: tambahan Rp 1.000/item untuk takeaway. Config via `AppSetting`, auto-seed default, validasi server, receipt, riwayat, laporan |
+| 9 | Billing Settlement Status Fix (CRITICAL) | 3-layer fix: billing settle tidak update StoreSale → riwayat & portal selalu "BELUM LUNAS". Fix: `StoreSale.metadata.isSettled` pattern + linked StoreSale via saleNo + portal fix + migration backfill 122 records |
 
 ### Test Accounts (Production)
 
@@ -250,4 +259,4 @@ if (user.permissions.includes("manage_all")) return; // bypasses all guards
 15. Review loan operator-only endpoints — tambahkan `admin_sp`
 16. Standardize `superadmin` → hapus sisa di unit packages & mobile API
 
-*Diperbarui: 2 Juni 2026*
+*Diperbarui: 9 Juni 2026*
