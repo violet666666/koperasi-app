@@ -68,6 +68,7 @@ export async function DELETE(
     const hasPaidItems = period.billingItems.some((i) => i.isMarkedPaid);
     if (period.status === "processed" || hasPaidItems) {
       await prisma.$transaction(async (tx) => {
+        const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
         for (const item of period.billingItems) {
           if (!item.isMarkedPaid) continue;
           if (item.transactionSource === "unit_transaction" && item.transactionId) {
@@ -75,6 +76,25 @@ export async function DELETE(
               where: { id: item.transactionId },
               data: { isPaid: false, paidDate: null },
             });
+            // Also reverse linked StoreSale isSettled
+            const match = item.description?.match(SALE_NO_RE);
+            if (match) {
+              const saleNo = match[1];
+              const linkedSale = await tx.storeSale.findUnique({
+                where: { saleNo },
+                select: { id: true, metadata: true },
+              });
+              if (linkedSale) {
+                const meta = (typeof linkedSale.metadata === "string"
+                  ? JSON.parse(linkedSale.metadata)
+                  : linkedSale.metadata ?? {}) as Record<string, unknown>;
+                const { isSettled, settledAt, ...rest } = meta;
+                await tx.storeSale.update({
+                  where: { id: linkedSale.id },
+                  data: { metadata: rest },
+                });
+              }
+            }
           } else if (item.transactionSource === "store_sale" && item.transactionId) {
             // Reverse isSettled in StoreSale metadata
             const sale = await tx.storeSale.findUnique({

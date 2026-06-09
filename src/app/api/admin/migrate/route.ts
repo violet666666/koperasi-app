@@ -222,6 +222,49 @@ export async function POST(request: Request) {
             results.push("loan_payments void fields already exist");
         }
 
+        // ── Backfill StoreSale.isSettled for already-processed billing periods ──
+        // When billing was settled before the isSettled fix, the UnitTransaction piutang
+        // was marked isPaid=true but the linked StoreSale was NOT marked isSettled.
+        // This backfill finds settled UTs with saleNo in description and marks the StoreSale.
+        try {
+            const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
+            const settledUTs = await prisma.unitTransaction.findMany({
+                where: {
+                    isPaid: true,
+                    paymentMethod: "salary_cut",
+                    status: "completed",
+                },
+                select: { id: true, description: true },
+            });
+            let backfillCount = 0;
+            const settledAt = new Date().toISOString();
+            for (const ut of settledUTs) {
+                const match = ut.description?.match(SALE_NO_RE);
+                if (!match) continue;
+                const saleNo = match[1];
+                const sale = await prisma.storeSale.findUnique({
+                    where: { saleNo },
+                    select: { id: true, metadata: true },
+                });
+                if (sale) {
+                    const meta = (typeof sale.metadata === "string"
+                        ? JSON.parse(sale.metadata)
+                        : sale.metadata ?? {}) as Record<string, unknown>;
+                    if (!meta.isSettled) {
+                        await prisma.storeSale.update({
+                            where: { id: sale.id },
+                            data: { metadata: { ...meta, isSettled: true, settledAt } },
+                        });
+                        backfillCount++;
+                    }
+                }
+            }
+            results.push(`Backfilled isSettled for ${backfillCount} StoreSales linked to settled UTs (${settledUTs.length} UTs scanned)`);
+        } catch (backfillError) {
+            const msg = backfillError instanceof Error ? backfillError.message : "Unknown error";
+            results.push(`StoreSale isSettled backfill skipped: ${msg}`);
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

@@ -137,6 +137,9 @@ export async function GET(request: Request) {
                 .map((s: any) => {
                     const itemDesc = s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ');
                     const paymentLabels: Record<string, string> = { cash: "Tunai", qris: "QRIS", salary_cut: "Potong Gaji" };
+                    // salary_cut sales are "unpaid" until billing settlement marks them isSettled
+                    const isSettled = s.metadata?.isSettled === true;
+                    const effectiveIsPaid = s.paymentMethod === "salary_cut" ? isSettled : true;
                     return {
                         id: `SS-${s.id}`,
                         saleId: s.id,
@@ -145,9 +148,12 @@ export async function GET(request: Request) {
                         description: itemDesc || `Pembelian ${s.unitType || "Toko"} PRIMKOPPOL`,
                         amount: Number(s.totalAmount),
                         paymentMethod: s.paymentMethod,
-                        paymentMethodLabel: paymentLabels[s.paymentMethod] || s.paymentMethod,
+                        paymentMethodLabel: s.paymentMethod === "salary_cut"
+                            ? (isSettled ? "Potong Gaji ✓ Lunas" : "Potong Gaji")
+                            : (paymentLabels[s.paymentMethod] || s.paymentMethod),
                         transactionDate: s.createdAt,
-                        isPaid: s.paymentMethod !== "salary_cut",
+                        isPaid: effectiveIsPaid,
+                        paidDate: effectiveIsPaid ? (isSettled && s.metadata?.settledAt ? s.metadata.settledAt : s.createdAt) : null,
                         category: "unit",
                         status: "completed",
                         cashierDisplayName: s.cashierIdentity?.displayName || null,

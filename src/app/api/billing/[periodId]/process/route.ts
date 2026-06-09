@@ -60,12 +60,36 @@ export async function POST(
       });
 
       // 2. Update source transactions for ALL items being settled
+      // SaleNo pattern to find linked StoreSales from UnitTransaction descriptions
+      const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
+      const settledAt = new Date().toISOString();
+
       for (const item of itemsToSettle) {
         if (item.transactionSource === "unit_transaction" && item.transactionId) {
           await tx.unitTransaction.update({
             where: { id: item.transactionId },
             data: { isPaid: true, paidDate: new Date() },
           });
+          // Also mark the linked StoreSale as settled (riwayat shows StoreSale, not the UT piutang)
+          const match = item.description?.match(SALE_NO_RE);
+          if (match) {
+            const saleNo = match[1];
+            const linkedSale = await tx.storeSale.findUnique({
+              where: { saleNo },
+              select: { id: true, metadata: true },
+            });
+            if (linkedSale) {
+              const meta = (typeof linkedSale.metadata === "string"
+                ? JSON.parse(linkedSale.metadata)
+                : linkedSale.metadata ?? {}) as Record<string, unknown>;
+              if (!meta.isSettled) {
+                await tx.storeSale.update({
+                  where: { id: linkedSale.id },
+                  data: { metadata: { ...meta, isSettled: true, settledAt } },
+                });
+              }
+            }
+          }
         } else if (item.transactionSource === "store_sale" && item.transactionId) {
           // Mark StoreSale as settled via metadata (StoreSale has no isPaid column)
           const sale = await tx.storeSale.findUnique({
@@ -78,7 +102,7 @@ export async function POST(
               : sale.metadata ?? {}) as Record<string, unknown>;
             await tx.storeSale.update({
               where: { id: item.transactionId },
-              data: { metadata: { ...meta, isSettled: true, settledAt: new Date().toISOString() } },
+              data: { metadata: { ...meta, isSettled: true, settledAt } },
             });
           }
         }
