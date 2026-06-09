@@ -143,7 +143,9 @@
       "Bash(git *)",
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(where gh *)",
-      "Bash(timeout 180 bash *)"
+      "Bash(timeout 180 bash *)",
+      "Bash(findstr /n \".\")",
+      "Bash(findstr \"^[1-5]:\")"
     ]
   },
   "enabledPlugins": {

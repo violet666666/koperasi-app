@@ -69,11 +69,28 @@ export async function DELETE(
     if (period.status === "processed" || hasPaidItems) {
       await prisma.$transaction(async (tx) => {
         for (const item of period.billingItems) {
-          if (item.isMarkedPaid && item.transactionSource === "unit_transaction" && item.transactionId) {
+          if (!item.isMarkedPaid) continue;
+          if (item.transactionSource === "unit_transaction" && item.transactionId) {
             await tx.unitTransaction.update({
               where: { id: item.transactionId },
               data: { isPaid: false, paidDate: null },
             });
+          } else if (item.transactionSource === "store_sale" && item.transactionId) {
+            // Reverse isSettled in StoreSale metadata
+            const sale = await tx.storeSale.findUnique({
+              where: { id: item.transactionId },
+              select: { metadata: true },
+            });
+            if (sale) {
+              const meta = (typeof sale.metadata === "string"
+                ? JSON.parse(sale.metadata)
+                : sale.metadata ?? {}) as Record<string, unknown>;
+              const { isSettled, settledAt, ...rest } = meta;
+              await tx.storeSale.update({
+                where: { id: item.transactionId },
+                data: { metadata: rest },
+              });
+            }
           }
         }
         await tx.billingPeriod.delete({ where: { id } });

@@ -66,6 +66,21 @@ export async function POST(
             where: { id: item.transactionId },
             data: { isPaid: true, paidDate: new Date() },
           });
+        } else if (item.transactionSource === "store_sale" && item.transactionId) {
+          // Mark StoreSale as settled via metadata (StoreSale has no isPaid column)
+          const sale = await tx.storeSale.findUnique({
+            where: { id: item.transactionId },
+            select: { metadata: true },
+          });
+          if (sale) {
+            const meta = (typeof sale.metadata === "string"
+              ? JSON.parse(sale.metadata)
+              : sale.metadata ?? {}) as Record<string, unknown>;
+            await tx.storeSale.update({
+              where: { id: item.transactionId },
+              data: { metadata: { ...meta, isSettled: true, settledAt: new Date().toISOString() } },
+            });
+          }
         }
       }
 

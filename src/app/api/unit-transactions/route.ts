@@ -21,6 +21,7 @@ function mapStoreSale(s: Record<string, unknown>) {
     const customerName = s.customerName as string | null;
     const createdAt = s.createdAt as Date;
 
+    const isSettled = (metadataObj as Record<string, unknown>).isSettled === true;
     const effectiveStatus = isVoided ? "voided" : isVoidPending ? "pending_void" : "completed";
 
     const orderType = (metadataObj as Record<string, unknown>).orderType as string | null || null;
@@ -28,16 +29,23 @@ function mapStoreSale(s: Record<string, unknown>) {
     const takeawaySurcharge = (metadataObj as Record<string, unknown>).takeawaySurcharge as number | null || null;
     const takeawaySurchargePerItem = (metadataObj as Record<string, unknown>).takeawaySurchargePerItem as number | null || null;
 
+    // salary_cut sales are "unpaid" until billing settlement marks them isSettled
+    const effectiveIsPaid = (isVoided || isVoidPending)
+        ? false
+        : paymentMethod === "salary_cut"
+            ? isSettled
+            : true;
+
     return {
         id: (s.id as number) + 1000000,
         transactionNo: s.saleNo,
         memberId: s.memberId,
         unitType: (s.unitType as string) || "toko",
-        description: `Penjualan ${((s.unitType as string) || "toko").replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())} ${paymentMethod === 'salary_cut' ? '(Potong Gaji)' : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
+        description: `Penjualan ${((s.unitType as string) || "toko").replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())} ${paymentMethod === 'salary_cut' ? (isSettled ? '(Potong Gaji - Lunas)' : '(Potong Gaji)') : ''} ${customerName ? `- ${customerName}` : ''} ${isVoided ? '[DIBATALKAN]' : isVoidPending ? '[VOID PENDING]' : ''}`,
         amount: s.totalAmount,
         transactionDate: createdAt,
-        isPaid: (isVoided || isVoidPending) ? false : (paymentMethod !== "salary_cut"),
-        paidDate: paymentMethod !== "salary_cut" && !isVoided && !isVoidPending ? createdAt : null,
+        isPaid: effectiveIsPaid,
+        paidDate: effectiveIsPaid ? (isSettled && (metadataObj as Record<string, unknown>).settledAt ? new Date((metadataObj as Record<string, unknown>).settledAt as string) : createdAt) : null,
         paymentMethod,
         cashReceived: s.cashReceived ? Number(s.cashReceived) : null,
         changeAmount: s.changeAmount ? Number(s.changeAmount) : null,
@@ -211,10 +219,18 @@ export async function GET(request: Request) {
                 storeWhere.unitType = aliases ? { in: aliases } : effectiveUnitType;
             }
             if (isPaid !== null && isPaid !== "all" && isPaid !== undefined) {
-                // StoreSales are paid unless it is salary_cut
+                // StoreSales with salary_cut may be settled (isSettled in metadata)
+                // We need post-fetch filtering for JSON metadata — fetch all salary_cut
+                // and let mapStoreSale() compute isPaid, then filter in JS.
                 if (isPaid === "true") {
-                    storeWhere.paymentMethod = { not: "salary_cut" };
+                    // Paid = non-salary_cut (always paid) + settled salary_cut
+                    // Fetch non-salary_cut + all salary_cut; filter settled in post-processing
+                    storeWhere.OR = [
+                        { paymentMethod: { not: "salary_cut" } },
+                        { paymentMethod: "salary_cut" },
+                    ];
                 } else {
+                    // Unpaid = salary_cut that are NOT settled
                     storeWhere.paymentMethod = "salary_cut";
                 }
             }
@@ -273,7 +289,19 @@ export async function GET(request: Request) {
 
         const mappedStoreSales = storeSales.map(mapStoreSale);
 
-        let allTransactions = [...unitTransactions, ...mappedStoreSales];
+        // Post-fetch filter: when isPaid filter is active, filter StoreSales by computed isPaid
+        // (salary_cut settled via billing have isSettled in metadata — can't filter server-side)
+        let filteredStoreSales = mappedStoreSales;
+        if (isPaid !== null && isPaid !== "all" && isPaid !== undefined && mappedStoreSales.length > 0) {
+            const wantPaid = isPaid === "true";
+            filteredStoreSales = mappedStoreSales.filter((s) => s.isPaid === wantPaid);
+        }
+        // Recount store sales after filtering
+        const effectiveStoreCount = (isPaid !== null && isPaid !== "all" && isPaid !== undefined)
+            ? filteredStoreSales.length
+            : storeCount;
+
+        let allTransactions = [...unitTransactions, ...filteredStoreSales];
 
         // Sort merged results
         const sortKey = query.sortBy || "transactionDate";
@@ -298,7 +326,7 @@ export async function GET(request: Request) {
         }
 
         // For paginated mode: slice the merged sorted results
-        const total = unitCount + storeCount;
+        const total = unitCount + effectiveStoreCount;
         const startIndex = (query.page - 1) * query.perPage;
         const paginatedTransactions = allTransactions.slice(startIndex, startIndex + query.perPage);
 
