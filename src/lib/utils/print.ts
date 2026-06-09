@@ -25,6 +25,7 @@ export function printElement(elementId: string, title?: string): void {
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="utf-8">
             <title>${title || "Print"}</title>
             <style>
                 ${printStyles}

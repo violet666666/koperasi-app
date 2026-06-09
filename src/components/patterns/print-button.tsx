@@ -47,6 +47,7 @@ export function PrintReceiptButton({ receiptData }: PrintReceiptButtonProps) {
                 <!DOCTYPE html>
                 <html>
                 <head>
+                    <meta charset="utf-8">
                     <title>Bukti Transaksi - ${receiptData.receiptNo}</title>
                     <style>
                         * { margin: 0; padding: 0; box-sizing: border-box; }

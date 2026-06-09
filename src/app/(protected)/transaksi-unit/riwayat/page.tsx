@@ -747,6 +747,7 @@ export default function RiwayatTransaksiUnitPage() {
         if (!win) return;
         win.document.write(`
             <!DOCTYPE html><html><head>
+            <meta charset="utf-8">
             <title>Riwayat Transaksi Unit</title>
             <style>
                 body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; color: #111; }

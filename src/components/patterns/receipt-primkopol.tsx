@@ -30,11 +30,11 @@ interface ReceiptPrimkopolProps {
 }
 
 function formatRupiah(amount: number) {
-    return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-    }).format(amount);
+    // Use decimal formatter + manual prefix to avoid non-ASCII characters
+    // (Intl currency may insert U+202F narrow no-break space which corrupts
+    // in print windows without charset and on ESC/POS thermal printers)
+    const formatted = new Intl.NumberFormat("id-ID").format(amount);
+    return `Rp ${formatted}`;
 }
 
 /**
@@ -72,6 +72,7 @@ export function ReceiptPrimkopol({
             <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="utf-8">
                 <title>Struk - ${data.notaNo}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
