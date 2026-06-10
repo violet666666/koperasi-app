@@ -228,7 +228,7 @@ Revenue otomatis masuk ke SHU calculator karena `CashBankTransaction` dengan `un
 | 10 | `src/app/(protected)/haji-umrah/page.tsx` | Create |
 | 11 | `src/app/(protected)/haji-umrah/tabungan/page.tsx` | Create |
 | 12 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/page.tsx` | Create |
-| 13 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoron/page.tsx` | Create |
+| 13 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoran/page.tsx` | Create |
 | 14 | `src/app/(protected)/haji-umrah/produk/page.tsx` | Create |
 | 15 | `src/app/(protected)/haji-umrah/laporan/page.tsx` | Create |
 
