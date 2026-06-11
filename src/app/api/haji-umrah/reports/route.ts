@@ -123,15 +123,19 @@ export async function GET(request: Request) {
             return target > 0 && Number(a.balance) >= target;
         });
 
-        // Monthly deposits
+        // Monthly deposits — find product IDs first since aggregate doesn't support relation filters
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const hajiUmrahProductIds = (await prisma.savingsProduct.findMany({
+            where: { type: { in: types }, deletedAt: null },
+            select: { id: true },
+        })).map(p => p.id);
         const monthlyDepositsResult = await prisma.savingsTransaction.aggregate({
             _sum: { amount: true },
             where: {
                 type: "deposit",
                 status: "completed",
-                product: { type: { in: types } },
+                productId: { in: hajiUmrahProductIds },
                 transactionDate: { gte: startOfMonth },
             },
         });
