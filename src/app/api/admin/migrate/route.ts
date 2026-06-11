@@ -265,6 +265,44 @@ export async function POST(request: Request) {
             results.push(`StoreSale isSettled backfill skipped: ${msg}`);
         }
 
+        // ── Haji & Umrah: SavingsProduct columns ──
+        const savingsProductColumns: [string, string][] = [
+            ["target_amount", "DECIMAL(15,2)"],
+            ["admin_fee_type", "TEXT"],
+            ["admin_fee_value", "DECIMAL(15,2)"],
+            ["linked_bank_name", "TEXT"],
+            ["allow_early_withdraw", "BOOLEAN DEFAULT true"],
+        ];
+        for (const [col, type] of savingsProductColumns) {
+            const exists = await columnExists("savings_products", col);
+            if (!exists) {
+                await prisma.$executeRawUnsafe(
+                    `ALTER TABLE savings_products ADD COLUMN ${col} ${type}`
+                );
+                results.push(`Added savings_products.${col} (${type})`);
+            } else {
+                results.push(`savings_products.${col} already exists`);
+            }
+        }
+
+        // ── Haji & Umrah: SavingsAccount columns ──
+        const savingsAccountColumns: [string, string][] = [
+            ["target_amount", "DECIMAL(15,2)"],
+            ["monthly_target", "DECIMAL(15,2)"],
+            ["maturity_date", "DATE"],
+        ];
+        for (const [col, type] of savingsAccountColumns) {
+            const exists = await columnExists("savings_accounts", col);
+            if (!exists) {
+                await prisma.$executeRawUnsafe(
+                    `ALTER TABLE savings_accounts ADD COLUMN ${col} ${type}`
+                );
+                results.push(`Added savings_accounts.${col} (${type})`);
+            } else {
+                results.push(`savings_accounts.${col} already exists`);
+            }
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

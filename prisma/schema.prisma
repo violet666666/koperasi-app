@@ -141,11 +141,16 @@ model SavingsProduct {
   id            Int       @id @default(autoincrement())
   code          String    @unique
   name          String
-  type          String    // pokok, wajib, sukarela, lainnya
+  type          String    // pokok, wajib, sukarela, lainnya, tabungan_haji, tabungan_umrah
   isMandatory   Boolean   @default(false) @map("is_mandatory")
   depositPeriod String?   @map("deposit_period") // once, monthly, optional
   minimumAmount Decimal   @default(0) @map("minimum_amount") @db.Decimal(15, 2)
   canWithdraw   Boolean   @default(true) @map("can_withdraw")
+  targetAmount       Decimal?  @map("target_amount") @db.Decimal(15, 2)    // Target tabungan (BPIH). Null = tidak bertarget
+  adminFeeType       String?   @map("admin_fee_type")                       // "percent" / "fixed"
+  adminFeeValue      Decimal?  @map("admin_fee_value") @db.Decimal(15, 2)  // Nilai admin fee
+  linkedBankName     String?   @map("linked_bank_name")                     // "BSI" — bank partner
+  allowEarlyWithdraw Boolean   @default(true) @map("allow_early_withdraw") // false for haji/umrah
   glAccountId   Int?      @map("gl_account_id")
   isActive      Boolean   @default(true) @map("is_active")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -363,6 +368,9 @@ model SavingsAccount {
   status     String    @default("active") // active, closed
   openedDate DateTime  @map("opened_date") @db.Date
   closedDate DateTime? @map("closed_date") @db.Date
+  targetAmount  Decimal?  @map("target_amount") @db.Decimal(15, 2)  // Override target per-account
+  monthlyTarget Decimal? @map("monthly_target") @db.Decimal(15, 2)  // Setoran bulanan target (billing & tracking)
+  maturityDate  DateTime? @map("maturity_date") @db.Date            // Target tanggal tercapai
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 

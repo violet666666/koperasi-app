@@ -67,6 +67,8 @@ const SAVINGS_PRODUCTS = [
     { code: "SP", name: "Simpanan Pokok", type: "pokok", isMandatory: true, depositPeriod: "once", minimumAmount: 100000, canWithdraw: false, isActive: true },
     { code: "SW", name: "Simpanan Wajib", type: "wajib", isMandatory: true, depositPeriod: "monthly", minimumAmount: 50000, canWithdraw: false, isActive: true },
     { code: "SS", name: "Simpanan Sukarela", type: "sukarela", isMandatory: false, depositPeriod: "optional", minimumAmount: 10000, canWithdraw: true, isActive: true },
+    { code: "TH", name: "Tabungan Haji", type: "tabungan_haji", isMandatory: false, depositPeriod: "monthly", minimumAmount: 100000, canWithdraw: false, isActive: true, targetAmount: 50000000, adminFeeType: "percent", adminFeeValue: 0.5, linkedBankName: "BSI", allowEarlyWithdraw: false },
+    { code: "TU", name: "Tabungan Umrah", type: "tabungan_umrah", isMandatory: false, depositPeriod: "monthly", minimumAmount: 50000, canWithdraw: false, isActive: true, targetAmount: 25000000, adminFeeType: "percent", adminFeeValue: 0.5, linkedBankName: "BSI", allowEarlyWithdraw: false },
 ];
 
 // ======= LOAN PRODUCTS =======
@@ -238,7 +240,7 @@ async function main() {
         }
     }
 
-    const spGlMap: Record<string, string> = { SP: "2101", SW: "2102", SS: "2103" };
+    const spGlMap: Record<string, string> = { SP: "2101", SW: "2102", SS: "2103", TH: "2103", TU: "2103" };
     for (const product of SAVINGS_PRODUCTS) {
         const glAccountId = accountMap[spGlMap[product.code]] || null;
         await prisma.savingsProduct.create({ data: { ...product, glAccountId } });
