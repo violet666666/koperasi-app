@@ -1469,7 +1469,7 @@ model BillingItem {
   memberNrp         String?   @map("member_nrp")
   unitType          String?   @map("unit_type")
   transactionId     Int?      @map("transaction_id")
-  transactionSource String?   @map("transaction_source")   // "unit_transaction" | "store_sale"
+  transactionSource String?   @map("transaction_source")   // "unit_transaction" | "store_sale" | "savings_account"
   description       String?
   amount            Decimal   @db.Decimal(15, 2)
   isMarkedPaid      Boolean   @default(false) @map("is_marked_paid")

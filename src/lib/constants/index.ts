@@ -186,6 +186,8 @@ export const SAVINGS_PRODUCT_TYPES = {
     wajib: { label: "Simpanan Wajib" },
     sukarela: { label: "Simpanan Sukarela" },
     lainnya: { label: "Lainnya" },
+    tabungan_haji: { label: "Tabungan Haji" },
+    tabungan_umrah: { label: "Tabungan Umrah" },
 } as const;
 
 export const INTEREST_METHODS = {

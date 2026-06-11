@@ -32,13 +32,19 @@ export const updateUserSchema = createUserSchema.omit({ password: true }).partia
 export const createSavingsProductSchema = z.object({
     code: z.string().min(1).max(20),
     name: z.string().min(1).max(255),
-    type: z.enum(["pokok", "wajib", "sukarela", "lainnya"]),
+    type: z.enum(["pokok", "wajib", "sukarela", "lainnya", "tabungan_haji", "tabungan_umrah"]),
     isMandatory: z.boolean().default(false),
     depositPeriod: z.enum(["once", "monthly", "optional"]).optional(),
     minimumAmount: z.number().nonnegative().default(0),
     canWithdraw: z.boolean().default(true),
     glAccountId: z.number().int().positive().nullable().optional(),
     isActive: z.boolean().default(true),
+    // Haji/Umrah specific fields
+    targetAmount: z.number().nonnegative().nullable().optional(),
+    adminFeeType: z.enum(["percent", "fixed"]).nullable().optional(),
+    adminFeeValue: z.number().nonnegative().nullable().optional(),
+    linkedBankName: z.string().max(100).nullable().optional(),
+    allowEarlyWithdraw: z.boolean().default(true),
 });
 
 export const updateSavingsProductSchema = createSavingsProductSchema.partial();

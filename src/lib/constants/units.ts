@@ -17,6 +17,7 @@ export const UNIT_TYPES: Record<string, UnitConfig> = {
   playstation: { label: "Play Station",     slug: "playstation",  category: "service", icon: "Gamepad2" },
   fotocopy:    { label: "Fotocopy",         slug: "fotocopy",     category: "service", icon: "Printer" },
   laundry:     { label: "Laundry",          slug: "laundry",      category: "service", icon: "Shirt" },
+  haji_umrah:  { label: "Haji & Umrah",     slug: "haji-umrah",   category: "service", icon: "Landmark" },
 };
 
 export function unitTypeToSlug(unitType: string): string {

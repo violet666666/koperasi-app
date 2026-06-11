@@ -105,6 +105,46 @@ export async function POST(
               data: { metadata: { ...meta, isSettled: true, settledAt } },
             });
           }
+        } else if (item.transactionSource === "savings_account" && item.transactionId) {
+          // Haji/Umrah savings: create SavingsTransaction (deposit) + update account balance
+          const savingsAccount = await tx.savingsAccount.findUnique({
+            where: { id: item.transactionId },
+            include: { product: true },
+          });
+          if (savingsAccount && savingsAccount.status === "active") {
+            const amount = Number(item.amount);
+            const balanceBefore = Number(savingsAccount.balance);
+            const balanceAfter = balanceBefore + amount;
+
+            const year = new Date().getFullYear();
+            const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+            const txNo = `HU-${year}-${random}`;
+
+            const typeLabel = savingsAccount.product.type === "tabungan_haji" ? "Haji" : "Umrah";
+
+            await tx.savingsTransaction.create({
+              data: {
+                transactionNo: txNo,
+                accountId: savingsAccount.id,
+                memberId: item.memberId,
+                productId: savingsAccount.productId,
+                branchId: savingsAccount.branchId,
+                type: "deposit",
+                amount,
+                balanceBefore,
+                balanceAfter,
+                paymentMethod: "salary_cut",
+                notes: `Potongan Gaji Tabungan ${typeLabel} — ${period.periodLabel}`,
+                transactionDate: new Date(),
+                createdById: userId,
+              },
+            });
+
+            await tx.savingsAccount.update({
+              where: { id: savingsAccount.id },
+              data: { balance: balanceAfter },
+            });
+          }
         }
       }
 

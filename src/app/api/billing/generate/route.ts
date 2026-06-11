@@ -175,6 +175,41 @@ export async function POST(request: Request) {
       });
     }
 
+    // Source 3: Haji/Umrah savings accounts with monthly target
+    const hajiUmrahAccounts = await prisma.savingsAccount.findMany({
+      where: {
+        status: "active",
+        monthlyTarget: { not: null },
+        product: {
+          type: { in: ["tabungan_haji", "tabungan_umrah"] },
+          isActive: true,
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+        memberId: true,
+        monthlyTarget: true,
+        product: { select: { type: true, name: true } },
+        member: { select: { name: true, nrp: true } },
+      },
+    });
+
+    for (const sa of hajiUmrahAccounts) {
+      if (!sa.memberId) continue;
+      const typeLabel = sa.product.type === "tabungan_haji" ? "Haji" : "Umrah";
+      items.push({
+        memberId: sa.memberId,
+        memberName: sa.member?.name ?? "Unknown",
+        memberNrp: sa.member?.nrp ?? null,
+        unitType: "haji_umrah",
+        transactionId: sa.id,
+        transactionSource: "savings_account",
+        description: `Setoran Tabungan ${typeLabel} - ${sa.member?.name ?? "Unknown"}`,
+        amount: Number(sa.monthlyTarget),
+      });
+    }
+
     if (items.length === 0) {
       return NextResponse.json(
         { message: "Tidak ada transaksi piutang untuk periode ini" },

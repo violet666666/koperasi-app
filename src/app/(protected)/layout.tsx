@@ -55,6 +55,7 @@ const ADMIN_ALLOWED_ROUTES: Record<string, string[]> = {
     fotocopy:    ["/unit", "/transaksi-unit", "/toko/produk", "/fotocopy", "/approval"],
     laundry:     ["/unit", "/transaksi-unit", "/toko/produk", "/laundry", "/approval"],
     aset:        ["/aset", "/unit", "/transaksi-unit", "/approval"],
+    haji_umrah:  ["/haji-umrah", "/unit", "/transaksi-unit", "/kwitansi", "/approval"],
 };
 
 function isPathAllowed(pathname: string, allowedPrefixes: string[]): boolean {

@@ -56,7 +56,20 @@ export default function LaporanPage() {
     React.useEffect(() => { fetchData(); }, [fetchData]);
 
     function handleExportExcel() {
-        exportToExcel(data, exportColumns, "Laporan_Tabungan_Haji_Umrah", "Tabungan");
+        // Sanitize data to prevent formula injection in Excel
+        const sanitizedData = data.map(row => {
+            const sanitized: Record<string, unknown> = {};
+            for (const col of exportColumns) {
+                const val = row[col.key];
+                if (typeof val === "string" && /^[=+@\-]/.test(val)) {
+                    sanitized[col.key] = "'" + val;
+                } else {
+                    sanitized[col.key] = val;
+                }
+            }
+            return sanitized;
+        });
+        exportToExcel(sanitizedData, exportColumns, "Laporan_Tabungan_Haji_Umrah", "Tabungan");
     }
 
     function handleExportPDF() {

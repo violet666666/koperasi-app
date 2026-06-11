@@ -50,6 +50,7 @@ import {
     Settings2,
     FlaskConical,
     ClipboardCheck,
+    Landmark,
 } from "lucide-react";
 
 export interface NavItem {
@@ -152,6 +153,23 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 children: [
                     { title: "Rekap Piutang", href: "/tagihan" },
                     { title: "Riwayat Tagihan", href: "/tagihan/riwayat" },
+                ],
+            },
+        ],
+    },
+
+    {
+        title: "HAJI & UMRAH",
+        roles: ["operator"],
+        items: [
+            {
+                title: "Haji & Umrah", href: "/haji-umrah", icon: Landmark,
+                permission: "manage_all",
+                children: [
+                    { title: "Dashboard", href: "/haji-umrah" },
+                    { title: "Tabungan", href: "/haji-umrah/tabungan" },
+                    { title: "Produk", href: "/haji-umrah/produk" },
+                    { title: "Laporan", href: "/haji-umrah/laporan" },
                 ],
             },
         ],
