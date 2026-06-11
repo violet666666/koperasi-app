@@ -485,7 +485,7 @@ export default function CuciMobilKasirPage() {
 
             {/* Receipt Print Overlay */}
             <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-                <DialogContent className="sm:max-w-[400px]">
+                <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Struk Pembayaran</DialogTitle>
                         <DialogDescription>Siapkan printer thermal untuk mencetak struk.</DialogDescription>

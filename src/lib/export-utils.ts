@@ -770,12 +770,10 @@ ${data.cashierName ? `<tr><td colspan="3">Kasir</td><td style="text-align:right;
     if (win) {
         win.document.write(html);
         win.document.close();
-        setTimeout(() => {
-            if (!win.closed) {
-                win.print();
-                setTimeout(() => { if (!win.closed) win.close(); }, 1000);
-            }
-        }, 500);
+        // Jangan auto-print + auto-close — biarkan user print & tutup sendiri.
+        // Auto-close terlalu cepat bisa membatalkan dialog print di tablet/perangkat lambat,
+        // terutama saat nota panjang dengan banyak item.
+        // (Match behavior with ReceiptPrimkopol component)
     }
 }
 

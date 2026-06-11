@@ -138,8 +138,11 @@ export function ReceiptPrimkopol({
     };
 
     return (
-        <div className="space-y-3">
-            {/* Preview Area */}
+        <div className="flex flex-col gap-3">
+            {/* Preview Area — scrollable when receipt has many items */}
+            <div
+                className="max-h-[60vh] overflow-y-auto"
+            >
             <div
                 ref={printRef}
                 className={`font-mono text-xs bg-white text-black p-2 rounded border border-dashed mx-auto ${
@@ -246,8 +249,9 @@ export function ReceiptPrimkopol({
                 </div>
                 <div className="center text-[10px]">primkoppol.online</div>
             </div>
+            </div>{/* end scrollable preview wrapper */}
 
-            {/* Action Buttons */}
+            {/* Action Buttons — always visible */}
             <div className="flex flex-wrap justify-center gap-2">
                 <Button onClick={handlePrint} size="sm" className="gap-2">
                     <Printer className="h-4 w-4" />

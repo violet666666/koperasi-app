@@ -727,7 +727,7 @@ export default function PSKasirPage() {
             </Dialog>
 
             <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-                <DialogContent className="sm:max-w-[360px] bg-slate-100 p-4">
+                <DialogContent className="sm:max-w-[360px] max-h-[90vh] overflow-y-auto bg-slate-100 p-4">
                     <DialogHeader className="mb-2">
                         <DialogTitle className="text-center font-bold">Terima Kasih</DialogTitle>
                         <DialogDescription className="text-center">Silakan siapkan printer thermal Anda.</DialogDescription>
