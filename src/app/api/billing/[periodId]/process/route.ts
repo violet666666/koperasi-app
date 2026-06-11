@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
@@ -117,8 +118,8 @@ export async function POST(
             const balanceAfter = balanceBefore + amount;
 
             const year = new Date().getFullYear();
-            const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
-            const txNo = `HU-${year}-${random}`;
+            const random = randomBytes(4).readUInt32BE(0) % 1_000_000_000;
+            const txNo = `HU-${year}-${random.toString().padStart(9, "0")}`;
 
             const typeLabel = savingsAccount.product.type === "tabungan_haji" ? "Haji" : "Umrah";
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -6,8 +7,8 @@ const HAJI_UMRAH_TYPES = ["tabungan_haji", "tabungan_umrah"];
 
 function generateTxNo(): string {
     const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
-    return `HU-${year}-${random}`;
+    const random = randomBytes(4).readUInt32BE(0) % 1_000_000_000;
+    return `HU-${year}-${random.toString().padStart(9, "0")}`;
 }
 
 // GET /api/haji-umrah/savings/[accountId]/transactions — Riwayat transaksi
