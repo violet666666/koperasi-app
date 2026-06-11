@@ -42,7 +42,7 @@ src/
       jurnal/ laporan/ aset/ master/ gaji/ approval/ audit-log/
       periode/ non-sp/ transaksi-unit/ manajemen-unit/
       barbershop/ fitness/ fotocopy/ laundry/ play-station/
-      cuci-mobil/ resto/ cafe-lsp/
+      cuci-mobil/ resto/ cafe-lsp/ haji-umrah/
     portal/            — Member self-service portal
     api/               — 90+ API route handlers (pattern: app/api/[resource]/route.ts)
       mobile/          — Dedicated mobile API endpoints
@@ -96,7 +96,7 @@ NODE_ENV           — development/production
 ## Testing
 
 - **Unit:** Vitest + happy-dom (`src/__tests__/`, 23 files)
-- **E2E:** Playwright (`e2e/`, 6 spec files)
+- **E2E:** Playwright (`e2e/`, 8 spec files including haji-umrah)
 - **Test accounts:** See `akun-primkoppol.md`
 
 ## Gotchas
@@ -111,6 +111,14 @@ NODE_ENV           — development/production
 - `SystemSetting` is a singleton model (id defaults to "global")
 - **NEVER include SP-IMP/* loans in CashBankTransaction** — corrupts BRI balance
 - React Compiler is enabled (`babel-plugin-react-compiler`) — avoid unnecessary `useMemo`/`useCallback`
+- **Billing has TWO routes** that both need changes: `api/billing/generate` (creates items) AND `api/billing/[periodId]/process` (settles items) — missing settlement handler = silent data corruption
+- **SavingsProduct.type** supports `tabungan_haji` and `tabungan_umrah` — haji/umrah uses extended SavingsProduct (5 fields) + SavingsAccount (3 fields), 0 new Prisma models
+- **UNIT_TYPES** in `constants/units.ts` has 10 units including `haji_umrah` — new unit types must be added there AND in `navigation.ts` AND in `layout.tsx` route guards
+- **Prisma `aggregate()` does NOT support relation filters** — use two-step: findMany IDs first, then aggregate with `productId: { in: [...] }`. Works in `findMany`/`findFirst` but throws in `aggregate()`/`groupBy()`.
+- **E2E Playwright login uses `#email` / `#password` selectors** — NOT `input[name="email"]`. See existing tests in `e2e/` for the pattern.
+- **Transaction numbers must use `crypto.randomBytes()`** — never `Math.random()`. Security scanner flags it as CRITICAL. Format: `crypto.randomBytes(4).readUInt32BE(0) % 1_000_000_000`.
+- **Excel export: sanitize formula injection** — user data (names, NRP) may contain leading `=+@-`. Prefix with `'` before passing to `exportToExcel`.
+- **Haji & Umrah module (Phase 1 COMPLETE)** — 6 API endpoints in `api/haji-umrah/`, 7 UI pages in `(protected)/haji-umrah/`, billing Source 3 for `savings_account`, Zod schemas in `validations/haji-umrah.ts`. See `Docs-Haji-umrah-plan/README.md` for status and remaining phases.
 
 ## Branches & Deploy
 
@@ -125,3 +133,5 @@ NODE_ENV           — development/production
 | `SHU-BUG-AND-UPDATE.md` | SHU module bug history & fixes (19 sections) |
 | `OPERATOR.md` | Operator role audit, features, API matrix (18 sections) |
 | `akun-primkoppol.md` | Test accounts for production |
+| `Docs-Haji-umrah-plan/` | Haji & Umrah unit — design spec + 4 implementation plans (data/api/ui/integration) |
+| `e2e/haji-umrah.spec.ts` + `e2e/haji-umrah-full.spec.ts` | Haji & Umrah E2E tests — 20 tests covering API + UI + full flow |
