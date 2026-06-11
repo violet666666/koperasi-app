@@ -1,7 +1,24 @@
 # Haji & Umrah — Planning & Implementation Docs
 
-> **Branch:** `railway-migration` | **Commit:** `303fb40` | **Status:** Ready for Execution
+> **Branch:** `railway-migration` | **Status:** Phase 1 COMPLETE, Phase 2-5 Pending
 > **Design Spec:** `2026-06-10-haji-umrah-savings-only-design.md`
+
+---
+
+## Phase Completion Status
+
+| # | Phase | Status | Commits | Tested |
+|---|-------|--------|---------|--------|
+| 1A | Data Layer (Schema + Migration + Seed) | ✅ **DONE** | `0eac197` | ✅ Prisma validate + db push |
+| 1B | API Layer (6 endpoints) | ✅ **DONE** | `3c60a39` | ✅ E2E 20/20 |
+| 1C | UI Layer (7 pages + layout) | ✅ **DONE** | `521bd17` | ✅ E2E 20/20 |
+| 1D | Integration (Constants + Nav + Billing + Zod) | ✅ **DONE** | `7de4647` | ✅ E2E 20/20 |
+| 1E | Security Fix + Bug Fix | ✅ **DONE** | `4febb77`, `15004ea` | ✅ E2E re-pass |
+| 2A | Seed Products + Live E2E Test | ✅ **DONE** | `4baca42`, `a786521` | ✅ 20/20 Playwright |
+| 2B | Talangan Haji/Umrah | 🔲 Pending | — | — |
+| 3 | Member Portal | 🔲 Pending | — | — |
+| 4 | Spread Bagi Hasil | 🔲 Pending | — | — |
+| 5 | Mobile App Integration | 🔲 Pending | — | — |
 
 ---
 
@@ -16,75 +33,119 @@
 | 3 | `2026-06-10-haji-umrah-3-ui-layer.md` | 7 pages + layout | 8 files |
 | 4 | `2026-06-10-haji-umrah-4-integration.md` | Constants + nav + billing + Zod | 7 files |
 
-**Total: 25 tasks, 23 files**
+---
+
+## Implementation Summary — 11 Juni 2026
+
+### Commits (Phase 1 Complete)
+
+| Commit | Message | Files |
+|--------|---------|-------|
+| `0eac197` | Phase 1A — data layer (schema + migration + seed) | 3 files, +50 lines |
+| `3c60a39` | Phase 1B — API layer (6 endpoints) | 6 files, +867 lines |
+| `521bd17` | Phase 1C — UI layer (7 pages + layout) | 7 files, +1527 lines |
+| `7de4647` | Phase 1D — integration (constants + nav + billing + Zod) | 10 files, +171 lines |
+| `4febb77` | Security: crypto.randomBytes for tx numbers | 2 files |
+| `15004ea` | Bug fix: reports aggregate query + E2E tests | 2 files, +94 lines |
+| `4baca42` | Full E2E flow test (12 steps, all passing) | 1 file, +288 lines |
+| `a786521` | Lint fix: tabungan listing page | 1 file |
+
+**Total: 26 files created/modified, ~2,900 lines added**
+
+### Live Data Verified (via Prisma + Playwright)
+
+```
+Products:
+  TH: Tabungan Haji | target: Rp 50.000.000 | fee: percent:0.5% | bank: BSI
+  TU: Tabungan Umrah | target: Rp 25.000.000 | fee: percent:0.5% | bank: BSI
+
+Account:
+  HU-776-10-1715 | A'AN ANDRIONO | Tabungan Haji
+  Saldo: Rp 1.000.000 | Target: Rp 50.000.000 | Progress: 2.0%
+
+Admin Fee Revenue:
+  Total: Rp 5.000 (2 transactions, 0.5% × Rp 500.000 × 2 deposits)
+```
+
+### Test Results
+
+| Test Suite | Result |
+|------------|--------|
+| `next build` | ✅ Compiled successfully, 303/303 pages |
+| ESLint (haji-umrah files) | ✅ 0 errors, 0 warnings |
+| Vitest (unit tests) | ✅ 275/278 pass (3 pre-existing failures, 0 regression) |
+| Playwright E2E (basic) | ✅ 8/8 pass |
+| Playwright E2E (full flow) | ✅ 12/12 pass |
+| **Total Playwright** | **✅ 20/20 pass** |
+
+### Testing Accounts
+
+| Email | Password | Role | Use |
+|-------|----------|------|-----|
+| `operator@koperasi.com` | `password123` | operator | Full access — sidebar "HAJI & UMRAH" visible |
+
+---
+
+## Remaining Phases
+
+### Phase 2B: Talangan Haji/Umrah (~1-2 minggu)
+- Extend `LoanProduct` dengan `type: "talangan_haji"`
+- Auto-calculate gap: `targetAmount - currentBalance`
+- UI pengajuan talangan di `/haji-umrah/talangan`
+- Integrasi angsuran otomatis dari tabungan
+
+### Phase 3: Member Portal (~3-5 hari)
+- Section `/portal/haji-umrah` — anggota lihat tabungan sendiri
+- Progress tracker visual
+- Riwayat setoran milik anggota
+
+### Phase 4: Spread Bagi Hasil (~2-3 hari)
+- Admin input bagi hasil dari BSI per periode
+- Distribusi spread otomatis (bagi hasil BSI vs anggota)
+
+### Phase 5: Mobile App Integration (~3-5 hari)
+- Mobile API endpoints `/api/mobile/haji-umrah/*`
+- Mobile screens: tabungan, detail, setoran di Expo
+- Push notification saat target mendekati/tercapai
+
+---
+
+## Known Issues & Technical Notes
+
+| Item | Status | Detail |
+|------|--------|--------|
+| Produk edit (PUT) belum pakai Zod schema | Low priority | Inline validation works, bisa upgrade ke `updateHajiUmrahProductSchema` |
+| Kwitansi print pakai `document.write` | Acceptable | Pola thermal yang konsisten dengan codebase existing |
+| Setoran tanpa CashBankAccountId | Expected | Tidak posting ke CashBook jika tidak pilih akun kas — perlu warning UI |
+| `Math.random` → `crypto.randomBytes` | ✅ Fixed | Transaction numbers sekarang 9-digit cryptographically secure |
+| Formula injection Excel export | ✅ Fixed | Sanitasi leading `=+@-` characters |
 
 ---
 
 ## How to Resume
 
-Jika session terputus karena window limit, buka folder ini dan baca plan sesuai urutan. Setiap plan independen — bisa mulai dari plan mana saja selama dependensi terpenuhi.
-
-### Dependency Chain
-
-```
-Plan 1 (Data Layer)
-  ↓
-Plan 2 (API Layer) ← butuh schema fields dari Plan 1
-  ↓
-Plan 3 (UI Layer) ← butuh API endpoints dari Plan 2
-  ↓
-Plan 4 (Integration) ← butuh semua selesai
-```
+Jika session terputus karena window limit, buka folder ini dan baca plan sesuai urutan.
 
 ### Quick Check: Apa yang sudah selesai?
 
 ```bash
-# Cek apakah schema fields sudah ada
+# Cek schema fields
 npx prisma validate
 
-# Cek apakah API routes sudah ada
+# Cek API routes
 ls src/app/api/haji-umrah/
 
-# Cek apakah UI pages sudah ada
-ls src/app/\(protected\)/haji-umrah/
+# Cek UI pages
+ls src/app/(protected)/haji-umrah/
 
-# Cek apakah constants sudah diupdate
+# Cek constants
 grep "haji_umrah" src/lib/constants/units.ts
 grep "tabungan_haji" src/lib/constants/index.ts
+
+# Run E2E tests
+npx playwright test e2e/haji-umrah-full.spec.ts --reporter=line
 ```
 
 ---
 
-## Files Created/Modified (per Plan)
-
-### Plan 1 — Data Layer
-- `prisma/schema.prisma` — +8 nullable fields
-- `src/app/api/admin/migrate/route.ts` — +column migration
-- `prisma/seed.ts` — +TH/TU products
-
-### Plan 2 — API Layer
-- `src/app/api/haji-umrah/products/route.ts` — GET/POST
-- `src/app/api/haji-umrah/products/[productId]/route.ts` — PUT
-- `src/app/api/haji-umrah/savings/route.ts` — GET/POST
-- `src/app/api/haji-umrah/savings/[accountId]/route.ts` — GET
-- `src/app/api/haji-umrah/savings/[accountId]/transactions/route.ts` — GET/POST
-- `src/app/api/haji-umrah/reports/route.ts` — GET
-
-### Plan 3 — UI Layer
-- `src/app/(protected)/haji-umrah/layout.tsx`
-- `src/app/(protected)/haji-umrah/page.tsx` — dashboard
-- `src/app/(protected)/haji-umrah/tabungan/page.tsx` — listing + buka rekening dialog
-- `src/app/(protected)/haji-umrah/tabungan/[accountId]/page.tsx` — detail + kwitansi
-- `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoran/page.tsx` — setoran form
-- `src/app/(protected)/haji-umrah/produk/page.tsx` — CRUD
-- `src/app/(protected)/haji-umrah/laporan/page.tsx` — export
-
-### Plan 4 — Integration
-- `src/lib/constants/units.ts` — +haji_umrah
-- `src/lib/constants/index.ts` — +product types
-- `src/lib/constants/navigation.ts` — +sidebar group
-- `src/lib/validations/index.ts` — extend enum
-- `src/lib/validations/haji-umrah.ts` — new Zod schemas
-- `src/app/(protected)/layout.tsx` — +route guard
-- `src/app/api/billing/generate/route.ts` — +savings_account source
-- `src/app/api/billing/[periodId]/process/route.ts` — +settlement handler
+*Diperbarui: 11 Juni 2026 | Status: Phase 1 COMPLETE — 20/20 E2E tests passing*

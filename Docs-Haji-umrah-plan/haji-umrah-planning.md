@@ -1,8 +1,8 @@
 # Unit Haji & Umrah — Planning Document
 
-> **Status:** Approved Design | **Dibuat:** 9 Juni 2026 | **Updated:** 10 Juni 2026 | **Branch:** railway-migration
+> **Status:** Phase 1 COMPLETE ✅ | **Dibuat:** 9 Juni 2026 | **Updated:** 11 Juni 2026 | **Branch:** railway-migration
 > **Partnership:** MOU dengan Bank BSI (Bank Syariah Indonesia)
-> **Design Spec:** `docs/superpowers/specs/2026-06-10-haji-umrah-savings-only-design.md`
+> **Implementation:** 26 files, ~2,900 lines, 20/20 E2E tests passing
 
 ---
 
@@ -170,82 +170,135 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 
 ## 6. Phased Implementation Plan
 
-### Phase 1: Tabungan (Current — ~14-17 hari)
+### Phase 1: Tabungan ✅ COMPLETE (11 Juni 2026)
 
-#### 1A: Data Layer (3-4 hari)
+> **8 commits** | **26 files** | **~2,900 lines** | **20/20 E2E tests passing**
+> Tested with: `operator@koperasi.com` / `password123`
 
-| # | File | Aksi |
-|---|------|------|
-| 1 | `prisma/schema.prisma` | Modify — tambah 8 field |
-| 2 | `prisma/seed-savings-products.ts` | Create — seed produk |
-| 3 | Schema push | Run |
+#### 1A: Data Layer ✅
 
-#### 1B: API Layer (3-4 hari)
+| # | File | Aksi | Commit |
+|---|------|------|--------|
+| 1 | `prisma/schema.prisma` | ✅ Modify — tambah 8 field (5 SavingsProduct + 3 SavingsAccount) | `0eac197` |
+| 2 | `prisma/seed.ts` | ✅ Modify — tambah TH/TU products + GL mapping | `0eac197` |
+| 3 | `src/app/api/admin/migrate/route.ts` | ✅ Modify — idempotent column migration | `0eac197` |
+| 4 | Schema push to NeonDB | ✅ Run — `prisma db push` synced successfully | `0eac197` |
 
-| # | File | Aksi |
-|---|------|------|
-| 4 | `src/app/api/haji-umrah/savings/route.ts` | Create |
-| 5 | `src/app/api/haji-umrah/savings/[accountId]/route.ts` | Create |
-| 6 | `src/app/api/haji-umrah/savings/[accountId]/transactions/route.ts` | Create |
-| 7 | `src/app/api/haji-umrah/products/route.ts` | Create |
-| 8 | `src/app/api/haji-umrah/reports/route.ts` | Create |
+#### 1B: API Layer ✅
 
-#### 1C: UI Layer (5-6 hari)
+| # | File | Aksi | Commit |
+|---|------|------|--------|
+| 5 | `src/app/api/haji-umrah/products/route.ts` | ✅ GET list + POST create | `3c60a39` |
+| 6 | `src/app/api/haji-umrah/products/[productId]/route.ts` | ✅ PUT update | `3c60a39` |
+| 7 | `src/app/api/haji-umrah/savings/route.ts` | ✅ GET list with progress + POST buka rekening | `3c60a39` |
+| 8 | `src/app/api/haji-umrah/savings/[accountId]/route.ts` | ✅ GET detail + stats | `3c60a39` |
+| 9 | `src/app/api/haji-umrah/savings/[accountId]/transactions/route.ts` | ✅ GET riwayat + POST setoran with atomic CashBank + admin fee | `3c60a39` |
+| 10 | `src/app/api/haji-umrah/reports/route.ts` | ✅ GET rekap + progress + admin_fee revenue | `3c60a39`, fixed `15004ea` |
 
-| # | File | Aksi |
-|---|------|------|
-| 9 | `src/app/(protected)/haji-umrah/layout.tsx` | Create |
-| 10 | `src/app/(protected)/haji-umrah/page.tsx` | Create |
-| 11 | `src/app/(protected)/haji-umrah/tabungan/page.tsx` | Create |
-| 12 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/page.tsx` | Create |
-| 13 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoran/page.tsx` | Create |
-| 14 | `src/app/(protected)/haji-umrah/produk/page.tsx` | Create |
-| 15 | `src/app/(protected)/haji-umrah/laporan/page.tsx` | Create |
+#### 1C: UI Layer ✅
 
-#### 1D: Integration (2-3 hari)
+| # | File | Aksi | Commit |
+|---|------|------|--------|
+| 11 | `src/app/(protected)/haji-umrah/layout.tsx` | ✅ Passthrough layout | `521bd17` |
+| 12 | `src/app/(protected)/haji-umrah/page.tsx` | ✅ Dashboard — 6 stat cards + target alert + quick links | `521bd17` |
+| 13 | `src/app/(protected)/haji-umrah/tabungan/page.tsx` | ✅ Listing + progress bars + buka rekening dialog | `521bd17` |
+| 14 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/page.tsx` | ✅ Detail + stats + riwayat + kwitansi print | `521bd17` |
+| 15 | `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoran/page.tsx` | ✅ Setoran form + admin fee preview | `521bd17` |
+| 16 | `src/app/(protected)/haji-umrah/produk/page.tsx` | ✅ CRUD produk (create + edit) | `521bd17` |
+| 17 | `src/app/(protected)/haji-umrah/laporan/page.tsx` | ✅ Export Excel/PDF + summary cards | `521bd17` |
 
-| # | File | Aksi |
-|---|------|------|
-| 16 | `src/lib/constants/units.ts` | Modify — tambah `haji_umrah` |
-| 17 | `src/lib/constants/navigation.ts` | Modify — tambah menu |
-| 18 | `src/lib/validations/haji-umrah.ts` | Create — Zod schemas |
-| 19 | `src/app/api/billing/generate/route.ts` | Modify — support `savings_account` |
-| 20 | `src/app/api/admin/migrate/route.ts` | Modify — add columns |
-| 21 | `src/lib/services/shu-calculator.ts` | Verify — `haji_umrah` covered |
+#### 1D: Integration ✅
 
-**Deliverable:** Operator bisa buat produk tabungan, buka rekening, terima setoran, tracking progress, potong gaji, export laporan.
+| # | File | Aksi | Commit |
+|---|------|------|--------|
+| 18 | `src/lib/constants/units.ts` | ✅ Added `haji_umrah` (Landmark icon, service) | `7de4647` |
+| 19 | `src/lib/constants/index.ts` | ✅ Added `tabungan_haji` + `tabungan_umrah` types | `7de4647` |
+| 20 | `src/lib/constants/navigation.ts` | ✅ Added HAJI & UMRAH sidebar group (operator) | `7de4647` |
+| 21 | `src/app/(protected)/layout.tsx` | ✅ Added `haji_umrah` route guard for admin | `7de4647` |
+| 22 | `src/lib/validations/haji-umrah.ts` | ✅ 4 Zod schemas (account, setoran, product create/update) | `7de4647` |
+| 23 | `src/lib/validations/index.ts` | ✅ Extended SavingsProduct type enum + haji/umrah fields | `7de4647` |
+| 24 | `src/app/api/billing/generate/route.ts` | ✅ Source 3: savings_account with monthlyTarget | `7de4647` |
+| 25 | `src/app/api/billing/[periodId]/process/route.ts` | ✅ Settlement: SavingsTransaction + balance update | `7de4647` |
+| 26 | `src/lib/services/shu-calculator.ts` | ✅ Verified — `haji_umrah` auto-covered via groupBy | (no changes) |
+
+#### Security & Bug Fixes ✅
+
+| Commit | Fix |
+|--------|-----|
+| `4febb77` | `Math.random()` → `crypto.randomBytes(4)` with 9-digit space (1 billion) |
+| `15004ea` | Prisma aggregate() doesn't support relation filters — two-step query |
+| `4baca42` | Formula injection fix — sanitize leading `=+@-` in Excel export |
+| `a786521` | Lint: remove unused import, eslint-disable for intentional dep |
+
+**Deliverable:** ✅ Operator bisa buat produk tabungan, buka rekening, terima setoran, tracking progress, potong gaji, export laporan. Semua terverifikasi via 20 E2E tests.
 
 ---
 
-### Phase 2: Talangan + Member Portal (Mendatang)
+### Phase 2B: Talangan Haji/Umrah 🔲 Pending (~1-2 minggu)
 
-| Fitur | Pendekatan | Estimasi |
-|-------|------------|----------|
-| Talangan Haji/Umrah | Extend `LoanProduct` type `"talangan_haji"`, reuse Loan infra | 1-2 minggu |
-| Gap Financing | Auto-calculate `targetAmount - currentBalance` | 2-3 hari |
-| Member Portal | `/portal/haji-umrah` — anggota lihat tabungan | 3-5 hari |
-| Spread Bagi Hasil | Admin input bagi hasil BSI per periode | 2-3 hari |
+| # | Fitur | Pendekatan | Estimasi |
+|---|-------|------------|----------|
+| 1 | Extend `LoanProduct` | Tambah `type: "talangan_haji"`, reuse Loan infra | 2-3 hari |
+| 2 | Gap Financing | Auto-calculate `targetAmount - currentBalance` = jumlah pinjaman | 1 hari |
+| 3 | UI pengajuan talangan | `/haji-umrah/talangan` — form + approval flow | 3-5 hari |
+| 4 | Integrasi angsuran | Auto-debet dari tabungan saat cicilan jatuh tempo | 2-3 hari |
 
----
+### Phase 3: Member Portal 🔲 Pending (~3-5 hari)
 
-## 7. Files yang Perlu Diubah / Dibuat
+| # | Fitur | Pendekatan | Estimasi |
+|---|-------|------------|----------|
+| 1 | Portal section | `/portal/haji-umrah` — anggota lihat tabungan sendiri | 2-3 hari |
+| 2 | Progress tracker | Visualisasi progress ke target per anggota | 1-2 hari |
+| 3 | Riwayat setoran | History setoran milik anggota yang login | 1 hari |
 
-### Phase 1 — Total: 21 file
+### Phase 4: Spread Bagi Hasil 🔲 Pending (~2-3 hari)
 
-**Modify (6 files):**
-1. `prisma/schema.prisma`
-2. `src/lib/constants/units.ts`
-3. `src/lib/constants/navigation.ts`
-4. `src/app/api/billing/generate/route.ts`
-5. `src/app/api/admin/migrate/route.ts`
-6. `src/lib/services/shu-calculator.ts` (verify only)
+| # | Fitur | Pendekatan | Estimasi |
+|---|-------|------------|----------|
+| 1 | Admin input | Form input bagi hasil dari BSI per periode | 1-2 hari |
+| 2 | Distribusi spread | Otomatis selisih bagi hasil BSI vs yang diberikan ke anggota | 1 hari |
 
-**Create (15 files):**
-7. `prisma/seed-savings-products.ts`
-8-12. 5 API route files
-13-19. 7 UI page files
-20. `src/lib/validations/haji-umrah.ts`
-21. (1 additional as needed)
+### Phase 5: Mobile App Integration 🔲 Pending (~3-5 hari)
+
+| # | Fitur | Pendekatan | Estimasi |
+|---|-------|------------|----------|
+| 1 | Mobile API | `/api/mobile/haji-umrah/*` endpoints | 2-3 hari |
+| 2 | Mobile screens | Tabungan, detail, setoran di Expo app | 3-5 hari |
+| 3 | Push notification | Alert saat target mendekati/tercapai | 1-2 hari |
+
+## 7. Files yang Diubah / Dibuat
+
+### Phase 1 — Total: 26 file ✅ COMPLETE
+
+**Modified (8 files):**
+1. `prisma/schema.prisma` — +8 nullable fields + BillingItem comment
+2. `prisma/seed.ts` — +TH/TU products + GL mapping
+3. `src/app/api/admin/migrate/route.ts` — +8 column migrations
+4. `src/lib/constants/units.ts` — +haji_umrah entry
+5. `src/lib/constants/index.ts` — +tabungan_haji/umrah types
+6. `src/lib/constants/navigation.ts` — +HAJI & UMRAH sidebar group
+7. `src/app/api/billing/generate/route.ts` — +Source 3 savings_account
+8. `src/app/api/billing/[periodId]/process/route.ts` — +savings_account settlement
+9. `src/lib/validations/index.ts` — +extended enum + haji/umrah fields
+10. `src/app/(protected)/layout.tsx` — +haji_umrah route guard
+
+**Created (16 files):**
+11. `src/app/api/haji-umrah/products/route.ts`
+12. `src/app/api/haji-umrah/products/[productId]/route.ts`
+13. `src/app/api/haji-umrah/savings/route.ts`
+14. `src/app/api/haji-umrah/savings/[accountId]/route.ts`
+15. `src/app/api/haji-umrah/savings/[accountId]/transactions/route.ts`
+16. `src/app/api/haji-umrah/reports/route.ts`
+17. `src/app/(protected)/haji-umrah/layout.tsx`
+18. `src/app/(protected)/haji-umrah/page.tsx`
+19. `src/app/(protected)/haji-umrah/tabungan/page.tsx`
+20. `src/app/(protected)/haji-umrah/tabungan/[accountId]/page.tsx`
+21. `src/app/(protected)/haji-umrah/tabungan/[accountId]/setoran/page.tsx`
+22. `src/app/(protected)/haji-umrah/produk/page.tsx`
+23. `src/app/(protected)/haji-umrah/laporan/page.tsx`
+24. `src/lib/validations/haji-umrah.ts`
+25. `e2e/haji-umrah.spec.ts` — basic E2E (8 tests)
+26. `e2e/haji-umrah-full.spec.ts` — full flow E2E (12 tests)
 
 ---
 
@@ -261,4 +314,4 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 
 ---
 
-*Diperbarui: 10 Juni 2026 | Status: Approved — Ready for Implementation Planning*
+*Diperbarui: 11 Juni 2026 | Status: Phase 1 COMPLETE ✅ — 20/20 E2E tests passing, Phase 2-5 pending*
