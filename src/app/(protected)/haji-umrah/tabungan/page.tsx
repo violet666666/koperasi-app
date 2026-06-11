@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/constants";
-import { Plus, Search, UserPlus } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 interface SavingsAccount {
@@ -179,6 +179,7 @@ export default function TabunganListPage() {
         if (product?.targetAmount && !bukaForm.targetAmount) {
             setBukaForm(f => ({ ...f, targetAmount: String(product.targetAmount) }));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bukaForm.productId, products]);
 
     async function handleBukaRekening() {
