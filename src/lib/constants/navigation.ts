@@ -160,7 +160,8 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
 
     {
         title: "HAJI & UMRAH",
-        roles: ["operator"],
+        roles: ["operator", "admin"],
+        unitTypes: ["haji_umrah"],
         items: [
             {
                 title: "Haji & Umrah", href: "/haji-umrah", icon: Landmark,
@@ -428,6 +429,41 @@ export const adminTokoNavigation: (NavItem | NavGroup)[] = [
         items: [
             {
                 title: "Inbox Approval", href: "/approval", icon: Bell,
+                permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "AKUN",
+        items: [
+            { title: "Profil Saya", href: "/profil", icon: User },
+        ],
+    },
+];
+
+// ============================================================
+// ADMIN HAJI & UMRAH NAVIGATION — untuk Admin unit Haji & Umrah
+// Tabungan bertarget, bukan POS. Menu khusus tanpa Kasir/Layanan.
+// ============================================================
+export const adminHajiUmrahNavigation: (NavItem | NavGroup)[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+        title: "HAJI & UMRAH",
+        items: [
+            {
+                title: "Dashboard H&U", href: "/haji-umrah", icon: Landmark,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Tabungan", href: "/haji-umrah/tabungan", icon: Wallet,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Produk", href: "/haji-umrah/produk", icon: Package,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Laporan", href: "/haji-umrah/laporan", icon: BarChart2,
                 permission: "manage_unit_transactions",
             },
         ],
@@ -1352,8 +1388,12 @@ export function getNavigationForUser(user: UserContext): (NavItem | NavGroup)[] 
     else if (user.roleName === "admin" && user.unitType === "cafe_lsp") {
         finalNav = filterNavigationByUser(adminCafeLspNavigation, user);
     }
+    // Admin Haji & Umrah — dedicated navigation (tabungan, not POS)
+    else if (user.roleName === "admin" && user.unitType === "haji_umrah") {
+        finalNav = filterNavigationByUser(adminHajiUmrahNavigation, user);
+    }
     // Admin unit Jasa Cepat (fallback ke generic)
-    else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp", "cafe_lsp"].includes(user.unitType)) {
+    else if (user.roleName === "admin" && user.unitType && !["toko", "resto_cafe", "resto", "coffe_latar", "simpan_pinjam", "investasi_modal_jp", "cafe_lsp", "haji_umrah"].includes(user.unitType)) {
         finalNav = filterNavigationByUser(adminUnitNavigation, user);
     }
     // Admin Simpan Pinjam — akses simpanan, pinjaman, anggota, kas-bank, jurnal, laporan

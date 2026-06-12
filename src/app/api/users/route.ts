@@ -6,7 +6,7 @@ import { createUserSchema, paginationSchema } from "@/lib/validations";
 
 // Roles that require unitType
 const UNIT_REQUIRED_ROLES = ["kasir", "admin"];
-const VALID_UNIT_TYPES = ["toko", "resto_cafe", "barbershop", "cuci_mobil", "fitness", "playstation", "laundry", "fotocopy", "simpan_pinjam", "cafe_lsp"];
+const VALID_UNIT_TYPES = ["toko", "resto_cafe", "barbershop", "cuci_mobil", "fitness", "playstation", "laundry", "fotocopy", "simpan_pinjam", "cafe_lsp", "haji_umrah"];
 
 // GET /api/users - List all users
 export async function GET(request: Request) {
