@@ -99,18 +99,21 @@ test.describe("Haji & Umrah — Admin Account Setup", () => {
         }
     });
 
-    test("Admin haji_umrah cannot create products (operator only)", async ({ page }) => {
+    test("Admin haji_umrah has full CRUD — can create products", async ({ page }) => {
         await loginAs(page, "adminhajiumrah@koperasi.com");
 
         const res = await page.request.post(`${BASE}/api/haji-umrah/products`, {
             data: {
-                code: "TEST_ADMIN",
-                name: "Test Admin Create",
-                type: "tabungan_haji",
-                minimumAmount: 100000,
+                code: "ADMIN_SETUP_TEST",
+                name: "Admin Setup Test Product",
+                type: "tabungan_umrah",
+                minimumAmount: 25000,
+                targetAmount: 15000000,
+                adminFeeType: "percent",
+                adminFeeValue: 0.3,
             },
         });
-        expect(res.status()).toBe(403);
-        console.log("✅ Admin correctly blocked from creating products (operator only)");
+        expect([200, 201, 409].includes(res.status())).toBe(true);
+        console.log("✅ Admin can create products (branch manager model) →", res.status());
     });
 });

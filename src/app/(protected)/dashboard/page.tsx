@@ -194,6 +194,15 @@ export default function DashboardPage() {
 
     // KASIR & ADMIN UNIT → show unit-specific dashboard
     if (!user) return null; // Loading handled by layout
+
+    // Haji & Umrah admin → redirect to their own dashboard
+    if (roleName === "admin" && unitType === "haji_umrah") {
+        if (typeof window !== "undefined") {
+            window.location.href = "/haji-umrah";
+        }
+        return null;
+    }
+
     if (roleName === "kasir" || (roleName === "admin" && unitType && unitType !== "simpan_pinjam")) {
         return (
             <div className="p-6">

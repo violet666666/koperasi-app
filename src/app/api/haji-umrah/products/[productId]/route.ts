@@ -15,8 +15,9 @@ export async function PUT(
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
         const roleName = (session.user as Record<string, unknown>).role?.name || (session.user as Record<string, unknown>).role;
-        if (roleName !== "operator") {
-            return NextResponse.json({ message: "Forbidden — operator only" }, { status: 403 });
+        const unitType = (session.user as Record<string, unknown>).unitType;
+        if (roleName !== "operator" && !(roleName === "admin" && unitType === "haji_umrah")) {
+            return NextResponse.json({ message: "Forbidden — operator or haji_umrah admin only" }, { status: 403 });
         }
 
         const { productId } = await params;

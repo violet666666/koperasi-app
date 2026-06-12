@@ -332,38 +332,63 @@ test.describe("3. Admin Haji Umrah — Unit Access", () => {
         console.log("✅ 3.2 All 4 H&U pages accessible to admin");
     });
 
-    test("3.3 Admin can view (GET) but not create (POST) products", async ({ page }) => {
+    test("3.3 Admin has full CRUD — can create and update products", async ({ page }) => {
         await loginAs(page, "adminhajiumrah@koperasi.com");
 
         const getRes = await page.request.get(`${BASE}/api/haji-umrah/products`);
         expect(getRes.status()).toBe(200);
 
+        // POST: Admin can create products (branch manager model)
         const postRes = await page.request.post(`${BASE}/api/haji-umrah/products`, {
-            data: { code: "SHOULD_FAIL", name: "Test", type: "tabungan_haji" },
+            data: {
+                code: "ADMIN_CRUD_TEST",
+                name: "Admin CRUD Test Product",
+                type: "tabungan_haji",
+                minimumAmount: 50000,
+                targetAmount: 30000000,
+                adminFeeType: "percent",
+                adminFeeValue: 0.3,
+            },
         });
-        expect(postRes.status()).toBe(403);
-        console.log("✅ 3.3 Admin: GET ✅ | POST ❌ (403 Forbidden)");
-    });
+        expect([200, 201, 409].includes(postRes.status())).toBe(true);
+        console.log("✅ 3.3a Admin: POST create product →", postRes.status());
 
-    test("3.4 Admin cannot create products (operator only) — confirmed", async ({ page }) => {
-        await loginAs(page, "adminhajiumrah@koperasi.com");
-
-        // POST to create product should be 403
-        const postRes = await page.request.post(`${BASE}/api/haji-umrah/products`, {
-            data: { code: "ADMIN_BLOCKED", name: "Should Fail", type: "tabungan_haji" },
-        });
-        expect(postRes.status()).toBe(403);
-
-        // PUT to update product should also be 403
+        // PUT: Admin can update products
         const listRes = await page.request.get(`${BASE}/api/haji-umrah/products`);
         const products = (await listRes.json()).data;
-        if (products.length > 0) {
-            const putRes = await page.request.put(`${BASE}/api/haji-umrah/products/${products[0].id}`, {
-                data: { name: "Should Also Fail" },
+        const testProduct = products.find((p: { code: string }) => p.code === "ADMIN_CRUD_TEST");
+        if (testProduct) {
+            const putRes = await page.request.put(`${BASE}/api/haji-umrah/products/${testProduct.id}`, {
+                data: { name: "Admin CRUD Test Updated" },
             });
-            expect(putRes.status()).toBe(403);
+            expect(putRes.status()).toBe(200);
+            console.log("✅ 3.3b Admin: PUT update product →", putRes.status());
         }
-        console.log("✅ 3.4 Admin blocked from POST (create) and PUT (update) products");
+    });
+
+    test("3.4 Admin can open rekening and make setoran", async ({ page }) => {
+        await loginAs(page, "adminhajiumrah@koperasi.com");
+
+        // GET savings — admin can view
+        const savingsRes = await page.request.get(`${BASE}/api/haji-umrah/savings`);
+        expect(savingsRes.status()).toBe(200);
+        const savingsJson = await savingsRes.json();
+
+        if (savingsJson.data.length > 0) {
+            // POST setoran — admin can make deposits
+            const cbRes = await page.request.get(`${BASE}/api/cash-bank/accounts`);
+            const cbJson = await cbRes.json();
+            if (cbJson.data?.length) {
+                const depositRes = await page.request.post(
+                    `${BASE}/api/haji-umrah/savings/${savingsJson.data[0].id}/transactions`,
+                    { data: { amount: 100000, paymentMethod: "cash", cashBankAccountId: cbJson.data[0].id } }
+                );
+                expect(depositRes.status()).toBe(201);
+                console.log("✅ 3.4 Admin: setoran successful");
+            }
+        } else {
+            console.log("✅ 3.4 Admin: savings list accessible (0 accounts)");
+        }
     });
 });
 
