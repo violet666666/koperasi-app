@@ -159,12 +159,13 @@ export async function GET(request: Request) {
             ];
         }
 
-        // Exclude auto-generated UnitTransactions from POS sales (they're represented by StoreSale)
+        // Exclude ALL auto-generated UnitTransactions (POS, mobile, split-bill).
+        // They're represented by their corresponding StoreSale in the merged results.
         // Use AND to avoid overwriting search OR. Must handle NULL notes:
         // SQL NOT(NULL LIKE 'x') → NULL (falsy) would exclude valid rows with null notes.
         where.AND = [
             { OR: [
-                { notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } } },
+                { notes: { not: { startsWith: "Auto-generated" } } },
                 { notes: null },
             ] },
         ];
@@ -302,6 +303,32 @@ export async function GET(request: Request) {
             : storeCount;
 
         let allTransactions = [...unitTransactions, ...filteredStoreSales];
+
+        // Post-merge dedup: Remove salary_cut UnitTransactions that duplicate a StoreSale.
+        // Safety net — catches edge cases where the notes filter misses auto-generated records
+        // (e.g. manually created piutang for a sale, or future code paths that forget the prefix).
+        if (filteredStoreSales.length > 0) {
+            const storeSaleNos = new Set<string>();
+            for (const t of filteredStoreSales) {
+                const tn = (t as Record<string, unknown>).transactionNo;
+                if (typeof tn === "string") storeSaleNos.add(tn);
+            }
+            if (storeSaleNos.size > 0) {
+                const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
+                allTransactions = allTransactions.filter((t: Record<string, unknown>) => {
+                    // Keep all mapped StoreSales (id >= 1_000_000 offset)
+                    if (Number((t as Record<string, unknown>).id) >= 1_000_000) return true;
+                    // Keep non-salary_cut UnitTransactions
+                    if ((t as Record<string, unknown>).paymentMethod !== "salary_cut") return true;
+                    // Check if this UnitTransaction references a StoreSale already in the list
+                    const desc = String((t as Record<string, unknown>).description || "");
+                    const notes = String((t as Record<string, unknown>).notes || "");
+                    const match = desc.match(SALE_NO_RE) || notes.match(SALE_NO_RE);
+                    if (match && storeSaleNos.has(match[1])) return false; // Duplicate — remove
+                    return true;
+                });
+            }
+        }
 
         // Sort merged results
         const sortKey = query.sortBy || "transactionDate";

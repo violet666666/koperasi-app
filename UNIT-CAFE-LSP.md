@@ -102,5 +102,9 @@ Counter-based F&B. Pelanggan order di counter → nomor antrian → ambil pesana
 
 ## Changelog
 
+- **12 Jun 2026** — **Fix duplikasi transaksi Potong Gaji di Riwayat (3 files):**
+  1. `api/unit-transactions/route.ts`: Broaden notes filter dari `"Auto-generated dari penjualan kasir"` ke `"Auto-generated"` agar menangkap semua varian (POS, mobile, split-bill). Tambah post-merge saleNo-based dedup sebagai safety net — filter salary_cut UnitTransaction yang description-nya mengandung saleNo yang sama dengan StoreSale di merged list.
+  2. `api/toko/split-bill/route.ts`: Konsistensi notes prefix — sebelumnya `"Auto-generated dari split bill"` (tidak tertangkap filter lama), sekarang `"Auto-generated dari penjualan kasir. Split Bill Group: ..."`. Ini juga memperbaiki filter di 6+ route lain (`piutang-barang`, `member-portal/transactions`, `member-portal/summary`, `mobile/transactions`, `mobile/toko/history`).
+  3. Root cause: Setiap checkout Potong Gaji membuat 2 record — `StoreSale` + `UnitTransaction` (piutang). Riwayat API merge kedua table. Filter notes sebelumnya terlalu sempit, menyebabkan `UnitTransaction` lolos dan muncul sebagai duplikat di samping mapped `StoreSale`.
 - **21 Mei 2026** — Sidebar dipangkas 12→7 item. Hapus Bahan Baku, Batch, Opname, Order Queue dari sidebar admin. Default `trackStock=false` untuk produk baru. HPP manual tooltip di form Tambah Menu. Tombol Opname di Persediaan.
 - **18 Mei 2026** — Edit NRP fix, operator hierarchy cleanup.

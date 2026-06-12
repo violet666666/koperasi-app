@@ -149,6 +149,7 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 | 8 Jun 2026 | Admin `resto_cafe` tidak bisa akses halaman Laporan `/unit/resto/laporan` | Client-side exact match `userUnitType !== unitType` — `"resto_cafe" !== "resto"` → `isWrongUnit=true`, page blocked | Ganti ke `isSameUnit()` di client-side `isAdmin` dan `isWrongUnit` check |
 | 8 Jun 2026 | Riwayat `useEffect` bypass normalisasi unitType | `setFilterUnit(urlUnitType)` tanpa `normalizeUnitType()` — navigasi langsung ke `?unitType=resto_cafe` tidak normalisasi | Tambah `normalizeUnitType()` di `useEffect` sebelum `setFilterUnit` |
 | 8 Jun 2026 | GET `/api/unit/[slug]/operational-expense` 500 error | `checkAccess(slug)` dipanggil tapi tidak pernah didefinisikan di file → ReferenceError | Ganti ke inline RBAC check (sama pattern dengan POST handler): `isSameUnit` + role check |
+| 11 Jun 2026 | Tombol "Cetak Struk" tidak bisa diklik saat nota banyak item | `ReceiptPrimkopol` preview + tombol dalam layout vertikal tanpa `max-h`/`overflow` → preview tumbuh bebas, tombol terdorong ke luar viewport. Dialog kasir juga tanpa scroll constraint. | `ReceiptPrimkopol`: preview dibungkus `max-h-[60vh] overflow-y-auto`, tombol selalu terlihat. 8 kasir dialog +`max-h-[90vh] overflow-y-auto`. `generateKasirReceiptPDF`: auto-print dipertahankan, hanya hapus auto-close. |
 
 ## Data Isolation: Resto vs Cafe LSP
 
@@ -165,6 +166,11 @@ JALUR 2: Unit Retail/F&B (StoreSale) — Toko, Resto, Cafe LSP
 
 ## Changelog
 
+- **11 Jun 2026** — **Fix receipt overflow — tombol Cetak Struk tidak bisa diklik saat nota panjang (10 files):**
+  1. `ReceiptPrimkopol` (`receipt-primkopol.tsx`): Layout diubah dari `space-y-3` ke `flex flex-col gap-3`. Preview area dibungkus `max-h-[60vh] overflow-y-auto` sehingga tombol aksi (Cetak Struk, Bluetooth, Tutup) selalu terlihat meski nota memiliki banyak item.
+  2. 8 kasir dialog (resto, cafe-lsp, barbershop, fitness, fotocopy, laundry, play-station, cuci-mobil): DialogContent ditambah `max-h-[90vh] overflow-y-auto` sebagai defense-in-depth.
+  3. `generateKasirReceiptPDF` (`export-utils.ts`): Hapus auto-close 1 detik yang bisa membatalkan dialog print di tablet. Auto-print dipertahankan dengan `win.onload` + `setTimeout 400ms` (match `ReceiptPrimkopol` pattern).
+  4. **Hotfix**: Commit pertama salah menghapus auto-print dari `generateKasirReceiptPDF` → Toko tidak bisa cetak. Diperbaiki di commit kedua — auto-print dikembalikan, hanya auto-close yang dihapus.
 - **9 Jun 2026** — **Takeaway surcharge feature (10 files):**
   1. New API: `GET/PUT /api/toko/takeaway-surcharge` — config stored in `AppSetting` key `takeaway_surcharge_resto` (default Rp 1,000/item, enabled=true)
   2. Sales API: server-side validation + recomputation of surcharge from DB config, stored in `StoreSale.metadata`

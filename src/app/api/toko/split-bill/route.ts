@@ -371,7 +371,7 @@ export async function POST(req: Request) {
                             transactionDate: now,
                             paymentMethod: "salary_cut",
                             isPaid: false,
-                            notes: `Auto-generated dari split bill. Group: ${groupId}`,
+                            notes: `Auto-generated dari penjualan kasir. Split Bill Group: ${groupId}. No. Transaksi: ${saleNo}`,
                             createdById: userId,
                         },
                     });
