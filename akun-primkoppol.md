@@ -19,6 +19,7 @@ GUNAKAN AKUN KASIR UNTUK FITUR KASIR !
 | <admintoko@koperasi.com> | KHUSUADMIN | admin | toko | Admin unit toko |
 | <admincafe@koperasi.com> | password123 | admin | resto_cafe | Admin unit Resto & Cafe (Latar) |
 | <admincafelsp@koperasi.com> | password123 | admin | cafe_lsp | Admin unit Cafe LSP |
+| <adminhajiumrah@koperasi.com> | password123 | admin | haji_umrah | Admin unit Haji & Umrah — tabungan, produk, laporan |
 
 | **Production (`www.primkoppol.site`)** | | | | |
 
