@@ -51,6 +51,7 @@ import {
     FlaskConical,
     ClipboardCheck,
     Landmark,
+    HandCoins,
 } from "lucide-react";
 
 export interface NavItem {
@@ -169,6 +170,7 @@ export const mainNavigation: (NavItem | NavGroup)[] = [
                 children: [
                     { title: "Dashboard", href: "/haji-umrah" },
                     { title: "Tabungan", href: "/haji-umrah/tabungan" },
+                    { title: "Talangan", href: "/haji-umrah/talangan" },
                     { title: "Produk", href: "/haji-umrah/produk" },
                     { title: "Laporan", href: "/haji-umrah/laporan" },
                 ],
@@ -456,6 +458,10 @@ export const adminHajiUmrahNavigation: (NavItem | NavGroup)[] = [
             },
             {
                 title: "Tabungan", href: "/haji-umrah/tabungan", icon: Wallet,
+                permission: "manage_unit_transactions",
+            },
+            {
+                title: "Talangan", href: "/haji-umrah/talangan", icon: HandCoins,
                 permission: "manage_unit_transactions",
             },
             {

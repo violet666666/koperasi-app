@@ -15,7 +15,7 @@
 | 1D | Integration (Constants + Nav + Billing + Zod) | ✅ **DONE** | `7de4647` | ✅ E2E 20/20 |
 | 1E | Security Fix + Bug Fix | ✅ **DONE** | `4febb77`, `15004ea` | ✅ E2E re-pass |
 | 2A | Seed Products + Live E2E Test | ✅ **DONE** | `4baca42`, `a786521` | ✅ 20/20 Playwright |
-| 2B | Talangan Haji/Umrah | 🔲 Pending | — | — |
+| 2B | Talangan Haji/Umrah | ✅ **DONE** | See below | ✅ 14 E2E tests |
 | 3 | Member Portal | 🔲 Pending | — | — |
 | 4 | Spread Bagi Hasil | 🔲 Pending | — | — |
 | 5 | Mobile App Integration | 🔲 Pending | — | — |
@@ -88,11 +88,13 @@ Admin Fee Revenue:
 
 ## Remaining Phases
 
-### Phase 2B: Talangan Haji/Umrah (~1-2 minggu)
-- Extend `LoanProduct` dengan `type: "talangan_haji"`
-- Auto-calculate gap: `targetAmount - currentBalance`
-- UI pengajuan talangan di `/haji-umrah/talangan`
-- Integrasi angsuran otomatis dari tabungan
+### Phase 2B: Talangan Haji/Umrah ✅ COMPLETE (13 Juni 2026)
+- **Design:** Hybrid approach — reuse Loan infra 90% + H&U wrapper API + gap-aware UX
+- **Data Layer:** +3 schema fields (LoanProduct.type, LoanApplication/Loan.linkedSavingsAccountId), 0 new models, +2 seed products (TLH, TLU)
+- **API Layer:** 5 wrapper endpoints + talangan report type + Zod validation
+- **UI Layer:** 3 pages (list+gap overview, multi-step apply form, detail+schedules) + dashboard update
+- **Integration:** Navigation menu (admin + main), disburse route fix, 14 E2E tests
+- **Design Spec:** `2026-06-12-talangan-haji-umrah-design.md`
 
 ### Phase 3: Member Portal (~3-5 hari)
 - Section `/portal/haji-umrah` — anggota lihat tabungan sendiri

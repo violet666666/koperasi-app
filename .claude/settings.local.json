@@ -145,7 +145,11 @@
       "Bash(where gh *)",
       "Bash(timeout 180 bash *)",
       "Bash(findstr /n \".\")",
-      "Bash(findstr \"^[1-5]:\")"
+      "Bash(findstr \"^[1-5]:\")",
+      "Skill(deep-research)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx eslint *)",
+      "Bash(Select-String -Pattern \"error|warning|✓|Compiled|Route\")"
     ]
   },
   "enabledPlugins": {

@@ -303,6 +303,33 @@ export async function POST(request: Request) {
             }
         }
 
+        // ── Talangan Haji/Umrah: LoanProduct.type column ──
+        const hasLoanProductType = await columnExists("loan_products", "type");
+        if (!hasLoanProductType) {
+            await prisma.$executeRaw`ALTER TABLE loan_products ADD COLUMN type TEXT`;
+            results.push("Added loan_products.type (TEXT, nullable — null = reguler)");
+        } else {
+            results.push("loan_products.type already exists");
+        }
+
+        // ── Talangan Haji/Umrah: LoanApplication.linked_savings_account_id ──
+        const hasAppLinkedSavings = await columnExists("loan_applications", "linked_savings_account_id");
+        if (!hasAppLinkedSavings) {
+            await prisma.$executeRaw`ALTER TABLE loan_applications ADD COLUMN linked_savings_account_id INTEGER`;
+            results.push("Added loan_applications.linked_savings_account_id (INTEGER, nullable)");
+        } else {
+            results.push("loan_applications.linked_savings_account_id already exists");
+        }
+
+        // ── Talangan Haji/Umrah: Loan.linked_savings_account_id ──
+        const hasLoanLinkedSavings = await columnExists("loans", "linked_savings_account_id");
+        if (!hasLoanLinkedSavings) {
+            await prisma.$executeRaw`ALTER TABLE loans ADD COLUMN linked_savings_account_id INTEGER`;
+            results.push("Added loans.linked_savings_account_id (INTEGER, nullable)");
+        } else {
+            results.push("loans.linked_savings_account_id already exists");
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

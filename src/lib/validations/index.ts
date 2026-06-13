@@ -69,6 +69,7 @@ export const createLoanProductSchema = z.object({
     maxLoanToSavingsRatio: z.number().positive().optional(),
     effectiveDate: z.string().transform((s) => new Date(s)),
     isActive: z.boolean().default(true),
+    type: z.enum(["reguler", "talangan_haji", "talangan_umrah"]).optional().nullable(),
 });
 
 export const updateLoanProductSchema = createLoanProductSchema.partial();

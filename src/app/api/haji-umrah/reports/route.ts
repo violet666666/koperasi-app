@@ -97,6 +97,64 @@ export async function GET(request: Request) {
             });
         }
 
+        if (reportType === "talangan") {
+            // Talangan report — all talangan loans
+            const talanganWhere: Record<string, unknown> = {
+                linkedSavingsAccountId: { not: null },
+            };
+            if (productType) {
+                // productType comes as tabungan_haji/tabungan_umrah, map to talangan type
+                const talType = productType.replace("tabungan_", "talangan_");
+                talanganWhere.productSnapshot = { path: ["type"], equals: talType };
+            }
+
+            const loans = await prisma.loan.findMany({
+                where: talanganWhere,
+                include: {
+                    member: { select: { id: true, name: true, nrp: true } },
+                    application: {
+                        select: { applicationNo: true, product: { select: { code: true, name: true, type: true } } },
+                    },
+                    linkedSavingsAccount: {
+                        select: { accountNo: true, balance: true, targetAmount: true },
+                    },
+                },
+                orderBy: { disbursementDate: "desc" },
+            });
+
+            const activeLoans = loans.filter((l) => l.status === "active");
+            const paidOffLoans = loans.filter((l) => l.status === "paid_off");
+            const totalDisbursed = loans.reduce((s, l) => s + Number(l.principalAmount), 0);
+            const totalOutstanding = activeLoans.reduce((s, l) => s + Number(l.principalOutstanding), 0);
+            const totalCollected = loans.reduce((s, l) => s + Number(l.principalPaid), 0);
+
+            return NextResponse.json({
+                data: loans.map((l) => ({
+                    loanId: l.id,
+                    loanNo: l.loanNo,
+                    memberName: l.member.name,
+                    memberNrp: l.member.nrp,
+                    productType: (l.application?.product?.type as string) || null,
+                    principalAmount: Number(l.principalAmount),
+                    totalAmount: Number(l.totalAmount),
+                    outstanding: Number(l.principalOutstanding),
+                    paid: Number(l.principalPaid),
+                    status: l.status,
+                    disbursementDate: l.disbursementDate,
+                    savingsAccountNo: l.linkedSavingsAccount?.accountNo || null,
+                    savingsBalance: l.linkedSavingsAccount ? Number(l.linkedSavingsAccount.balance) : null,
+                })),
+                summary: {
+                    totalLoans: loans.length,
+                    activeCount: activeLoans.length,
+                    paidOffCount: paidOffLoans.length,
+                    totalDisbursed,
+                    totalOutstanding,
+                    totalCollected,
+                },
+            });
+        }
+
         // Default: progress report — used by dashboard page
         const accounts = await prisma.savingsAccount.findMany({
             where: {

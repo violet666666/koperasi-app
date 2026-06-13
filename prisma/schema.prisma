@@ -185,6 +185,7 @@ model LoanProduct {
   effectiveDate         DateTime  @map("effective_date") @db.Date
   isCurrent             Boolean   @default(true) @map("is_current")
   isActive              Boolean   @default(true) @map("is_active")
+  type                  String?   @map("type") // "reguler" | "talangan_haji" | "talangan_umrah" — null = reguler
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
@@ -378,6 +379,8 @@ model SavingsAccount {
   product      SavingsProduct       @relation(fields: [productId], references: [id])
   branch       Branch               @relation(fields: [branchId], references: [id])
   transactions SavingsTransaction[]
+  talanganApplications LoanApplication[]
+  talanganLoans        Loan[]
 
   @@unique([memberId, productId])
   @@index([memberId])
@@ -451,16 +454,18 @@ model LoanApplication {
   rejectedAt            DateTime? @map("rejected_at")
   rejectedById          Int?      @map("rejected_by_id")
   rejectionReason       String?   @map("rejection_reason")
-  createdById           Int       @map("created_by_id")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  linkedSavingsAccountId Int?      @map("linked_savings_account_id") // Links talangan to H&U savings account
+  createdById            Int       @map("created_by_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  member     Member      @relation(fields: [memberId], references: [id])
-  branch     Branch      @relation(fields: [branchId], references: [id])
-  product    LoanProduct @relation(fields: [productId], references: [id])
-  createdBy  User        @relation("LoanAppCreatedBy", fields: [createdById], references: [id])
-  approvedBy User?       @relation("LoanAppApprovedBy", fields: [approvedById], references: [id])
-  loan       Loan?
+  member               Member          @relation(fields: [memberId], references: [id])
+  branch               Branch          @relation(fields: [branchId], references: [id])
+  product              LoanProduct     @relation(fields: [productId], references: [id])
+  createdBy            User            @relation("LoanAppCreatedBy", fields: [createdById], references: [id])
+  approvedBy           User?           @relation("LoanAppApprovedBy", fields: [approvedById], references: [id])
+  linkedSavingsAccount SavingsAccount? @relation(fields: [linkedSavingsAccountId], references: [id])
+  loan                 Loan?
 
   @@index([status])
   @@index([memberId])
@@ -500,6 +505,7 @@ model Loan {
   disbursedById          Int?      @map("disbursed_by_id")
   periodId               Int?      @map("period_id")
   compensatedLoanId      Int?      @map("compensated_loan_id")
+  linkedSavingsAccountId Int?      @map("linked_savings_account_id") // Links talangan to H&U savings account
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -511,6 +517,7 @@ model Loan {
   period               FiscalPeriod?    @relation(fields: [periodId], references: [id])
   compensatedLoan      Loan?            @relation("LoanKompen", fields: [compensatedLoanId], references: [id], onDelete: SetNull)
   kompenChildren       Loan[]           @relation("LoanKompen")
+  linkedSavingsAccount SavingsAccount?  @relation(fields: [linkedSavingsAccountId], references: [id])
   schedules            LoanSchedule[]
   payments             LoanPayment[]
 

@@ -105,6 +105,7 @@ export async function POST(request: Request, { params }: Params) {
                     lastDueDate: new Date(new Date(baseDate).setMonth(baseDate.getMonth() + tenorMonths)),
                     disbursedById: currentUserId,
                     status: "active",
+                    linkedSavingsAccountId: application.linkedSavingsAccountId,
                 }
             });
 

@@ -50,3 +50,24 @@ export const updateHajiUmrahProductSchema = z.object({
 });
 
 export type UpdateHajiUmrahProductInput = z.infer<typeof updateHajiUmrahProductSchema>;
+
+// ── Talangan Haji/Umrah ──────────────────────────────────────────
+
+// Auto-disburse threshold: talangan <= 10 juta can skip approval
+export const AUTO_DISBURSE_THRESHOLD = 10_000_000;
+
+export const TALANGAN_PRODUCT_TYPES = ["talangan_haji", "talangan_umrah"] as const;
+
+// Schema for creating a talangan application (POST /api/haji-umrah/talangan/apply)
+export const createTalanganSchema = z.object({
+    savingsAccountId: z.number().int().positive("Rekening tabungan wajib dipilih"),
+    productId: z.number().int().positive("Produk talangan wajib dipilih"),
+    amount: z.number().positive("Jumlah talangan harus lebih dari 0"),
+    tenorMonths: z.number().int().min(1, "Tenor minimal 1 bulan").max(60, "Tenor maksimal 60 bulan"),
+    deductionSource: z.enum(["gaji", "tunkin", "bs"]).default("gaji"),
+    cashBankAccountId: z.number().int().positive().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    autoDisburse: z.boolean().default(false),
+});
+
+export type CreateTalanganInput = z.infer<typeof createTalanganSchema>;
