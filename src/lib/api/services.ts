@@ -388,6 +388,9 @@ export const memberPortalApi = {
         api.get<{ data: unknown }>("/member-portal/transactions", { params }),
 
     payroll: () => api.get<{ data: unknown }>("/member-portal/payroll"),
+
+    // Phase 3 — Haji & Umrah member view (tabungan + progress + talangan)
+    hajiUmrah: () => api.get<{ data: unknown }>("/member-portal/haji-umrah"),
 };
 
 // ============================================================

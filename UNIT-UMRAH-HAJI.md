@@ -1,6 +1,6 @@
 # Unit Haji & Umrah
 
-> **unitType:** `haji_umrah` | **Jalur:** Tabungan Bertarget + Talangan (bukan POS) | **API:** `/api/haji-umrah/*` + `/api/loans/*`
+> **unitType:** `haji_umrah` | **Jalur:** Tabungan Bertarget + Talangan (bukan POS) | **API:** `/api/haji-umrah/*` + `/api/loans/*` + `/api/member-portal/haji-umrah`
 > **Partner:** Bank BSI (Bank Syariah Indonesia) | **Kategori:** `service` | **Icon:** `Landmark`
 
 ---
@@ -164,6 +164,14 @@ layout.tsx:58 → ADMIN_ALLOWED_ROUTES["haji_umrah"] = ["/haji-umrah", "/unit", 
 | `GET` | `/api/haji-umrah/talangan/[applicationId]` | Authenticated | Detail: application + loan + schedules + payments + savings account info |
 | `POST` | `/api/haji-umrah/talangan/apply` | operator / admin haji_umrah | Buat pengajuan + auto-disburse (jika ≤ Rp 10 juta atau operator) |
 
+### Member Portal (Phase 3) — view-only, member-scoped
+
+| Method | Endpoint | Auth | Fungsi |
+|---|---|---|---|
+| `GET` | `/api/member-portal/haji-umrah` | Member (`session.user.memberId` wajib) | Rekening H&U milik anggota yang login + progress + riwayat setoran + talangan aktif per rekening + summary stats |
+
+> **Penting:** Endpoint ini TIDAK menerima `memberId` dari client — selalu pakai session. Berbeda RBAC dari `/api/haji-umrah/*` (operator/admin). Operator (memberId=null) → 401. Endpoint `/api/haji-umrah/*` TIDAK boleh di-reuse untuk portal.
+
 ### Reused Endpoints (dari infrastruktur Loan)
 
 | Method | Endpoint | Fungsi |
@@ -200,6 +208,11 @@ src/app/(protected)/haji-umrah/
     page.tsx                             ← CRUD produk tabungan (card grid + dialog)
   laporan/
     page.tsx                             ← Export Excel/PDF + summary cards
+
+src/app/portal/haji-umrah/                ← Phase 3 — Member self-service (view-only)
+  page.tsx                               ← Tabungan H&U milik anggota: summary gradient card,
+                                            per-account progress tracker, maturity countdown,
+                                            collapsible riwayat setoran, talangan aktif block, empty state
 ```
 
 ### Dashboard Stats Cards (8 cards)
@@ -324,7 +337,7 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 
 ## Files Inventory
 
-### API Routes (11 files)
+### API Routes (12 files)
 
 | File | Endpoint(s) |
 |---|---|
@@ -339,8 +352,9 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `src/app/api/haji-umrah/talangan/apply/route.ts` | POST apply + auto-disburse |
 | `src/app/api/haji-umrah/talangan/products/route.ts` | GET talangan products |
 | `src/app/api/haji-umrah/talangan/[applicationId]/route.ts` | GET detail |
+| `src/app/api/member-portal/haji-umrah/route.ts` | GET member's H&U (view-only, member-scoped) — Phase 3 |
 
-### UI Pages (10 files)
+### UI Pages (11 files)
 
 | File | Route |
 |---|---|
@@ -354,8 +368,9 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `src/app/(protected)/haji-umrah/talangan/[applicationId]/page.tsx` | Detail talangan |
 | `src/app/(protected)/haji-umrah/produk/page.tsx` | CRUD produk |
 | `src/app/(protected)/haji-umrah/laporan/page.tsx` | Export laporan |
+| `src/app/portal/haji-umrah/page.tsx` | Member self-service (view-only) — Phase 3 |
 
-### E2E Tests (5 files, ~81 tests)
+### E2E Tests (6 files, ~88 tests)
 
 | File | Tests |
 |---|---|
@@ -364,6 +379,7 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `e2e/haji-umrah-comprehensive.spec.ts` | ~36 operator + admin + RBAC |
 | `e2e/haji-umrah-admin-setup.spec.ts` | ~8 admin CRUD |
 | `e2e/haji-umrah-talangan.spec.ts` | ~14 talangan API + UI + flow |
+| `e2e/haji-umrah-portal.spec.ts` | 7 member portal (RBAC + member data-flow + UI) — Phase 3 |
 
 ### Validations (1 file)
 
@@ -388,6 +404,10 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `src/app/api/billing/generate/route.ts` | +Source 3: savings_account |
 | `src/app/api/billing/[periodId]/process/route.ts` | +savings_account settlement |
 | `src/app/api/loans/applications/[id]/disburse/route.ts` | +1 line: copy linkedSavingsAccountId |
+| `src/app/api/member-portal/summary/route.ts` | +H&U fields in product.select + account response (targetAmount, monthlyTarget, maturityDate) — Phase 3 |
+| `src/lib/api/services.ts` | +`memberPortalApi.hajiUmrah()` — Phase 3 |
+| `src/app/portal/layout.tsx` | +`Haji & Umrah` nav link (Landmark icon) — Phase 3 |
+| `src/app/portal/simpanan/page.tsx` | +filter H&U out of simpanan cards + pointer banner to /portal/haji-umrah — Phase 3 |
 
 ---
 
@@ -403,7 +423,7 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | 2A | Seed Products + Live E2E | ✅ DONE | `4baca42`, `a786521` | E2E 20/20 |
 | 2A-ext | Admin Unit Support (nav + redirect + CRUD) | ✅ DONE | `81567df`, `aa6eb4d` | E2E 58/58 |
 | **2B** | **Talangan Haji/Umrah** | **✅ DONE** | **`5c885cb`** | **E2E 14/14** |
-| 3 | Member Portal | 🔲 Pending | — | — |
+| **3** | **Member Portal** (view-only, member-scoped) | **✅ DONE** | _see commit_ | **E2E 7/7 + 34/34 no regression** |
 | 4 | Spread Bagi Hasil | 🔲 Pending | — | — |
 | 5 | Mobile App | 🔲 Pending | — | — |
 
@@ -438,6 +458,9 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 9. **Admin fee CashBank** dikategorikan `pendapatan_unit` + `unitType: haji_umrah` — auto masuk SHU
 10. **One talangan per rekening** — validasi di apply route, tidak boleh ada 2 talangan aktif untuk 1 SavingsAccount
 11. **Type matching wajib** — `tabungan_haji` hanya bisa pakai `talangan_haji`, `tabungan_umrah` hanya bisa pakai `talangan_umrah`
+12. **Member portal ≠ admin API** — `/api/member-portal/haji-umrah` (Phase 3) pakai RBAC member (`session.user.memberId` wajib, scoped ke anggota yang login, view-only). `/api/haji-umrah/*` pakai RBAC operator/admin. Jangan di-reuse — operator (memberId=null) → 401 di portal endpoint by design.
+13. **Talangan di portal** muncul otomatis via `Loan.linkedSavingsAccountId` (denormalized Phase 2B) — query by `memberId + linkedSavingsAccountId IN (accountIds)`. Member lihat outstanding + cicilan bulanan + jatuh tempo berikutnya (LoanSchedule pending terdekat).
+14. **Test member portal** pakai akun member nyata: `87011378@koperasi.local` / `87011378` (A'AN ANDRIONO, member_id 776, punya HU-776-10-1715 + talangan). Password = NRP (konvensi seed). Login harus di **fresh browser context** (`browser.newContext()`) agar tidak ikut session operator.
 
 ---
 

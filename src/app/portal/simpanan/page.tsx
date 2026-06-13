@@ -4,11 +4,12 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { memberPortalApi } from "@/lib/api/services";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PiggyBank, ShieldCheck } from "lucide-react";
+import { PiggyBank, ShieldCheck, Landmark } from "lucide-react";
 
 export default function SimpananPortalPage() {
     type SummaryResponse = {
@@ -83,8 +84,10 @@ export default function SimpananPortalPage() {
                             </Card>
                         )}
                         
-                        {/* 2. List Akun Simpanan Normal (Pokok, Sukarela, dll) */}
-                        {response?.data.savings.accounts.map((acc: any) => (
+                        {/* 2. List Akun Simpanan Normal (Pokok, Sukarela, dll) — H&U excluded (own page) */}
+                        {response?.data.savings.accounts
+                            .filter((acc: any) => acc.product?.type !== "tabungan_haji" && acc.product?.type !== "tabungan_umrah")
+                            .map((acc: any) => (
                     <Card key={acc.id} className="border shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-6">
                             <div className="flex justify-between items-start mb-4">
@@ -114,6 +117,21 @@ export default function SimpananPortalPage() {
                     <PiggyBank className="mx-auto h-12 w-12 opacity-20 mb-4" />
                     <p className="font-medium">Belum ada akun simpanan aktif</p>
                 </div>
+            )}
+
+            {/* Pointer ke halaman Haji & Umrah jika anggota punya rekening H&U */}
+            {!isLoading && response?.data.savings.accounts?.some(
+                (a: any) => a.product?.type === "tabungan_haji" || a.product?.type === "tabungan_umrah"
+            ) && (
+                <Link href="/portal/haji-umrah" className="block">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm hover:shadow-md transition-shadow">
+                        <Landmark className="h-8 w-8 shrink-0" />
+                        <div className="flex-1">
+                            <p className="font-semibold">Anda memiliki tabungan Haji &amp; Umrah</p>
+                            <p className="text-sm text-emerald-50">Lihat progress tabungan haji/umrah Anda →</p>
+                        </div>
+                    </div>
+                </Link>
             )}
         </div>
     );

@@ -35,6 +35,8 @@ export async function GET() {
                         code: true,
                         name: true,
                         type: true,
+                        targetAmount: true,
+                        linkedBankName: true,
                     },
                 },
                 transactions: {
@@ -373,6 +375,10 @@ export async function GET() {
                         product: acc.product,
                         balance: Number(acc.balance),
                         status: acc.status,
+                        // H&U extended fields (null for non-H&U products — additive, non-breaking)
+                        targetAmount: acc.targetAmount ? Number(acc.targetAmount) : null,
+                        monthlyTarget: acc.monthlyTarget ? Number(acc.monthlyTarget) : null,
+                        maturityDate: acc.maturityDate,
                         history: acc.transactions.map((t) => ({
                             id: t.id,
                             type: t.type,

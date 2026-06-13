@@ -1,6 +1,6 @@
 # Haji & Umrah — Planning & Implementation Docs
 
-> **Branch:** `railway-migration` | **Status:** Phase 1 COMPLETE, Phase 2-5 Pending
+> **Branch:** `railway-migration` | **Status:** Phase 1, 2B, 3 COMPLETE | Phase 4-5 Pending
 > **Design Spec:** `2026-06-10-haji-umrah-savings-only-design.md`
 
 ---
@@ -16,7 +16,7 @@
 | 1E | Security Fix + Bug Fix | ✅ **DONE** | `4febb77`, `15004ea` | ✅ E2E re-pass |
 | 2A | Seed Products + Live E2E Test | ✅ **DONE** | `4baca42`, `a786521` | ✅ 20/20 Playwright |
 | 2B | Talangan Haji/Umrah | ✅ **DONE** | See below | ✅ 14 E2E tests |
-| 3 | Member Portal | 🔲 Pending | — | — |
+| 3 | Member Portal | ✅ **DONE** | See below | ✅ 7 E2E tests |
 | 4 | Spread Bagi Hasil | 🔲 Pending | — | — |
 | 5 | Mobile App Integration | 🔲 Pending | — | — |
 
@@ -96,10 +96,14 @@ Admin Fee Revenue:
 - **Integration:** Navigation menu (admin + main), disburse route fix, 14 E2E tests
 - **Design Spec:** `2026-06-12-talangan-haji-umrah-design.md`
 
-### Phase 3: Member Portal (~3-5 hari)
-- Section `/portal/haji-umrah` — anggota lihat tabungan sendiri
-- Progress tracker visual
-- Riwayat setoran milik anggota
+### Phase 3: Member Portal ✅ COMPLETE (13 Juni 2026)
+- **Design:** Dedicated view-only page (anggota lihat tabungan sendiri) — tidak ada endpoint admin yang di-reuse (RBAC berbeda: member-scoped via `session.user.memberId`)
+- **Data Layer:** Extend `/api/member-portal/summary` selects — `product.targetAmount`/`linkedBankName` + account `targetAmount`/`monthlyTarget`/`maturityDate` (additive, non-breaking)
+- **API Layer:** New `GET /api/member-portal/haji-umrah` — scoped to logged-in member, returns accounts + progress + deposit history + active talangan per account + summary stats
+- **UI Layer:** New `/portal/haji-umrah` page (summary gradient card, per-account progress tracker, maturity countdown, collapsible deposit history, linked talangan block, empty state) + nav link + simpanan filter (H&U excluded from simpanan cards, pointer banner)
+- **Integration:** `memberPortalApi.hajiUmrah()` client method, portal nav entry (Landmark icon)
+- **Testing:** 7/7 E2E pass with real member data (balance=4.8M/50M, progress=10%, talangan=yes). Operator correctly blocked (memberId=null → 401). 34/34 existing H&U tests — no regression.
+- **Test member:** `87011378@koperasi.local` / `87011378` (A'AN ANDRIONO, member_id 776, owns HU-776-10-1715)
 
 ### Phase 4: Spread Bagi Hasil (~2-3 hari)
 - Admin input bagi hasil dari BSI per periode
