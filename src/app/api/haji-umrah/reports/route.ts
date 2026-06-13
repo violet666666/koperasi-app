@@ -155,6 +155,49 @@ export async function GET(request: Request) {
             });
         }
 
+        if (reportType === "bagi_hasil") {
+            // Spread Bagi Hasil report — distributions + spread revenue
+            const distDateFilter = dateFrom && dateTo ? {
+                processedAt: { gte: new Date(dateFrom), lte: new Date(dateTo) },
+            } : {};
+
+            const distributions = await prisma.bagiHasilDistribution.findMany({
+                where: distDateFilter,
+                orderBy: { createdAt: "desc" },
+                include: { _count: { select: { items: true } } },
+            });
+
+            const processed = distributions.filter((d) => d.status === "processed");
+            const totalSpread = processed.reduce((s, d) => s + Number(d.spreadAmount), 0);
+            const totalDistributed = processed.reduce((s, d) => s + Number(d.memberPoolAmount), 0);
+            const totalBsi = processed.reduce((s, d) => s + Number(d.totalBsiAmount), 0);
+
+            return NextResponse.json({
+                data: distributions.map((d) => ({
+                    distributionNo: d.distributionNo,
+                    periodLabel: d.periodLabel,
+                    periodStart: d.periodStart,
+                    periodEnd: d.periodEnd,
+                    totalBsiAmount: Number(d.totalBsiAmount),
+                    memberRate: Number(d.memberRate),
+                    memberPoolAmount: Number(d.memberPoolAmount),
+                    spreadAmount: Number(d.spreadAmount),
+                    memberCount: d.memberCount,
+                    status: d.status,
+                    processedAt: d.processedAt,
+                    itemCount: d._count.items,
+                })),
+                summary: {
+                    totalDistributions: distributions.length,
+                    processedCount: processed.length,
+                    voidedCount: distributions.filter((d) => d.status === "voided").length,
+                    totalBsi,
+                    totalDistributed,
+                    totalSpread,
+                },
+            });
+        }
+
         // Default: progress report — used by dashboard page
         const accounts = await prisma.savingsAccount.findMany({
             where: {

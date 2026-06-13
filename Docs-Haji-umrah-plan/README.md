@@ -1,6 +1,6 @@
 # Haji & Umrah — Planning & Implementation Docs
 
-> **Branch:** `railway-migration` | **Status:** Phase 1, 2B, 3 COMPLETE | Phase 4-5 Pending
+> **Branch:** `railway-migration` | **Status:** Phase 1, 2B, 3, 4 COMPLETE | Phase 5 Pending
 > **Design Spec:** `2026-06-10-haji-umrah-savings-only-design.md`
 
 ---
@@ -17,7 +17,7 @@
 | 2A | Seed Products + Live E2E Test | ✅ **DONE** | `4baca42`, `a786521` | ✅ 20/20 Playwright |
 | 2B | Talangan Haji/Umrah | ✅ **DONE** | See below | ✅ 14 E2E tests |
 | 3 | Member Portal | ✅ **DONE** | See below | ✅ 7 E2E tests |
-| 4 | Spread Bagi Hasil | 🔲 Pending | — | — |
+| 4 | Spread Bagi Hasil | ✅ **DONE** | See below | ✅ 8 E2E tests |
 | 5 | Mobile App Integration | 🔲 Pending | — | — |
 
 ---
@@ -105,9 +105,15 @@ Admin Fee Revenue:
 - **Testing:** 7/7 E2E pass with real member data (balance=4.8M/50M, progress=10%, talangan=yes). Operator correctly blocked (memberId=null → 401). 34/34 existing H&U tests — no regression.
 - **Test member:** `87011378@koperasi.local` / `87011378` (A'AN ANDRIONO, member_id 776, owns HU-776-10-1715)
 
-### Phase 4: Spread Bagi Hasil (~2-3 hari)
-- Admin input bagi hasil dari BSI per periode
-- Distribusi spread otomatis (bagi hasil BSI vs anggota)
+### Phase 4: Spread Bagi Hasil ✅ COMPLETE (13 Juni 2026)
+- **Design:** `2026-06-13-spread-bagi-hasil-design.md` — 2 new models (BagiHasilDistribution + BagiHasilItem), plain-Int cross-model FKs (immutable snapshots, 0 edits to existing models)
+- **Data Layer:** +2 models, idempotent table migration, 2 Zod schemas (createBagiHasil, voidBagiHasil)
+- **API Layer:** 3 endpoints — `GET/POST /api/haji-umrah/bagi-hasil` (list + dryRun preview + atomic process), `GET .../[id]` (detail+items), `POST .../[id]/void` (operator-only reversal)
+- **Algorithm:** admin inputs total BSI `X` + member rate `R%` → pool = X×R% distributed proportionally to H&U balances (last item absorbs rounding), spread = X−pool → CashBook income. Spread uses **distinct category `bagi_hasil`** (NOT `pendapatan_unit`) to avoid polluting the existing admin_fee report.
+- **UI Layer:** `/haji-umrah/bagi-hasil` (form + live preview + history table) + `/[id]` (detail items + void action). Nav menu added (Percent icon).
+- **Member visibility:** bagi hasil auto-appears in `/portal/haji-umrah` (Phase 3 already labels SavingsTransaction `interest` → "Bagi Hasil"). Zero portal work.
+- **Testing:** 8/8 E2E pass incl. real balance verification (5,300,000 → +7,000 credit → restored after void). 37/37 existing H&U tests — no regression. Build passes.
+- **Safety:** all changes additive; commit-only (no push); tables created via idempotent migrate; admin_fee report untouched.
 
 ### Phase 5: Mobile App Integration (~3-5 hari)
 - Mobile API endpoints `/api/mobile/haji-umrah/*`

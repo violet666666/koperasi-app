@@ -71,3 +71,27 @@ export const createTalanganSchema = z.object({
 });
 
 export type CreateTalanganInput = z.infer<typeof createTalanganSchema>;
+
+// ── Spread Bagi Hasil (Phase 4) ───────────────────────────────────
+
+// Schema for creating a bagi hasil distribution (POST /api/haji-umrah/bagi-hasil)
+// dryRun=true (default) returns a preview without writing; dryRun=false processes.
+export const createBagiHasilSchema = z.object({
+    periodLabel: z.string().min(1, "Label periode wajib diisi"),
+    periodStart: z.string().min(1, "Tanggal mulai periode wajib diisi"),
+    periodEnd: z.string().min(1, "Tanggal akhir periode wajib diisi"),
+    totalBsiAmount: z.number().positive("Total bagi hasil BSI harus lebih dari 0"),
+    memberRate: z.number().min(0, "Rate anggota minimal 0").max(100, "Rate anggota maksimal 100"),
+    cashBankAccountId: z.number().int().positive().optional().nullable(),
+    notes: z.string().max(1000).optional().nullable(),
+    dryRun: z.boolean().default(true),
+});
+
+export type CreateBagiHasilInput = z.infer<typeof createBagiHasilSchema>;
+
+// Schema for voiding a distribution (POST /api/haji-umrah/bagi-hasil/[id]/void)
+export const voidBagiHasilSchema = z.object({
+    voidReason: z.string().min(1, "Alasan void wajib diisi").max(500, "Alasan maksimal 500 karakter"),
+});
+
+export type VoidBagiHasilInput = z.infer<typeof voidBagiHasilSchema>;

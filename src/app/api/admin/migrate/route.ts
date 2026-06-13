@@ -330,6 +330,66 @@ export async function POST(request: Request) {
             results.push("loans.linked_savings_account_id already exists");
         }
 
+        // ── Phase 4: Spread Bagi Hasil tables ──
+        const bagiHasilDistExists = await tableExists("bagi_hasil_distributions");
+        if (!bagiHasilDistExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE bagi_hasil_distributions (
+                    id SERIAL PRIMARY KEY,
+                    distribution_no TEXT NOT NULL UNIQUE,
+                    period_label TEXT NOT NULL,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL,
+                    total_bsi_amount DECIMAL(15,2) NOT NULL,
+                    member_rate DECIMAL(5,2) NOT NULL,
+                    member_pool_amount DECIMAL(15,2) NOT NULL,
+                    spread_amount DECIMAL(15,2) NOT NULL,
+                    total_balance_snapshot DECIMAL(15,2) NOT NULL,
+                    member_count INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    cash_bank_account_id INTEGER,
+                    processed_by_id INTEGER,
+                    processed_at TIMESTAMP(3),
+                    voided_by_id INTEGER,
+                    voided_at TIMESTAMP(3),
+                    void_reason TEXT,
+                    notes TEXT,
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP(3) NOT NULL DEFAULT NOW()
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_bagi_hasil_dist_status ON bagi_hasil_distributions(status)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_bagi_hasil_dist_dates ON bagi_hasil_distributions(period_start, period_end)`);
+            results.push("Created bagi_hasil_distributions table");
+        } else {
+            results.push("bagi_hasil_distributions table already exists");
+        }
+
+        const bagiHasilItemsExists = await tableExists("bagi_hasil_items");
+        if (!bagiHasilItemsExists) {
+            await prisma.$executeRawUnsafe(`
+                CREATE TABLE bagi_hasil_items (
+                    id SERIAL PRIMARY KEY,
+                    distribution_id INTEGER NOT NULL REFERENCES bagi_hasil_distributions(id) ON DELETE CASCADE,
+                    member_id INTEGER NOT NULL,
+                    savings_account_id INTEGER NOT NULL,
+                    member_name TEXT NOT NULL,
+                    account_no TEXT NOT NULL,
+                    balance_snapshot DECIMAL(15,2) NOT NULL,
+                    share_percent DECIMAL(8,4) NOT NULL,
+                    amount DECIMAL(15,2) NOT NULL,
+                    savings_transaction_id INTEGER,
+                    created_at TIMESTAMP(3) NOT NULL DEFAULT NOW()
+                )
+            `);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_bagi_hasil_items_dist ON bagi_hasil_items(distribution_id)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_bagi_hasil_items_member ON bagi_hasil_items(member_id)`);
+            await prisma.$executeRawUnsafe(`CREATE INDEX idx_bagi_hasil_items_account ON bagi_hasil_items(savings_account_id)`);
+            results.push("Created bagi_hasil_items table");
+        } else {
+            results.push("bagi_hasil_items table already exists");
+        }
+
         return NextResponse.json({ success: true, results });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

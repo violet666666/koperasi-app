@@ -1492,3 +1492,59 @@ model BillingItem {
   @@index([memberId])
   @@map("billing_items")
 }
+
+// ── Phase 4: Spread Bagi Hasil (BSI profit-share distribution) ──────────────
+// Cross-model FKs (memberId, savingsAccountId, savingsTransactionId, processedById,
+// cashBankAccountId) are plain Int — items are immutable historical snapshots
+// (memberName/accountNo denormalized), so strict relation integrity adds no value
+// and editing 5 existing models would be needlessly invasive.
+model BagiHasilDistribution {
+  id                   Int       @id @default(autoincrement())
+  distributionNo       String    @unique @map("distribution_no")
+  periodLabel          String    @map("period_label")
+  periodStart          DateTime  @map("period_start") @db.Date
+  periodEnd            DateTime  @map("period_end") @db.Date
+  totalBsiAmount       Decimal   @map("total_bsi_amount") @db.Decimal(15, 2)
+  memberRate           Decimal   @map("member_rate") @db.Decimal(5, 2) // 0-100
+  memberPoolAmount     Decimal   @map("member_pool_amount") @db.Decimal(15, 2) // X × R%
+  spreadAmount         Decimal   @map("spread_amount") @db.Decimal(15, 2) // X − pool
+  totalBalanceSnapshot Decimal   @map("total_balance_snapshot") @db.Decimal(15, 2)
+  memberCount          Int       @default(0) @map("member_count")
+  status               String    @default("draft") // draft | processed | voided
+  cashBankAccountId    Int?      @map("cash_bank_account_id") // akun pendaratan spread
+  processedById        Int?      @map("processed_by_id")
+  processedAt          DateTime? @map("processed_at")
+  voidedById           Int?      @map("voided_by_id")
+  voidedAt             DateTime? @map("voided_at")
+  voidReason           String?   @map("void_reason")
+  notes                String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  items BagiHasilItem[]
+
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("bagi_hasil_distributions")
+}
+
+model BagiHasilItem {
+  id                   Int       @id @default(autoincrement())
+  distributionId       Int       @map("distribution_id")
+  memberId             Int       @map("member_id")
+  savingsAccountId     Int       @map("savings_account_id")
+  memberName           String    @map("member_name")
+  accountNo            String    @map("account_no")
+  balanceSnapshot      Decimal   @map("balance_snapshot") @db.Decimal(15, 2)
+  sharePercent         Decimal   @map("share_percent") @db.Decimal(8, 4)
+  amount               Decimal   @db.Decimal(15, 2)
+  savingsTransactionId Int?      @map("savings_transaction_id") // back-ref for void (nulled on void)
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  distribution BagiHasilDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+
+  @@index([distributionId])
+  @@index([memberId])
+  @@index([savingsAccountId])
+  @@map("bagi_hasil_items")
+}
