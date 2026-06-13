@@ -1,8 +1,8 @@
 # Unit Haji & Umrah — Planning Document
 
-> **Status:** Phase 1 COMPLETE ✅ | **Dibuat:** 9 Juni 2026 | **Updated:** 11 Juni 2026 | **Branch:** railway-migration
+> **Status:** Phase 1 + 2B + 3 + 4 COMPLETE ✅ | Phase 5 (Mobile) Pending | **Dibuat:** 9 Juni 2026 | **Updated:** 13 Juni 2026 | **Branch:** railway-migration
 > **Partnership:** MOU dengan Bank BSI (Bank Syariah Indonesia)
-> **Implementation:** 26 files, ~2,900 lines, 20/20 E2E tests passing
+> **Implementation:** Phase 1 (26 files, ~2,900 lines) + Phase 2B Talangan + Phase 3 Member Portal + Phase 4 Bagi Hasil. 45 E2E tests passing across 7 spec files.
 
 ---
 
@@ -234,7 +234,7 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 
 ---
 
-### Phase 2B: Talangan Haji/Umrah 🔲 Pending (~1-2 minggu)
+### Phase 2B: Talangan Haji/Umrah ✅ COMPLETE (13 Juni 2026, commit `5c885cb`)
 
 | # | Fitur | Pendekatan | Estimasi |
 |---|-------|------------|----------|
@@ -243,7 +243,7 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 | 3 | UI pengajuan talangan | `/haji-umrah/talangan` — form + approval flow | 3-5 hari |
 | 4 | Integrasi angsuran | Auto-debet dari tabungan saat cicilan jatuh tempo | 2-3 hari |
 
-### Phase 3: Member Portal 🔲 Pending (~3-5 hari)
+### Phase 3: Member Portal ✅ COMPLETE (13 Juni 2026, commit `e13f928`)
 
 | # | Fitur | Pendekatan | Estimasi |
 |---|-------|------------|----------|
@@ -251,7 +251,7 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 | 2 | Progress tracker | Visualisasi progress ke target per anggota | 1-2 hari |
 | 3 | Riwayat setoran | History setoran milik anggota yang login | 1 hari |
 
-### Phase 4: Spread Bagi Hasil 🔲 Pending (~2-3 hari)
+### Phase 4: Spread Bagi Hasil ✅ COMPLETE (13 Juni 2026, commit `bda638c`)
 
 | # | Fitur | Pendekatan | Estimasi |
 |---|-------|------------|----------|
@@ -314,4 +314,4 @@ Revenue otomatis masuk SHU: `CashBankTransaction WHERE type = "in" AND unitType 
 
 ---
 
-*Diperbarui: 11 Juni 2026 | Status: Phase 1 COMPLETE ✅ — 20/20 E2E tests passing, Phase 2-5 pending*
+*Diperbarui: 13 Juni 2026 | Status: Phase 1 + 2B + 3 + 4 COMPLETE ✅ — 45 E2E tests passing (7 spec files). Phase 5 (Mobile) pending. Lihat `UNIT-UMRAH-HAJI.md` untuk detail teknis & `README.md` untuk execution tracker.*

@@ -27,32 +27,43 @@ Talangan (LoanProduct type=talangan_haji/umrah + LoanApplication + Loan)
   → Angsuran → reuse existing Loan infrastructure (schedules, payments, void)
   → Disburse → LoanSchedule + CashBankTransaction (outflow)
 
-Semua data disimpan di model yang sudah ada (SavingsProduct, SavingsAccount,
-SavingsTransaction, LoanProduct, LoanApplication, Loan, LoanSchedule).
-TIDAK ADA model Prisma baru — hanya extend field pada model yang ada.
+Bagi Hasil (BagiHasilDistribution + BagiHasilItem — 2 model baru Phase 4)
+  → Admin input: total BSI (X) + rate anggota (R%)
+  → pool = X × R% → kredit saldo anggota (SavingsTransaction interest, proporsional)
+  → spread = X − pool → CashBank revenue (category: bagi_hasil, masuk SHU)
+  → Void (operator) → reverse semua kredit + compensating CashBank OUT
+
+Member Portal (Phase 3) → view-only, scoped ke session.user.memberId
+  → Tidak reuse /api/haji-umrah/* (RBAC beda) — endpoint sendiri /api/member-portal/haji-umrah
+
+Data: Phase 1 extend field pada model existing (0 model baru).
+Phase 4 tambah 2 model baru (BagiHasilDistribution, BagiHasilItem) dengan plain-Int FK.
+Total: 2 model Prisma baru + extend field pada SavingsProduct/SavingsAccount/LoanProduct/LoanApplication/Loan.
 ```
 
 ---
 
 ## Sidebar (Juni 2026)
 
-### Operator (5 item dalam group HAJI & UMRAH)
+### Operator (6 item dalam group HAJI & UMRAH)
 
 | Menu | Route | Icon |
 |---|---|---|
 | Dashboard | `/haji-umrah` | Landmark |
 | Tabungan | `/haji-umrah/tabungan` | Wallet |
 | Talangan | `/haji-umrah/talangan` | HandCoins |
+| Bagi Hasil | `/haji-umrah/bagi-hasil` | Percent |
 | Produk | `/haji-umrah/produk` | Package |
 | Laporan | `/haji-umrah/laporan` | BarChart2 |
 
-### Admin Haji & Umrah (5 item + Profil)
+### Admin Haji & Umrah (6 item + Profil)
 
 | Menu | Route | Icon | Permission |
 |---|---|---|---|
 | Dashboard H&U | `/haji-umrah` | Landmark | `manage_unit_transactions` |
 | Tabungan | `/haji-umrah/tabungan` | Wallet | `manage_unit_transactions` |
 | Talangan | `/haji-umrah/talangan` | HandCoins | `manage_unit_transactions` |
+| Bagi Hasil | `/haji-umrah/bagi-hasil` | Percent | `manage_unit_transactions` |
 | Produk | `/haji-umrah/produk` | Package | `manage_unit_transactions` |
 | Laporan | `/haji-umrah/laporan` | BarChart2 | `manage_unit_transactions` |
 | Profil Saya | `/profil` | User | — |
@@ -78,12 +89,12 @@ layout.tsx:58 → ADMIN_ALLOWED_ROUTES["haji_umrah"] = ["/haji-umrah", "/unit", 
 
 ## RBAC
 
-| Role | Tabungan | Talangan | Produk | Laporan |
-|---|---|---|---|---|
-| **operator** | Full CRUD + setoran | Full: apply, approve, disburse, auto-disburse any amount | Full CRUD | Full + export |
-| **admin haji_umrah** | Full CRUD + setoran | Apply + approve + disburse ≤ Rp 10 juta; > 10 juta butuh operator approve | Full CRUD | Full + export |
-| **admin_sp** | Tidak ada akses | Tidak ada akses | Tidak ada akses | Tidak ada akses |
-| **anggota** | View-only (Phase 3) | View-only (Phase 3) | — | — |
+| Role | Tabungan | Talangan | Bagi Hasil | Produk | Laporan |
+|---|---|---|---|---|---|
+| **operator** | Full CRUD + setoran | Full: apply, approve, disburse, auto-disburse any amount | Full: input, preview, process, **void** | Full CRUD | Full + export |
+| **admin haji_umrah** | Full CRUD + setoran | Apply + approve + disburse ≤ Rp 10 juta; > 10 juta butuh operator | Input + preview + process; **void butuh operator** | Full CRUD | Full + export |
+| **admin_sp** | Tidak ada akses | Tidak ada akses | Tidak ada akses | Tidak ada akses | Tidak ada akses |
+| **anggota** | View-only (Phase 3) | View-only (Phase 3) | Terima otomatis (kredit saldo, lihat di portal) | — | — |
 
 ---
 
@@ -127,6 +138,41 @@ layout.tsx:58 → ADMIN_ALLOWED_ROUTES["haji_umrah"] = ["/haji-umrah", "/unit", 
 |---|---|---|
 | `linkedSavingsAccountId` | `Int?` | Copy dari LoanApplication. Permanent record. |
 
+### BagiHasilDistribution — New Model (Phase 4)
+
+Batch record — admin input + hasil distribusi bagi hasil BSI.
+
+| Field | Type | Keterangan |
+|---|---|---|
+| `distributionNo` | `String @unique` | `BHD-{year}-{crypto9}` |
+| `periodLabel` / `periodStart` / `periodEnd` | `String` / `Date` / `Date` | Periode (cth: "Mei 2026") |
+| `totalBsiAmount` | `Decimal` | X — total bagi hasil dari BSI |
+| `memberRate` | `Decimal(5,2)` | R% (0-100, configurable per input) |
+| `memberPoolAmount` | `Decimal` | X × R% — didistribusi ke anggota |
+| `spreadAmount` | `Decimal` | X − pool — revenue koperasi |
+| `totalBalanceSnapshot` | `Decimal` | Sum saldo H&U saat distribusi |
+| `memberCount` | `Int` | Jumlah penerima share |
+| `status` | `String` | `draft` / `processed` / `voided` |
+| `cashBankAccountId` | `Int?` | Akun pendaratan spread (plain Int) |
+| `processedById` / `voidedById` | `Int?` | Snapshot user (plain Int) |
+| `voidReason` / `notes` | `String?` | Alasan void / catatan |
+
+### BagiHasilItem — New Model (Phase 4)
+
+Per-member share — immutable historical snapshot.
+
+| Field | Type | Keterangan |
+|---|---|---|
+| `distributionId` | `Int` | FK → BagiHasilDistribution (relation, ON DELETE CASCADE) |
+| `memberId` / `savingsAccountId` | `Int` / `Int` | Plain Int (snapshot) |
+| `memberName` / `accountNo` | `String` / `String` | Denormalized snapshot |
+| `balanceSnapshot` | `Decimal` | Saldo H&U saat distribusi |
+| `sharePercent` | `Decimal(8,4)` | balance / totalBalance × 100 |
+| `amount` | `Decimal` | Share aktual (item terakhir absorbs rounding) |
+| `savingsTransactionId` | `Int?` | Back-ref ke SavingsTransaction (interest). Null setelah void. |
+
+> **Plain-Int FK:** memberId, savingsAccountId, savingsTransactionId, processedById, cashBankAccountId semuanya plain `Int` (bukan `@relation`). Item = snapshot immutable → integritas FK tidak tambah value & menghindari edit 5 model existing.
+
 ### Seed Products
 
 | Code | Name | Model | Type | Target/Max | Rate | Admin Fee |
@@ -152,7 +198,7 @@ layout.tsx:58 → ADMIN_ALLOWED_ROUTES["haji_umrah"] = ["/haji-umrah", "/unit", 
 | `GET` | `/api/haji-umrah/products` | Authenticated | List produk tabungan haji/umrah |
 | `POST` | `/api/haji-umrah/products` | operator / admin haji_umrah | Buat produk tabungan baru |
 | `PUT` | `/api/haji-umrah/products/[productId]` | operator / admin haji_umrah | Update produk tabungan |
-| `GET` | `/api/haji-umrah/reports` | Authenticated | Laporan: `?type=rekap|progress|admin_fee|talangan` |
+| `GET` | `/api/haji-umrah/reports` | Authenticated | Laporan: `?type=rekap\|progress\|admin_fee\|talangan\|bagi_hasil` |
 
 ### Talangan (Phase 2B)
 
@@ -315,6 +361,35 @@ Talangan dan tabungan berjalan PARALEL. Setoran tabungan TIDAK membayar talangan
 Pembayaran talangan TIDAK mengurangi saldo tabungan.
 ```
 
+### 5. Bagi Hasil — Distribusi BSI (Phase 4)
+
+```
+Admin input (POST /api/haji-umrah/bagi-hasil):
+  ├─ periodLabel, periodStart/End, totalBsiAmount (X), memberRate (R%),
+  │  cashBankAccountId (untuk spread), notes
+  │
+  ├─ dryRun:true → PREVIEW (no mutation):
+  │    T = sum(saldo H&U aktif, balance > 0)
+  │    pool = round(X × R/100)   |   spread = X − pool
+  │    per account: share = round(balance/T × pool), last absorbs remainder
+  │    → return preview table + totals
+  │
+  └─ dryRun:false → PROCESS (atomic prisma.$transaction):
+       ├─ per account: SavingsTransaction(type:"interest", share) + balance += share
+       ├─ CashBankTransaction(type:"in", spread, category:"bagi_hasil", unitType:"haji_umrah")
+       ├─ CashBankAccount.balance += spread
+       └─ create BagiHasilDistribution + BagiHasilItem[] (savingsTransactionId back-ref)
+
+Void (POST /api/haji-umrah/bagi-hasil/[id]/void — operator only):
+  ├─ per item: SavingsTransaction → status "voided" + SavingsAccount.balance −= amount
+  ├─ compensating CashBankTransaction(type:"out", spread, category:"bagi_hasil") + balance −= spread
+  ├─ BagiHasilItem.savingsTransactionId → null (anti double-void)
+  └─ BagiHasilDistribution.status → "voided"
+
+Akuntansi: HANYA spread = revenue koperasi (masuk SHU via category bagi_hasil).
+Member pool = liability (kredit saldo, BUKAN cash outflow).
+```
+
 ---
 
 ## Billing Integration
@@ -344,9 +419,11 @@ Pembayaran talangan TIDAK mengurangi saldo tabungan.
 ## SHU Integration
 
 Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
-- `type: "in"` + `unitType: "haji_umrah"` + `category: "pendapatan_unit"` → ter-cover oleh SHU income query
-- Admin fee per setoran → recorded as `pendapatan_unit` / `haji_umrah`
+- `type: "in"` + `unitType: "haji_umrah"` + `category: "pendapatan_unit"` → admin fee per setoran (ter-cover oleh SHU income query)
+- `type: "in"` + `unitType: "haji_umrah"` + `category: "bagi_hasil"` → spread bagi hasil (Phase 4). Category DISTINCT dari `pendapatan_unit` agar tidak polusi `admin_fee` report, tapi tetap masuk SHU (tidak di `NON_INCOME_CATEGORIES`, grouped sebagai "lainnya")
 - Margin talangan → via loan interest (jasa_pinjaman)
+
+> **Hanya spread = revenue koperasi.** Member pool (`X × R%`) dikredit ke saldo anggota (liability), BUKAN CashBank outflow — jadi tidak mengurangi SHU maupun cash book sebagai expense.
 
 ---
 
@@ -417,7 +494,7 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `src/app/api/admin/migrate/route.ts` | +8 column migrations SavingsProduct/SavingsAccount, +3 column migrations LoanProduct/LoanApplication/Loan, +2 idempotent tables bagi_hasil_distributions/bagi_hasil_items (Phase 4) |
 | `src/lib/constants/units.ts` | +`haji_umrah: { label, slug, category, icon }` |
 | `src/lib/constants/index.ts` | +`tabungan_haji`, `tabungan_umrah` in SAVINGS_PRODUCT_TYPES |
-| `src/lib/constants/navigation.ts` | +`adminHajiUmrahNavigation` (6 items) + `HAJI & UMRAH` main group + `HandCoins` import |
+| `src/lib/constants/navigation.ts` | +`adminHajiUmrahNavigation` + `HAJI & UMRAH` main group; menu Tabungan/Talangan/Bagi Hasil (Percent)/Produk/Laporan; import `HandCoins` + `Percent` |
 | `src/lib/validations/index.ts` | +`type` field in `createLoanProductSchema` |
 | `src/app/(protected)/layout.tsx` | +`haji_umrah` in ADMIN_ALLOWED_ROUTES |
 | `src/app/(protected)/dashboard/page.tsx` | +redirect admin haji_umrah → /haji-umrah |
@@ -429,7 +506,6 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | `src/lib/api/services.ts` | +`memberPortalApi.hajiUmrah()` — Phase 3 |
 | `src/app/portal/layout.tsx` | +`Haji & Umrah` nav link (Landmark icon) — Phase 3 |
 | `src/app/portal/simpanan/page.tsx` | +filter H&U out of simpanan cards + pointer banner to /portal/haji-umrah — Phase 3 |
-| `src/lib/constants/navigation.ts` | +`Bagi Hasil` menu (Percent icon) di admin H&U nav + main group — Phase 4 |
 | `src/app/api/haji-umrah/reports/route.ts` | +`?type=bagi_hasil` report branch — Phase 4 |
 
 ---
@@ -447,7 +523,7 @@ Revenue otomatis masuk SHU karena `CashBankTransaction` dengan:
 | 2A-ext | Admin Unit Support (nav + redirect + CRUD) | ✅ DONE | `81567df`, `aa6eb4d` | E2E 58/58 |
 | **2B** | **Talangan Haji/Umrah** | **✅ DONE** | **`5c885cb`** | **E2E 14/14** |
 | **3** | **Member Portal** (view-only, member-scoped) | **✅ DONE** | `e13f928` | **E2E 7/7 + 34/34 no regression** |
-| **4** | **Spread Bagi Hasil** (BSI profit-share distribution) | **✅ DONE** | _see commit_ | **E2E 8/8 + 37/37 no regression, build pass** |
+| **4** | **Spread Bagi Hasil** (BSI profit-share distribution) | **✅ DONE** | `bda638c` | **E2E 8/8 + 37/37 no regression, build pass** |
 | 5 | Mobile App | 🔲 Pending | — | — |
 
 ---
@@ -513,4 +589,4 @@ curl -X POST http://localhost:3000/api/admin/migrate -H "Cookie: <session>"
 
 ---
 
-*Diperbarui: 13 Juni 2026 | Status: Phase 1 + 2B COMPLETE — Tabungan + Talangan aktif, 14 E2E tests passing*
+*Diperbarui: 13 Juni 2026 | Status: Phase 1 + 2B + 3 + 4 COMPLETE — Tabungan + Talangan + Member Portal + Bagi Hasil aktif, 45 E2E tests passing (7 spec files). Phase 5 (Mobile) pending.*
