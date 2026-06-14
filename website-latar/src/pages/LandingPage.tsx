@@ -12,10 +12,10 @@ export default function LandingPage() {
   const { content } = useContent();
 
   useEffect(() => {
-    document.title = 'Latar Cafe & Resto — Cita Rasa Autentik';
+    document.title = `${content.brandName || 'Cafe & Resto LSP'} — Cita Rasa Autentik`;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute('content', content.heroSubheadline);
-  }, [content.heroSubheadline]);
+  }, [content.heroSubheadline, content.brandName]);
 
   return (
     <>
