@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useMenu } from '../hooks/useMenu';
 import { useContent } from '../hooks/useContent';
 import { MenuCard, SkeletonCard } from '../components/FeaturedMenu';
