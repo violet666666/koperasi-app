@@ -14,7 +14,7 @@ export default function BrandStory({
   const paragraphs = story.split('\n').filter(p => p.trim());
 
   return (
-    <section className="section">
+    <section className="section section--secondary">
       <div className="container">
         <div className="split">
           <motion.div

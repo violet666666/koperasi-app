@@ -10,6 +10,14 @@ export interface MenuItem {
   imageUrl: string | null;
 }
 
+const resolveUrl = (url: string | null) => {
+  if (!url) return null;
+  if (url.startsWith('/api/uploads')) {
+    return `https://www.primkoppol.site${url}`;
+  }
+  return url;
+};
+
 export async function fetchMenuItems(): Promise<MenuItem[]> {
   if (!DATABASE_URL) {
     console.warn('VITE_DATABASE_URL not set, using fallback menu data');
@@ -32,7 +40,7 @@ export async function fetchMenuItems(): Promise<MenuItem[]> {
       name: row.name as string,
       category: row.category as string | null,
       sellPrice: Number(row.sell_price),
-      imageUrl: row.image_url as string | null,
+      imageUrl: resolveUrl(row.image_url as string | null),
     }));
   } catch (err) {
     console.error('Failed to fetch menu from DB:', err);
