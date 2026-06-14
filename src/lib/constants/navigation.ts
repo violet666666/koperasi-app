@@ -53,6 +53,7 @@ import {
     Landmark,
     HandCoins,
     Percent,
+    Globe,
 } from "lucide-react";
 
 export interface NavItem {
@@ -737,6 +738,18 @@ export const adminRestoNavigation: (NavItem | NavGroup)[] = [
             {
                 title: "Inbox Approval", href: "/approval", icon: Bell,
                 permission: "manage_unit_transactions",
+            },
+        ],
+    },
+    {
+        title: "WEBSITE",
+        items: [
+            {
+                title: "Website Settings",
+                href: "/resto/website-settings",
+                icon: Globe,
+                permission: "manage_unit_transactions",
+                roles: ["admin", "operator"],
             },
         ],
     },

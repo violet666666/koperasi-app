@@ -78,6 +78,16 @@ describe("Batch Navigation Config", () => {
         const mod = await import("@/lib/constants/navigation");
         const restoMenuGroup = mod.adminRestoNavigation.find((item: any) => item.title === "RESTO & MENU");
         expect(restoMenuGroup).toBeDefined();
-        expect(restoMenuGroup.items.length).toBe(10);
+        expect(restoMenuGroup!.items.length).toBe(10);
+    });
+
+    it("adminRestoNavigation should have WEBSITE group with Website Settings entry", async () => {
+        const mod = await import("@/lib/constants/navigation");
+        const websiteGroup = mod.adminRestoNavigation.find((item: any) => item.title === "WEBSITE");
+        expect(websiteGroup).toBeDefined();
+        expect(websiteGroup!.items.length).toBe(1);
+        const flat = flattenNavItems([websiteGroup]);
+        const settingsEntry = flat.find((item: any) => item.href === "/resto/website-settings");
+        expect(settingsEntry).toBeDefined();
     });
 });
