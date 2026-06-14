@@ -86,7 +86,7 @@ export default function FeaturedMenu() {
         </div>
 
         <div style={{ marginTop: '3rem', textAlign: 'center' }}>
-          <Link to="/menu" className="btn btn--outline btn--lg">
+          <Link to="/menu" className="btn btn--outline-dark btn--lg">
             Lihat Detail Menu
           </Link>
         </div>

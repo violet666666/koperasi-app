@@ -46,7 +46,7 @@ export default function FullMenuPage() {
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
-                    className={`btn ${activeCategory === cat ? 'btn--primary' : 'btn--outline'}`}
+                    className={`btn ${activeCategory === cat ? 'btn--primary' : 'btn--outline-dark'}`}
                     style={{ borderRadius: '20px', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
                   >
                     {cat === 'All' ? 'Semua Menu' : cat}
