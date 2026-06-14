@@ -1,11 +1,32 @@
 import { MapPin, Clock, Phone, Mail } from 'lucide-react';
 import type { WebsiteContent } from '../api/content';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icon in leaflet with bundlers
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface LocationMapProps {
   content: WebsiteContent;
 }
 
 export default function LocationMap({ content }: LocationMapProps) {
+  // Approximate coordinates for Jl. Minak Koncar, Ditotrunan, Lumajang
+  const position: [number, number] = [-8.131113, 113.224167];
+
   return (
     <section className="section">
       <div className="container">
@@ -62,32 +83,24 @@ export default function LocationMap({ content }: LocationMapProps) {
             )}
           </div>
 
-          <div className="location-map__embed">
-            {content.mapsEmbed ? (
-              <iframe
-                src={content.mapsEmbed}
-                title={`Lokasi ${content.brandName}`}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
+          <div className="location-map__embed" style={{ position: 'relative', zIndex: 1 }}>
+            <MapContainer 
+              center={position} 
+              zoom={16} 
+              scrollWheelZoom={false}
+              style={{ width: '100%', height: '100%', minHeight: '400px' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-            ) : (
-              <div style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--latar-bg-warm)',
-                color: 'var(--latar-text-muted)',
-                fontSize: '0.9rem',
-                flexDirection: 'column',
-                gap: '0.5rem',
-              }}>
-                <MapPin size={40} style={{ opacity: 0.3 }} />
-                <span>Peta segera hadir</span>
-              </div>
-            )}
+              <Marker position={position}>
+                <Popup>
+                  <strong>{content.brandName}</strong><br />
+                  Menanti kunjungan Anda.
+                </Popup>
+              </Marker>
+            </MapContainer>
           </div>
         </div>
       </div>
