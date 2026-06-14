@@ -2,9 +2,15 @@ import { motion } from 'framer-motion';
 
 interface BrandStoryProps {
   story: string;
+  brandName?: string;
+  imageUrl?: string;
 }
 
-export default function BrandStory({ story }: BrandStoryProps) {
+export default function BrandStory({ 
+  story, 
+  brandName = 'Cafe & Resto LSP',
+  imageUrl = '/images/brand-story.webp' 
+}: BrandStoryProps) {
   const paragraphs = story.split('\n').filter(p => p.trim());
 
   return (
@@ -32,7 +38,7 @@ export default function BrandStory({ story }: BrandStoryProps) {
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <img src="/images/brand-story.webp" alt="Perjalanan Latar Cafe & Resto" loading="lazy" />
+            <img src={imageUrl} alt={`Perjalanan ${brandName}`} loading="lazy" />
           </motion.div>
         </div>
       </div>

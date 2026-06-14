@@ -4,13 +4,20 @@ import { Link } from 'react-router-dom';
 interface HeroSectionProps {
   headline: string;
   subheadline: string;
+  brandName?: string;
+  bgUrl?: string;
 }
 
-export default function HeroSection({ headline, subheadline }: HeroSectionProps) {
+export default function HeroSection({ 
+  headline, 
+  subheadline, 
+  brandName = 'Cafe & Resto LSP', 
+  bgUrl = '/images/hero-bg.webp' 
+}: HeroSectionProps) {
   return (
     <section className="hero">
       <div className="hero__bg">
-        <img src="/images/hero-bg.webp" alt="Suasana Latar Cafe & Resto" loading="eager" />
+        <img src={bgUrl} alt={`Suasana ${brandName}`} loading="eager" />
       </div>
       <div className="hero__overlay" />
 

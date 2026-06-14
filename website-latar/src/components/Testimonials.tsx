@@ -4,9 +4,10 @@ import type { Testimonial } from '../api/content';
 
 interface TestimonialsProps {
   testimonials: Testimonial[];
+  brandName?: string;
 }
 
-export default function Testimonials({ testimonials }: TestimonialsProps) {
+export default function Testimonials({ testimonials, brandName = 'Cafe & Resto LSP' }: TestimonialsProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -42,7 +43,7 @@ export default function Testimonials({ testimonials }: TestimonialsProps) {
           <p className="section-label">Testimoni</p>
           <h2 className="section-title">Apa Kata Pelanggan Kami</h2>
           <p className="section-subtitle">
-            Cerita nyata dari mereka yang telah merasakan pengalaman di Latar.
+            Cerita nyata dari mereka yang telah merasakan pengalaman di {brandName}.
           </p>
         </div>
 

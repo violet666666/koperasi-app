@@ -5,6 +5,10 @@ import prisma from "@/lib/prisma";
 const LATAR_PREFIX = "latar_";
 
 const ALLOWED_KEYS = [
+  "latar_brand_name",
+  "latar_logo_url",
+  "latar_hero_bg_url",
+  "latar_about_image_url",
   "latar_hero_headline",
   "latar_hero_subheadline",
   "latar_cta_reservasi_link",
@@ -25,6 +29,10 @@ const ALLOWED_KEYS = [
 ];
 
 const DEFAULT_VALUES: Record<string, { value: string; label: string }> = {
+  latar_brand_name: { value: "Cafe & Resto LSP", label: "Nama Brand" },
+  latar_logo_url: { value: "/LogoPrimkoppol.png", label: "Logo URL" },
+  latar_hero_bg_url: { value: "/images/hero-bg.webp", label: "Hero Background URL" },
+  latar_about_image_url: { value: "/images/brand-story.webp", label: "Tentang Kami Image URL" },
   latar_hero_headline: { value: "Cita Rasa Autentik di Setiap Sudut Latar.", label: "Hero Headline" },
   latar_hero_subheadline: { value: "Nikmati sajian istimewa mulai dari Nasi Goreng rempah hingga Ice Americano segar, dengan suasana yang membuat Anda betah berlama-lama.", label: "Hero Sub-headline" },
   latar_cta_reservasi_link: { value: "", label: "Link Reservasi (WhatsApp/URL)" },

@@ -3,6 +3,10 @@ import { neon } from '@neondatabase/serverless';
 const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
 
 export interface WebsiteContent {
+  brandName: string;
+  logoUrl: string;
+  heroBgUrl: string;
+  aboutImageUrl: string;
   heroHeadline: string;
   heroSubheadline: string;
   ctaReservasiLink: string;
@@ -35,6 +39,10 @@ export interface GalleryItem {
 }
 
 const DEFAULT_CONTENT: WebsiteContent = {
+  brandName: 'Cafe & Resto LSP',
+  logoUrl: '/LogoPrimkoppol.png',
+  heroBgUrl: '/images/hero-bg.webp',
+  aboutImageUrl: '/images/brand-story.webp',
   heroHeadline: 'Cita Rasa Autentik di Setiap Sudut Latar.',
   heroSubheadline: 'Nikmati sajian istimewa mulai dari Nasi Goreng rempah hingga Ice Americano segar, dengan suasana yang membuat Anda betah berlama-lama.',
   ctaReservasiLink: '#',
@@ -72,6 +80,14 @@ const DEFAULT_CONTENT: WebsiteContent = {
   ],
 };
 
+const resolveUrl = (url: string | undefined, fallback: string) => {
+  if (!url) return fallback;
+  if (url.startsWith('/api/uploads')) {
+    return `https://www.primkoppol.site${url}`;
+  }
+  return url;
+};
+
 export async function fetchContent(): Promise<WebsiteContent> {
   if (!DATABASE_URL) return DEFAULT_CONTENT;
 
@@ -89,6 +105,10 @@ export async function fetchContent(): Promise<WebsiteContent> {
     }
 
     return {
+      brandName: settings['latar_brand_name'] || DEFAULT_CONTENT.brandName,
+      logoUrl: resolveUrl(settings['latar_logo_url'], DEFAULT_CONTENT.logoUrl),
+      heroBgUrl: resolveUrl(settings['latar_hero_bg_url'], DEFAULT_CONTENT.heroBgUrl),
+      aboutImageUrl: resolveUrl(settings['latar_about_image_url'], DEFAULT_CONTENT.aboutImageUrl),
       heroHeadline: settings['latar_hero_headline'] || DEFAULT_CONTENT.heroHeadline,
       heroSubheadline: settings['latar_hero_subheadline'] || DEFAULT_CONTENT.heroSubheadline,
       ctaReservasiLink: settings['latar_cta_reservasi_link'] || DEFAULT_CONTENT.ctaReservasiLink,
@@ -105,7 +125,10 @@ export async function fetchContent(): Promise<WebsiteContent> {
       socialTiktok: settings['latar_social_tiktok'] || DEFAULT_CONTENT.socialTiktok,
       socialFacebook: settings['latar_social_facebook'] || DEFAULT_CONTENT.socialFacebook,
       testimonials: safeParseJSON(settings['latar_testimonials'], DEFAULT_CONTENT.testimonials),
-      gallery: safeParseJSON(settings['latar_gallery'], DEFAULT_CONTENT.gallery),
+      gallery: safeParseJSON(settings['latar_gallery'], DEFAULT_CONTENT.gallery).map((g: GalleryItem) => ({
+        ...g,
+        url: resolveUrl(g.url, g.url)
+      })),
     };
   } catch (err) {
     console.error('Failed to fetch website content:', err);

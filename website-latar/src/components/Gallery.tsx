@@ -5,9 +5,10 @@ import type { GalleryItem } from '../api/content';
 
 interface GalleryProps {
   items: GalleryItem[];
+  brandName?: string;
 }
 
-export default function Gallery({ items }: GalleryProps) {
+export default function Gallery({ items, brandName = 'Cafe & Resto LSP' }: GalleryProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   return (
@@ -15,9 +16,9 @@ export default function Gallery({ items }: GalleryProps) {
       <div className="container">
         <div className="section-header">
           <p className="section-label">Galeri</p>
-          <h2 className="section-title">Suasana di Latar</h2>
+          <h2 className="section-title">Suasana di {brandName}</h2>
           <p className="section-subtitle">
-            Jelajahi setiap sudut Latar yang dirancang untuk kenyamanan dan kebahagiaan Anda.
+            Jelajahi setiap sudut {brandName} yang dirancang untuk kenyamanan dan kebahagiaan Anda.
           </p>
         </div>
 

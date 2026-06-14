@@ -14,13 +14,13 @@ export default function CompanyProfile() {
   const { content } = useContent();
 
   useEffect(() => {
-    document.title = 'Tentang Kami — Latar Cafe & Resto | PRIMKOPPOL Resor Lumajang';
+    document.title = `Tentang Kami — ${content.brandName || 'Cafe & Resto LSP'} | PRIMKOPPOL Resor Lumajang`;
     window.scrollTo(0, 0);
-  }, []);
+  }, [content.brandName]);
 
   return (
     <>
-      <Navbar ctaLink={content.ctaReservasiLink} />
+      <Navbar ctaLink={content.ctaReservasiLink} brandName={content.brandName} logoUrl={content.logoUrl} />
       <main>
         {/* Hero Banner */}
         <section className="hero-banner">
@@ -43,7 +43,7 @@ export default function CompanyProfile() {
           </motion.div>
         </section>
 
-        <BrandStory story={content.aboutStory} />
+        <BrandStory story={content.aboutStory} brandName={content.brandName} imageUrl={content.aboutImageUrl} />
         <VisiMisi visi={content.visi} misi={content.misi} />
         <TechShowcase />
         <Gallery items={content.gallery} />

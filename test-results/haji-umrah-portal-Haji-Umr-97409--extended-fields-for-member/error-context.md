@@ -1,0 +1,198 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: haji-umrah-portal.spec.ts >> Haji & Umrah — Member Portal (Phase 3) >> 4.1 Summary accounts carry H&U extended fields for member
+- Location: e2e\haji-umrah-portal.spec.ts:136:9
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "Logo PRIMKOPPOL.Digital" [ref=e6] [cursor=pointer]:
+          - /url: /portal/dashboard
+          - img "Logo" [ref=e8]
+          - generic [ref=e9]: PRIMKOPPOL.Digital
+        - navigation [ref=e10]:
+          - link "Beranda" [ref=e11] [cursor=pointer]:
+            - /url: /portal/dashboard
+            - img [ref=e12]
+            - text: Beranda
+          - link "Transaksi" [ref=e17] [cursor=pointer]:
+            - /url: /portal/transaksi
+            - img [ref=e18]
+            - text: Transaksi
+          - link "Simpanan" [ref=e22] [cursor=pointer]:
+            - /url: /portal/simpanan
+            - img [ref=e23]
+            - text: Simpanan
+          - link "Haji & Umrah" [ref=e26] [cursor=pointer]:
+            - /url: /portal/haji-umrah
+            - img [ref=e27]
+            - text: Haji & Umrah
+          - link "Pinjaman" [ref=e29] [cursor=pointer]:
+            - /url: /portal/pinjaman
+            - img [ref=e30]
+            - text: Pinjaman
+          - link "Gaji" [ref=e32] [cursor=pointer]:
+            - /url: /portal/gaji
+            - img [ref=e33]
+            - text: Gaji
+          - link "Faktur" [ref=e36] [cursor=pointer]:
+            - /url: /portal/faktur
+            - img [ref=e37]
+            - text: Faktur
+          - link "Pengajuan" [ref=e40] [cursor=pointer]:
+            - /url: /portal/pengajuan-pinjaman
+            - img [ref=e41]
+            - text: Pengajuan
+          - link "Profil" [ref=e44] [cursor=pointer]:
+            - /url: /portal/profil
+            - img [ref=e45]
+            - text: Profil
+        - button "A Hai, A'AN" [ref=e50]:
+          - generic [ref=e51]: A
+          - generic [ref=e52]: Hai, A'AN
+    - main [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - heading "Selamat Datang, A'AN!" [level=1] [ref=e56]
+          - paragraph [ref=e57]: Dashboard anggota PRIMKOPPOL Resor Lumajang
+        - generic [ref=e58]:
+          - generic [ref=e59] [cursor=pointer]:
+            - button "Bantuan" [ref=e60]:
+              - img [ref=e61]
+            - generic [ref=e64]:
+              - generic [ref=e65]:
+                - generic [ref=e66]: Sisa Gaji
+                - img [ref=e67]
+              - generic [ref=e69]:
+                - generic [ref=e70]: Rp 5.613.400
+                - paragraph [ref=e71]: Sisa Gaji
+          - generic [ref=e72] [cursor=pointer]:
+            - button "Bantuan" [ref=e73]:
+              - img [ref=e74]
+            - generic [ref=e77]:
+              - generic [ref=e78]:
+                - generic [ref=e79]: Sisa Tunkin
+                - img [ref=e80]
+              - generic [ref=e83]:
+                - generic [ref=e84]: Rp 152.000
+                - paragraph [ref=e85]: Sisa Tunkin
+          - generic [ref=e86] [cursor=pointer]:
+            - button "Bantuan" [ref=e87]:
+              - img [ref=e88]
+            - generic [ref=e91]:
+              - generic [ref=e92]:
+                - generic [ref=e93]: Pinjaman Berlangsung
+                - img [ref=e94]
+              - generic [ref=e96]:
+                - generic [ref=e97]: Rp 30.929.334
+                - paragraph [ref=e98]: 2 pinjaman aktif
+          - link "Pengajuan Pinjaman Rp 0 ⚠ Pinjaman melebihi gaji" [ref=e99] [cursor=pointer]:
+            - /url: /portal/pengajuan-pinjaman
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: Pengajuan Pinjaman
+                - img [ref=e103]
+              - generic [ref=e106]:
+                - generic [ref=e107]: Rp 0
+                - paragraph [ref=e108]: ⚠ Pinjaman melebihi gaji
+        - generic [ref=e109]:
+          - generic [ref=e110] [cursor=pointer]:
+            - generic [ref=e111]:
+              - generic [ref=e112]: Total Tabungan
+              - img [ref=e113]
+            - generic [ref=e115]:
+              - generic [ref=e116]: Rp 19.950.000
+              - generic [ref=e117]:
+                - generic [ref=e118]:
+                  - generic [ref=e119]: Tab. Wajib (per Juni)
+                  - generic [ref=e120]: Rp 19.900.000
+                - generic [ref=e121]:
+                  - generic [ref=e122]: Simpanan Pokok (per Juni)
+                  - generic [ref=e123]: Rp 50.000
+                - generic [ref=e124]:
+                  - generic [ref=e125]: Simpanan Sukarela (per Juni)
+                  - generic [ref=e126]: Rp 0
+                - paragraph [ref=e127]: Ketuk untuk detail →
+          - generic [ref=e128] [cursor=pointer]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: Estimasi SHU Anda
+              - img [ref=e131]
+            - generic [ref=e134]:
+              - generic [ref=e135]: Rp 373.571
+              - paragraph [ref=e136]: Estimasi realtime — kontribusi belanja, pinjaman, Simpanan Wajib & pokok
+              - generic [ref=e137]:
+                - generic [ref=e138]:
+                  - generic [ref=e139]: Jasa Usaha (0.3%)
+                  - generic [ref=e140]: Rp 235.248
+                - generic [ref=e141]:
+                  - generic [ref=e142]: Jasa Modal (0.2%)
+                  - generic [ref=e143]: Rp 136.323
+                - generic [ref=e144]:
+                  - generic [ref=e145]: SHU Cuci Mobil (1x)
+                  - generic [ref=e146]: Rp 2.000
+                - paragraph [ref=e147]: Ketuk untuk detail perhitungan →
+        - alert [ref=e148]:
+          - img [ref=e149]
+          - generic [ref=e151]: Peringatan Akumulasi Pinjaman
+          - generic [ref=e152]:
+            - text: "Total pinjaman Anda (Rp 30.929.334) telah melebihi gaji bersih (Rp 5.613.400). Selisih:"
+            - strong [ref=e153]: Rp 25.315.934
+            - text: . Pengajuan pinjaman baru mungkin tidak disetujui.
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - generic [ref=e156]:
+              - generic [ref=e157]:
+                - generic [ref=e158]: History Transaksi / Bill Payment
+                - generic [ref=e159]: Riwayat transaksi Anda di seluruh unit PRIMKOPPOL
+              - link "Lihat Semua" [ref=e160] [cursor=pointer]:
+                - /url: /portal/transaksi
+                - text: Lihat Semua
+                - img [ref=e161]
+            - generic [ref=e165]:
+              - generic [ref=e166]:
+                - img [ref=e168]
+                - generic [ref=e172]:
+                  - paragraph [ref=e173]: Mobil Sedang (Medium)
+                  - generic [ref=e174]:
+                    - generic [ref=e175]: Cuci Mobil & Motor
+                    - generic [ref=e176]: 10 Jun 2026
+              - generic [ref=e177]:
+                - generic [ref=e178]: Rp 40.000
+                - text: LUNAS
+          - generic [ref=e179]:
+            - generic [ref=e180]:
+              - generic [ref=e181]: Ringkasan Per Unit
+              - generic [ref=e182]: Total transaksi per unit layanan
+            - generic [ref=e185]:
+              - img [ref=e187]
+              - generic [ref=e191]:
+                - generic [ref=e192]:
+                  - paragraph [ref=e193]: Cuci Mobil & Motor
+                  - paragraph [ref=e194]: Rp 40.000
+                - paragraph [ref=e195]: 1 Transaksi
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e201] [cursor=pointer]:
+    - generic [ref=e204]:
+      - text: Compiling
+      - generic [ref=e205]:
+        - generic [ref=e206]: .
+        - generic [ref=e207]: .
+        - generic [ref=e208]: .
+  - alert [ref=e209]
+```

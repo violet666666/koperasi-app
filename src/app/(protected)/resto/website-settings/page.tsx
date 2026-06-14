@@ -174,6 +174,10 @@ export default function WebsiteSettingsPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
         {activeTab === "umum" && (
           <>
+            <FieldInput label="Nama Brand" value={val("latar_brand_name")} onChange={(v) => updateValue("latar_brand_name", v)} helpText="Contoh: Cafe & Resto LSP" />
+            <FieldImageUpload label="Logo Website" value={val("latar_logo_url")} onChange={(v) => updateValue("latar_logo_url", v)} helpText="Disarankan rasio 1:1 atau transparan PNG." />
+            <FieldImageUpload label="Hero Background" value={val("latar_hero_bg_url")} onChange={(v) => updateValue("latar_hero_bg_url", v)} helpText="Gambar latar belakang halaman utama. Disarankan landscape resolusi tinggi." />
+            <hr className="border-gray-100" />
             <FieldInput label="Hero Headline" value={val("latar_hero_headline")} onChange={(v) => updateValue("latar_hero_headline", v)} />
             <FieldTextarea label="Hero Sub-headline" value={val("latar_hero_subheadline")} onChange={(v) => updateValue("latar_hero_subheadline", v)} rows={3} />
             <FieldInput label="Link Reservasi (WhatsApp URL)" value={val("latar_cta_reservasi_link")} onChange={(v) => updateValue("latar_cta_reservasi_link", v)} placeholder="https://wa.me/628xxxx" />
@@ -187,6 +191,7 @@ export default function WebsiteSettingsPage() {
 
         {activeTab === "tentang" && (
           <>
+            <FieldImageUpload label="Gambar Tentang Kami (Brand Story)" value={val("latar_about_image_url")} onChange={(v) => updateValue("latar_about_image_url", v)} helpText="Gambar disamping cerita brand." />
             <FieldTextarea label="Brand Story (Tentang Kami)" value={val("latar_about_story")} onChange={(v) => updateValue("latar_about_story", v)} rows={6} helpText="Pisahkan paragraf dengan baris kosong." />
             <FieldTextarea label="Visi" value={val("latar_visi")} onChange={(v) => updateValue("latar_visi", v)} rows={3} />
             <FieldTextarea
@@ -361,6 +366,88 @@ function FieldTextarea({
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
       />
       {helpText && <p className="mt-1 text-xs text-gray-400">{helpText}</p>}
+    </div>
+  );
+}
+
+function FieldImageUpload({
+  label,
+  value,
+  onChange,
+  helpText,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  helpText?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/resto/website-settings/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Gagal upload");
+      }
+
+      const data = await res.json();
+      onChange(data.url);
+      toast.success("Gambar berhasil diupload!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal upload gambar");
+    } finally {
+      setUploading(false);
+      e.target.value = ""; // reset
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <div className="flex items-start gap-4">
+        {/* Preview */}
+        <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">
+          {value ? (
+            <img src={value} alt="Preview" className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-xs text-gray-400">Tidak ada gambar</span>
+          )}
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+              <Loader2 className="animate-spin text-orange-600" size={24} />
+            </div>
+          )}
+        </div>
+        
+        {/* Upload Input */}
+        <div className="flex-1">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+            {uploading ? "Mengupload..." : "Pilih Gambar Baru"}
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={uploading} />
+          </label>
+          <p className="mt-2 text-xs text-gray-500">
+            Format: JPG, PNG, WEBP. Maksimal 5MB.
+            {helpText && <><br/>{helpText}</>}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -66,7 +66,7 @@ export default function LocationMap({ content }: LocationMapProps) {
             {content.mapsEmbed ? (
               <iframe
                 src={content.mapsEmbed}
-                title="Lokasi Latar Cafe & Resto"
+                title={`Lokasi ${content.brandName}`}
                 loading="lazy"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"

@@ -12,9 +12,11 @@ const NAV_LINKS = [
 
 interface NavbarProps {
   ctaLink?: string;
+  brandName?: string;
+  logoUrl?: string;
 }
 
-export default function Navbar({ ctaLink = '#' }: NavbarProps) {
+export default function Navbar({ ctaLink = '#', brandName = 'Cafe & Resto LSP', logoUrl = '/LogoPrimkoppol.png' }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
@@ -46,8 +48,8 @@ export default function Navbar({ ctaLink = '#' }: NavbarProps) {
       <nav className={`navbar ${scrolled ? 'navbar--scrolled' : 'navbar--transparent'}`}>
         <div className="navbar__inner">
           <Link to="/" className="navbar__logo">
-            <img src="/LogoPrimkoppol.png" alt="Latar" className="navbar__logo-img" />
-            <span className="navbar__logo-text">Latar</span>
+            <img src={logoUrl} alt={brandName} className="navbar__logo-img" />
+            <span className="navbar__logo-text">{brandName}</span>
           </Link>
 
           <div className="navbar__links">

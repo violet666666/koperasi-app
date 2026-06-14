@@ -16,8 +16,8 @@ export default function Footer({ content }: FooterProps) {
           {/* Column 1: Brand */}
           <div>
             <div className="footer__logo">
-              <img src="/LogoPrimkoppol.png" alt="Logo" className="footer__logo-img" />
-              <span className="footer__logo-text">Latar</span>
+              <img src={content.logoUrl || "/LogoPrimkoppol.png"} alt="Logo" className="footer__logo-img" />
+              <span className="footer__logo-text">{content.brandName}</span>
             </div>
             <p className="footer__desc">
               Dikelola oleh Koperasi PRIMKOPPOL Resor Lumajang.<br />
@@ -80,7 +80,7 @@ export default function Footer({ content }: FooterProps) {
         </div>
 
         <div className="footer__bottom">
-          © {currentYear} Unit Cafe & Resto "Latar" — PRIMKOPPOL Resor Lumajang. All rights reserved.
+          © {currentYear} {content.brandName} — PRIMKOPPOL Resor Lumajang. All rights reserved.
         </div>
       </div>
     </footer>

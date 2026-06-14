@@ -2,9 +2,10 @@ import { MapPin } from 'lucide-react';
 
 interface CtaBannerProps {
   ctaLink?: string;
+  brandName?: string;
 }
 
-export default function CtaBanner({ ctaLink = '#' }: CtaBannerProps) {
+export default function CtaBanner({ ctaLink = '#', brandName = 'Cafe & Resto LSP' }: CtaBannerProps) {
   return (
     <section className="cta-banner">
       <div className="container">
@@ -12,7 +13,7 @@ export default function CtaBanner({ ctaLink = '#' }: CtaBannerProps) {
           Lapar? Atau sekadar ingin ngopi santai?
         </h2>
         <p className="cta-banner__text">
-          Latar menanti kehadiran Anda. Datang langsung atau reservasi meja terlebih dahulu.
+          {brandName} menanti kehadiran Anda. Datang langsung atau reservasi meja terlebih dahulu.
         </p>
         <a
           href={ctaLink}

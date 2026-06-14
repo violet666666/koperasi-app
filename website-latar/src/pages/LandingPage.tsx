@@ -19,9 +19,9 @@ export default function LandingPage() {
 
   return (
     <>
-      <Navbar ctaLink={content.ctaReservasiLink} />
+      <Navbar ctaLink={content.ctaReservasiLink} brandName={content.brandName} logoUrl={content.logoUrl} />
       <main>
-        <HeroSection headline={content.heroHeadline} subheadline={content.heroSubheadline} />
+        <HeroSection headline={content.heroHeadline} subheadline={content.heroSubheadline} brandName={content.brandName} bgUrl={content.heroBgUrl} />
         <Highlights />
         <FeaturedMenu />
         <Testimonials testimonials={content.testimonials} />

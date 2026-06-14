@@ -31,13 +31,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] as const } },
 };
 
-export default function Highlights() {
+export default function Highlights({ brandName = 'Cafe & Resto LSP' }: { brandName?: string }) {
   return (
     <section className="section section--warm">
       <div className="container">
         <div className="section-header">
           <p className="section-label">Keunggulan Kami</p>
-          <h2 className="section-title">Mengapa Memilih Latar?</h2>
+          <h2 className="section-title">Mengapa Memilih {brandName}?</h2>
           <p className="section-subtitle">
             Kami menghadirkan pengalaman kuliner yang lengkap — dari suasana hingga kemudahan transaksi.
           </p>
