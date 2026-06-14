@@ -18,7 +18,12 @@ interface Testimonial {
   role?: string;
 }
 
-type TabKey = "umum" | "tentang" | "kontak" | "social" | "testimonial";
+interface GalleryItem {
+  url: string;
+  caption: string;
+}
+
+type TabKey = "umum" | "tentang" | "kontak" | "social" | "testimonial" | "galeri";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "umum", label: "Umum" },
@@ -26,6 +31,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "kontak", label: "Kontak & Lokasi" },
   { key: "social", label: "Social Media" },
   { key: "testimonial", label: "Testimonial" },
+  { key: "galeri", label: "Galeri Foto" },
 ];
 
 export default function WebsiteSettingsPage() {
@@ -116,6 +122,35 @@ export default function WebsiteSettingsPage() {
     const current = getTestimonials();
     current[index] = { ...current[index], [field]: value };
     setTestimonials(current);
+  };
+
+  // Gallery helpers
+  const getGallery = (): GalleryItem[] => {
+    try {
+      return JSON.parse(settings["latar_gallery"]?.value || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const setGallery = (items: GalleryItem[]) => {
+    updateValue("latar_gallery", JSON.stringify(items));
+  };
+
+  const addGalleryItem = () => {
+    const current = getGallery();
+    setGallery([...current, { url: "", caption: "" }]);
+  };
+
+  const removeGalleryItem = (index: number) => {
+    const current = getGallery();
+    setGallery(current.filter((_, i) => i !== index));
+  };
+
+  const updateGalleryItem = (index: number, field: keyof GalleryItem, value: string) => {
+    const current = getGallery();
+    current[index] = { ...current[index], [field]: value };
+    setGallery(current);
   };
 
   if (loading) {
@@ -295,7 +330,52 @@ export default function WebsiteSettingsPage() {
                 </div>
               ))}
               {getTestimonials().length === 0 && (
-                <p className="text-center text-sm text-gray-400 py-8">Belum ada testimonial. Klik "Tambah Testimonial" untuk menambahkan.</p>
+                <p className="text-center text-sm text-gray-400 py-8">Belum ada testimonial. Klik &quot;Tambah Testimonial&quot; untuk menambahkan.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === "galeri" && (
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Kelola foto galeri yang tampil di halaman Tentang Kami.</p>
+              <button
+                onClick={addGalleryItem}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                <Plus size={14} /> Tambah Foto
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {getGallery().map((item, i) => (
+                <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Foto #{i + 1}</span>
+                    <button onClick={() => removeGalleryItem(i)} className="text-red-500 hover:text-red-700">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <FieldImageUpload
+                    label="Gambar"
+                    value={item.url}
+                    onChange={(v) => updateGalleryItem(i, "url", v)}
+                  />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Keterangan</label>
+                    <input
+                      type="text"
+                      value={item.caption}
+                      onChange={(e) => updateGalleryItem(i, "caption", e.target.value)}
+                      className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      placeholder="Contoh: Area Indoor yang Nyaman"
+                    />
+                  </div>
+                </div>
+              ))}
+              {getGallery().length === 0 && (
+                <p className="col-span-2 text-center text-sm text-gray-400 py-8">Belum ada foto galeri. Klik &quot;Tambah Foto&quot; untuk menambahkan.</p>
               )}
             </div>
           </>
