@@ -14,7 +14,7 @@ function isBestSeller(name: string): boolean {
   return BEST_SELLERS.some(bs => name.toLowerCase().includes(bs.toLowerCase()));
 }
 
-function SkeletonCard() {
+export function SkeletonCard() {
   return (
     <div className="menu-card">
       <div className="skeleton skeleton--image" />
@@ -27,7 +27,7 @@ function SkeletonCard() {
   );
 }
 
-function MenuCard({ item }: { item: MenuItem }) {
+export function MenuCard({ item }: { item: MenuItem }) {
   return (
     <motion.div
       className="menu-card"
@@ -59,6 +59,8 @@ function MenuCard({ item }: { item: MenuItem }) {
   );
 }
 
+import { Link } from 'react-router-dom';
+
 export default function FeaturedMenu() {
   const { items, loading } = useMenu();
 
@@ -81,6 +83,12 @@ export default function FeaturedMenu() {
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
             : displayItems.map((item) => <MenuCard key={item.id} item={item} />)
           }
+        </div>
+
+        <div style={{ marginTop: '3rem', textAlign: 'center' }}>
+          <Link to="/menu" className="btn btn--outline btn--lg">
+            Lihat Detail Menu
+          </Link>
         </div>
       </div>
     </section>
