@@ -1,31 +1,23 @@
-import { MapPin, Clock, Phone, Mail } from 'lucide-react';
+import { MapPin, Clock, Phone, Mail, Navigation } from 'lucide-react';
 import type { WebsiteContent } from '../api/content';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-// Fix for default marker icon in leaflet with bundlers
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
+import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useState } from 'react';
 
 interface LocationMapProps {
   content: WebsiteContent;
 }
 
+// Exact coordinates for Primadana Car Wash & Resto, Jl. Minak Koncar No.52, Lumajang
+const POSITION = {
+  latitude: -8.1340333,
+  longitude: 113.2220033,
+};
+
+const GOOGLE_MAPS_LINK = 'https://maps.app.goo.gl/NwcGC5E5igHb72ZY9?g_st=aw';
+
 export default function LocationMap({ content }: LocationMapProps) {
-  // Approximate coordinates for Jl. Minak Koncar, Ditotrunan, Lumajang
-  const position: [number, number] = [-8.131113, 113.224167];
+  const [showPopup, setShowPopup] = useState(true);
 
   return (
     <section className="section">
@@ -81,26 +73,78 @@ export default function LocationMap({ content }: LocationMapProps) {
                 </div>
               </div>
             )}
+
+            {/* Google Maps Direction Button */}
+            <a
+              href={GOOGLE_MAPS_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--primary"
+              style={{ marginTop: '1rem' }}
+            >
+              <Navigation size={16} />
+              Buka di Google Maps
+            </a>
           </div>
 
           <div className="location-map__embed" style={{ position: 'relative', zIndex: 1 }}>
-            <MapContainer 
-              center={position} 
-              zoom={16} 
-              scrollWheelZoom={false}
+            <Map
+              initialViewState={{
+                longitude: POSITION.longitude,
+                latitude: POSITION.latitude,
+                zoom: 15,
+                pitch: 45,
+              }}
               style={{ width: '100%', height: '100%', minHeight: '400px' }}
+              mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+              scrollZoom={false}
+              dragRotate={true}
             >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <Marker position={position}>
-                <Popup>
-                  <strong>{content.brandName}</strong><br />
-                  Menanti kunjungan Anda.
-                </Popup>
+              <NavigationControl position="top-right" />
+
+              <Marker
+                longitude={POSITION.longitude}
+                latitude={POSITION.latitude}
+                anchor="bottom"
+                onClick={() => setShowPopup(true)}
+              >
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50% 50% 50% 0',
+                  background: 'linear-gradient(135deg, #C0582A, #D4763E)',
+                  transform: 'rotate(-45deg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 15px rgba(192, 88, 42, 0.4)',
+                  cursor: 'pointer',
+                  border: '3px solid white',
+                }}>
+                  <MapPin size={18} color="white" style={{ transform: 'rotate(45deg)' }} />
+                </div>
               </Marker>
-            </MapContainer>
+
+              {showPopup && (
+                <Popup
+                  longitude={POSITION.longitude}
+                  latitude={POSITION.latitude}
+                  anchor="bottom"
+                  offset={[0, -45]}
+                  onClose={() => setShowPopup(false)}
+                  closeOnClick={false}
+                >
+                  <div style={{ padding: '4px 8px', fontFamily: 'Inter, sans-serif' }}>
+                    <strong style={{ fontSize: '0.95rem', color: '#1E5128' }}>
+                      {content.brandName}
+                    </strong>
+                    <p style={{ fontSize: '0.8rem', color: '#7A7267', margin: '4px 0 0' }}>
+                      Jl. Minak Koncar No.52, Lumajang
+                    </p>
+                  </div>
+                </Popup>
+              )}
+            </Map>
           </div>
         </div>
       </div>

@@ -45,7 +45,7 @@ const DEFAULT_CONTENT: WebsiteContent = {
   aboutImageUrl: '/images/brand-story.webp',
   heroHeadline: 'Cita Rasa Autentik di Setiap Sudut Latar.',
   heroSubheadline: 'Nikmati sajian istimewa mulai dari Nasi Goreng rempah hingga Ice Americano segar, dengan suasana yang membuat Anda betah berlama-lama.',
-  ctaReservasiLink: '#',
+  ctaReservasiLink: 'https://maps.app.goo.gl/NwcGC5E5igHb72ZY9?g_st=aw',
   aboutStory: 'Cafe Latar adalah unit bisnis unggulan Koperasi PRIMKOPPOL Resor Lumajang yang menyajikan kuliner nusantara dan aneka kopi pilihan. Didirikan dengan semangat melayani anggota koperasi dan masyarakat umum, kami mengedepankan kualitas bahan, cita rasa otentik, dan pelayanan berstandar modern.\n\nDengan dukungan sistem Point of Sales termutakhir, setiap pengalaman makan di Latar dirancang untuk memberikan kenyamanan dan kepuasan maksimal bagi setiap pengunjung.',
   visi: 'Menjadi destinasi kuliner dan kopi nomor satu yang mengedepankan kualitas dan pemberdayaan ekonomi koperasi.',
   misi: [

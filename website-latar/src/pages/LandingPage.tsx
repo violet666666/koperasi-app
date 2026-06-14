@@ -6,6 +6,7 @@ import Highlights from '../components/Highlights';
 import FeaturedMenu from '../components/FeaturedMenu';
 import Testimonials from '../components/Testimonials';
 import CtaBanner from '../components/CtaBanner';
+import LocationMap from '../components/LocationMap';
 import Footer from '../components/Footer';
 
 export default function LandingPage() {
@@ -25,7 +26,10 @@ export default function LandingPage() {
         <Highlights />
         <FeaturedMenu />
         <Testimonials testimonials={content.testimonials} />
-        <CtaBanner ctaLink={content.ctaReservasiLink} />
+        <CtaBanner ctaLink={content.ctaReservasiLink} brandName={content.brandName} />
+        <section id="kontak">
+          <LocationMap content={content} />
+        </section>
       </main>
       <Footer content={content} />
     </>
