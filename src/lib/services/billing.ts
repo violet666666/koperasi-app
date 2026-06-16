@@ -91,3 +91,103 @@ export function extractSaleNo(
   const m = description.match(SALE_NO_RE);
   return m ? m[1] : null;
 }
+
+// ── buildBillingItems: capture + dedup, pure transform (no DB) ──────
+export interface BillingCaptureUT {
+  id: number;
+  memberId: number;
+  unitType: string | null;
+  description: string | null;
+  amount: number;
+  isPaid: boolean;
+  status: string;
+  member?: { name: string | null; nrp: string | null } | null;
+}
+export interface BillingCaptureSS {
+  id: number;
+  saleNo: string;
+  memberId: number;
+  unitType: string | null;
+  totalAmount: number;
+  metadata: unknown;
+  member?: { name: string | null; nrp: string | null } | null;
+}
+export interface BillingCaptureInput {
+  unitTransactions: BillingCaptureUT[];
+  storeSales: BillingCaptureSS[];
+  excludedTxIds: Set<number>;
+  excludedSaleIds: Set<number>;
+}
+export interface BillingItemDraft {
+  memberId: number;
+  memberName: string;
+  memberNrp: string | null;
+  unitType: string | null;
+  transactionId: number;
+  // string (not a narrow union) so haji/umrah "savings_account" items can be pushed
+  // into the same array by the route without a TS error.
+  transactionSource: string;
+  description: string;
+  amount: number;
+}
+
+const CAPTURE_UNIT_LABELS: Record<string, string> = {
+  toko: "Toko", resto: "Resto", resto_cafe: "Resto & Cafe",
+  cafe_lsp: "Cafe LSP", coffe_latar: "Coffee Latar",
+  playstation: "PlayStation", play_station: "PlayStation",
+  cuci_mobil: "Cuci Mobil", carwash: "Cuci Mobil",
+  barbershop: "Barbershop", fitness: "Fitness", laundry: "Laundry",
+  fotocopy: "Fotocopy", simpan_pinjam: "Simpan Pinjam", aset: "Aset",
+};
+
+/**
+ * Build billing items from fetched UnitTransactions + StoreSales.
+ * Pure: deterministic, no side effects, no DB. Callers fetch rows + excluded sets.
+ * Invariants enforced: I1 completeness, I2 settled excluded, I3 no double-count,
+ * I4 voided excluded. See spec §3.
+ */
+export function buildBillingItems(input: BillingCaptureInput): BillingItemDraft[] {
+  const items: BillingItemDraft[] = [];
+  const coveredSaleNos = new Set<string>();
+
+  // Source 1: UnitTransactions
+  for (const ut of input.unitTransactions) {
+    if (ut.isPaid) continue;                       // I2 settled excluded (defense-in-depth)
+    if (ut.status !== "completed") continue;       // I1 only completed receivables
+    if (input.excludedTxIds.has(ut.id)) continue;  // I3 cross-period dedup
+    const saleNo = extractSaleNo(ut.description);
+    if (saleNo) coveredSaleNos.add(saleNo);
+    items.push({
+      memberId: ut.memberId,
+      memberName: ut.member?.name ?? "Unknown",
+      memberNrp: ut.member?.nrp ?? null,
+      unitType: ut.unitType,
+      transactionId: ut.id,
+      transactionSource: "unit_transaction",
+      description: ut.description ?? "",
+      amount: ut.amount,
+    });
+  }
+
+  // Source 2: StoreSale gap (not voided, not settled, not covered, not excluded)
+  for (const ss of input.storeSales) {
+    if (input.excludedSaleIds.has(ss.id)) continue; // I3 cross-period dedup
+    const meta = ss.metadata as Record<string, unknown> | null;
+    if (meta?.isVoided) continue;                   // I4 voided excluded
+    if (meta?.isSettled) continue;                  // I2 settled excluded (defense)
+    if (coveredSaleNos.has(ss.saleNo)) continue;    // I3 dedup vs UnitTransaction
+    const label = CAPTURE_UNIT_LABELS[ss.unitType ?? ""] ?? ss.unitType ?? "Unit";
+    items.push({
+      memberId: ss.memberId,
+      memberName: ss.member?.name ?? "Unknown",
+      memberNrp: ss.member?.nrp ?? null,
+      unitType: ss.unitType,
+      transactionId: ss.id,
+      transactionSource: "store_sale",
+      description: `Piutang ${label} (Potongan Gaji) - ${ss.saleNo}`,
+      amount: ss.totalAmount,
+    });
+  }
+
+  return items;
+}
