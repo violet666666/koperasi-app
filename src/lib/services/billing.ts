@@ -98,6 +98,7 @@ export interface BillingCaptureUT {
   memberId: number;
   unitType: string | null;
   description: string | null;
+  saleNo: string | null;
   amount: number;
   isPaid: boolean;
   status: string;
@@ -155,7 +156,7 @@ export function buildBillingItems(input: BillingCaptureInput): BillingItemDraft[
     if (ut.isPaid) continue;                       // I2 settled excluded (defense-in-depth)
     if (ut.status !== "completed") continue;       // I1 only completed receivables
     if (input.excludedTxIds.has(ut.id)) continue;  // I3 cross-period dedup
-    const saleNo = extractSaleNo(ut.description);
+    const saleNo = ut.saleNo ?? extractSaleNo(ut.description);
     if (saleNo) coveredSaleNos.add(saleNo);
     items.push({
       memberId: ut.memberId,

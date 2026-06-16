@@ -29,6 +29,7 @@ describe("extractSaleNo", () => {
 
 type UTOver = {
   id: number; memberId?: number; unitType?: string; description?: string | null;
+  saleNo?: string | null;
   amount?: number; isPaid?: boolean; status?: string;
   member?: { name: string | null; nrp: string | null };
 };
@@ -37,6 +38,7 @@ const ut = (over: UTOver) => ({
   memberId: over.memberId ?? 1,
   unitType: over.unitType ?? "toko",
   description: over.description ?? null,
+  saleNo: over.saleNo ?? null,
   amount: over.amount ?? 50000,
   isPaid: over.isPaid ?? false,
   status: over.status ?? "completed",
@@ -153,5 +155,35 @@ describe("buildBillingItems", () => {
     });
     expect(items).toHaveLength(1);
     expect(items[0].transactionId).toBe(10);
+  });
+
+  it("I3 ut.saleNo is the primary dedup key (no regex on description needed)", () => {
+    const saleNo = "TK-17062026-0001";
+    const items = buildBillingItems({
+      unitTransactions: [ut({ id: 1, saleNo, description: "Piutang toko - no saleNo text here" })],
+      storeSales: [ss({ id: 9, saleNo })],
+      excludedTxIds: new Set(), excludedSaleIds: new Set(),
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].transactionSource).toBe("unit_transaction");
+  });
+
+  it("I3 ut.saleNo takes precedence over a different saleNo in description", () => {
+    const items = buildBillingItems({
+      unitTransactions: [ut({ id: 1, saleNo: "TK-17062026-0002", description: "Piutang toko - TK-17062026-0099" })],
+      storeSales: [ss({ id: 9, saleNo: "TK-17062026-0002" })],
+      excludedTxIds: new Set(), excludedSaleIds: new Set(),
+    });
+    expect(items).toHaveLength(1);
+  });
+
+  it("fallback: null ut.saleNo still dedups via extractSaleNo(description)", () => {
+    const saleNo = "POS-M-17062026-0001";
+    const items = buildBillingItems({
+      unitTransactions: [ut({ id: 1, saleNo: null, description: `Piutang toko (Mobile Potong Gaji) - ${saleNo}` })],
+      storeSales: [ss({ id: 9, saleNo })],
+      excludedTxIds: new Set(), excludedSaleIds: new Set(),
+    });
+    expect(items).toHaveLength(1);
   });
 });
