@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { extractSaleNo } from "@/lib/services/billing";
 
 // GET /api/billing/[periodId] — Get billing period detail
 export async function GET(
@@ -68,7 +69,6 @@ export async function DELETE(
     const hasPaidItems = period.billingItems.some((i) => i.isMarkedPaid);
     if (period.status === "processed" || hasPaidItems) {
       await prisma.$transaction(async (tx) => {
-        const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
         for (const item of period.billingItems) {
           if (!item.isMarkedPaid) continue;
           if (item.transactionSource === "unit_transaction" && item.transactionId) {
@@ -77,9 +77,8 @@ export async function DELETE(
               data: { isPaid: false, paidDate: null },
             });
             // Also reverse linked StoreSale isSettled
-            const match = item.description?.match(SALE_NO_RE);
-            if (match) {
-              const saleNo = match[1];
+            const saleNo = extractSaleNo(item.description);
+            if (saleNo) {
               const linkedSale = await tx.storeSale.findUnique({
                 where: { saleNo },
                 select: { id: true, metadata: true },
