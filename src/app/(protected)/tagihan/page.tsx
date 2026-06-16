@@ -30,6 +30,7 @@ import {
   Trash2,
   CheckCircle2,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { generateFakturPiutangPDF, exportFakturPiutangExcel, type FakturPiutangData } from "@/lib/export-utils";
@@ -105,6 +106,7 @@ export default function TagihanPage() {
   const [loading, setLoading] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [processing, setProcessing] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showCustomDate, setShowCustomDate] = React.useState(false);
   const [customStart, setCustomStart] = React.useState("");
@@ -221,6 +223,27 @@ export default function TagihanPage() {
       setError("Gagal memproses");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!period) return;
+    if (!confirm(`Refresh draft ${period.periodLabel}?\n\nTransaksi potong-gaji terbaru dalam periode ini akan ditambahkan. Item yang sudah ditandai lunas dipertahankan.`)) return;
+    setRefreshing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/billing/${period.id}/refresh`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.message || "Gagal refresh");
+      } else {
+        await fetchPeriod(period.id);
+        fetchPeriods();
+      }
+    } catch {
+      setError("Gagal refresh");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -369,6 +392,17 @@ export default function TagihanPage() {
               <Button variant="outline" size="sm" onClick={handleExportExcel}>
                 <Download className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Excel</span>
+              </Button>
+            )}
+            {period && isDraft && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing || processing}
+              >
+                {refreshing ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 sm:mr-2" />}
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             )}
             {period && (
