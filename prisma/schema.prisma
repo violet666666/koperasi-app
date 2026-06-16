@@ -833,6 +833,7 @@ model UnitTransaction {
   isPaid              Boolean   @default(false) @map("is_paid")
   paidDate            DateTime? @map("paid_date") @db.Date
   notes               String?
+  saleNo              String?   @map("sale_no")            // linked StoreSale.saleNo (toko-family salary_cut only)
   supportingDocPath   String?   @map("supporting_doc_path")
   // ── Status Void Workflow ──────────────────────────────────────────
   status              String    @default("completed") // completed, pending_void, voided
@@ -854,6 +855,7 @@ model UnitTransaction {
   @@index([memberId, status])
   @@index([unitType, transactionDate])
   @@index([status])
+  @@index([saleNo])
   @@map("unit_transactions")
 }
 
