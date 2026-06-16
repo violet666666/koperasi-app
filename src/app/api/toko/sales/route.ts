@@ -737,6 +737,7 @@ export async function POST(request: Request) {
                         memberId: memberId,
                         unitType: unitType,
                         description: `Piutang ${unitType} (Potongan Gaji) - ${saleNo}`,
+                        saleNo,
                         amount: totalAmount,
                         transactionDate: now,
                         paymentMethod: "salary_cut",

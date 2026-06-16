@@ -324,6 +324,7 @@ export async function POST(request: Request) {
                         transactionNo: `MB-UTG-${Date.now().toString(36).toUpperCase()}`,
                         memberId: Number(memberId), unitType,
                         description: `Piutang ${unitType} (Mobile Potong Gaji) - ${saleNo}`,
+                        saleNo,
                         amount: totalAmount, transactionDate: now,
                         paymentMethod: "salary_cut",
                         isPaid: false,

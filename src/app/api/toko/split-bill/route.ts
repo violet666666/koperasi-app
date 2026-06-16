@@ -367,6 +367,7 @@ export async function POST(req: Request) {
                             memberId: payment.memberId,
                             unitType: unitTypeVal,
                             description: `Piutang ${unitTypeVal} (Potongan Gaji) - Split ${groupId} - ${saleNo}`,
+                            saleNo,
                             amount: paymentAmount,
                             transactionDate: now,
                             paymentMethod: "salary_cut",
