@@ -27,22 +27,32 @@ describe("extractSaleNo", () => {
   });
 });
 
-const ut = (over: Partial<Record<string, unknown>> & { id: number }) => ({
+type UTOver = {
+  id: number; memberId?: number; unitType?: string; description?: string | null;
+  amount?: number; isPaid?: boolean; status?: string;
+  member?: { name: string | null; nrp: string | null };
+};
+const ut = (over: UTOver) => ({
   id: over.id,
   memberId: over.memberId ?? 1,
-  unitType: (over.unitType as string) ?? "toko",
-  description: (over.description as string) ?? null,
-  amount: (over.amount as number) ?? 50000,
+  unitType: over.unitType ?? "toko",
+  description: over.description ?? null,
+  amount: over.amount ?? 50000,
   isPaid: over.isPaid ?? false,
-  status: (over.status as string) ?? "completed",
+  status: over.status ?? "completed",
   member: over.member ?? { name: "Anggota", nrp: "1" },
 });
-const ss = (over: Partial<Record<string, unknown>> & { id: number }) => ({
+type SSOver = {
+  id: number; saleNo?: string; memberId?: number; unitType?: string;
+  totalAmount?: number; metadata?: unknown;
+  member?: { name: string | null; nrp: string | null };
+};
+const ss = (over: SSOver) => ({
   id: over.id,
-  saleNo: (over.saleNo as string) ?? "TK-16062026-0001",
+  saleNo: over.saleNo ?? "TK-16062026-0001",
   memberId: over.memberId ?? 1,
-  unitType: (over.unitType as string) ?? "toko",
-  totalAmount: (over.totalAmount as number) ?? 50000,
+  unitType: over.unitType ?? "toko",
+  totalAmount: over.totalAmount ?? 50000,
   metadata: over.metadata ?? null,
   member: over.member ?? { name: "Anggota", nrp: "1" },
 });

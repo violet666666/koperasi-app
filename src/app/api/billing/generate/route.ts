@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { calculateBillingPeriod } from "@/lib/services/billing";
+import { calculateBillingPeriod, buildBillingItems } from "@/lib/services/billing";
 
 // POST /api/billing/generate — Generate draft billing period
 export async function POST(request: Request) {
@@ -57,8 +57,14 @@ export async function POST(request: Request) {
     });
 
     if (existing) {
+      const isDraft = existing.status === "draft";
       return NextResponse.json(
-        { message: "Billing period already exists", data: existing },
+        {
+          message: isDraft
+            ? `Draft untuk periode tumpang-tindih sudah ada (${existing.periodLabel}). Buka draft tersebut lalu klik "Refresh" untuk memperbarui transaksi terbaru, atau hapus draft lalu generate ulang.`
+            : `Periode tumpang-tindih sudah ada dan berstatus Diproses (${existing.periodLabel}).`,
+          data: existing,
+        },
         { status: 409 }
       );
     }
@@ -67,23 +73,21 @@ export async function POST(request: Request) {
     const startUTC = periodStart;
     const endUTC = new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-    // Strategy: collect piutang from two sources, then deduplicate by saleNo.
-    // Source 1: UnitTransaction piutang records (salary_cut, unpaid, completed).
-    // Source 2: StoreSales with salary_cut that have NO matching piutang UnitTransaction
-    //           (covers the gap before POS piutang code was deployed).
+    // Cross-period dedup: a transaction already claimed by ANY existing BillingPeriod
+    // (BillingItem cascades on period delete, so every item belongs to a live period)
+    // must not be re-added — prevents the same receivable appearing in two billing runs.
+    const claimedItems = await prisma.billingItem.findMany({
+      select: { transactionId: true, transactionSource: true },
+    });
+    const excludedTxIds = new Set<number>();
+    const excludedSaleIds = new Set<number>();
+    for (const it of claimedItems) {
+      if (it.transactionId == null) continue;
+      if (it.transactionSource === "store_sale") excludedSaleIds.add(it.transactionId);
+      else excludedTxIds.add(it.transactionId);
+    }
 
-    const SALE_NO_RE = /(TK-\d{8}-\d{4}|MB-\d{8}-\d{4}|RS-\d{8}-\d{4}|PS-\d{8}-\d{4}|CF-\d{8}-\d{4}|CL-\d{8}-\d{4}|RC-\d{8}-\d{4})/;
-
-    const UNIT_LABELS: Record<string, string> = {
-      toko: "Toko", resto: "Resto", resto_cafe: "Resto & Cafe",
-      cafe_lsp: "Cafe LSP", coffe_latar: "Coffee Latar",
-      playstation: "PlayStation", play_station: "PlayStation",
-      cuci_mobil: "Cuci Mobil", carwash: "Cuci Mobil",
-      barbershop: "Barbershop", fitness: "Fitness", laundry: "Laundry",
-      fotocopy: "Fotocopy", simpan_pinjam: "Simpan Pinjam", aset: "Aset",
-    };
-
-    // Source 1: Existing piutang UnitTransactions within period
+    // Source 1: UnitTransaction piutang (outstanding, completed, in window)
     const unitTransactions = await prisma.unitTransaction.findMany({
       where: {
         paymentMethod: "salary_cut",
@@ -94,22 +98,13 @@ export async function POST(request: Request) {
       },
       select: {
         id: true, memberId: true, unitType: true, description: true,
-        amount: true, member: { select: { name: true, nrp: true } },
+        amount: true, isPaid: true, status: true,
+        member: { select: { name: true, nrp: true } },
       },
     });
 
-    // Build a set of saleNos already covered by UnitTransactions
-    const coveredSaleNos = new Set<string>();
-    for (const ut of unitTransactions) {
-      const match = ut.description?.match(SALE_NO_RE);
-      if (match) coveredSaleNos.add(match[1]);
-    }
-
-    // Source 2: StoreSales without matching piutang UnitTransaction.
-    // StoreSale uses `createdAt` for date, void info is in metadata.isVoided.
-    // Query without Prisma JSON NOT filter (it can exclude null metadata rows),
-    // then filter voided in JavaScript.
-    const allStoreSales = await prisma.storeSale.findMany({
+    // Source 2: salary_cut StoreSales in window (void/settled/exclusion filtered in buildBillingItems)
+    const storeSales = await prisma.storeSale.findMany({
       where: {
         paymentMethod: "salary_cut",
         memberId: { not: null },
@@ -117,63 +112,24 @@ export async function POST(request: Request) {
       },
       select: {
         id: true, saleNo: true, memberId: true, unitType: true, totalAmount: true,
-        createdAt: true, metadata: true,
+        metadata: true,
         member: { select: { name: true, nrp: true } },
       },
     });
 
-    const uncoveredStoreSales = allStoreSales.filter((ss) => {
-      const meta = ss.metadata as Record<string, unknown> | null;
-      return !meta?.isVoided;
+    const items = buildBillingItems({
+      unitTransactions: unitTransactions.map((ut) => ({
+        id: ut.id, memberId: ut.memberId!, unitType: ut.unitType, description: ut.description,
+        amount: Number(ut.amount), isPaid: ut.isPaid, status: ut.status,
+        member: ut.member,
+      })),
+      storeSales: storeSales.map((s) => ({
+        id: s.id, saleNo: s.saleNo, memberId: s.memberId!, unitType: s.unitType,
+        totalAmount: Number(s.totalAmount), metadata: s.metadata, member: s.member,
+      })),
+      excludedTxIds,
+      excludedSaleIds,
     });
-
-    // Only StoreSales not already covered by UnitTransactions
-    const gapStoreSales = uncoveredStoreSales.filter(
-      (ss) => !coveredSaleNos.has(ss.saleNo)
-    );
-
-    // Build billing items from both sources
-    const items: {
-      memberId: number;
-      memberName: string;
-      memberNrp: string | null;
-      unitType: string | null;
-      transactionId: number;
-      transactionSource: string;
-      description: string;
-      amount: number;
-    }[] = [];
-
-    // Items from UnitTransactions (primary source)
-    for (const tx of unitTransactions) {
-      if (!tx.memberId) continue;
-      items.push({
-        memberId: tx.memberId,
-        memberName: tx.member?.name ?? "Unknown",
-        memberNrp: tx.member?.nrp ?? null,
-        unitType: tx.unitType,
-        transactionId: tx.id,
-        transactionSource: "unit_transaction",
-        description: tx.description,
-        amount: Number(tx.amount),
-      });
-    }
-
-    // Items from StoreSales that lack piutang records (gap coverage)
-    for (const ss of gapStoreSales) {
-      if (!ss.memberId) continue;
-      const label = UNIT_LABELS[ss.unitType] || ss.unitType;
-      items.push({
-        memberId: ss.memberId,
-        memberName: ss.member?.name ?? "Unknown",
-        memberNrp: ss.member?.nrp ?? null,
-        unitType: ss.unitType,
-        transactionId: ss.id,
-        transactionSource: "store_sale",
-        description: `Piutang ${label} (Potongan Gaji) - ${ss.saleNo}`,
-        amount: Number(ss.totalAmount),
-      });
-    }
 
     // Source 3: Haji/Umrah savings accounts with monthly target
     const hajiUmrahAccounts = await prisma.savingsAccount.findMany({
