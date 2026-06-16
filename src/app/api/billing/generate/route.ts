@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         memberId: { not: null },
       },
       select: {
-        id: true, memberId: true, unitType: true, description: true,
+        id: true, memberId: true, unitType: true, description: true, saleNo: true,
         amount: true, isPaid: true, status: true,
         member: { select: { name: true, nrp: true } },
       },
@@ -120,6 +120,7 @@ export async function POST(request: Request) {
     const items = buildBillingItems({
       unitTransactions: unitTransactions.map((ut) => ({
         id: ut.id, memberId: ut.memberId!, unitType: ut.unitType, description: ut.description,
+        saleNo: ut.saleNo,
         amount: Number(ut.amount), isPaid: ut.isPaid, status: ut.status,
         member: ut.member,
       })),

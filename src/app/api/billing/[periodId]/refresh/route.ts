@@ -54,7 +54,7 @@ export async function POST(
     const [unitTransactions, storeSales, hajiUmrahAccounts] = await Promise.all([
       prisma.unitTransaction.findMany({
         where: { paymentMethod: "salary_cut", isPaid: false, status: "completed", transactionDate: { gte: startUTC, lte: endUTC }, memberId: { not: null } },
-        select: { id: true, memberId: true, unitType: true, description: true, amount: true, isPaid: true, status: true, member: { select: { name: true, nrp: true } } },
+        select: { id: true, memberId: true, unitType: true, description: true, saleNo: true, amount: true, isPaid: true, status: true, member: { select: { name: true, nrp: true } } },
       }),
       prisma.storeSale.findMany({
         where: { paymentMethod: "salary_cut", memberId: { not: null }, createdAt: { gte: startUTC, lte: endUTC } },
@@ -69,6 +69,7 @@ export async function POST(
     const items = buildBillingItems({
       unitTransactions: unitTransactions.map((ut) => ({
         id: ut.id, memberId: ut.memberId!, unitType: ut.unitType, description: ut.description,
+        saleNo: ut.saleNo,
         amount: Number(ut.amount), isPaid: ut.isPaid, status: ut.status, member: ut.member,
       })),
       storeSales: storeSales.map((s) => ({
