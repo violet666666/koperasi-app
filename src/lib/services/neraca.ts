@@ -111,3 +111,77 @@ export function buildEquityWithSelisih(params: {
   const totalEquity = equityBeforeSelisih + (isBalanced ? 0 : selisih);
   return { items, shuBerjalan: params.shuBerjalan, selisih, totalEquity, isBalanced };
 }
+
+export interface BalanceSheetResult {
+  asOf: string;
+  assets: {
+    current: BalanceSheetItem[];
+    fixedGross: BalanceSheetItem[];
+    accumulatedDepreciation: number;
+    totalAssets: number;
+  };
+  liabilities: {
+    savings: BalanceSheetItem[];
+    other: BalanceSheetItem[];
+    totalLiabilities: number;
+  };
+  equity: {
+    items: BalanceSheetItem[];
+    shuBerjalan: number;
+    selisih: number;
+    totalEquity: number;
+  };
+  isBalanced: boolean;
+  meta: { generatedAt: string; note: string };
+}
+
+export interface BalanceSheetParts {
+  asOf: string;
+  cashItems: BalanceSheetItem[];
+  loanRec: LoanReceivables;
+  inventory: number;
+  fixed: FixedAssetSummary;
+  savingsItems: BalanceSheetItem[];
+  hutangItems: BalanceSheetItem[];
+  modalItems: BalanceSheetItem[];
+  shuBerjalan: number;
+}
+
+export function assembleBalanceSheet(parts: BalanceSheetParts): BalanceSheetResult {
+  const current: BalanceSheetItem[] = [
+    ...parts.cashItems,
+    { code: "1201", name: "Piutang Pinjaman Anggota", amount: parts.loanRec.principal, source: "ledger" },
+    { code: "1202", name: "Piutang Bunga Pinjaman", amount: parts.loanRec.interest, source: "ledger" },
+    { code: "1301", name: "Persediaan Barang Dagangan", amount: parts.inventory, source: "ledger" },
+  ];
+  if (parts.loanRec.writtenOff !== 0) {
+    current.push({ code: "1299", name: "Piutang Dihapusbukukan (non-realisable)", amount: parts.loanRec.writtenOff, source: "ledger" });
+  }
+  const totalCurrent = current.reduce((s, i) => s + i.amount, 0);
+  const fixedGross: BalanceSheetItem[] = parts.fixed.gross !== 0
+    ? [{ code: "1400", name: "Aset Tetap (harga perolehan)", amount: parts.fixed.gross, source: "ledger" }]
+    : [];
+  const totalAssets = totalCurrent + parts.fixed.net;
+
+  const liabilityItems = [...parts.savingsItems, ...parts.hutangItems];
+  const totalLiabilities = liabilityItems.reduce((s, i) => s + i.amount, 0);
+
+  const equity = buildEquityWithSelisih({
+    modalItems: parts.modalItems,
+    shuBerjalan: parts.shuBerjalan,
+    totalAssets,
+    totalLiabilities,
+  });
+
+  return {
+    asOf: parts.asOf,
+    assets: { current, fixedGross, accumulatedDepreciation: parts.fixed.accumulatedDepreciation, totalAssets },
+    liabilities: { savings: parts.savingsItems, other: parts.hutangItems, totalLiabilities },
+    equity: { items: equity.items, shuBerjalan: equity.shuBerjalan, selisih: equity.selisih, totalEquity: equity.totalEquity },
+    isBalanced: equity.isBalanced,
+    meta: {
+      generatedAt: parts.asOf,
+      note: "Posisi per hari ini. Saldo dari tabel ledger (simpanan/kas/pinjaman/aset) + jurnal (hutang/modal).",
+    },
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapSavingsByType, sumLoanReceivables, computeInventory, computeFixedAssets, buildEquityWithSelisih, type BalanceSheetItem } from "@/lib/services/neraca";
+import { mapSavingsByType, sumLoanReceivables, computeInventory, computeFixedAssets, buildEquityWithSelisih, assembleBalanceSheet, type BalanceSheetItem } from "@/lib/services/neraca";
 
 describe("mapSavingsByType", () => {
   it("groups pokok/wajib/sukarela ke akun 2101/2102/2103", () => {
@@ -106,5 +106,46 @@ describe("buildEquityWithSelisih", () => {
     expect(r.selisih).toBe(-30);
     expect(r.isBalanced).toBe(false);
     expect(r.totalEquity).toBe(-30);
+  });
+});
+
+describe("assembleBalanceSheet", () => {
+  it("menyusun aset lancar + tetap, pasiva, dan identitas selisih", () => {
+    const r = assembleBalanceSheet({
+      asOf: "2026-06-18",
+      cashItems: [{ code: "1103", name: "Bank BRI", amount: 2_900_000_000, source: "ledger" }],
+      loanRec: { principal: 5_000_000_000, interest: 200_000_000, writtenOff: 100_000_000 },
+      inventory: 50_000_000,
+      fixed: { gross: 80_000_000, accumulatedDepreciation: 15_000_000, net: 65_000_000 },
+      savingsItems: [{ code: "2102", name: "Simpanan Wajib", amount: 6_000_000_000, source: "ledger" }],
+      hutangItems: [{ code: "2201", name: "Hutang Usaha", amount: 100_000_000, source: "journal" }],
+      modalItems: [{ code: "3101", name: "Modal Disetor", amount: 500_000_000, source: "journal" }],
+      shuBerjalan: 1_700_000_000,
+    });
+    // aset lancar = 2.9B + 5B + 200M + 50M + 100M(writtenOff) = 8.25B ; tetap net 65M → totalAssets 8.315B
+    expect(r.assets.totalAssets).toBe(8_315_000_000);
+    expect(r.assets.accumulatedDepreciation).toBe(15_000_000);
+    expect(r.liabilities.totalLiabilities).toBe(6_100_000_000);
+    // equity sebelum selisih = 500M + 1.7B = 2.2B ; selisih = 8.315B - 6.1B - 2.2B = 15M
+    expect(r.equity.selisih).toBe(15_000_000);
+    expect(r.isBalanced).toBe(false);
+    expect(r.equity.totalEquity).toBe(2_215_000_000);
+    expect(r.assets.current.find(i => i.code === "1299")?.amount).toBe(100_000_000); // writtenOff muncul
+  });
+
+  it("balanced jika angka pas", () => {
+    const r = assembleBalanceSheet({
+      asOf: "2026-06-18",
+      cashItems: [{ code: "1101", name: "Kas", amount: 100, source: "ledger" }],
+      loanRec: { principal: 0, interest: 0, writtenOff: 0 },
+      inventory: 0,
+      fixed: { gross: 0, accumulatedDepreciation: 0, net: 0 },
+      savingsItems: [{ code: "2102", name: "Wajib", amount: 60, source: "ledger" }],
+      hutangItems: [],
+      modalItems: [{ code: "3101", name: "Modal", amount: 20, source: "journal" }],
+      shuBerjalan: 20,
+    });
+    expect(r.isBalanced).toBe(true);
+    expect(r.equity.selisih).toBe(0);
   });
 });
