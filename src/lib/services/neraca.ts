@@ -1,3 +1,6 @@
+import prisma from "@/lib/prisma";
+import { calculateSystemSHU } from "./shu-calculator";
+
 export interface BalanceSheetItem {
   code: string;
   name: string;
@@ -184,4 +187,126 @@ export function assembleBalanceSheet(parts: BalanceSheetParts): BalanceSheetResu
       note: "Posisi per hari ini. Saldo dari tabel ledger (simpanan/kas/pinjaman/aset) + jurnal (hutang/modal).",
     },
   };
+}
+
+interface JournalAccountRow {
+  code: string;
+  name: string;
+  type: string;
+  balance: number; // sudah dinormalisasi tanda per normal_balance
+}
+
+// Ambil saldo akun detail dari jurnal (liability + equity), normalisasi tanda.
+async function fetchJournalBalances(): Promise<JournalAccountRow[]> {
+  const rows = await prisma.$queryRaw<JournalAccountRow[]>`
+    SELECT a.code, a.name, a.type,
+           SUM(CASE
+               WHEN a.normal_balance = 'debit' THEN jl.debit - jl.credit
+               ELSE jl.credit - jl.debit
+           END)::float AS balance
+    FROM journal_lines jl
+    JOIN journals j ON jl.journal_id = j.id
+    JOIN accounts a ON jl.account_id = a.id
+    WHERE j.is_posted = true
+      AND a.is_detail = true
+      AND a.type IN ('liability', 'equity')
+    GROUP BY a.code, a.name, a.type
+    HAVING SUM(CASE
+               WHEN a.normal_balance = 'debit' THEN jl.debit - jl.credit
+               ELSE jl.credit - jl.debit
+           END) <> 0
+  `;
+  return rows.map((r) => ({ ...r, balance: Number(r.balance) }));
+}
+
+const EXCLUDED_LIABILITY_CODES = new Set(["2101", "2102", "2103", "21XX"]); // sumbernya SavingsAccount
+
+export async function buildBalanceSheet(): Promise<BalanceSheetResult> {
+  const asOf = new Date().toISOString().split("T")[0];
+
+  const [cashAccounts, loans, storeProducts, assets, savingsAccounts, savingsProducts, journalRows] = await Promise.all([
+    prisma.cashBankAccount.findMany({
+      where: { isActive: true, deletedAt: null },
+      select: { code: true, name: true, currentBalance: true },
+    }),
+    prisma.loan.findMany({
+      where: { status: { in: ["active", "written_off"] } },
+      select: { status: true, principalOutstanding: true, interestOutstanding: true },
+    }),
+    prisma.storeProduct.findMany({
+      where: { deletedAt: null },
+      select: { stock: true, costPrice: true, trackStock: true, isService: true },
+    }),
+    prisma.asset.findMany({
+      where: { status: "active", deletedAt: null },
+      select: { acquisitionCost: true, accumulatedDepreciation: true },
+    }),
+    prisma.savingsAccount.findMany({
+      where: { status: "active" },
+      select: { balance: true, productId: true },
+    }),
+    prisma.savingsProduct.findMany({ select: { id: true, type: true } }),
+    fetchJournalBalances(),
+  ]);
+
+  // Simpanan (2-step hindari bug groupBy+relation)
+  const prodTypeById = new Map(savingsProducts.map((p) => [p.id, p.type]));
+  const savingsRows = savingsAccounts.map((a) => ({
+    productType: prodTypeById.get(a.productId) ?? "lainnya",
+    balance: Number(a.balance),
+  }));
+  const savingsItems = mapSavingsByType(savingsRows);
+
+  // Kas & Bank (per akun)
+  const cashItems: BalanceSheetItem[] = cashAccounts
+    .filter((c) => Number(c.currentBalance) !== 0)
+    .map((c) => ({ code: c.code, name: c.name, amount: Number(c.currentBalance), source: "ledger" as const }));
+
+  const loanRec = sumLoanReceivables(
+    loans.map((l) => ({
+      status: l.status,
+      principalOutstanding: Number(l.principalOutstanding),
+      interestOutstanding: Number(l.interestOutstanding),
+    })),
+  );
+  const inventory = computeInventory(
+    storeProducts.map((p) => ({
+      stock: p.stock,
+      costPrice: Number(p.costPrice),
+      trackStock: p.trackStock,
+      isService: p.isService,
+    })),
+  );
+  const fixed = computeFixedAssets(
+    assets.map((a) => ({
+      acquisitionCost: Number(a.acquisitionCost),
+      accumulatedDepreciation: Number(a.accumulatedDepreciation),
+    })),
+  );
+
+  // Hutang (liability jurnal, kecuali 2101-2103) & Modal (equity jurnal, kecuali 3103)
+  const hutangItems: BalanceSheetItem[] = journalRows
+    .filter((r) => r.type === "liability" && !EXCLUDED_LIABILITY_CODES.has(r.code))
+    .map((r) => ({ code: r.code, name: r.name, amount: r.balance, source: "journal" as const }));
+  const modalItems: BalanceSheetItem[] = journalRows
+    .filter((r) => r.type === "equity" && r.code !== "3103")
+    .map((r) => ({ code: r.code, name: r.name, amount: r.balance, source: "journal" as const }));
+
+  // SHU Tahun Berjalan = laba bersih tahun berjalan (YTD full-year currentYear).
+  // Pakai totalIncome - totalExpense (BUKAN netSurplus yang di-Math.max(0,…)).
+  const currentYear = new Date().getFullYear();
+  const shu = await calculateSystemSHU(currentYear);
+  const shuBerjalan = Number(shu.totalIncome) - Number(shu.totalExpense);
+
+  return assembleBalanceSheet({
+    asOf,
+    cashItems,
+    loanRec,
+    inventory,
+    fixed,
+    savingsItems,
+    hutangItems,
+    modalItems,
+    shuBerjalan,
+  });
 }
