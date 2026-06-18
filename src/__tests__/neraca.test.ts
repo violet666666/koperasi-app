@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapSavingsByType, sumLoanReceivables, computeInventory, computeFixedAssets } from "@/lib/services/neraca";
+import { mapSavingsByType, sumLoanReceivables, computeInventory, computeFixedAssets, buildEquityWithSelisih, type BalanceSheetItem } from "@/lib/services/neraca";
 
 describe("mapSavingsByType", () => {
   it("groups pokok/wajib/sukarela ke akun 2101/2102/2103", () => {
@@ -77,5 +77,34 @@ describe("computeFixedAssets", () => {
       accumulatedDepreciation: 15_000_000,
       net: 65_000_000,
     });
+  });
+});
+
+const item = (code: string, amount: number): BalanceSheetItem => ({ code, name: code, amount });
+
+describe("buildEquityWithSelisih", () => {
+  it("balanced: aset = kewajiban + ekuitas → tanpa baris selisih", () => {
+    // aset 100, kewajiban 60, modal 20, shu 20 → equity 40, total 100, balanced
+    const r = buildEquityWithSelisih({ modalItems: [item("3101", 20)], shuBerjalan: 20, totalAssets: 100, totalLiabilities: 60 });
+    expect(r.selisih).toBe(0);
+    expect(r.isBalanced).toBe(true);
+    expect(r.totalEquity).toBe(40);
+    expect(r.items.find(i => i.code === "31XX")).toBeUndefined();
+  });
+
+  it("unbalanced: tambah baris Selisih sebagai plug di ekuitas", () => {
+    // aset 100, kewajiban 60, modal+shu = 20 → equity sebelum 20, selisih = 100-60-20 = 20
+    const r = buildEquityWithSelisih({ modalItems: [item("3101", 10)], shuBerjalan: 10, totalAssets: 100, totalLiabilities: 60 });
+    expect(r.selisih).toBe(20);
+    expect(r.isBalanced).toBe(false);
+    expect(r.items.find(i => i.code === "31XX")).toEqual({ code: "31XX", name: "Selisih Penyesuaian (beda data/jurnal)", amount: 20, source: "computed" });
+    expect(r.totalEquity).toBe(40); // 20 + 20 plug
+  });
+
+  it("selisih negatif juga plug (ekuita berkurang)", () => {
+    const r = buildEquityWithSelisih({ modalItems: [], shuBerjalan: 0, totalAssets: 50, totalLiabilities: 80 });
+    expect(r.selisih).toBe(-30);
+    expect(r.isBalanced).toBe(false);
+    expect(r.totalEquity).toBe(-30);
   });
 });

@@ -83,3 +83,31 @@ export function computeFixedAssets(
   }
   return { gross, accumulatedDepreciation, net: gross - accumulatedDepreciation };
 }
+
+export interface EquityResult {
+  items: BalanceSheetItem[];
+  shuBerjalan: number;
+  selisih: number;
+  totalEquity: number;
+  isBalanced: boolean;
+}
+
+export function buildEquityWithSelisih(params: {
+  modalItems: BalanceSheetItem[]; // 3101/3102 dari jurnal (excl 3103)
+  shuBerjalan: number;
+  totalAssets: number;
+  totalLiabilities: number;
+}): EquityResult {
+  const items: BalanceSheetItem[] = [...params.modalItems];
+  if (params.shuBerjalan !== 0) {
+    items.push({ code: "3103", name: "SHU Tahun Berjalan", amount: params.shuBerjalan, source: "computed" });
+  }
+  const equityBeforeSelisih = items.reduce((s, i) => s + i.amount, 0);
+  const selisih = params.totalAssets - params.totalLiabilities - equityBeforeSelisih;
+  const isBalanced = Math.abs(selisih) < 1;
+  if (!isBalanced) {
+    items.push({ code: "31XX", name: "Selisih Penyesuaian (beda data/jurnal)", amount: selisih, source: "computed" });
+  }
+  const totalEquity = equityBeforeSelisih + (isBalanced ? 0 : selisih);
+  return { items, shuBerjalan: params.shuBerjalan, selisih, totalEquity, isBalanced };
+}
