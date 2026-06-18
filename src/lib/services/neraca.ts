@@ -31,3 +31,26 @@ export function mapSavingsByType(rows: { productType: string; balance: number }[
   }
   return items;
 }
+
+export interface LoanReceivables {
+  principal: number;      // 1201
+  interest: number;       // 1202
+  writtenOff: number;     // baris terpisah non-realisable
+}
+
+export function sumLoanReceivables(
+  loans: { status: string; principalOutstanding: number; interestOutstanding: number }[],
+): LoanReceivables {
+  let principal = 0;
+  let interest = 0;
+  let writtenOff = 0;
+  for (const l of loans) {
+    if (l.status === "written_off") {
+      writtenOff += l.principalOutstanding;
+    } else {
+      principal += l.principalOutstanding;
+      interest += l.interestOutstanding;
+    }
+  }
+  return { principal, interest, writtenOff };
+}

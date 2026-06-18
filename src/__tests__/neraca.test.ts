@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapSavingsByType } from "@/lib/services/neraca";
+import { mapSavingsByType, sumLoanReceivables } from "@/lib/services/neraca";
 
 describe("mapSavingsByType", () => {
   it("groups pokok/wajib/sukarela ke akun 2101/2102/2103", () => {
@@ -28,5 +28,25 @@ describe("mapSavingsByType", () => {
 
   it("array kosong → array kosong", () => {
     expect(mapSavingsByType([])).toEqual([]);
+  });
+});
+
+describe("sumLoanReceivables", () => {
+  it("memisahkan active (pokok+bunga) vs written_off (pokok saja, baris terpisah)", () => {
+    const loans = [
+      { status: "active", principalOutstanding: 10_000_000, interestOutstanding: 1_000_000 },
+      { status: "active", principalOutstanding: 5_000_000, interestOutstanding: 200_000 },
+      { status: "written_off", principalOutstanding: 2_000_000, interestOutstanding: 0 },
+      { status: "paid_off", principalOutstanding: 0, interestOutstanding: 0 },
+    ];
+    expect(sumLoanReceivables(loans)).toEqual({
+      principal: 15_000_000,
+      interest: 1_200_000,
+      writtenOff: 2_000_000,
+    });
+  });
+
+  it("array kosong → semua 0", () => {
+    expect(sumLoanReceivables([])).toEqual({ principal: 0, interest: 0, writtenOff: 0 });
   });
 });
