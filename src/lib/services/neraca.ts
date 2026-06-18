@@ -54,3 +54,32 @@ export function sumLoanReceivables(
   }
   return { principal, interest, writtenOff };
 }
+
+export function computeInventory(
+  products: { stock: number; costPrice: number; trackStock: boolean; isService: boolean }[],
+): number {
+  let total = 0;
+  for (const p of products) {
+    if (!p.trackStock || p.isService) continue;
+    if (p.stock > 0) total += p.stock * p.costPrice;
+  }
+  return total;
+}
+
+export interface FixedAssetSummary {
+  gross: number;
+  accumulatedDepreciation: number;
+  net: number;
+}
+
+export function computeFixedAssets(
+  assets: { acquisitionCost: number; accumulatedDepreciation: number }[],
+): FixedAssetSummary {
+  let gross = 0;
+  let accumulatedDepreciation = 0;
+  for (const a of assets) {
+    gross += a.acquisitionCost;
+    accumulatedDepreciation += a.accumulatedDepreciation;
+  }
+  return { gross, accumulatedDepreciation, net: gross - accumulatedDepreciation };
+}
