@@ -29,6 +29,16 @@ describe("mapSavingsByType", () => {
   it("array kosong → array kosong", () => {
     expect(mapSavingsByType([])).toEqual([]);
   });
+
+  it("emit baris Simpanan Lainnya meski net-negatif (mis. refund/koreksi berlebih)", () => {
+    const items = mapSavingsByType([
+      { productType: "tabungan_haji", balance: -500_000 },
+      { productType: "lainnya", balance: -200_000 },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0].code).toBe("21XX");
+    expect(items[0].amount).toBe(-700_000);
+  });
 });
 
 describe("sumLoanReceivables", () => {

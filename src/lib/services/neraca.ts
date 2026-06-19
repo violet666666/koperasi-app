@@ -29,7 +29,7 @@ export function mapSavingsByType(rows: { productType: string; balance: number }[
     }
   }
   items.sort((a, b) => a.code.localeCompare(b.code));
-  if (lainnya > 0) {
+  if (lainnya !== 0) {
     items.push({ code: "21XX", name: "Simpanan Lainnya (Haji/Umrah/dll)", amount: lainnya, source: "ledger" });
   }
   return items;
@@ -227,7 +227,7 @@ export async function buildBalanceSheet(): Promise<BalanceSheetResult> {
   const [cashAccounts, loans, storeProducts, assets, savingsAccounts, savingsProducts, journalRows] = await Promise.all([
     prisma.cashBankAccount.findMany({
       where: { isActive: true, deletedAt: null },
-      select: { code: true, name: true, currentBalance: true },
+      select: { code: true, name: true, currentBalance: true, glAccount: { select: { code: true } } },
     }),
     prisma.loan.findMany({
       where: { status: { in: ["active", "written_off"] } },
@@ -257,10 +257,10 @@ export async function buildBalanceSheet(): Promise<BalanceSheetResult> {
   }));
   const savingsItems = mapSavingsByType(savingsRows);
 
-  // Kas & Bank (per akun)
+  // Kas & Bank (per akun) — kode GL bila glAccountId ter-set, fallback ke kode CashBankAccount
   const cashItems: BalanceSheetItem[] = cashAccounts
     .filter((c) => Number(c.currentBalance) !== 0)
-    .map((c) => ({ code: c.code, name: c.name, amount: Number(c.currentBalance), source: "ledger" as const }));
+    .map((c) => ({ code: c.glAccount?.code ?? c.code, name: c.name, amount: Number(c.currentBalance), source: "ledger" as const }));
 
   const loanRec = sumLoanReceivables(
     loans.map((l) => ({
