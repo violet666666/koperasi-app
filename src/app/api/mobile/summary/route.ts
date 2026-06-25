@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
-import { getCarwashBonusPerTx } from "@/lib/services/shu-settings";
+import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 
 // GET /api/mobile/summary — Ringkasan lengkap data untuk Dashboard Mobile
 export async function GET(request: Request) {
@@ -187,90 +187,22 @@ export async function GET(request: Request) {
         const activeLoans = loans.filter((l) => l.status === "active" || l.status === "overdue");
         const totalOutstanding = activeLoans.reduce((s, l) => s + Number(l.principalOutstanding), 0);
 
-        // --- Fast Estimated SHU Calculation ---
+        // --- SHU via canonical calculator (Single Source of Truth) ---
+        // PREVIOUSLY this recomputed SHU with a FLAT 40% expense estimate
+        // (totalExpense = totalIncome * 0.4), diverging from the official
+        // Laporan SHU the operator sees (calculateSystemSHU). Now we reuse
+        // the SAME calculator and extract this member's row from
+        // memberDistribution, so the mobile figure equals the official figure.
+        // (Same fix applied to /api/member-portal/summary.)
         const year = new Date().getFullYear();
-        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-        const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+        const shuResult = await calculateSystemSHU(year);
+        const myShu = shuResult.memberDistribution.find((m) => m.id === memberId);
 
-        const [sysTokoAgg, sysUnit, sysLoanInt, sysSavings, sysTajib, sysSimpananPokok, mySavings, myTokoAgg, myUnit, myLoan, totalActiveSavBal, myLoanInterestAgg, CARWASH_BONUS_PER_TX, myCarwashTxCount] = await Promise.all([
-            // System-wide toko: SQL SUM instead of loading all rows into memory
-            prisma.$queryRaw<{ member_total: number; non_member_total: number }[]>`
-                SELECT
-                    COALESCE(SUM(CASE WHEN member_id IS NOT NULL THEN total_amount ELSE 0 END), 0)::float as member_total,
-                    COALESCE(SUM(CASE WHEN member_id IS NULL THEN total_amount ELSE 0 END), 0)::float as non_member_total
-                FROM store_sales
-                WHERE created_at >= ${startDate} AND created_at <= ${endDate}
-                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
-            `,
-            prisma.unitTransaction.aggregate({ where: { transactionDate: { gte: startDate, lte: endDate }, isPaid: true, status: { not: "voided" } }, _sum: { amount: true } }),
-            prisma.loanPayment.aggregate({ where: { paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            prisma.savingsTransaction.aggregate({ where: { type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            prisma.member.aggregate({ where: { status: "active", deletedAt: null }, _sum: { tabunganWajib: true } }),
-            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: "pokok" } }, _sum: { balance: true } }),
-
-            prisma.savingsTransaction.aggregate({ where: { account: { memberId }, type: "deposit", transactionDate: { gte: startDate, lte: endDate } }, _sum: { amount: true } }),
-            // My toko: SQL SUM instead of loading all rows
-            prisma.$queryRaw<{ total: number }[]>`
-                SELECT COALESCE(SUM(total_amount), 0)::float as total
-                FROM store_sales
-                WHERE member_id = ${memberId}
-                  AND created_at >= ${startDate} AND created_at <= ${endDate}
-                  AND (metadata IS NULL OR (metadata->>'isVoided')::boolean IS NOT TRUE)
-            `,
-            prisma.unitTransaction.aggregate({ where: { memberId, transactionDate: { gte: startDate, lte: endDate }, status: { not: "voided" } }, _sum: { amount: true } }),
-            prisma.loan.aggregate({ where: { memberId, disbursementDate: { gte: startDate, lte: endDate } }, _sum: { totalAmount: true } }),
-            prisma.savingsAccount.aggregate({ where: { status: "active", product: { type: { in: ["pokok", "wajib"] } } }, _sum: { balance: true } }),
-            prisma.loanPayment.aggregate({ where: { memberId, paymentDate: { gte: startDate, lte: endDate } }, _sum: { interestPortion: true } }),
-            Promise.resolve(getCarwashBonusPerTx()),
-            prisma.unitTransaction.count({ where: { memberId, unitType: "cuci_mobil", status: "completed", transactionDate: { gte: startDate, lte: endDate } } }),
-        ]);
-
-        const sysTokoMemberTotal = sysTokoAgg[0]?.member_total ?? 0;
-        const sysTokoNonMemberTotal = sysTokoAgg[0]?.non_member_total ?? 0;
-        const myTokoTotal = myTokoAgg[0]?.total ?? 0;
-
-        const memberIncome = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
-        const nonMemberIncome = sysTokoNonMemberTotal;
-        const totalIncome = memberIncome + nonMemberIncome;
-
-        const totalExpense = totalIncome * 0.4;
-        const totalNetSurplus = totalIncome - totalExpense; // Total koperasi surplus
-
-        // Jasa Simpanan Pool (20%) — from TOTAL surplus with minimum floor
-        // Single Source of Truth: SavingsAccount balance only (no legacy tabunganWajib double-add)
-        // SHU Modal: hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
-        const totalSavingsCapital = Number(totalActiveSavBal._sum.balance || 0);
-        const totalSysSav = totalSavingsCapital || 1;
-        const surplusBasedPool = totalNetSurplus * 0.20;
-        const minSavingsReturnPool = (totalSavingsCapital * 0.06) * 0.20;
-        const jasaModalPool = Math.max(surplusBasedPool, minSavingsReturnPool);
-
-        // Jasa Anggota (25%) — AD-ART Pasal 42 POOL METHOD
-        const jasaUsahaPool = Math.max(0, totalNetSurplus * 0.25);
-
-        // Member Numerators — hanya Pokok + Wajib (exclude Sukarela) sesuai AD-ART Pasal 42
-        const mySavCont = savingsAccounts
-            .filter(a => a.product.type === 'pokok' || a.product.type === 'wajib')
-            .reduce((s, a) => s + Number(a.balance), 0) || 1;
-        
-        // 1. Calculate Jasa Modal (Proportional Pool)
-        const myModal = (mySavCont / totalSysSav) * jasaModalPool;
-
-        // 2. Calculate Jasa Usaha (Pool Method: proportional by transaction volume)
-        const totalMemberTxVolume = sysTokoMemberTotal + Number(sysUnit._sum.amount || 0) + Number(sysLoanInt._sum.interestPortion || 0);
-        const myTokoVolume = myTokoTotal;
-        const myUnitVolume = Number(myUnit._sum.amount || 0);
-
-        const myLoanVolume = Number(myLoanInterestAgg._sum.interestPortion || 0);
-        const myTotalVolume = myTokoVolume + myUnitVolume + myLoanVolume;
-
-        // My share of the pool = (my volume / total volume) × pool
-        const myUsaha = totalMemberTxVolume > 0 ? (myTotalVolume / totalMemberTxVolume) * jasaUsahaPool : 0;
-
-        // --- SHU Cuci Mobil: bonus per transaksi anggota ---
-        const myCarwashBonus = myCarwashTxCount * CARWASH_BONUS_PER_TX;
-
-        const estimatedSHU = Math.round(myModal + myUsaha + myCarwashBonus);
+        const myModal = myShu?.modalPortion ?? 0;
+        const myUsaha = myShu?.usahaPortion ?? 0;
+        const myCarwashBonus = myShu?.carwashBonus ?? 0;
+        const myCarwashTxCount = myShu?.carwashCount ?? 0;
+        const estimatedSHU = myShu?.shuAmount ?? 0;
 
         return NextResponse.json({
             data: {
