@@ -1,0 +1,74 @@
+table,id,transactionNo,accountId,type,amount,notesOrDescription
+savingsTransaction,5277,HU-2026-296294438,,,,Test setoran E2E
+savingsTransaction,5278,HU-2026-593264457,,,,Test setoran E2E
+savingsTransaction,5279,HU-2026-223136690,,,,Test setoran E2E
+savingsTransaction,5280,HU-2026-393923215,,,,Test setoran comprehensive E2E
+savingsTransaction,5281,HU-2026-789793007,,,,Test setoran comprehensive E2E
+savingsTransaction,5282,HU-2026-222928141,,,,Test setoran E2E
+savingsTransaction,5283,HU-2026-735173909,,,,Test setoran comprehensive E2E
+savingsTransaction,5284,HU-2026-100563230,,,,Test setoran comprehensive E2E
+savingsTransaction,5285,HU-2026-044175226,,,,Setoran Tabungan Haji
+savingsTransaction,5286,HU-2026-210204123,,,,Test setoran E2E
+savingsTransaction,5287,HU-2026-320798877,,,,Test setoran comprehensive E2E
+savingsTransaction,5288,HU-2026-071225719,,,,Setoran Tabungan Haji
+savingsTransaction,5289,HU-2026-989064287,,,,Test setoran comprehensive E2E
+savingsTransaction,5290,HU-2026-964142612,,,,Setoran Tabungan Haji
+savingsTransaction,5291,HU-2026-167031367,,,,Test setoran E2E
+savingsTransaction,5292,HU-2026-964576901,,,,Test setoran E2E
+savingsTransaction,5293,BH-2026-862459170-0,,,,Bagi Hasil BSI — E2E TEST Bagi Hasil
+savingsTransaction,5294,BH-2026-756541257-0,,,,Bagi Hasil BSI — E2E TEST Bagi Hasil
+savingsTransaction,5295,BH-2026-147056776-0,,,,Bagi Hasil BSI — E2E TEST Bagi Hasil
+savingsTransaction,5296,HU-2026-492982825,,,,Test setoran E2E
+cashBankTransaction,10170,CBT-BH-738740311,9,in,3000,Spread Bagi Hasil BSI — E2E TEST Bagi Hasil (BHD-2026-658408241)
+cashBankTransaction,10173,CBT-BH-987477293,9,in,3000,Spread Bagi Hasil BSI — E2E TEST Bagi Hasil (BHD-2026-512285228)
+cashBankTransaction,10171,CBT-BHV-686809098,9,out,3000,REVERSAL Spread Bagi Hasil — E2E TEST Bagi Hasil (BHD-2026-658408241)
+cashBankTransaction,10174,CBT-BHV-953943990,9,out,3000,REVERSAL Spread Bagi Hasil — E2E TEST Bagi Hasil (BHD-2026-512285228)
+cashBankTransaction,10175,CBT-BH-435534679,9,in,3000,Spread Bagi Hasil BSI — E2E TEST Bagi Hasil (BHD-2026-682064877)
+cashBankTransaction,10176,CBT-BHV-588482518,9,out,3000,REVERSAL Spread Bagi Hasil — E2E TEST Bagi Hasil (BHD-2026-682064877)
+cashBankTransaction,10177,CBT-HU-2026-492982825,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-492982825)
+cashBankTransaction,10178,CBT-HU-2026-492982825-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-492982825)
+cashBankTransaction,10799,SETTLE-HAJI_UMRAH-1781704966917-26,9,in,500000,[HAJI_UMRAH] Penyelesaian Piutang Gaji — Mei-Juni 2026 — 1 transaksi
+cashBankTransaction,9961,CBT-HU-2026-223136690,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-223136690)
+cashBankTransaction,9962,CBT-HU-2026-223136690-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-223136690)
+cashBankTransaction,9964,CBT-HU-2026-393923215,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-393923215)
+cashBankTransaction,9965,CBT-HU-2026-393923215-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-393923215)
+cashBankTransaction,9966,CBT-HU-2026-789793007,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-789793007)
+cashBankTransaction,9967,CBT-HU-2026-789793007-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-789793007)
+cashBankTransaction,9968,CBT-HU-2026-222928141,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-222928141)
+cashBankTransaction,9969,CBT-HU-2026-222928141-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-222928141)
+cashBankTransaction,9970,CBT-HU-2026-735173909,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-735173909)
+cashBankTransaction,9971,CBT-HU-2026-735173909-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-735173909)
+cashBankTransaction,9848,CBT-HU-2026-296294438,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-296294438)
+cashBankTransaction,9849,CBT-HU-2026-296294438-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-296294438)
+cashBankTransaction,9850,CBT-HU-2026-593264457,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-593264457)
+cashBankTransaction,9851,CBT-HU-2026-593264457-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-593264457)
+cashBankTransaction,9985,CBT-HU-2026-071225719,9,in,100000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-071225719)
+cashBankTransaction,9986,CBT-HU-2026-071225719-FEE,9,in,500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-071225719)
+cashBankTransaction,9989,CBT-HU-2026-964142612,9,in,100000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-964142612)
+cashBankTransaction,9990,CBT-HU-2026-964142612-FEE,9,in,500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-964142612)
+cashBankTransaction,9975,CBT-HU-2026-100563230,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-100563230)
+cashBankTransaction,9976,CBT-HU-2026-100563230-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-100563230)
+cashBankTransaction,9977,CBT-HU-2026-044175226,9,in,100000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-044175226)
+cashBankTransaction,9979,CBT-HU-2026-044175226-FEE,9,in,500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-044175226)
+cashBankTransaction,9981,CBT-HU-2026-210204123,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-210204123)
+cashBankTransaction,9982,CBT-HU-2026-210204123-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-210204123)
+cashBankTransaction,9983,CBT-HU-2026-320798877,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-320798877)
+cashBankTransaction,9984,CBT-HU-2026-320798877-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-320798877)
+cashBankTransaction,9987,CBT-HU-2026-989064287,9,in,250000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-989064287)
+cashBankTransaction,9988,CBT-HU-2026-989064287-FEE,9,in,1250,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-989064287)
+cashBankTransaction,9991,CBT-HU-2026-167031367,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-167031367)
+cashBankTransaction,9992,CBT-HU-2026-167031367-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-167031367)
+cashBankTransaction,10153,CBT-HU-2026-964576901,9,in,500000,Setoran Tabungan Haji — A'AN ANDRIONO (HU-2026-964576901)
+cashBankTransaction,10154,CBT-HU-2026-964576901-FEE,9,in,2500,Admin Fee Tabungan Haji — A'AN ANDRIONO (HU-2026-964576901)
+bagiHasilDistribution,1,BHD-2026-658408241,,,,E2E TEST Bagi Hasil(voided)
+bagiHasilDistribution,2,BHD-2026-512285228,,,,E2E TEST Bagi Hasil(voided)
+bagiHasilDistribution,3,BHD-2026-682064877,,,,E2E TEST Bagi Hasil(voided)
+loanApplication,3452,TAL-2026-203056938,,,,E2E Test — talangan via Playwright
+loan,3438,,,,,voided
+savingsProduct,13,TEST_ADMIN_CRUD,,,,,
+savingsProduct,15,ADMIN_SETUP_TEST,,,,,
+savingsProduct,12,TEST_COMPREHENSIVE,,,,,
+savingsProduct,14,ADMIN_CRUD_TEST,,,,,
+billingItem,1464,,,,,
+billingItem,1652,,,,,
+savingsAccount,4336,HU-776-10-1715,,,5800000,member776
