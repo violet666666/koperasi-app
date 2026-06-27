@@ -42,7 +42,6 @@ export interface AnomalyScanResult {
 
 // ── Konstanta konfigurable (spec §6) ──────────────────────────────────────
 export const OUTLIER_FLOOR = 50_000_000;
-export const OUTLIER_MEDIAN_MULT = 10;
 export const UNJOURNALED_FLOOR = 25_000_000;
 
 export const EXPENSE_CATEGORIES_AT_RISK = ["biaya_operasional", "beban_unit", "hpp_toko", "hutang_mitra"] as const;
@@ -76,8 +75,8 @@ export function isKnownCategory(category: string | null | undefined): boolean {
     return !!category && KNOWN_CATEGORIES.has(category);
 }
 
-export function isOutlier(amount: number, median: number): boolean {
-    return amount >= OUTLIER_FLOOR || (median > 0 && amount > OUTLIER_MEDIAN_MULT * median);
+export function isOutlier(amount: number): boolean {
+    return amount >= OUTLIER_FLOOR;
 }
 
 export function makeAnomalyId(detector: DetectorId, entityType: string, entityId: number): string {
@@ -130,17 +129,14 @@ export function buildD2Anomaly(a: AccountRow): Anomaly {
     };
 }
 
-export function buildD3Anomaly(tx: TxRow, median: number): Anomaly {
+export function buildD3Anomaly(tx: TxRow): Anomaly {
     const amt = toNum(tx.amount);
-    const reason = amt >= OUTLIER_FLOOR
-        ? `≥ Rp ${OUTLIER_FLOOR.toLocaleString("id-ID")}`
-        : `> ${OUTLIER_MEDIAN_MULT}× median (Rp ${median.toLocaleString("id-ID")})`;
     return {
         id: makeAnomalyId("D3", "cashbank_tx", tx.id),
         detector: "D3",
         severity: "medium",
         title: `Transaksi outlier: Rp ${amt.toLocaleString("id-ID")}`,
-        description: `Transaksi ${tx.transactionNo} "${tx.description ?? ""}" sebesar Rp ${amt.toLocaleString("id-ID")} (${reason}). Jauh di atas transaksi tipikal — review manual.`,
+        description: `Transaksi ${tx.transactionNo} "${tx.description ?? ""}" sebesar Rp ${amt.toLocaleString("id-ID")} (≥ Rp ${OUTLIER_FLOOR.toLocaleString("id-ID")} floor). Jauh di atas transaksi tipikal — review manual.`,
         entityType: "cashbank_tx",
         entityId: tx.id,
         entityLabel: `${tx.transactionNo} • Rp ${amt.toLocaleString("id-ID")} • ${tx.transactionDate.toISOString().slice(0, 10)}`,
@@ -239,24 +235,19 @@ export async function detectD2(prisma: PrismaClient): Promise<Anomaly[]> {
 }
 
 export async function detectD3(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
-    const all = await prisma.cashBankTransaction.findMany({
-        where: { transactionDate: { gte: startDate, lte: endDate } },
-        select: { amount: true },
-    });
-    const median = computeMedian(all.map((t) => toNum(t.amount)));
     const txs = await prisma.cashBankTransaction.findMany({
-        where: { transactionDate: { gte: startDate, lte: endDate } },
+        where: { transactionDate: { gte: startDate, lte: endDate }, amount: { gte: OUTLIER_FLOOR } },
         select: TX_SELECT,
     });
-    return txs.filter((t) => isOutlier(toNum(t.amount), median)).map((t) => buildD3Anomaly(t as TxRow, median));
+    return txs.map((t) => buildD3Anomaly(t as TxRow));
 }
 
 export async function detectD4(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
     const txs = await prisma.cashBankTransaction.findMany({
-        where: { transactionDate: { gte: startDate, lte: endDate } },
+        where: { transactionDate: { gte: startDate, lte: endDate }, category: null },
         select: TX_SELECT,
     });
-    return txs.filter((t) => !isKnownCategory(t.category)).map((t) => buildD4Anomaly(t as TxRow));
+    return txs.map((t) => buildD4Anomaly(t as TxRow));
 }
 
 export async function detectD5(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {

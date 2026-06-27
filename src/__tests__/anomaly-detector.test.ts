@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
     isKnownCategory, isOutlier, makeAnomalyId, computeMedian,
-    buildD1Anomaly, buildD2Anomaly, buildD4Anomaly,
-    OUTLIER_FLOOR, OUTLIER_MEDIAN_MULT,
+    buildD1Anomaly, buildD2Anomaly, buildD3Anomaly, buildD4Anomaly, buildD5Anomaly,
+    OUTLIER_FLOOR,
 } from "@/lib/services/anomaly-detector";
-import { summarizeAnomalies, buildD3Anomaly } from "@/lib/services/anomaly-detector";
+import { summarizeAnomalies } from "@/lib/services/anomaly-detector";
 
 describe("isKnownCategory", () => {
     it("true untuk kategori canonical", () => {
@@ -21,14 +21,12 @@ describe("isKnownCategory", () => {
 
 describe("isOutlier", () => {
     it("true saat >= OUTLIER_FLOOR", () => {
-        expect(isOutlier(OUTLIER_FLOOR, 1_000_000)).toBe(true);
-        expect(isOutlier(OUTLIER_FLOOR + 1, 0)).toBe(true);
+        expect(isOutlier(OUTLIER_FLOOR)).toBe(true);
+        expect(isOutlier(OUTLIER_FLOOR + 1)).toBe(true);
     });
-    it("true saat > OUTLIER_MEDIAN_MULT × median (di bawah floor)", () => {
-        expect(isOutlier(15_000_000, 1_000_000)).toBe(true); // 15× median
-    });
-    it("false saat kecil & dekat median", () => {
-        expect(isOutlier(1_500_000, 1_000_000)).toBe(false);
+    it("false saat di bawah floor", () => {
+        expect(isOutlier(OUTLIER_FLOOR - 1)).toBe(false);
+        expect(isOutlier(15_000_000)).toBe(false);
     });
 });
 
@@ -82,8 +80,8 @@ describe("summarizeAnomalies", () => {
     it("menghitung total, bySeverity, dan totalShuImpact dengan benar", () => {
         const anomalies = [
             buildD1Anomaly({ id: 1, transactionNo: "A", amount: 500_000_000, category: "biaya_operasional", description: "ambil tunai", transactionDate: new Date("2026-04-29") }, { suggestedCategory: "transfer" }),
-            buildD3Anomaly({ id: 2, transactionNo: "B", amount: 60_000_000, category: "beban_unit", description: "x", transactionDate: new Date("2026-05-01") }, 1_000_000),
-            buildD3Anomaly({ id: 3, transactionNo: "C", amount: 55_000_000, category: "beban_unit", description: "y", transactionDate: new Date("2026-05-02") }, 1_000_000),
+            buildD3Anomaly({ id: 2, transactionNo: "B", amount: 60_000_000, category: "beban_unit", description: "x", transactionDate: new Date("2026-05-01") }),
+            buildD3Anomaly({ id: 3, transactionNo: "C", amount: 55_000_000, category: "beban_unit", description: "y", transactionDate: new Date("2026-05-02") }),
         ];
         const summary = summarizeAnomalies(anomalies, { year: 2026, month: null });
         expect(summary.total).toBe(3);
@@ -92,5 +90,22 @@ describe("summarizeAnomalies", () => {
         expect(summary.bySeverity.low).toBe(0);
         expect(summary.totalShuImpact).toBe(500_000_000); // hanya D1 berdampak
         expect(summary.period).toEqual({ year: 2026, month: null });
+    });
+});
+
+describe("builders D3/D5", () => {
+    const tx = { id: 7, transactionNo: "CBK-X", amount: 60_000_000, category: "beban_unit", description: "x", transactionDate: new Date("2026-05-01") };
+    it("buildD3Anomaly: impact = 0, severity medium", () => {
+        const a = buildD3Anomaly(tx);
+        expect(a.detector).toBe("D3");
+        expect(a.severity).toBe("medium");
+        expect(a.estimatedShuImpact).toBe(0);
+        expect(a.amount).toBe(60_000_000);
+    });
+    it("buildD5Anomaly: impact = 0, severity low", () => {
+        const a = buildD5Anomaly(tx);
+        expect(a.detector).toBe("D5");
+        expect(a.severity).toBe("low");
+        expect(a.estimatedShuImpact).toBe(0);
     });
 });
