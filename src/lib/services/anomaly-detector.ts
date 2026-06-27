@@ -7,6 +7,8 @@
  */
 import { CASH_BANK_CATEGORIES } from "@/lib/constants";
 import type { CategoryMismatch } from "./cash-bank-category-guard";
+import { detectCategoryMismatch } from "./cash-bank-category-guard";
+import type { PrismaClient } from "@prisma/client";
 
 export type DetectorId = "D1" | "D2" | "D3" | "D4" | "D5";
 export type Severity = "high" | "medium" | "low";
@@ -184,4 +186,109 @@ export function buildD5Anomaly(tx: TxRow): Anomaly {
         impactDirection: "none",
         suggestedAction: "Verifikasi apakah perlu dijurnal",
     };
+}
+
+// ── Orchestrator helpers (period + summary) ───────────────────────────────
+const TX_SELECT = { id: true, transactionNo: true, amount: true, category: true, description: true, transactionDate: true } as const;
+
+function buildPeriod(year: number, month: number | null) {
+    if (month) {
+        return {
+            startDate: new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)),
+            endDate: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)),
+        };
+    }
+    return {
+        startDate: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
+        endDate: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+    };
+}
+
+export const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
+
+export function summarizeAnomalies(anomalies: Anomaly[], period: { year: number; month: number | null }): AnomalyScanResult["summary"] {
+    const bySeverity: Record<Severity, number> = { high: 0, medium: 0, low: 0 };
+    let totalShuImpact = 0;
+    for (const a of anomalies) {
+        bySeverity[a.severity]++;
+        totalShuImpact += a.estimatedShuImpact;
+    }
+    return { total: anomalies.length, bySeverity, totalShuImpact, period, scannedAt: new Date().toISOString() };
+}
+
+// ── DB detectors ──────────────────────────────────────────────────────────
+export async function detectD1(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    const txs = await prisma.cashBankTransaction.findMany({
+        where: { transactionDate: { gte: startDate, lte: endDate }, type: "out", journalId: null, category: { in: [...EXPENSE_CATEGORIES_AT_RISK] } },
+        select: TX_SELECT,
+    });
+    const out: Anomaly[] = [];
+    for (const tx of txs) {
+        const m = detectCategoryMismatch("out", tx.category, tx.description);
+        if (m) out.push(buildD1Anomaly(tx as TxRow, m));
+    }
+    return out;
+}
+
+export async function detectD2(prisma: PrismaClient): Promise<Anomaly[]> {
+    const accts = await prisma.cashBankAccount.findMany({
+        where: { currentBalance: { lt: 0 } },
+        select: { id: true, code: true, name: true, currentBalance: true },
+    });
+    return accts.map((a) => buildD2Anomaly(a as AccountRow));
+}
+
+export async function detectD3(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    const all = await prisma.cashBankTransaction.findMany({
+        where: { transactionDate: { gte: startDate, lte: endDate } },
+        select: { amount: true },
+    });
+    const median = computeMedian(all.map((t) => toNum(t.amount)));
+    const txs = await prisma.cashBankTransaction.findMany({
+        where: { transactionDate: { gte: startDate, lte: endDate } },
+        select: TX_SELECT,
+    });
+    return txs.filter((t) => isOutlier(toNum(t.amount), median)).map((t) => buildD3Anomaly(t as TxRow, median));
+}
+
+export async function detectD4(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    const txs = await prisma.cashBankTransaction.findMany({
+        where: { transactionDate: { gte: startDate, lte: endDate } },
+        select: TX_SELECT,
+    });
+    return txs.filter((t) => !isKnownCategory(t.category)).map((t) => buildD4Anomaly(t as TxRow));
+}
+
+export async function detectD5(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    const txs = await prisma.cashBankTransaction.findMany({
+        where: { transactionDate: { gte: startDate, lte: endDate }, type: "out", journalId: null, amount: { gte: UNJOURNALED_FLOOR } },
+        select: TX_SELECT,
+    });
+    return txs.map((t) => buildD5Anomaly(t as TxRow));
+}
+
+// ── Orchestrator ──────────────────────────────────────────────────────────
+export async function scanAnomalies(prisma: PrismaClient, year: number, month: number | null = null): Promise<AnomalyScanResult> {
+    const { startDate, endDate } = buildPeriod(year, month);
+    const period = { year, month };
+    let anomalies: Anomaly[] = [];
+
+    // Tiap detector di-try-catch: satu gagal ≠ seluruh scan hancur.
+    const runners: [string, () => Promise<Anomaly[]>][] = [
+        ["D1", () => detectD1(prisma, startDate, endDate)],
+        ["D2", () => detectD2(prisma)],
+        ["D3", () => detectD3(prisma, startDate, endDate)],
+        ["D4", () => detectD4(prisma, startDate, endDate)],
+        ["D5", () => detectD5(prisma, startDate, endDate)],
+    ];
+    for (const [name, run] of runners) {
+        try {
+            anomalies = anomalies.concat(await run());
+        } catch (e) {
+            console.error(`[anomali] detector ${name} gagal:`, e);
+        }
+    }
+
+    anomalies.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || b.amount - a.amount);
+    return { anomalies, summary: summarizeAnomalies(anomalies, period) };
 }
