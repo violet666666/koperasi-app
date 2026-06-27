@@ -92,7 +92,7 @@ export function computeMedian(values: number[]): number {
 }
 
 // ── Builders (pure mappers) ───────────────────────────────────────────────
-export function buildD1Anomaly(tx: TxRow, mismatch: CategoryMismatch): Anomaly {
+export function buildD1Anomaly(tx: TxRow, mismatch: Pick<CategoryMismatch, "suggestedCategory">): Anomaly {
     const amt = toNum(tx.amount);
     const kind = mismatch.suggestedCategory === "transfer" ? "transfer" : "pencairan pinjaman";
     const label = mismatch.suggestedCategory === "transfer" ? "Transfer Antar Kas/Bank" : "Pencairan Pinjaman";
