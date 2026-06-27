@@ -34,8 +34,17 @@ const SPECS: Spec[] = [
 
 async function main() {
     const url = process.env.DATABASE_URL || "";
-    if (!url.includes("neon.tech")) {
-        console.error("ABORT: DATABASE_URL bukan host neon.tech. Tidak akan run.");
+    // Guard anti-bypass: parse URL & cek hostname secara presisi (bukan substring
+    // check yang bisa di-bypass via path/query/subdomain spt "neon.tech.evil.com").
+    let dbHost = "";
+    try {
+        dbHost = new URL(url).hostname;
+    } catch {
+        console.error("ABORT: DATABASE_URL tidak valid (tidak bisa di-parse). Tidak akan run.");
+        process.exit(1);
+    }
+    if (!dbHost.endsWith(".neon.tech")) {
+        console.error(`ABORT: host DATABASE_URL "${dbHost}" bukan *.neon.tech. Tidak akan run.`);
         process.exit(1);
     }
 
