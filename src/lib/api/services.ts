@@ -266,6 +266,9 @@ export const reportsApi = {
     shu: (params?: { branchId?: number; year?: number; month?: number; page?: number; perPage?: number; export?: string }) =>
         api.get<{ data: unknown }>("/reports/shu", { params }),
 
+    anomali: (params?: { year?: number; month?: number | "all" }) =>
+        api.get<{ data: import("@/lib/services/anomaly-detector").AnomalyScanResult }>("/reports/anomali", { params }),
+
     membersRecap: (params?: { branchId?: number; page?: number; perPage?: number; export?: string }) =>
         api.get<{ data: unknown }>("/reports/members-recap", { params }),
 
