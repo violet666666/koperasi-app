@@ -239,7 +239,7 @@ export const cashBankApi = {
     transactions: (params?: { accountId?: number; type?: string; perPage?: number; page?: number }) =>
         api.get<PaginatedResponse<unknown>>("/cash-bank/transactions", { params }),
 
-    createTransaction: (data: { accountId: number; type: string; category?: string; amount: number; description?: string; transactionDate?: string }) =>
+    createTransaction: (data: { accountId: number; type: string; category?: string; amount: number; description?: string; transactionDate?: string; confirmMiscat?: boolean; miscatReason?: string }) =>
         api.post("/cash-bank/transactions", data),
 
     updateTransaction: (id: number, data: { type: string; category?: string; amount: number; description?: string }) =>

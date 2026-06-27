@@ -17,9 +17,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Save, ArrowUpCircle, ArrowDownCircle, Wallet, Building } from "lucide-react";
+import { Loader2, Save, ArrowUpCircle, ArrowDownCircle, Wallet, Building, AlertTriangle } from "lucide-react";
 import { formatCurrency, CASH_BANK_CATEGORIES } from "@/lib/constants";
+import { detectCategoryMismatch } from "@/lib/services/cash-bank-category-guard";
 import { cashBankApi, CashBankAccount } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
 
 export default function TambahTransaksiKasBankPage() {
     const router = useRouter();
@@ -35,6 +37,8 @@ export default function TambahTransaksiKasBankPage() {
         reference_no: "",
         transaction_date: new Date().toISOString().split("T")[0],
     });
+    const [miscatReason, setMiscatReason] = React.useState("");
+    const [confirmMiscat, setConfirmMiscat] = React.useState(false);
 
     React.useEffect(() => {
         async function fetchAccounts() {
@@ -58,6 +62,19 @@ export default function TambahTransaksiKasBankPage() {
         ([_, cat]) => cat.type === formData.type || cat.type === "both"
     );
 
+    // Guard: deteksi salah kategori Kas Keluar (transfer/pencairan yg dicatat sbg biaya
+    // operasional → menggelembungkan beban SHU). Lihat cash-bank-category-guard.ts.
+    const miscat = formData.type === "out" && formData.category && formData.category !== "none"
+        ? detectCategoryMismatch(formData.type, formData.category, formData.description)
+        : null;
+    const miscatKey = miscat ? miscat.signal : null;
+    React.useEffect(() => {
+        if (!miscatKey) {
+            setConfirmMiscat(false);
+            setMiscatReason("");
+        }
+    }, [miscatKey]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -78,6 +95,16 @@ export default function TambahTransaksiKasBankPage() {
             return;
         }
 
+        // Guard kategori — cegah transfer/pencairan dicatat sbg biaya operasional (merusak SHU)
+        if (miscat && !confirmMiscat) {
+            toast.error(`${miscat.message} Jika yakin, centang konfirmasi paksa & isi alasan di kotak peringatan.`);
+            return;
+        }
+        if (miscat && confirmMiscat && miscatReason.trim().length < 3) {
+            toast.error("Isi alasan override (min 3 karakter) di kotak peringatan.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await cashBankApi.createTransaction({
@@ -87,6 +114,7 @@ export default function TambahTransaksiKasBankPage() {
                 amount,
                 description: formData.description,
                 transactionDate: new Date(formData.transaction_date).toISOString(),
+                ...(miscat && confirmMiscat ? { confirmMiscat: true, miscatReason: miscatReason.trim() } : {}),
             });
 
             toast.success(
@@ -96,7 +124,11 @@ export default function TambahTransaksiKasBankPage() {
             );
             router.push("/kas-bank");
         } catch (error) {
-            toast.error("Gagal menyimpan transaksi");
+            if (error instanceof ApiError && (error.data as any)?.requiresConfirm) {
+                toast.error((error.data as any)?.message || "Kategori tidak sesuai deskripsi. Periksa kotak peringatan.");
+            } else {
+                toast.error("Gagal menyimpan transaksi");
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -247,6 +279,43 @@ export default function TambahTransaksiKasBankPage() {
                                     rows={3}
                                 />
                             </div>
+
+                            {/* Guard: peringatan salah kategori (menggelembungkan beban SHU) */}
+                            {miscat && (
+                                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-3">
+                                    <div className="flex items-start gap-2 text-sm text-amber-800">
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                        <span>{miscat.message} Kategori saat ini akan menggelembungkan beban SHU.</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setFormData((p) => ({ ...p, category: miscat.suggestedCategory }))}
+                                    >
+                                        Gunakan kategori: {miscat.suggestedCategory === "transfer" ? "Transfer Antar Kas/Bank" : "Pencairan Pinjaman"}
+                                    </Button>
+                                    <div className="border-t border-amber-200 pt-2 space-y-2">
+                                        <p className="text-xs text-amber-700">
+                                            Atau paksa tetap sebagai kategori ini (alasan tercatat di audit):
+                                        </p>
+                                        <Input
+                                            placeholder="Alasan override — mis. 'memang biaya karena...'"
+                                            value={miscatReason}
+                                            onChange={(e) => setMiscatReason(e.target.value)}
+                                        />
+                                        <label className="flex items-center gap-2 text-xs font-medium text-amber-800 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={confirmMiscat}
+                                                onChange={(e) => setConfirmMiscat(e.target.checked)}
+                                                className="h-4 w-4"
+                                            />
+                                            Saya yakin — ini bukan transfer/pencairan
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 

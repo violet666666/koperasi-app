@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createCashBankTransactionSchema, paginationSchema } from "@/lib/validations";
+import { detectCategoryMismatch } from "@/lib/services/cash-bank-category-guard";
 import { auth } from "@/lib/auth";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
@@ -101,6 +102,26 @@ export async function POST(request: Request) {
         const body = await request.json();
         const data = createCashBankTransactionSchema.parse(body);
 
+        // ── GUARD: cegah kategori Kas Keluar salah (menggelembungkan beban SHU).
+        // Lihat docs/SHU-BEBAN-BIAYA-2026.md — bug Rp 620jt membuat SHU 2026 = Rp 0.
+        // Jika deskripsi terdeteksi transfer/pencairan tapi kategori = expense,
+        // tolak kecuali operator eksplisit override dengan alasan (tercatat di audit).
+        const miscat = detectCategoryMismatch(data.type, data.category, data.description);
+        if (miscat && !data.confirmMiscat) {
+            return NextResponse.json(
+                {
+                    message: miscat.message,
+                    requiresConfirm: true,
+                    suggestedCategory: miscat.suggestedCategory,
+                },
+                { status: 400 },
+            );
+        }
+        const finalDescription =
+            miscat && data.confirmMiscat && data.miscatReason
+                ? `${data.description ?? ""} [OVERRIDE-KATEGORI: ${data.miscatReason}]`.trim()
+                : data.description;
+
         const account = await prisma.cashBankAccount.findUnique({
             where: { id: data.accountId },
         });
@@ -167,7 +188,7 @@ export async function POST(request: Request) {
                     amount: data.amount,
                     balanceBefore: currentBalance,
                     balanceAfter,
-                    description: data.description,
+                    description: finalDescription,
                     transactionDate: data.transactionDate,
                     unitType: data.unitType || null,
                     memberId: data.memberId || null,

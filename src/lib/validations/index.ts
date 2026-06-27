@@ -198,7 +198,15 @@ export const createCashBankTransactionSchema = z.object({
     transactionDate: z.string().optional().default(new Date().toISOString()).transform((s) => new Date(s)),
     unitType: z.string().optional().nullable(),
     memberId: z.number().int().positive().optional().nullable(),
-});
+    // Override guard kategori Kas Keluar (lihat cash-bank-category-guard.ts).
+    // confirmMiscat=true WAJIB disertai alasan; dipakai saat operator memaksakan
+    // kategori expense padahal deskripsi terdeteksi transfer/pencairan.
+    confirmMiscat: z.boolean().optional().default(false),
+    miscatReason: z.string().trim().optional(),
+}).refine(
+    (data) => !data.confirmMiscat || (data.miscatReason && data.miscatReason.length >= 3),
+    { message: "Alasan override kategori wajib diisi (min 3 karakter)", path: ["miscatReason"] },
+);
 
 // Transfer validation schemas
 export const createTransferSchema = z.object({
