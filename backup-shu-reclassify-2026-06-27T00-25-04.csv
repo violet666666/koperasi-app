@@ -1,0 +1,6 @@
+id,transactionNo,date,type,category_old,amount,description,balanceBefore,balanceAfter,accountId
+5346,CBK-2026-79007,2026-04-29,out,biaya_operasional,20000000,"pinjam SP ZULFAN WASIS",478909701,458909701,12
+5351,CBK-2026-42104,2026-04-29,out,biaya_operasional,500000000,"ambil kas bri",1878747758,1378747758,9
+5352,CBM-2026-58785,2026-04-29,in,biaya_operasional,500000000,"masuk kas bank jatim",2013649553.18,2513649553.18,10
+7437,CBM-2026-98008,2026-05-18,in,biaya_operasional,100000000,"tarik tunai dr bank jatim",500781502,600781502,12
+7438,CBK-2026-32975,2026-05-18,out,biaya_operasional,100000000,"ambil tunai",2061566353.18,1961566353.18,10
