@@ -46,6 +46,7 @@ import {
 import { formatCurrency, LOAN_STATUS, INSTALLMENT_STATUS } from "@/lib/constants";
 import { loansApi } from "@/lib/api";
 import { addMonths } from "@/lib/date-helpers";
+import { buildEditPayload } from "@/lib/loan-edit-helpers";
 
 
 // Info item component
@@ -291,28 +292,24 @@ export default function PinjamanDetailPage() {
     const executeEdit = async () => {
         setIsEditing(true);
         try {
-            const payload: Record<string, unknown> = {};
-            if (editForm.principalAmount !== String(Number(loan.principalAmount))) payload.principalAmount = Number(editForm.principalAmount);
-            if (editForm.tenorMonths !== String(loan.tenorMonths)) payload.tenorMonths = Number(editForm.tenorMonths);
-            if (editForm.interestRate !== String(Number(loan.interestRate))) payload.interestRate = Number(editForm.interestRate);
-            if (editForm.disbursementDate && editForm.disbursementDate !== new Date(loan.disbursementDate).toISOString().split("T")[0]) payload.disbursementDate = editForm.disbursementDate;
-            if (editForm.firstDueDate && editForm.firstDueDate !== new Date(loan.firstDueDate).toISOString().split("T")[0]) payload.firstDueDate = editForm.firstDueDate;
-
-            // Always send at least the core fields to trigger regeneration
-            if (Object.keys(payload).length === 0) {
+            // Deteksi perubahan via pure fn — cakupan 7 field (termasuk Pokok &
+            // Bunga Terbayar yang dulu lolos dari guard inline). Lihat loan-edit-helpers.ts.
+            if (Object.keys(buildEditPayload(editForm, loan)).length === 0) {
                 toast.info("Tidak ada perubahan yang terdeteksi.");
                 setIsEditing(false);
                 return;
             }
 
             // Send all current values to ensure consistent recalculation
-            payload.principalAmount = Number(editForm.principalAmount);
-            payload.tenorMonths = Number(editForm.tenorMonths);
-            payload.interestRate = Number(editForm.interestRate);
-            payload.principalPaid = Number(editForm.principalPaid);
-            payload.interestPaid = Number(editForm.interestPaid);
-            payload.disbursementDate = editForm.disbursementDate;
-            payload.firstDueDate = editForm.firstDueDate;
+            const payload: Record<string, unknown> = {
+                principalAmount: Number(editForm.principalAmount),
+                tenorMonths: Number(editForm.tenorMonths),
+                interestRate: Number(editForm.interestRate),
+                principalPaid: Number(editForm.principalPaid),
+                interestPaid: Number(editForm.interestPaid),
+                disbursementDate: editForm.disbursementDate,
+                firstDueDate: editForm.firstDueDate,
+            };
 
             const res = await loansApi.update(loan.id, payload);
             toast.success((res.data as any).message || "Pinjaman berhasil di-edit.");
