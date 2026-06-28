@@ -3,6 +3,7 @@ import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 import { unitTypeFilter } from "@/lib/constants/units";
+import { AUTO_GENERATED_PIUTANG_PREFIX } from "@/lib/laporan-helpers";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
 
@@ -165,7 +166,7 @@ export async function GET(request: Request) {
         // SQL NOT(NULL LIKE 'x') → NULL (falsy) would exclude valid rows with null notes.
         where.AND = [
             { OR: [
-                { notes: { not: { startsWith: "Auto-generated" } } },
+                { notes: { not: { startsWith: AUTO_GENERATED_PIUTANG_PREFIX } } },
                 { notes: null },
             ] },
         ];

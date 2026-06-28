@@ -108,6 +108,28 @@ async function main() {
         }
     }
 
+    // ── KONSOLIDASI SAFETY: apakah prefix broad ("Auto-generated") ≡ specific
+    //    ("Auto-generated dari penjualan kasir") untuk data prod? Jika 0 record
+    //    yg broad-tapi-bukan-specific → aman menyatukan 5 site specific ke broad.
+    console.log("\n=== KONSOLIDASI SAFETY (broad vs specific prefix) ===");
+    const broadOnly = await prisma.unitTransaction.findMany({
+        where: { notes: { startsWith: "Auto-generated" } },
+        select: { transactionNo: true, notes: true, unitType: true },
+    });
+    const broadNotSpecific = broadOnly.filter(
+        (t) => !t.notes!.startsWith("Auto-generated dari penjualan kasir"),
+    );
+    console.log(`  notes startsWith "Auto-generated" (broad)              : ${rp(broadOnly.length)}`);
+    console.log(`  └ di antaranya BUKAN "Auto-generated dari penjualan..." : ${rp(broadNotSpecific.length)}`);
+    if (broadNotSpecific.length === 0) {
+        console.log("  ✓ EKUIVALEN: broad ≡ specific untuk data prod → konsolidasi 6 site AMAN (behavior-preserving).");
+    } else {
+        console.log("  ⚠ TIDAK ekuivalen — broad menangkap record extra. Review sebelum konsolidasi:");
+        for (const t of broadNotSpecific.slice(0, 10)) {
+            console.log(`     ${t.transactionNo} | notes="${t.notes}" | unitType=${t.unitType}`);
+        }
+    }
+
     await prisma.$disconnect();
 }
 main().catch((e) => { console.error(e); process.exit(1); });

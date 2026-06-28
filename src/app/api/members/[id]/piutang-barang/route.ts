@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { AUTO_GENERATED_PIUTANG_PREFIX } from "@/lib/laporan-helpers";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -28,7 +29,7 @@ export async function GET(request: Request, { params }: Params) {
                 paymentMethod: "salary_cut",
                 isPaid: false,
                 status: { in: ["completed", "pending_void"] },
-                notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
+                notes: { not: { startsWith: AUTO_GENERATED_PIUTANG_PREFIX } },
             },
             orderBy: { transactionDate: "desc" },
             select: {

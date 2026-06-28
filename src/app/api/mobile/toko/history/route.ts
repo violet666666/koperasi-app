@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 import { sendBatchPushNotifications } from "@/lib/expo-push";
+import { AUTO_GENERATED_PIUTANG_PREFIX } from "@/lib/laporan-helpers";
 
 /**
  * GET /api/mobile/toko/history — Riwayat transaksi kasir toko
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
                     unitType: user.unitType,
                     createdById: Number(user.id),
                     status: { not: "voided" },
-                    notes: { not: { startsWith: "Auto-generated dari penjualan kasir" } },
+                    notes: { not: { startsWith: AUTO_GENERATED_PIUTANG_PREFIX } },
                 },
                 include: {
                     member: { select: { id: true, name: true, memberNo: true } },
