@@ -49,6 +49,25 @@ export const EXPENSE_CATEGORIES_AT_RISK = ["biaya_operasional", "beban_unit", "h
 // DRY: derive dari sumber canonical, bukan hardcode duplikat.
 export const KNOWN_CATEGORIES = new Set(Object.keys(CASH_BANK_CATEGORIES));
 
+// Kategori sistem/legacy yang ditulis subsystem lain (SHU calc, void reversal,
+// billing settlement, loan penalty) tapi BUKAN bagian dropdown UI CASH_BANK_CATEGORIES
+// (yang cuma 13 key). Sumber: diagnose-anomali-breakdown.ts — 4.343 tx legit di 2026
+// pakai kategori ini. Tanpa superset ini, D4 akan menflag tx legit sebagai "tidak dikenal".
+export const SYSTEM_CB_CATEGORIES = [
+    "pendapatan_toko",       // revenue toko (StoreSale) — dipakai SHU calc
+    "operational",           // pendapatan operasional unit
+    "savings",               // setoran simpanan (shorthand)
+    "penalti_pelunasan",     // denda pelunasan dini pinjaman
+    "void_penjualan_toko",   // reversal void StoreSale
+    "void_unit_transaction", // reversal void UnitTransaction
+    "salary_cut_settlement", // settlement billing potong-gaji
+] as const;
+
+// Superset "kategori valid" = UI enum ∪ sistem/legacy. D4 memakai ini, BUKAN
+// KNOWN_CATEGORIES, supaya typo/garbage masa depan tetap ke-flag tanpa false-positive
+// pada kategori legit yang sudah dipakai ribuan tx.
+export const VALID_CB_CATEGORIES = new Set<string>([...KNOWN_CATEGORIES, ...SYSTEM_CB_CATEGORIES]);
+
 // ── Tipe row bersama ──────────────────────────────────────────────────────
 export interface TxRow {
     id: number;
@@ -73,6 +92,11 @@ export function toNum(d: any): number {
 
 export function isKnownCategory(category: string | null | undefined): boolean {
     return !!category && KNOWN_CATEGORIES.has(category);
+}
+
+// Valid = ada di superset (UI enum ∪ sistem/legacy). Dipakai D4.
+export function isValidCategory(category: string | null | undefined): boolean {
+    return !!category && VALID_CB_CATEGORIES.has(category);
 }
 
 export function isOutlier(amount: number): boolean {
@@ -235,6 +259,13 @@ export async function detectD2(prisma: PrismaClient): Promise<Anomaly[]> {
 }
 
 export async function detectD3(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    // KEPUTUSAN BERBASIS DATA (diagnose-anomali-breakdown.ts, 2026): floor-only, TANPA
+    // cek relatif median. Median tx 2026 = Rp 38.500 → ambang lama `>10×median` = Rp 385k
+    // menflag 741 tx normal (hampir semua tx operasional di atas 385k) = sumber false-positive
+    // 5103 yang diperbaiki commit ec44b21. Floor Rp 50jt ≈ p99+ (46 tx) = ambang outlier
+    // absolut yang sehat untuk D3 (impact=0, cuma prompt "review manual"). Jangan restore
+    // cek median tanpa ambang absolut kedua — akan reintroduksi noise. computeMedian()
+    // tetap di-export sebagai utilitas murni, bukan karena D3 memakainya.
     const txs = await prisma.cashBankTransaction.findMany({
         where: { transactionDate: { gte: startDate, lte: endDate }, amount: { gte: OUTLIER_FLOOR } },
         select: TX_SELECT,
@@ -243,8 +274,17 @@ export async function detectD3(prisma: PrismaClient, startDate: Date, endDate: D
 }
 
 export async function detectD4(prisma: PrismaClient, startDate: Date, endDate: Date): Promise<Anomaly[]> {
+    // Tangkap DUA kategori masalah: (1) category=null (tidak dikategorikan), dan
+    // (2) category non-null tapi typo/garbage di luar VALID_CB_CATEGORIES superset.
+    // Filter di DB-level (bukan in-memory filter) demi performa.
+    // Catatan SQL: branch `{ category: null }` wajib karena `NOT IN` tidak match NULL.
+    // Sebelumnya (commit ec44b21) cuma tangkap null → typo non-null lolos. Restore scope
+    // pakai superset supaya 4.343 tx legit (pendapatan_toko dll) tidak ikut di-flag.
     const txs = await prisma.cashBankTransaction.findMany({
-        where: { transactionDate: { gte: startDate, lte: endDate }, category: null },
+        where: {
+            transactionDate: { gte: startDate, lte: endDate },
+            OR: [{ category: null }, { category: { notIn: [...VALID_CB_CATEGORIES] } }],
+        },
         select: TX_SELECT,
     });
     return txs.map((t) => buildD4Anomaly(t as TxRow));

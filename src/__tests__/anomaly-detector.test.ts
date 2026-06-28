@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-    isKnownCategory, isOutlier, makeAnomalyId, computeMedian,
+    isKnownCategory, isValidCategory, isOutlier, makeAnomalyId, computeMedian,
     buildD1Anomaly, buildD2Anomaly, buildD3Anomaly, buildD4Anomaly, buildD5Anomaly,
     OUTLIER_FLOOR,
 } from "@/lib/services/anomaly-detector";
@@ -16,6 +16,33 @@ describe("isKnownCategory", () => {
         expect(isKnownCategory(undefined)).toBe(false);
         expect(isKnownCategory("operational")).toBe(false);
         expect(isKnownCategory("biaya")).toBe(false);
+    });
+});
+
+describe("isValidCategory", () => {
+    // D4 memakai superset (UI enum ∪ kategori sistem/legacy) sbg definisi "valid",
+    // bukan CASH_BANK_CATEGORIES (13 key UI) — lihat diagnose-anomali-breakdown.ts:
+    // 4.343 tx legit (pendapatan_toko dll) ditulis subsystem lain di luar enum UI.
+    it("true untuk kategori canonical UI enum", () => {
+        expect(isValidCategory("biaya_operasional")).toBe(true);
+        expect(isValidCategory("transfer")).toBe(true);
+        expect(isValidCategory("simpanan_pokok")).toBe(true);
+    });
+    it("true untuk kategori sistem/legacy legit (di luar UI enum)", () => {
+        expect(isValidCategory("pendapatan_toko")).toBe(true);
+        expect(isValidCategory("operational")).toBe(true);
+        expect(isValidCategory("savings")).toBe(true);
+        expect(isValidCategory("penalti_pelunasan")).toBe(true);
+        expect(isValidCategory("void_penjualan_toko")).toBe(true);
+        expect(isValidCategory("void_unit_transaction")).toBe(true);
+        expect(isValidCategory("salary_cut_settlement")).toBe(true);
+    });
+    it("false untuk null, undefined, dan typo/garbage masa depan", () => {
+        expect(isValidCategory(null)).toBe(false);
+        expect(isValidCategory(undefined)).toBe(false);
+        expect(isValidCategory("biaya_operasonal")).toBe(false); // typo dari biaya_operasional
+        expect(isValidCategory("garbage_value")).toBe(false);
+        expect(isValidCategory("")).toBe(false);
     });
 });
 
