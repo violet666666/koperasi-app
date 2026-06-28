@@ -20,6 +20,9 @@ npm run db:migrate       # Run migrations
 npm run db:push          # Push schema (no migration files)
 npm run db:seed          # Seed database
 npm run db:studio        # Prisma Studio
+
+# Diagnostics (read-only, vs prod Neon) — many in scripts/diagnose-*.ts
+NODE_ENV=production npx tsx --env-file=.env scripts/diagnose-<name>.ts
 ```
 
 ## Tech Stack
@@ -98,6 +101,7 @@ NODE_ENV           — development/production
 - **Unit:** Vitest + happy-dom (`src/__tests__/`, 23 files)
 - **E2E:** Playwright (`e2e/`, 8 spec files including haji-umrah)
 - **Test accounts:** See `akun-primkoppol.md`
+- **Pre-existing failing tests (NOT regressions):** `split-bill` (group-id `SB-` format), `batch-navigation` (cafe-lsp item count), `floor-plan`/`queue-system` (stale types). Prove a failure isn't yours with `git stash push <your files>` + retest before digging in.
 
 ## Gotchas
 
@@ -120,6 +124,9 @@ NODE_ENV           — development/production
 - **Transaction numbers must use `crypto.randomBytes()`** — never `Math.random()`. Security scanner flags it as CRITICAL. Format: `crypto.randomBytes(4).readUInt32BE(0) % 1_000_000_000`.
 - **Excel export: sanitize formula injection** — user data (names, NRP) may contain leading `=+@-`. Prefix with `'` before passing to `exportToExcel`.
 - **Haji & Umrah module (Phase 1 COMPLETE)** — 6 API endpoints in `api/haji-umrah/`, 7 UI pages in `(protected)/haji-umrah/`, billing Source 3 for `savings_account`, Zod schemas in `validations/haji-umrah.ts`. See `Docs-Haji-umrah-plan/README.md` for status and remaining phases.
+- **`.remember/` dir** (`logs/memory-YYYY-MM-DD.log`, `today-*.md`, `remember.md` handoff, `recent.md`, `archive.md`) = `/remember:remember` skill state. Read it to reconstruct a force-closed/lost session before re-asking the user.
+- **`CASH_BANK_CATEGORIES`** (`constants/index.ts`, 13 keys) is the cash-bank UI dropdown enum, NOT the full set of valid DB categories. Subsystems also write `pendapatan_toko`, `operational`, `savings`, `penalti_pelunasan`, `void_penjualan_toko`, `void_unit_transaction`, `salary_cut_settlement`. For validity checks use the `VALID_CB_CATEGORIES` superset in `anomaly-detector.ts` — naive `!isKnownCategory()` false-flags 4,000+ legit txs.
+- **UI page logic isn't unit-tested directly** (no component-test harness) — extract pure logic to `src/lib/*-helpers.ts` + unit-test there (`loan-edit-helpers.ts`, `loan-void-helpers.ts`, `services/billing.ts`), then call it from the page. This is the repo's testable-UI pattern.
 
 ## Branches & Deploy
 
