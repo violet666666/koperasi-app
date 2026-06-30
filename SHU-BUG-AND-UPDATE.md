@@ -952,3 +952,63 @@ SESUDAH FIX:
 ```
 
 *Diperbarui: 1 Juni 2026*
+
+---
+
+## 21. FITUR: Laba Kotor per Unit + FIX: Per-Unit Revenue Double-Count & Void Filter (30 Juni 2026)
+
+> **Status:** ✅ CLOSED — Diperbaiki 30 Juni 2026
+> **Commits:** `d6615e5` (pure helper+fetcher), `281da3f` (omzet line-total fix), `bd616a2` (per-unit dedup), `3fcb6bb` (void fix+card)
+
+### III. Fitur Baru: Kartu "Laba Kotor per Unit"
+
+Kartu baru di halaman `/laporan/shu` menampilkan laba kotor (omzet - HPP) untuk 3 unit POS berbasis StoreSaleItem:
+
+| Unit | Omzet (Subtotal) | HPP (costPrice x qty) | Laba Kotor | Margin |
+|:-----|------:|------:|------:|:---:|
+| Toko | Rp 156.388.700 | Rp 150.324.136 | Rp 6.064.564 | 4% |
+| Resto & Cafe | Rp 52.652.000 | Rp 12.000.820 | Rp 40.651.180 | 77% |
+| Cafe LSP | Rp 12.255.400 | Rp 3.554.644 | Rp 8.700.756 | 71% |
+
+**Implementasi:**
+- Pure helper `aggregateGrossProfit()` di `src/lib/services/shu-gross-profit.ts` — fetch `StoreSaleItem` dengan `sale.metadata.isVoided` filter di JS (menghindari Prisma JSON NULL bug)
+- Fetcher `computeUnitGrossProfit(year, month)` — wrapper dengan canonical unit type mapping
+- API passthrough di `/api/reports/shu` — field `unitGrossProfit` ditambahkan ke response
+- UI card di `laporan/shu/page.tsx` — 3 baris (Toko / Resto & Cafe / Cafe LSP) dgn omzet, HPP, laba kotor, margin persentase
+
+### IV. Bug Fix: Per-Unit Revenue Double-Count + Void Filter
+
+**Root Cause 1 — CB Mirror Double-Count:**
+POS (Toko, Resto, Cafe LSP) membuat transaksi CB (`pendapatan_toko`/`pendapatan_unit`) DAN Journal entry terpisah. Kalkulator SHU menghitung income dari kedua sumber tanpa dedup karena tidak ada `journalId` linkage.
+
+**Dampak sebelum fix:**
+
+| Unit | Revenue (salah) | Revenue (benar) | Selisih |
+|:-----|------:|------:|------:|
+| cuci_mobil | Rp 174.260.120 | Rp 86.950.000 | 2x (CB mirror) |
+| toko | Rp 0 | Rp 197.810.300 | 0 (void filter hilangkan semua) |
+
+**Root Cause 2 — Prisma JSON NULL Void Filter:**
+Query `NOT: { metadata: { path: ["isVoided"], equals: true } }` mengexclude baris yang TIDAK punya key `isVoided` sama sekali (JSON NULL behavior di Prisma). Hasilnya hampir semua transaksi aktif ke-exclude — toko revenue turun ke Rp 0.
+
+**Perbaikan:**
+- Dedup: `incomeByUnit` mengambil CB + Journal income, lalu di JS menghapus journal entries yang CB-nya sudah terhitung (description-based CB-detection predicate)
+- Void filter: Void exclusion dilakukan di JS setelah fetch, bukan di Prisma query — `filter(tx => !isVoided(tx))` menggunakan `tx.description` match terhadap voided-sale-ref set
+
+### V. Out-of-Scope Residual
+
+Summary card "Total Pendapatan" + `memberRatio` di `/laporan/shu` masih menggunakan query lama yang memiliki bug double-count dan void-filter yang sama. Fix terpisah diperlukan (prioritas rendah — angka summary sudah digantikan oleh tabel per-unit yang sudah diperbaiki).
+
+### VI. Bukti Diagnostik
+
+```
+scripts/diagnose-shu-hpp-per-unit.ts (prod, 2026):
+
+Unit               Items     Omzet(subtotal)      HPP(costPxqty)          Laba Kotor    Margin
+----------------------------------------------------------------------------------------------
+Toko                7375      Rp 156.388.700      Rp 150.324.136        Rp 6.064.564        4%
+Resto & Cafe        2948       Rp 52.652.000       Rp 12.000.820       Rp 40.651.180       77%
+Cafe LSP             755       Rp 12.255.400        Rp 3.554.644        Rp 8.700.756       71%
+```
+
+*Diperbarui: 30 Juni 2026*
