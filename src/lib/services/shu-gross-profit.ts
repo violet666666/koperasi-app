@@ -66,7 +66,7 @@ export function aggregateGrossProfit(items: GrossProfitItem[], unitGroups: UnitG
     const canonical = aliasToCanonical.get(it.unitType ?? "");
     if (!canonical || !acc[canonical]) continue; // skip non-store item
     const cp = it.costPrice > 0 ? it.costPrice : (it.productCostPrice ?? 0);
-    acc[canonical].omzet += it.subtotal * it.quantity;
+    acc[canonical].omzet += it.subtotal;
     acc[canonical].hpp += cp * it.quantity;
     acc[canonical].itemCount += 1;
   }

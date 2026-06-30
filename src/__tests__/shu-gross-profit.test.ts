@@ -28,7 +28,7 @@ describe("getPeriodRange", () => {
 describe("aggregateGrossProfit", () => {
   it("menghitung omzet/hpp/laba/margin dasar untuk 1 unit", () => {
     const rows = aggregateGrossProfit([
-      item({ unitType: "toko", subtotal: 10000, costPrice: 6000, quantity: 2, productCostPrice: 6000 }),
+      item({ unitType: "toko", subtotal: 20000, costPrice: 6000, quantity: 2, productCostPrice: 6000 }),
     ], GROUPS);
     const toko = rows.find(r => r.unitType === "toko")!;
     expect(toko.omzet).toBe(20000);
