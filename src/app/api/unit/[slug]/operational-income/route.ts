@@ -152,7 +152,7 @@ export async function POST(
                     ? `[Transaksi Customer - Catat Pemasukan]||RECEIPT:${receiptImagePath}`
                     : `[Transaksi Customer - Catat Pemasukan]`;
 
-                const unitTx = await tx.unitTransaction.create({
+                await tx.unitTransaction.create({
                     data: {
                         transactionNo: utNo,
                         memberId: mode.memberId,
@@ -238,7 +238,7 @@ export async function POST(
             data: {
                 transactionNo: result.transactionNo,
                 amount: nominalAmount,
-                newBalance: (result as any).newBalance,
+                newBalance: result.kind === "operasional" ? result.newBalance : undefined,
                 receiptImagePath,
                 description,
                 paymentMethod,

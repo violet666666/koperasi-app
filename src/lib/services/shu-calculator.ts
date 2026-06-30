@@ -562,7 +562,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
     // Merge CB income NON-MIRROR per canonical unit (operational dll — restore fix Task 5 yg terlalu radikal).
     // Mirror POS (pendapatan_unit/pendapatan_toko) sengaja di-exclude (sudah via StoreSale/UT di atas).
     for (const i of nonMirrorIncomeByUnit) {
-        const ut = i.unitType || "_operasional";
+        const ut = i.unitType || "simpan_pinjam";
         if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
         unitRevenueMap[ut].revenue += toNum(i._sum.amount);
         unitRevenueMap[ut].txCount += i._count;
