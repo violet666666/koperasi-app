@@ -105,3 +105,17 @@ export function storeSaleUnitTypeFilter(canonicalType: string): string | { in: s
   }
   return canonicalType;
 }
+
+/**
+ * Map sebuah unitType StoreSale (mungkin alias) ke bentuk kanoniknya.
+ * Alias (resto_cafe, coffe_latar → resto) di-roll-up. Null/undefined → "toko".
+ * Unknown → dikembalikan apa adanya.
+ * Dipakai untuk agregasi per-unit agar alias tidak terbelah menjadi row terpisah.
+ */
+export function canonicalStoreUnitType(ut: string | null | undefined): string {
+  if (!ut) return "toko";
+  for (const [canonical, aliases] of Object.entries(STORE_SALE_ALIASES)) {
+    if ((aliases as string[]).includes(ut)) return canonical;
+  }
+  return ut;
+}
