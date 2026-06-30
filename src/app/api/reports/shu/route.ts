@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
+import { computeUnitGrossProfit } from "@/lib/services/shu-gross-profit";
 
 // GET /api/reports/shu - Real SHU Report based on journal aggregation
 // Supports: ?year=2026 (full year) or ?year=2026&month=3 (specific month)
@@ -18,8 +19,14 @@ export async function GET(request: Request) {
         const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
         const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "20")));
 
-        // Fetch data from SSOT
-        const data = await calculateSystemSHU(year, month);
+        // Fetch data dari SSOT + card Laba Kotor (non-fatal: jika gagal, card kosong)
+        const [data, unitGrossProfit] = await Promise.all([
+            calculateSystemSHU(year, month),
+            computeUnitGrossProfit(year, month).catch((err) => {
+                console.error("computeUnitGrossProfit failed:", err);
+                return [];
+            }),
+        ]);
 
         const allMembers = data.memberDistribution;
         const totalMembers = allMembers.length;
@@ -48,6 +55,7 @@ export async function GET(request: Request) {
             expenseGroups: data.expenseGroups,
             memberShu: paginatedMembers,
             unitBreakdown: data.unitBreakdown,
+            unitGrossProfit,
             // Pagination metadata
             pagination: isExport ? undefined : {
                 page,
