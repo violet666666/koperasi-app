@@ -64,6 +64,8 @@ import {
     Award,
     CreditCard,
     Eye,
+    Search,
+    User,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -285,6 +287,28 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [incomePaymentMethod, setIncomePaymentMethod] = React.useState("cash");
     const incomeFileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Jenis Pemasukan (operasional vs customer) + optional member picker for customer mode.
+    // Pattern reused from kasir/page.tsx (memberSearch + selectedMember + /api/members?search).
+    const [incomeJenis, setIncomeJenis] = React.useState<"operasional" | "customer">("operasional");
+    const [incomeMemberId, setIncomeMemberId] = React.useState<number | null>(null);
+    const [incomeMemberQuery, setIncomeMemberQuery] = React.useState("");
+    const [incomeMemberResults, setIncomeMemberResults] = React.useState<any[]>([]);
+    const [incomeMemberPicked, setIncomeMemberPicked] = React.useState<any | null>(null);
+    const [isSearchingIncomeMember, setIsSearchingIncomeMember] = React.useState(false);
+
+    const searchIncomeMember = async () => {
+        if (incomeMemberQuery.trim().length < 2) return;
+        setIsSearchingIncomeMember(true);
+        try {
+            const res = await fetch(`/api/members?search=${encodeURIComponent(incomeMemberQuery.trim())}`);
+            const json = await res.json();
+            setIncomeMemberResults(json.data || []);
+            if ((json.data || []).length === 0) toast.error("Anggota tidak ditemukan");
+        } catch {
+            toast.error("Gagal mencari anggota");
+        } finally { setIsSearchingIncomeMember(false); }
+    };
+
     // Bulk select for batch payment method change
     const [selectedExpenseIds, setSelectedExpenseIds] = React.useState<Set<number>>(new Set());
     const [selectedIncomeIds, setSelectedIncomeIds] = React.useState<Set<number>>(new Set());
@@ -396,6 +420,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setIncomeDate(new Date().toISOString().split("T")[0]);
         setIncomePaymentMethod("cash");
         clearIncomeFile();
+        // Reset Jenis + member picker (always opens in operasional mode for a fresh record).
+        setIncomeJenis("operasional");
+        setIncomeMemberId(null);
+        setIncomeMemberQuery("");
+        setIncomeMemberResults([]);
+        setIncomeMemberPicked(null);
         setShowIncomeDialog(true);
     };
 
@@ -408,6 +438,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setIncomeReceiptFile(null);
         setIncomeReceiptPreview(inc.receiptImagePath || null);
         setKeepExistingIncomeReceipt(true);
+        // Edit only applies to existing operasional (CashBankTransaction) records.
+        // Force operasional mode and clear member picker — do not allow editing into/out-of customer type.
+        setIncomeJenis("operasional");
+        setIncomeMemberId(null);
+        setIncomeMemberQuery("");
+        setIncomeMemberResults([]);
+        setIncomeMemberPicked(null);
         setShowIncomeDialog(true);
     };
 
@@ -424,7 +461,15 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             if (incomeReceiptFile) formData.append("receipt", incomeReceiptFile);
             formData.append("keepExistingReceipt", String(keepExistingIncomeReceipt));
 
+            // Jenis Pemasukan: operasional (default, CB) vs customer (UnitTransaction).
+            // Only send jenis for new records — edit is operasional-only (enforced in handleOpenEditIncome).
             const isEdit = editIncomeId !== null;
+            if (!isEdit) {
+                formData.set("jenis", incomeJenis);
+                if (incomeJenis === "customer" && incomeMemberId) {
+                    formData.set("memberId", String(incomeMemberId));
+                }
+            }
             const url = isEdit
                 ? `/api/unit/${unitSlug}/operational-income/${editIncomeId}`
                 : `/api/unit/${unitSlug}/operational-income`;
@@ -2135,16 +2180,102 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <TrendingUp className="h-5 w-5 text-emerald-500" />
-                            {editIncomeId ? "Ubah Pemasukan Operasional" : "Catat Pemasukan Operasional"}
+                            {editIncomeId
+                                ? "Ubah Pemasukan Operasional"
+                                : incomeJenis === "customer"
+                                    ? "Catat Transaksi Customer"
+                                    : "Catat Pemasukan Operasional"}
                         </DialogTitle>
                         <DialogDescription>
                             {editIncomeId
                                 ? "Edit data pemasukan operasional unit ini."
-                                : "Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll. Akan langsung mengkredit kas unit ini."}
+                                : incomeJenis === "customer"
+                                    ? "Catat penjualan ke customer sebagai UnitTransaction — masuk riwayat transaksi, SHU per-unit, dan poin jasa anggota (jika anggota dipilih)."
+                                    : "Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll. Akan langsung mengkredit kas unit ini."}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-2">
+                        {/* Jenis Pemasukan — disabled in edit mode (edit is operasional-only) */}
+                        <div className="space-y-2">
+                            <Label>Jenis Pemasukan</Label>
+                            <Select
+                                value={incomeJenis}
+                                onValueChange={(v) => setIncomeJenis(v as "operasional" | "customer")}
+                                disabled={editIncomeId !== null}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="operasional">Pemasukan Operasional (sewa/dll)</SelectItem>
+                                    <SelectItem value="customer">Transaksi Customer (penjualan)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {incomeJenis === "customer" && (
+                                <p className="text-xs text-muted-foreground">
+                                    Dicut sebagai UnitTransaction → masuk riwayat transaksi + SHU per-unit + poin jasa anggota.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Anggota (opsional, hanya saat Transaksi Customer) — pola member-picker reuse dari kasir/page.tsx */}
+                        {incomeJenis === "customer" && (
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">
+                                    <User className="h-3.5 w-3.5" />
+                                    Anggota (opsional — kosongkan jika walk-in)
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Cari NRP atau Nama anggota..."
+                                        value={incomeMemberQuery}
+                                        onChange={(e) => setIncomeMemberQuery(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchIncomeMember(); } }}
+                                    />
+                                    <Button type="button" variant="outline" onClick={searchIncomeMember} disabled={isSearchingIncomeMember}>
+                                        {isSearchingIncomeMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                                {incomeMemberResults.length > 0 && (
+                                    <div className="max-h-[180px] overflow-y-auto border rounded-md">
+                                        {incomeMemberResults.map((m) => (
+                                            <div
+                                                key={m.id}
+                                                className={`flex items-center justify-between p-2.5 cursor-pointer hover:bg-muted/50 ${incomeMemberPicked?.id === m.id ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
+                                                onClick={() => {
+                                                    setIncomeMemberPicked(m);
+                                                    setIncomeMemberId(m.id);
+                                                    setIncomeMemberQuery("");
+                                                    setIncomeMemberResults([]);
+                                                }}
+                                            >
+                                                <div>
+                                                    <p className="font-medium text-sm">{m.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{m.memberNo} {m.nrp ? `· NRP: ${m.nrp}` : ""}</p>
+                                                </div>
+                                                {incomeMemberPicked?.id === m.id && <Badge>Dipilih</Badge>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {incomeMemberPicked && (
+                                    <div className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30">
+                                        <div>
+                                            <p className="font-medium text-sm">{incomeMemberPicked.name}</p>
+                                            <p className="text-xs text-muted-foreground">NRP: {incomeMemberPicked.nrp || "-"}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setIncomeMemberPicked(null); setIncomeMemberId(null); }}
+                                            className="text-muted-foreground hover:text-red-600"
+                                            aria-label="Hapus pilihan anggota"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="space-y-2">
                             <Label htmlFor="inc-amount">Nominal Pemasukan (Rp) *</Label>
                             <Input
@@ -2230,7 +2361,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
                         <Separator />
                         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
-                            💰 Pemasukan ini akan langsung mengkredit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.
+                            {incomeJenis === "customer" ? (
+                                <>🧾 Transaksi customer akan dicatat sebagai <strong>UnitTransaction</strong> dan masuk riwayat transaksi unit <strong>{unitInfo.label}</strong>{incomeMemberPicked ? " serta poin jasa anggota" : ""}.</>
+                            ) : (
+                                <>💰 Pemasukan ini akan langsung mengkredit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.</>
+                            )}
                         </div>
                     </div>
 
