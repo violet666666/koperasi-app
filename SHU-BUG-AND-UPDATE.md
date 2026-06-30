@@ -958,7 +958,7 @@ SESUDAH FIX:
 ## 21. FITUR: Laba Kotor per Unit + FIX: Per-Unit Revenue Double-Count & Void Filter (30 Juni 2026)
 
 > **Status:** ✅ CLOSED — Diperbaiki 30 Juni 2026
-> **Commits:** `d6615e5` (pure helper+fetcher), `281da3f` (omzet line-total fix), `bd616a2` (per-unit dedup), `3fcb6bb` (void fix+card)
+> **Commits:** `d6615e5` (pure helper+fetcher), `281da3f` (omzet line-total fix), `af1ae28` (per-unit dedup + void filter fix), `88a0f19` (Laba Kotor UI card), `1a7c06c` (API passthrough unitGrossProfit)
 
 ### III. Fitur Baru: Kartu "Laba Kotor per Unit"
 

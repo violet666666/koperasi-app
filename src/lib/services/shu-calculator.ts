@@ -582,10 +582,16 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         unitTxMember,
         unitTxNonMember,
     ] = await Promise.all([
+        // KNOWN BUG (deferred): NOT+path void filter drops key-less sales — same Prisma JSON NULL
+        // bug fixed in unitBreakdown above. memberRatio understated until separate spec. See
+        // docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2 (non-goals).
         prisma.storeSale.aggregate({
             where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
             _sum: { totalAmount: true }
         }),
+        // KNOWN BUG (deferred): NOT+path void filter drops key-less sales — same Prisma JSON NULL
+        // bug fixed in unitBreakdown above. memberRatio understated until separate spec. See
+        // docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2 (non-goals).
         prisma.storeSale.aggregate({
             where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
             _sum: { totalAmount: true }
