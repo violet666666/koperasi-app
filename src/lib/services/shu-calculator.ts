@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { getCarwashBonusPerTx } from "./shu-settings";
-import { UNIT_TYPES } from "@/lib/constants/units";
+import { UNIT_TYPES, STORE_SALE_ALIASES, canonicalStoreUnitType } from "@/lib/constants/units";
 import type { SPMonthlyItem, ExpenseGroup } from "@/app/(protected)/laporan/shu/_types";
 
 function toNum(d: Decimal | number | null | undefined): number {
@@ -427,17 +427,12 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
     // Menggunakan blacklist untuk menangkap SEMUA expense operasional
-    const [storeSalesByUnit, unitTxByUnit, expenseByUnit, incomeByUnit,
-           storeSalesByMethod, unitTxByMethod,
-    ] = await Promise.all([
-        prisma.storeSale.groupBy({
-            by: ['unitType'],
-            where: {
-                createdAt: { gte: startDate, lte: endDate },
-                NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
-            },
-            _sum: { totalAmount: true },
-            _count: true,
+    const [storeSalesRaw, unitTxByUnit, expenseByUnit, unitTxByMethod] = await Promise.all([
+        // StoreSale via findMany — HINDARI groupBy + filter void Prisma JSON NULL bug.
+        // Satu findMany melayani aggregasi by-unit DAN by-method.
+        prisma.storeSale.findMany({
+            where: { createdAt: { gte: startDate, lte: endDate } },
+            select: { unitType: true, totalAmount: true, paymentMethod: true, metadata: true },
         }),
         prisma.unitTransaction.groupBy({
             by: ['unitType'],
@@ -460,30 +455,6 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _sum: { amount: true },
             _count: true,
         }),
-        // Pendapatan per unit dari Kas & Bank (CB type=in non-journaled, non-savings)
-        // Note: void reversal exclusion applied below (after groupBy, per-unit level)
-        prisma.cashBankTransaction.groupBy({
-            by: ['unitType'],
-            where: {
-                transactionDate: { gte: startDate, lte: endDate },
-                type: "in",
-                journalId: null,
-                category: { notIn: [...NON_INCOME_CATEGORIES, ...VOID_CATEGORIES] },
-            },
-            _sum: { amount: true },
-            _count: true,
-        }),
-        // === PAYMENT METHOD BREAKDOWN: StoreSale per unitType + paymentMethod ===
-        prisma.storeSale.groupBy({
-            by: ['unitType', 'paymentMethod'],
-            where: {
-                createdAt: { gte: startDate, lte: endDate },
-                NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
-            },
-            _sum: { totalAmount: true },
-            _count: true,
-        }),
-        // === PAYMENT METHOD BREAKDOWN: UnitTransaction per unitType + paymentMethod ===
         prisma.unitTransaction.groupBy({
             by: ['unitType', 'paymentMethod'],
             where: {
@@ -495,6 +466,23 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             _count: true,
         }),
     ]);
+
+    // Agregasi StoreSale di JS: saring voided (filter benar), roll-up alias, by-unit + by-method
+    const activeStoreSales = storeSalesRaw.filter(s => !((s.metadata as any)?.isVoided));
+    const storeUnitAgg: Record<string, { revenue: number; count: number }> = {};
+    const storeMethodAgg: Record<string, Record<string, { amount: number; count: number }>> = {};
+    for (const s of activeStoreSales) {
+        const ut = canonicalStoreUnitType(s.unitType);
+        const amt = toNum(s.totalAmount);
+        if (!storeUnitAgg[ut]) storeUnitAgg[ut] = { revenue: 0, count: 0 };
+        storeUnitAgg[ut].revenue += amt;
+        storeUnitAgg[ut].count += 1;
+        const m = s.paymentMethod || "cash";
+        if (!storeMethodAgg[ut]) storeMethodAgg[ut] = {};
+        if (!storeMethodAgg[ut][m]) storeMethodAgg[ut][m] = { amount: 0, count: 0 };
+        storeMethodAgg[ut][m].amount += amt;
+        storeMethodAgg[ut][m].count += 1;
+    }
 
     // === Build payment method breakdown per unit ===
     // Normalize: salary_cut → Potong Gaji, qris → QRIS, cash → Tunai
@@ -518,8 +506,10 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         unitMethodMap[unitKey][m].count += count;
     }
 
-    for (const s of storeSalesByMethod) {
-        addMethodEntry(s.unitType || "toko", s.paymentMethod, toNum(s._sum.totalAmount), s._count);
+    for (const [ut, methods] of Object.entries(storeMethodAgg)) {
+        for (const [m, v] of Object.entries(methods)) {
+            addMethodEntry(ut, m, v.amount, v.count);
+        }
     }
     for (const u of unitTxByMethod) {
         addMethodEntry(u.unitType, u.paymentMethod, toNum(u._sum.amount), u._count);
@@ -539,26 +529,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         }
     });
 
-    // Merge revenue dari StoreSale, UnitTransaction, dan CB income ke satu map
+    // Revenue per unit: StoreSale (source of truth utk store) + UnitTransaction (service).
+    // CB pendapatan_toko/pendapatan_unit DIHAPUS — itu mirror dari StoreSale/UnitTransaction
+    // (dobel-hitung, lihat docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md Bug A).
     const unitRevenueMap: Record<string, { revenue: number; txCount: number }> = {};
-    for (const s of storeSalesByUnit) {
-        const ut = s.unitType || "toko";
-        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
-        unitRevenueMap[ut].revenue += toNum(s._sum.totalAmount);
-        unitRevenueMap[ut].txCount += s._count;
+    for (const [ut, v] of Object.entries(storeUnitAgg)) {
+        unitRevenueMap[ut] = { revenue: v.revenue, txCount: v.count };
     }
     for (const u of unitTxByUnit) {
         const ut = u.unitType;
         if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
         unitRevenueMap[ut].revenue += toNum(u._sum.amount);
         unitRevenueMap[ut].txCount += u._count;
-    }
-    // Merge CB income per unitType (pendapatan_toko, pendapatan_unit, dll.)
-    for (const i of incomeByUnit) {
-        const ut = i.unitType || "simpan_pinjam";
-        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
-        unitRevenueMap[ut].revenue += toNum(i._sum.amount);
-        unitRevenueMap[ut].txCount += i._count;
     }
 
     // Gabungkan juga unit yang hanya punya expense tapi tidak punya revenue
