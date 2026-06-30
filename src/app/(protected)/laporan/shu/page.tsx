@@ -113,6 +113,7 @@ interface SHUData {
     memberSharePercent: number;
     pagination?: PaginationMeta;
     unitBreakdown?: UnitBreakdown[];
+    unitGrossProfit?: UnitGrossProfit[];
 }
 
 interface UnitBreakdown {
@@ -123,6 +124,16 @@ interface UnitBreakdown {
     expense: number;
     transactionCount: number;
     paymentMethodBreakdown: { method: string; label: string; amount: number; count: number }[];
+}
+
+interface UnitGrossProfit {
+    unitType: string;
+    label: string;
+    omzet: number;
+    hpp: number;
+    labaKotor: number;
+    margin: number;
+    itemCount: number;
 }
 
 interface AuditTx {
@@ -776,6 +787,50 @@ export default function LaporanSHUPage() {
                                 );
                             })}
                         </div>
+                    )}
+
+                    {/* Laba Kotor per Unit (Toko / Resto & Cafe / Cafe LSP) */}
+                    {data.unitGrossProfit && data.unitGrossProfit.length > 0 && (
+                        <Card className="print:border print:border-gray-300 print:shadow-none">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base print:text-black">
+                                    Laba Kotor per Unit (Toko / Resto &amp; Cafe / Cafe LSP) — {periodDisplay}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border print:border-gray-300">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Unit Usaha</TableHead>
+                                                <TableHead className="text-right">Omzet (Harga Jual)</TableHead>
+                                                <TableHead className="text-right">HPP</TableHead>
+                                                <TableHead className="text-right">Laba Kotor</TableHead>
+                                                <TableHead className="text-right">Margin</TableHead>
+                                                <TableHead className="text-right w-20">Item</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.unitGrossProfit.map((u) => (
+                                                <TableRow key={u.unitType}>
+                                                    <TableCell className="font-medium">{u.label}</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-emerald-600">{formatCurrency(u.omzet)}</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-red-600">{formatCurrency(u.hpp)}</TableCell>
+                                                    <TableCell className={`text-right tabular-nums font-bold ${u.labaKotor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                        {formatCurrency(u.labaKotor)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums">{u.margin}%</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-muted-foreground">{u.itemCount}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Laba Kotor = Omzet (subtotal item) − HPP (cost price × qty). Pretax barang; tidak termasuk biaya operasional umum.
+                                </p>
+                            </CardContent>
+                        </Card>
                     )}
 
                     {/* Per-Unit Revenue Breakdown */}
