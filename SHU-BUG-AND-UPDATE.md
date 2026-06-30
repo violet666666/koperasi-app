@@ -1012,3 +1012,56 @@ Cafe LSP             755       Rp 12.255.400        Rp 3.554.644        Rp 8.700
 ```
 
 *Diperbarui: 30 Juni 2026*
+
+## 22. FITUR: Catat Pemasukan Bertipe + FIX: SHU Non-Mirror Re-Include (30 Juni 2026)
+
+### I. Fitur Baru: "Catat Pemasukan" dengan Jenis
+
+Sebelumnya, tombol "Catat Pemasukan" di halaman Laporan unit hanya membuat CB `operational`. Diperluas dengan field **Jenis**:
+
+| Jenis | Alur Data | Riwayat Transaksi | SHU |
+|:------|:----------|:-----------------|:----|
+| **Transaksi Customer** | Buat `UnitTransaction` (+ CB `pendapatan_unit` untuk cash/qris) | Ya — muncul di Riwayat Transaksi unit | Masuk revenue per-unit via StoreSale/UnitTransaction aggregation; CB mirror auto-exclude |
+| **Pemasukan Operasional** | Buat CB `operational` (perilaku lama) | Tidak — hanya di Kas/Bank | Masuk revenue per-unit via non-mirror CB income (operational restore, lihat bagian II) |
+
+**Anggota opsional:** Jenis "Transaksi Customer" menyediakan picker anggota. Jika dipilih, `memberId` tertanam di `UnitTransaction` — memungkinkan tracking jasa anggota di distribusi SHU. Walk-in (tanpa anggota) tetap valid (`memberId = null`).
+
+**Implementasi:**
+- Pure helper `resolveIncomeMode(jenis, memberId)` di `src/lib/services/operational-income-helpers.ts` — mengembalikan `{ createsUnitTransaction, cbCategory, memberId }`
+- API `/api/unit/[slug]/operational-income` branch pada `jenis`: customer → create `UnitTransaction` dengan auto `transactionNo` (format `PREFIX DDMMYYYY NNNN`), kemudian CB mirror `pendapatan_unit`; operasional → existing CB `operational`
+- Form dialog di `unit/[unitSlug]/laporan/page.tsx`: dropdown Jenis + kondisional MemberPicker
+
+**Commit:** `50e40a3` (UI), `2f0acfa` (API), `004f1e0` (helper)
+
+### II. Bug Fix: SHU Per-Unit Re-Include Non-Mirror CB Income
+
+**Root Cause:**
+Commit `af1ae28` (Task 5 awal, "exclude ALL CB income dari unitBreakdown") terlalu radikal — menghapus SEMUA CB income termasuk `operational` yang memang legitimate revenue unit (bukan mirror POS). Akibatnya pemasukan operasional unit (cuci_mobil, toko, dll) hilang dari tabel per-unit SHU.
+
+**Perbaikan (`a9c66c0`):**
+- Tambahkan konstanta `MIRROR_INCOME_CATEGORIES = ["pendapatan_unit", "pendapatan_toko"]` — hanya kategori ini yang di-exclude (sudah terwakili via StoreSale/UnitTransaction aggregation)
+- Query baru `nonMirrorIncomeByUnit` via `prisma.cashBankTransaction.groupBy` — memilih CB income `type: "in"`, `journalId: null`, kategori NOT IN mirror/void/non-income
+- Merge hasil ke `unitRevenueMap` — memulihkan operational income tanpa double-count
+
+**Bukti diagnostik (`scripts/diagnose-shu-unit-revenue-duplikasi.ts`, prod 2026-06-30):**
+```
+[A] REVENUE PER UNIT — 3 SUMBER (StoreSale + UnitTx + CB-income)
+Unit          StoreSale    UnitTx         CB-income    |  TOTAL
+cuci_mobil    Rp 0         Rp 87.900.000  Rp 88.275.120 | Rp 176.175.120
+toko          Rp 0         Rp 41.421.600  Rp 104.794.700 | Rp 146.216.300
+resto         Rp 0         Rp 71.000      Rp 55.779.000 | Rp 55.850.000
+simpan_pinjam Rp 0         Rp 0           Rp 15.041.000 | Rp 15.041.000
+cafe_lsp      Rp 0         Rp 90.000      Rp 12.936.600 | Rp 13.026.600
+
+[B] Mirror exclusion bekerja: pendapatan_toko 3923 baris (99.7% punya StoreSale match),
+    pendapatan_unit 2599 baris (98.8% punya UT match) → tidak dobel-hitung di unitRevenueMap
+```
+
+### III. Catatan Lint (Pre-Existing)
+
+- `shu-calculator.ts`: 4 unused vars (`STORE_SALE_ALIASES`, `INCOME_GROUP_MAP`, `SP_CATEGORIES`, `UNIT_CATEGORIES`) + 12 `any` types — **semua pre-existing**, bukan dari diff Task 1.
+- `operational-income-helpers.ts`: **clean** (0 issues).
+- `route.ts` (operational-income): 2 issues baru dari Task 3 — `unitTx` assigned-but-never-used (line 155, create result not consumed), `(result as any).newBalance` (line 241). Keduanya minor/non-blocking.
+- `laporan/page.tsx`: semua issues pre-existing (shared 2100-line file untuk 10+ unit types).
+
+*Diperbarui: 30 Juni 2026*
