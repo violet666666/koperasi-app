@@ -34,6 +34,10 @@ const DEFAULT_SHU_CONFIG = {
 // void reversal terkait harus dikecualikan dari SHU income
 const VOID_CATEGORIES = ["void_penjualan_toko", "void_unit_transaction"];
 
+// Kategori CB income yg adalah MIRROR dari StoreSale/UnitTransaction (sudah terwakili di revenue).
+// Harus di-exclude dari unitBreakdown revenue supaya tidak dobel-hitung.
+const MIRROR_INCOME_CATEGORIES = ["pendapatan_unit", "pendapatan_toko"];
+
 // Kategori CashBankTransaction yang BUKAN expense operasional (blacklist approach)
 // Semua kategori selain ini dianggap sebagai pengeluaran operasional untuk SHU
 const NON_EXPENSE_CATEGORIES = [
@@ -427,7 +431,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
 
     // 1.5 Hitung Breakdown Per Unit (baik journal maupun fallback path)
     // Menggunakan blacklist untuk menangkap SEMUA expense operasional
-    const [storeSalesRaw, unitTxByUnit, expenseByUnit, unitTxByMethod] = await Promise.all([
+    const [storeSalesRaw, unitTxByUnit, expenseByUnit, unitTxByMethod, nonMirrorIncomeByUnit] = await Promise.all([
         // StoreSale via findMany — HINDARI groupBy + filter void Prisma JSON NULL bug.
         // Satu findMany melayani aggregasi by-unit DAN by-method.
         prisma.storeSale.findMany({
@@ -461,6 +465,19 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 transactionDate: { gte: startDate, lte: endDate },
                 isPaid: true,
                 status: "completed",
+            },
+            _sum: { amount: true },
+            _count: true,
+        }),
+        // CB income NON-MIRROR (operational, jasa_pinjaman, dana_resiko, dll) — masuk revenue per unit.
+        // EXCLUDE mirror POS + NON_INCOME + VOID supaya tidak dobel dgn StoreSale/UnitTransaction.
+        prisma.cashBankTransaction.groupBy({
+            by: ['unitType'],
+            where: {
+                transactionDate: { gte: startDate, lte: endDate },
+                type: "in",
+                journalId: null,
+                category: { notIn: [...NON_INCOME_CATEGORIES, ...VOID_CATEGORIES, ...MIRROR_INCOME_CATEGORIES] },
             },
             _sum: { amount: true },
             _count: true,
@@ -541,6 +558,14 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
         unitRevenueMap[ut].revenue += toNum(u._sum.amount);
         unitRevenueMap[ut].txCount += u._count;
+    }
+    // Merge CB income NON-MIRROR per canonical unit (operational dll — restore fix Task 5 yg terlalu radikal).
+    // Mirror POS (pendapatan_unit/pendapatan_toko) sengaja di-exclude (sudah via StoreSale/UT di atas).
+    for (const i of nonMirrorIncomeByUnit) {
+        const ut = i.unitType || "_operasional";
+        if (!unitRevenueMap[ut]) unitRevenueMap[ut] = { revenue: 0, txCount: 0 };
+        unitRevenueMap[ut].revenue += toNum(i._sum.amount);
+        unitRevenueMap[ut].txCount += i._count;
     }
 
     // Gabungkan juga unit yang hanya punya expense tapi tidak punya revenue
