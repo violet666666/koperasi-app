@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { isSameUnit } from "@/lib/unit-aliases";
+import { resolveIncomeMode } from "@/lib/services/operational-income-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ export async function POST(
         let transactionDate: string | null = null;
         let paymentMethod: string = "cash";
         let receiptImagePath: string | null = null;
+        let jenis: string = "operasional";
+        let memberId: string | null = null;
 
         const contentType = request.headers.get("content-type") || "";
 
@@ -56,6 +59,10 @@ export async function POST(
             transactionDate = formData.get("transactionDate") as string | null;
             const pm = String(formData.get("paymentMethod") || "cash");
             if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
+
+            const j = String(formData.get("jenis") || "operasional");
+            if (j === "customer" || j === "operasional") jenis = j;
+            memberId = (formData.get("memberId") as string | null) || null;
 
             const receiptFile = formData.get("receipt") as File | null;
             if (receiptFile && receiptFile.size > 0) {
@@ -92,6 +99,9 @@ export async function POST(
             transactionDate = body.transactionDate || null;
             const pm = body.paymentMethod || "cash";
             if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
+
+            jenis = body.jenis === "customer" ? "customer" : "operasional";
+            memberId = body.memberId ?? null;
         }
 
         if (!amount || amount <= 0) {
@@ -99,6 +109,14 @@ export async function POST(
         }
         if (!description) {
             return NextResponse.json({ message: "Keterangan pemasukan wajib diisi." }, { status: 400 });
+        }
+
+        const mode = resolveIncomeMode(jenis, memberId);
+        if (mode.memberId) {
+            const memberExists = await prisma.member.findUnique({ where: { id: mode.memberId }, select: { id: true } });
+            if (!memberExists) {
+                return NextResponse.json({ message: "Anggota tidak ditemukan." }, { status: 404 });
+            }
         }
 
         const currentUserId = parseInt(session.user.id);
@@ -117,21 +135,83 @@ export async function POST(
             ? `[${unitType.toUpperCase()}] Pemasukan Operasional: ${description}||RECEIPT:${receiptImagePath}`
             : `[${unitType.toUpperCase()}] Pemasukan Operasional: ${description}`;
 
-        const cashTx = await prisma.$transaction(async (tx) => {
-            // 3-step account lookup: unitTypes array → unitType → generic operational
+        const result = await prisma.$transaction(async (tx) => {
+            if (mode.createsUnitTransaction) {
+                // === TRANSAKSI CUSTOMER: create UnitTransaction (+ CB pendapatan_unit utk cash/qris) ===
+                const abbr = unitType.substring(0, 2).toUpperCase(); // sederhana; bisa pakai UNIT_ABBR_TX
+                const d = txDate;
+                const dd = String(d.getDate()).padStart(2, "0");
+                const mm = String(d.getMonth() + 1).padStart(2, "0");
+                const y = d.getFullYear();
+                const startOfTxDay = new Date(y, d.getMonth(), d.getDate());
+                const countToday = await tx.unitTransaction.count({
+                    where: { unitType, transactionDate: { gte: startOfTxDay } },
+                });
+                const utNo = `${abbr}${dd}${mm}${y}${String(countToday + 1).padStart(4, "0")}`;
+                const utNotes = receiptImagePath
+                    ? `[Transaksi Customer - Catat Pemasukan]||RECEIPT:${receiptImagePath}`
+                    : `[Transaksi Customer - Catat Pemasukan]`;
+
+                const unitTx = await tx.unitTransaction.create({
+                    data: {
+                        transactionNo: utNo,
+                        memberId: mode.memberId,
+                        unitType,
+                        description: description,
+                        amount: nominalAmount,
+                        transactionDate: txDate,
+                        paymentMethod,
+                        isPaid: true,
+                        paidDate: txDate,
+                        notes: utNotes,
+                        createdById: currentUserId,
+                    },
+                });
+
+                // Cash increment + CB pendapatan_unit (mirror ala unit-layanan/sales) — HANYA utk cash/qris.
+                // "lainnya" = non-kas, tidak sentuh saldo kas.
+                let cbTxNo: string | null = null;
+                if (paymentMethod === "cash" || paymentMethod === "qris") {
+                    const accountType = paymentMethod === "cash" ? "cash" : "bank";
+                    const targetAccount = await findUnitAccount(tx, unitType, accountType);
+                    if (targetAccount) {
+                        const updatedAccount = await tx.cashBankAccount.update({
+                            where: { id: targetAccount.id },
+                            data: { currentBalance: { increment: nominalAmount } },
+                        });
+                        const balanceBefore = Number(updatedAccount.currentBalance) - nominalAmount;
+                        const created = await tx.cashBankTransaction.create({
+                            data: {
+                                transactionNo: `UL-${paymentMethod === "cash" ? "KAS" : "BNK"}-${Date.now().toString(36).toUpperCase()}`,
+                                accountId: targetAccount.id,
+                                branchId,
+                                type: "in",
+                                category: "pendapatan_unit",
+                                amount: nominalAmount,
+                                balanceBefore,
+                                balanceAfter: Number(updatedAccount.currentBalance),
+                                unitType,
+                                paymentMethod,
+                                description: `Pendapatan ${unitType} ${paymentMethod === "cash" ? "Tunai" : "QRIS"} - ${utNo}`,
+                                transactionDate: txDate,
+                                createdById: currentUserId,
+                            },
+                        });
+                        cbTxNo = created.transactionNo;
+                    }
+                }
+                return { kind: "customer" as const, transactionNo: utNo, cbTxNo, amount: nominalAmount, memberId: mode.memberId };
+            }
+
+            // === PEMASUKAN OPERASIONAL (current behavior) ===
             const cashAccount = await findUnitAccount(tx, unitType, "cash");
-
             if (!cashAccount) throw new Error("Tidak ditemukan akun kas aktif untuk unit ini.");
-
-            // Atomic increment to prevent race condition
             const updatedAccount = await tx.cashBankAccount.update({
                 where: { id: cashAccount.id },
                 data: { currentBalance: { increment: nominalAmount } },
             });
-
             const balanceBefore = Number(updatedAccount.currentBalance) - nominalAmount;
-
-            return tx.cashBankTransaction.create({
+            const created = await tx.cashBankTransaction.create({
                 data: {
                     transactionNo,
                     accountId: cashAccount.id,
@@ -141,24 +221,29 @@ export async function POST(
                     amount: nominalAmount,
                     balanceBefore,
                     balanceAfter: Number(updatedAccount.currentBalance),
-                    unitType: unitType,
+                    unitType,
                     paymentMethod,
                     description: descWithMeta,
                     transactionDate: txDate,
                     createdById: currentUserId,
                 },
             });
+            return { kind: "operasional" as const, transactionNo: created.transactionNo, cbTxNo: null, amount: nominalAmount, newBalance: Number(created.balanceAfter), memberId: null };
         });
 
         return NextResponse.json({
-            message: "Pemasukan operasional berhasil dicatat.",
+            message: result.kind === "customer"
+                ? "Transaksi customer berhasil dicatat."
+                : "Pemasukan operasional berhasil dicatat.",
             data: {
-                transactionNo: cashTx.transactionNo,
+                transactionNo: result.transactionNo,
                 amount: nominalAmount,
-                newBalance: Number(cashTx.balanceAfter),
+                newBalance: (result as any).newBalance,
                 receiptImagePath,
                 description,
                 paymentMethod,
+                jenis: result.kind,
+                memberId: result.memberId,
             },
         }, { status: 201 });
 
