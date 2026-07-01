@@ -41,6 +41,7 @@ const ShiftScreen = React.lazy(() => import("./src/screens/kasir/ShiftScreen"));
 const RiwayatKasirScreen = React.lazy(() => import("./src/screens/kasir/RiwayatKasirScreen"));
 const EditNrpScreen = React.lazy(() => import("./src/screens/kasir/EditNrpScreen"));
 const DaftarPinjamanScreen = React.lazy(() => import("./src/screens/operator/DaftarPinjamanScreen"));
+const RiwayatAngsuranScreen = React.lazy(() => import("./src/screens/operator/RiwayatAngsuranScreen"));
 const RekeningListScreen = React.lazy(() => import("./src/screens/operator/RekeningListScreen"));
 const ProfilKoperasiScreen = React.lazy(() => import("./src/screens/operator/ProfilKoperasiScreen"));
 const KasBankScreen = React.lazy(() => import("./src/screens/operator/KasBankScreen"));
@@ -224,6 +225,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="LaporanPinjaman">{() => <LS><LaporanPinjamanScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="MemberDetail">{() => <LS><MemberDetailScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="DaftarPinjaman">{() => <LS><DaftarPinjamanScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="RiwayatAngsuran">{() => <LS><RiwayatAngsuranScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="RekeningList">{() => <LS><RekeningListScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="ProfilKoperasi">{() => <LS><ProfilKoperasiScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="KasBankFull">{() => <LS><KasBankScreen /></LS>}</Stack.Screen>

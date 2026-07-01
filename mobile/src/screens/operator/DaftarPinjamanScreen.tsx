@@ -183,6 +183,13 @@ export default function DaftarPinjamanScreen() {
               <Text style={styles.payBtnText}>Input Angsuran</Text>
             </TouchableOpacity>
           ) : null}
+          <TouchableOpacity
+            style={[styles.payBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.border }]}
+            onPress={() => navigation.navigate('RiwayatAngsuran', { loanId: item.id, loanNo: item.loanNo })}
+          >
+            <Ionicons name="time-outline" size={14} color={C.primary} />
+            <Text style={[styles.payBtnText, { color: C.primary }]}>Riwayat</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
