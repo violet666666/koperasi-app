@@ -117,7 +117,7 @@ export default function MasterDataHubScreen({ navigation }: any) {
                 <Text style={{ fontSize: 14, fontWeight: "bold", color: "#1e3a8a" }}>Catatan Penting</Text>
             </View>
             <Text style={{ fontSize: 12, color: "#2563eb", lineHeight: 18 }}>
-              Hanya administrator dan superadmin yang memiliki otorisasi untuk mengubah Master Data yang memengaruhi agregasi pencatatan pembukuan (seperti bunga, limit pinjaman, dll).
+              Hanya administrator dan operator yang memiliki otorisasi untuk mengubah Master Data yang memengaruhi agregasi pencatatan pembukuan (seperti bunga, limit pinjaman, dll).
             </Text>
         </View>
       </ScrollView>

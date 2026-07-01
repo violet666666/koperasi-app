@@ -40,7 +40,7 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
     }
   }, []);
 
-  const isOperator = ['operator', 'admin', 'superadmin', 'admin_unit', 'admin_sp'].includes(role);
+  const isOperator = ['operator', 'admin', 'admin_sp'].includes(role);
   const isKasir = role === 'kasir';
 
   // Poll unread notification count for operators
