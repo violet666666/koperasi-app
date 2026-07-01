@@ -247,7 +247,7 @@ export async function POST(request: Request) {
         // Kirim notifikasi ke semua operator/admin
         try {
             const admins = await prisma.user.findMany({
-                where: { role: { in: ["operator", "admin", "admin_unit"] }, fcmToken: { not: null } },
+                where: { role: { in: ["operator", "admin"] }, fcmToken: { not: null } },
                 select: { fcmToken: true }
             });
 

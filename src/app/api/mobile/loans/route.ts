@@ -18,7 +18,7 @@ export async function GET(request: Request) {
         }
 
         const loans = await prisma.loan.findMany({
-            where: { memberId: user.memberId },
+            where: { memberId: user.memberId, status: { not: "voided" } },
             include: {
                 payments: {
                     orderBy: { paymentDate: "desc" },

@@ -23,7 +23,9 @@ export async function GET(request: Request) {
   const skip = (page - 1) * limit;
 
   try {
-    const where: Prisma.LoanWhereInput = {};
+    const where: Prisma.LoanWhereInput = {
+      status: { not: "voided" },
+    };
 
     if (statusFilter !== "all") {
       where.status = statusFilter;
@@ -61,11 +63,12 @@ export async function GET(request: Request) {
       prisma.loan.count({ where }),
     ]);
 
-    // Summary stats (global, not filtered by search)
+    // Summary stats (global, not filtered by search; exclude voided)
     const summary = await prisma.loan.groupBy({
       by: ["status"],
       _count: { id: true },
       _sum: { principalOutstanding: true },
+      where: { status: { not: "voided" } },
     });
 
     const summaryMap: Record<string, { count: number; outstanding: number }> =
