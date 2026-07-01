@@ -102,6 +102,7 @@ NODE_ENV           — development/production
 - **E2E:** Playwright (`e2e/`, 8 spec files including haji-umrah)
 - **Test accounts:** See `akun-primkoppol.md`
 - **Pre-existing failing tests (NOT regressions):** `split-bill` (group-id `SB-` format), `batch-navigation` (cafe-lsp item count), `floor-plan`/`queue-system` (stale types). Prove a failure isn't yours with `git stash push <your files>` + retest before digging in.
+- **Pre-existing tsc errors (NOT regressions; `npm run build` still succeeds):** a handful from `api/mobile/toko/shifts/[id]` (Next.js async-params validator: `params: Promise`) + `prisma/seed-kas-bank-jatim.ts` + `prisma/seed-uat.ts`. `npx tsc --noEmit` surfaces them — ignore unless in a file you changed.
 
 ## Gotchas
 
@@ -109,6 +110,7 @@ NODE_ENV           — development/production
 - **Two export systems exist**: `src/lib/export-utils.ts` (primary, browser-print PDF) and `src/lib/utils/export.ts` (secondary, jsPDF) — check both before adding export features
 - **Unit laporan page** (`unit/[unitSlug]/laporan/page.tsx`, ~2100 lines) is shared by ALL 10+ unit types — changes affect every unit
 - **StoreSale** uses `saleNo`, `UnitTransaction` uses `transactionNo` for references
+- **`StoreSaleItem.subtotal` is the LINE TOTAL** (`unitPrice × quantity`), NOT a per-unit price — don't × `quantity` when summing omzet. `costPrice` IS per-unit (×qty for HPP). `StoreSale.totalAmount` = Σ subtotal + takeaway surcharge.
 - Column names are `snake_case` in DB (`@map`) but `camelCase` in Prisma models
 - `StoreSale.metadata` is JSON — void check uses `NOT: { metadata: { path: ["isVoided"], equals: true } }`
 - Files stored as Base64 in DB (`UploadedFile`) — Vercel has read-only filesystem
@@ -127,6 +129,9 @@ NODE_ENV           — development/production
 - **`.remember/` dir** (`logs/memory-YYYY-MM-DD.log`, `today-*.md`, `remember.md` handoff, `recent.md`, `archive.md`) = `/remember:remember` skill state. Read it to reconstruct a force-closed/lost session before re-asking the user.
 - **`CASH_BANK_CATEGORIES`** (`constants/index.ts`, 13 keys) is the cash-bank UI dropdown enum, NOT the full set of valid DB categories. Subsystems also write `pendapatan_toko`, `operational`, `savings`, `penalti_pelunasan`, `void_penjualan_toko`, `void_unit_transaction`, `salary_cut_settlement`. For validity checks use the `VALID_CB_CATEGORIES` superset in `anomaly-detector.ts` — naive `!isKnownCategory()` false-flags 4,000+ legit txs.
 - **UI page logic isn't unit-tested directly** (no component-test harness) — extract pure logic to `src/lib/*-helpers.ts` + unit-test there (`loan-edit-helpers.ts`, `loan-void-helpers.ts`, `services/billing.ts`), then call it from the page. This is the repo's testable-UI pattern.
+- **SHU `unitBreakdown` revenue dedup — exclude ONLY POS-mirror CB categories** (`pendapatan_unit`, `pendapatan_toko`; const `MIRROR_INCOME_CATEGORIES` in `shu-calculator.ts`) since they mirror StoreSale/UnitTransaction. Keep non-mirror (`operational`, `jasa_pinjaman`, `dana_resiko`). Removing ALL CB income over-excludes (= past regression).
+- **SHU calculator has known OPEN bugs (not yet fixed):** summary card "Total Pendapatan" double-counts ~Rp240jt (akun 4201 journal + CB mirror); `memberRatio`/`storeContrib` + `soldItems` COGS carry the void-filter Prisma JSON NULL bug → SHU per-anggota under-counted. Diagnose via `scripts/diagnose-shu-*.ts`; details in memory `shu-pendapatan-dobel-hitung-2026`.
+- **"Catat Pemasukan"** (admin, unit Laporan page → `/api/unit/[slug]/operational-income`) has Jenis: **Transaksi Customer** creates `UnitTransaction` (+CB `pendapatan_unit`) → flows to riwayat + SHU per-unit + member jasa-usaha; **Pemasukan Operasional** creates CB `operational` only (sewa/dll). Record TYPE controls visibility, not paymentMethod.
 
 ## Branches & Deploy
 
