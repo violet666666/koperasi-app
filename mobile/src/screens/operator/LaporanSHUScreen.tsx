@@ -184,6 +184,34 @@ export default function LaporanSHUScreen({ navigation }: any) {
               </View>
             </View>
 
+            {/* Laba Kotor per Unit */}
+            {Array.isArray(data.unitGrossProfit) && data.unitGrossProfit.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🏷️ Laba Kotor per Unit</Text>
+                <Text style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+                  Pendapatan bersih item terjual = Omzet − HPP
+                </Text>
+                {data.unitGrossProfit.map((u: any) => (
+                  <View key={u.unitType} style={styles.detailRow}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.detailLabel}>{u.label}</Text>
+                      <Text style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                        Omzet {formatRupiah(u.omzet)} · HPP {formatRupiah(u.hpp)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#10B981" }}>
+                        {formatRupiah(u.labaKotor)}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                        {u.margin}% margin
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Income Details */}
             {data.incomeDetails && data.incomeDetails.length > 0 && (
               <View style={styles.section}>
