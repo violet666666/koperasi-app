@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
+import { computeUnitGrossProfit } from "@/lib/services/shu-gross-profit";
 
 // GET /api/mobile/reports/shu-calculator
 // Uses the SAME calculator as web admin to ensure consistent data
@@ -18,8 +19,15 @@ export async function GET(request: Request) {
         const monthParam = searchParams.get("month");
         const month = (!monthParam || monthParam === "all") ? undefined : parseInt(monthParam);
 
-        // Gunakan kalkulator yang sama agar data konsisten
-        const result = await calculateSystemSHU(year, month);
+        // Hitung SHU kanonik + card Laba Kotor (non-fatal: jika gagal, card kosong).
+        // Mirror pola /api/reports/shu/route.ts.
+        const [result, unitGrossProfit] = await Promise.all([
+          calculateSystemSHU(year, month),
+          computeUnitGrossProfit(year, month).catch((err) => {
+            console.error("computeUnitGrossProfit failed:", err);
+            return [];
+          }),
+        ]);
 
         // Reshape ke format yang diharapkan mobile app
         const allocations = result.allocationsMember.map((a: any) => ({
@@ -55,6 +63,7 @@ export async function GET(request: Request) {
                 expenseDetails: result.expenseDetails,
                 topMembers,
                 unitBreakdown: result.unitBreakdown,
+                unitGrossProfit, // GrossProfitRow[] (toko/resto/cafe_lsp) atau [] jika gagal
                 summary: {
                     totalSavingsAll: result.totalSavingsCapital,
                     totalLoanContribAll: 0,
