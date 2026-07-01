@@ -335,7 +335,6 @@ export async function POST(request: Request) {
         });
     } catch (error) {
         console.error("POST /api/mobile/loan-payment error:", error);
-        const detail = error instanceof Error ? error.message : "Gagal memproses angsuran";
-        return NextResponse.json({ message: `Gagal memproses angsuran: ${detail}` }, { status: 500 });
+        return NextResponse.json({ message: "Gagal memproses angsuran" }, { status: 500 });
     }
 }
