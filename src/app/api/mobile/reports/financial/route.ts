@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { buildBalanceSheet } from "@/lib/services/neraca";
+import { toMobileNeracaShape } from "@/lib/services/mobile-neraca-shape";
 
 interface AccountRow {
     id: number;
@@ -69,33 +71,11 @@ export async function GET(request: Request) {
         const totalExpense = expenseItems.reduce((sum, i) => sum + i.amount, 0);
         const netIncome = totalRevenue - totalExpense;
 
-        // --- Susun Neraca ---
-        const currentAssets = results
-            .filter((a) => a.type === "asset" && a.category === "current_asset")
-            .map((a) => ({ code: a.code, name: a.name, amount: a.normal_balance === "credit" ? -a.balance : a.balance }));
-        const fixedAssets = results
-            .filter((a) => a.type === "asset" && a.category === "fixed_asset")
-            .map((a) => ({ code: a.code, name: a.name, amount: a.normal_balance === "credit" ? -a.balance : a.balance }));
-
-        const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + a.amount, 0);
-        const totalFixedAssets = fixedAssets.reduce((sum, a) => sum + a.amount, 0);
-        const totalAssets = totalCurrentAssets + totalFixedAssets;
-
-        const currentLiabilities = results
-            .filter((a) => a.type === "liability" && a.category === "current_liability")
-            .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
-
-        const totalLiabilities = currentLiabilities.reduce((sum, a) => sum + a.amount, 0);
-
-        const equityItems = results
-            .filter((a) => a.type === "equity")
-            .map((a) => ({ code: a.code, name: a.name, amount: a.balance }));
-
-        const hasShuAccount = equityItems.some((e) => e.code === "3103");
-        if (!hasShuAccount && netIncome !== 0) {
-            equityItems.push({ code: "3103", name: "SHU Tahun Berjalan", amount: netIncome });
-        }
-        const totalEquity = equityItems.reduce((sum, a) => sum + a.amount, 0);
+        // --- Neraca (ledger-based, via buildBalanceSheet) ---
+        // Mengganti perhitungan journal-only lama (bug: simpanan = 0).
+        // Laba-rugi (di atas) tetap memakai journal YTD.
+        const balanceSheet = await buildBalanceSheet();
+        const neraca = toMobileNeracaShape(balanceSheet);
 
         return NextResponse.json({
             data: {
@@ -105,25 +85,7 @@ export async function GET(request: Request) {
                     expenses: { items: expenseItems, total: totalExpense },
                     netIncome,
                 },
-                neraca: {
-                    assets: {
-                        current: currentAssets,
-                        fixed: fixedAssets,
-                        totalCurrentAssets,
-                        totalFixedAssets,
-                        totalAssets,
-                    },
-                    liabilities: {
-                        shortTerm: currentLiabilities,
-                        longTerm: [],
-                        totalLiabilities,
-                    },
-                    equity: {
-                        items: equityItems,
-                        totalEquity,
-                    },
-                    totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
-                }
+                neraca,
             }
         });
 
