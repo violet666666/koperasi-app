@@ -10,7 +10,7 @@ Audit mobile vs web (2026-07-01, 3 sub-agent) menemukan mobile ketinggalan di 3 
 
 ## Status keseluruhan
 - [x] **Fase 1** — Refresh layar stale (SHU Laba Kotor + Neraca ledger). ✅ DONE, deployed 2026-07-01.
-- [ ] **Fase 2** — Bug integritas uang mobile API (Tier 1 Critical). ⬅ NEXT.
+- [~] **Fase 2** — Bug integritas uang mobile API. **2a loan-payment DONE** (FIFO allocation + PaymentAllocation + atomic, review-approved, deploy-pending; commits ea71f02..4301564). **2b savings-tx NEXT** (atomic CashBank + AD-ART Pasal 26 + category "savings").
 - [ ] **Fase 3** — Fitur parity besar (pilih satu saat mulai).
 - [ ] **Fase 4** — Hardening cepat (Tier 1+2 ringan).
 - [ ] **EAS Build** — update app di device (setelah semua fase).
