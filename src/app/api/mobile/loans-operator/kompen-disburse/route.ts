@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
             const year = baseDate.getFullYear();
             const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-            const appNo = `APP-${year}-${Math.floor(Math.random() * 100000).toString().padStart(5, "0")}`;
+            const appNo = `APP-${year}-${(crypto.randomBytes(4).readUInt32BE(0) % 100000).toString().padStart(5, "0")}`;
             const lastLoan = await tx.loan.findFirst({ orderBy: { id: "desc" }, select: { id: true } });
             const loanSeq = (lastLoan?.id || 0) + 1;
             const loanNo = `PJM-${year}-${loanSeq.toString().padStart(4, "0")}`;
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
                 interestOutstanding: Number(existingLoan.interestOutstanding),
                 principalPaid: Number(existingLoan.principalPaid),
             });
-            const payNo = `PAY-${year}-${Math.floor(Math.random() * 1000000).toString().padStart(6, "0")}`;
+            const payNo = `PAY-${year}-${(crypto.randomBytes(4).readUInt32BE(0) % 1000000).toString().padStart(6, "0")}`;
             const kompenPayment = await tx.loanPayment.create({
                 data: {
                     paymentNo: payNo, loanId: existingLoanId, memberId, branchId: member.branchId,
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
                 const balAfterOut = balBefore - disbursedToMember;
                 await tx.cashBankTransaction.create({
                     data: {
-                        transactionNo: `KK-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                        transactionNo: `KK-${(crypto.randomBytes(4).readUInt32BE(0) % 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
                         accountId: cashAccount.id, branchId: member.branchId,
                         type: "out", amount: disbursedToMember, balanceBefore: balBefore, balanceAfter: balAfterOut,
                         category: "pencairan_pinjaman",
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
                 const balAfterIn = balAfterOut + principalOutstanding;
                 await tx.cashBankTransaction.create({
                     data: {
-                        transactionNo: `KM-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                        transactionNo: `KM-${(crypto.randomBytes(4).readUInt32BE(0) % 10000).toString().padStart(4, "0")}/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
                         accountId: cashAccount.id, branchId: member.branchId,
                         type: "in", amount: principalOutstanding, balanceBefore: balAfterOut, balanceAfter: balAfterIn,
                         category: "angsuran_pokok",
@@ -177,7 +178,7 @@ export async function POST(request: Request) {
                     const balAfterPenalty = balAfterIn + penaltyFee;
                     await tx.cashBankTransaction.create({
                         data: {
-                            transactionNo: `KM-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}-P/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
+                            transactionNo: `KM-${(crypto.randomBytes(4).readUInt32BE(0) % 10000).toString().padStart(4, "0")}-P/PRIM/${romawi[baseDate.getMonth() + 1]}/${year}`,
                             accountId: cashAccount.id, branchId: member.branchId,
                             type: "in", amount: penaltyFee, balanceBefore: balAfterIn, balanceAfter: balAfterPenalty,
                             category: "penalti_pelunasan",

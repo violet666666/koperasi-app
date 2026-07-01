@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../middleware"; // adjust path if needed
 import { createLoanApplicationSchema } from "@/lib/validations";
@@ -6,7 +7,7 @@ import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
 
 function generateApplicationNo(date: Date): string {
     const year = date.getFullYear();
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+    const random = (crypto.randomBytes(4).readUInt32BE(0) % 100000).toString().padStart(5, "0");
     return `APP-${year}-${random}`;
 }
 

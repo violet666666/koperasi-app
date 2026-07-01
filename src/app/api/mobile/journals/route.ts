@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../middleware";
 
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
         }
 
         const journalPrefix = "JU/ADJ";
-        const randomStr = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+        const randomStr = (crypto.randomBytes(4).readUInt32BE(0) % 1000).toString().padStart(3, "0");
 
         const result = await prisma.$transaction(async (tx) => {
             const journal = await tx.journal.create({
