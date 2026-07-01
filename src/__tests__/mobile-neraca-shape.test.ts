@@ -81,6 +81,13 @@ describe("toMobileNeracaShape", () => {
     expect(Math.abs(m.assets.totalAssets - m.totalLiabilitiesAndEquity)).toBeLessThan(1);
   });
 
+  it("forwards bs.isBalanced (true and false)", () => {
+    const balanced = toMobileNeracaShape(fixture());
+    expect(balanced.isBalanced).toBe(true);
+    const imbalanced = toMobileNeracaShape(fixture({ isBalanced: false }));
+    expect(imbalanced.isBalanced).toBe(false);
+  });
+
   it("drops the `source` field from items", () => {
     const m = toMobileNeracaShape(fixture());
     expect((m.assets.current[0] as any).source).toBeUndefined();

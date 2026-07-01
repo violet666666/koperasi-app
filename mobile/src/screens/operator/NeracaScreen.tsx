@@ -53,7 +53,7 @@ export default function NeracaScreen({ navigation }: any) {
   if (!data) return null;
 
   const { neraca } = data;
-  const isBalanced = Math.abs(neraca.totalAssets - neraca.totalLiabilitiesAndEquity) < 1;
+  const isBalanced = neraca.isBalanced ?? (Math.abs(neraca.totalAssets - neraca.totalLiabilitiesAndEquity) < 1);
 
   const renderSection = (title: string, items: any[], total: number) => (
     <View style={styles.sectionContainer}>

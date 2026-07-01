@@ -24,6 +24,7 @@ export interface MobileNeracaShape {
     totalEquity: number;
   };
   totalLiabilitiesAndEquity: number;
+  isBalanced?: boolean;
 }
 
 const sum = (items: { amount: number }[]) => items.reduce((s, i) => s + i.amount, 0);
@@ -65,5 +66,6 @@ export function toMobileNeracaShape(bs: BalanceSheetResult): MobileNeracaShape {
       totalEquity: bs.equity.totalEquity,
     },
     totalLiabilitiesAndEquity: bs.liabilities.totalLiabilities + bs.equity.totalEquity,
+    isBalanced: bs.isBalanced,
   };
 }
