@@ -12,7 +12,7 @@ Audit mobile vs web (2026-07-01, 3 sub-agent) menemukan mobile ketinggalan di 3 
 - [x] **Fase 1** — Refresh layar stale (SHU Laba Kotor + Neraca ledger). ✅ DONE, deployed 2026-07-01.
 - [x] **Fase 2** — Bug integritas uang mobile API. **DONE** (2a loan-payment FIFO allocation + 2b savings-tx atomic+AD-ART; review-approved opus; commits c4cec9a..58d07a8; deploy-pending). RBAC auth/IDOR systemic gap deferred to Fase 4.
 - [x] **Fase 3 (Void Angsuran)** — Fitur parity batch 1. **DONE** (API void reusing payment-void-helpers + list-payments + RiwayatAngsuranScreen UI; review-approved opus; commits e9a9ce9..c4217aa; deploy-pending). ⚠ Expo visual verify deferred. Sisa fitur (Piutang Gabungan/Tagihan/Haji-Umrah) = batch sesi lanjutan.
-- [ ] **Fase 4** — Hardening cepat (Tier 1+2 ringan).
+- [x] **Fase 4 (mechanical)** — Hardening DONE (Math.random→crypto CRITICAL-resolved, stale roles, cafe_lsp POS, paymentMethod 3-way, loan void filter, drop admin_unit; commits 2dd06ac..5c73344; review-approved opus). Payroll/NRP-login deferred (no web precedent). ⏭ **Fase 4b RBAC scoping** (3 routes flagged, systemic) + **EAS build #1** pending.
 - [ ] **EAS Build** — update app di device (setelah semua fase).
 
 ---
