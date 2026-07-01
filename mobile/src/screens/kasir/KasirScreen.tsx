@@ -38,6 +38,7 @@ interface PiutangInfo {
 // ── Constants ──────────────────────────────────────────────────────────────
 const UNIT_TYPES = [
   { id: 'toko', name: 'Toko Sembako' },
+  { id: 'cafe_lsp', name: 'Cafe LSP' },
   { id: 'resto_cafe', name: 'Resto & Cafe' },
   { id: 'cuci_mobil', name: 'Cuci Mobil & Mtr' },
   { id: 'barbershop', name: 'Barbershop' },

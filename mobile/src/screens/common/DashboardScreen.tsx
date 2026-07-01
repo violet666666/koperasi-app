@@ -337,7 +337,7 @@ export default function DashboardScreen({ setToken }: any) {
                   </View>
                   <View style={styles.salesRow}>
                     <Text style={styles.salesMethod}>
-                      {sale.paymentMethod === "cash" ? "Tunai" : "Kredit"}
+                      {({ cash: "Tunai", qris: "QRIS", lainnya: "Lainnya" } as Record<string, string>)[sale.paymentMethod] || "Lainnya"}
                     </Text>
                     <Text style={styles.salesAmount}>
                       {formatRp(sale.totalAmount)}
