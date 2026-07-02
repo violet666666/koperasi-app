@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
-import { canAccessBranch } from "@/lib/mobile-auth-scope";
+import { branchListFilter, canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
 import { isWithdrawalBlocked } from "@/lib/savings-helpers";
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 
 // GET /api/mobile/savings-tx?memberId=xxx — Get savings accounts of a member
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     // Hanya operator, admin, kasir yang bisa melihat saldo akun simpanan
@@ -152,6 +152,9 @@ export async function GET(request: Request) {
     if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
+
+    const f = branchListFilter(user);
+    if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
     const url = new URL(request.url);
     const memberId = url.searchParams.get("memberId");
@@ -162,7 +165,7 @@ export async function GET(request: Request) {
 
     try {
         const accounts = await prisma.savingsAccount.findMany({
-            where: { memberId: Number(memberId), status: "active" },
+            where: { ...f.filter, memberId: Number(memberId), status: "active" },
             include: { product: { select: { name: true, type: true } } },
         });
 

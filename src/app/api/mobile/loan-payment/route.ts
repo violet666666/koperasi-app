@@ -260,8 +260,9 @@ export async function POST(request: Request) {
 
             // 6. Cash/Bank posts (if account selected)
             if (cashBankAccountId) {
+                const cbf = branchListFilter(user);
                 const cashAccount = await tx.cashBankAccount.findFirst({
-                    where: { id: Number(cashBankAccountId), isActive: true },
+                    where: { id: Number(cashBankAccountId), isActive: true, ...(cbf.ok ? cbf.filter : { branchId: -1 }) },
                 });
                 if (!cashAccount) throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
 
