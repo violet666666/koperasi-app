@@ -14,9 +14,9 @@
 - [x] **Fase 3 (Void Angsuran)** — API void + list-payments + RiwayatAngsuranScreen UI. ✅ DONE + **deployed** (`e9a9ce9..c4217aa`).
 - [x] **Fase 4 (mechanical)** — Hardening (Math.random→crypto CRITICAL-resolved + stale roles + cafe_lsp + void filter + drop admin_unit). ✅ DONE + **deployed** (`2dd06ac..5c73344`).
 - [x] **EAS Build #1** — ✅ **FINISHED** (commit `5ed2d5b`, v1.1.2/vc3). APK: `https://expo.dev/artifacts/eas/eThiL10I6G1Iw9403oyx0lo59a2pAFEwgwHAeu2gaDE.apk`. ⏭ Smoke test device + Play Store `.aab` submit pending.
-- [~] **Fase 4b** — RBAC unit/branch scoping. Spec + plan written (`docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-scope*`). **SDD executing** — 8 P0 write routes + pure helper `mobile-auth-scope.ts`.
+- [x] **Fase 4b** — RBAC unit/branch scoping. ✅ DONE + **deployed** (`4cf135e..c9d1972`, pushed `e376ab8..c9d1972`). Pure helper `mobile-auth-scope.ts` (9 tests) + `getMobileUserWithScope` + scope checks on 8 P0 write routes. Final opus review APPROVED; prod diagnostic clean.
 
-**Push status:** Fase 1-4 **all PUSHED + API deployed** (`4541674..e376ab8`, includes `5ed2d5b` app.json bump). EAS build #1 APK **done**. Fase 4b in progress (local, unpushed until review-approved).
+**Push status:** Fase 1-4 + Fase 4b **all PUSHED + API deployed** (`e376ab8..c9d1972`). EAS build #1 APK **done** (smoke test pending).
 
 ---
 
@@ -55,14 +55,13 @@ Plan: `docs/superpowers/plans/2026-07-02-mobile-hardening-fase4.md`.
 
 ---
 
-## [~] Fase 4b — RBAC unit/branch scoping (IN PROGRESS)
-**Spec + plan written:** `docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-scope*.md`.
-**Root cause:** mobile JWT (`MobileJWTPayload`) lacks `unitType/memberId/permissions` → server can't scope without DB lookup. ~20 staff routes have role-check but no resource-ownership check; 8 routes have no role check at all.
-**Approach (approved):** DB-lookup `getMobileUserWithScope()` (1 `user.findUnique`) + pure helper `src/lib/mobile-auth-scope.ts` (`canAccessBranch`/`canAccessUnit`, operator bypass, branch exact-match, unit alias-family match via `STORE_SALE_ALIASES`/`UNIT_TYPE_ALIASES`, null→fail-closed 403).
-**Scope (approved: Focused = all P0 writes):** 8 routes — `loan-payment`, `savings-tx`, `loan-payment-void`, `direct-disburse`, `kompen-disburse` (branch); `toko`, `unit-layanan`, `toko/stock-in` (unit). `journals` POST = no change (manual journals post to head office by design; role check is the gate).
-**Judgment calls (approved):** (1) null scope → fail-closed 403 + pre-deploy diagnostic `scripts/diagnose-mobile-staff-null-scope.ts`; (2) journals no-change.
-**Out of scope (deferred):** GET handlers (P1 cross-branch read), no-role-check routes (P2), member-portal self-scoping (already memberId-scoped).
-**Execution:** SDD, 5 tasks. Ledger `.superpowers/sdd/progress.md`.
+## ✅ Fase 4b — RBAC unit/branch scoping (DONE + DEPLOYED)
+**Spec + plan:** `docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-scope*.md`. Commits `4cf135e..c9d1972`, pushed `e376ab8..c9d1972` (Railway auto-deploy).
+**Root cause fixed:** mobile JWT lacked `unitType/memberId/permissions` → server couldn't scope. Now `getMobileUserWithScope()` loads fresh scope from DB (1 lookup).
+**Built:** pure helper `src/lib/mobile-auth-scope.ts` (`canAccessBranch`/`canAccessUnit`, operator bypass, branch exact-match, unit alias-family match, null→fail-closed 403; 9 unit tests) + scope checks on 8 P0 write routes (5 SP by branch: loan-payment, savings-tx, loan-payment-void, direct-disburse, kompen-disburse; 3 unit by unitType: toko, unit-layanan, toko/stock-in). `journals` POST unchanged (head-office by design).
+**Review:** final opus whole-branch APPROVED (security trace clean). **Prod diagnostic clean** (23 staff, 0 null-scope → no lockout). API-only (no EAS build).
+**Deferred:** GET handlers (P1 cross-branch read), no-role-check routes (P2: loan-payment GET, toko GET, unit-packages, assets/[id], payroll slip, members/[id]/piutang), member-portal self-scoping (already memberId-scoped). Pre-existing tsc in direct-disburse + toko/history (add to CLAUDE.md list later).
+**Ledger:** `.superpowers/sdd/progress.md`.
 
 ---
 
