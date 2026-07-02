@@ -13,10 +13,10 @@
 - [x] **Fase 2** — Money-integrity (2a loan-payment allocation + 2b savings-tx atomic/AD-ART). ✅ DONE + **deployed** (`c4cec9a..58d07a8`).
 - [x] **Fase 3 (Void Angsuran)** — API void + list-payments + RiwayatAngsuranScreen UI. ✅ DONE + **deployed** (`e9a9ce9..c4217aa`).
 - [x] **Fase 4 (mechanical)** — Hardening (Math.random→crypto CRITICAL-resolved + stale roles + cafe_lsp + void filter + drop admin_unit). ✅ DONE + **deployed** (`2dd06ac..5c73344`).
-- [~] **EAS Build #1** — `mobile/app.json` **sudah di-bump → version 1.1.2 / versionCode 3** (working tree, belum commit). ⏭ **NEXT: jalankan `eas build` + smoke test device** (user action).
-- [ ] **Fase 4b** — RBAC unit/branch scoping (separate spec, systemic, ~20 mobile routes).
+- [x] **EAS Build #1** — ✅ **FINISHED** (commit `5ed2d5b`, v1.1.2/vc3). APK: `https://expo.dev/artifacts/eas/eThiL10I6G1Iw9403oyx0lo59a2pAFEwgwHAeu2gaDE.apk`. ⏭ Smoke test device + Play Store `.aab` submit pending.
+- [~] **Fase 4b** — RBAC unit/branch scoping. Spec + plan written (`docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-scope*`). **SDD executing** — 8 P0 write routes + pure helper `mobile-auth-scope.ts`.
 
-**Push status:** Fase 1-4 **all PUSHED + API deployed** (push `4541674..e376ab8`). `mobile/app.json` bump + dokumen ini = lokal (unpushed; tidak affect API deploy).
+**Push status:** Fase 1-4 **all PUSHED + API deployed** (`4541674..e376ab8`, includes `5ed2d5b` app.json bump). EAS build #1 APK **done**. Fase 4b in progress (local, unpushed until review-approved).
 
 ---
 
@@ -46,18 +46,23 @@ Plan: `docs/superpowers/plans/2026-07-02-mobile-hardening-fase4.md`.
 
 ---
 
-## ⏭ NEXT — EAS Build #1 (USER ACTION)
-`mobile/app.json` **sudah di-bump** (working tree): `version` 1.1.1→**1.1.2**, `android.versionCode` 2→**3**. (Catatan: file ini juga punya modif non-mine linier 1.1.0→1.1.1 + add versionCode — aman, bagian dari lineage versi.)
-1. **(Opsional) commit app.json** agar bump tercatat: `git add mobile/app.json && git commit -m "chore(mobile): bump version 1.1.2 / versionCode 3 for EAS build #1"`. (Tidak affect API deploy.)
-2. **Build:** `cd mobile && npx eas build --platform android --profile production` (butuh EAS auth, agak lama — jalankan di terminal Anda). Lihat `mobile/eas.json`, `mobile/PLAY-STORE-RELEASE-GUIDE.md`.
-3. **Smoke test device:** card Laba Kotor (Laporan SHU), simpanan terisi + badge Selisih (Neraca), Daftar Pinjaman → Riwayat Angsuran → VOID satu pembayaran.
-4. **Upload Play Store** via EAS Submit (keystore `primkoppol-upload.keystore` siap).
+## ✅ EAS Build #1 — FINISHED
+`mobile/app.json` bumped (commit `5ed2d5b`): `version` 1.1.2, `android.versionCode` 3. Build submitted + completed via EAS (account `violet666`, profile `production` = APK, distribution STORE), building from `5ed2d5b`.
+- **APK download:** `https://expo.dev/artifacts/eas/eThiL10I6G1Iw9403oyx0lo59a2pAFEwgwHAeu2gaDE.apk` (signed URL, expires ~30 days)
+- **Build page:** https://expo.dev/accounts/violet666/projects/koperasi-primkoppol/builds/570436f9-d608-4475-9904-f7f4df1c2639
+- ⏭ **Smoke test device:** sideload APK → card Laba Kotor (Laporan SHU), simpanan terisi + badge Selisih (Neraca), Daftar Pinjaman → Riwayat Angsuran → VOID.
+- ⏭ **Play Store upload:** butuh profile `store` (`.aab`) + `eas submit` (keystore `primkoppol-upload.keystore` siap). Step terpisah.
 
 ---
 
-## ⏭ Fase 4b — RBAC unit/branch scoping (separate spec, sesi baru)
-Security hook (automated) flagged **3 route mobile** (loan-payment, savings-tx, loan-payment-void) untuk missing per-loan/member/branch authorization. **Systemic across ~20 mobile routes**, parity dengan web (web juga lacks). `operator`=manage_all (bukan gap, by design); `admin`/`admin_sp` unit-scoping = gap real tapi systemic.
-**Butuh spec sendiri:** role→scope rules (operator bypass; admin→unitType; admin_sp→SP/simpan_pinjam; kasir→POS) + reusable helper `assertMobileUserScope(user, {branchId?, unitType?})` + apply per-route. Juga review 2 deferral Fase 4 (payroll gate + NRP-login) di konteks RBAC.
+## [~] Fase 4b — RBAC unit/branch scoping (IN PROGRESS)
+**Spec + plan written:** `docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-scope*.md`.
+**Root cause:** mobile JWT (`MobileJWTPayload`) lacks `unitType/memberId/permissions` → server can't scope without DB lookup. ~20 staff routes have role-check but no resource-ownership check; 8 routes have no role check at all.
+**Approach (approved):** DB-lookup `getMobileUserWithScope()` (1 `user.findUnique`) + pure helper `src/lib/mobile-auth-scope.ts` (`canAccessBranch`/`canAccessUnit`, operator bypass, branch exact-match, unit alias-family match via `STORE_SALE_ALIASES`/`UNIT_TYPE_ALIASES`, null→fail-closed 403).
+**Scope (approved: Focused = all P0 writes):** 8 routes — `loan-payment`, `savings-tx`, `loan-payment-void`, `direct-disburse`, `kompen-disburse` (branch); `toko`, `unit-layanan`, `toko/stock-in` (unit). `journals` POST = no change (manual journals post to head office by design; role check is the gate).
+**Judgment calls (approved):** (1) null scope → fail-closed 403 + pre-deploy diagnostic `scripts/diagnose-mobile-staff-null-scope.ts`; (2) journals no-change.
+**Out of scope (deferred):** GET handlers (P1 cross-branch read), no-role-check routes (P2), member-portal self-scoping (already memberId-scoped).
+**Execution:** SDD, 5 tasks. Ledger `.superpowers/sdd/progress.md`.
 
 ---
 
