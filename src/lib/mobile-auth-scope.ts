@@ -52,3 +52,31 @@ export function canAccessUnit(scope: MobileScope, resourceUnitType: string): Sco
   }
   return { allowed: true };
 }
+
+export type ListFilterResult =
+  | { ok: true; filter: Record<string, unknown> }
+  | { ok: false };
+
+/** Returns the alias family containing `ut`, or [ut] if none. */
+function unitFamilyContaining(ut: string): string[] {
+  for (const family of UNIT_FAMILIES) {
+    if (family.includes(ut)) return family;
+  }
+  return [ut];
+}
+
+/** LIST queries: branch filter for non-operator, {} for operator.
+ *  Non-operator with null branchId => ok:false (fail-closed). */
+export function branchListFilter(scope: MobileScope): ListFilterResult {
+  if (scope.role === OPERATOR) return { ok: true, filter: {} };
+  if (scope.branchId == null) return { ok: false };
+  return { ok: true, filter: { branchId: scope.branchId } };
+}
+
+/** LIST queries: unit-family filter for non-operator, {} for operator.
+ *  Non-operator with null unitType => ok:false (fail-closed). */
+export function unitListFilter(scope: MobileScope): ListFilterResult {
+  if (scope.role === OPERATOR) return { ok: true, filter: {} };
+  if (scope.unitType == null) return { ok: false };
+  return { ok: true, filter: { unitType: { in: unitFamilyContaining(scope.unitType) } } };
+}
