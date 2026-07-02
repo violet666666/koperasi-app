@@ -84,8 +84,8 @@ if (!user || !["operator", "admin_sp"].includes(user.role)) {
 }
 ```
 
-**Query params:** `?page=&perPage=&search=&export=`
-- `page` (default 1), `perPage` (default 25, clamped 1..100), `search` (optional, case-insensitive contains on nama/nrp/pangkat/kesatuan), `export=true` (return ALL rows, no pagination).
+**Query params:** `?page=&perPage=&search=&export=&format=`
+- `page` (default 1), `perPage` (default 25, clamped 1..100), `search` (optional, case-insensitive contains on nama/nrp/pangkat/kesatuan), `export=true` (return ALL rows as JSON, no pagination — web parity), `format=csv` (return the full set as a CSV text body via `buildPiutangCSV`, sanitized — used by the mobile share-sheet export).
 
 **Prisma fetches (mirror web exactly):**
 1. `member.findMany({ where: { status: "active", deletedAt: null }, select: {id,name,nrp,memberNo,pangkat,category,kesatuan}, orderBy: { name: "asc" } })`.
@@ -140,13 +140,12 @@ Mirror the existing mobile Laporan screens' style (see `LaporanPinjamanScreen.ts
 
 ### 6e — CSV export (expo-file-system + expo-sharing)
 
-On Export tap:
-1. Fetch `?export=true` → full `piutangList`.
-2. Build CSV string. **Columns (mirror web `exportColumns`):** `No, NRP, Pangkat, Kesatuan, Nama, Piutang Toko, Piutang Unit, Pokok Pinjaman, Jasa Pinjaman, Total Piutang`. Header row + one row per member + a final `TOTAL` row.
-3. **Sanitize formula injection** (CLAUDE.md gotcha): any cell whose value starts with `= + @ -` gets a leading `'` prefix. (NRP/nama are user data — at risk.)
-4. Write to `FileSystem.documentDirectory + "piutang-gabungan-<YYYYMMDD>.csv"` via `expo-file-system` `writeAsStringAsync`.
-5. `Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: "Export Piutang Gabungan" })` via `expo-sharing`.
-6. Extract the CSV builder as a pure helper `buildPiutangCSV(items, totals): string` (unit-testable, incl. a formula-injection case).
+The CSV is built **server-side** by `buildPiutangCSV` (Task 2, unit-tested incl. formula-injection case) and served via `?format=csv`. The mobile screen is a thin client (no CSV/sanitize logic in RN):
+1. Fetch `?format=csv` → CSV text body (full set, sanitized).
+2. Write to `FileSystem.documentDirectory + "piutang-gabungan-<YYYYMMDD>.csv"` via `expo-file-system` `writeAsStringAsync`.
+3. `Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: "Export Piutang Gabungan" })` via `expo-sharing`.
+
+Columns (mirror web `exportColumns`): `No, NRP, Pangkat, Kesatuan, Nama, Piutang Toko, Piutang Unit, Pokok Pinjaman, Jasa Pinjaman, Total Piutang` + a final `TOTAL` row. Formula-injection sanitization (leading `= + @ -` → `'` prefix) lives in `buildPiutangCSV` (server, tested) — not duplicated in the screen.
 
 ### 6f — Navigation wiring
 
