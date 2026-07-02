@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/buku-kas — Buku Kas for mobile operators
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
+    const f = branchListFilter(user);
+    if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
     try {
         const url = new URL(request.url);
@@ -25,6 +28,7 @@ export async function GET(request: Request) {
         const endDate = new Date(filterYear, filterMonth, 0);
 
         const where: Record<string, unknown> = {
+            ...f.filter,
             transactionDate: { gte: startDate, lte: endDate },
         };
 
@@ -37,6 +41,7 @@ export async function GET(request: Request) {
         if (accountId && accountId !== "all") {
             const lastPriorTx = await prisma.cashBankTransaction.findFirst({
                 where: {
+                    ...f.filter,
                     accountId: parseInt(accountId),
                     transactionDate: { lt: startDate },
                 },
@@ -82,7 +87,7 @@ export async function GET(request: Request) {
 
         // Accounts for filter
         const accounts = await prisma.cashBankAccount.findMany({
-            where: { isActive: true, deletedAt: null },
+            where: { ...f.filter, isActive: true, deletedAt: null },
             select: { id: true, code: true, name: true, type: true },
             orderBy: { code: "asc" },
         });

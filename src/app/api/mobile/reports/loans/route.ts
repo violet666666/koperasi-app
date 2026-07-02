@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser } from "../../middleware";
+import { getMobileUserWithScope } from "../../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 export async function GET(request: Request) {
     try {
         // Authenticate request first
-        const user = getMobileUser(request);
+        const user = await getMobileUserWithScope(request);
         const isOperator = user && ["operator", "admin", "admin_sp"].includes(user.role);
         if (!user || !isOperator) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
+        const f = branchListFilter(user);
+        if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
-        const where = {};
+        const where = { ...f.filter };
 
         // Get loan products
         const products = await prisma.loanProduct.findMany({

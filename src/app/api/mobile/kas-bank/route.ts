@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/kas-bank — Dashboard Kas & Bank for Operators
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     // Pastikan hanya operator/admin yang bisa akses fitur ini
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
+    const f = branchListFilter(user);
+    if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
     try {
         const url = new URL(request.url);
@@ -19,7 +22,7 @@ export async function GET(request: Request) {
 
         // Fetch Accounts
         const accounts = await prisma.cashBankAccount.findMany({
-            where: { isActive: true, deletedAt: null },
+            where: { ...f.filter, isActive: true, deletedAt: null },
             orderBy: { code: "asc" },
         });
 
@@ -44,6 +47,7 @@ export async function GET(request: Request) {
 
         // Fetch Latest Transactions
         const latestTransactions = await prisma.cashBankTransaction.findMany({
+            where: f.filter,
             orderBy: { transactionDate: "desc" },
             take: limit,
             include: { account: { select: { name: true, code: true, type: true } } },

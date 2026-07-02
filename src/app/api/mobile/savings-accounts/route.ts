@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/savings-accounts?search=xxx&page=1
 // Operator-only: list all active savings accounts across all members
 export async function GET(request: Request) {
-  const user = getMobileUser(request);
+  const user = await getMobileUserWithScope(request);
   if (!user) return unauthorizedResponse();
   if (
     user.role !== "operator" &&
@@ -15,6 +16,8 @@ export async function GET(request: Request) {
   ) {
     return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
   }
+  const f = branchListFilter(user);
+  if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
   const url = new URL(request.url);
   const search = url.searchParams.get("search") || "";
@@ -32,7 +35,7 @@ export async function GET(request: Request) {
       ];
     }
 
-    const where: Prisma.SavingsAccountWhereInput = { status: "active" };
+    const where: Prisma.SavingsAccountWhereInput = { ...f.filter, status: "active" };
     if (search) {
       where.member = memberWhere;
     }
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
       }),
       prisma.savingsAccount.count({ where }),
       prisma.savingsAccount.aggregate({
-        where: { status: "active" },
+        where: { ...f.filter, status: "active" },
         _sum: { balance: true },
         _count: { id: true },
       }),
@@ -61,7 +64,7 @@ export async function GET(request: Request) {
     // Per-product summary
     const productSummary = await prisma.savingsAccount.groupBy({
       by: ["productId"],
-      where: { status: "active" },
+      where: { ...f.filter, status: "active" },
       _sum: { balance: true },
       _count: { id: true },
     });

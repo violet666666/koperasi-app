@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
-import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
-import { canAccessBranch } from "@/lib/mobile-auth-scope";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter, canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
 import { allocatePayment } from "@/lib/loan-payment-helpers";
 
 // GET /api/mobile/loan-payment?memberId=xxx — Get member's active loans
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
+    const f = branchListFilter(user);
+    if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
     const url = new URL(request.url);
     const memberId = url.searchParams.get("memberId");
@@ -21,7 +26,7 @@ export async function GET(request: Request) {
 
     try {
         const loans = await prisma.loan.findMany({
-            where: { memberId: Number(memberId), status: { in: ["active", "overdue"] } },
+            where: { ...f.filter, memberId: Number(memberId), status: { in: ["active", "overdue"] } },
             select: {
                 id: true,
                 loanNo: true,

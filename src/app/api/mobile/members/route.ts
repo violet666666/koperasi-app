@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/members?search=xxx — Search members
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "kasir" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
+    const f = branchListFilter(user);
+    if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
     const url = new URL(request.url);
     const search = url.searchParams.get("search") || "";
     const limit = Math.min(Number(url.searchParams.get("limit") || 20), 50);
 
     try {
-        const where: any = { status: "active", deletedAt: null };
+        const where: any = { ...f.filter, status: "active", deletedAt: null };
         if (search) {
             where.OR = [
                 { name: { contains: search, mode: "insensitive" } },

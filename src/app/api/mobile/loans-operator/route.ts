@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { branchListFilter } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/loans-operator?status=active&search=xxx&page=1
 export async function GET(request: Request) {
-  const user = getMobileUser(request);
+  const user = await getMobileUserWithScope(request);
   if (!user) return unauthorizedResponse();
   if (
     user.role !== "operator" &&
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
   ) {
     return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
   }
+  const f = branchListFilter(user);
+  if (!f.ok) return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
 
   const url = new URL(request.url);
   const statusFilter = url.searchParams.get("status") || "all";
@@ -24,6 +27,7 @@ export async function GET(request: Request) {
 
   try {
     const where: Prisma.LoanWhereInput = {
+      ...f.filter,
       status: { not: "voided" },
     };
 
@@ -68,7 +72,7 @@ export async function GET(request: Request) {
       by: ["status"],
       _count: { id: true },
       _sum: { principalOutstanding: true },
-      where: { status: { not: "voided" } },
+      where: { ...f.filter, status: { not: "voided" } },
     });
 
     const summaryMap: Record<string, { count: number; outstanding: number }> =
