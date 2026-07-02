@@ -191,29 +191,6 @@ export default function AsetListScreen({ navigation }: any) {
           removeClippedSubviews={true}
         />
       )}
-
-      {/* FAB Floating Action Button */}
-      {/* <TouchableOpacity
-        style={{
-          position: "absolute",
-          bottom: 30,
-          right: 20,
-          backgroundColor: C.accent,
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          justifyContent: "center",
-          alignItems: "center",
-          shadowColor: "#0EA5E9",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 5,
-        }}
-        onPress={() => navigation.navigate("AsetTambah")}
-      >
-        <Ionicons name="add" size={32} color="white" />
-      </TouchableOpacity> */}
     </View>
   );
 }

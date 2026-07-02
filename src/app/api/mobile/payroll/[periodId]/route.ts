@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: Params) {
   const user = getMobileUser(request);
   if (!user) return unauthorizedResponse();
 
-  if (!["operator", "admin", "kasir"].includes(user.role)) {
+  if (!["operator", "admin", "admin_sp"].includes(user.role)) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 

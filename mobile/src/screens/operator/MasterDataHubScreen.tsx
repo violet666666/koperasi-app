@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import C from "../../lib/colors";
 
@@ -15,38 +15,6 @@ type HubMenuItem = {
 
 export default function MasterDataHubScreen({ navigation }: any) {
   const menus: HubMenuItem[] = [
-    {
-      id: "coa",
-      title: "Bagan Akun (COA)",
-      icon: "list-circle",
-      color: "#0891b2",
-      bgColor: "#cffafe", // cyan
-      desc: "Chart of Accounts / Kode Relasi",
-    },
-    {
-      id: "savings",
-      title: "Katalog Produk Simpanan",
-      icon: "wallet",
-      color: "#16a34a",
-      bgColor: "#dcfce7", // green
-      desc: "Simpanan Pokok, Wajib, Sukarela",
-    },
-    {
-      id: "loans",
-      title: "Katalog Produk Pinjaman",
-      icon: "cash",
-      color: "#ea580c",
-      bgColor: "#ffedd5", // orange
-      desc: "Aturan bunga dan jangka waktu batas pinjaman",
-    },
-    {
-      id: "users",
-      title: "Manajemen Pengguna (User)",
-      icon: "people",
-      color: "#6366f1",
-      bgColor: "#e0e7ff", // indigo
-      desc: "Tambah Operator, Reset Sandi Admin",
-    },
     {
       id: "announcements",
       title: "Pengumuman PRIMKOPPOL",
@@ -95,9 +63,7 @@ export default function MasterDataHubScreen({ navigation }: any) {
             onPress={() => {
               if (menu.id === 'announcements') {
                 navigation.navigate('Pengumuman');
-                return;
               }
-              Alert.alert('Segera Hadir', `Fitur "${menu.title}" sedang dalam pengembangan.`);
             }}
           >
             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: menu.bgColor, justifyContent: "center", alignItems: "center", marginRight: 16 }}>
