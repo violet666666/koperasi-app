@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Receipt {
   id: number;
@@ -85,7 +86,7 @@ export default function KwitansiListScreen() {
       const res = await api.get('/api/receipts', { params });
       setReceipts(res.data.data || []);
     } catch (err) {
-      console.log('Kwitansi fetch error:', err);
+      log.error('Kwitansi fetch error:', err);
       setReceipts([]);
     } finally {
       setLoading(false);

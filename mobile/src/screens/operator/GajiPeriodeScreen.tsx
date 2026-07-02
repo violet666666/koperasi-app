@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 export default function GajiPeriodeScreen({ route, navigation }: any) {
   const [periods, setPeriods] = useState<any[]>([]);
@@ -17,7 +18,7 @@ export default function GajiPeriodeScreen({ route, navigation }: any) {
       const res = await api.get('/api/mobile/payroll');
       setPeriods(res.data.data || []);
     } catch (err) {
-      console.log('Failed to load payroll periods:', err);
+      log.error('Failed to load payroll periods:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

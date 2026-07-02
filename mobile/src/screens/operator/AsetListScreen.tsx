@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import C from "../../lib/colors";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 type Asset = {
   id: number;
@@ -36,7 +37,7 @@ export default function AsetListScreen({ navigation }: any) {
       const res = await api.get(`/api/mobile/assets?search=${search}`);
       setAssets(res.data.data || []);
     } catch (error) {
-      console.warn("Error fetching assets:", error);
+      log.warn("Error fetching assets:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -25,7 +26,7 @@ export default function GajiSlipScreen({ route, navigation }: any) {
       setSlips(res.data.data?.slips || []);
       setFiltered(res.data.data?.slips || []);
     } catch (err) {
-      console.log('Failed to load period:', err);
+      log.error('Failed to load period:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

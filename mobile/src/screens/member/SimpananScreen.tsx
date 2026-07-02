@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar } from 'react-native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Transaction {
   id: number;
@@ -27,7 +28,7 @@ export default function SimpananScreen() {
       const res = await api.get('/api/mobile/transactions?type=savings&limit=50');
       setTransactions(res.data.data || []);
     } catch (err) {
-      console.log('Simpanan fetch error:', err);
+      log.error('Simpanan fetch error:', err);
     } finally {
       setLoading(false);
     }

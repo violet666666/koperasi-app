@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import api from "../../lib/api";
 import C from "../../lib/colors";
+import { log } from "../../utils/log";
 
 const formatRp = (n: number) =>
   "Rp " + (n || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
@@ -26,7 +27,7 @@ export default function KasBankScreen() {
       const res = await api.get("/api/mobile/kas-bank");
       setData(res.data.data);
     } catch (err) {
-      console.log("Failed to load kas bank:", err);
+      log.error("Failed to load kas bank:", err);
     }
   }, []);
 

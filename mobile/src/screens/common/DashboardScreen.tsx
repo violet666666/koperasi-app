@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { StorageManager } from "../../lib/storage";
+import { log } from "../../utils/log";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { registerForPushNotificationsAsync } from "../../lib/notifications";
@@ -54,7 +55,7 @@ export default function DashboardScreen({ setToken }: any) {
       const userData = StorageManager.getFastString("userData");
       if (userData) setUser(JSON.parse(userData));
     } catch (err) {
-      console.log("Error reading user data:", err);
+      log.error("Error reading user data:", err);
     }
 
     try {
@@ -79,7 +80,7 @@ export default function DashboardScreen({ setToken }: any) {
         });
       }
     } catch (err: any) {
-      console.log(
+      log.error(
         "Dashboard fetch error:",
         err?.response?.status,
         err?.response?.data?.message || err?.message,
@@ -95,7 +96,7 @@ export default function DashboardScreen({ setToken }: any) {
       const annRes = await api.get("/api/mobile/pengumuman?limit=3");
       setAnnouncements(annRes.data.data || []);
     } catch (err) {
-      console.log("Pengumuman fetch error:", err);
+      log.error("Pengumuman fetch error:", err);
     }
   }, [setToken]);
 

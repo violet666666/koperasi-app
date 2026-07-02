@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import C from '../../lib/colors';
 import api from '../../lib/api';
+import { log } from '../../utils/log';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Transaction {
@@ -62,7 +63,7 @@ export default function TransaksiScreen() {
       const res = await api.get(`/api/mobile/transactions?type=${activeTab}&limit=50`);
       setTransactions(res.data.data || []);
     } catch (err: any) {
-      console.log('Transaksi fetch error:', err);
+      log.error('Transaksi fetch error:', err);
       setTransactions([]);
     } finally {
       setLoading(false);

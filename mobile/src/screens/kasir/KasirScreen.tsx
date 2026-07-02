@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product { id: number; sku: string; name: string; price: number; stock: number; unit: string; }
@@ -371,7 +372,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
         const res = await api.get(`/api/mobile/members?search=${q}&limit=10`);
         setMembers(res.data.data || []);
       } catch (e) {
-        console.log('Member search error', e);
+        log.error('Member search error', e);
       } finally {
         setSearchingMember(false);
       }
@@ -385,7 +386,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       const res = await api.get(`/api/mobile/members/${memberId}/piutang`);
       setMemberPiutang(res.data);
     } catch (e) {
-      console.log('Piutang fetch error', e);
+      log.error('Piutang fetch error', e);
       setMemberPiutang(null);
     } finally {
       setLoadingPiutang(false);
@@ -451,7 +452,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
         </div>
       ` + getHtmlFooter();
       await Print.printAsync({ html, width: currentPaper.widthPt });
-    } catch (err) { console.log('Print error:', err); }
+    } catch (err) { log.error('Print error:', err); }
   };
 
   const printReceiptQuick = async (method: string, desc: string, amount: number) => {
@@ -468,7 +469,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
         </div>
       ` + getHtmlFooter();
       await Print.printAsync({ html, width: currentPaper.widthPt });
-    } catch (err) { console.log('Print error:', err); }
+    } catch (err) { log.error('Print error:', err); }
   };
 
   // ── RENDER UI ──────────────────────────────────────────────────────────

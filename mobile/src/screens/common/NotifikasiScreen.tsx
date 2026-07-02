@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Activity
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Notification {
   id: number;
@@ -81,7 +82,7 @@ export default function NotifikasiScreen({ navigation: navProp }: any) {
       setUnreadCount(res.data.unreadCount ?? 0);
       setMeta(res.data.meta ?? null);
     } catch (err) {
-      console.log('Notifikasi fetch error:', err);
+      log.error('Notifikasi fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,7 @@ export default function NotifikasiScreen({ navigation: navProp }: any) {
       );
       setUnreadCount(0);
     } catch (err) {
-      console.log('Mark all read error:', err);
+      log.error('Mark all read error:', err);
     } finally {
       setMarkingRead(false);
     }

@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import C from "../../lib/colors";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 type JournalLine = {
   id: number;
@@ -44,7 +45,7 @@ export default function JurnalDaftarScreen({ navigation }: any) {
       const res = await api.get(`/api/mobile/journals?period=${period}`);
       setJournals(res.data.data || []);
     } catch (error) {
-      console.warn("Error fetching journals:", error);
+      log.warn("Error fetching journals:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);

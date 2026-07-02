@@ -8,6 +8,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import api from '../../lib/api';
 import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 const formatDate = (d: string) => new Date(d).toLocaleString('id-ID', {
@@ -74,7 +75,7 @@ export default function ShiftScreen() {
       setOpenShift(openData.length > 0 ? openData[0] : null);
       setRecentShifts(recentRes.data?.data || []);
     } catch (err: any) {
-      console.error('Fetch shifts error:', err);
+      log.error('Fetch shifts error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -9,6 +9,7 @@ import { StorageManager } from '../../lib/storage';
 import Toast from 'react-native-toast-message';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Expense {
   id: number;
@@ -105,7 +106,7 @@ export default function PengeluaranOperasionalScreen({ navigation: navProp }: an
         count: data.length,
       });
     } catch (err: any) {
-      console.log('Expense fetch error:', err);
+      log.error('Expense fetch error:', err);
       Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Gagal memuat pengeluaran' });
     } finally {
       setLoading(false);

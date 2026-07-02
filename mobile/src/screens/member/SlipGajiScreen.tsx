@@ -8,6 +8,7 @@ import api from '../../lib/api';
 import C from '../../lib/colors';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -20,7 +21,7 @@ export default function SlipGajiScreen({ route, navigation }: any) {
     if (!slipId || !periodId) return;
     api.get(`/api/mobile/payroll/${periodId}/slip/${slipId}`)
       .then(res => setSlip(res.data.data))
-      .catch(err => console.log('Failed to load slip:', err))
+      .catch(err => log.error('Failed to load slip:', err))
       .finally(() => setLoading(false));
   }, [slipId, periodId]);
 

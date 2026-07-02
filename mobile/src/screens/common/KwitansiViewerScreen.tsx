@@ -7,6 +7,7 @@ import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 export default function KwitansiViewerScreen({ route, navigation }: any) {
   const { receiptId } = route.params;
@@ -37,7 +38,7 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
         Alert.alert('Gagal', 'Fitur berbagi tidak tersedia di perangkat ini');
       }
     } catch (error) {
-      console.error(error);
+      log.error(error);
       Alert.alert('Error', 'Gagal membuat file PDF');
     } finally {
       setExporting(false);
@@ -51,7 +52,7 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
         uri: url,
       });
     } catch (error) {
-      console.log('User cancelled print or error occurred');
+      log.error('User cancelled print or error occurred');
     }
   };
 

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Member {
   id: number;
@@ -32,7 +33,7 @@ export default function MemberListScreen({ navigation: navProp }: any) {
       const res = await api.get(`/api/mobile/members?search=${q ?? search}&limit=30`);
       setMembers(res.data.data || []);
     } catch (err) {
-      console.log('Members fetch error:', err);
+      log.error('Members fetch error:', err);
     } finally {
       setLoading(false);
     }

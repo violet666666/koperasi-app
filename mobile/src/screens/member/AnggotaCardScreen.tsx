@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StorageManager } from '../../lib/storage';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -19,7 +20,7 @@ export default function AnggotaCardScreen({ navigation }: any) {
         const user = userData ? JSON.parse(userData) : {};
         setData({ ...res.data.data, user: { ...res.data.data?.user, ...user } });
       } catch (err) {
-        console.log('Failed to load card data:', err);
+        log.error('Failed to load card data:', err);
       } finally {
         setLoading(false);
       }

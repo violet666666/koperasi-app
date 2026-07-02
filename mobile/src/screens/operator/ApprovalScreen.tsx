@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type RequestType = 'loan_application' | 'unit_void' | 'void_store_sale';
@@ -80,7 +81,7 @@ export default function ApprovalScreen({ navigation: navProp }: any) {
       const res = await api.get('/api/mobile/approvals');
       setItems(res.data.data || []);
     } catch (err: any) {
-      console.log('Approval fetch error:', err);
+      log.error('Approval fetch error:', err);
       Alert.alert('Error', err.message || 'Gagal memuat data approval');
     } finally {
       setLoading(false);

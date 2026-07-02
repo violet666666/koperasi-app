@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -44,7 +45,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       const res = await api.get(`/api/mobile/members/${memberId}`);
       setData(res.data.data);
     } catch (err) {
-      console.log('Failed to load member detail:', err);
+      log.error('Failed to load member detail:', err);
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       const res = await api.get(`/api/members/${memberId}/piutang-barang`);
       setPiutang(res.data.data);
     } catch (err) {
-      console.log('Failed to load piutang barang:', err);
+      log.error('Failed to load piutang barang:', err);
     } finally {
       setPiutangLoading(false);
     }
@@ -70,7 +71,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
       const res = await api.get(`/api/members/${memberId}/transactions`);
       setTransactions(res.data.data?.transactions || []);
     } catch (err) {
-      console.log('Failed to load transactions:', err);
+      log.error('Failed to load transactions:', err);
     } finally {
       setTxLoading(false);
     }

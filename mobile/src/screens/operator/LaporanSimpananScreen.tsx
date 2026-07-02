@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -22,7 +23,7 @@ export default function LaporanSimpananScreen({ navigation: navProp }: any) {
       const res = await api.get('/api/mobile/reports/savings');
       setData(res.data.data);
     } catch (err: any) {
-      console.log('Failed to load savings report:', err);
+      log.error('Failed to load savings report:', err);
     } finally {
       setLoading(false);
     }

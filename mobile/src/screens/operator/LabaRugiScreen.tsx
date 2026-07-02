@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import C from "../../lib/colors";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 type FinancialDataResponse = {
   period: string;
@@ -29,7 +30,7 @@ export default function LabaRugiScreen({ navigation }: any) {
       const res = await api.get("/api/mobile/reports/financial");
       setData(res.data.data);
     } catch (error) {
-      console.warn("Error fetching laba-rugi:", error);
+      log.warn("Error fetching laba-rugi:", error);
     } finally {
       setLoading(false);
     }

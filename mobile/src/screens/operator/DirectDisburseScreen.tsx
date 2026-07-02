@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -97,7 +98,7 @@ export default function DirectDisburseScreen({ navigation }: any) {
         setProducts(prods);
         if (prods.length > 0) setSelectedProduct(prods[0]);
       } catch (err) {
-        console.error(err);
+        log.error(err);
       }
     };
     loadProducts();

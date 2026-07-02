@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import api from "../../lib/api";
 import C from "../../lib/colors";
+import { log } from "../../utils/log";
 
 const formatRp = (n: number) =>
   "Rp " + (n || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
@@ -88,7 +89,7 @@ export default function BukuKasScreen() {
         totalCredit: d.totalCredit || 0,
       });
     } catch (err) {
-      console.log("Failed to load buku kas:", err);
+      log.error("Failed to load buku kas:", err);
     } finally {
       setLoading(false);
     }

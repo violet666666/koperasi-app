@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 interface Product {
   id: number;
@@ -58,7 +59,7 @@ export default function StokScreen({ navigation: navProp }: any) {
       const res = await api.get(`/api/mobile/toko?search=${searchTerm}${unitParam}`);
       setProducts(res.data.data || []);
     } catch (err) {
-      console.log('Stok fetch error:', err);
+      log.error('Stok fetch error:', err);
     } finally {
       setLoading(false);
     }

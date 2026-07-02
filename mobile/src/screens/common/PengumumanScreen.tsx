@@ -4,6 +4,7 @@ import C from '../../lib/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
+import { log } from '../../utils/log';
 
 interface Announcement {
   id: number;
@@ -32,7 +33,7 @@ export default function PengumumanScreen({ navigation: navProp }: any) {
       const res = await api.get('/api/mobile/pengumuman?limit=50');
       setAnnouncements(res.data.data || []);
     } catch (err) {
-      console.log('Pengumuman fetch error:', err);
+      log.error('Pengumuman fetch error:', err);
     } finally {
       setLoading(false);
     }

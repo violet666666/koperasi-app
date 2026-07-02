@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import C from "../../lib/colors";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 const MONTHS = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -41,7 +42,7 @@ export default function LaporanSHUScreen({ navigation }: any) {
       const res = await api.get(`/api/mobile/reports/shu-calculator`, { params });
       setData(res.data.data);
     } catch (error) {
-      console.warn("Error fetching shu:", error);
+      log.warn("Error fetching shu:", error);
       setData(null);
     } finally {
       setLoading(false);

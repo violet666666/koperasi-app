@@ -5,6 +5,7 @@ import { useFocusEffect, useRoute } from "@react-navigation/native";
 import C from "../../lib/colors";
 import api from "../../lib/api";
 import { formatRp, formatDate } from "../../lib/constants";
+import { log } from "../../utils/log";
 
 export default function RiwayatAngsuranScreen({ navigation }: any) {
   const route = useRoute<any>();
@@ -23,7 +24,7 @@ export default function RiwayatAngsuranScreen({ navigation }: any) {
       const res = await api.get("/api/mobile/loan-payments", { params: { loanId } });
       setPayments(res.data?.data || []);
     } catch (e) {
-      console.warn("Error fetching payments:", e);
+      log.warn("Error fetching payments:", e);
       setPayments([]);
     } finally {
       setLoading(false);

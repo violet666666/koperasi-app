@@ -2,6 +2,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import api from './api';
+import { log } from '../utils/log';
 
 let Notifications: any = null;
 
@@ -19,7 +20,7 @@ if (Constants.appOwnership !== 'expo') {
       }),
     });
   } catch (e) {
-    console.log("Failed to initialize expo-notifications", e);
+    log.error("Failed to initialize expo-notifications", e);
   }
 }
 
@@ -29,7 +30,7 @@ export async function registerForPushNotificationsAsync() {
   // IMPORTANT: SDK 53 removed Android push notification from Expo Go
   // We must skip registration entirely to prevent app crashes when run in Expo Go
   if (!Notifications) {
-    console.log('Push notifications registration is skipped (Not supported in this environment)');
+    log.warn('Push notifications registration is skipped (Not supported in this environment)');
     return null;
   }
 
@@ -53,7 +54,7 @@ export async function registerForPushNotificationsAsync() {
       }
       
       if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for push notification!');
+        log.warn('Failed to get push token for push notification!');
         return;
       }
       
@@ -67,14 +68,14 @@ export async function registerForPushNotificationsAsync() {
          try {
            await api.post('/api/mobile/push-token', { token, deviceOs: Platform.OS });
          } catch (err) {
-           console.log('Gagal menyimpan Push Token ke backend:', err);
+           log.error('Gagal menyimpan Push Token ke backend:', err);
          }
       }
     } else {
       // Simulator/Emulator doesn't support Push Notifications generally.
     }
   } catch (error) {
-     console.log('Error getting push token. Safely ignoring.', error);
+     log.warn('Error getting push token. Safely ignoring.', error);
   }
 
   return token;

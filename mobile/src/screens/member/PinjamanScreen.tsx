@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 import { getLoanStatus, formatRp, formatDate } from '../../lib/constants';
+import { log } from '../../utils/log';
 
 interface Loan {
   id: number;
@@ -30,7 +31,7 @@ export default function PinjamanScreen() {
       const res = await api.get('/api/mobile/loans');
       setLoans(res.data.data || []);
     } catch (err) {
-      console.log('Pinjaman fetch error:', err);
+      log.error('Pinjaman fetch error:', err);
     } finally {
       setLoading(false);
     }

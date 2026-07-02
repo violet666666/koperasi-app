@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import Toast from 'react-native-toast-message';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 // Types
 interface ReportData {
@@ -66,7 +67,7 @@ export default function LaporanCuciMobilScreen({ navigation: navProp }: any) {
       const res = await api.get(`/api/mobile/reports/unit?unitType=cuci_mobil&period=${period}`);
       setData(res.data.data);
     } catch (err: any) {
-      console.log('Report fetch error:', err);
+      log.error('Report fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export default function LaporanCuciMobilScreen({ navigation: navProp }: any) {
       });
       setTransactions(filtered);
     } catch (err: any) {
-      console.log('Transaction fetch error:', err);
+      log.error('Transaction fetch error:', err);
     } finally {
       setTxLoading(false);
     }

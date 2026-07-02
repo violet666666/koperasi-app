@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { log } from '../utils/log';
 
 // In-memory cache for synchronous reads (to maintain backwards compatibility with MMKV sync APIs)
 const memoryCache: Record<string, string | boolean | number> = {};
@@ -22,7 +23,7 @@ export const StorageManager = {
         }
       });
     } catch (err) {
-      console.log('Failed to hydrate fast storage:', err);
+      log.error('Failed to hydrate fast storage:', err);
     }
   },
 

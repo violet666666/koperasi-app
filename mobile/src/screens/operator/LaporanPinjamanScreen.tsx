@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -22,7 +23,7 @@ export default function LaporanPinjamanScreen({ navigation: navProp }: any) {
       const res = await api.get('/api/mobile/reports/loans');
       setData(res.data.data);
     } catch (err: any) {
-      console.log('Failed to load loans report:', err);
+      log.error('Failed to load loans report:', err);
     } finally {
       setLoading(false);
     }

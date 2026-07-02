@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import api from "../../lib/api";
 import C from "../../lib/colors";
+import { log } from "../../utils/log";
 
 export default function AuditLogScreen() {
   const navigation = useNavigation<any>();
@@ -27,7 +28,7 @@ export default function AuditLogScreen() {
       const res = await api.get(`/api/mobile/audit-logs?search=${query ?? search}`);
       setLogs(res.data.data || []);
     } catch (err) {
-      console.log("Failed to load audit logs:", err);
+      log.error("Failed to load audit logs:", err);
     } finally {
       setLoading(false);
     }

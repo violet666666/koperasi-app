@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { log } from '../../utils/log';
 
 const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
@@ -20,7 +21,7 @@ export default function BatchManagementScreen({ navigation }: any) {
       const res = await api.get(`/api/mobile/batches?view=${viewFilter}`);
       setBatches(res.data.data || []);
     } catch (err) {
-      console.log('Failed to load batches:', err);
+      log.error('Failed to load batches:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

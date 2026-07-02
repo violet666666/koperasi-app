@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import C from "../../lib/colors";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 type Account = {
   id: number;
@@ -61,7 +62,7 @@ export default function BukuBesarScreen({ navigation }: any) {
       const res = await api.get("/api/mobile/accounts?isDetail=true");
       setAccounts(res.data.data || []);
     } catch (error) {
-      console.warn("Error fetching accounts:", error);
+      log.warn("Error fetching accounts:", error);
     } finally {
       setLoadingAcc(false);
     }
@@ -75,7 +76,7 @@ export default function BukuBesarScreen({ navigation }: any) {
       setEndingBalance(res.data.data.endingBalance);
       setSelectedAccountData(res.data.data.account);
     } catch (error) {
-      console.warn("Error fetching ledger:", error);
+      log.warn("Error fetching ledger:", error);
     } finally {
       setLoadingLedger(false);
     }

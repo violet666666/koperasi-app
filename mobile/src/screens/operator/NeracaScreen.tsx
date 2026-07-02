@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import C from "../../lib/colors";
 import api from "../../lib/api";
+import { log } from "../../utils/log";
 
 export default function NeracaScreen({ navigation }: any) {
   const [data, setData] = useState<any>(null);
@@ -21,7 +22,7 @@ export default function NeracaScreen({ navigation }: any) {
       const res = await api.get("/api/mobile/reports/financial");
       setData(res.data.data);
     } catch (error) {
-      console.warn("Error fetching neraca:", error);
+      log.warn("Error fetching neraca:", error);
     } finally {
       setLoading(false);
     }
