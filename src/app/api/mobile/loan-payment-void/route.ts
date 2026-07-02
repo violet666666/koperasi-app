@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import {
     calcPaymentCbReversalAmount,
@@ -13,7 +14,7 @@ import {
 // POST /api/mobile/loan-payment-void — Void a single loan payment (atomic reversal).
 // Mirrors web api/loans/[id]/payments/[paymentId]/void, reusing payment-void-helpers.
 export async function POST(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "operator" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Hanya Operator yang dapat membatalkan pembayaran angsuran." }, { status: 403 });
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
         }
         if (payment.status === "voided") {
             return NextResponse.json({ message: "Pembayaran ini sudah dibatalkan (VOID)" }, { status: 400 });
+        }
+
+        const branchOk = canAccessBranch(user, payment.branchId);
+        if (!branchOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         const loanId = payment.loanId;

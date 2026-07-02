@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
 import { allocatePayment } from "@/lib/loan-payment-helpers";
@@ -79,7 +80,7 @@ function mobileCbTxNo(base: string): string {
 // Unified FIFO allocation (matches web api/loans/[id]/payments): creates PaymentAllocation
 // records, updates each LoanSchedule, updates loan totals, posts CashBank — all atomic.
 export async function POST(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
@@ -111,6 +112,11 @@ export async function POST(request: Request) {
 
         if (!loan || !["active", "overdue"].includes(loan.status)) {
             return NextResponse.json({ message: "Pinjaman tidak ditemukan atau sudah lunas" }, { status: 404 });
+        }
+
+        const branchOk = canAccessBranch(user, loan.branchId);
+        if (!branchOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         const principalOut = Number(loan.principalOutstanding);

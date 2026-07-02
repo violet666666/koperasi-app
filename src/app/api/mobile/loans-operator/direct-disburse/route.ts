@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware"; // adjust path if needed
+import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware"; // adjust path if needed
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createLoanApplicationSchema } from "@/lib/validations";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
 
@@ -13,7 +14,7 @@ function generateApplicationNo(date: Date): string {
 
 export async function POST(request: Request) {
     try {
-        const user = getMobileUser(request);
+        const user = await getMobileUserWithScope(request);
         if (!user) return unauthorizedResponse();
 
         // Hanya Operator yang boleh menggunakan endpoint ini
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
 
         if (!member) return NextResponse.json({ message: "Anggota tidak ditemukan" }, { status: 404 });
         if (member.status !== "active") return NextResponse.json({ message: "Anggota tidak aktif" }, { status: 400 });
+
+        const branchOk = canAccessBranch(user, member.branchId);
+        if (!branchOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
+        }
 
         // Validasi produk pinjaman
         const product = await prisma.loanProduct.findFirst({

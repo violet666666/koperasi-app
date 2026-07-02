@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
 
 // POST /api/mobile/loans-operator/kompen-disburse — Mobile kompen execution
 export async function POST(request: Request) {
     try {
-        const user = getMobileUser(request);
+        const user = await getMobileUserWithScope(request);
         if (!user) return unauthorizedResponse();
         if (!["operator", "admin", "admin_sp"].includes(user.role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -24,6 +25,26 @@ export async function POST(request: Request) {
         if (backdatedDate) {
             const parsed = new Date(backdatedDate);
             if (!isNaN(parsed.getTime())) baseDate = parsed;
+        }
+
+        // ── Pre-tx scope gate (hoisted read; tx body keeps its own reads) ──
+        const [scopeMember, scopeLoan] = await Promise.all([
+            prisma.member.findUnique({ where: { id: memberId }, select: { id: true, branchId: true, status: true } }),
+            prisma.loan.findUnique({ where: { id: existingLoanId }, select: { id: true, branchId: true, status: true, memberId: true } }),
+        ]);
+        if (!scopeMember || scopeMember.status !== "active") {
+            return NextResponse.json({ message: "Anggota tidak aktif" }, { status: 400 });
+        }
+        if (!scopeLoan || scopeLoan.status !== "active") {
+            return NextResponse.json({ message: "Pinjaman lama tidak aktif" }, { status: 400 });
+        }
+        if (scopeLoan.memberId !== memberId) {
+            return NextResponse.json({ message: "Pinjaman bukan milik anggota ini" }, { status: 400 });
+        }
+        const memberBranchOk = canAccessBranch(user, scopeMember.branchId);
+        const loanBranchOk = canAccessBranch(user, scopeLoan.branchId);
+        if (!memberBranchOk.allowed || !loanBranchOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         const result = await prisma.$transaction(async (tx) => {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
 import { isWithdrawalBlocked } from "@/lib/savings-helpers";
@@ -10,7 +11,7 @@ import { isWithdrawalBlocked } from "@/lib/savings-helpers";
 // Atomic (single $transaction callback): SavingsTransaction + SavingsAccount update +
 // CashBank sync all commit or roll back together. AD-ART Pasal 26 enforced.
 export async function POST(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
 
         if (!account || account.status !== "active") {
             return NextResponse.json({ message: "Rekening simpanan tidak ditemukan atau tidak aktif" }, { status: 404 });
+        }
+
+        const branchOk = canAccessBranch(user, account.branchId);
+        if (!branchOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         // ── AD-ART Pasal 26: blok penarikan Pokok/Wajib saat anggota aktif ──
