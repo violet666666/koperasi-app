@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
+import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const user = getMobileUser(request);
+  const user = await getMobileUserWithScope(request);
   if (!user) return unauthorizedResponse();
 
   // Hanya operator, admin yang bisa melihat laporan keuangan unit
@@ -21,6 +22,12 @@ export async function GET(request: Request) {
 
     if (!unitType) {
       return NextResponse.json({ message: "Parameter unitType wajib diisi" }, { status: 400 });
+    }
+
+    // ── Unit-scope guard (Task 3) ─────────────────────────────────
+    const unitOk = canAccessUnit(user, unitType);
+    if (!unitOk.allowed) {
+      return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
     }
 
     // Determine date range based on period

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 
 // GET /api/mobile/audit-logs — Endpoint untuk menarik riwayat aksi system
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     // Pastikan hanya operator/admin/superadmin/admin_sp yang bisa melihat audit log
@@ -29,6 +29,12 @@ export async function GET(request: Request) {
         }
         if (unitType) {
             where.unitType = unitType;
+        }
+        // ── Unit-scope filter (Task 3) ────────────────────────────────
+        // AuditLog.unitType is a single value written at log time (not aliased),
+        // so scope non-operator to their own unitType directly. Operator bypasses.
+        if (user.role !== "operator" && user.unitType) {
+            where.unitType = user.unitType;
         }
 
         const logs = await prisma.auditLog.findMany({

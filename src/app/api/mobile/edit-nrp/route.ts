@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { unitListFilter } from "@/lib/mobile-auth-scope";
 
 /**
  * GET /api/mobile/edit-nrp — List recent store sales WITHOUT member (NRP kosong)
  * Kasir hanya melihat transaksi sendiri, Operator/Admin melihat semua
  */
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
+
+    // Gate: hanya staff unit yang boleh melihat transaksi untuk diedit NRP-nya
+    if (user.role !== "kasir" && user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
+
+    // ── Unit-scope filter (Task 3) ────────────────────────────────
+    const scopeFilter = unitListFilter(user);
+    if (!scopeFilter.ok) {
+        return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
+    }
 
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get("limit") || "30");
@@ -18,6 +30,7 @@ export async function GET(request: Request) {
         const isKasir = user.role === "kasir";
         const where: any = {
             memberId: null, // Hanya transaksi tanpa NRP/anggota
+            ...scopeFilter.filter, // scope by unitType family (operator → {})
         };
         if (isKasir) {
             where.createdById = Number(user.id);

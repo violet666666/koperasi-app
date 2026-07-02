@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
@@ -8,12 +8,23 @@ import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/toko?search=xxx&unitType=xxx
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
+
+    // Gate: hanya staff unit yang boleh melihat katalog produk
+    if (user.role !== "kasir" && user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
 
     const url = new URL(request.url);
     const search = url.searchParams.get("search") || "";
     const unitType = url.searchParams.get("unitType") || "toko";
+
+    // ── Unit-scope guard (Task 3) ─────────────────────────────────
+    const unitOk = canAccessUnit(user, unitType);
+    if (!unitOk.allowed) {
+        return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
+    }
 
     try {
         const where: any = { isActive: true, deletedAt: null };

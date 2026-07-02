@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { unitListFilter } from "@/lib/mobile-auth-scope";
 
 export async function GET(request: Request) {
     try {
-        const user = getMobileUser(request);
+        const user = await getMobileUserWithScope(request);
         if (!user) return unauthorizedResponse();
 
         if (!["operator", "admin", "kasir", "admin_sp"].includes(user.role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        }
+
+        // ── Unit-scope filter (Task 3) ────────────────────────────────
+        const scopeFilter = unitListFilter(user);
+        if (!scopeFilter.ok) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -16,6 +23,10 @@ export async function GET(request: Request) {
         const search = searchParams.get("search");
 
         const conditions: any[] = [];
+        // Scope by unitType family (operator → {} = no constraint)
+        if (Object.keys(scopeFilter.filter).length > 0) {
+            conditions.push(scopeFilter.filter);
+        }
 
         // View filter
         if (view === "active") {
