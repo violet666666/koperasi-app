@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -41,7 +42,7 @@ async function generateTxNoMobile(unitType: string, tx: any): Promise<string> {
 
 // POST /api/mobile/unit-layanan - Process Kasir Cepat from Mobile App
 export async function POST(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     if (user.role !== "kasir" && user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
@@ -69,6 +70,12 @@ export async function POST(request: Request) {
         if (method === "credit") method = "salary_cut";
         if (!VALID_PAYMENT_METHODS.includes(method)) {
             return NextResponse.json({ message: `paymentMethod '${paymentMethod}' tidak valid` }, { status: 400 });
+        }
+
+        // ── Unit-scope guard (Task 4) ─────────────────────────────────
+        const unitOk = canAccessUnit(user, unitType);
+        if (!unitOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         if (method === "salary_cut" && !memberId) {

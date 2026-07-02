@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
 import { logAudit } from "@/lib/audit-logger";
+import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 export async function POST(request: Request) {
     try {
-        const user = getMobileUser(request);
+        const user = await getMobileUserWithScope(request);
         if (!user) return unauthorizedResponse();
         if (!["operator", "admin", "kasir"].includes(user.role)) {
             return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -16,6 +17,21 @@ export async function POST(request: Request) {
 
         if (!productId || !quantity || quantity <= 0) {
             return NextResponse.json({ message: "Produk dan jumlah wajib diisi" }, { status: 400 });
+        }
+
+        // ── Unit-scope guard (Task 4): hoisted pre-tx read ────────────
+        // The tx body re-fetches the product for the HPP update; this read
+        // exists only to resolve unitType for the scope check.
+        const scopeProduct = await prisma.storeProduct.findUnique({
+            where: { id: productId },
+            select: { id: true, unitType: true },
+        });
+        if (!scopeProduct) {
+            return NextResponse.json({ message: "Produk tidak ditemukan" }, { status: 404 });
+        }
+        const unitOk = canAccessUnit(user, scopeProduct.unitType || "toko");
+        if (!unitOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         const result = await prisma.$transaction(async (tx) => {

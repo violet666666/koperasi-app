@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/toko?search=xxx&unitType=xxx
 export async function GET(request: Request) {
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 // POST /api/mobile/toko — Process checkout via StoreSale
 // Parity with web POS: uses $transaction, proper stock fields, shift, journal, movements
 export async function POST(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "kasir" && user.role !== "operator" && user.role !== "admin") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
@@ -65,6 +66,12 @@ export async function POST(request: Request) {
         }
         if (!paymentMethod || !["cash", "credit", "salary_cut", "qris"].includes(paymentMethod)) {
             return NextResponse.json({ message: "Metode pembayaran harus cash, qris, atau salary_cut" }, { status: 400 });
+        }
+
+        // ── Unit-scope guard (Task 4) ─────────────────────────────────
+        const unitOk = canAccessUnit(user, unitType);
+        if (!unitOk.allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
         }
 
         // Validate quantities (parseFloat untuk mendukung nilai desimal seperti Laundry kg)
