@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../../../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../../../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = getMobileUser(request);
+  const user = await getMobileUserWithScope(request);
   if (!user) return unauthorizedResponse();
 
   // Hanya kasir, operator, admin yang bisa cek plafon piutang
@@ -37,13 +38,21 @@ export async function GET(
 
     const member = await prisma.member.findUnique({
       where: { id: memberId },
-      select: { id: true, name: true, nrp: true, plafonPiutang: true, sisaGaji: true },
+      select: { id: true, name: true, nrp: true, plafonPiutang: true, sisaGaji: true, branchId: true },
     });
 
     if (!member) {
       return NextResponse.json(
         { message: "Anggota tidak ditemukan" },
         { status: 404 }
+      );
+    }
+
+    // Branch scope check (operator bypass; fail-closed on null).
+    if (!canAccessBranch(user, member.branchId).allowed) {
+      return NextResponse.json(
+        { message: "Akses ditolak: resource di luar scope anda." },
+        { status: 403 }
       );
     }
 

@@ -5,6 +5,10 @@ import { getMobileUser, unauthorizedResponse } from "../../middleware";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
+    // Role gate only — Asset model has no branchId/unitType field (deviation: no scope filter).
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
 
     try {
         const { id: idStr } = await params;

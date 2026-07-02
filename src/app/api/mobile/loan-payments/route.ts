@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getMobileUser, unauthorizedResponse } from "../middleware";
+import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
+import { canAccessBranch } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/loan-payments?loanId=X — list payments for a loan (for the Void Angsuran UI).
 export async function GET(request: Request) {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
     if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
         return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
@@ -17,6 +18,18 @@ export async function GET(request: Request) {
     }
 
     try {
+        // Scope check: look up the loan's branch first (single-resource gate).
+        const loan = await prisma.loan.findUnique({
+            where: { id: loanId },
+            select: { branchId: true },
+        });
+        if (!loan) {
+            return NextResponse.json({ message: "Pinjaman tidak ditemukan" }, { status: 404 });
+        }
+        if (!canAccessBranch(user, loan.branchId).allowed) {
+            return NextResponse.json({ message: "Akses ditolak: resource di luar scope anda." }, { status: 403 });
+        }
+
         const payments = await prisma.loanPayment.findMany({
             where: { loanId },
             orderBy: { paymentDate: "desc" },
