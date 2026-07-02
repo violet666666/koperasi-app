@@ -14,9 +14,10 @@
 - [x] **Fase 3 (Void Angsuran)** — API void + list-payments + RiwayatAngsuranScreen UI. ✅ DONE + **deployed** (`e9a9ce9..c4217aa`).
 - [x] **Fase 4 (mechanical)** — Hardening (Math.random→crypto CRITICAL-resolved + stale roles + cafe_lsp + void filter + drop admin_unit). ✅ DONE + **deployed** (`2dd06ac..5c73344`).
 - [x] **EAS Build #1** — ✅ **FINISHED** (commit `5ed2d5b`, v1.1.2/vc3). APK: `https://expo.dev/artifacts/eas/eThiL10I6G1Iw9403oyx0lo59a2pAFEwgwHAeu2gaDE.apk`. ⏭ Smoke test device + Play Store `.aab` submit pending.
-- [x] **Fase 4b** — RBAC unit/branch scoping. ✅ DONE + **deployed** (`4cf135e..c9d1972`, pushed `e376ab8..c9d1972`). Pure helper `mobile-auth-scope.ts` (9 tests) + `getMobileUserWithScope` + scope checks on 8 P0 write routes. Final opus review APPROVED; prod diagnostic clean.
+- [x] **Fase 4b** — RBAC unit/branch scoping (writes). ✅ DONE + **deployed** (`4cf135e..c9d1972`).
+- [x] **Fase 4c** — RBAC GET-scope (reads). ✅ DONE + **deployed** (`bab3a4a..b7caf5f8`, pushed `c9d1972..b7caf5f8`). `branchListFilter`/`unitListFilter` helpers + scope on ~18 GET routes. Final opus review APPROVED; diagnostic clean.
 
-**Push status:** Fase 1-4 + Fase 4b **all PUSHED + API deployed** (`e376ab8..c9d1972`). EAS build #1 APK **done** (smoke test pending).
+**Push status:** Fase 1-4b-4c **all PUSHED + API deployed** (`c9d1972..b7caf5f8`). EAS build #1 APK **done** (smoke test pending).
 
 ---
 
@@ -65,7 +66,25 @@ Plan: `docs/superpowers/plans/2026-07-02-mobile-hardening-fase4.md`.
 
 ---
 
-## ⏭ Future feature parity (EAS build #2, sesi lanjutan)
+## ✅ Fase 4c — RBAC GET-scope (DONE + DEPLOYED)
+**Spec + plan:** `docs/superpowers/{specs,plans}/2026-07-02-mobile-rbac-get-scope*`. Commits `bab3a4a..b7caf5f8`, pushed `c9d1972..b7caf5f8`.
+**Built:** extended `mobile-auth-scope.ts` with `branchListFilter`/`unitListFilter` (list-filter helpers, +8 tests) + scope on ~18 GET routes — 9 branch-list (loan-payment GET, loans-operator, savings-accounts, members, buku-kas, kas-bank, reports/loans, reports/savings, savings-tx GET), 6 unit (toko, unit-packages, reports/unit, edit-nrp, batches, audit-logs), 3 single-resource/member-self (loan-payments, members/[id]/piutang, payroll slip). 2 security fix-ups folded in (savings-tx GET missed route; loan-payment POST cashAccount branch check).
+**Deviations (role-gate only — cannot scope):** `assets/[id]` (no branch/unit field), `reports/financial` (neraca org-wide), payroll periods (no branchId) — last two untouched.
+**Review:** final opus APPROVED. Tests 427/3 pre-existing; 0 new tsc. Diagnostic clean.
+**Follow-up queued:** `members/[id]` detail route lacks branch-scope (same class, spec didn't list it) — fold into next read-scoping pass.
+
+---
+
+## ⏭ Roadmap (user authorized "semuanya, satu per satu")
+1. ✅ **Fase 4c** — GET-scope (DONE+deployed).
+2. ⏭ **Fase 5 — Play Store polish** (S): strip 45+ `console.log`, fix MasterDataHub stub (4/5 "Segera Hadir"), uncomment/fix Aset FAB dead nav, fix payroll role inconsistency (API allows kasir / UI hides). Mixed API+UI → needs EAS build.
+3. ⏭ **Fase 6 — Piutang Gabungan** (M): screen + API (advertised, missing).
+4. ⏭ **Fase 7 — Field-ops parity** (M): Kas/Bank create + transfer; generic per-unit laporan.
+5. ⏭ **Fase 8 — Parity lanjutan** (M each): Loan edit, Aset CRUD, Payroll run/publish.
+6. ⏭ **Fase 9 — Modul besar** (L each): Haji/Umrah mobile, Tagihan/Billing.
+7. ⏭ **Residual:** `members/[id]` detail branch-scope (from Fase 4c review).
+
+---
 Sisa dari audit Tier-3 (Fase 3 hanya Void Angsuran): **Piutang Gabungan** (diiklankan di PLAY-STORE-RELEASE-GUIDE tapi belum diimplementasi!), **Tagihan/Billing** (monthly 16-15 cycle), **Haji/Umrah** mobile (web Ph1-4 complete; Ph5 mobile spec pernah direncanakan). Strategy: kembangkan satu-per-satu, batch ke EAS build berikutnya.
 
 ---
