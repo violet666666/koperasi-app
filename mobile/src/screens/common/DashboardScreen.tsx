@@ -261,7 +261,7 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="list-outline" label="Daftar Pinjam" color="#7C3AED" onPress={() => navigation.navigate("DaftarPinjaman")} />
                         <MenuItem icon="flash-outline" label="Cairkan Lgsg" color="#EF4444" onPress={() => navigation.navigate("DirectDisburse")} />
                         <MenuItem icon="swap-horizontal-outline" label="Kompen" color="#7C3AED" onPress={() => navigation.navigate("Kompen")} />
-                        {!isAdminSp && (
+                        {(userRole === "operator" || userRole === "admin") && (
                         <MenuItem icon="document-text-outline" label="Gaji & Payroll" color="#7C3AED" onPress={() => navigation.navigate("GajiPeriode")} />
                         )}
                     </View>
