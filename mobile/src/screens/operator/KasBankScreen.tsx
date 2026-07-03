@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import api from "../../lib/api";
 import C from "../../lib/colors";
 import { log } from "../../utils/log";
+import { StorageManager } from "../../lib/storage";
 
 const formatRp = (n: number) =>
   "Rp " + (n || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
@@ -47,6 +48,13 @@ export default function KasBankScreen() {
 
   const cashAccounts = accounts.filter((a: any) => a.type === "cash");
   const bankAccounts = accounts.filter((a: any) => a.type === "bank");
+
+  const userRole = useMemo(() => {
+    const ud = StorageManager.getFastString("userData");
+    if (ud) { const p = JSON.parse(ud); return typeof p.role === "object" ? p.role?.name : p.role; }
+    return "";
+  }, []);
+  const canCreate = userRole === "operator" || userRole === "admin" || userRole === "admin_sp";
 
   return (
     <View style={styles.container}>
@@ -98,6 +106,26 @@ export default function KasBankScreen() {
           <Text style={styles.summaryLabelFull}>Total Keseluruhan</Text>
           <Text style={styles.summaryValueFull}>{formatRp(totals.total)}</Text>
         </View>
+
+        {/* Action buttons — operator/admin/admin_sp only */}
+        {canCreate && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: C.primary }]}
+              onPress={() => navigation.navigate("KasBankTransaksi")}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+              <Text style={styles.actionBtnText}>Transaksi Baru</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: C.accent }]}
+              onPress={() => navigation.navigate("KasBankTransfer")}
+            >
+              <Ionicons name="swap-horizontal-outline" size={20} color="#FFF" />
+              <Text style={styles.actionBtnText}>Transfer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Kas List */}
         <View style={styles.section}>
@@ -229,6 +257,22 @@ const styles = StyleSheet.create({
   },
   summaryLabelFull: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 4 },
   summaryValueFull: { fontSize: 24, fontWeight: "bold", color: "#FFF", letterSpacing: 0.5 },
+  actionRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionBtnText: { fontSize: 14, fontWeight: "700", color: "#FFF" },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: "bold", color: C.foreground, marginBottom: 12 },
   emptyText: { fontSize: 14, color: C.mutedForeground, fontStyle: "italic", marginLeft: 4 },
