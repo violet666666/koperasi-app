@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       where: { id: d.accountId, isActive: true, deletedAt: null },
     });
     if (!account) return NextResponse.json({ message: "Akun kas/bank tidak ditemukan" }, { status: 404 });
-    if (!canAccessBranch(user, account.branchId)) {
+    if (!canAccessBranch(user, account.branchId).allowed) {
       return NextResponse.json({ message: "Akses ditolak: akun di luar scope anda" }, { status: 403 });
     }
 
