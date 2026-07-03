@@ -69,6 +69,7 @@ const GajiSlipScreen = React.lazy(() => import("./src/screens/operator/GajiSlipS
 const SlipGajiScreen = React.lazy(() => import("./src/screens/member/SlipGajiScreen"));
 const BatchManagementScreen = React.lazy(() => import("./src/screens/operator/BatchManagementScreen"));
 const KompenScreen = React.lazy(() => import("./src/screens/operator/KompenScreen"));
+const LaporanPiutangGabunganScreen = React.lazy(() => import("./src/screens/operator/LaporanPiutangGabunganScreen"));
 
 // Suspense wrapper for lazy screens
 const LS = ({ children }: { children: React.ReactNode }) => (
@@ -269,6 +270,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="SlipGajiList">{() => <LS><SlipGajiScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="BatchManagement">{() => <LS><BatchManagementScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="Kompen">{() => <LS><KompenScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LaporanPiutangGabungan">{() => <LS><LaporanPiutangGabunganScreen /></LS>}</Stack.Screen>
           </>
         )}
       </Stack.Navigator>

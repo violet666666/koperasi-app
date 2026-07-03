@@ -277,6 +277,9 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="bar-chart-outline" label="Laba Rugi" color="#10B981" onPress={() => navigation.navigate("LabaRugi")} />
                         <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
                         <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
+                        {(userRole === "operator" || userRole === "admin_sp") && (
+                        <MenuItem icon="receipt-outline" label="Piutang Gabungan" color="#0891b2" onPress={() => navigation.navigate("LaporanPiutangGabungan")} />
+                        )}
                         {!isAdminSp && (
                         <>
                         <MenuItem icon="car-wash" label="Lap. Cuci Mobil" color="#0E7490" onPress={() => navigation.navigate("LaporanCuciMobil")} />
