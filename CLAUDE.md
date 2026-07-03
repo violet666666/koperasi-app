@@ -138,6 +138,8 @@ NODE_ENV           — development/production
 - **`railway-migration`** — Active dev branch, auto-deploys to Railway
 - **`master`** — Main branch for PRs
 - Production URL: `www.primkoppol.site`
+- **Mobile UI deploys via EAS build** (`cd mobile && npx eas-cli build --platform android --profile production --non-interactive --no-wait`), NOT Railway. API changes auto-deploy on push; mobile screen changes need a new EAS build. Free-tier queue can be ~10-90 min.
+- **⚠ EAS archive bloat — delete `mobile/android/` before every build.** A local `expo run:android`/`expo prebuild` generates `mobile/android/` (2.4 GB of `.gradle`/`.cxx`/build cache) that bloats the EAS tarball to ~785 MB → upload `ECONNRESET`. It's gitignored + in `.easignore` but still leaks in. `rm -rf mobile/android/` first (0 tracked files, regenerable, not needed by managed production builds) → archive drops to ~123 MB.
 
 ## Documentation
 
