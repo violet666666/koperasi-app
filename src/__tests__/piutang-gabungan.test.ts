@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregatePiutangGabungan, TOKO_UNIT_TYPES } from "@/lib/services/piutang-gabungan";
+import { aggregatePiutangGabungan, TOKO_UNIT_TYPES, buildPiutangCSV } from "@/lib/services/piutang-gabungan";
 
 const m = (id: number, over: Partial<any> = {}) => ({
   id, name: `Anggota ${id}`, nrp: `NRP${id}`, memberNo: `M${id}`,
@@ -102,5 +102,39 @@ describe("aggregatePiutangGabungan", () => {
       activeLoans: [],
     });
     expect(r.piutangList).toHaveLength(0);
+  });
+});
+
+describe("buildPiutangCSV", () => {
+  const agg: any = {
+    piutangList: [], totalAnggota: 1,
+    totalPiutangToko: 10000, totalPiutangUnit: 0,
+    totalPiutangSPPokok: 0, totalPiutangSPJasa: 0, grandTotal: 10000,
+  };
+  const item: any = { seq: 1, nama: "Budi", nrp: "123", pangkat: "Sertu", kesatuan: "Yon A",
+    piutangToko: 10000, piutangUnit: 0, piutangSPPokok: 0, piutangSPJasa: 0, totalPiutang: 10000,
+    angsuranKe: "-", loanCount: 0 };
+
+  it("has the exact header row", () => {
+    const csv = buildPiutangCSV([item], agg);
+    const firstLine = csv.split("\n")[0];
+    expect(firstLine).toBe("No,NRP,Pangkat,Kesatuan,Nama,Piutang Toko,Piutang Unit,Pokok Pinjaman,Jasa Pinjaman,Total Piutang");
+  });
+
+  it("writes one row per item + a TOTAL row", () => {
+    const csv = buildPiutangCSV([item], agg);
+    const lines = csv.trim().split("\n");
+    expect(lines).toHaveLength(3); // header + 1 item + TOTAL
+    expect(lines[2].startsWith("TOTAL")).toBe(true);
+  });
+
+  it("sanitizes formula injection (leading = + @ -)", () => {
+    const evil: any = { ...item, nama: "=HYPERLINK(\"x\")", nrp: "+123", pangkat: "@root", kesatuan: "-cmd" };
+    const csv = buildPiutangCSV([evil], agg);
+    // each injected cell must be prefixed with a single quote
+    expect(csv).toContain("'=HYPERLINK(\"x\")");
+    expect(csv).toContain("'+123");
+    expect(csv).toContain("'@root");
+    expect(csv).toContain("'-cmd");
   });
 });

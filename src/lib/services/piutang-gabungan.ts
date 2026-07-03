@@ -113,3 +113,27 @@ export function aggregatePiutangGabungan(args: {
     grandTotal: reduce((p) => p.totalPiutang),
   };
 }
+
+// CSV builder for Piutang Gabungan export. Sanitizes formula injection.
+const CSV_HEADERS = ["No", "NRP", "Pangkat", "Kesatuan", "Nama", "Piutang Toko", "Piutang Unit", "Pokok Pinjaman", "Jasa Pinjaman", "Total Piutang"];
+
+const cell = (v: string | number): string => {
+  const s = String(v ?? "");
+  // Formula-injection sanitize: prefix a single quote if the cell starts with = + @ - or a tab/CR
+  if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+  // Quote if it contains comma, quote, or newline
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+};
+
+export function buildPiutangCSV(items: PiutangItem[], totals: PiutangAggregation): string {
+  const rows: string[] = [CSV_HEADERS.join(",")];
+  for (const it of items) {
+    rows.push([
+      cell(it.seq), cell(it.nrp), cell(it.pangkat), cell(it.kesatuan), cell(it.nama),
+      cell(it.piutangToko), cell(it.piutangUnit), cell(it.piutangSPPokok), cell(it.piutangSPJasa), cell(it.totalPiutang),
+    ].join(","));
+  }
+  rows.push(["TOTAL", "", "", "", "", totals.totalPiutangToko, totals.totalPiutangUnit, totals.totalPiutangSPPokok, totals.totalPiutangSPJasa, totals.grandTotal].join(","));
+  return rows.join("\n");
+}
