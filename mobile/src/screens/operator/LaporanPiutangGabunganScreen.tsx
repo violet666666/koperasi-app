@@ -42,56 +42,74 @@ const formatDate = (d: string | Date | null | undefined) => {
 
 const PER_PAGE = 25;
 
-// --- types (defensive; backend shapes matched loosely) -------------------
+// --- types (mirror the T3/T4 API contracts exactly) ----------------------
+// List:  { data: { piutangList, totalAnggota, totalPiutangToko, totalPiutangUnit,
+//                  totalPiutangSPPokok, totalPiutangSPJasa, grandTotal, pagination } }
+// Detail: { data: { member, loans, transactions, totals } }
 
 type MemberRow = {
-  memberId: number | string;
+  id: number;
   nama: string;
   nrp?: string | null;
   pangkat?: string | null;
+  kesatuan?: string | null;
   piutangToko: number;
   piutangUnit: number;
-  pokokSP: number;
-  jasaSP: number;
-  total: number;
+  piutangSPPokok: number;
+  piutangSPJasa: number;
+  totalPiutang: number;
+  angsuranKe?: string;
+  loanCount?: number;
 };
 
-type Totals = {
-  totalAnggota: number;
-  totalToko: number;
-  totalUnit: number;
-  totalPokokSP: number;
-  totalJasaSP: number;
-  grandTotal: number;
+type ListPayload = {
+  piutangList?: MemberRow[];
+  totalAnggota?: number;
+  totalPiutangToko?: number;
+  totalPiutangUnit?: number;
+  totalPiutangSPPokok?: number;
+  totalPiutangSPJasa?: number;
+  grandTotal?: number;
+  pagination?: { page: number; perPage: number; totalPages: number; totalItems: number };
 };
 
-type ListResponse = {
-  data?: MemberRow[];
-  totals?: Totals;
-  pagination?: { page: number; perPage: number; totalPages: number; total: number };
-};
+type ListResponse = { data?: ListPayload };
 
 type LoanRow = {
   loanNo: string;
   angsuranKe?: number | string;
   pokok: number;
   jasa: number;
-  total?: number;
+  tenorMonths?: number;
+  disbursementDate?: string | null;
 };
 
 type TxRow = {
+  transactionNo?: string | null;
   date?: string | null;
-  source?: 'toko' | 'unit' | string | null;
+  unitType?: string | null;
   description?: string | null;
   amount: number;
+  source?: 'toko' | 'unit' | string | null;
 };
 
-type DetailResponse = {
-  member?: { nama: string; nrp?: string | null; pangkat?: string | null };
+type DetailMember = { id: number; name: string; nrp?: string | null; pangkat?: string | null; kesatuan?: string | null };
+type DetailTotals = {
+  piutangToko: number;
+  piutangUnit: number;
+  piutangSPPokok: number;
+  piutangSPJasa: number;
+  total: number;
+};
+
+type DetailPayload = {
+  member?: DetailMember;
   loans?: LoanRow[];
   transactions?: TxRow[];
-  totals?: { totalPinjaman: number; totalTransaksi: number; grandTotal: number };
+  totals?: DetailTotals;
 };
+
+type DetailResponse = { data?: DetailPayload };
 
 // --- component ------------------------------------------------------------
 
@@ -100,7 +118,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
   const navigation = navProp || navHook;
 
   const [rows, setRows] = useState<MemberRow[]>([]);
-  const [totals, setTotals] = useState<Totals | null>(null);
+  const [totals, setTotals] = useState<ListPayload | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -118,7 +136,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
 
   // drill-down
   const [detailMember, setDetailMember] = useState<MemberRow | null>(null);
-  const [detail, setDetail] = useState<DetailResponse | null>(null);
+  const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -133,14 +151,17 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
         const qs = new URLSearchParams(params);
         if (searchTerm.trim()) qs.set('search', searchTerm.trim());
         const res = await api.get(`/mobile/reports/piutang-gabungan?${qs.toString()}`);
+        // The axios response interceptor returns the AxiosResponse; res.data is the
+        // raw HTTP body { data: { piutangList, ...totals, pagination } }.
         const body: ListResponse = res?.data ?? {};
-        const incoming = Array.isArray(body.data) ? body.data : [];
+        const payload = body.data ?? {};
+        const incoming = Array.isArray(payload.piutangList) ? payload.piutangList : [];
         setRows((prev) =>
           mode === 'append' ? [...prev, ...incoming] : incoming,
         );
-        setTotals(body.totals ?? null);
-        // L1: pagination may be absent on the empty path — guard it.
-        const tp = body.pagination?.totalPages;
+        setTotals(payload);
+        // The empty path omits pagination — guard it.
+        const tp = payload.pagination?.totalPages;
         setTotalPages(typeof tp === 'number' && tp > 0 ? tp : 1);
         setPage(targetPage);
       } catch (err: any) {
@@ -191,9 +212,11 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
     setDetailLoading(true);
     try {
       const res = await api.get(
-        `/mobile/reports/piutang-gabungan/${member.memberId}`,
+        `/mobile/reports/piutang-gabungan/${member.id}`,
       );
-      setDetail(res?.data ?? null);
+      // Detail response body: { data: { member, loans, transactions, totals } }.
+      const detailBody: DetailResponse = res?.data ?? {};
+      setDetail(detailBody.data ?? null);
     } catch (err: any) {
       log.error('Piutang gabungan: fetchDetail gagal:', err);
       setDetailError(err?.message || 'Gagal memuat detail piutang.');
@@ -264,10 +287,10 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
   // --- derived summary values -------------------------------------------
   const t = totals;
   const sumAnggota = t?.totalAnggota ?? rows.length;
-  const sumToko = t?.totalToko ?? 0;
-  const sumUnit = t?.totalUnit ?? 0;
-  const sumPokokSP = t?.totalPokokSP ?? 0;
-  const sumJasaSP = t?.totalJasaSP ?? 0;
+  const sumToko = t?.totalPiutangToko ?? 0;
+  const sumUnit = t?.totalPiutangUnit ?? 0;
+  const sumPokokSP = t?.totalPiutangSPPokok ?? 0;
+  const sumJasaSP = t?.totalPiutangSPJasa ?? 0;
   const sumSP = sumPokokSP + sumJasaSP;
   const grandTotal = t?.grandTotal ?? sumToko + sumUnit + sumSP;
 
@@ -295,13 +318,13 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
       <View style={styles.miniGrid}>
         <MiniCell label="Toko" value={formatRp(item.piutangToko)} color={C.warning} />
         <MiniCell label="Unit" value={formatRp(item.piutangUnit)} color="#7C3AED" />
-        <MiniCell label="Pokok SP" value={formatRp(item.pokokSP)} color={C.info} />
-        <MiniCell label="Jasa SP" value={formatRp(item.jasaSP)} color="#06B6D4" />
+        <MiniCell label="Pokok SP" value={formatRp(item.piutangSPPokok)} color={C.info} />
+        <MiniCell label="Jasa SP" value={formatRp(item.piutangSPJasa)} color="#06B6D4" />
       </View>
 
       <View style={[styles.rowBetween, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }]}>
         <Text style={styles.labelBold}>Total Piutang</Text>
-        <Text style={styles.valueBold}>{formatRp(item.total)}</Text>
+        <Text style={styles.valueBold}>{formatRp(item.totalPiutang)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -397,7 +420,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
       ) : (
         <FlatList
           data={rows}
-          keyExtractor={(item, idx) => `${item.memberId ?? idx}`}
+          keyExtractor={(item, idx) => `${item.id ?? idx}`}
           renderItem={renderRow}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
           refreshControl={
@@ -429,8 +452,8 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
             <View style={{ flex: 1 }}>
               <Text style={styles.modalTitle}>Detail Piutang</Text>
               <Text style={styles.modalSub} numberOfLines={1}>
-                {detailMember?.nama}
-                {detailMember?.nrp ? ` · NRP ${detailMember.nrp}` : ''}
+                {detail?.member?.name || detailMember?.nama}
+                {(detail?.member?.nrp || detailMember?.nrp) ? ` · NRP ${detail?.member?.nrp ?? detailMember?.nrp}` : ''}
               </Text>
             </View>
             <TouchableOpacity onPress={closeDetail} style={{ padding: 8 }}>
@@ -456,15 +479,15 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
             >
               {/* Header card */}
               <View style={styles.detailHeaderCard}>
-                <Text style={styles.detailNama}>{detail?.member?.nama || detailMember?.nama}</Text>
+                <Text style={styles.detailNama}>{detail?.member?.name || detailMember?.nama}</Text>
                 <Text style={styles.detailSub}>
-                  {detail?.member?.nrp || detailMember?.nrp ? `NRP ${detail?.member?.nrp ?? detailMember?.nrp}` : ''}
+                  {(detail?.member?.nrp || detailMember?.nrp) ? `NRP ${detail?.member?.nrp ?? detailMember?.nrp}` : ''}
                   {(detail?.member?.pangkat || detailMember?.pangkat) ? ` · ${detail?.member?.pangkat ?? detailMember?.pangkat}` : ''}
                 </Text>
                 <View style={[styles.rowBetween, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border }]}>
                   <Text style={styles.labelBold}>Total Piutang</Text>
                   <Text style={[styles.valueBold, { color: C.success }]}>
-                    {formatRp(detail?.totals?.grandTotal ?? detailMember?.total ?? 0)}
+                    {formatRp(detail?.totals?.total ?? detailMember?.totalPiutang ?? 0)}
                   </Text>
                 </View>
               </View>
@@ -490,12 +513,6 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
                       <Text style={styles.label}>Jasa</Text>
                       <Text style={styles.value}>{formatRp(l.jasa)}</Text>
                     </View>
-                    {l.total != null && (
-                      <View style={[styles.rowBetween, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: C.border }]}>
-                        <Text style={styles.labelBold}>Total</Text>
-                        <Text style={styles.valueBold}>{formatRp(l.total)}</Text>
-                      </View>
-                    )}
                   </View>
                 ))
               )}
@@ -552,16 +569,20 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
                 <View style={styles.totalFooter}>
                   <View style={styles.rowBetween}>
                     <Text style={styles.label}>Total Pinjaman SP</Text>
-                    <Text style={styles.value}>{formatRp(detail.totals.totalPinjaman)}</Text>
+                    <Text style={styles.value}>
+                      {formatRp(detail.totals.piutangSPPokok + detail.totals.piutangSPJasa)}
+                    </Text>
                   </View>
                   <View style={styles.rowBetween}>
                     <Text style={styles.label}>Total Potong Gaji</Text>
-                    <Text style={styles.value}>{formatRp(detail.totals.totalTransaksi)}</Text>
+                    <Text style={styles.value}>
+                      {formatRp(detail.totals.piutangToko + detail.totals.piutangUnit)}
+                    </Text>
                   </View>
                   <View style={[styles.rowBetween, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }]}>
                     <Text style={styles.labelBold}>Grand Total</Text>
                     <Text style={[styles.valueBold, { color: C.success, fontSize: 16 }]}>
-                      {formatRp(detail.totals.grandTotal)}
+                      {formatRp(detail.totals.total)}
                     </Text>
                   </View>
                 </View>

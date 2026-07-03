@@ -14,6 +14,7 @@ describe("aggregatePiutangGabungan", () => {
       activeLoans: [],
     });
     expect(r.piutangList).toHaveLength(1);
+    expect(r.piutangList[0].id).toBe(1);
     expect(r.piutangList[0].piutangToko).toBe(50000);
     expect(r.piutangList[0].piutangUnit).toBe(0);
     expect(r.totalPiutangToko).toBe(50000);

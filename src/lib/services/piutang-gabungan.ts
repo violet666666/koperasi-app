@@ -4,6 +4,7 @@
 export const TOKO_UNIT_TYPES = ["toko", "playstation", "cafe_lsp", "resto_cafe", "coffe_latar"];
 
 export interface PiutangItem {
+  id: number;
   seq: number;
   nama: string;
   nrp: string;
@@ -90,6 +91,7 @@ export function aggregatePiutangGabungan(args: {
     const piutangSPPokok = sp?.pokok || 0;
     const piutangSPJasa = sp?.jasa || 0;
     piutangList.push({
+      id: member.id,
       seq,
       nama: member.name,
       nrp: member.nrp || member.memberNo || "-",
