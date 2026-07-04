@@ -16,8 +16,14 @@
 - [x] **EAS Build #1** — ✅ **FINISHED** (commit `5ed2d5b`, v1.1.2/vc3). APK: `https://expo.dev/artifacts/eas/eThiL10I6G1Iw9403oyx0lo59a2pAFEwgwHAeu2gaDE.apk`. ⏭ Smoke test device + Play Store `.aab` submit pending.
 - [x] **Fase 4b** — RBAC unit/branch scoping (writes). ✅ DONE + **deployed** (`4cf135e..c9d1972`).
 - [x] **Fase 4c** — RBAC GET-scope (reads). ✅ DONE + **deployed** (`bab3a4a..b7caf5f8`, pushed `c9d1972..b7caf5f8`). `branchListFilter`/`unitListFilter` helpers + scope on ~18 GET routes. Final opus review APPROVED; diagnostic clean.
+- [x] **Fase 5 — Play Store polish** — ✅ DONE + **deployed** (`f591a304` logger sweep 52 console.*→log, `958084db` de-stub+gate, `4c6102e7` final-review fix; pushed `b7caf5f8..c4ce3f3c`). Final opus review APPROVED; tests 427/3 pre-existing (no regression). **EAS build #2 ✅ FINISHED** — v1.1.3/vc4, APK `https://expo.dev/artifacts/eas/a_0JW2Rb41_VNfgW5C-Wl6X6d5FbS-yaDtDPC1_3v5Y.apk` (build ID `59630aae-b6a6-4248-9f23-b6a3c4e1bcb3`, queue ~93min free-tier + build ~11min).
+- [x] **Fase 6 — Piutang Gabungan mobile** — ✅ DONE + **API deployed** (6 SDD tasks `da79d824`..`bf21554c`; pushed `c4ce3f3c..bf21554c`). Pure helper `aggregatePiutangGabungan`+`buildPiutangCSV` (+12 tests), list API `?format=csv`/`?export=true`, drill-down `[memberId]` API, screen, nav. Final opus review APPROVED; 1 Critical (screen field-contract mismatch) fixed in `f41df4e8`. Tests 439/3 pre-existing. Operator/admin_sp gate (no scope — org-wide consolidated). **EAS build #3 ✅ FINISHED** — v1.1.4/vc5, APK `https://expo.dev/artifacts/eas/PNFETl78t7uW8PtEcvY8D4YAuma3sEfSLzWkN-RnOYw.apk`.
+- [x] **Fase 7a — Kas/Bank create+transfer mobile** — ✅ DONE + **API deployed** (5 SDD tasks `d605d101`..`4ba3e924`; pushed `6f0affe7..4ba3e924`). Crypto txn-no helper (+tests), POST `/kas-bank/transactions` + `/transfers`, 2 form screens, nav. Final opus review APPROVED; **Critical RBAC fixed** `f9d2b7ed` (T2 `!canAccessBranch(...)` inert → `.allowed`). Tests 444/3 pre-existing.
+- [x] **Fase 7b — Generic per-unit laporan mobile** — ✅ DONE + **API + web-refactor deployed** (`559d004f`..`e5acbd01`; pushed `8b2ec6ca..e5acbd01`). Shared `getUnitLaporanData` helper (web+mobile DRY); web refactor behavior-preserving; `LaporanUnitScreen` (full V1 read-only). Tests 450/3.
+- [x] **Fase 8a — Aset CRUD mobile** — ✅ DONE + **API deployed** (`0ffed9be`..`29269d65`; pushed `e5acbd01..29269d65`). Reused existing POST + new PUT edit + POST dispose + DELETE soft; `AsetFormScreen` + AsetList FAB + AsetDetail actions. Tests 450/3.
+- [x] **Fase 8b — Loan edit mobile** — ✅ DONE + **API + web-refactor deployed** (5 SDD tasks `9e9a947d`..`59146d42`; pushed `29269d65..59146d42`). **DRY extraction** (highest money-integrity fase): `recalcLoanFinancials` (pure, +9 tests) + `applyLoanEdit` (the $transaction schedule-regen) shared by web + mobile. Web PUT refactored **behavior-preserving (money path byte-identical, opus-verified)**; mobile `GET`+`PUT /loans/[id]` (operator/admin_sp + canAccessBranch). `LoanEditScreen` (7-field form, change-detection, no live preview) + DaftarPinjaman Edit entry. Tests 459/3. **Screen ships via EAS build #5.**
 
-**Push status:** Fase 1-4b-4c **all PUSHED + API deployed** (`c9d1972..b7caf5f8`). EAS build #1 APK **done** (smoke test pending).
+**Push status:** Fase 1-8b **all PUSHED + API deployed** (`29269d65..59146d42`). EAS build #4 (dual APK+AAB) done; **build #5 pending** (ships Fase 7b + 8a + 8b screens). ⏭ Smoke test build #4 + Fase 7b/8a/8b screens (after #5). Play Store closed testing working.
 
 ---
 
@@ -75,17 +81,57 @@ Plan: `docs/superpowers/plans/2026-07-02-mobile-hardening-fase4.md`.
 
 ---
 
-## ⏭ Roadmap (user authorized "semuanya, satu per satu")
-1. ✅ **Fase 4c** — GET-scope (DONE+deployed).
-2. ⏭ **Fase 5 — Play Store polish** (S): strip 45+ `console.log`, fix MasterDataHub stub (4/5 "Segera Hadir"), uncomment/fix Aset FAB dead nav, fix payroll role inconsistency (API allows kasir / UI hides). Mixed API+UI → needs EAS build.
-3. ⏭ **Fase 6 — Piutang Gabungan** (M): screen + API (advertised, missing).
-4. ⏭ **Fase 7 — Field-ops parity** (M): Kas/Bank create + transfer; generic per-unit laporan.
-5. ⏭ **Fase 8 — Parity lanjutan** (M each): Loan edit, Aset CRUD, Payroll run/publish.
-6. ⏭ **Fase 9 — Modul besar** (L each): Haji/Umrah mobile, Tagihan/Billing.
-7. ⏭ **Residual:** `members/[id]` detail branch-scope (from Fase 4c review).
+## ⏭ Roadmap FULL PARITY (audit 2026-07-04, post Fase 1-8b)
 
----
-Sisa dari audit Tier-3 (Fase 3 hanya Void Angsuran): **Piutang Gabungan** (diiklankan di PLAY-STORE-RELEASE-GUIDE tapi belum diimplementasi!), **Tagihan/Billing** (monthly 16-15 cycle), **Haji/Umrah** mobile (web Ph1-4 complete; Ph5 mobile spec pernah direncanakan). Strategy: kembangkan satu-per-satu, batch ke EAS build berikutnya.
+Comprehensive mobile-vs-web gap audit. **DONE Fase 1-8b** covers: SHU/Neraca, money-integrity (loan-payment/savings-tx), Void Angsuran, hardening (crypto), RBAC write+read scope, Play Store polish, Piutang Gabungan, Kas/Bank create+transfer, per-unit laporan, Aset CRUD, Loan edit. Mobile POS is feature-complete for cashiering (9 units + QRIS + thermal + push). **Gaps below** are the remaining parity work (no build until user says; recorded for traceability).
+
+### 🔴 P0 — MONEY-MOVING (highest value)
+| Fase | Feature | Size | Money-risk | Notes |
+|------|---------|------|-----------|-------|
+| **8c** | **Payroll Import** (Excel GAJI: preview/commit, delete period) | L | HIGH | Biggest monthly op — triggers TAJIB/SP/barang deductions. Deferred from Fase 8. |
+| **9a** | **Haji/Umrah mobile** (tabungan setoran/tarik, talangan apply/detail, bagi hasil, products, laporan) | XL | VERY HIGH | Entire module missing. Web Ph1-4 complete (6 APIs + 7 pages). Money-moving (savings + loans + profit-share). |
+| **9b** | **Tagihan/Billing mobile** (generate draft, toggle items, refresh, process/settle, riwayat) | L | CRITICAL | Creates + settles financial obligations. Web has 7 APIs + 3 pages. TWO-route rule (generate + process). |
+| 10 | **Import VS SP** (loan import GAJI sheet, 3-tier member match, preview/commit/undo, batches) | L | HIGH | Bulk loan creation. |
+| 10b | **TAJIB / Potongan import** (bulk savings deposits + salary deductions from GAJI) | L | HIGH | Bulk money. Mobile import only does member-data, not the financial txns. |
+| 11a | **SHU Distribusi** (allocate SHU to members — real money transfer) | M | HIGH | Mobile only simulates. |
+| 11b | **Tutup Buku** (period close, irreversible) | M | HIGH | |
+| 11c | **Approval: missing 3 types** (loan_disbursement, savings_withdrawal, period_close) | M | HIGH | Mobile handles 3 of 6. |
+
+### 🟠 P1 — MEMBER-FACING + REVENUE
+| Fase | Feature | Size | Notes |
+|------|---------|------|-------|
+| 12a | **Manajemen Unit + Product/Pricing CRUD** (per-unit product create/edit, manajemen harga, stock opname, bahan baku) | L | Wrong price = revenue loss at POS. Admin can't manage products from mobile. |
+| 12b | **Operator-side Loan Application CREATE** (on behalf of member) | M | Core lending workflow gap. |
+| 12c | **Transaksi Unit with piutang limit validation** | M | Credit exposure control. |
+| 13 | **Member Portal: Haji-Umrah view** (depends on 9a) | M | Members can't see HU progress. |
+| 13b | **Member Portal: Faktur Piutang** (view + mark-as-paid) | M | Debt acknowledgment. |
+
+### 🟡 P2 — OPERATIONAL + SECURITY
+| Fase | Feature | Size | Notes |
+|------|---------|------|-------|
+| **14** | **🔴 RBAC GET-scope hardening** — branch-scope on GET endpoints that currently leak cross-branch for admin: `members` (list), `members/[id]` (Fase 4c residual), `savings-accounts`, `transactions`, `reports/*` (5 report endpoints), `summary` | **M** | **SECURITY GAP** (not a feature). Multiple GET endpoints lack branchListFilter → cross-branch data leak. Write routes are scoped (Fase 4b); reads are partial (Fase 4c only did ~18). |
+| 15 | **Non-SP Penerimaan/Pengeluaran CRUD** | M | Operational cash flow. |
+| 16 | **SHU Perhitungan** (full calc, not just simulation) | M | |
+| 17 | **Savings: Open new rekening** (account CREATE) | M | Field ops open accounts. |
+| 18 | **Reports**: Arus Kas (cash flow), Rekap Anggota, Rekap Pinjaman, Kolektibilitas (NPL), Laporan Jasa, Dana Resiko, Faktur Potongan | S-M each | Read-only reports. |
+| 19 | **Kas-Bank**: master account CRUD + transaction edit/delete | S-M | |
+| 20 | **Jurnal Penyesuaian** (adjustment journals) | S | Accounting accuracy. |
+
+### 🟢 P3 — NICE-TO-HAVE / POLISH
+- **Master Data Hub sub-pages**: COA CRUD, Mapping Jurnal, Parameter SHU, Saldo Awal, Kas-Bank master, full Import-Data (12+ types), Cabang CRUD, User Mgmt (L total) — currently MasterDataHub only has Pengumuman.
+- **Member**: CREATE single form, extended edit (40+ fields), duplicate detection/merge, all-status filter.
+- **Toko**: Product import, raw materials, marketing/promo, cashier mgmt.
+- **Reports**: export (Excel/PDF) across all report screens.
+- **Audit log**: enhanced filters (action/module/user/date) + detail expansion.
+- **Misc**: KDS (kitchen display), floor-plan (resto), settings page, pinjaman jadwal/dana-resiko, member card barcode print, payroll slip drill-down.
+
+### 🔵 RESIDUAL (from prior fase reviews, low-priority cleanup)
+- `members/[id]` detail branch-scope (Fase 4c) — folds into P2 Fase 14.
+- payroll `[periodId]/slip/[slipId]` still allows kasir (Fase 5) — 1-line fix.
+- Fase 8a: $transaction consistency (audit-orphan) + PUT-on-disposed server guard.
+- Fase 8b: 404→400 missing-loan + $transaction-doesn't-wrap-audit.
+
+**Suggested next fases (money-first):** 8c Payroll → 9a Haji/Umrah → 9b Tagihan → 10 Imports → 11 SHU/Tutup-buku/Approvals → **14 RBAC GET-scope (security)** → 12 Manajemen Unit/Products → P2/P3.
 
 ---
 
