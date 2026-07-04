@@ -67,6 +67,7 @@ export async function proxy(request: NextRequest) {
         token = await getToken({
             req: request,
             secret: secret,
+            secureCookie: process.env.NODE_ENV === "production",
         });
     } catch (error) {
         console.error("[Proxy] Error getting token:", error);
