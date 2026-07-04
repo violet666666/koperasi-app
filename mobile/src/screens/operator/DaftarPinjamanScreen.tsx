@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, StatusBar, RefreshControl, Alert,
@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 import { getLoanStatus, formatRp } from '../../lib/constants';
+import { StorageManager } from '../../lib/storage';
 
 const STATUS_TABS = [
   { key: 'all',        label: 'Semua' },
@@ -50,6 +51,21 @@ export default function DaftarPinjamanScreen() {
   const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Role gate — operator/admin_sp can edit loans (matches PUT /api/mobile/loans/[id] RBAC).
+  const userRole = useMemo(() => {
+    const ud = StorageManager.getFastString('userData');
+    if (ud) {
+      try {
+        const p = JSON.parse(ud);
+        return typeof p.role === 'object' ? p.role?.name : p.role;
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  }, []);
+  const canEdit = userRole === 'operator' || userRole === 'admin_sp';
 
   const fetchLoans = useCallback(async (reset = true) => {
     const currentPage = reset ? 1 : page + 1;
@@ -181,6 +197,15 @@ export default function DaftarPinjamanScreen() {
             >
               <Ionicons name="cash-outline" size={14} color={C.primary} />
               <Text style={styles.payBtnText}>Input Angsuran</Text>
+            </TouchableOpacity>
+          ) : null}
+          {canEdit && item.status === 'active' ? (
+            <TouchableOpacity
+              style={[styles.payBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.warning }]}
+              onPress={() => navigation.navigate('LoanEdit', { loanId: item.id })}
+            >
+              <Ionicons name="create-outline" size={14} color={C.warning} />
+              <Text style={[styles.payBtnText, { color: C.warning }]}>Edit</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
