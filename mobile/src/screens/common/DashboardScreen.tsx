@@ -280,6 +280,9 @@ export default function DashboardScreen({ setToken }: any) {
                         {(userRole === "operator" || userRole === "admin_sp") && (
                         <MenuItem icon="receipt-outline" label="Piutang Gabungan" color="#0891b2" onPress={() => navigation.navigate("LaporanPiutangGabungan")} />
                         )}
+                        {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
+                        <MenuItem icon="stats-chart-outline" label="Laporan Unit" color="#0891b2" onPress={() => navigation.navigate("LaporanUnit")} />
+                        )}
                         {!isAdminSp && (
                         <>
                         <MenuItem icon="car-wash" label="Lap. Cuci Mobil" color="#0E7490" onPress={() => navigation.navigate("LaporanCuciMobil")} />
