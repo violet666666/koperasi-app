@@ -94,18 +94,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log("[Login] SignIn result:", JSON.stringify(result));
 
-        if (result?.error) {
-            console.log("[Login] Error:", result.error);
+        if (!result || result.error) {
+            console.log("[Login] Error:", result?.error);
             throw new Error("Email atau password salah");
         }
 
-        if (result?.ok) {
-            console.log("[Login] Success! Redirecting to dashboard...");
-            // Use window.location for full page reload to ensure JWT cookie is set
-            window.location.href = "/dashboard";
-        } else {
-            console.log("[Login] Unexpected result:", result);
-        }
+        // No error = login succeeded (result.ok may be undefined in NextAuth v5 beta).
+        // Use window.location for full page reload to ensure JWT cookie is read by useSession.
+        console.log("[Login] Success! Redirecting to dashboard...");
+        window.location.href = "/dashboard";
     }, []);
 
     // Logout function
