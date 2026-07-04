@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   TextInput,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import C from "../../lib/colors";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import { log } from "../../utils/log";
+import { StorageManager } from "../../lib/storage";
 
 type Asset = {
   id: number;
@@ -31,6 +33,18 @@ export default function AsetListScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Role gate — operator/admin/admin_sp can add assets (matches API RBAC).
+  const userRole = useMemo(() => {
+    const ud = StorageManager.getFastString("userData");
+    if (ud) {
+      const p = JSON.parse(ud);
+      return typeof p.role === "object" ? p.role?.name : p.role;
+    }
+    return "";
+  }, []);
+  const canCreate =
+    userRole === "operator" || userRole === "admin" || userRole === "admin_sp";
 
   const fetchAssets = async () => {
     try {
@@ -191,6 +205,36 @@ export default function AsetListScreen({ navigation }: any) {
           removeClippedSubviews={true}
         />
       )}
+
+      {/* FAB — operator/admin/admin_sp only */}
+      {canCreate && (
+        <TouchableOpacity
+          style={fabStyles.fab}
+          onPress={() => navigation.navigate("AsetForm", { mode: "create" })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={28} color="#FFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
+
+const fabStyles = StyleSheet.create({
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+});

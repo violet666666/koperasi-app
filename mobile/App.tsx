@@ -54,6 +54,7 @@ const NeracaScreen = React.lazy(() => import("./src/screens/operator/NeracaScree
 const LaporanSHUScreen = React.lazy(() => import("./src/screens/operator/LaporanSHUScreen"));
 const AsetListScreen = React.lazy(() => import("./src/screens/operator/AsetListScreen"));
 const AsetDetailScreen = React.lazy(() => import("./src/screens/operator/AsetDetailScreen"));
+const AsetFormScreen = React.lazy(() => import("./src/screens/operator/AsetFormScreen"));
 const MasterDataHubScreen = React.lazy(() => import("./src/screens/operator/MasterDataHubScreen"));
 const ImportDataScreen = React.lazy(() => import("./src/screens/operator/ImportDataScreen"));
 const KwitansiListScreen = React.lazy(() => import("./src/screens/operator/KwitansiListScreen"));
@@ -242,6 +243,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="LaporanSHU">{() => <LS><LaporanSHUScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="AsetList">{() => <LS><AsetListScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="AsetDetail">{() => <LS><AsetDetailScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="AsetForm">{() => <LS><AsetFormScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="MasterDataHub">{() => <LS><MasterDataHubScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="ImportData">{() => <LS><ImportDataScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="KwitansiList">{() => <LS><KwitansiListScreen /></LS>}</Stack.Screen>
