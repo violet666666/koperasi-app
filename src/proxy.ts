@@ -46,6 +46,15 @@ const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // Canonical redirect: www → bare (308 permanent, cached by browsers).
+    // Ensures a single canonical domain → single session cookie → no cross-subdomain auth issues.
+    const host = request.headers.get("host");
+    if (host?.startsWith("www.")) {
+        const bareUrl = new URL(request.url);
+        bareUrl.host = host.slice(4); // strip "www."
+        return NextResponse.redirect(bareUrl, 308);
+    }
+
     // Check route types
     const isAdminRoute = adminRoutes.some((route) =>
         pathname.startsWith(route)
