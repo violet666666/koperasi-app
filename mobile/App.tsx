@@ -74,6 +74,7 @@ const LaporanPiutangGabunganScreen = React.lazy(() => import("./src/screens/oper
 const KasBankTransaksiScreen = React.lazy(() => import("./src/screens/operator/KasBankTransaksiScreen"));
 const KasBankTransferScreen = React.lazy(() => import("./src/screens/operator/KasBankTransferScreen"));
 const LaporanUnitScreen = React.lazy(() => import("./src/screens/operator/LaporanUnitScreen"));
+const LoanEditScreen = React.lazy(() => import("./src/screens/operator/LoanEditScreen"));
 
 // Suspense wrapper for lazy screens
 const LS = ({ children }: { children: React.ReactNode }) => (
@@ -279,6 +280,7 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="KasBankTransaksi">{() => <LS><KasBankTransaksiScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="KasBankTransfer">{() => <LS><KasBankTransferScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="LaporanUnit">{() => <LS><LaporanUnitScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="LoanEdit">{() => <LS><LoanEditScreen /></LS>}</Stack.Screen>
           </>
         )}
       </Stack.Navigator>
