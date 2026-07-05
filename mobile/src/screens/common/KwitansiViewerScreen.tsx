@@ -8,10 +8,11 @@ import * as Haptics from 'expo-haptics';
 import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
+import { BASE_URL } from '../../lib/api';
 
 export default function KwitansiViewerScreen({ route, navigation }: any) {
   const { receiptId } = route.params;
-  const url = `https://www.primkoppol.site/kwitansi/${receiptId}/cetak`;
+  const url = `${BASE_URL}/kwitansi/${receiptId}/cetak`;
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -70,9 +71,9 @@ export default function KwitansiViewerScreen({ route, navigation }: any) {
         source={{ uri: url }}
         style={{ flex: 1 }}
         onLoadEnd={() => setLoading(false)}
-        originWhitelist={['https://www.primkoppol.site/*']}
+        originWhitelist={[`${BASE_URL}/*`]}
         onShouldStartLoadWithRequest={(request) =>
-          request.url.startsWith('https://www.primkoppol.site/')
+          request.url.startsWith(`${BASE_URL}/`)
         }
         allowsBackForwardNavigationGestures={false}
       />

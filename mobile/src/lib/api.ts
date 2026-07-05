@@ -21,9 +21,12 @@ function getBaseUrl(): string {
   if (MANUAL_URL) return MANUAL_URL;
 
   // Production build (APK/AAB): selalu gunakan domain publik
+  // ⚠ Gunakan BARE domain (primkoppol.site), BUKAN www — subdomain www belum
+  // resolve di DNS Hostinger. Bare domain sudah ALIAS → Railway. Jika kelak www
+  // dikonfigurasi, proxy.ts (308 www→bare) tetap menjaga canonical URL tunggal.
   const isProduction = !__DEV__;
   if (isProduction) {
-    return 'https://www.primkoppol.site';
+    return 'https://primkoppol.site';
   }
 
   // ── S1-02: Dynamic port dari env variable ──────────────────
@@ -39,8 +42,8 @@ function getBaseUrl(): string {
     return `http://${ip}:${apiPort}`;
   }
 
-  // Fallback ke domain publik (bukan IP lokal)
-  return 'https://www.primkoppol.site';
+  // Fallback ke domain publik bare (bukan IP lokal)
+  return 'https://primkoppol.site';
 }
 
 export const BASE_URL = getBaseUrl();
