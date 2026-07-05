@@ -22,9 +22,9 @@
 - [x] **Fase 7b — Generic per-unit laporan mobile** — ✅ DONE + **API + web-refactor deployed** (`559d004f`..`e5acbd01`; pushed `8b2ec6ca..e5acbd01`). Shared `getUnitLaporanData` helper (web+mobile DRY); web refactor behavior-preserving; `LaporanUnitScreen` (full V1 read-only). Tests 450/3.
 - [x] **Fase 8a — Aset CRUD mobile** — ✅ DONE + **API deployed** (`0ffed9be`..`29269d65`; pushed `e5acbd01..29269d65`). Reused existing POST + new PUT edit + POST dispose + DELETE soft; `AsetFormScreen` + AsetList FAB + AsetDetail actions. Tests 450/3.
 - [x] **Fase 8b — Loan edit mobile** — ✅ DONE + **API + web-refactor deployed** (5 SDD tasks `9e9a947d`..`59146d42`; pushed `29269d65..59146d42`). **DRY extraction** (highest money-integrity fase): `recalcLoanFinancials` (pure, +9 tests) + `applyLoanEdit` (the $transaction schedule-regen) shared by web + mobile. Web PUT refactored **behavior-preserving (money path byte-identical, opus-verified)**; mobile `GET`+`PUT /loans/[id]` (operator/admin_sp + canAccessBranch). `LoanEditScreen` (7-field form, change-detection, no live preview) + DaftarPinjaman Edit entry. Tests 459/3. **Screen ships via EAS build #5.**
-- [~] **Fase 8c — Payroll import mobile** — 🔄 **IN PROGRESS (PAUSED for Railway production fix — now RESOLVED)**. SDD: spec+plan committed (`c23fafaf`/`65a8f8c0`); **T1 DONE** `eeb4235c` (parsePayrollExcel + commitPayrollPeriod shared helpers extracted verbatim from web import; tsc clean; no fixture → no smoke test). T1 opus review PENDING (faithfulness check). T2-T5 pending (web refactor, mobile routes, screen, nav). T1 was PUSHED with the production hotfixes (`388a492f..c832d581`). BASE `65a8f8c0`. **Next: finish T1 review → T2-T5 → final review + push.**
+- [x] **Fase 8c — Payroll import mobile** — ✅ **DONE + PUSHED + FINAL OPUS REVIEW APPROVED**. DRY extraction: `parsePayrollExcel` + `commitPayrollPeriod` + `PayrollImportError` shared helpers (`src/lib/services/payroll-import.ts`); web route refactored to call them (behavior-preserving, opus-verified byte-identical); mobile POST `/payroll/import` + `/delete` (operator-only); `PayrollImportScreen` (3-step pick→preview→commit, 5-min timeout, multipart) + GajiPeriode Import/Delete buttons; nav wired. Commits `eeb4235c..4787fd30` (T1-T5) + `931a04b1` (version bump). Final opus whole-branch review APPROVED (10/10 sections clean; screen↔route field contract verified — Fase 6 lesson held). 2 Minor deferred (race→500 parity; screen trusts nav gate). Pushed `c832d581..4787fd30`.
 
-**Push status:** Fase 1-8b + 8c T1 + **7 production hotfixes ALL PUSHED** (`59146d42..c832d581`). Railway prod `melodious-generosity` / `koperasi-app` service **FULLY OPERATIONAL** at `primkoppol.site`. EAS build #4 (dual APK+AAB) done; **build #5 pending** (ships Fase 7b+8a+8b screens). Play Store closed testing working. **Mobile users need RE-LOGIN** (AUTH_SECRET change invalidated old JWT tokens).
+**Push status:** Fase 1-8c ALL DONE + PUSHED (`c832d581..4787fd30` — incl. Fase 8c + bare-domain mobile URL hotfix `c75eb194`). Railway prod auto-deploying the web refactor + 2 mobile payroll API routes. **EAS build #5 IN FLIGHT** (v1.1.6/vc7, both APK+AAB) — ships Fase 7b+8a+8b+8c screens + URL hotfix. Play Store closed testing working. **Mobile users need RE-LOGIN** (AUTH_SECRET change invalidated old JWT tokens).
 
 ---
 
@@ -76,6 +76,19 @@ NEXTAUTH_URL=https://primkoppol.site
 NODE_ENV=production
 PORT=8080
 ```
+
+### 🔧 Mobile API URL fix (2026-07-05, commit `c75eb194`)
+Mobile hardcoded `https://www.primkoppol.site` di `api.ts` (production + fallback) + `KwitansiViewerScreen` (3 site). Karena `www` **belum resolve** di DNS Hostinger (cuma bare ALIAS `@` yang aktif), semua request mobile gagal di DNS resolution → `ERR_NETWORK` → "Koneksi timeout". Web jalan karena user akses bare domain di browser.
+**Fix:** `api.ts` → bare `https://primkoppol.site` (2 tempat); `KwitansiViewerScreen` import `BASE_URL` dari `api.ts` (single source of truth, hapus duplikasi domain string). Mobile tsc clean.
+**⚠ Code fix berlaku di EAS build #5 (next).** APK yang sudah ter-install masih pointing ke `www` → harus di-update ke build #5 setelah rilis. NEXTAUTH_URL prod = bare `https://primkoppol.site` (jangan `www`).
+
+## ⏳ EAS Build #5 — IN FLIGHT (2026-07-06, v1.1.6/vc7, building from `931a04b1`)
+Dual build (mobile/android/ clean → archive 123MB each, no ECONNRESET):
+- **APK (profile production):** build ID `a41e3c16-bfd4-4b6c-9c46-e67516330973` — https://expo.dev/accounts/violet666/projects/koperasi-primkoppol/builds/a41e3c16-bfd4-4b6c-9c46-e67516330973
+- **AAB (profile store):** build ID `e6f8f550-694f-40fd-9714-d81deba372f0` — https://expo.dev/accounts/violet666/projects/koperasi-primkoppol/builds/e6f8f550-694f-40fd-9714-d81deba372f0
+- Re-poll: `cd mobile && npx eas-cli build:view <ID> --json` (status FINISHED → `artifacts.buildUrl` = signed APK/AAB link, ~30-day expiry).
+- Ships: Fase 7b (unit laporan) + 8a (aset CRUD) + 8b (loan edit) + 8c (payroll import) screens + bare-domain API URL hotfix.
+- Free-tier queue ~10-90 min + build ~15-20 min each.
 
 ---
 
