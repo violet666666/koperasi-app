@@ -22,8 +22,60 @@
 - [x] **Fase 7b — Generic per-unit laporan mobile** — ✅ DONE + **API + web-refactor deployed** (`559d004f`..`e5acbd01`; pushed `8b2ec6ca..e5acbd01`). Shared `getUnitLaporanData` helper (web+mobile DRY); web refactor behavior-preserving; `LaporanUnitScreen` (full V1 read-only). Tests 450/3.
 - [x] **Fase 8a — Aset CRUD mobile** — ✅ DONE + **API deployed** (`0ffed9be`..`29269d65`; pushed `e5acbd01..29269d65`). Reused existing POST + new PUT edit + POST dispose + DELETE soft; `AsetFormScreen` + AsetList FAB + AsetDetail actions. Tests 450/3.
 - [x] **Fase 8b — Loan edit mobile** — ✅ DONE + **API + web-refactor deployed** (5 SDD tasks `9e9a947d`..`59146d42`; pushed `29269d65..59146d42`). **DRY extraction** (highest money-integrity fase): `recalcLoanFinancials` (pure, +9 tests) + `applyLoanEdit` (the $transaction schedule-regen) shared by web + mobile. Web PUT refactored **behavior-preserving (money path byte-identical, opus-verified)**; mobile `GET`+`PUT /loans/[id]` (operator/admin_sp + canAccessBranch). `LoanEditScreen` (7-field form, change-detection, no live preview) + DaftarPinjaman Edit entry. Tests 459/3. **Screen ships via EAS build #5.**
+- [~] **Fase 8c — Payroll import mobile** — 🔄 **IN PROGRESS (PAUSED for Railway production fix — now RESOLVED)**. SDD: spec+plan committed (`c23fafaf`/`65a8f8c0`); **T1 DONE** `eeb4235c` (parsePayrollExcel + commitPayrollPeriod shared helpers extracted verbatim from web import; tsc clean; no fixture → no smoke test). T1 opus review PENDING (faithfulness check). T2-T5 pending (web refactor, mobile routes, screen, nav). T1 was PUSHED with the production hotfixes (`388a492f..c832d581`). BASE `65a8f8c0`. **Next: finish T1 review → T2-T5 → final review + push.**
 
-**Push status:** Fase 1-8b **all PUSHED + API deployed** (`29269d65..59146d42`). EAS build #4 (dual APK+AAB) done; **build #5 pending** (ships Fase 7b + 8a + 8b screens). ⏭ Smoke test build #4 + Fase 7b/8a/8b screens (after #5). Play Store closed testing working.
+**Push status:** Fase 1-8b + 8c T1 + **7 production hotfixes ALL PUSHED** (`59146d42..c832d581`). Railway prod `melodious-generosity` / `koperasi-app` service **FULLY OPERATIONAL** at `primkoppol.site`. EAS build #4 (dual APK+AAB) done; **build #5 pending** (ships Fase 7b+8a+8b screens). Play Store closed testing working. **Mobile users need RE-LOGIN** (AUTH_SECRET change invalidated old JWT tokens).
+
+---
+
+## ✅ RAILWAY PRODUCTION FIX (2026-07-05) — 7-LAYER, ALL RESOLVED
+
+Railway service `melodious-generosity` / `koperasi-app` was **DELETED** (late bill payment). After payment + service recreation, **7 layered issues** were diagnosed + fixed. **Production is now FULLY OPERATIONAL** at `primkoppol.site`.
+
+### The 7 layers (all fixed)
+| # | Issue | Root cause | Fix | Commit/Action |
+|---|---|---|---|---|
+| 1 | **Env vars lost** | Service deletion wiped all env vars | Restored: DATABASE_URL, DIRECT_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, NODE_ENV, PORT | Railway CLI `variables set` |
+| 2 | **DNS → Hostinger not Railway** | Old Hostinger A records (`69.46.46.x`) still active | Deleted A records; added ALIAS `@` + CNAME `www` → `r8z6wcvv.up.railway.app` + TXT verify | Hostinger DNS |
+| 3 | **AUTH_SECRET missing** | `.env` file didn't have it; old Railway service did | Set `AUTH_SECRET=koperasi-secret-key-production-2025` (= NEXTAUTH_SECRET) | Railway CLI — was causing mobile JWT to use hardcoded fallback `"development-secret-key-fallback-primkoppol"` |
+| 4 | **proxy.ts secureCookie** | `getToken()` missing `secureCookie: true` → reads wrong cookie name on HTTPS (`authjs.session-token` vs `__Secure-authjs.session-token`) → token null → every route redirects to /login | Added `secureCookie: process.env.NODE_ENV === "production"` | `ca9d8eae` |
+| 5 | **Login redirect** | `signIn(redirect:false)` result.ok unreliable in NextAuth v5 beta → redirect never fires | Changed `if (result?.ok)` → `if (result && !result.error)` in `use-auth.tsx` | `388a492f` |
+| 6 | **DB connections closing** | DATABASE_URL using Neon pooler WITHOUT `pgbouncer=true` → Prisma prepared statements conflict with PgBouncer → `prisma:error Error { kind: Closed }` ×13+ | Added `pgbouncer=true&connect_timeout=15` to DATABASE_URL | Railway CLI |
+| 7 | **Canonical www→bare** | Cross-subdomain cookie confusion (bare vs www) | Proxy 308 redirect www→bare (deployed but dormant — www needs Railway domain or Hostinger redirect) | `c832d581` |
+
+### Key lessons (for CLAUDE.md / future sessions)
+- **Env-var restoration from `.env` is INCOMPLETE** — the old Railway service had MORE vars than `.env`. Always audit `process.env.*` references in codebase against Railway vars after service recreation.
+- **`pgbouncer=true` is REQUIRED** when using Neon's pooler endpoint (`-pooler`) — without it, Prisma's `$transaction` (interactive, uses SAVEPOINT) fails silently.
+- **`secureCookie: true` is REQUIRED** for `getToken()` in HTTPS production — NextAuth v5 prefixes the cookie with `__Secure-`.
+- **NextAuth v5 beta `signIn(redirect:false)` may not set `result.ok`** — check `!result.error` instead.
+
+### Production verification (Playwright, 2026-07-05)
+All web unit transactions tested + VERIFIED:
+| Unit | Account | Role | Login | Transaction | Sale No |
+|---|---|---|---|---|---|
+| Toko | `operator@koperasi.com` | operator | ✅ | ✅ | (user-confirmed) |
+| Toko | `admintoko@koperasi.com` | admin toko | ✅ | ✅ | `TK-05072026-0002` |
+| Toko | `kasirtoko@koperasi.com` | kasir toko | ✅ | ✅ | `TK-05072026-0003` |
+| Resto & Cafe | `kasircafe@koperasi.com` | kasir resto_cafe | ✅ | ✅ | `RC-05072026-0002` |
+| Cafe LSP | `kasirlsp@koperasi.com` | — | ❌ **User not found** | N/A | Account doesn't exist in DB |
+
+**Mobile app users need RE-LOGIN** — existing mobile JWT tokens were signed with the old fallback secret (before AUTH_SECRET fix) → now invalid → 401 on mobile transactions. Re-login = new token with correct AUTH_SECRET.
+
+### Test sales cleanup needed
+- `TK-05072026-0002` (TEST ADMIN TOKO, Rp 8.000)
+- `TK-05072026-0003` (TEST KASIR TOKO, Rp 8.000)
+- `RC-05072026-0002` (TEST KASIR CAFE, Rp 12.000)
+
+### Railway env vars (current complete set)
+```
+DATABASE_URL=postgresql://...pooler...neondb?sslmode=require&channel_binding=require&pgbouncer=true&connect_timeout=15&connection_limit=5&pool_timeout=20
+DIRECT_URL=postgresql://...direct...neondb?channel_binding=require&sslmode=require
+NEXTAUTH_SECRET=koperasi-secret-key-production-2025
+AUTH_SECRET=koperasi-secret-key-production-2025
+NEXTAUTH_URL=https://primkoppol.site
+NODE_ENV=production
+PORT=8080
+```
 
 ---
 
@@ -152,5 +204,7 @@ Comprehensive mobile-vs-web gap audit. **DONE Fase 1-8b** covers: SHU/Neraca, mo
 ## Cara resume (jika context habis / post-compact)
 1. `git log --oneline -30` — status sebenarnya.
 2. Baca dokumen ini + `.remember/remember.md` (handoff) + `.superpowers/sdd/progress.md` (ledger).
-3. **Next action tergantung status EAS build:** kalau `mobile/app.json` versionCode 3 + belum di-build → user jalankan `eas build`. Kalau sudah build → lanjut Fase 4b atau fitur parity.
-4. Memori `mobile-drift-audit-fase1-2026-07.md` — detail audit + roadmap ter-update.
+3. **Railway prod:** service `melodious-generosity` / `koperasi-app` — ALL 7 production fixes deployed + verified. Login + transactions work for operator/admin/kasir (toko + resto_cafe). `kasirlsp@koperasi.com` doesn't exist in DB (needs creation). Mobile users need re-login (AUTH_SECRET changed).
+4. **Fase 8c next:** finish T1 opus review (faithfulness check of parsePayrollExcel/commitPayrollPeriod verbatim extraction) → T2 web import refactor (behavior-preserving) → T3 mobile routes → T4 screen → T5 nav → final review + push.
+5. **Roadmap:** see "⏭ Roadmap FULL PARITY" section above — Fase 8c → 9a Haji/Umrah → 9b Tagihan → 10 Imports → 11 SHU/Tutup-buku → 14 RBAC GET-scope → 12 Manajemen Unit → P2/P3.
+6. Memori `mobile-drift-audit-fase1-2026-07.md` — detail audit + roadmap ter-update.
