@@ -102,6 +102,9 @@ export interface CommitPayrollPeriodResult {
 export class PayrollImportError extends Error {
     statusCode: number;
     statusMessage: string;
+    /** Set on the 409 duplicate-period case so routes can mirror the original
+     *  web 409 response shape (`{ message, existingPeriodId }`) byte-identically. */
+    existingPeriodId?: number;
     constructor(statusCode: number, statusMessage: string) {
         super(statusMessage);
         this.name = "PayrollImportError";
@@ -350,10 +353,12 @@ export async function commitPayrollPeriod(
         where: { periodMonth_periodYear_sourceType: { periodMonth, periodYear, sourceType } },
     });
     if (existing) {
-        throw new PayrollImportError(
+        const err = new PayrollImportError(
             409,
             `Data gaji ${periodName} (${sourceType}) sudah ada. Hapus terlebih dahulu jika ingin import ulang.`,
         );
+        err.existingPeriodId = existing.id;
+        throw err;
     }
 
     const period = await prisma.$transaction(async (tx) => {
