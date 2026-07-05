@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-
-const HAJI_UMRAH_TYPES = ["tabungan_haji", "tabungan_umrah"];
+import { HAJI_UMRAH_TYPES, HajiUmrahSavingsError, createHajiUmrahAccount } from "@/lib/services/haji-umrah-savings";
 
 // GET /api/haji-umrah/savings — List tabungan haji/umrah accounts
 export async function GET(request: Request) {
@@ -81,6 +80,7 @@ export async function GET(request: Request) {
 }
 
 // POST /api/haji-umrah/savings — Buka rekening tabungan haji/umrah
+// Account creation lives in createHajiUmrahAccount (shared with mobile). Behavior-preserving.
 export async function POST(request: Request) {
     try {
         const session = await auth();
@@ -91,70 +91,12 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { memberId, productId, targetAmount, monthlyTarget, maturityDate } = body;
 
-        if (!memberId || !productId) {
-            return NextResponse.json(
-                { message: "memberId dan productId wajib diisi" },
-                { status: 400 }
-            );
-        }
-
-        // Validate product is haji/umrah type
-        const product = await prisma.savingsProduct.findUnique({
-            where: { id: productId },
-        });
-        if (!product || !HAJI_UMRAH_TYPES.includes(product.type)) {
-            return NextResponse.json(
-                { message: "Produk bukan tipe tabungan haji/umrah" },
-                { status: 400 }
-            );
-        }
-
-        // Get member
-        const member = await prisma.member.findUnique({
-            where: { id: memberId },
-            select: { id: true, branchId: true, status: true },
-        });
-        if (!member) {
-            return NextResponse.json(
-                { message: "Anggota tidak ditemukan" },
-                { status: 404 }
-            );
-        }
-
-        // Check if account already exists (unique constraint: memberId + productId)
-        const existing = await prisma.savingsAccount.findUnique({
-            where: { memberId_productId: { memberId, productId } },
-        });
-        if (existing) {
-            return NextResponse.json(
-                { message: "Anggota sudah memiliki rekening untuk produk ini" },
-                { status: 409 }
-            );
-        }
-
-        const accountNo = `HU-${memberId}-${productId}-${Date.now().toString().slice(-4)}`;
-        const effectiveTarget = targetAmount ?? product.targetAmount;
-
-        const account = await prisma.savingsAccount.create({
-            data: {
-                accountNo,
-                memberId,
-                productId,
-                branchId: member.branchId,
-                balance: 0,
-                openedDate: new Date(),
-                targetAmount: effectiveTarget,
-                monthlyTarget: monthlyTarget ?? null,
-                maturityDate: maturityDate ? new Date(maturityDate) : null,
-            },
-            include: {
-                member: { select: { id: true, memberNo: true, name: true, nrp: true } },
-                product: true,
-            },
-        });
-
+        const account = await createHajiUmrahAccount({ memberId, productId, targetAmount, monthlyTarget, maturityDate });
         return NextResponse.json({ data: account }, { status: 201 });
-    } catch (error) {
+    } catch (error: unknown) {
+        if (error instanceof HajiUmrahSavingsError) {
+            return NextResponse.json({ message: error.message }, { status: error.statusCode });
+        }
         console.error("POST /api/haji-umrah/savings error:", error);
         return NextResponse.json(
             { message: "Failed to create savings account" },
