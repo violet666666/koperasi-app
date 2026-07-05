@@ -1,17 +1,25 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { StorageManager } from '../../lib/storage';
 import { log } from '../../utils/log';
 
 export default function GajiPeriodeScreen({ route, navigation }: any) {
   const [periods, setPeriods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Import + Delete are operator-only (parity with the API gate).
+  const canManage = useMemo(() => {
+    const ud = StorageManager.getFastString('userData');
+    if (!ud) return false;
+    try { return JSON.parse(ud).role === 'operator'; } catch { return false; }
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -28,6 +36,31 @@ export default function GajiPeriodeScreen({ route, navigation }: any) {
   useEffect(() => { loadData(); }, [loadData]);
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
+
+  const handleDelete = (period: any) => {
+    Alert.alert(
+      "Hapus Periode Gaji",
+      `Hapus "${period.name || 'periode ini'}"? Semua slip gaji akan terhapus. sisaGaji anggota TIDAK direset.`,
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.post('/api/mobile/payroll/delete', { periodId: period.id });
+              Alert.alert("Berhasil", "Periode gaji dihapus.");
+              loadData();
+            } catch (err: any) {
+              log.error('payroll delete failed:', err);
+              const msg = err?.response?.data?.message || err?.message || "Gagal menghapus.";
+              Alert.alert("Gagal", msg);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const statusColor = (s: string) => s === 'published' ? '#16A34A' : '#D97706';
   const statusLabel = (s: string) => s === 'published' ? 'Published' : 'Draft';
@@ -64,7 +97,18 @@ export default function GajiPeriodeScreen({ route, navigation }: any) {
               {statusLabel(item.status)}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={C.mutedForeground} style={{ marginTop: 4 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            {canManage && (
+              <TouchableOpacity
+                onPress={() => handleDelete(item)}
+                style={styles.deleteBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              </TouchableOpacity>
+            )}
+            <Ionicons name="chevron-forward" size={18} color={C.mutedForeground} />
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -81,6 +125,15 @@ export default function GajiPeriodeScreen({ route, navigation }: any) {
           <Text style={styles.headerTitle}>Gaji & Payroll</Text>
           <Text style={styles.headerSub}>{periods.length} periode</Text>
         </View>
+        {canManage && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PayrollImport')}
+            style={styles.importBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="cloud-upload" size={24} color="#FFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -107,6 +160,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
   backBtn: { padding: 4 },
+  importBtn: { padding: 8 },
+  deleteBtn: { padding: 6, marginRight: 4 },
   headerTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
   headerSub: { color: '#FFF', fontSize: 12, opacity: 0.7, marginTop: 2 },
   card: {
