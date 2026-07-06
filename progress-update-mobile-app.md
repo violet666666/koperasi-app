@@ -1,13 +1,13 @@
 # Progress Update Mobile App — Drift Fix Effort
 
-> **Dokumen recovery.** Update 2026-07-02. Jika context habis/sesi compact, baca dokumen ini **+** `.remember/remember.md` **+** `.superpowers/sdd/progress.md` **+** memori `mobile-drift-audit-fase1-2026-07.md` **+** `git log --oneline -30`.
+> **Dokumen recovery.** Update 2026-07-06. Jika context habis/sesi compact, baca dokumen ini **+** `.remember/remember.md` **+** `.superpowers/sdd/progress.md` **+** memori `mobile-drift-audit-fase1-2026-07.md` **+** `git log --oneline -30`.
 
 - **Branch:** `railway-migration` — **auto-deploy ke prod (primkoppol.site) tiap push.**
 - **Mobile app:** Expo 55 / RN 0.83. API deploy = Railway (push). Mobile UI deploy = `eas build` (terpisah).
 
 ---
 
-## Status keseluruhan (per 2026-07-02)
+## Status keseluruhan (per 2026-07-06)
 
 - [x] **Fase 1** — SHU Laba Kotor + Neraca ledger. ✅ DONE + **deployed** 2026-07-01 (`82d5fd2..4541674`).
 - [x] **Fase 2** — Money-integrity (2a loan-payment allocation + 2b savings-tx atomic/AD-ART). ✅ DONE + **deployed** (`c4cec9a..58d07a8`).
@@ -82,13 +82,13 @@ Mobile hardcoded `https://www.primkoppol.site` di `api.ts` (production + fallbac
 **Fix:** `api.ts` → bare `https://primkoppol.site` (2 tempat); `KwitansiViewerScreen` import `BASE_URL` dari `api.ts` (single source of truth, hapus duplikasi domain string). Mobile tsc clean.
 **⚠ Code fix berlaku di EAS build #5 (next).** APK yang sudah ter-install masih pointing ke `www` → harus di-update ke build #5 setelah rilis. NEXTAUTH_URL prod = bare `https://primkoppol.site` (jangan `www`).
 
-## ⏳ EAS Build #5 — IN FLIGHT (2026-07-06, v1.1.6/vc7, building from `931a04b1`)
-Dual build (mobile/android/ clean → archive 123MB each, no ECONNRESET):
-- **APK (profile production):** build ID `a41e3c16-bfd4-4b6c-9c46-e67516330973` — https://expo.dev/accounts/violet666/projects/koperasi-primkoppol/builds/a41e3c16-bfd4-4b6c-9c46-e67516330973
-- **AAB (profile store):** build ID `e6f8f550-694f-40fd-9714-d81deba372f0` — https://expo.dev/accounts/violet666/projects/koperasi-primkoppol/builds/e6f8f550-694f-40fd-9714-d81deba372f0
-- Re-poll: `cd mobile && npx eas-cli build:view <ID> --json` (status FINISHED → `artifacts.buildUrl` = signed APK/AAB link, ~30-day expiry).
+## ✅ EAS Build #5 — FINISHED (2026-07-06, v1.1.6/vc7, built from `931a04b1`)
+Dual build (mobile/android/ clean → archive 123MB each, no ECONNRESET). Both FINISHED.
+- **APK (profile production):** `https://expo.dev/artifacts/eas/mi5B2oKQCvnZ_v25t1NdnXYsZhNGb__LlG_j3yCTzyQ.apk` (build ID `a41e3c16-bfd4-4b6c-9c46-e67516330973`, expires ~30 days)
+- **AAB (profile store):** `https://expo.dev/artifacts/eas/1XqVTe4mJNGf6T6UUQ4wx-wB3Ju8PQpGnh8jBPuntfM.aab` (build ID `e6f8f550-694f-40fd-9714-d81deba372f0`, for Play Store closed-testing upload)
 - Ships: Fase 7b (unit laporan) + 8a (aset CRUD) + 8b (loan edit) + 8c (payroll import) screens + bare-domain API URL hotfix.
-- Free-tier queue ~10-90 min + build ~15-20 min each.
+- **⚠ Does NOT include Fase 9a.1 H&U screens** (built from `931a04b1`, before 9a.1). 9a.1 screens need build #6.
+- ⏭ Smoke test: sideload APK → Laba Kotor (SHU), Neraca badge, Void Angsuran, Aset CRUD, Loan Edit, Payroll Import, Kwitansi (bare domain). AAB → Play Store closed-testing.
 
 ## ✅ Fase 9a.1 — Mobile Haji/Umrah Tabungan Core (DONE + DEPLOYED 2026-07-06)
 First mobile increment of the H&U module (web Phases 1-4 complete; mobile had ZERO H&U). Commits `07eba935..e2c6b198` (spec+plan+T1-T7+security fix). Pushed `4787fd30..e2c6b198`.
@@ -227,6 +227,6 @@ Comprehensive mobile-vs-web gap audit. **DONE Fase 1-8b** covers: SHU/Neraca, mo
 1. `git log --oneline -30` — status sebenarnya.
 2. Baca dokumen ini + `.remember/remember.md` (handoff) + `.superpowers/sdd/progress.md` (ledger).
 3. **Railway prod:** service `melodious-generosity` / `koperasi-app` — ALL 7 production fixes deployed + verified. Login + transactions work for operator/admin/kasir (toko + resto_cafe). `kasirlsp@koperasi.com` doesn't exist in DB (needs creation). Mobile users need re-login (AUTH_SECRET changed).
-4. **Fase 8c next:** finish T1 opus review (faithfulness check of parsePayrollExcel/commitPayrollPeriod verbatim extraction) → T2 web import refactor (behavior-preserving) → T3 mobile routes → T4 screen → T5 nav → final review + push.
+4. **Fase 9a.1 (H&U tabungan) DONE + deployed** (`07eba935..f3c12c51`). Fase 8c (payroll) also done+deployed. EAS build #5 FINISHED (7b-8c screens, NO 9a.1). Next: **9a.2 Talangan → 9a.3 Bagi Hasil → 9a.4 Products/Laporan**, then 9a.1+ screens ship via EAS build #6 (pending user request).
 5. **Roadmap:** see "⏭ Roadmap FULL PARITY" section above — Fase 8c → 9a Haji/Umrah → 9b Tagihan → 10 Imports → 11 SHU/Tutup-buku → 14 RBAC GET-scope → 12 Manajemen Unit → P2/P3.
 6. Memori `mobile-drift-audit-fase1-2026-07.md` — detail audit + roadmap ter-update.
