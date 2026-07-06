@@ -8,6 +8,10 @@ import { HAJI_UMRAH_TYPES } from "@/lib/services/haji-umrah-savings";
 export async function GET(request: Request) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
+    // Staff-only — H&U management is staff; members use the portal. Spec: "any auth staff".
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
 
     try {
         const products = await prisma.savingsProduct.findMany({

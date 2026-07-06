@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMobileUser, unauthorizedResponse } from "../../../middleware";
-
-const HAJI_UMRAH_TYPES = ["tabungan_haji", "tabungan_umrah"];
+import { HAJI_UMRAH_TYPES } from "@/lib/services/haji-umrah-savings";
 
 // GET /api/mobile/haji-umrah/savings/[accountId] — Detail + stats
 // VERBATIM mirror of web GET /api/haji-umrah/savings/[accountId] (auth swapped for mobile JWT).
@@ -12,6 +11,10 @@ export async function GET(
 ) {
     const user = getMobileUser(request);
     if (!user) return unauthorizedResponse();
+    // Staff-only — H&U management is staff; members use the portal. Spec: "any auth staff".
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "admin_sp") {
+        return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
+    }
 
     try {
         const { accountId } = await params;
