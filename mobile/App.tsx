@@ -76,6 +76,10 @@ const KasBankTransferScreen = React.lazy(() => import("./src/screens/operator/Ka
 const LaporanUnitScreen = React.lazy(() => import("./src/screens/operator/LaporanUnitScreen"));
 const LoanEditScreen = React.lazy(() => import("./src/screens/operator/LoanEditScreen"));
 const PayrollImportScreen = React.lazy(() => import("./src/screens/operator/PayrollImportScreen"));
+const HajiUmrahScreen = React.lazy(() => import("./src/screens/operator/HajiUmrahScreen"));
+const HajiUmrahDetailScreen = React.lazy(() => import("./src/screens/operator/HajiUmrahDetailScreen"));
+const HajiUmrahSetoranScreen = React.lazy(() => import("./src/screens/operator/HajiUmrahSetoranScreen"));
+const HajiUmrahBukaRekeningScreen = React.lazy(() => import("./src/screens/operator/HajiUmrahBukaRekeningScreen"));
 
 // Suspense wrapper for lazy screens
 const LS = ({ children }: { children: React.ReactNode }) => (
@@ -283,6 +287,12 @@ function InnerApp({ userToken, setUserToken }: { userToken: string | null; setUs
             <Stack.Screen name="KasBankTransfer">{() => <LS><KasBankTransferScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="LaporanUnit">{() => <LS><LaporanUnitScreen /></LS>}</Stack.Screen>
             <Stack.Screen name="LoanEdit">{() => <LS><LoanEditScreen /></LS>}</Stack.Screen>
+
+            {/* ====== Haji & Umrah Sub-screens (Fase 9a.1) ====== */}
+            <Stack.Screen name="HajiUmrah">{() => <LS><HajiUmrahScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="HajiUmrahDetail">{() => <LS><HajiUmrahDetailScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="HajiUmrahSetoran">{() => <LS><HajiUmrahSetoranScreen /></LS>}</Stack.Screen>
+            <Stack.Screen name="HajiUmrahBukaRekening">{() => <LS><HajiUmrahBukaRekeningScreen /></LS>}</Stack.Screen>
           </>
         )}
       </Stack.Navigator>
