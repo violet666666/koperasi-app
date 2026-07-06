@@ -90,6 +90,15 @@ Dual build (mobile/android/ clean → archive 123MB each, no ECONNRESET):
 - Ships: Fase 7b (unit laporan) + 8a (aset CRUD) + 8b (loan edit) + 8c (payroll import) screens + bare-domain API URL hotfix.
 - Free-tier queue ~10-90 min + build ~15-20 min each.
 
+## ✅ Fase 9a.1 — Mobile Haji/Umrah Tabungan Core (DONE + DEPLOYED 2026-07-06)
+First mobile increment of the H&U module (web Phases 1-4 complete; mobile had ZERO H&U). Commits `07eba935..e2c6b198` (spec+plan+T1-T7+security fix). Pushed `4787fd30..e2c6b198`.
+- **DRY money-core:** `processHajiUmrahDeposit` (setoran $transaction) + `createHajiUmrahAccount` extracted to `src/lib/services/haji-umrah-savings.ts` (shared web+mobile). Web setoran + buka-rekening refactored to call them — **behavior-preserving (opus byte-identical, 2 opus reviews APPROVED)**. CashBank unitType inconsistency (deposit `simpan_pinjam` / fee `haji_umrah`) preserved verbatim.
+- **5 mobile routes:** GET savings list/detail/products (staff gate) + POST setoran + POST buka-rekening (`/savings/open`). Write RBAC: operator OR admin-`haji_umrah` (DB-sourced unitType). Security fix: staff gate on reads (closed member-token data leak flagged by background review).
+- **4 screens:** HajiUmrahScreen (list) + Detail + Setoran (deposit form) + BukaRekening. All field-contracts audited (Fase 6 lesson held). App.tsx 4-route wiring + dashboard nav.
+- Final opus review APPROVED (8/8 sections). Tests 459/3 pre-existing. Non-blocking notes: N1 pre-existing cashAccount-branch gap (web parity), N2/N3 minor UX.
+- **⚠ Screens ship via EAS build #6** (not #5 — #5 was already in flight before 9a.1). API (web refactor + 5 routes) is LIVE via this push.
+- **Out of scope (9a.2-9a.4):** Talangan, Bagi Hasil, Products CRUD, Laporan.
+
 ---
 
 ## Fase 1 — ✅ DONE + deployed (`82d5fd2..4541674`)
