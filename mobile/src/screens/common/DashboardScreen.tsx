@@ -264,6 +264,9 @@ export default function DashboardScreen({ setToken }: any) {
                         {(userRole === "operator" || userRole === "admin") && (
                         <MenuItem icon="document-text-outline" label="Gaji & Payroll" color="#7C3AED" onPress={() => navigation.navigate("GajiPeriode")} />
                         )}
+                        {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
+                        <MenuItem icon="airplane" label="Haji & Umrah" color="#0EA5E9" onPress={() => navigation.navigate("HajiUmrah")} />
+                        )}
                     </View>
                 </CollapsibleSection>
 
