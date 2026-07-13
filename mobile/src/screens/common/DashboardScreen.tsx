@@ -284,7 +284,10 @@ export default function DashboardScreen({ setToken }: any) {
                         <MenuItem icon="scale-outline" label="Neraca" color="#D97706" onPress={() => navigation.navigate("Neraca")} />
                         <MenuItem icon="pie-chart-outline" label="Simulasi SHU" color="#be185d" onPress={() => navigation.navigate("LaporanSHU")} />
                         {(userRole === "operator" || userRole === "admin_sp") && (
-                        <MenuItem icon="receipt-outline" label="Piutang Gabungan" color="#0891b2" onPress={() => navigation.navigate("LaporanPiutangGabungan")} />
+                        <MenuItem icon="document-text-outline" label="Piutang Gabungan" color="#0891b2" onPress={() => navigation.navigate("LaporanPiutangGabungan")} />
+                        )}
+                        {(userRole === "operator" || userRole === "admin_sp") && (
+                        <MenuItem icon="filing-outline" label="Pengajuan Pinjaman" color="#7C3AED" onPress={() => navigation.navigate("LoanApplications")} />
                         )}
                         {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
                         <MenuItem icon="stats-chart-outline" label="Laporan Unit" color="#0891b2" onPress={() => navigation.navigate("LaporanUnit")} />
