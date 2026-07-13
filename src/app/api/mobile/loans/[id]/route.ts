@@ -68,6 +68,14 @@ export async function GET(request: Request, { params }: Params) {
       );
     }
 
+    // Branch scope: non-operator staff hanya bisa lihat pinjaman di branch mereka sendiri
+    if (!canAccessBranch(user, loan.branchId).allowed) {
+      return NextResponse.json(
+        { message: "Akses ditolak: pinjaman di luar scope branch Anda." },
+        { status: 403 },
+      );
+    }
+
     // Convert Decimals → Number for the mobile payload.
     const data = {
       ...loan,

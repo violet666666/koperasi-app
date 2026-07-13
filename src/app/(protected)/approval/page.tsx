@@ -14,8 +14,6 @@ import {
     X,
     Clock,
     FileText,
-    CreditCard,
-    Wallet,
 } from "lucide-react";
 import { formatCurrency, APPROVAL_STATUS } from "@/lib/constants";
 import { approvalsApi } from "@/lib/api";
@@ -23,11 +21,10 @@ import { approvalsApi } from "@/lib/api";
 
 
 // Request type icons and labels
+// NOTE: loan_disbursement, savings_withdrawal, period_close removed (2026-07-13)
+// — no backend handlers exist for these types. Re-add when handlers are implemented.
 const REQUEST_TYPES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
     loan_application: { label: "Pengajuan Pinjaman", icon: FileText, color: "blue" },
-    loan_disbursement: { label: "Pencairan Pinjaman", icon: CreditCard, color: "purple" },
-    savings_withdrawal: { label: "Penarikan Simpanan", icon: Wallet, color: "amber" },
-    period_close: { label: "Tutup Periode", icon: Clock, color: "gray" },
     unit_void: { label: "Pembatalan Transaksi Unit", icon: X, color: "red" },
     void_store_sale: { label: "Pembatalan Transaksi Toko", icon: X, color: "red" },
 };

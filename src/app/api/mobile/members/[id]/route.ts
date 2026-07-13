@@ -1,45 +1,51 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getMobileUser, unauthorizedResponse } from '../../middleware';
+import { getMobileUserWithScope, unauthorizedResponse } from '../../middleware';
+import { canAccessBranch } from '@/lib/mobile-auth-scope';
 import { logAudit } from '@/lib/audit-logger';
-import { getPlafonPiutang } from '@/lib/plafon';
 
+// GET /api/mobile/members/[id] — Member detail (Fase 14 RBAC scope hardening)
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
-    // Hanya operator, admin, kasir yang bisa melihat data member lain
-    const role = (user as any).role;
-    if (role !== "operator" && role !== "admin" && role !== "kasir" && role !== "admin_sp") {
+    // Role gate: staff only (operator/admin/kasir/admin_sp)
+    if (user.role !== "operator" && user.role !== "admin" && user.role !== "kasir" && user.role !== "admin_sp") {
       return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
     }
 
     const { id } = await params;
     const memberId = parseInt(id, 10);
     if (isNaN(memberId)) {
-      return NextResponse.json({ error: 'Invalid member ID' }, { status: 400 });
+      return NextResponse.json({ message: 'Invalid member ID' }, { status: 400 });
     }
 
+    // Fetch member with branchId for scope check + detail fields
     const member = await prisma.member.findUnique({
       where: { id: memberId },
       include: {
         savingsAccounts: {
-          include: { product: { select: { name: true, code: true, type: true } } },
+          include: { product: true },
         },
-        loans: {
-          where: { status: { in: ['active', 'overdue'] } },
-          select: { principalAmount: true, principalOutstanding: true },
-        },
+        loans: true,
       },
     });
 
     if (!member) {
-      return NextResponse.json({ error: 'Anggota tidak ditemukan' }, { status: 404 });
+      return NextResponse.json({ message: 'Anggota tidak ditemukan' }, { status: 404 });
     }
 
-    const totalSavings = member.savingsAccounts.reduce((sum, acc) => sum + Number(acc.balance), 0) + Number(member.tabunganWajib || 0);
-    const totalLoansOutstanding = member.loans.reduce((sum, l) => sum + Number(l.principalOutstanding), 0);
+    // Branch scope: non-operator staff hanya bisa lihat member di branch mereka sendiri
+    if (!canAccessBranch(user, member.branchId).allowed) {
+      return NextResponse.json({ message: "Akses ditolak: anggota di luar scope branch Anda." }, { status: 403 });
+    }
+
+    // Filter active/overdue loans
+    const activeLoans = member.loans.filter((l) => l.status === 'active' || l.status === 'overdue');
+
+    const totalSavings = member.savingsAccounts.reduce((sum, acc) => sum + Number(acc.balance), 0) + Number(member.tabunganWajib ?? 0);
+    const totalLoansOutstanding = activeLoans.reduce((sum, l) => sum + Number(l.principalOutstanding), 0);
 
     return NextResponse.json({
       data: {
@@ -59,20 +65,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         address: member.address,
         joinDate: member.joinDate,
         status: member.status,
-        salary: Number(member.salary || 0),
-        tunlesKinerja: Number(member.tunlesKinerja || 0),
-        tabunganWajib: Number(member.tabunganWajib || 0),
-        plafonPiutang: getPlafonPiutang(member),
+        salary: Number(member.salary ?? 0),
+        tunlesKinerja: Number(member.tunlesKinerja ?? 0),
+        tabunganWajib: Number(member.tabunganWajib ?? 0),
+        plafonPiutang: Number(member.plafonPiutang),
         totalSavings,
         totalLoansOutstanding,
         savingsAccounts: [
-          ...member.savingsAccounts.map(acc => ({
+          ...member.savingsAccounts.map((acc) => ({
             id: acc.id,
             accountNo: acc.accountNo,
             balance: Number(acc.balance),
             product: acc.product,
           })),
-          ...(Number(member.tabunganWajib || 0) > 0 ? [{
+          ...(Number(member.tabunganWajib ?? 0) > 0 ? [{
             id: -1,
             accountNo: `TAJIB-${member.id}`,
             balance: Number(member.tabunganWajib),
@@ -84,19 +90,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   } catch (error) {
     console.error('Error in GET /api/mobile/members/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown' },
+      { message: 'Internal Server Error', error: error instanceof Error ? error.message : 'Unknown' },
       { status: 500 }
     );
   }
 }
 
-/**
- * PATCH /api/mobile/members/[id] — Update member data from mobile
- * Only operator/admin can update. Fields: phone, email, salary, tunlesKinerja, plafonPiutang, category, pangkat, golongan, kesatuan, employeeType, noRekening, address
- */
+// PATCH /api/mobile/members/[id] — Update member data from mobile
+// Only operator/admin can update. Fields: phone, email, salary, tunlesKinerja, category, pangkat, golongan, kesatuan, employeeType, noRekening, address
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = getMobileUser(request);
+    const user = await getMobileUserWithScope(request);
     if (!user) return unauthorizedResponse();
 
     if (user.role !== 'operator' && user.role !== 'admin' && user.role !== 'admin_sp') {
@@ -114,10 +118,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ message: 'Anggota tidak ditemukan' }, { status: 404 });
     }
 
+    // Branch scope on PATCH too
+    if (!canAccessBranch(user, member.branchId).allowed) {
+      return NextResponse.json({ message: "Akses ditolak: anggota di luar scope branch Anda." }, { status: 403 });
+    }
+
     const body = await request.json();
 
     // Whitelist editable fields
-    const allowedFields: Record<string, string> = {
+    const allowedFields: Record<string, 'string' | 'number'> = {
       phone: 'string',
       email: 'string',
       address: 'string',
@@ -129,10 +138,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       noRekening: 'string',
       salary: 'number',
       tunlesKinerja: 'number',
-      plafonPiutang: 'number',
     };
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     const changes: string[] = [];
 
     for (const [key, type] of Object.entries(allowedFields)) {
@@ -142,14 +150,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           if (isNaN(numVal) || numVal < 0) {
             return NextResponse.json({ message: `Field ${key} harus berupa angka positif` }, { status: 400 });
           }
-          const oldVal = Number((member as any)[key] || 0);
+          const oldVal = Number((member as Record<string, unknown>)[key] ?? 0);
           if (oldVal !== numVal) {
             updateData[key] = numVal;
             changes.push(`${key}: ${oldVal.toLocaleString('id-ID')} → ${numVal.toLocaleString('id-ID')}`);
           }
         } else {
           const strVal = String(body[key]).trim();
-          const oldVal = (member as any)[key] || '';
+          const oldVal = String((member as Record<string, unknown>)[key] ?? '');
           if (oldVal !== strVal) {
             updateData[key] = strVal || null;
             changes.push(`${key}: "${oldVal}" → "${strVal}"`);
@@ -180,7 +188,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       message: `Data anggota ${member.name} berhasil diperbarui`,
       data: { updatedFields: Object.keys(updateData), changes },
     });
-
   } catch (error) {
     console.error('PATCH /api/mobile/members/[id] error:', error);
     return NextResponse.json({ message: 'Gagal memperbarui data anggota' }, { status: 500 });
