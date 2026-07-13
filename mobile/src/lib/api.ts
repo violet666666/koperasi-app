@@ -113,3 +113,13 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Haji & Umrah — Talangan
+export const hajiUmrahTalanganApi = {
+  list: (params?: Record<string, string>) =>
+    api.get<any, any>('/api/mobile/haji-umrah/talangan', { params }),
+  gap: (params?: Record<string, string>) =>
+    api.get<any, any>('/api/mobile/haji-umrah/talangan/gap', { params }),
+  detail: (loanId: number) =>
+    api.get<any, any>(`/api/mobile/haji-umrah/talangan/${loanId}`),
+};
