@@ -123,3 +123,15 @@ export const hajiUmrahTalanganApi = {
   detail: (loanId: number) =>
     api.get<any, any>(`/api/mobile/haji-umrah/talangan/${loanId}`),
 };
+
+// Faktur Potongan
+export const fakturPotonganApi = {
+  list: (params: { month: number; year: number }) =>
+    api.get<any, any>('/api/reports/faktur-potongan', { params }),
+};
+
+// Arus Kas
+export const arusKasApi = {
+  get: (params: { month: number; year: number }) =>
+    api.get<any, any>('/api/reports/arus-kas', { params }),
+};

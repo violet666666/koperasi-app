@@ -292,6 +292,12 @@ export default function DashboardScreen({ setToken }: any) {
                         {(userRole === "operator" || userRole === "admin_sp") && (
                         <MenuItem icon="document-text-outline" label="Piutang Gabungan" color="#0891b2" onPress={() => navigation.navigate("LaporanPiutangGabungan")} />
                         )}
+                        {userRole === "operator" && (
+                        <MenuItem icon="document-text-outline" label="Faktur Potongan" color="#D97706" onPress={() => navigation.navigate("FakturPotongan")} />
+                        )}
+                        {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
+                        <MenuItem icon="trending-up-outline" label="Arus Kas" color="#0EA5E9" onPress={() => navigation.navigate("ArusKas")} />
+                        )}
                         {(userRole === "operator" || userRole === "admin_sp") && (
                         <MenuItem icon="filing-outline" label="Pengajuan Pinjaman" color="#7C3AED" onPress={() => navigation.navigate("LoanApplications")} />
                         )}
