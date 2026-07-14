@@ -270,6 +270,12 @@ export default function DashboardScreen({ setToken }: any) {
                         {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
                         <MenuItem icon="cash-outline" label="Talangan" color="#F59E0B" onPress={() => navigation.navigate("HajiUmrahTalangan")} />
                         )}
+                        {(userRole === "operator" || userRole === "admin_sp") && (
+                        <MenuItem icon="receipt" label="Tagihan" color="#0891b2" onPress={() => navigation.navigate("Tagihan")} />
+                        )}
+                        {(userRole === "operator" || userRole === "admin" || userRole === "admin_sp") && (
+                        <MenuItem icon="pie-chart" label="Bagi Hasil" color="#7C3AED" onPress={() => navigation.navigate("HajiUmrahBagiHasil")} />
+                        )}
                     </View>
                 </CollapsibleSection>
 
