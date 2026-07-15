@@ -42,7 +42,7 @@ const PERIOD_FILTERS = [
   { key: 'month', label: 'Bulan Ini' },
 ];
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', {
   day: '2-digit', month: 'short', year: 'numeric'
 });

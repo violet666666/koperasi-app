@@ -62,21 +62,20 @@ export default function AsetDetailScreen({ navigation }: any) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchAssetDetail = async () => {
-    try {
-      const res = await api.get(`/api/mobile/assets/${assetId}`);
-      setAsset(res.data.data);
-    } catch (error) {
-      log.warn("Error fetching asset details:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useFocusEffect(
-    useCallback(() => {
+    React.useCallback(() => {
       setLoading(true);
-      fetchAssetDetail();
+      const fn = async () => {
+        try {
+          const res = await api.get(`/api/mobile/assets/${assetId}`);
+          setAsset(res.data.data);
+        } catch (error) {
+          log.warn("Error fetching asset details:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fn();
     }, [assetId])
   );
 

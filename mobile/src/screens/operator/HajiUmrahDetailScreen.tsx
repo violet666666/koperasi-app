@@ -99,7 +99,7 @@ const PAYMENT_LABEL: Record<string, string> = {
 };
 
 export default function HajiUmrahDetailScreen({ route, navigation }: any) {
-  const accountId: number = route?.params?.accountId;
+  const accountId: number | undefined = route?.params?.accountId;
 
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +120,7 @@ export default function HajiUmrahDetailScreen({ route, navigation }: any) {
   }, []);
 
   const loadDetail = useCallback(async () => {
+    if (!accountId) { setLoading(false); return; }
     setError(null);
     try {
       const res = await api.get(`/api/mobile/haji-umrah/savings/${accountId}`);

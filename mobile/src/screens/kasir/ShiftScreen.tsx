@@ -82,7 +82,7 @@ export default function ShiftScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchShifts(); }, [fetchShifts]));
+  useFocusEffect(useCallback(() => { fetchShifts(); }, []));
 
   const handleOpenShift = async () => {
     const numCash = parseInt(openingCash.replace(/\D/g, ''), 10) || 0;

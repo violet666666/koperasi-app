@@ -47,7 +47,7 @@ interface Simulation {
   summary: { plafonBaru: number; totalKompen: number; biayaAdmin: number; danaDiterimaAnggota: number };
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function KompenScreen({ navigation }: any) {
   const [products, setProducts] = useState<Product[]>([]);

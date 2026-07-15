@@ -11,8 +11,16 @@ import { log } from '../../utils/log';
 import { BASE_URL } from '../../lib/api';
 
 export default function KwitansiViewerScreen({ route, navigation }: any) {
-  const { receiptId } = route.params;
-  const url = `${BASE_URL}/kwitansi/${receiptId}/cetak`;
+  const { receiptId } = route.params || {};
+
+  // Guard: back if no receiptId
+  React.useEffect(() => {
+    if (!receiptId) {
+      navigation.goBack();
+    }
+  }, [receiptId, navigation]);
+
+  const url = receiptId ? `${BASE_URL}/kwitansi/${receiptId}/cetak` : '';
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 

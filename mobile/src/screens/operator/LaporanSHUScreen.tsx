@@ -214,7 +214,7 @@ export default function LaporanSHUScreen({ navigation }: any) {
             )}
 
             {/* Income Details */}
-            {data.incomeDetails && data.incomeDetails.length > 0 && (
+            {Array.isArray(data.incomeDetails) && data.incomeDetails.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📈 Rincian Pendapatan</Text>
                 {data.incomeDetails.map((item: any) => (
@@ -227,7 +227,7 @@ export default function LaporanSHUScreen({ navigation }: any) {
             )}
 
             {/* Expense Details */}
-            {data.expenseDetails && data.expenseDetails.length > 0 && (
+            {Array.isArray(data.expenseDetails) && data.expenseDetails.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📉 Rincian Beban</Text>
                 {data.expenseDetails.map((item: any) => (
@@ -240,28 +240,34 @@ export default function LaporanSHUScreen({ navigation }: any) {
             )}
 
             {/* Allocations */}
-            <Text style={styles.sectionTitle}>📊 Alokasi SHU Sesuai AD-ART</Text>
-            <View style={styles.allocationCard}>
-              {data.allocations.map((item: any, idx: number) => (
-                <View key={idx} style={styles.allocationRow}>
-                  <View style={styles.allocationLeft}>
-                    <Text style={styles.allocationLabel}>{item.label}</Text>
-                    {/* Progress bar */}
-                    <View style={styles.progressBg}>
-                      <View style={[styles.progressBar, { width: `${item.percentage}%` as any }]} />
+            {Array.isArray(data.allocations) && data.allocations.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>📊 Alokasi SHU Sesuai AD-ART</Text>
+                <View style={styles.allocationCard}>
+                  {data.allocations.map((item: any, idx: number) => (
+                    <View key={idx} style={styles.allocationRow}>
+                      <View style={styles.allocationLeft}>
+                        <Text style={styles.allocationLabel}>{item.label}</Text>
+                        {/* Progress bar */}
+                        <View style={styles.progressBg}>
+                          <View style={[styles.progressBar, { width: `${item.percentage}%` as any }]} />
+                        </View>
+                      </View>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={styles.allocationPercent}>{item.percentage}%</Text>
+                        <Text style={styles.allocationAmount}>{formatRupiah(item.amount)}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.allocationPercent}>{item.percentage}%</Text>
-                    <Text style={styles.allocationAmount}>{formatRupiah(item.amount)}</Text>
-                  </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </>
+            )}
 
             {/* Top Members */}
-            <Text style={styles.sectionTitle}>✨ Top 10 Anggota Penerima SHU</Text>
-            {data.topMembers.map((member: any, index: number) => (
+            {Array.isArray(data.topMembers) && data.topMembers.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>✨ Top 10 Anggota Penerima SHU</Text>
+                {data.topMembers.map((member: any, index: number) => (
               <View key={member.id} style={styles.memberRow}>
                 <View style={[styles.rankBadge, index < 3 && styles.rankBadgeTop]}>
                   <Text style={[styles.rankText, index < 3 && { color: "#854D0E" }]}>{index + 1}</Text>
@@ -281,6 +287,8 @@ export default function LaporanSHUScreen({ navigation }: any) {
                 </View>
               </View>
             ))}
+              </>
+            )}
 
             {/* Info Box */}
             <View style={styles.infoBox}>

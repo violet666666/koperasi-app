@@ -579,10 +579,10 @@ export default function DashboardScreen({ setToken }: any) {
             })()}
 
             {/* REKENING SIMPANAN */}
-            {data.savings?.accounts?.length > 0 && (
+            {(data.savings?.accounts?.length ?? 0) > 0 && (
               <>
                 <Text style={styles.sectionTitle}>Rekening Simpanan</Text>
-                {data.savings.accounts.map((acc: any) => (
+                {(data.savings?.accounts ?? []).map((acc: any) => (
                   <View key={acc.id} style={styles.accountCard}>
                     <View>
                       <Text style={styles.accountName}>

@@ -56,7 +56,7 @@ const PAPER_SIZES = [
 ] as const;
 type PaperSizeId = typeof PAPER_SIZES[number]['id'];
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function KasirScreen({ navigation: navProp }: any) {

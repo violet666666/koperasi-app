@@ -16,7 +16,7 @@ interface Member {
   totalLoanOutstanding: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function MemberListScreen({ navigation: navProp }: any) {
   const navHook = useNavigation<any>();

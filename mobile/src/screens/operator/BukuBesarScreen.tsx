@@ -72,9 +72,10 @@ export default function BukuBesarScreen({ navigation }: any) {
     setLoadingLedger(true);
     try {
       const res = await api.get(`/api/mobile/ledger?accountId=${accId}`);
-      setLedger(res.data.data.ledger);
-      setEndingBalance(res.data.data.endingBalance);
-      setSelectedAccountData(res.data.data.account);
+      const d = res.data?.data;
+      setLedger(d?.ledger ?? []);
+      setEndingBalance(d?.endingBalance ?? 0);
+      setSelectedAccountData(d?.account ?? null);
     } catch (error) {
       log.warn("Error fetching ledger:", error);
     } finally {

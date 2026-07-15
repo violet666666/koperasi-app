@@ -41,6 +41,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
   const [txExpanded, setTxExpanded] = useState(false);
 
   const loadData = async () => {
+    if (!memberId) { setLoading(false); return; }
     try {
       const res = await api.get(`/api/mobile/members/${memberId}`);
       setData(res.data.data);
@@ -204,10 +205,10 @@ export default function MemberDetailScreen({ route, navigation }: any) {
           </View>
 
           {/* Savings Accounts */}
-          {data.savingsAccounts?.length > 0 && (
+          {(data.savingsAccounts?.length ?? 0) > 0 && (
             <>
               <Text style={styles.sectionTitle}>Rekening Simpanan</Text>
-              {data.savingsAccounts.map((acc: any) => (
+              {(data.savingsAccounts ?? []).map((acc: any) => (
                 <View key={acc.id} style={styles.accountRow}>
                   <View>
                     <Text style={styles.accountName}>{acc.product?.name || 'Simpanan'}</Text>

@@ -10,7 +10,7 @@ import { log } from "../../utils/log";
 export default function RiwayatAngsuranScreen({ navigation }: any) {
   const route = useRoute<any>();
   const loanId = route.params?.loanId;
-  const loanNo = route.params?.loanNo || `#${loanId}`;
+  const loanNo = route.params?.loanNo || `#${loanId ?? '?'}`;
 
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,7 @@ export default function RiwayatAngsuranScreen({ navigation }: any) {
   const [submitting, setSubmitting] = useState(false);
 
   const fetchPayments = async () => {
+    if (!loanId) { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await api.get("/api/mobile/loan-payments", { params: { loanId } });
@@ -31,7 +32,7 @@ export default function RiwayatAngsuranScreen({ navigation }: any) {
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchPayments(); }, []));
+  useFocusEffect(useCallback(() => { fetchPayments(); }, [loanId]));
 
   const confirmVoid = (p: any) => { setVoidTarget(p); setReason(""); };
   const cancelVoid = () => { setVoidTarget(null); setReason(""); };

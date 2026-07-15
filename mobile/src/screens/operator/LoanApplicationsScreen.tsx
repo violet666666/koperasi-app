@@ -38,7 +38,7 @@ interface Application {
   rejectedAt: string | null;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 function statusBadge(status: string) {
   const map: Record<string, { bg: string; color: string; label: string }> = {

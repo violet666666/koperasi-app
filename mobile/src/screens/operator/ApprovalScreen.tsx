@@ -37,7 +37,7 @@ interface ApprovalItem {
   description?: string;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Label helpers ──────────────────────────────────────────────────────────
 function getRequestTypeLabel(type: RequestType): string {
