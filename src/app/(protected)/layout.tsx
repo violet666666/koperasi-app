@@ -87,7 +87,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
         // 2. Anggota → harus pakai /portal, bukan /dashboard
         if (roleName === "anggota") {
             if (!pathname.startsWith("/portal")) {
-                router.replace("/portal/dashboard");
+                router.replace("/portal/beranda");
             }
             return;
         }

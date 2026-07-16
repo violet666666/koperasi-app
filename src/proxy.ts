@@ -46,6 +46,14 @@ const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // Legacy redirect: /portal/dashboard → /portal/beranda. The old URL's
+    // Railway edge-cache entry is poisoned (cached RSC flight for ~1yr) and
+    // can't be purged, so the route was renamed. This redirect only fires
+    // after that cache entry expires; cached requests bypass the proxy.
+    if (pathname === "/portal/dashboard" || pathname.startsWith("/portal/dashboard/")) {
+        return NextResponse.redirect(new URL("/portal/beranda", request.url), 308);
+    }
+
     // Canonical redirect: www → bare (308 permanent, cached by browsers).
     // Ensures a single canonical domain → single session cookie → no cross-subdomain auth issues.
     const host = request.headers.get("host");
@@ -97,7 +105,12 @@ export async function proxy(request: NextRequest) {
     if (isAuthRoute && isLoggedIn) {
         // Anggota role goes to portal, others go to dashboard
         if (userRole === "anggota") {
-            return NextResponse.redirect(new URL("/portal/dashboard", request.url));
+            // ponytail: /portal/beranda (not /portal/dashboard). The old
+            // /portal/dashboard URL has a poisoned Railway edge-cache entry
+            // (s-maxage=1yr, br variant served as RSC flight) that cannot be
+            // purged via CLI and survived redeploy. Renamed the route so users
+            // hit a fresh cache key. Old URL expires harmlessly in ~1 year.
+            return NextResponse.redirect(new URL("/portal/beranda", request.url));
         }
         return NextResponse.redirect(new URL("/dashboard", request.url));
     }
@@ -106,7 +119,7 @@ export async function proxy(request: NextRequest) {
     if (isLoggedIn) {
         // Anggota trying to access admin routes → redirect to portal
         if (isAdminRoute && userRole === "anggota") {
-            return NextResponse.redirect(new URL("/portal/dashboard", request.url));
+            return NextResponse.redirect(new URL("/portal/beranda", request.url));
         }
 
         // Admin/non-anggota trying to access portal routes → redirect to dashboard

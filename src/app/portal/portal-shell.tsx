@@ -31,7 +31,7 @@ import { AuthProvider, useAuth, useRequireAuth } from "@/lib/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
 const portalNavLinks = [
-    { title: "Beranda", href: "/portal/dashboard", icon: LayoutDashboard },
+    { title: "Beranda", href: "/portal/beranda", icon: LayoutDashboard },
     { title: "Transaksi", href: "/portal/transaksi", icon: WalletCards },
     { title: "Simpanan", href: "/portal/simpanan", icon: PiggyBank },
     { title: "Haji & Umrah", href: "/portal/haji-umrah", icon: Landmark },
@@ -74,7 +74,7 @@ function PortalContent({ children }: { children: React.ReactNode }) {
                         >
                             <Menu className="h-6 w-6" />
                         </Button>
-                        <Link href="/portal/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight">
+                        <Link href="/portal/beranda" className="flex items-center gap-2 font-bold text-xl tracking-tight">
                             <div className="flex h-12 w-12 items-center justify-center bg-white/10 p-1 rounded-lg shrink-0">
                                 <img src="/LogoPrimkoppol.png" alt="Logo" className="h-full w-full object-contain drop-shadow-sm" />
                             </div>
