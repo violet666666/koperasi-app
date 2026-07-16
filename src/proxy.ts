@@ -43,6 +43,19 @@ const authRoutes = ["/login"];
 // Get the secret
 const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
+// ponytail: defense-in-depth against Railway edge-cache (hikari) poisoning.
+// Auth-gated pages must NEVER be cached at the edge — a poisoned cached entry
+// (e.g. brotli RSC-flight variant served for an HTML nav) is un-purgeable and
+// survives redeploy for the full s-maxage window. Setting no-store here ensures
+// hikari will not cache the HTML/flight body even if a route is accidentally
+// statically prerendered (force-dynamic ignored on a "use client" layout).
+function noStorePage() {
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.headers.set("Vary", "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding");
+    return res;
+}
+
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -159,7 +172,7 @@ export async function proxy(request: NextRequest) {
             if (isAccessingFinancial) {
                 // Pengecualian: Admin unit BOLEH akses /approval (untuk approve void kasir)
                 if (pathname.startsWith("/approval")) {
-                    return NextResponse.next();
+                    return noStorePage();
                 }
                 return NextResponse.redirect(new URL("/dashboard", request.url));
             }
@@ -182,7 +195,7 @@ export async function proxy(request: NextRequest) {
         }
     }
 
-    return NextResponse.next();
+    return noStorePage();
 }
 
 export const config = {
