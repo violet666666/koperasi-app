@@ -33,6 +33,17 @@ self.addEventListener('fetch', (event) => {
     if (url.origin !== self.location.origin) return;
     if (url.protocol === 'chrome-extension:') return;
 
+    // Self-heal: redirect the poisoned /portal/dashboard URL to /portal/berana.
+    // The old URL's edge-cache entry serves a brotli RSC-flight body as the
+    // document → page JS never runs → SW can't update via app code. But the
+    // browser still updates /sw.js on its own schedule (independent of page
+    // JS), so once v2 activates this redirect fires and escapes the poison
+    // WITHOUT any user action. Works for the stuck-tab subset of the fleet.
+    if (url.pathname === '/portal/dashboard' || url.pathname.startsWith('/portal/dashboard/')) {
+        event.respondWith(Response.redirect(new URL('/portal/beranda' + url.search + url.hash, self.location.origin), 302));
+        return;
+    }
+
     // API: network-only. Never cache (auth-scoped + stale data risk).
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
