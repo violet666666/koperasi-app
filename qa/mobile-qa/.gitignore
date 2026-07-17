@@ -1,0 +1,6 @@
+# Keep manifests and snapshots out of accidental prod routes.
+# Next.js does not auto-route qa/mobile-qa/, but explicit rule is safer.
+manifests/*.json
+api/baseline-snapshot.json
+api/contract-snapshots/*.json
+!manifests/.gitkeep
