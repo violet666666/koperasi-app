@@ -261,4 +261,15 @@ Spec: docs/superpowers/specs/2026-07-18-mobile-qa-strategy-design.md
 Branch: railway-migration
 
 ## Completed
-- Phase A (A0-A8): static audit complete (`c39f74ec..89c649fb`, 8 commits). 12 open findings (0 Critical, 9 High, 3 Medium). Artifacts in qa/mobile-qa/static/. No production/API/DB access. Phase B-G-D pending.
+- Phase A (A0-A8): static audit complete (`c39f74ec..89c649fb`, 8 commits). Found 12 items (0 Critical, 9 High). Artifacts in `qa/mobile-qa/static/`.
+- Phase B: baseline + cleanup gate + read-only RBAC/API matrix complete (`560302c2..d7eb92da`). Production GET matrix 20 routes × 6 accounts; unit isolation + anggota self-scope verified. No financial mutation.
+- Safe High remediation: `74a73ae0`, deployed. Fixed 8 High + 1 Medium: Aset refresh crash, Piutang Gabungan path 404, 4 mobile JWT mirror routes replacing cookie-auth force-logout calls, H&U Talangan stats, Loan Apps pagination, audit trail on 4 money routes. Verification: 10/10 tests, mobile tsc clean, build success, full suite 469 pass / 3 pre-existing; independent review approved.
+- Live API read-only smoke after deploy: Arus Kas 200, Faktur Potongan 200, Loan Applications pagination 200, Member Piutang Barang 200, Member Transactions 200.
+- Release: v1.1.8/vc10 at `a4802c47`; APK+AAB EAS builds FINISHED. APK ID `7570143e-6be8-405a-bb2d-784caaa2413b`, AAB ID `2ad906b0-41a4-40b1-ba28-ad24268b7f69`.
+
+## Pending / resume
+- Phase C physical Android read-only smoke using `qa/mobile-qa/device/smoke-checklist.md`; record in `device-findings.md`.
+- Phase D exit report remains conditional until device smoke. Current `qa/mobile-qa/report/exit-criteria.md` documents blockers.
+- Remaining High: systemic idempotency for money mutations; requires separate schema-backed Idempotency-Key design. Do not live double-submit test production.
+- Kasir coverage pending because no usable credential in `akun-primkoppol.md`; user ID 731 known only.
+- AAB upload to Play Store closed testing is outward-facing and requires explicit user approval.
