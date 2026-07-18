@@ -19,9 +19,9 @@ Ordered runbook. Do not skip the production-safety gate before any mutation task
 - [ ] Cleanup dry-run rehearsed (G2)
 
 ## Phase B — API automation (read-only first)
-- [ ] B1 RBAC matrix (read-only, token A → unit B, expect 403)
-- [ ] B2 Contract snapshots (web vs mobile, read-only)
-- [ ] B3 Idempotency audit (static + 1x approved pair per route max)
+- [x] B1 RBAC matrix (read-only, token A → unit B, expect 403) — unit isolation verified, anggota self-only
+- [x] B2 Contract snapshots (web vs mobile, read-only) — web /api/reports/* confirmed 401 with mobile JWT
+- [x] B3 Idempotency audit (static complete A5; live pairs deferred — no production mutasi tanpa persetujuan)
 
 ## Phase C — Device (Android physical)
 - [ ] C1 Per-role smoke checklist
