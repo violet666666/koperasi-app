@@ -1,0 +1,182 @@
+[
+  {
+    "route": "savings-accounts",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "savings-tx",
+    "operator": 400,
+    "admintoko": 400,
+    "admincafe": 400,
+    "admincafelsp": 400,
+    "adminhajiumrah": 400,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "loans-operator",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "loan-payment GET",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "loan-payments",
+    "operator": 404,
+    "admintoko": 404,
+    "admincafe": 404,
+    "admincafelsp": 404,
+    "adminhajiumrah": 404,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "members",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "toko",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 403,
+    "admincafelsp": 403,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "unit-packages",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 403,
+    "admincafelsp": 403,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "unit-laporan toko",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 403,
+    "admincafelsp": 403,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "unit-laporan resto_cafe",
+    "operator": 200,
+    "admintoko": 403,
+    "admincafe": 200,
+    "admincafelsp": 403,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "unit-laporan cafe_lsp",
+    "operator": 200,
+    "admintoko": 403,
+    "admincafe": 403,
+    "admincafelsp": 200,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "neraca financial",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "shu-calculator",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "piutang-gabungan",
+    "operator": 200,
+    "admintoko": 403,
+    "admincafe": 403,
+    "admincafelsp": 403,
+    "adminhajiumrah": 403,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "kas-bank",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "buku-kas",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "journals",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "audit-logs",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "accounts (COA)",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 403
+  },
+  {
+    "route": "summary",
+    "operator": 200,
+    "admintoko": 200,
+    "admincafe": 200,
+    "admincafelsp": 200,
+    "adminhajiumrah": 200,
+    "anggota-86030500": 200
+  }
+]
