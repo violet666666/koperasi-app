@@ -1,0 +1,20 @@
+{
+  "sessionId": "YYYYMMDD-short-desc",
+  "approvedBy": "user-handle",
+  "approvalTimestamp": "ISO8601",
+  "baselineSnapshotRef": "qa/mobile-qa/api/baseline-snapshot.json",
+  "mutations": [
+    {
+      "role": "operator|admin|kasir|anggota",
+      "route": "/api/mobile/...",
+      "verb": "POST",
+      "marker": "QA-<unique>",
+      "recordId": "filled-after",
+      "nominal": 1000,
+      "expectedCleanup": "void via /loan-payment-void | reverse tx | delete draft",
+      "cleanupStatus": "pending|done|failed",
+      "cleanupRecordId": "filled-after"
+    }
+  ],
+  "postCleanupBaseline": "path/to/reconcile-output"
+}
