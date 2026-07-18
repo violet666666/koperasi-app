@@ -1,13 +1,13 @@
 # Progress Update Mobile App — Drift Fix Effort
 
-> **Dokumen recovery.** Update 2026-07-06. Jika context habis/sesi compact, baca dokumen ini **+** `.remember/remember.md` **+** `.superpowers/sdd/progress.md` **+** memori `mobile-drift-audit-fase1-2026-07.md` **+** `git log --oneline -30`.
+> **Dokumen recovery.** Update 2026-07-18. Jika context habis/sesi compact, baca dokumen ini **+** `.remember/remember.md` **+** `.superpowers/sdd/progress.md` **+** memori `mobile-drift-audit-fase1-2026-07.md` **+** `git log --oneline -30`.
 
 - **Branch:** `railway-migration` — **auto-deploy ke prod (primkoppol.site) tiap push.**
 - **Mobile app:** Expo 55 / RN 0.83. API deploy = Railway (push). Mobile UI deploy = `eas build` (terpisah).
 
 ---
 
-## Status keseluruhan (per 2026-07-06)
+## Status keseluruhan (per 2026-07-18)
 
 - [x] **Fase 1** — SHU Laba Kotor + Neraca ledger. ✅ DONE + **deployed** 2026-07-01 (`82d5fd2..4541674`).
 - [x] **Fase 2** — Money-integrity (2a loan-payment allocation + 2b savings-tx atomic/AD-ART). ✅ DONE + **deployed** (`c4cec9a..58d07a8`).
@@ -23,8 +23,16 @@
 - [x] **Fase 8a — Aset CRUD mobile** — ✅ DONE + **API deployed** (`0ffed9be`..`29269d65`; pushed `e5acbd01..29269d65`). Reused existing POST + new PUT edit + POST dispose + DELETE soft; `AsetFormScreen` + AsetList FAB + AsetDetail actions. Tests 450/3.
 - [x] **Fase 8b — Loan edit mobile** — ✅ DONE + **API + web-refactor deployed** (5 SDD tasks `9e9a947d`..`59146d42`; pushed `29269d65..59146d42`). **DRY extraction** (highest money-integrity fase): `recalcLoanFinancials` (pure, +9 tests) + `applyLoanEdit` (the $transaction schedule-regen) shared by web + mobile. Web PUT refactored **behavior-preserving (money path byte-identical, opus-verified)**; mobile `GET`+`PUT /loans/[id]` (operator/admin_sp + canAccessBranch). `LoanEditScreen` (7-field form, change-detection, no live preview) + DaftarPinjaman Edit entry. Tests 459/3. **Screen ships via EAS build #5.**
 - [x] **Fase 8c — Payroll import mobile** — ✅ **DONE + PUSHED + FINAL OPUS REVIEW APPROVED**. DRY extraction: `parsePayrollExcel` + `commitPayrollPeriod` + `PayrollImportError` shared helpers (`src/lib/services/payroll-import.ts`); web route refactored to call them (behavior-preserving, opus-verified byte-identical); mobile POST `/payroll/import` + `/delete` (operator-only); `PayrollImportScreen` (3-step pick→preview→commit, 5-min timeout, multipart) + GajiPeriode Import/Delete buttons; nav wired. Commits `eeb4235c..4787fd30` (T1-T5) + `931a04b1` (version bump). Final opus whole-branch review APPROVED (10/10 sections clean; screen↔route field contract verified — Fase 6 lesson held). 2 Minor deferred (race→500 parity; screen trusts nav gate). Pushed `c832d581..4787fd30`.
+- [x] **Fase 9a.2 — Talangan Haji/Umrah VIEW** — ✅ DONE + deployed (`92d8e3e2`, `0f89e09b`, `1a5ec45a`, `b431d2eb`). List/stats, gap calculator, detail+schedules, screen+nav. QA 2026-07-18 fixed stats card reading wrong response envelope.
+- [x] **Fase 9a.3 — Bagi Hasil Haji/Umrah VIEW** — ✅ DONE + deployed (`84138f8d`, `8abc0fd3`, `c31699a8`). List, detail, expandable distribution UI.
+- [x] **Fase 9b — Tagihan/Billing VIEW** — ✅ DONE + deployed (`fa35d009`, `8ee65a1b`). Current period card + riwayat; mutation workflow remains out of scope.
+- [x] **Fase 12b — Loan Applications VIEW** — ✅ DONE + deployed (`207c9e51`). QA 2026-07-18 added server `totalItems/totalPages`; infinite-scroll page 2+ now reachable.
+- [x] **Fase 13b — Faktur Potongan VIEW** — ✅ DONE + deployed (`0baa777e`). QA 2026-07-18 found screen called cookie-auth web route with mobile JWT (401 + force logout); dedicated mobile JWT route added.
+- [x] **Fase 18a — Arus Kas VIEW** — ✅ DONE + deployed (`e3c293a5`). QA 2026-07-18 found same cookie-auth mismatch; dedicated mobile JWT route added.
+- [x] **Fase 14 residual — member/loan detail branch scope** — ✅ DONE + deployed (`6aedb654`).
+- [x] **Mobile QA Phase A+B (2026-07-18)** — ✅ audit + safe remediation complete. Static audit 70 mobile route files / 32 mutation handlers / 28 screens; production read-only RBAC matrix 20 routes × 6 accounts. Found 12 items (0 Critical, 9 High). Fixed 8 High + 1 Medium in `74a73ae0`: Aset refresh crash, Piutang Gabungan 404, Arus Kas/Faktur/Member Detail 401 force-logout routes, Talangan stats zero, Loan Apps pagination, and audit trail on 4 money routes. Verification: remediation tests 10/10, mobile tsc clean, Next build success, full suite 469 pass / 3 documented pre-existing; independent review APPROVED. Remaining High: systemic idempotency (needs schema-backed request key; separate design).
 
-**Push status:** Fase 1-8c ALL DONE + PUSHED (`c832d581..4787fd30` — incl. Fase 8c + bare-domain mobile URL hotfix `c75eb194`). Railway prod auto-deploying the web refactor + 2 mobile payroll API routes. **EAS build #5 IN FLIGHT** (v1.1.6/vc7, both APK+AAB) — ships Fase 7b+8a+8b+8c screens + URL hotfix. Play Store closed testing working. **Mobile users need RE-LOGIN** (AUTH_SECRET change invalidated old JWT tokens).
+**Push status (2026-07-18):** v1.1.7/vc9 AAB build finished 2026-07-15 (`d508d7ba`, commit `67ec71b2`); latest sideload APK is v1.1.7/vc8 (`a92c70e5`, commit `571b1db4`). Commit `74a73ae0` adds mobile QA fixes; API changes deploy via Railway push, but client UI fixes require a new APK/AAB build (next build should increment versionCode to 10). Play Store closed testing remains working.
 
 ---
 
@@ -227,6 +235,7 @@ Comprehensive mobile-vs-web gap audit. **DONE Fase 1-8b** covers: SHU/Neraca, mo
 1. `git log --oneline -30` — status sebenarnya.
 2. Baca dokumen ini + `.remember/remember.md` (handoff) + `.superpowers/sdd/progress.md` (ledger).
 3. **Railway prod:** service `melodious-generosity` / `koperasi-app` — ALL 7 production fixes deployed + verified. Login + transactions work for operator/admin/kasir (toko + resto_cafe). `kasirlsp@koperasi.com` doesn't exist in DB (needs creation). Mobile users need re-login (AUTH_SECRET changed).
-4. **Fase 9a.1 (H&U tabungan) DONE + deployed** (`07eba935..f3c12c51`). Fase 8c (payroll) also done+deployed. EAS build #5 FINISHED (7b-8c screens, NO 9a.1). Next: **9a.2 Talangan → 9a.3 Bagi Hasil → 9a.4 Products/Laporan**, then 9a.1+ screens ship via EAS build #6 (pending user request).
-5. **Roadmap:** see "⏭ Roadmap FULL PARITY" section above — Fase 8c → 9a Haji/Umrah → 9b Tagihan → 10 Imports → 11 SHU/Tutup-buku → 14 RBAC GET-scope → 12 Manajemen Unit → P2/P3.
-6. Memori `mobile-drift-audit-fase1-2026-07.md` — detail audit + roadmap ter-update.
+4. **Status aktual mobile (2026-07-18):** Fase 9a.1/9a.2/9a.3 + 9b read-only + 12b + 13b + 18a + residual Fase 14 selesai. Latest AAB v1.1.7/vc9 (`d508d7ba`, commit `67ec71b2`); latest APK v1.1.7/vc8 (`a92c70e5`, commit `571b1db4`).
+5. **QA remediation `74a73ae0`:** 8 High + 1 Medium fixed; API deployment via Railway push; client fixes need EAS build next (versionCode 10). Remaining High = systemic idempotency (separate schema-backed design). QA artifacts: `qa/mobile-qa/`; spec/plan: `docs/superpowers/{specs,plans}/2026-07-18-mobile-qa-strategy*`.
+6. **Next:** deploy `74a73ae0` → read-only live route verification → EAS dual build APK+AAB vc10 → physical-device smoke Phase C → Phase D exit criteria. Roadmap feature next after QA = Fase 9a.4 Products/Laporan atau P0 imports, pending user priority.
+7. Memori `mobile-drift-audit-fase1-2026-07.md` — historical audit; prefer this document + current git log for latest state.
