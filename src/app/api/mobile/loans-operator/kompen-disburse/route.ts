@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
+import { logAudit } from "@/lib/audit-logger";
 
 // POST /api/mobile/loans-operator/kompen-disburse — Mobile kompen execution
 export async function POST(request: Request) {
@@ -223,6 +224,25 @@ export async function POST(request: Request) {
                 existingLoanNo: existingLoan.loanNo, totalKompen,
                 disbursedToMember, adminFee, penaltyFee,
             };
+        });
+
+        await logAudit({
+            userId: Number(user.id),
+            userName: user.name,
+            userRole: user.role,
+            action: "CREATE",
+            module: "Pinjaman",
+            description: `[MOBILE] Kompen ${result.newLoanNo} melunasi ${result.existingLoanNo} (kompen ${result.totalKompen}, ke anggota ${result.disbursedToMember})`,
+            targetId: result.newLoanId,
+            targetType: "Loan",
+            newData: {
+                newLoanNo: result.newLoanNo,
+                existingLoanNo: result.existingLoanNo,
+                totalKompen: result.totalKompen,
+                disbursedToMember: result.disbursedToMember,
+                memberId,
+            },
+            ipAddress: "mobile-app",
         });
 
         return NextResponse.json({ data: result, message: "Kompen berhasil diproses" });

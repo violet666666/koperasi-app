@@ -5,6 +5,7 @@ import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createCashBankTransactionSchema } from "@/lib/validations";
 import { detectCategoryMismatch } from "@/lib/services/cash-bank-category-guard";
 import { generateCashBankTxnNo } from "@/lib/services/cash-bank-txn-no";
+import { logAudit } from "@/lib/audit-logger";
 
 export async function POST(request: Request) {
   try {
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
       });
       await tx.cashBankAccount.update({ where: { id: fresh.id }, data: { currentBalance: balanceAfter } });
       return { created, balanceAfter };
+    });
+
+    await logAudit({
+      userId: Number(user.id),
+      userName: user.name,
+      userRole: user.role,
+      action: "CREATE",
+      module: "Kas",
+      description: `[MOBILE] Transaksi kas/bank ${result.created.transactionNo} (${d.type} ${amount}) akun ${account.name}`,
+      targetId: result.created.id,
+      targetType: "CashBankTransaction",
+      newData: { type: d.type, amount, category: d.category ?? null, accountId: account.id },
+      ipAddress: "mobile-app",
     });
 
     return NextResponse.json({ data: { transaction: result.created, currentBalance: result.balanceAfter } }, { status: 201 });

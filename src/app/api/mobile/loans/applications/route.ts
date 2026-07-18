@@ -22,7 +22,7 @@ export async function GET(request: Request) {
             ...(status && status !== "all" ? { status } : {}),
         };
 
-        const [applications, submitted, approved, rejected] = await Promise.all([
+        const [applications, total, submitted, approved, rejected] = await Promise.all([
             prisma.loanApplication.findMany({
                 where,
                 include: {
@@ -34,6 +34,7 @@ export async function GET(request: Request) {
                 skip: (page - 1) * perPage,
                 take: perPage,
             }),
+            prisma.loanApplication.count({ where }),
             prisma.loanApplication.count({ where: { status: "submitted" } }),
             prisma.loanApplication.count({ where: { status: "approved" } }),
             prisma.loanApplication.count({ where: { status: "rejected" } }),
@@ -69,6 +70,8 @@ export async function GET(request: Request) {
             pagination: {
                 page,
                 perPage,
+                totalItems: total,
+                totalPages: Math.max(1, Math.ceil(total / perPage)),
             },
         });
     } catch (error) {

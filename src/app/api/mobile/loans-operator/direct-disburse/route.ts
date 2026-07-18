@@ -5,6 +5,7 @@ import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createLoanApplicationSchema } from "@/lib/validations";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
+import { logAudit } from "@/lib/audit-logger";
 
 function generateApplicationNo(date: Date): string {
     const year = date.getFullYear();
@@ -247,6 +248,24 @@ export async function POST(request: Request) {
                 disbursedAmount,
                 baseDate: baseDate.toISOString(),
             };
+        });
+
+        await logAudit({
+            userId: Number(user.id),
+            userName: user.name,
+            userRole: user.role,
+            action: "CREATE",
+            module: "Pinjaman",
+            description: `[MOBILE] Direct disburse ${result.loanNo} (${result.applicationNo}) member ${data.memberId} plafon ${data.amount}`,
+            targetId: result.loanId,
+            targetType: "Loan",
+            newData: {
+                loanNo: result.loanNo,
+                applicationNo: result.applicationNo,
+                disbursedAmount: result.disbursedAmount,
+                memberId: data.memberId,
+            },
+            ipAddress: "mobile-app",
         });
 
         return NextResponse.json({

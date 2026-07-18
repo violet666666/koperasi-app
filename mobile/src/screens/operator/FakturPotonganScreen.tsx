@@ -53,7 +53,7 @@ export default function FakturPotonganScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await api.get<ApiResponse>('/api/reports/faktur-potongan', {
+      const res = await api.get<ApiResponse>('/api/mobile/reports/faktur-potongan', {
         params: { month: String(month), year: String(year) },
       });
       const d = res.data.data;

@@ -4,6 +4,7 @@ import { getMobileUserWithScope } from "../../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createTransferSchema } from "@/lib/validations";
 import { generateTransferTxnNo } from "@/lib/services/cash-bank-txn-no";
+import { logAudit } from "@/lib/audit-logger";
 
 export async function POST(request: Request) {
   try {
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
       await tx.cashBankAccount.update({ where: { id: from.id }, data: { currentBalance: fromAfter } });
       await tx.cashBankAccount.update({ where: { id: to.id }, data: { currentBalance: toAfter } });
       return { out, in: inn };
+    });
+
+    await logAudit({
+      userId: Number(user.id),
+      userName: user.name,
+      userRole: user.role,
+      action: "CREATE",
+      module: "Kas",
+      description: `[MOBILE] Transfer ${amount} dari akun ${fromAcct.name} ke ${toAcct.name} (${result.out.transactionNo})`,
+      targetId: result.out.id,
+      targetType: "CashBankTransaction",
+      newData: { fromAccountId: d.fromAccountId, toAccountId: d.toAccountId, amount },
+      ipAddress: "mobile-app",
     });
 
     return NextResponse.json({ data: { outTransaction: result.out, inTransaction: result.in } }, { status: 201 });

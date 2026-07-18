@@ -45,7 +45,7 @@ export default function ArusKasScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await api.get<ApiResponse>('/api/reports/arus-kas', {
+      const res = await api.get<ApiResponse>('/api/mobile/reports/arus-kas', {
         params: { month: String(month), year: String(year) },
       });
       setData(res.data.data);

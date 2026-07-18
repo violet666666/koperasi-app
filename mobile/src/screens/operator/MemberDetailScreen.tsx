@@ -56,7 +56,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
     if (!memberId) return;
     setPiutangLoading(true);
     try {
-      const res = await api.get(`/api/members/${memberId}/piutang-barang`);
+      const res = await api.get(`/api/mobile/members/${memberId}/piutang-barang`);
       setPiutang(res.data.data);
     } catch (err) {
       log.error('Failed to load piutang barang:', err);
@@ -69,7 +69,7 @@ export default function MemberDetailScreen({ route, navigation }: any) {
     if (!memberId) return;
     setTxLoading(true);
     try {
-      const res = await api.get(`/api/members/${memberId}/transactions`);
+      const res = await api.get(`/api/mobile/members/${memberId}/transactions`);
       setTransactions(res.data.data?.transactions || []);
     } catch (err) {
       log.error('Failed to load transactions:', err);

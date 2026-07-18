@@ -150,7 +150,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
         const params = { page: String(targetPage), perPage: String(PER_PAGE) };
         const qs = new URLSearchParams(params);
         if (searchTerm.trim()) qs.set('search', searchTerm.trim());
-        const res = await api.get(`/mobile/reports/piutang-gabungan?${qs.toString()}`);
+        const res = await api.get(`/api/mobile/reports/piutang-gabungan?${qs.toString()}`);
         // The axios response interceptor returns the AxiosResponse; res.data is the
         // raw HTTP body { data: { piutangList, ...totals, pagination } }.
         const body: ListResponse = res?.data ?? {};
@@ -212,7 +212,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
     setDetailLoading(true);
     try {
       const res = await api.get(
-        `/mobile/reports/piutang-gabungan/${member.id}`,
+        `/api/mobile/reports/piutang-gabungan/${member.id}`,
       );
       // Detail response body: { data: { member, loans, transactions, totals } }.
       const detailBody: DetailResponse = res?.data ?? {};
@@ -253,7 +253,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
       // its response interceptor returns the full AxiosResponse; for a
       // text/csv body we request responseType:'text' so axios skips JSON
       // parsing and hands us the raw string on res.data.
-      const res = await api.get('/mobile/reports/piutang-gabungan?format=csv', {
+      const res = await api.get('/api/mobile/reports/piutang-gabungan?format=csv', {
         responseType: 'text',
         transformResponse: [(d: unknown) => d], // do not parse CSV as JSON
       });
@@ -268,7 +268,7 @@ export default function LaporanPiutangGabunganScreen({ navigation: navProp }: an
       try {
         const token = await StorageManager.getSecureItem('userToken');
         const r = await fetch(
-          `${BASE_URL}/mobile/reports/piutang-gabungan?format=csv`,
+          `${BASE_URL}/api/mobile/reports/piutang-gabungan?format=csv`,
           { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);

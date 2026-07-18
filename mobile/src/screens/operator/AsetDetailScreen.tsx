@@ -62,21 +62,22 @@ export default function AsetDetailScreen({ navigation }: any) {
 
   const [submitting, setSubmitting] = useState(false);
 
+  const fetchAssetDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/mobile/assets/${assetId}`);
+      setAsset(res.data.data);
+    } catch (error) {
+      log.warn("Error fetching asset details:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [assetId]);
+
   useFocusEffect(
-    React.useCallback(() => {
-      setLoading(true);
-      const fn = async () => {
-        try {
-          const res = await api.get(`/api/mobile/assets/${assetId}`);
-          setAsset(res.data.data);
-        } catch (error) {
-          log.warn("Error fetching asset details:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fn();
-    }, [assetId])
+    useCallback(() => {
+      fetchAssetDetail();
+    }, [fetchAssetDetail])
   );
 
   const formatRupiah = (num: number) => {

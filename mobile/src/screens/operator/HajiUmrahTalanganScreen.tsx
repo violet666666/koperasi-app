@@ -57,12 +57,9 @@ export default function HajiUmrahTalanganScreen({ navigation }: any) {
       const params: Record<string, string> = { perPage: '100' };
       if (search.trim()) params.search = search.trim();
       if (activeFilter) params.type = activeFilter;
-      const [listRes, statsRes] = await Promise.all([
-        api.get('/api/mobile/haji-umrah/talangan', { params }),
-        api.get('/api/mobile/haji-umrah/talangan/gap'),
-      ]);
+      const listRes = await api.get('/api/mobile/haji-umrah/talangan', { params });
       setLoans(listRes.data.data || []);
-      setStats(statsRes.data.data || null);
+      setStats(listRes.data.stats || null);
     } catch (err) {
       log.error('Failed to load talangan data:', err);
     } finally {
