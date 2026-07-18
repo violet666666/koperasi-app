@@ -3,14 +3,14 @@
 Ordered runbook. Do not skip the production-safety gate before any mutation task.
 
 ## Phase A — Static (no data risk)
-- [ ] A1 Static findings register scaffold
-- [ ] A2 TypeScript mobile gate
-- [ ] A3 ESLint mobile gate
-- [ ] A4 Role gate audit (RBAC)
-- [ ] A5 Idempotency surface audit
-- [ ] A6 Contract audit (screen↔API)
-- [ ] A7 Reconcile progress-update-mobile-app.md vs code
-- [ ] A8 EAS config + audit-log consistency audit
+- [x] A1 Static findings register scaffold
+- [x] A2 TypeScript mobile gate
+- [x] A3 ESLint mobile gate
+- [x] A4 Role gate audit (RBAC)
+- [x] A5 Idempotency surface audit
+- [x] A6 Contract audit (screen↔API)
+- [x] A7 Reconcile progress-update-mobile-app.md vs code
+- [x] A8 EAS config + audit-log consistency audit
 
 ## Pre-mutation gate (REQUIRED before B2/H1-mutation/C-mutation)
 - [ ] User explicitly approves mutation batch

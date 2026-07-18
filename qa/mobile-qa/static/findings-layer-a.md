@@ -20,3 +20,10 @@ All Phase A tasks append rows below. Sev scale: Critical (data/money/security) /
 | A6-6 | A6 contract | High | mobile/src/screens/operator/MemberDetailScreen.tsx:59 | Calls web route /api/members/{id}/piutang-barang with JWT; cookie auth() only → 401 → silent empty | route.ts auth() gate | Add mobile route or auth bridge | Open |
 | A6-7 | A6 contract | High | mobile/src/screens/operator/MemberDetailScreen.tsx:72 | Calls web route /api/members/{id}/transactions with JWT; cookie auth() only → 401 → silent empty | route.ts auth() gate | Add mobile route or auth bridge | Open |
 | A6-clean | A6 contract | — | 22 other audited screens | Per-screen URL, envelope, response shape, body verified clean (contract matches or exclusively field-name arrangement) | KasirScreen, SavingsTransactionScreen, LoanPaymentScreen, ..., TransaksiScreen | — | Done |
+
+## Layer A Summary
+
+Total findings: 12 open (0 Critical, 9 High, 3 Medium, 0 Low).  
+Area breakdown: 1 tsc runtime-defect / 2 ESLint non-actionable / 1 RBAC dead-code / 1 release doc stale / 1 EAS config incomplete / 1 4-money-route audit-log missing / 1 systemic idempotency gap / 7 UI–API response defects (3 auth-mismatch 401, 1 no-prefix 404, 1 shape mismatch, 1 pagination gate, 2 silent-empty).
+
+Exit criteria §7.1: 0 Critical — met. 9 High — NOT met. Remediation queue initiative terpisah.
