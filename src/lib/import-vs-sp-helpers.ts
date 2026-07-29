@@ -218,6 +218,48 @@ export function parseExcelDate(raw: string | number | undefined): Date | null {
 }
 
 /**
+ * Detect actual column indices for SISA_SALDO / JUMLAH_SD / TOTAL_BULAN from header rows.
+ *
+ * Why: the SP file format evolved. The original (when COL was authored) had SISA SALDO at
+ * col 14. Newer files (e.g. SP_0726JULI.xlsx) insert an extra `TOTAL JULI` column at N(13),
+ * shifting SISA SALDO to col 15. Hardcoded COL.SISA_SALDO=14 would then read the cumulative-
+ * paid amount (col O "JUMLAH S/D") as the outstanding balance → silently corrupts every loan.
+ *
+ * This scans header rows (0–11), skipping data rows (those with numeric col0 / "NO" label),
+ * and returns detected indices, falling back to COL defaults for old-format files.
+ */
+export function detectColumns(
+  rows: (string | number)[][],
+): { SISA_SALDO: number; JUMLAH_SD: number; TOTAL_BULAN: number } {
+  let sisaCol = COL.SISA_SALDO;
+  let totalCol = COL.TOTAL_BULAN;
+
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const row = rows[i] || [];
+    // Skip data rows: real data has a numeric NO in col0; headers have "NO"/blank.
+    const col0 = String(row[0] || "").trim();
+    if (/^\d+$/.test(col0)) continue;
+
+    for (let j = 0; j < row.length; j++) {
+      const v = String(row[j] || "").toUpperCase().trim();
+      if (!v) continue;
+      if ((v.includes("SISA") && v.includes("SALDO")) || v === "SISA SALDO") {
+        sisaCol = j; // last match wins (most recent period column)
+      } else if (v === "TOTAL") {
+        totalCol = j; // last TOTAL wins (e.g. TOTAL JULI over TOTAL JUNI)
+      }
+    }
+  }
+
+  // JUMLAH_SD (cumulative-paid amount) always sits immediately LEFT of SISA SALDO in these
+  // files. Derive from adjacency rather than scanning for "JUMLAH" (which collides with
+  // SUMMARY_KEYWORDS row labels and is less reliable than positional adjacency).
+  const jumlahCol = sisaCol - 1;
+
+  return { SISA_SALDO: sisaCol, JUMLAH_SD: jumlahCol, TOTAL_BULAN: totalCol };
+}
+
+/**
  * Detect the period (month/year) from header rows of the GAJI sheet.
  * Scans row 6 for "PER [day] [MONTH] [YEAR]" pattern.
  * Returns { monthNum, monthName, year } or null.

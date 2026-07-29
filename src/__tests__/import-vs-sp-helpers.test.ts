@@ -6,6 +6,7 @@ import {
   cleanNameForMatch,
   parseExcelDate,
   detectPeriod,
+  detectColumns,
   MONTH_NAME_MAP,
   SUMMARY_KEYWORDS,
   COL,
@@ -207,6 +208,51 @@ describe("detectPeriod", () => {
     expect(result!.monthNum).toBe(2);
     expect(result!.monthName).toBe("Februari");
     expect(result!.year).toBe(2026);
+  });
+});
+
+// =================================================================
+// detectColumns (file-format drift resilience)
+// =================================================================
+describe("detectColumns", () => {
+  it("returns COL defaults when no SISA/JUMLAH/TOTAL headers present (old format)", () => {
+    const rows: string[][] = Array.from({ length: 12 }, () => Array(18).fill(""));
+    const result = detectColumns(rows);
+    expect(result.SISA_SALDO).toBe(COL.SISA_SALDO); // 14
+    expect(result.JUMLAH_SD).toBe(COL.JUMLAH_SD);   // 13
+    expect(result.TOTAL_BULAN).toBe(COL.TOTAL_BULAN); // 12
+  });
+
+  it("detects new-format layout where SISA SALDO shifted to col 15", () => {
+    // SP_0726JULI.xlsx GAJI headers: extra TOTAL JULI col at N(13) shifts SISA SALDO to P(15)
+    const rows: string[][] = Array.from({ length: 12 }, () => Array(18).fill(""));
+    rows[7][11] = "POT";
+    rows[7][12] = "TOTAL";   // TOTAL JUNI
+    rows[7][13] = "TOTAL";   // TOTAL JULI (last wins)
+    rows[7][14] = "JUMLAH";  // cumulative paid
+    rows[7][15] = "SISA SALDO";
+    const result = detectColumns(rows);
+    expect(result.SISA_SALDO).toBe(15);
+    expect(result.JUMLAH_SD).toBe(14);
+    expect(result.TOTAL_BULAN).toBe(13);
+  });
+
+  it("ignores data rows (numeric col0) when scanning headers", () => {
+    const rows: string[][] = Array.from({ length: 12 }, () => Array(18).fill(""));
+    rows[7][14] = "SISA SALDO"; // header at col 14 (old format)
+    // data row at idx 9 with a fake "SISA SALDO" text in a far column — must be ignored
+    rows[9][0] = "1";
+    rows[9][17] = "SISA SALDO";
+    const result = detectColumns(rows);
+    expect(result.SISA_SALDO).toBe(14); // header match, not the data row at 17
+  });
+
+  it("derives JUMLAH_SD from SISA adjacency when JUMLAH header missing", () => {
+    const rows: string[][] = Array.from({ length: 12 }, () => Array(18).fill(""));
+    rows[7][15] = "SISA SALDO";
+    const result = detectColumns(rows);
+    expect(result.SISA_SALDO).toBe(15);
+    expect(result.JUMLAH_SD).toBe(14); // sisa-1
   });
 });
 

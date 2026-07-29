@@ -81,6 +81,16 @@ export async function POST(request: Request) {
         }
         const adminId = Number(session.user.id) || 1;
 
+        // GUARD: import-migrasi is ONE-TIME (initial migration). It always creates new loans
+        // (SP-MGR/) without checking for existing ones, so re-running duplicates every loan.
+        // If any SP-MGR loan already exists, refuse — use "Import VS SP" for periodic updates.
+        const existingMgrCount = await prisma.loan.count({ where: { loanNo: { startsWith: "SP-MGR/" } } });
+        if (existingMgrCount > 0) {
+            return NextResponse.json({
+                message: `Migrasi Pinjaman SP sudah pernah dijalankan (${existingMgrCount} loan SP-MGR terdeteksi). Import-migrasi bersifat SEKALI pakai — ulangi = duplikat. Untuk update berkala gunakan menu "Import VS SP" (match-then-update + undo batch).`,
+            }, { status: 409 });
+        }
+
         const formData: any = await request.formData();
         const file = formData.get("file") as File | null;
         const mode = (formData.get("mode") as string) || "preview";

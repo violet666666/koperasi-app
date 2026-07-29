@@ -10,6 +10,7 @@ import {
   cleanNameForMatch,
   parseExcelDate,
   detectPeriod,
+  detectColumns,
   COL,
   SUMMARY_KEYWORDS,
   ROMAWI,
@@ -123,6 +124,8 @@ export async function POST(request: Request) {
 
     // ── Detect period from header rows ──────────────────────────
     const period = detectPeriod(rows);
+    // ── Detect column layout (SISA/JUMLAH/TOTAL) — file format drifted over time ──
+    const DC = { ...COL, ...detectColumns(rows) };
     if (!period) {
       return NextResponse.json(
         { message: "Tidak dapat mendeteksi periode dari header sheet. Pastikan ada 'PER [tgl] [Bulan] [Tahun]' di header." },
@@ -262,10 +265,10 @@ export async function POST(request: Request) {
       const selama = cleanNumber(row[COL.SELAMA]) || 12;
       const jasa = cleanNumber(row[COL.JASA]);
       const angsuran = cleanNumber(row[COL.ANGSURAN]) || Math.ceil(pinjam / selama);
-      const potBulan = cleanNumber(row[COL.POT_BULAN]);
-      const totalBulan = cleanNumber(row[COL.TOTAL_BULAN]);
-      const jumlahSd = cleanNumber(row[COL.JUMLAH_SD]);
-      const sisaSaldo = cleanNumber(row[COL.SISA_SALDO]);
+      const potBulan = cleanNumber(row[DC.POT_BULAN]);
+      const totalBulan = cleanNumber(row[DC.TOTAL_BULAN]);
+      const jumlahSd = cleanNumber(row[DC.JUMLAH_SD]);
+      const sisaSaldo = cleanNumber(row[DC.SISA_SALDO]);
       const pangkat = String(row[COL.PANGKAT] || "").trim();
       const tglPinjam = parseExcelDate(row[COL.TGL_PINJAM]);
 
