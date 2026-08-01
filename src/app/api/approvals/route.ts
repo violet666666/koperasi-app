@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isSameUnit, unitAliasGroup } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -98,14 +99,15 @@ export async function GET(request: Request) {
 
         const voidApprovals = voidRequests
             .filter((req) => {
-                // If Operator or SP Admin, can see all voids probably? Or Simpan Pinjam Admin shouldn't see Cuci Mobil Voids? 
+                // If Operator or SP Admin, can see all voids probably? Or Simpan Pinjam Admin shouldn't see Cuci Mobil Voids?
                 // Operator can see everything.
                 if (isOperator) return true;
-                
-                // If Admin Unit, ONLY see their own unitType voids
+
+                // If Admin Unit, ONLY see their own unitType voids.
+                // Alias-aware (resto_cafe admin ↔ resto StoreSales) — matches void-approve's isSameUnit check.
                 if (isUnitAdmin) {
                     const meta: any = typeof req.metadata === 'string' ? JSON.parse(req.metadata) : req.metadata || {};
-                    return meta.unitType === userUnitType;
+                    return isSameUnit(meta.unitType, userUnitType);
                 }
                 
                 // Simpan Pinjam Admin generally only handles SP
@@ -146,14 +148,19 @@ export async function GET(request: Request) {
         const paginatedData = allApprovals.slice(skip, skip + perPage);
 
         // Build void count filter based on user scope
-        // Operator sees all; admin unit only sees their own unitType
+        // Operator sees all; admin unit only sees their own unitType (alias-aware).
         const buildVoidCountWhere = (statusFilter: string | Record<string, unknown>) => {
             const base: Record<string, unknown> = {
                 type: { in: ["unit_void", "void_store_sale", "laporan_unit"] },
                 status: statusFilter,
             };
             if (isUnitAdmin && userUnitType) {
-                base.metadata = { path: ["unitType"], equals: userUnitType };
+                // Alias-aware: a resto_cafe admin must count voids stored under any
+                // resto alias. Prisma JSON path equals can't call isSameUnit SQL-side,
+                // so OR across the alias group (resto | resto_cafe | coffe_latar).
+                base.OR = unitAliasGroup(userUnitType).map((a) => ({
+                    metadata: { path: ["unitType"], equals: a },
+                }));
             } else if (isSimpanPinjamAdmin) {
                 base.metadata = { path: ["unitType"], equals: "simpan_pinjam" };
             }
