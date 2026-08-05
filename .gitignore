@@ -127,3 +127,11 @@ verify-86030500.js
 .playwright-mcp/
 cookies.txt
 headers.txt
+
+# Playwright test output
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Claude Code agent worktrees (temp)
+.claude/worktrees/
