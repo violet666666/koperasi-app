@@ -40,7 +40,7 @@ interface CashBankAccount {
   currentBalance: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
+const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Zod Schema ─────────────────────────────────────────────────────────────
 const buildSchema = (product: Product | null, member: Member | null) =>
