@@ -11,7 +11,7 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 
 ## 🌐 Live Demo
 
-- **Web App**: [https://www.primkoppol.online](https://www.primkoppol.online)
+- **Web App**: [https://www.primkoppol.site](https://www.primkoppol.site)
 - **Mobile APK**: Build via EAS (lihat [panduan mobile](#-mobile-app))
 
 ## ✨ Highlights
@@ -135,18 +135,30 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
    ```
 
 3. **Environment Setup**
-   Create a `.env` file in the root directory:
+   Copy the template and fill in real values:
+   ```bash
+   cp .env.example .env
+   ```
+   Required keys (see [`.env.example`](.env.example) for full reference):
    ```env
-   # Database
-   DATABASE_URL="postgresql://user:password@localhost:5432/koperasi_db"
+   # Database — pooled URL for runtime, direct URL for migrations
+   DATABASE_URL="postgresql://user:password@host:5432/koperasi_db?sslmode=require"
+   DIRECT_URL="postgresql://user:password@host:5432/koperasi_db?sslmode=require"
 
-   # Auth
+   # Auth (NextAuth v5) — generate with: openssl rand -base64 32
    AUTH_SECRET="your-super-secret-key"
+   NEXTAUTH_SECRET="same-as-auth-secret"
    NEXTAUTH_URL="http://localhost:3000"
 
    # App
-   NEXT_PUBLIC_APP_URL="http://localhost:3000"
+   NODE_ENV="development"
+   NEXT_PUBLIC_API_URL=""
    ```
+   Generate a strong `AUTH_SECRET`:
+   ```bash
+   openssl rand -base64 32
+   ```
+   > Mobile env lives in [`mobile/.env.example`](mobile/.env.example).
 
 4. **Database Setup**
    ```bash
