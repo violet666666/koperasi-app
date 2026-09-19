@@ -4,17 +4,68 @@ import * as React from "react";
 import { reportsApi } from "@/lib/api";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { exportToExcel, generateNeracaPDF, type ExportColumn } from "@/lib/export-utils";
-import type { BalanceSheetItem, BalanceSheetResult } from "@/lib/services/neraca";
+import { buildNeracaRows, type NeracaSide } from "@/lib/neraca-format";
+import type { BalanceSheetResult } from "@/lib/services/neraca";
 
 const fmt = (n: number, negativeParens = true) =>
   negativeParens && n < 0 ? `(${formatCurrency(Math.abs(n))})` : formatCurrency(n);
+
+/** Satu kolom neraca (AKTIVA / PASIVA) — gaya format resmi: grup bernomor + subtotal Jumlah. */
+function NeracaSideTable({ title, side }: { title: string; side: NeracaSide }) {
+  let groupNo = 0;
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead>
+        <tr>
+          <th colSpan={2} className="border-b-2 border-foreground pb-1 text-center text-base font-bold tracking-[0.2em]">
+            {title}
+          </th>
+        </tr>
+        <tr className="text-[11px] uppercase text-muted-foreground">
+          <th className="border-b border-foreground py-1 pl-1 text-left font-medium">Uraian</th>
+          <th className="border-b border-foreground py-1 pr-1 text-right font-medium">Jumlah (Rp)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {side.rows.map((r, idx) => {
+          if (r.kind === "group")
+            return (
+              <tr key={idx} className="bg-muted/40 print:bg-muted/40">
+                <td colSpan={2} className="border-t border-border py-1 pl-1 font-bold uppercase">{++groupNo}. {r.label}</td>
+              </tr>
+            );
+          if (r.kind === "total")
+            return (
+              <tr key={idx} className="border-t-[3px] border-double border-foreground font-bold">
+                <td className="py-1.5 pl-1">{r.label}</td>
+                <td className="py-1.5 pr-1 text-right tabular-nums">{fmt(r.amount ?? 0, false)}</td>
+              </tr>
+            );
+          if (r.kind === "subtotal")
+            return (
+              <tr key={idx} className="font-semibold">
+                <td className="border-t border-foreground py-1 pl-6">{r.label}</td>
+                <td className="border-t border-foreground py-1 pr-1 text-right tabular-nums">{fmt(r.amount ?? 0, false)}</td>
+              </tr>
+            );
+          const neg = (r.amount ?? 0) < 0;
+          return (
+            <tr key={idx}>
+              <td className="py-0.5 pl-6">{r.label}</td>
+              <td className={`py-0.5 pr-1 text-right tabular-nums ${neg ? "text-red-600" : ""}`}>{fmt(r.amount ?? 0)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
 
 export default function NeracaPage() {
   const [data, setData] = React.useState<BalanceSheetResult | null>(null);
@@ -42,20 +93,11 @@ export default function NeracaPage() {
     if (!data) return [];
     const rows: Record<string, unknown>[] = [];
     const push = (ket: string, jumlah: number) => rows.push({ keterangan: ket, jumlah });
-    push("=== AKTIVA LANCAR ===", 0);
-    data.assets.current.forEach((i) => push(`${i.code} - ${i.name}`, i.amount));
-    push("=== AKTIVA TETAP ===", 0);
-    data.assets.fixedGross.forEach((i) => push(`${i.code} - ${i.name}`, i.amount));
-    push("(–) Akumulasi Penyusutan", -data.assets.accumulatedDepreciation);
-    push("Total Aktiva", data.assets.totalAssets);
-    push("=== KEWAJIBAN ===", 0);
-    data.liabilities.savings.forEach((i) => push(`${i.code} - ${i.name}`, i.amount));
-    data.liabilities.other.forEach((i) => push(`${i.code} - ${i.name}`, i.amount));
-    push("Total Kewajiban", data.liabilities.totalLiabilities);
-    push("=== EKUITAS ===", 0);
-    data.equity.items.forEach((i) => push(`${i.code} - ${i.name}`, i.amount));
-    push("Total Ekuitas", data.equity.totalEquity);
-    push("Total Pasiva", data.liabilities.totalLiabilities + data.equity.totalEquity);
+    push("=== AKTIVA ===", 0);
+    const f = buildNeracaRows(data);
+    for (const side of [f.aktiva, f.pasiva]) {
+      for (const r of side.rows) push(r.label, r.amount ?? 0);
+    }
     return rows;
   };
 
@@ -63,15 +105,11 @@ export default function NeracaPage() {
     { header: "Keterangan", key: "keterangan", width: 42 },
     { header: "Jumlah (Rp)", key: "jumlah", width: 22, format: (v) => (v === 0 ? "" : formatCurrency(Number(v))) },
   ];
-  const periodLabel = data ? `Per ${data.asOf}` : "";
 
-  const renderItem = (i: BalanceSheetItem, negativeParens = true) => (
-    <TableRow key={i.code + i.name}>
-      <TableCell className="font-mono text-sm">{i.code}</TableCell>
-      <TableCell>{i.name}</TableCell>
-      <TableCell className={`text-right tabular-nums ${i.amount < 0 ? "text-red-600" : ""}`}>{fmt(i.amount, negativeParens)}</TableCell>
-    </TableRow>
-  );
+  const neraca = data ? buildNeracaRows(data) : null;
+  const asOfLong = data
+    ? new Date(data.asOf).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+    : "";
 
   return (
     <div className="space-y-6">
@@ -90,67 +128,56 @@ export default function NeracaPage() {
         }
       />
 
-      <Card>
-        <CardContent className="p-4 flex items-center justify-between gap-4">
-          <span className="text-sm text-muted-foreground">{periodLabel || "Memuat…"}</span>
-          {data && !data.isBalanced && (
-            <Badge variant="destructive">Tidak balance — selisih {formatCurrency(Math.abs(data.equity.selisih))}</Badge>
-          )}
-          {data?.meta?.note && <span className="text-xs text-muted-foreground">{data.meta.note}</span>}
-        </CardContent>
-      </Card>
-
       {error && <Card><CardContent className="p-4 text-sm text-red-600">{error}</CardContent></Card>}
 
       {isLoading ? (
         <Card><CardContent className="p-6"><Skeleton className="h-96 w-full" /></CardContent></Card>
-      ) : data ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* AKTIVA */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> AKTIVA</CardTitle>
-              <CardDescription>{periodLabel}</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Nama Akun</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  <TableRow className="bg-muted/30"><TableCell colSpan={3} className="font-semibold">Aktiva Lancar</TableCell></TableRow>
-                  {data.assets.current.map((i) => renderItem(i))}
-                  <TableRow className="bg-muted/30"><TableCell colSpan={3} className="font-semibold">Aktiva Tetap</TableCell></TableRow>
-                  {data.assets.fixedGross.map((i) => renderItem(i))}
-                  {data.assets.accumulatedDepreciation !== 0 && (
-                    <TableRow><TableCell className="font-mono text-sm">1403</TableCell><TableCell>(–) Akumulasi Penyusutan</TableCell><TableCell className="text-right tabular-nums text-red-600">{fmt(-data.assets.accumulatedDepreciation)}</TableCell></TableRow>
-                  )}
-                  <TableRow className="bg-primary/10 font-bold"><TableCell colSpan={2}>TOTAL AKTIVA</TableCell><TableCell className="text-right tabular-nums">{formatCurrency(data.assets.totalAssets)}</TableCell></TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+      ) : data && neraca ? (
+        <Card>
+          <CardContent className="p-6">
+            {/* Kop surat */}
+            <div className="mb-1 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/LogoPrimkoppol.png" alt="Logo" width={42} height={42} className="object-contain" />
+              <div>
+                <div className="text-[15px] font-bold uppercase leading-tight">Koperasi Primkoppol Resor Lumajang</div>
+                <div className="text-[9px] text-muted-foreground">Jl. Alun-Alun Utara No. 11, Rogotrunan, Kec. Lumajang, Kabupaten Lumajang, Jawa Timur 67316</div>
+              </div>
+            </div>
+            <div className="mb-4 mt-2 border-y-[3px] border-double border-foreground" />
 
-          {/* PASIVA */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> PASIVA</CardTitle>
-              <CardDescription>{periodLabel}</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Nama Akun</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  <TableRow className="bg-muted/30"><TableCell colSpan={3} className="font-semibold">Kewajiban — Simpanan</TableCell></TableRow>
-                  {data.liabilities.savings.map((i) => renderItem(i))}
-                  <TableRow className="bg-muted/30"><TableCell colSpan={3} className="font-semibold">Kewajiban — Lainnya</TableCell></TableRow>
-                  {data.liabilities.other.map((i) => renderItem(i))}
-                  <TableRow className="bg-muted/30"><TableCell colSpan={3} className="font-semibold">Ekuitas</TableCell></TableRow>
-                  {data.equity.items.map((i) => renderItem(i))}
-                  <TableRow className="bg-primary/10 font-bold"><TableCell colSpan={2}>TOTAL PASIVA</TableCell><TableCell className="text-right tabular-nums">{formatCurrency(data.liabilities.totalLiabilities + data.equity.totalEquity)}</TableCell></TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="mb-1 text-center text-[15px] font-bold tracking-[0.3em]">NERACA (BALANCE SHEET)</div>
+            <div className="mb-4 text-center text-sm text-muted-foreground">Per {asOfLong}</div>
+
+            {data && !data.isBalanced && (
+              <div className="mb-3 flex justify-center">
+                <Badge variant="destructive">Tidak balance — selisih {formatCurrency(Math.abs(data.equity.selisih))}</Badge>
+              </div>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-2">
+              <NeracaSideTable title="AKTIVA" side={neraca.aktiva} />
+              <NeracaSideTable title="PASIVA" side={neraca.pasiva} />
+            </div>
+
+            {/* Form tanda tangan */}
+            <div className="mt-10 flex justify-between text-sm">
+              <div className="w-2/5 text-center">
+                <div>Mengetahui,</div>
+                <div className="h-14" />
+                <div className="font-bold">Ketua Pengurus</div>
+                <div>Koperasi Primkoppol Resor Lumajang</div>
+              </div>
+              <div className="w-2/5 text-center">
+                <div>Lumajang, {asOfLong}</div>
+                <div className="h-14" />
+                <div className="font-bold">Manager Operasional</div>
+              </div>
+            </div>
+
+            {data?.meta?.note && <div className="mt-6 text-[11px] text-muted-foreground">{data.meta.note}</div>}
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );

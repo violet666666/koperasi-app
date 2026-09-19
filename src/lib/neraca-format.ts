@@ -1,6 +1,6 @@
 // Pure helpers: turunkan struktur neraca format resmi (Kas/Piutang/Harta vs
 // Hutang/Simpanan/Modal, subtotal per kelompok) dari BalanceSheetResult.
-// Dipakai oleh export PDF + unit test — UI page tetap pakai struktur lama.
+// Dipakai oleh export PDF + halaman UI + unit test.
 import type { BalanceSheetItem, BalanceSheetResult } from "@/lib/services/neraca";
 
 export interface NeracaRow {
