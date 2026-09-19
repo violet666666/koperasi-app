@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -53,6 +54,7 @@ export default function TagihanPeriodDetailPage() {
   const [period, setPeriod] = React.useState<BillingPeriod | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [processing, setProcessing] = React.useState(false);
+  const [processError, setProcessError] = React.useState<string | null>(null);
   const [expandedMember, setExpandedMember] = React.useState<number | null>(null);
 
   React.useEffect(() => {
@@ -94,6 +96,7 @@ export default function TagihanPeriodDetailPage() {
   const handleProcess = async () => {
     if (!period) return;
     setProcessing(true);
+    setProcessError(null);
     try {
       const res = await fetch(`/api/billing/${period.id}/process`, {
         method: "POST",
@@ -102,7 +105,12 @@ export default function TagihanPeriodDetailPage() {
         const res2 = await fetch(`/api/billing/${period.id}`);
         const json = await res2.json();
         setPeriod(json.data);
+      } else {
+        const json = await res.json().catch(() => null);
+        setProcessError(json?.message || `Gagal memproses periode (${res.status}). Coba lagi; bila berulang, hubungi operator.`);
       }
+    } catch {
+      setProcessError("Koneksi terputus saat memproses periode. Periksa jaringan lalu coba lagi.");
     } finally {
       setProcessing(false);
     }
@@ -191,6 +199,12 @@ export default function TagihanPeriodDetailPage() {
           ) : undefined
         }
       />
+
+      {processError && (
+        <Alert variant="destructive">
+          <AlertDescription>{processError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

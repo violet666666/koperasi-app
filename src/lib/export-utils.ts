@@ -26,6 +26,18 @@ function resolveKey(obj: Record<string, unknown>, key: string): unknown {
     }, obj);
 }
 
+// ─── Watermark (logo samar di atas isi dokumen cetak) ───────────────────────
+// Dipakai di kwitansi (A4 & thermal), struk kasir, dan faktur/nota piutang.
+// position:fixed membuat watermark terulang di setiap halaman saat print.
+// ponytail: satu logo global; kalau nanti butuh per-unit atau watermark teks,
+// ganti WATERMARK_LOGO jadi argumen fungsi.
+const WATERMARK_LOGO = "/LogoPrimkoppol.png";
+const watermarkCss = (width: string, opacity = 0.06) => `
+  .print-watermark { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 9999; }
+  .print-watermark img { width: ${width}; opacity: ${opacity}; object-fit: contain; }
+`;
+const watermarkHtml = `<div class="print-watermark" aria-hidden="true"><img src="${WATERMARK_LOGO}" alt="" /></div>`;
+
 // ─── Excel Export ────────────────────────────────────────────────────────────
 
 export async function exportToExcel(
@@ -269,9 +281,11 @@ export function generateFakturPiutangPDF(data: FakturPiutangData) {
     button { display: none; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
+  ${watermarkCss("50%")}
 </style>
 </head>
 <body>
+${watermarkHtml}
 
 <!-- Kop Surat -->
 <div class="header">
@@ -541,8 +555,10 @@ export function generateReceiptPDF(data: ReceiptData) {
   .ttd-line { border-bottom: 1px dashed #999; height: 60px; }
   .footer { text-align: center; margin-top: 20px; font-size: 9px; color: #888; }
   @media print { @page { size: A4; margin: 20mm; } }
+  ${watermarkCss("55%")}
 </style>
 </head><body>
+${watermarkHtml}
 <div class="header">
   <div style="background:#111;border-radius:8px;padding:6px;">
     <img src="/LogoPrimkoppol.png" width="50" height="50" style="object-fit:contain;display:block;" />
@@ -610,8 +626,10 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
       padding: 1mm !important;
     }
   }
+  ${watermarkCss("70%", 0.08)}
 </style>
 </head><body>
+${watermarkHtml}
 <div class="header"><strong>PRIMKOPPOL RESOR LUMAJANG</strong><br/><span style="font-size:10px;">Polres Lumajang</span></div>
 <div class="row"><span class="label">No</span><span>${escapeHtml(data.receiptNo)}</span></div>
 <div class="row"><span class="label">Tgl</span><span>${receiptDate}</span></div>
@@ -736,8 +754,10 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
     }
     .no-print { display: none !important; }
   }
+  ${watermarkCss("70%", 0.08)}
 </style>
 </head><body>
+${watermarkHtml}
 <div class="header">
   <h2>PRIMKOPPOL RESOR LUMAJANG</h2>
   <p>Polres Lumajang</p>

@@ -168,7 +168,14 @@ export default function CetakKwitansiPage() {
 
             {/* ============= RECEIPT PREVIEW (Format Resmi Koperasi) ============= */}
             <Card className="max-w-2xl mx-auto print:shadow-none print:border-2 print:border-black transform print:scale-[0.98] origin-top">
-                <CardContent className="p-8">
+                <CardContent className="relative p-8">
+                    {/* Watermark logo — samar di belakang isi kwitansi (terlihat di preview & print) */}
+                    <img
+                        src="/LogoPrimkoppol.png"
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 m-auto w-[55%] select-none object-contain opacity-[0.06]"
+                    />
 
                     {/* ---- KOP SURAT / HEADER ---- */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 mb-2 justify-center">
