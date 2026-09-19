@@ -32,9 +32,8 @@ function resolveKey(obj: Record<string, unknown>, key: string): unknown {
 // Dua gaya:
 //  - watermarkCss: logo samar 6% DI ATAS isi (overlay) — kwitansi A4 &
 //    faktur/nota; position:fixed agar terulang tiap halaman.
-//  - watermarkBgCss: logo besar ~40% DI BELAKANG isi seperti latar belakang —
-//    struk kasir & kwitansi thermal, sebagai identitas keaslian struk
-//    (permintaan: opacity 30–50%).
+//  - watermarkBgCss: logo besar ~60% DI BELAKANG isi seperti latar belakang —
+//    struk kasir & kwitansi thermal, sebagai identitas keaslian struk.
 // ponytail: satu logo global; kalau butuh per-unit atau watermark teks,
 // jadikan WATERMARK_LOGO argumen fungsi.
 const WATERMARK_LOGO = "/LogoPrimkoppol.png";
@@ -42,7 +41,7 @@ const watermarkCss = (width: string, opacity = 0.06) => `
   .print-watermark { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 9999; }
   .print-watermark img { width: ${width}; opacity: ${opacity}; object-fit: contain; }
 `;
-const watermarkBgCss = (width: string, opacity = 0.4) => `
+const watermarkBgCss = (width: string, opacity = 0.6) => `
   body { position: relative; }
   body > *:not(.print-watermark) { position: relative; z-index: 1; }
   .print-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
@@ -729,7 +728,7 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
       padding: 1mm !important;
     }
   }
-  ${watermarkBgCss("85%", 0.4)}
+  ${watermarkBgCss("85%", 0.6)}
 </style>
 </head><body>
 ${watermarkHtml}
@@ -857,7 +856,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
     }
     .no-print { display: none !important; }
   }
-  ${watermarkBgCss("85%", 0.4)}
+  ${watermarkBgCss("85%", 0.6)}
 </style>
 </head><body>
 ${watermarkHtml}

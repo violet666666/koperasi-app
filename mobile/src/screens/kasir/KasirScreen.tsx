@@ -26,7 +26,7 @@ import C from '../../lib/colors';
 import { log } from '../../utils/log';
 
 // ── Watermark logo untuk struk cetak (base64, di-cache sekali) ─────────────
-// Logo di-belakang isi struk (opacity 40%) sebagai identitas keaslian.
+// Logo di-belakang isi struk (opacity 60%) sebagai identitas keaslian.
 // ponytail: LogoPrimkoppol.png 1.6MB → base64 besar di HTML print; ganti aset
 // dengan PNG ~100KB bila cetak terasa lambat.
 let logoBase64Cache: string | null = null;
@@ -435,7 +435,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
           }
           body > *:not(.wm-wrap) { position: relative; z-index: 1; }
           .wm-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; pointer-events: none; }
-          .wm-wrap img { width: 85%; opacity: 0.4; object-fit: contain; }
+          .wm-wrap img { width: 85%; opacity: 0.6; object-fit: contain; }
           .header { font-size: ${p.headerSize}px; font-weight: bold; margin-bottom: 3px; line-height: 1.3; }
           .sub { font-size: ${p.fontSize - 1}px; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; line-height: 1.4; }
           .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 3px; font-size: ${p.fontSize}px; line-height: 1.3; }
