@@ -160,21 +160,6 @@ export default function NeracaPage() {
               <NeracaSideTable title="PASIVA" side={neraca.pasiva} />
             </div>
 
-            {/* Form tanda tangan */}
-            <div className="mt-10 flex justify-between text-sm">
-              <div className="w-2/5 text-center">
-                <div>Mengetahui,</div>
-                <div className="h-14" />
-                <div className="font-bold">Ketua Pengurus</div>
-                <div>Koperasi Primkoppol Resor Lumajang</div>
-              </div>
-              <div className="w-2/5 text-center">
-                <div>Lumajang, {asOfLong}</div>
-                <div className="h-14" />
-                <div className="font-bold">Manager Operasional</div>
-              </div>
-            </div>
-
             {data?.meta?.note && <div className="mt-6 text-[11px] text-muted-foreground">{data.meta.note}</div>}
           </CardContent>
         </Card>
