@@ -100,6 +100,11 @@ export function ReceiptPrimkopol({
                     }
                     .item-name { font-size: 11px; }
                     .item-detail { font-size: 10px; }
+                    /* Watermark logo di belakang isi struk (identitas keaslian) */
+                    body { position: relative; }
+                    body > *:not(.print-watermark) { position: relative; z-index: 1; }
+                    .print-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+                    .print-watermark img { width: 85%; opacity: 0.6; object-fit: contain; }
                     @media print {
                         @page { size: ${pw} auto; margin: 0; }
                         html, body {
@@ -119,7 +124,8 @@ export function ReceiptPrimkopol({
                     }
                 </style>
             </head>
-            <body>${printContents}
+            <body><div class="print-watermark" aria-hidden="true"><img src="/LogoPrimkoppol.png" alt="" /></div>
+${printContents}
                 <script>
                     // Gunakan onload + buffer agar print() dipanggil setelah DOM siap
                     // Penting untuk tablet/perangkat lambat
