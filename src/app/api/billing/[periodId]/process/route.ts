@@ -51,6 +51,7 @@ export async function POST(
     const isFullSettle = !selectedMemberIds || itemsToSettle.length === totalItems;
 
     // Process in transaction: mark paid on source transactions + update items + update period
+    // timeout: default 5s is too short for the per-item loop (~700 queries vs Neon)
     await prisma.$transaction(async (tx) => {
       // 1. Update all selected billing items: mark as paid
       await tx.billingItem.updateMany({
@@ -226,7 +227,7 @@ export async function POST(
           },
         });
       }
-    });
+    }, { timeout: 120_000, maxWait: 30_000 });
 
     return NextResponse.json({
       message: isFullSettle
@@ -239,6 +240,11 @@ export async function POST(
     });
   } catch (error) {
     console.error("POST /api/billing/[periodId]/process error:", error);
-    return NextResponse.json({ message: "Failed to process period" }, { status: 500 });
+    // Surface the Prisma error code (P20xx) so failures aren't a black box
+    const code = (error as { code?: string }).code;
+    return NextResponse.json(
+      { message: `Failed to process period${code ? ` (${code})` : ""}` },
+      { status: 500 },
+    );
   }
 }
