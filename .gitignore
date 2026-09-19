@@ -135,3 +135,7 @@ headers.txt
 
 # Claude Code agent worktrees (temp)
 .claude/worktrees/
+
+# Production data backups from cleanup scripts (contains member data)
+/backups/
+.tmp-*.txt

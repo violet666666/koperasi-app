@@ -2,8 +2,11 @@
 
 import * as React from "react";
 
-// Keys to ensure we only auto-reload ONCE per new SW activation (avoid loops).
-const RELOAD_KEY = "sw-reloaded-v2";
+// Reload at most once per page load (in-memory). Loop-safe: after reload the new
+// SW already controls the page, so no activation event fires again until the NEXT
+// deploy's worker activates — which correctly triggers another reload.
+// ponytail: per-deploy reload; if a deploy ever needs forced multi-reload, key off SW build id instead.
+let reloadedThisPageLoad = false;
 
 export function ServiceWorkerRegistration() {
     React.useEffect(() => {
@@ -25,9 +28,9 @@ export function ServiceWorkerRegistration() {
                         if (
                             newWorker.state === "activated" &&
                             navigator.serviceWorker.controller &&
-                            !sessionStorage.getItem(RELOAD_KEY)
+                            !reloadedThisPageLoad
                         ) {
-                            sessionStorage.setItem(RELOAD_KEY, "1");
+                            reloadedThisPageLoad = true;
                             window.location.reload();
                         }
                     });
@@ -39,8 +42,8 @@ export function ServiceWorkerRegistration() {
 
         // Also catch external controller swaps (e.g. skipWaiting from another tab).
         const onControllerChange = () => {
-            if (!sessionStorage.getItem(RELOAD_KEY)) {
-                sessionStorage.setItem(RELOAD_KEY, "1");
+            if (!reloadedThisPageLoad) {
+                reloadedThisPageLoad = true;
                 window.location.reload();
             }
         };
