@@ -13,6 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
+import { Asset } from 'expo-asset';
+import { File } from 'expo-file-system';
 import { StorageManager } from '../../lib/storage';
 import { CameraView, Camera } from 'expo-camera';
 import { Image as ExpoImage } from 'expo-image';
@@ -22,6 +24,25 @@ import * as Haptics from 'expo-haptics';
 import api, { BASE_URL } from '../../lib/api';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
+
+// ── Watermark logo untuk struk cetak (base64, di-cache sekali) ─────────────
+// Logo di-belakang isi struk (opacity 40%) sebagai identitas keaslian.
+// ponytail: LogoPrimkoppol.png 1.6MB → base64 besar di HTML print; ganti aset
+// dengan PNG ~100KB bila cetak terasa lambat.
+let logoBase64Cache: string | null = null;
+async function getWatermarkBase64(): Promise<string | null> {
+  try {
+    if (logoBase64Cache) return logoBase64Cache;
+    const asset = Asset.fromModule(require('../../../assets/LogoPrimkoppol.png'));
+    await asset.downloadAsync();
+    if (!asset.localUri) return null;
+    logoBase64Cache = await new File(asset.localUri).base64();
+    return logoBase64Cache;
+  } catch (e) {
+    log.error('Watermark logo load failed', e);
+    return null;
+  }
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product { id: number; sku: string; name: string; price: number; stock: number; unit: string; }
@@ -394,7 +415,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
   };
 
   // ── Receipt Printing (Thermal 58mm / 80mm) ─────────────────────────
-  const getHtmlHeader = (method: string) => {
+  const getHtmlHeader = (method: string, logoB64: string | null) => {
     const p = currentPaper;
     return `
     <html>
@@ -410,7 +431,11 @@ export default function KasirScreen({ navigation: navProp }: any) {
             padding: 6px;
             text-align: center;
             color: #000;
+            position: relative;
           }
+          body > *:not(.wm-wrap) { position: relative; z-index: 1; }
+          .wm-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; pointer-events: none; }
+          .wm-wrap img { width: 85%; opacity: 0.4; object-fit: contain; }
           .header { font-size: ${p.headerSize}px; font-weight: bold; margin-bottom: 3px; line-height: 1.3; }
           .sub { font-size: ${p.fontSize - 1}px; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; line-height: 1.4; }
           .item-row { display: flex; justify-content: space-between; text-align: left; margin-bottom: 3px; font-size: ${p.fontSize}px; line-height: 1.3; }
@@ -421,6 +446,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
         </style>
       </head>
       <body>
+        ${logoB64 ? `<div class="wm-wrap"><img src="data:image/png;base64,${logoB64}" /></div>` : ''}
         <div class="header">PRIMKOPPOL LUMAJANG<br/>${UNIT_TYPES.find(u => u.id === unitType)?.name.toUpperCase() || "UNIT USAHA"}</div>
         <div class="sub">
           Tgl: ${new Date().toLocaleString('id-ID')}<br/>
@@ -440,7 +466,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   const printReceiptStandard = async (method: string, items: CartItem[], amount: number) => {
     try {
-      const html = getHtmlHeader(method) + items.map(c => `
+      const logoB64 = await getWatermarkBase64();
+      const html = getHtmlHeader(method, logoB64) + items.map(c => `
         <div class="item-row">
           <div class="item-name">${c.product.name}<br/>${c.quantity} x ${c.product.price.toLocaleString('id-ID')}</div>
           <div class="item-price">${(c.quantity * c.product.price).toLocaleString('id-ID')}</div>
@@ -457,7 +484,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   const printReceiptQuick = async (method: string, desc: string, amount: number) => {
     try {
-      const html = getHtmlHeader(method) + `
+      const logoB64 = await getWatermarkBase64();
+      const html = getHtmlHeader(method, logoB64) + `
         <div class="item-row">
           <div class="item-name">Jasa Layanan<br/>${desc || 'Walk-in'}</div>
           <div class="item-price">${amount.toLocaleString('id-ID')}</div>

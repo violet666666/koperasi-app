@@ -5,6 +5,8 @@
  */
 
 import { terbilang } from "./terbilang";
+import type { BalanceSheetResult } from "./services/neraca";
+import { buildNeracaRows, type NeracaSide } from "./neraca-format";
 
 function escapeHtml(str: string | number | undefined | null): string {
     if (str == null) return '';
@@ -26,14 +28,24 @@ function resolveKey(obj: Record<string, unknown>, key: string): unknown {
     }, obj);
 }
 
-// ─── Watermark (logo samar di atas isi dokumen cetak) ───────────────────────
-// Dipakai di kwitansi (A4 & thermal), struk kasir, dan faktur/nota piutang.
-// position:fixed membuat watermark terulang di setiap halaman saat print.
-// ponytail: satu logo global; kalau nanti butuh per-unit atau watermark teks,
-// ganti WATERMARK_LOGO jadi argumen fungsi.
+// ─── Watermark (logo di dokumen cetak) ──────────────────────────────────────
+// Dua gaya:
+//  - watermarkCss: logo samar 6% DI ATAS isi (overlay) — kwitansi A4 &
+//    faktur/nota; position:fixed agar terulang tiap halaman.
+//  - watermarkBgCss: logo besar ~40% DI BELAKANG isi seperti latar belakang —
+//    struk kasir & kwitansi thermal, sebagai identitas keaslian struk
+//    (permintaan: opacity 30–50%).
+// ponytail: satu logo global; kalau butuh per-unit atau watermark teks,
+// jadikan WATERMARK_LOGO argumen fungsi.
 const WATERMARK_LOGO = "/LogoPrimkoppol.png";
 const watermarkCss = (width: string, opacity = 0.06) => `
   .print-watermark { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 9999; }
+  .print-watermark img { width: ${width}; opacity: ${opacity}; object-fit: contain; }
+`;
+const watermarkBgCss = (width: string, opacity = 0.4) => `
+  body { position: relative; }
+  body > *:not(.print-watermark) { position: relative; z-index: 1; }
+  .print-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
   .print-watermark img { width: ${width}; opacity: ${opacity}; object-fit: contain; }
 `;
 const watermarkHtml = `<div class="print-watermark" aria-hidden="true"><img src="${WATERMARK_LOGO}" alt="" /></div>`;
@@ -529,6 +541,79 @@ export interface ReceiptData {
 }
 
 /** Generate A4 Official Kwitansi PDF (new print window) */
+// ─── Neraca (Balance Sheet) — format resmi dua kolom ────────────────────────
+const fmtRpPlain = (n: number) => n.toLocaleString("id-ID");
+
+function neracaSideTable(title: string, side: NeracaSide): string {
+    const rows = side.rows.map((r) => {
+        if (r.kind === "group") return `<tr class="grp"><td colspan="2">${escapeHtml(r.label)}</td></tr>`;
+        if (r.kind === "total") return `<tr class="grand"><td>${escapeHtml(r.label)}</td><td class="num">${fmtRpPlain(r.amount ?? 0)}</td></tr>`;
+        if (r.kind === "subtotal") return `<tr class="sub"><td>${escapeHtml(r.label)}</td><td class="num">${fmtRpPlain(r.amount ?? 0)}</td></tr>`;
+        const neg = (r.amount ?? 0) < 0;
+        return `<tr><td>${escapeHtml(r.label)}</td><td class="num${neg ? " neg" : ""}">${neg ? `(${fmtRpPlain(-(r.amount ?? 0))})` : fmtRpPlain(r.amount ?? 0)}</td></tr>`;
+    }).join("\n");
+    return `<table class="side"><thead>
+      <tr><th class="side-title" colspan="2">${escapeHtml(title)}</th></tr>
+      <tr><th>Uraian</th><th class="num">Jumlah (Rp)</th></tr>
+    </thead><tbody>${rows}</tbody></table>`;
+}
+
+// Pure: bangun HTML neraca format resmi (di-test tanpa browser).
+export function buildNeracaHtml(data: BalanceSheetResult): string {
+    const fmt = buildNeracaRows(data);
+    const asOfLong = new Date(data.asOf).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Neraca ${escapeHtml(data.asOf)}</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #111; font-size: 10px; margin: 0; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .logo-box { background: #1a1a2e; border-radius: 8px; padding: 5px; line-height: 0; }
+  .org-name { font-size: 15px; font-weight: 700; text-transform: uppercase; }
+  .org-sub { font-size: 9px; color: #6b7280; margin-top: 2px; }
+  .divider { border-top: 3px double #1a1a2e; border-bottom: 1px solid #1a1a2e; padding: 1px 0; margin: 8px 0 14px; }
+  .doc-title { text-align: center; font-size: 15px; font-weight: 700; letter-spacing: 3px; margin-bottom: 2px; }
+  .doc-per { text-align: center; font-size: 10px; color: #374151; margin-bottom: 14px; }
+  .cols { display: flex; gap: 14px; }
+  .side { flex: 1; border-collapse: collapse; }
+  .side th, .side td { padding: 3px 6px; border: none; vertical-align: top; }
+  .side-title { font-size: 12px; font-weight: 700; letter-spacing: 2px; border-bottom: 2px solid #111; padding-bottom: 4px; }
+  thead tr:last-child th { border-bottom: 1px solid #111; font-size: 9px; text-transform: uppercase; text-align: left; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .grp td { font-weight: 700; text-transform: uppercase; background: #f3f4f6; border-top: 1px solid #d1d5db; }
+  .sub td { font-weight: 700; border-top: 1px solid #111; }
+  .grand td { font-weight: 700; border-top: 3px double #111; font-size: 11px; }
+  .neg { color: #b91c1c; }
+  .note { margin-top: 14px; font-size: 8px; color: #6b7280; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  ${watermarkCss("50%")}
+</style>
+</head><body>
+${watermarkHtml}
+<div class="header">
+  <div class="logo-box"><img src="/LogoPrimkoppol.png" width="42" height="42" style="object-fit:contain;display:block;" /></div>
+  <div>
+    <div class="org-name">Koperasi Primkoppol Resor Lumajang</div>
+    <div class="org-sub">Jl. Alun-Alun Utara No. 11, Rogotrunan, Kec. Lumajang, Kabupaten Lumajang, Jawa Timur 67316</div>
+  </div>
+</div>
+<div class="divider"></div>
+<div class="doc-title">NERACA (BALANCE SHEET)</div>
+<div class="doc-per">Per ${asOfLong}</div>
+<div class="cols">
+  ${neracaSideTable("AKTIVA", fmt.aktiva)}
+  ${neracaSideTable("PASIVA", fmt.pasiva)}
+</div>
+<div class="note">${data.meta?.note ?? ""}${!data.isBalanced ? ` — PERHATIAN: tidak balance, selisih ${fmtRpPlain(Math.abs(data.equity.selisih))}.` : ""}</div>
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+}
+
+export function generateNeracaPDF(data: BalanceSheetResult) {
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(buildNeracaHtml(data)); win.document.close(); }
+}
+
 export function generateReceiptPDF(data: ReceiptData) {
     const receiptDate = new Date(data.receiptDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
     const typeLabels: Record<string, string> = {
@@ -626,7 +711,7 @@ export function generateThermalReceiptPDF(data: ReceiptData) {
       padding: 1mm !important;
     }
   }
-  ${watermarkCss("70%", 0.08)}
+  ${watermarkBgCss("85%", 0.4)}
 </style>
 </head><body>
 ${watermarkHtml}
@@ -754,7 +839,7 @@ export function generateKasirReceiptPDF(data: KasirReceiptData, paperSize: "58mm
     }
     .no-print { display: none !important; }
   }
-  ${watermarkCss("70%", 0.08)}
+  ${watermarkBgCss("85%", 0.4)}
 </style>
 </head><body>
 ${watermarkHtml}

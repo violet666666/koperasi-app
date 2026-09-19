@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
-import { exportToExcel, exportToPDF, type ExportColumn } from "@/lib/export-utils";
+import { exportToExcel, generateNeracaPDF, type ExportColumn } from "@/lib/export-utils";
 import type { BalanceSheetItem, BalanceSheetResult } from "@/lib/services/neraca";
 
 const fmt = (n: number, negativeParens = true) =>
@@ -83,7 +83,7 @@ export default function NeracaPage() {
             <Button variant="outline" size="sm" disabled={!data} onClick={() => exportToExcel(buildExportRows(), exportCols, `Neraca_${data?.asOf ?? ""}`, "Neraca")}>
               <Download className="mr-2 h-4 w-4" /> Excel
             </Button>
-            <Button variant="outline" size="sm" disabled={!data} onClick={() => exportToPDF(buildExportRows(), exportCols, `Laporan Neraca ${periodLabel}`, `Neraca_${data?.asOf ?? ""}`)}>
+            <Button variant="outline" size="sm" disabled={!data} onClick={() => data && generateNeracaPDF(data)}>
               <FileText className="mr-2 h-4 w-4" /> PDF
             </Button>
           </div>
