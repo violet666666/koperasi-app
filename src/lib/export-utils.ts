@@ -545,8 +545,9 @@ export interface ReceiptData {
 const fmtRpPlain = (n: number) => n.toLocaleString("id-ID");
 
 function neracaSideTable(title: string, side: NeracaSide): string {
+    let groupNo = 0; // nomor grup gaya gambar referensi: "1. KAS", "2. PIUTANG", ...
     const rows = side.rows.map((r) => {
-        if (r.kind === "group") return `<tr class="grp"><td colspan="2">${escapeHtml(r.label)}</td></tr>`;
+        if (r.kind === "group") return `<tr class="grp"><td colspan="2">${++groupNo}. ${escapeHtml(r.label)}</td></tr>`;
         if (r.kind === "total") return `<tr class="grand"><td>${escapeHtml(r.label)}</td><td class="num">${fmtRpPlain(r.amount ?? 0)}</td></tr>`;
         if (r.kind === "subtotal") return `<tr class="sub"><td>${escapeHtml(r.label)}</td><td class="num">${fmtRpPlain(r.amount ?? 0)}</td></tr>`;
         const neg = (r.amount ?? 0) < 0;
@@ -585,6 +586,10 @@ export function buildNeracaHtml(data: BalanceSheetResult): string {
   .grand td { font-weight: 700; border-top: 3px double #111; font-size: 11px; }
   .neg { color: #b91c1c; }
   .note { margin-top: 14px; font-size: 8px; color: #6b7280; }
+  .ttd { display: flex; justify-content: space-between; margin-top: 26px; page-break-inside: avoid; }
+  .sig { text-align: center; width: 45%; font-size: 10px; }
+  .sig-space { height: 54px; }
+  .sig-name { font-weight: 700; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   ${watermarkCss("50%")}
 </style>
@@ -605,6 +610,19 @@ ${watermarkHtml}
   ${neracaSideTable("PASIVA", fmt.pasiva)}
 </div>
 <div class="note">${data.meta?.note ?? ""}${!data.isBalanced ? ` — PERHATIAN: tidak balance, selisih ${fmtRpPlain(Math.abs(data.equity.selisih))}.` : ""}</div>
+<div class="ttd">
+  <div class="sig">
+    <div>Mengetahui,</div>
+    <div class="sig-space"></div>
+    <div class="sig-name">Ketua Pengurus</div>
+    <div>Koperasi Primkoppol Resor Lumajang</div>
+  </div>
+  <div class="sig">
+    <div>Lumajang, ${asOfLong}</div>
+    <div class="sig-space"></div>
+    <div class="sig-name">Manager Operasional</div>
+  </div>
+</div>
 <script>window.onload = () => window.print();</script>
 </body></html>`;
 }
