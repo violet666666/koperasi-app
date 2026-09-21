@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { isFbUnit, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { getPlafonPiutang } from "@/lib/plafon";
@@ -698,17 +699,13 @@ export async function POST(request: Request) {
                 await tx.storeStockMovement.createMany({ data: stockMovements });
             }
 
-            // Update cash/bank account (atomic increment inside transaction)
+            // Update cash/bank account (shift atomik via UPDATE ... RETURNING — anti race)
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
                 const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
-                    const updatedAccount = await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: { increment: totalAmount } },
-                    });
-                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
+                    const { before, after } = await shiftAccountBalance(tx, targetAccount.id, totalAmount);
 
                     await tx.cashBankTransaction.create({
                         data: {
@@ -718,8 +715,8 @@ export async function POST(request: Request) {
                             type: "in",
                             category: "pendapatan_toko",
                             amount: totalAmount,
-                            balanceBefore,
-                            balanceAfter: Number(updatedAccount.currentBalance),
+                            balanceBefore: before,
+                            balanceAfter: after,
                             unitType: unitType,
                             description: `Penjualan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now,

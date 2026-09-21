@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { createTransferSchema } from "@/lib/validations";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp", "kasir"];
@@ -57,10 +58,12 @@ export async function POST(request: Request) {
                 throw new Error("Saldo tidak mencukupi");
             }
 
-            const toBalance = Number(toAccount.currentBalance);
             const transferNo = generateTransferNo();
 
-            // 1. Create outgoing transaction
+            // 1. Geser saldo akun sumber secara atomik (UPDATE ... RETURNING) — anti race
+            const fromShift = await shiftAccountBalance(tx, data.fromAccountId, -data.amount);
+
+            // 2. Create outgoing transaction
             await tx.cashBankTransaction.create({
                 data: {
                     transactionNo: `${transferNo}-OUT`,
@@ -69,8 +72,8 @@ export async function POST(request: Request) {
                     type: "out",
                     category: "transfer",
                     amount: data.amount,
-                    balanceBefore: fromBalance,
-                    balanceAfter: fromBalance - data.amount,
+                    balanceBefore: fromShift.before,
+                    balanceAfter: fromShift.after,
                     unitType: fromAccount.unitType || null,
                     description: data.description || `Transfer ke ${toAccount.name}`,
                     transactionDate: data.transactionDate,
@@ -78,7 +81,10 @@ export async function POST(request: Request) {
                 },
             });
 
-            // 2. Create incoming transaction
+            // 3. Geser saldo akun tujuan secara atomik
+            const toShift = await shiftAccountBalance(tx, data.toAccountId, data.amount);
+
+            // 4. Create incoming transaction
             await tx.cashBankTransaction.create({
                 data: {
                     transactionNo: `${transferNo}-IN`,
@@ -87,8 +93,8 @@ export async function POST(request: Request) {
                     type: "in",
                     category: "transfer",
                     amount: data.amount,
-                    balanceBefore: toBalance,
-                    balanceAfter: toBalance + data.amount,
+                    balanceBefore: toShift.before,
+                    balanceAfter: toShift.after,
                     unitType: toAccount.unitType || null,
                     description: data.description || `Transfer dari ${fromAccount.name}`,
                     transactionDate: data.transactionDate,
@@ -96,17 +102,7 @@ export async function POST(request: Request) {
                 },
             });
 
-            // 3. Update both balances atomically
-            await tx.cashBankAccount.update({
-                where: { id: data.fromAccountId },
-                data: { currentBalance: fromBalance - data.amount },
-            });
-            await tx.cashBankAccount.update({
-                where: { id: data.toAccountId },
-                data: { currentBalance: toBalance + data.amount },
-            });
-
-            return { transferNo, fromBalance: fromBalance - data.amount, toBalance: toBalance + data.amount };
+            return { transferNo, fromBalance: fromShift.after, toBalance: toShift.after };
         }, { timeout: 15000 });
 
         return NextResponse.json({

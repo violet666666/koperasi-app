@@ -5,6 +5,7 @@ import { getMobileUser, getMobileUserWithScope, unauthorizedResponse } from "../
 import { branchListFilter, canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isWithdrawalBlocked } from "@/lib/savings-helpers";
 
 // POST /api/mobile/savings-tx — Create savings deposit or withdrawal.
@@ -90,15 +91,18 @@ export async function POST(request: Request) {
                 data: { balance: newBalance },
             });
 
-            // 3. Cash/Bank sync (ATOMIC — same tx, no longer non-fatal try/catch)
+            // 3. Cash/Bank sync — shift atomik via UPDATE ... RETURNING (anti race lost-update)
             if (cashBankAccountId) {
                 const cbAccount = await tx.cashBankAccount.findUnique({ where: { id: Number(cashBankAccountId) } });
                 if (!cbAccount || !cbAccount.isActive) {
                     throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
                 }
-                const cbBal = Number(cbAccount.currentBalance);
                 const cashType = type === "deposit" ? "in" : "out";
-                const cbNewBal = cashType === "in" ? cbBal + numAmount : cbBal - numAmount;
+                const cbShift = await shiftAccountBalance(
+                    tx,
+                    cbAccount.id,
+                    cashType === "in" ? numAmount : -numAmount,
+                );
 
                 await tx.cashBankTransaction.create({
                     data: buildCashBankTransactionData({
@@ -107,8 +111,8 @@ export async function POST(request: Request) {
                         type: cashType,
                         category: "savings",
                         amount: numAmount,
-                        balanceBefore: cbBal,
-                        balanceAfter: cbNewBal,
+                        balanceBefore: cbShift.before,
+                        balanceAfter: cbShift.after,
                         description: `${type === "deposit" ? "Setoran" : "Penarikan"} simpanan ${account.member.name} (${account.product.name}) via mobile - ${txNo}`,
                         transactionDate: today,
                         createdById: Number(user.id),
@@ -119,7 +123,6 @@ export async function POST(request: Request) {
                         transactionNo: `CBT-${txNo}`,
                     }),
                 });
-                await tx.cashBankAccount.update({ where: { id: cbAccount.id }, data: { currentBalance: cbNewBal } });
             }
         }, { timeout: 30000 });
 

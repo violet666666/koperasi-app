@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import {
     calcPaymentCbReversalAmount,
     buildScheduleRollbackOps,
@@ -112,16 +113,13 @@ export async function POST(request: Request) {
                 cbTransactions.map((cb) => ({ type: cb.type, amount: Number(cb.amount) })),
             );
 
-            // 5. Reverse CashBankAccount balance
+            // 5. Reverse CashBankAccount balance — shift atomik via UPDATE ... RETURNING.
+            //    (Tanpa clamp Math.max: clamp menyembunyikan defisit & membuat saldo ≠ Σ transaksi.)
             let cbReversed = false;
             if (payment.cashBankAccountId && cbReversalAmount > 0) {
                 const cbAccount = await tx.cashBankAccount.findUnique({ where: { id: payment.cashBankAccountId } });
                 if (cbAccount) {
-                    const newBalance = Number(cbAccount.currentBalance) - cbReversalAmount;
-                    await tx.cashBankAccount.update({
-                        where: { id: payment.cashBankAccountId },
-                        data: { currentBalance: Math.max(0, newBalance) },
-                    });
+                    await shiftAccountBalance(tx, payment.cashBankAccountId, -cbReversalAmount);
                     cbReversed = true;
                 }
             }

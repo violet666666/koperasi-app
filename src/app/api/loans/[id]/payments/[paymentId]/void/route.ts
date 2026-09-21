@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logAuditFromRequest } from "@/lib/audit-logger";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import {
     calcPaymentCbReversalAmount,
     buildScheduleRollbackOps,
@@ -162,17 +163,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             );
 
             // 5. Reverse CashBankAccount balance (decrement — payment was kas masuk)
+            // Shift atomik via UPDATE ... RETURNING — anti race lost-update.
+            // (Tanpa clamp Math.max: clamp menyembunyikan defisit & membuat saldo ≠ Σ transaksi.)
             let cbReversed = false;
             if (payment.cashBankAccountId && cbReversalAmount > 0) {
                 const cbAccount = await tx.cashBankAccount.findUnique({
                     where: { id: payment.cashBankAccountId },
                 });
                 if (cbAccount) {
-                    const newBalance = Number(cbAccount.currentBalance) - cbReversalAmount;
-                    await tx.cashBankAccount.update({
-                        where: { id: payment.cashBankAccountId },
-                        data: { currentBalance: Math.max(0, newBalance) },
-                    });
+                    await shiftAccountBalance(tx, payment.cashBankAccountId, -cbReversalAmount);
                     cbReversed = true;
                 }
             }

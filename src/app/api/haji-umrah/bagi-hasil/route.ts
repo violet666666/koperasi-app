@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { createBagiHasilSchema } from "@/lib/validations/haji-umrah";
 
 const HAJI_UMRAH_TYPES = ["tabungan_haji", "tabungan_umrah"];
@@ -298,8 +299,8 @@ export async function POST(request: Request) {
             // 5c. CashBank spread income (koperasi revenue — enters SHU)
             // Distinct category "bagi_hasil" (not "pendapatan_unit") so it does NOT pollute the
             // existing admin_fee report / dashboard adminFeeRevenue, which filter on pendapatan_unit.
-            const cbBefore = Number(cashBank.currentBalance);
-            const cbAfter = cbBefore + spread;
+            // Shift atomik via UPDATE ... RETURNING — anti race lost-update.
+            const cbShift = await shiftAccountBalance(tx, cashBankAccountId, spread);
             await tx.cashBankTransaction.create({
                 data: {
                     transactionNo: generateCashTxNo(),
@@ -308,8 +309,8 @@ export async function POST(request: Request) {
                     type: "in",
                     category: "bagi_hasil",
                     amount: spread,
-                    balanceBefore: cbBefore,
-                    balanceAfter: cbAfter,
+                    balanceBefore: cbShift.before,
+                    balanceAfter: cbShift.after,
                     referenceType: "BagiHasilDistribution",
                     referenceId: dist.id,
                     unitType: "haji_umrah",
@@ -317,10 +318,6 @@ export async function POST(request: Request) {
                     transactionDate: txDate,
                     createdById: userId,
                 },
-            });
-            await tx.cashBankAccount.update({
-                where: { id: cashBankAccountId },
-                data: { currentBalance: cbAfter },
             });
 
             // 5d. Create items

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -159,8 +160,8 @@ export async function POST(request: Request, { params }: Params) {
             }
 
             {
-                const balBefore = Number(cashAccount.currentBalance);
-                const balAfter = balBefore - disbursedAmount;
+                // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                const { before, after } = await shiftAccountBalance(tx, cashAccount.id, -disbursedAmount);
 
                 const cbTx = await tx.cashBankTransaction.create({
                     data: {
@@ -170,8 +171,8 @@ export async function POST(request: Request, { params }: Params) {
                         type: "out",
                         category: "pencairan_pinjaman",
                         amount: disbursedAmount,
-                        balanceBefore: balBefore,
-                        balanceAfter: balAfter,
+                        balanceBefore: before,
+                        balanceAfter: after,
                         referenceType: "Loan",
                         referenceId: newLoan.id,
                         unitType: "simpan_pinjam",
@@ -180,11 +181,6 @@ export async function POST(request: Request, { params }: Params) {
                         memberId: application.memberId,
                         createdById: currentUserId,
                     },
-                });
-
-                await tx.cashBankAccount.update({
-                    where: { id: cashAccount.id },
-                    data: { currentBalance: balAfter },
                 });
 
                 await tx.loan.update({

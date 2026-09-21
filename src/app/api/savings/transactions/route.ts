@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createSavingsTransactionSchema, paginationSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // Helper to generate transaction number
@@ -234,44 +235,33 @@ export async function POST(request: Request) {
 
             // 3. Posting ke Kas/Bank Koperasi (jika akun kas dipilih)
             if (data.cashBankAccountId) {
-                const cashBank = await tx.cashBankAccount.findUnique({
-                    where: { id: data.cashBankAccountId },
+                // Setoran → kas koperasi masuk (in); Penarikan → kas koperasi keluar (out)
+                const cashType = (data.type === "deposit" || data.type === "interest") ? "in" : "out";
+                // Shift saldo atomik (UPDATE ... RETURNING) — anti race lost-update
+                const cbShift = await shiftAccountBalance(
+                    tx,
+                    data.cashBankAccountId,
+                    cashType === "in" ? data.amount : -data.amount,
+                );
+
+                await tx.cashBankTransaction.create({
+                    data: {
+                        transactionNo: `CBT-${txNo}`,
+                        accountId: data.cashBankAccountId,
+                        branchId: member.branchId,
+                        type: cashType,
+                        category: "savings",
+                        amount: data.amount,
+                        balanceBefore: cbShift.before,
+                        balanceAfter: cbShift.after,
+                        referenceType: "SavingsTransaction",
+                        referenceId: savingsTx.id,
+                        unitType: "simpan_pinjam",
+                        description: `${data.type === "deposit" ? "Setoran" : data.type === "withdrawal" ? "Penarikan" : "Koreksi"} Simpanan — ${savingsTx.member?.name ?? "Anggota"} (${savingsTx.transactionNo})`,
+                        transactionDate: txDate,
+                        createdById: userId,
+                    },
                 });
-
-                if (cashBank) {
-                    const cashBalanceBefore = Number(cashBank.currentBalance);
-                    // Setoran → kas koperasi masuk (in); Penarikan → kas koperasi keluar (out)
-                    const cashType = (data.type === "deposit" || data.type === "interest") ? "in" : "out";
-                    const cashBalanceAfter =
-                        cashType === "in"
-                            ? cashBalanceBefore + data.amount
-                            : cashBalanceBefore - data.amount;
-
-                    await tx.cashBankTransaction.create({
-                        data: {
-                            transactionNo: `CBT-${txNo}`,
-                            accountId: data.cashBankAccountId,
-                            branchId: member.branchId,
-                            type: cashType,
-                            category: "savings",
-                            amount: data.amount,
-                            balanceBefore: cashBalanceBefore,
-                            balanceAfter: cashBalanceAfter,
-                            referenceType: "SavingsTransaction",
-                            referenceId: savingsTx.id,
-                            unitType: "simpan_pinjam",
-                            description: `${data.type === "deposit" ? "Setoran" : data.type === "withdrawal" ? "Penarikan" : "Koreksi"} Simpanan — ${savingsTx.member?.name ?? "Anggota"} (${savingsTx.transactionNo})`,
-                            transactionDate: txDate,
-                            createdById: userId,
-                        },
-                    });
-
-                    // Update saldo kas/bank koperasi
-                    await tx.cashBankAccount.update({
-                        where: { id: data.cashBankAccountId },
-                        data: { currentBalance: cashBalanceAfter },
-                    });
-                }
             }
 
             return [savingsTx];

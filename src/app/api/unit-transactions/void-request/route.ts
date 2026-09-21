@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import crypto from "crypto";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { logAuditFromRequest } from "@/lib/audit-logger";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isSameUnit } from "@/lib/unit-aliases";
 
 export const dynamic = "force-dynamic";
@@ -235,12 +236,8 @@ export async function POST(request: Request) {
                         });
                         if (originalCashTx) {
                             const voidAmount = Number(storeSale.totalAmount);
-                            // FIX: Atomic decrement FIRST to prevent TOCTOU race condition
-                            const updatedAccount = await tx.cashBankAccount.update({
-                                where: { id: originalCashTx.accountId },
-                                data: { currentBalance: { decrement: voidAmount } },
-                            });
-                            const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
+                            // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                            const { before, after } = await shiftAccountBalance(tx, originalCashTx.accountId, -voidAmount);
 
                             const voidCashTx = await tx.cashBankTransaction.create({
                                 data: {
@@ -250,8 +247,8 @@ export async function POST(request: Request) {
                                     type: "out",
                                     category: "void_penjualan_toko",
                                     amount: voidAmount,
-                                    balanceBefore,
-                                    balanceAfter: Number(updatedAccount.currentBalance),
+                                    balanceBefore: before,
+                                    balanceAfter: after,
                                     unitType: storeSale.unitType || "toko",
                                     description: `[VOID] Pembatalan ${storeSale.saleNo}`,
                                     transactionDate: now,
@@ -470,12 +467,8 @@ export async function POST(request: Request) {
                             });
                             if (originalCashTx) {
                                 const voidAmount = Number(fallbackSale.totalAmount);
-                                // Atomic decrement FIRST to prevent TOCTOU race
-                                const updatedAccount = await tx.cashBankAccount.update({
-                                    where: { id: originalCashTx.accountId },
-                                    data: { currentBalance: { decrement: voidAmount } },
-                                });
-                                const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
+                                // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                                const { before, after } = await shiftAccountBalance(tx, originalCashTx.accountId, -voidAmount);
 
                                 const voidCashTx = await tx.cashBankTransaction.create({
                                     data: {
@@ -485,8 +478,8 @@ export async function POST(request: Request) {
                                         type: "out",
                                         category: "void_penjualan_toko",
                                         amount: voidAmount,
-                                        balanceBefore,
-                                        balanceAfter: Number(updatedAccount.currentBalance),
+                                        balanceBefore: before,
+                                        balanceAfter: after,
                                         unitType: fallbackSale.unitType || "toko",
                                         description: `[VOID] Pembatalan ${fallbackSale.saleNo}`,
                                         transactionDate: now,
@@ -703,12 +696,8 @@ export async function POST(request: Request) {
                     });
                     if (originalCashTx) {
                         const voidAmount = Number(transaction.amount);
-                        // Atomic decrement
-                        const updatedAccount = await tx.cashBankAccount.update({
-                            where: { id: originalCashTx.accountId },
-                            data: { currentBalance: { decrement: voidAmount } },
-                        });
-                        const balanceBefore = Number(updatedAccount.currentBalance) + voidAmount;
+                        // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                        const { before, after } = await shiftAccountBalance(tx, originalCashTx.accountId, -voidAmount);
 
                         const voidCashTx = await tx.cashBankTransaction.create({
                             data: {
@@ -718,8 +707,8 @@ export async function POST(request: Request) {
                                 type: "out",
                                 category: "void_unit_transaction",
                                 amount: voidAmount,
-                                balanceBefore,
-                                balanceAfter: Number(updatedAccount.currentBalance),
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 unitType: transaction.unitType,
                                 description: `[VOID] Pembatalan ${transaction.transactionNo}`,
                                 transactionDate: now,

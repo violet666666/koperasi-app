@@ -5,6 +5,7 @@ import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createCashBankTransactionSchema } from "@/lib/validations";
 import { detectCategoryMismatch } from "@/lib/services/cash-bank-category-guard";
 import { generateCashBankTxnNo } from "@/lib/services/cash-bank-txn-no";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { logAudit } from "@/lib/audit-logger";
 
 export async function POST(request: Request) {
@@ -42,28 +43,29 @@ export async function POST(request: Request) {
     const txDate = d.transactionDate ? new Date(d.transactionDate) : new Date();
 
     const result = await prisma.$transaction(async (tx) => {
-      // Re-read inside tx for an accurate balance snapshot (avoid read-then-write race).
-      const fresh = await tx.cashBankAccount.findUniqueOrThrow({ where: { id: account.id } });
-      const balanceBefore = Number(fresh.currentBalance);
-      if (d.type === "out" && amount > balanceBefore) throw new Error("SALDO_KURANG");
-      const balanceAfter = d.type === "in" ? balanceBefore + amount : balanceBefore - amount;
+      // Shift saldo atomik (UPDATE ... RETURNING) — balanceBefore/After dari hasil SQL, anti race lost-update.
+      const { before, after } = await shiftAccountBalance(
+        tx,
+        account.id,
+        d.type === "in" ? amount : -amount,
+      );
+      if (d.type === "out" && after < 0) throw new Error("SALDO_KURANG"); // sama dgn semula: out hanya boleh jika saldo cukup
       const created = await tx.cashBankTransaction.create({
         data: {
           transactionNo: generateCashBankTxnNo(d.type, txDate.getFullYear()),
-          accountId: fresh.id,
-          branchId: fresh.branchId,
+          accountId: account.id,
+          branchId: account.branchId,
           type: d.type,
           category: d.category ?? null,
           amount,
-          balanceBefore,
-          balanceAfter,
+          balanceBefore: before,
+          balanceAfter: after,
           description: d.description ?? null,
           transactionDate: txDate,
           createdById: Number(user.id),
         },
       });
-      await tx.cashBankAccount.update({ where: { id: fresh.id }, data: { currentBalance: balanceAfter } });
-      return { created, balanceAfter };
+      return { created, balanceAfter: after };
     });
 
     await logAudit({

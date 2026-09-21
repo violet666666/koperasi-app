@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { resolveIncomeMode } from "@/lib/services/operational-income-helpers";
 
@@ -175,11 +176,7 @@ export async function POST(
                     const accountType = paymentMethod === "cash" ? "cash" : "bank";
                     const targetAccount = await findUnitAccount(tx, unitType, accountType);
                     if (targetAccount) {
-                        const updatedAccount = await tx.cashBankAccount.update({
-                            where: { id: targetAccount.id },
-                            data: { currentBalance: { increment: nominalAmount } },
-                        });
-                        const balanceBefore = Number(updatedAccount.currentBalance) - nominalAmount;
+                        const { before, after } = await shiftAccountBalance(tx, targetAccount.id, nominalAmount);
                         const created = await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `UL-${paymentMethod === "cash" ? "KAS" : "BNK"}-${Date.now().toString(36).toUpperCase()}`,
@@ -188,8 +185,8 @@ export async function POST(
                                 type: "in",
                                 category: "pendapatan_unit",
                                 amount: nominalAmount,
-                                balanceBefore,
-                                balanceAfter: Number(updatedAccount.currentBalance),
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 unitType,
                                 paymentMethod,
                                 description: `Pendapatan ${unitType} ${paymentMethod === "cash" ? "Tunai" : "QRIS"} - ${utNo}`,
@@ -206,11 +203,7 @@ export async function POST(
             // === PEMASUKAN OPERASIONAL (current behavior) ===
             const cashAccount = await findUnitAccount(tx, unitType, "cash");
             if (!cashAccount) throw new Error("Tidak ditemukan akun kas aktif untuk unit ini.");
-            const updatedAccount = await tx.cashBankAccount.update({
-                where: { id: cashAccount.id },
-                data: { currentBalance: { increment: nominalAmount } },
-            });
-            const balanceBefore = Number(updatedAccount.currentBalance) - nominalAmount;
+            const { before, after } = await shiftAccountBalance(tx, cashAccount.id, nominalAmount);
             const created = await tx.cashBankTransaction.create({
                 data: {
                     transactionNo,
@@ -219,8 +212,8 @@ export async function POST(
                     type: "in",
                     category: "operational",
                     amount: nominalAmount,
-                    balanceBefore,
-                    balanceAfter: Number(updatedAccount.currentBalance),
+                    balanceBefore: before,
+                    balanceAfter: after,
                     unitType,
                     paymentMethod,
                     description: descWithMeta,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { voidBagiHasilSchema } from "@/lib/validations/haji-umrah";
 
 function generateCashTxNo(): string {
@@ -98,8 +99,12 @@ export async function POST(
                     where: { id: distribution.cashBankAccountId },
                 });
                 if (cashBank) {
-                    const cbBefore = Number(cashBank.currentBalance);
-                    const cbAfter = cbBefore - Number(distribution.spreadAmount);
+                    // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                    const cbShift = await shiftAccountBalance(
+                        tx,
+                        distribution.cashBankAccountId,
+                        -Number(distribution.spreadAmount),
+                    );
                     await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: generateCashTxNo(),
@@ -108,8 +113,8 @@ export async function POST(
                             type: "out",
                             category: "bagi_hasil",
                             amount: Number(distribution.spreadAmount),
-                            balanceBefore: cbBefore,
-                            balanceAfter: cbAfter,
+                            balanceBefore: cbShift.before,
+                            balanceAfter: cbShift.after,
                             referenceType: "BagiHasilDistribution",
                             referenceId: distribution.id,
                             unitType: "haji_umrah",
@@ -117,10 +122,6 @@ export async function POST(
                             transactionDate: now,
                             createdById: userId,
                         },
-                    });
-                    await tx.cashBankAccount.update({
-                        where: { id: distribution.cashBankAccountId },
-                        data: { currentBalance: cbAfter },
                     });
                 }
             }

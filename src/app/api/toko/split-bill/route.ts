@@ -6,6 +6,7 @@ import { validateSplitBill, calculateSplitTotal, generateSplitGroupId } from "@/
 import { isFbUnit } from "@/lib/constants/units";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { getPlafonPiutang } from "@/lib/plafon";
 
 export const dynamic = "force-dynamic";
@@ -334,11 +335,7 @@ export async function POST(req: Request) {
                     const targetAccount = await findUnitAccount(tx, unitTypeVal, accountType);
 
                     if (targetAccount) {
-                        const updatedAccount = await tx.cashBankAccount.update({
-                            where: { id: targetAccount.id },
-                            data: { currentBalance: { increment: paymentAmount } },
-                        });
-                        const balanceBefore = Number(updatedAccount.currentBalance) - paymentAmount;
+                        const { before, after } = await shiftAccountBalance(tx, targetAccount.id, paymentAmount);
 
                         await tx.cashBankTransaction.create({
                             data: {
@@ -348,8 +345,8 @@ export async function POST(req: Request) {
                                 type: "in",
                                 category: "pendapatan_toko",
                                 amount: paymentAmount,
-                                balanceBefore,
-                                balanceAfter: Number(updatedAccount.currentBalance),
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 unitType: unitTypeVal,
                                 description: `Split Bill ${unitTypeVal} (${method}) - ${saleNo}`,
                                 transactionDate: now,

@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 
 export async function POST(request: Request) {
     try {
@@ -180,21 +181,20 @@ export async function POST(request: Request) {
                 data: { status: "paid", paidDate: baseDate },
             });
 
-            // 13. CashBank transactions (if account provided)
+            // 13. CashBank transactions (if account provided) — shift atomik per baris (anti race lost-update)
             if (cashBankAccountId) {
                 const cashAccount = await tx.cashBankAccount.findUnique({ where: { id: cashBankAccountId } });
                 if (!cashAccount) throw new Error("Rekening kas/bank tidak ditemukan");
-                const balBefore = Number(cashAccount.currentBalance);
 
                 const cbRandom = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
                 const monthRom = romawi[baseDate.getMonth() + 1];
 
                 // OUT: Disbursement to member
-                const balAfterOut = balBefore - disbursedToMember;
+                const outShift = await shiftAccountBalance(tx, cashBankAccountId, -disbursedToMember);
                 await tx.cashBankTransaction.create({
                     data: {
                         transactionNo: `KK-${cbRandom}/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
-                        type: "out", amount: disbursedToMember, balanceBefore: balBefore, balanceAfter: balAfterOut,
+                        type: "out", amount: disbursedToMember, balanceBefore: outShift.before, balanceAfter: outShift.after,
                         category: "pencairan_pinjaman",
                         referenceType: "LoanPayment", referenceId: kompenPayment.id,
                         description: `[KOMPEN] Pencairan selisih ke anggota ${member.name} (${newLoan.loanNo})`,
@@ -202,14 +202,13 @@ export async function POST(request: Request) {
                         createdById: parseInt(session.user.id),
                     },
                 });
-                await tx.cashBankAccount.update({ where: { id: cashBankAccountId }, data: { currentBalance: balAfterOut } });
 
                 // IN: Pelunasan pokok old loan
-                const balAfterIn = balAfterOut + principalOutstanding;
+                const inShift = await shiftAccountBalance(tx, cashBankAccountId, principalOutstanding);
                 await tx.cashBankTransaction.create({
                     data: {
                         transactionNo: `KM-${cbRandom}/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
-                        type: "in", amount: principalOutstanding, balanceBefore: balAfterOut, balanceAfter: balAfterIn,
+                        type: "in", amount: principalOutstanding, balanceBefore: inShift.before, balanceAfter: inShift.after,
                         category: "angsuran_pokok",
                         referenceType: "LoanPayment", referenceId: kompenPayment.id,
                         description: `[KOMPEN] Pelunasan pokok ${existingLoan.loanNo} dari ${newLoan.loanNo}`,
@@ -217,15 +216,14 @@ export async function POST(request: Request) {
                         createdById: parseInt(session.user.id),
                     },
                 });
-                await tx.cashBankAccount.update({ where: { id: cashBankAccountId }, data: { currentBalance: balAfterIn } });
 
                 // IN: Penalti
                 if (penaltyFee > 0) {
-                    const balAfterPenalty = balAfterIn + penaltyFee;
+                    const penShift = await shiftAccountBalance(tx, cashBankAccountId, penaltyFee);
                     await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: `KM-${cbRandom}-P/PRIM/${monthRom}/${year}`, accountId: cashBankAccountId, branchId: member.branchId,
-                            type: "in", amount: penaltyFee, balanceBefore: balAfterIn, balanceAfter: balAfterPenalty,
+                            type: "in", amount: penaltyFee, balanceBefore: penShift.before, balanceAfter: penShift.after,
                             category: "penalti_pelunasan",
                             referenceType: "LoanPayment", referenceId: kompenPayment.id,
                             description: `[KOMPEN] Penalti pelunasan ${existingLoan.loanNo}`,
@@ -233,7 +231,6 @@ export async function POST(request: Request) {
                             createdById: parseInt(session.user.id),
                         },
                     });
-                    await tx.cashBankAccount.update({ where: { id: cashBankAccountId }, data: { currentBalance: balAfterPenalty } });
                 }
             }
 

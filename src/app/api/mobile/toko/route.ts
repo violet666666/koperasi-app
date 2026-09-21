@@ -4,6 +4,7 @@ import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 // GET /api/mobile/toko?search=xxx&unitType=xxx
@@ -312,22 +313,18 @@ export async function POST(request: Request) {
                 await tx.storeStockMovement.createMany({ data: stockMovements });
             }
 
-            // Cash/bank sync (inside transaction — atomic)
+            // Cash/bank sync — shift atomik via UPDATE ... RETURNING (anti race)
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
                 const targetAccount = await findUnitAccount(tx, unitType, accountType);
                 if (targetAccount) {
-                    const updatedAccount = await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: { increment: totalAmount } },
-                    });
-                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
+                    const { before, after } = await shiftAccountBalance(tx, targetAccount.id, totalAmount);
                     await tx.cashBankTransaction.create({
                         data: {
                             transactionNo: `MB-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id, branchId: targetAccount.branchId,
                             type: "in", category: "pendapatan_toko", amount: totalAmount,
-                            balanceBefore, balanceAfter: Number(updatedAccount.currentBalance), unitType,
+                            balanceBefore: before, balanceAfter: after, unitType,
                             description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now, createdById: userId,
                         },

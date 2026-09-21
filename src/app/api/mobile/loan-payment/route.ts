@@ -5,6 +5,7 @@ import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { branchListFilter, canAccessBranch } from "@/lib/mobile-auth-scope";
 import { logAudit } from "@/lib/audit-logger";
 import { buildCashBankTransactionData } from "@/lib/kas-bank-loan-helpers";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { allocatePayment } from "@/lib/loan-payment-helpers";
 
 // GET /api/mobile/loan-payment?memberId=xxx — Get member's active loans
@@ -266,17 +267,17 @@ export async function POST(request: Request) {
                 });
                 if (!cashAccount) throw new Error("Akun kas/bank tidak ditemukan atau tidak aktif");
 
-                let bal = Number(cashAccount.currentBalance);
                 const memberLabel = `${loan.member.name} (${loan.member.memberNo})`;
                 const settlementLabel = isEarlySettlement ? " [PELUNASAN]" : "";
 
+                // Shift atomik per baris (UPDATE ... RETURNING) — anti race lost-update
                 if (totalPrincipal > 0) {
-                    const before = bal; bal += totalPrincipal;
+                    const { before, after } = await shiftAccountBalance(tx, cashAccount.id, totalPrincipal);
                     await tx.cashBankTransaction.create({
                         data: buildCashBankTransactionData({
                             accountId: cashAccount.id, branchId: loan.branchId, type: "in",
                             category: "angsuran_pokok", amount: totalPrincipal,
-                            balanceBefore: before, balanceAfter: bal,
+                            balanceBefore: before, balanceAfter: after,
                             description: `Angsuran Pokok ${loan.loanNo}${settlementLabel} — ${memberLabel}`,
                             transactionDate: today, createdById: Number(user.id),
                             referenceType: "LoanPayment", referenceId: payment.id,
@@ -286,12 +287,12 @@ export async function POST(request: Request) {
                     });
                 }
                 if (totalInterest > 0) {
-                    const before = bal; bal += totalInterest;
+                    const { before, after } = await shiftAccountBalance(tx, cashAccount.id, totalInterest);
                     await tx.cashBankTransaction.create({
                         data: buildCashBankTransactionData({
                             accountId: cashAccount.id, branchId: loan.branchId, type: "in",
                             category: "jasa_pinjaman", amount: totalInterest,
-                            balanceBefore: before, balanceAfter: bal,
+                            balanceBefore: before, balanceAfter: after,
                             description: `Jasa/Bunga ${loan.loanNo}${settlementLabel} — ${memberLabel}`,
                             transactionDate: today, createdById: Number(user.id),
                             referenceType: "LoanPayment", referenceId: payment.id,
@@ -301,12 +302,12 @@ export async function POST(request: Request) {
                     });
                 }
                 if (isEarlySettlement && earlySettlementFee > 0) {
-                    const before = bal; bal += earlySettlementFee;
+                    const { before, after } = await shiftAccountBalance(tx, cashAccount.id, earlySettlementFee);
                     await tx.cashBankTransaction.create({
                         data: buildCashBankTransactionData({
                             accountId: cashAccount.id, branchId: loan.branchId, type: "in",
                             category: "penalti_pelunasan", amount: earlySettlementFee,
-                            balanceBefore: before, balanceAfter: bal,
+                            balanceBefore: before, balanceAfter: after,
                             description: `Penalti Pelunasan ${loan.loanNo} — ${memberLabel}`,
                             transactionDate: today, createdById: Number(user.id),
                             referenceType: "LoanPayment", referenceId: payment.id,
@@ -315,7 +316,6 @@ export async function POST(request: Request) {
                         }),
                     });
                 }
-                await tx.cashBankAccount.update({ where: { id: cashAccount.id }, data: { currentBalance: bal } });
             }
 
             return {

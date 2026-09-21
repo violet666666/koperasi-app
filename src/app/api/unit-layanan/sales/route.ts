@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -168,12 +169,8 @@ export async function POST(request: Request) {
                 const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
-                    // Atomic increment to prevent race condition
-                    const updatedAccount = await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: { increment: totalAmount } },
-                    });
-                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
+                    // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                    const { before, after } = await shiftAccountBalance(tx, targetAccount.id, totalAmount);
 
                     const cashTx = await tx.cashBankTransaction.create({
                         data: {
@@ -183,8 +180,8 @@ export async function POST(request: Request) {
                             type: "in",
                             category: "pendapatan_unit",
                             amount: totalAmount,
-                            balanceBefore,
-                            balanceAfter: Number(updatedAccount.currentBalance),
+                            balanceBefore: before,
+                            balanceAfter: after,
                             unitType: unitType,
                             description: `Pendapatan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
                             transactionDate: now,

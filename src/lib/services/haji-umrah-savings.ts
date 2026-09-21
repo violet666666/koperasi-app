@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 
 /** H&U savings product types. */
 export const HAJI_UMRAH_TYPES = ["tabungan_haji", "tabungan_umrah"];
@@ -139,14 +140,13 @@ export async function processHajiUmrahDeposit(input: DepositInput): Promise<Depo
             data: { balance: balanceAfter },
         });
 
-        // 3. CashBank posting — deposit amount
+        // 3. CashBank posting — deposit amount (shift atomik per baris — anti race lost-update)
         if (cashBankAccountId) {
             const cashBank = await tx.cashBankAccount.findUnique({
                 where: { id: cashBankAccountId },
             });
             if (cashBank) {
-                const cbBefore = Number(cashBank.currentBalance);
-                const cbAfter = cbBefore + amount;
+                const cbShift = await shiftAccountBalance(tx, cashBankAccountId, amount);
 
                 await tx.cashBankTransaction.create({
                     data: {
@@ -156,8 +156,8 @@ export async function processHajiUmrahDeposit(input: DepositInput): Promise<Depo
                         type: "in",
                         category: "savings",
                         amount,
-                        balanceBefore: cbBefore,
-                        balanceAfter: cbAfter,
+                        balanceBefore: cbShift.before,
+                        balanceAfter: cbShift.after,
                         referenceType: "SavingsTransaction",
                         referenceId: savingsTx.id,
                         unitType: "simpan_pinjam",
@@ -167,18 +167,9 @@ export async function processHajiUmrahDeposit(input: DepositInput): Promise<Depo
                     },
                 });
 
-                // Update CB balance
-                await tx.cashBankAccount.update({
-                    where: { id: cashBankAccountId },
-                    data: { currentBalance: cbAfter },
-                });
-
                 // 4. Admin fee — separate CashBankTransaction (revenue for koperasi)
                 if (adminFee > 0) {
-                    const feeCbBefore = Number(
-                        (await tx.cashBankAccount.findUnique({ where: { id: cashBankAccountId } }))!.currentBalance
-                    );
-                    const feeCbAfter = feeCbBefore + adminFee;
+                    const feeShift = await shiftAccountBalance(tx, cashBankAccountId, adminFee);
 
                     await tx.cashBankTransaction.create({
                         data: {
@@ -188,8 +179,8 @@ export async function processHajiUmrahDeposit(input: DepositInput): Promise<Depo
                             type: "in",
                             category: "pendapatan_unit",
                             amount: adminFee,
-                            balanceBefore: feeCbBefore,
-                            balanceAfter: feeCbAfter,
+                            balanceBefore: feeShift.before,
+                            balanceAfter: feeShift.after,
                             referenceType: "SavingsTransaction",
                             referenceId: savingsTx.id,
                             unitType: "haji_umrah",
@@ -197,11 +188,6 @@ export async function processHajiUmrahDeposit(input: DepositInput): Promise<Depo
                             transactionDate: txDate,
                             createdById: userId,
                         },
-                    });
-
-                    await tx.cashBankAccount.update({
-                        where: { id: cashBankAccountId },
-                        data: { currentBalance: feeCbAfter },
                     });
                 }
             }

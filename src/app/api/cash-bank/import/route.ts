@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import crypto from "crypto";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 
 // Helper to generate transaction number
 function generateTransactionNo(type: string): string {
     const date = new Date();
     const year = date.getFullYear();
     const prefix = type === "in" ? "CBM" : "CBK"; // Masuk / Keluar
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+    // crypto.randomBytes — Math.random() di-flag CRITICAL oleh security scanner
+    const random = (crypto.randomBytes(4).readUInt32BE(0) % 100000).toString().padStart(5, "0");
     return `${prefix}-${year}-${random}`;
 }
 
@@ -405,36 +408,38 @@ export async function POST(request: Request) {
                          const accId = Number(accIdStr);
                          const account = await tx.cashBankAccount.findUnique({ where: { id: accId } });
                          if (!account) throw new Error(`Akun Kas/Bank ID ${accId} gagal ditemukan`);
-                         
-                         let currentBalance = Number(account.currentBalance);
-                         const txDataList = [];
+
+                         // Running balance HANYA untuk keputusan skip saldo awal.
+                         // Penulisan saldo selalu lewat shiftAccountBalance (atomik di SQL,
+                         // anti lost-update saat bertumpuk dengan transaksi POS live).
+                         let running = Number(account.currentBalance);
 
                          for (const res of groupedResults[accIdStr]) {
                              if (res.isSaldoAwal) {
-                                  // Jika currentBalance === 0, ini adalah inisialisasi awal.
+                                  // Jika saldo !== 0, ini adalah inisialisasi awal.
                                   // Jika bukan 0, berarti ini lanjutan dari bulan sebelumnya dan skip saldonya agar tidak double.
-                                  if (currentBalance !== 0) continue;
+                                  if (running !== 0) continue;
                              }
-                             
-                             const balanceAfter = res.type === "in" ? currentBalance + res.amount : currentBalance - res.amount;
-                             txDataList.push({
-                                 transactionNo: generateTransactionNo(res.type),
-                                 accountId: accId,
-                                 branchId: account.branchId,
-                                 type: res.type,
-                                 category: res.category,
-                                 amount: res.amount,
-                                 description: res.isSaldoAwal ? `Saldo Awal` : res.description,
-                                 balanceBefore: currentBalance,
-                                 balanceAfter: balanceAfter,
-                                 transactionDate: new Date(res.transactionDate),
-                                 createdById: userId
+
+                             const delta = res.type === "in" ? res.amount : -res.amount;
+                             const { before, after } = await shiftAccountBalance(tx, accId, delta);
+                             await tx.cashBankTransaction.create({
+                                 data: {
+                                     transactionNo: generateTransactionNo(res.type),
+                                     accountId: accId,
+                                     branchId: account.branchId,
+                                     type: res.type,
+                                     category: res.category,
+                                     amount: res.amount,
+                                     description: res.isSaldoAwal ? `Saldo Awal` : res.description,
+                                     balanceBefore: before,
+                                     balanceAfter: after,
+                                     transactionDate: new Date(res.transactionDate),
+                                     createdById: userId
+                                 }
                              });
-                             currentBalance = balanceAfter;
+                             running = after;
                          }
-                         
-                         if (txDataList.length > 0) await tx.cashBankTransaction.createMany({ data: txDataList });
-                         await tx.cashBankAccount.update({ where: { id: accId }, data: { currentBalance } });
                      }
                  }, { maxWait: 10000, timeout: 60000 });
              } catch (err: any) {

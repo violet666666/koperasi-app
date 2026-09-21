@@ -5,6 +5,7 @@ import { getMobileUserWithScope, unauthorizedResponse } from "../../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createLoanApplicationSchema } from "@/lib/validations";
 import { resolveCashBankAccount } from "@/lib/kas-bank-loan-helpers";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { logAudit } from "@/lib/audit-logger";
 
 function generateApplicationNo(date: Date): string {
@@ -204,8 +205,8 @@ export async function POST(request: Request) {
             }
 
             {
-                const balBefore = Number(cashAccount.currentBalance);
-                const balAfter = balBefore - disbursedAmount;
+                // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                const { before, after } = await shiftAccountBalance(tx, cashAccount.id, -disbursedAmount);
 
                 await tx.cashBankTransaction.create({
                     data: {
@@ -215,8 +216,8 @@ export async function POST(request: Request) {
                         type: "out",
                         category: "pencairan_pinjaman",
                         amount: disbursedAmount,
-                        balanceBefore: balBefore,
-                        balanceAfter: balAfter,
+                        balanceBefore: before,
+                        balanceAfter: after,
                         referenceType: "Loan",
                         referenceId: loan.id,
                         unitType: "simpan_pinjam",
@@ -225,11 +226,6 @@ export async function POST(request: Request) {
                         memberId: data.memberId,
                         createdById: currentUserId,
                     },
-                });
-
-                await tx.cashBankAccount.update({
-                    where: { id: cashAccount.id },
-                    data: { currentBalance: balAfter },
                 });
 
                 await tx.loan.update({

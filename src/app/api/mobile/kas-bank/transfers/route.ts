@@ -4,6 +4,7 @@ import { getMobileUserWithScope } from "../../middleware";
 import { canAccessBranch } from "@/lib/mobile-auth-scope";
 import { createTransferSchema } from "@/lib/validations";
 import { generateTransferTxnNo } from "@/lib/services/cash-bank-txn-no";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { logAudit } from "@/lib/audit-logger";
 
 export async function POST(request: Request) {
@@ -40,29 +41,25 @@ export async function POST(request: Request) {
     const base = generateTransferTxnNo(year);
 
     const result = await prisma.$transaction(async (tx) => {
-      const from = await tx.cashBankAccount.findUniqueOrThrow({ where: { id: fromAcct.id } });
-      const to = await tx.cashBankAccount.findUniqueOrThrow({ where: { id: toAcct.id } });
-      const fromBefore = Number(from.currentBalance);
-      if (amount > fromBefore) throw new Error("SALDO_KURANG");
-      const fromAfter = fromBefore - amount;
-      const toAfter = Number(to.currentBalance) + amount;
+      // Shift saldo atomik (UPDATE ... RETURNING) — anti race lost-update.
+      const fromShift = await shiftAccountBalance(tx, fromAcct.id, -amount);
+      if (fromShift.after < 0) throw new Error("SALDO_KURANG"); // sama dgn semula: transfer hanya boleh jika saldo cukup
+      const toShift = await shiftAccountBalance(tx, toAcct.id, amount);
 
       const out = await tx.cashBankTransaction.create({
         data: {
-          transactionNo: `${base}-OUT`, accountId: from.id, branchId: from.branchId,
-          type: "out", category: "transfer", amount, balanceBefore: fromBefore, balanceAfter: fromAfter,
-          description: d.description ?? `Transfer ke ${to.name}`, transactionDate: txDate, createdById: Number(user.id),
+          transactionNo: `${base}-OUT`, accountId: fromAcct.id, branchId: fromAcct.branchId,
+          type: "out", category: "transfer", amount, balanceBefore: fromShift.before, balanceAfter: fromShift.after,
+          description: d.description ?? `Transfer ke ${toAcct.name}`, transactionDate: txDate, createdById: Number(user.id),
         },
       });
       const inn = await tx.cashBankTransaction.create({
         data: {
-          transactionNo: `${base}-IN`, accountId: to.id, branchId: to.branchId,
-          type: "in", category: "transfer", amount, balanceBefore: Number(to.currentBalance), balanceAfter: toAfter,
-          description: d.description ?? `Transfer dari ${from.name}`, transactionDate: txDate, createdById: Number(user.id),
+          transactionNo: `${base}-IN`, accountId: toAcct.id, branchId: toAcct.branchId,
+          type: "in", category: "transfer", amount, balanceBefore: toShift.before, balanceAfter: toShift.after,
+          description: d.description ?? `Transfer dari ${fromAcct.name}`, transactionDate: txDate, createdById: Number(user.id),
         },
       });
-      await tx.cashBankAccount.update({ where: { id: from.id }, data: { currentBalance: fromAfter } });
-      await tx.cashBankAccount.update({ where: { id: to.id }, data: { currentBalance: toAfter } });
       return { out, in: inn };
     });
 

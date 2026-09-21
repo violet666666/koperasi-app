@@ -4,6 +4,7 @@ import { getMobileUserWithScope, unauthorizedResponse } from "../middleware";
 import { logAudit } from "@/lib/audit-logger";
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { canAccessUnit } from "@/lib/mobile-auth-scope";
 
 const UNIT_ABBR_TX: Record<string, string> = {
@@ -148,11 +149,8 @@ export async function POST(request: Request) {
                 const targetAccount = await findUnitAccount(tx, unitType, accountType);
 
                 if (targetAccount) {
-                    const updatedAccount = await tx.cashBankAccount.update({
-                        where: { id: targetAccount.id },
-                        data: { currentBalance: { increment: totalAmount } },
-                    });
-                    const balanceBefore = Number(updatedAccount.currentBalance) - totalAmount;
+                    // Shift atomik via UPDATE ... RETURNING — anti race lost-update
+                    const { before, after } = await shiftAccountBalance(tx, targetAccount.id, totalAmount);
 
                     await tx.cashBankTransaction.create({
                         data: {
@@ -162,8 +160,8 @@ export async function POST(request: Request) {
                             type: "in",
                             category: "pendapatan_unit",
                             amount: totalAmount,
-                            balanceBefore,
-                            balanceAfter: Number(updatedAccount.currentBalance),
+                            balanceBefore: before,
+                            balanceAfter: after,
                             unitType: unitType,
                             description: `Pendapatan ${unitType} (Mobile) ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${trxNo}`,
                             transactionDate: now,

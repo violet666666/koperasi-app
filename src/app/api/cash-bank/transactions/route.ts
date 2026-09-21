@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createCashBankTransactionSchema, paginationSchema } from "@/lib/validations";
 import { detectCategoryMismatch } from "@/lib/services/cash-bank-category-guard";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { auth } from "@/lib/auth";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
@@ -143,11 +144,6 @@ export async function POST(request: Request) {
             );
         }
 
-        const balanceAfter =
-            data.type === "in"
-                ? currentBalance + data.amount
-                : currentBalance - data.amount;
-
         // ================================================================
         // SPLIT LEDGER LOGIC (Cuci Mobil)
         // ================================================================
@@ -177,7 +173,15 @@ export async function POST(request: Request) {
         // ATOMIC TRANSACTION
         // ================================================================
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Create the main CashBankTransaction
+            // 1. Geser saldo atomik (UPDATE ... RETURNING) — balanceBefore/After
+            //    diambil dari hasil SQL, bukan dari bacaan sebelum transaksi (anti race).
+            const { before, after } = await shiftAccountBalance(
+                tx,
+                data.accountId,
+                data.type === "in" ? data.amount : -data.amount,
+            );
+
+            // 2. Create the main CashBankTransaction
             const transaction = await tx.cashBankTransaction.create({
                 data: {
                     transactionNo: generateTransactionNo(data.type),
@@ -186,8 +190,8 @@ export async function POST(request: Request) {
                     type: data.type,
                     category: data.category,
                     amount: data.amount,
-                    balanceBefore: currentBalance,
-                    balanceAfter,
+                    balanceBefore: before,
+                    balanceAfter: after,
                     description: finalDescription,
                     transactionDate: data.transactionDate,
                     unitType: data.unitType || null,
@@ -197,12 +201,6 @@ export async function POST(request: Request) {
                 include: {
                     account: true,
                 },
-            });
-
-            // 2. Update account balance
-            await tx.cashBankAccount.update({
-                where: { id: data.accountId },
-                data: { currentBalance: balanceAfter },
             });
 
             // 3. Split Ledger for Cuci Mobil — record mitra hutang
@@ -217,8 +215,8 @@ export async function POST(request: Request) {
                         type: "out",
                         category: "hutang_mitra",
                         amount: mitraShare,
-                        balanceBefore: balanceAfter,
-                        balanceAfter: balanceAfter, // saldo tetap — ini virtual/liability
+                        balanceBefore: after,
+                        balanceAfter: after, // saldo tetap — ini virtual/liability
                         description: `[AUTO] Hutang Mitra Cuci Mobil (50% dari ${data.description || "Pendapatan CM"})`,
                         transactionDate: data.transactionDate,
                         unitType: "cuci_mobil",

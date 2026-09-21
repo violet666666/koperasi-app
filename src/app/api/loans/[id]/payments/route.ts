@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createLoanPaymentSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { ZodError } from "zod";
 
 interface Params {
@@ -342,12 +343,9 @@ export async function POST(request: Request, { params }: Params) {
                     const memberLabel = member ? `${member.name} (${member.memberNo})` : `Member #${loan.memberId}`;
                     const settlementLabel = isEarlySettlement ? " [PELUNASAN]" : "";
 
-                    let runningBalance = Number(cashBank.currentBalance);
-
-                    // 5a. Angsuran Pokok → Kas Masuk
+                    // 5a. Angsuran Pokok → Kas Masuk (shift atomik per baris — anti race lost-update)
                     if (totalPrincipal > 0) {
-                        const balBefore = runningBalance;
-                        runningBalance += totalPrincipal;
+                        const { before, after } = await shiftAccountBalance(tx, data.cashBankAccountId, totalPrincipal);
                         await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `CBM-${paymentNo}-P`,
@@ -356,8 +354,8 @@ export async function POST(request: Request, { params }: Params) {
                                 type: "in",
                                 category: "angsuran_pokok",
                                 amount: totalPrincipal,
-                                balanceBefore: balBefore,
-                                balanceAfter: runningBalance,
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 referenceType: "LoanPayment",
                                 referenceId: payment.id,
                                 unitType: "simpan_pinjam",
@@ -371,8 +369,7 @@ export async function POST(request: Request, { params }: Params) {
 
                     // 5b. Jasa/Bunga Pinjaman → Kas Masuk
                     if (totalInterest > 0) {
-                        const balBefore = runningBalance;
-                        runningBalance += totalInterest;
+                        const { before, after } = await shiftAccountBalance(tx, data.cashBankAccountId, totalInterest);
                         await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `CBM-${paymentNo}-I`,
@@ -381,8 +378,8 @@ export async function POST(request: Request, { params }: Params) {
                                 type: "in",
                                 category: "jasa_pinjaman",
                                 amount: totalInterest,
-                                balanceBefore: balBefore,
-                                balanceAfter: runningBalance,
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 referenceType: "LoanPayment",
                                 referenceId: payment.id,
                                 unitType: "simpan_pinjam",
@@ -396,8 +393,7 @@ export async function POST(request: Request, { params }: Params) {
 
                     // 5c. Penalti Pelunasan Dipercepat → Kas Masuk (ONLY for early settlement)
                     if (isEarlySettlement && earlySettlementFee > 0) {
-                        const balBefore = runningBalance;
-                        runningBalance += earlySettlementFee;
+                        const { before, after } = await shiftAccountBalance(tx, data.cashBankAccountId, earlySettlementFee);
                         await tx.cashBankTransaction.create({
                             data: {
                                 transactionNo: `CBM-${paymentNo}-ES`,
@@ -406,8 +402,8 @@ export async function POST(request: Request, { params }: Params) {
                                 type: "in",
                                 category: "penalti_pelunasan",
                                 amount: earlySettlementFee,
-                                balanceBefore: balBefore,
-                                balanceAfter: runningBalance,
+                                balanceBefore: before,
+                                balanceAfter: after,
                                 referenceType: "LoanPayment",
                                 referenceId: payment.id,
                                 unitType: "simpan_pinjam",
@@ -418,12 +414,6 @@ export async function POST(request: Request, { params }: Params) {
                             },
                         });
                     }
-
-                    // 5d. Update saldo kas/bank koperasi
-                    await tx.cashBankAccount.update({
-                        where: { id: data.cashBankAccountId },
-                        data: { currentBalance: runningBalance },
-                    });
                 }
             }
 

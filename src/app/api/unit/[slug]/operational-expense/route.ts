@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { findUnitAccount } from "@/lib/cash-bank";
+import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isSameUnit } from "@/lib/unit-aliases";
 import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
 
@@ -132,13 +133,8 @@ export async function POST(
 
             if (!cashAccount) throw new Error("Tidak ditemukan akun kas aktif untuk unit ini.");
 
-            // Atomic decrement to prevent race condition
-            const updatedAccount = await tx.cashBankAccount.update({
-                where: { id: cashAccount.id },
-                data: { currentBalance: { decrement: nominalAmount } },
-            });
-
-            const balanceBefore = Number(updatedAccount.currentBalance) + nominalAmount;
+            // Geser saldo atomik (UPDATE ... RETURNING) — anti race lost-update
+            const { before, after } = await shiftAccountBalance(tx, cashAccount.id, -nominalAmount);
 
             return tx.cashBankTransaction.create({
                 data: {
@@ -148,8 +144,8 @@ export async function POST(
                     type: "out",
                     category: "operational",
                     amount: nominalAmount,
-                    balanceBefore,
-                    balanceAfter: Number(updatedAccount.currentBalance),
+                    balanceBefore: before,
+                    balanceAfter: after,
                     unitType: unitType,
                     paymentMethod,
                     description: descWithMeta,
