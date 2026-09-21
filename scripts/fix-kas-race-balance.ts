@@ -7,7 +7,7 @@ import { prisma } from "../src/lib/prisma";
 
 const APPLY = process.argv.includes("--apply");
 const BACKUP = `backups/kas-race-fix-${new Date().toISOString().slice(0, 10)}.json`;
-const TARGETS = ["KAS-JATIM-CMR", "KAS-JATIM-FTC"]; // hanya ini yang dikoreksi (disetujui user)
+const TARGETS = ["KAS-JATIM-CMR", "KAS-JATIM-FTC", "KAS-002", "B-001"]; // akun dg gap race (CMR/FTC fixed 2026-09-21; KAS-002/B-001 follow-up same root cause)
 
 async function main() {
   const accounts = await prisma.cashBankAccount.findMany({

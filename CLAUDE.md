@@ -25,6 +25,10 @@ npm run db:studio        # Prisma Studio
 NODE_ENV=production npx tsx --env-file=.env scripts/diagnose-<name>.ts
 ```
 
+## Agents & Model
+
+- **Model yang bisa dipakai untuk Agent tool HANYA `"combo"`** — default model agent (mis. monorepo-dev → `cc/claude-opus-5[1m]`) error HTTP 404 `model_not_found`. Selalu override: `model: "combo"`.
+
 ## Tech Stack
 
 - **Next.js 16** / React 19 / TypeScript / Tailwind v4

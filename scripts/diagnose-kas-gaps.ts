@@ -3,7 +3,7 @@ import { prisma } from "../src/lib/prisma";
 
 async function main() {
   const accs = await prisma.cashBankAccount.findMany({
-    where: { code: { in: ["KAS-JATIM-CMR", "KAS-JATIM-FTC"] } },
+    where: { code: { in: process.argv.slice(2).length ? process.argv.slice(2) : ["KAS-JATIM-CMR", "KAS-JATIM-FTC"] } },
     select: { id: true, code: true, currentBalance: true },
   });
   for (const acc of accs) {
