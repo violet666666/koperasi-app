@@ -429,7 +429,8 @@ export default function TokoProdukPage() {
             const res = await fetch(`/api/toko/products?${params}`);
             if (!res.ok) throw new Error("Failed");
             const result = await res.json();
-            const rows = mapProducts(result.data?.products || []);
+            // Shape respons: paginated { data: { products } } vs non-paginated { data: [...] }
+            const rows = mapProducts(result.data?.products || result.data || []);
             if (rows.length === 0) {
                 toast.error("Tidak ada data produk untuk diexport");
                 return;
