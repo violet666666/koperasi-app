@@ -1210,7 +1210,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <TrendingDown className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Pengeluaran Ops.</p>
+                            <p className="text-xs text-muted-foreground">Pengeluaran</p>
                             <p className="text-lg font-bold tabular-nums text-red-600">
                                 {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
                             </p>
@@ -1308,11 +1308,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             </div>
                             <div className="p-3 rounded-lg bg-muted/30 border">
                                 <p className="text-xs text-muted-foreground">HPP</p>
-                                <p className="font-bold tabular-nums text-red-600">−{formatCurrency(summary.totalHPP)}</p>
+                                <p className="font-bold tabular-nums text-red-600">{formatCurrency(summary.totalHPP)}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-muted/30 border">
-                                <p className="text-xs text-muted-foreground">Pengeluaran Ops.{summary.totalWriteOff > 0 ? " + Write-off" : ""}</p>
-                                <p className="font-bold tabular-nums text-red-600">−{formatCurrency(summary.totalPengeluaran + summary.totalWriteOff)}</p>
+                                <p className="text-xs text-muted-foreground">Pengeluaran</p>
+                                <p className="font-bold tabular-nums text-red-600">{formatCurrency(summary.totalPengeluaran + summary.totalWriteOff)}</p>
                             </div>
                             <div className={`p-3 rounded-lg border ${summary.netProfit >= 0 ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900"}`}>
                                 <p className="text-xs text-muted-foreground">Laba Bersih</p>

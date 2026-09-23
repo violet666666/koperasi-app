@@ -19,13 +19,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-    Plus, Package, TrendingUp, AlertTriangle, Upload,
+    Plus, Package, TrendingUp, AlertTriangle, Upload, Download,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
     Star, ImagePlus, Camera,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { exportToExcel } from "@/lib/export-utils";
+import { formatCurrencyExport } from "@/lib/utils/export";
 
 interface Product {
     id: number;
@@ -112,6 +114,7 @@ export default function TokoProdukPage() {
     // Recalculate & Duplicate detection
     const [isRecalculating, setIsRecalculating] = React.useState(false);
     const [isDuplicateChecking, setIsDuplicateChecking] = React.useState(false);
+    const [isExporting, setIsExporting] = React.useState(false);
     const [showResultDialog, setShowResultDialog] = React.useState(false);
     const [resultDialogTitle, setResultDialogTitle] = React.useState("");
     const [resultDialogContent, setResultDialogContent] = React.useState<React.ReactNode>(null);
@@ -413,6 +416,66 @@ export default function TokoProdukPage() {
     React.useEffect(() => {
         setPage(1);
     }, [searchQuery, filterCategory, filterStatus]);
+
+    // Export semua produk ke Excel — tanpa page/perPage, API balikin semua row (tanpa cap 200).
+    // Mengikuti filter pencarian & kategori yang sedang aktif.
+    const handleExportExcel = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        try {
+            const params = new URLSearchParams({ unitType: productUnitType });
+            if (searchQuery) params.set("search", searchQuery);
+            if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
+            const res = await fetch(`/api/toko/products?${params}`);
+            if (!res.ok) throw new Error("Failed");
+            const result = await res.json();
+            const rows = mapProducts(result.data?.products || []);
+            if (rows.length === 0) {
+                toast.error("Tidak ada data produk untuk diexport");
+                return;
+            }
+            // Sanitasi formula injection: prefix ' utk teks user yang diawali =+@-
+            const safe = (s: string) => (/^[=+@-]/.test(s) ? `'${s}` : s);
+            await exportToExcel(
+                rows.map((p) => ({
+                    sku: safe(p.sku || ""),
+                    name: safe(p.name || ""),
+                    category: safe(p.category || ""),
+                    price: p.price,
+                    costPrice: p.costPrice,
+                    margin: p.price - p.costPrice,
+                    stockGdg: p.stockGdg,
+                    stockToko: p.stockToko,
+                    stock: p.stock,
+                    unit: p.unit,
+                    minStock: p.minStock,
+                    status: p.isActive === false ? "Nonaktif" : "Aktif",
+                })),
+                [
+                    { header: "SKU", key: "sku", width: 14 },
+                    { header: "Nama", key: "name", width: 32 },
+                    { header: "Kategori", key: "category", width: 16 },
+                    { header: "Harga Jual", key: "price", width: 16, format: (v) => formatCurrencyExport(Number(v) || 0) },
+                    { header: "HPP", key: "costPrice", width: 16, format: (v) => formatCurrencyExport(Number(v) || 0) },
+                    { header: "Margin", key: "margin", width: 16, format: (v) => formatCurrencyExport(Number(v) || 0) },
+                    { header: "Stok Gudang", key: "stockGdg", width: 12 },
+                    { header: "Stok Toko", key: "stockToko", width: 12 },
+                    { header: "Stok Total", key: "stock", width: 11 },
+                    { header: "Satuan", key: "unit", width: 9 },
+                    { header: "Stok Min", key: "minStock", width: 9 },
+                    { header: "Status", key: "status", width: 10 },
+                ],
+                `Produk_${unitType}`,
+                "Produk",
+            );
+            toast.success(`Berhasil export ${rows.length} produk ke Excel`);
+        } catch (error) {
+            console.error("Export produk gagal:", error);
+            toast.error("Gagal export produk");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const [categories, setCategories] = React.useState<string[]>([]);
 
@@ -833,6 +896,10 @@ export default function TokoProdukPage() {
                             <Button variant="outline" size="sm" onClick={handleRecalculatePrices} disabled={isRecalculating}>
                                 {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
                                 Hitung Ulang Harga
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting}>
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                Export
                             </Button>
                             <Button variant="outline" asChild>
                                 <Link href={`${produkBaseRoute}/import`}><Upload className="mr-2 h-4 w-4" />Import</Link>
