@@ -156,6 +156,7 @@ export default function ApprovalPage() {
     const [approvals, setApprovals] = React.useState<ApprovalItem[]>([]);
     const [selectedApproval, setSelectedApproval] = React.useState<ApprovalItem | null>(null);
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [loadError, setLoadError] = React.useState<string | null>(null);
 
     // Pagination state — per tab
     const [activeTab, setActiveTab] = React.useState("pending");
@@ -181,6 +182,7 @@ export default function ApprovalPage() {
     const fetchApprovals = React.useCallback(async () => {
         try {
             setIsLoading(true);
+            setLoadError(null);
             const status = activeTab === "pending" ? "pending" : "history";
             const page = currentPagination.pageIndex + 1;
             const perPage = currentPagination.pageSize;
@@ -199,7 +201,14 @@ export default function ApprovalPage() {
             }
         } catch (error) {
             console.error("Failed to fetch approvals:", error);
+            // Reset SEMUA state — kartu yang mempertahankan angka lama saat tabel kosong
+            // membuat user mengira data hilang (insiden "void ilang" 2026-09-23).
             setApprovals([]);
+            setPendingCount(0);
+            setApprovedCount(0);
+            setRejectedCount(0);
+            setPageInfo({ total: 0, totalPages: 0 });
+            setLoadError("Gagal memuat data persetujuan. Periksa koneksi lalu muat ulang halaman.");
         } finally {
             setIsLoading(false);
         }
@@ -283,6 +292,12 @@ export default function ApprovalPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {loadError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+                    {loadError}
+                </div>
+            )}
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
