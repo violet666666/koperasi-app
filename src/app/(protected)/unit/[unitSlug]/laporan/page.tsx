@@ -146,6 +146,16 @@ interface LaporanSummary {
     netProfit: number;
 }
 
+interface ProductProfitRow {
+    productId: number;
+    name: string;
+    qty: number;
+    omzet: number;
+    hpp: number;
+    laba: number;
+    margin: number;
+}
+
 interface PaginationInfo {
     page: number;
     perPage: number;
@@ -174,6 +184,7 @@ interface LaporanData {
     pagination: PaginationInfo;
     operationalExpenses: OperationalExpense[];
     operationalIncomes: OperationalExpense[]; // Same shape as expense
+    productProfit?: ProductProfitRow[]; // Laba per produk (harga jual − HPP), unit ber-StoreSale saja
 }
 
 // ── Page Component ──────────────────────────────────────────────────────────
@@ -842,6 +853,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             } else {
                 summaryRows.push(
                     ["Total Pendapatan (Penjualan)", "", { v: allData.summary.totalPendapatan, t: "n", z: fmtIDR }],
+                );
+                if (usesStoreSales && allData.summary.totalHPP > 0) {
+                    summaryRows.push(["HPP (Harga Pokok Penjualan)", "", { v: -allData.summary.totalHPP, t: "n", z: fmtIDR }]);
+                }
+                if (usesStoreSales && allData.summary.totalWriteOff > 0) {
+                    summaryRows.push(["Write-off Stok (Rusak/Kedaluwarsa)", "", { v: -allData.summary.totalWriteOff, t: "n", z: fmtIDR }]);
+                }
+                summaryRows.push(
                     ["Total Pengeluaran Operasional", "", { v: -allData.summary.totalPengeluaran, t: "n", z: fmtIDR }],
                 );
                 if (allData.summary.totalPemasukan > 0) {
@@ -849,7 +868,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 }
                 summaryRows.push(
                     [],
-                    ["LABA BERSIH", "", { v: allData.summary.laba, t: "n", z: fmtIDR }],
+                    ["LABA BERSIH", "", { v: usesStoreSales ? allData.summary.netProfit : allData.summary.laba, t: "n", z: fmtIDR }],
                 );
             }
 
@@ -868,6 +887,37 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             if (expData.length > 0) XLSX.utils.book_append_sheet(wb, ws2, "Pengeluaran Operasional");
             if (incData.length > 0) XLSX.utils.book_append_sheet(wb, ws3, "Pemasukan Operasional");
             XLSX.utils.book_append_sheet(wb, ws4, "Ringkasan Keuangan");
+
+            // ── Sheet 5: Laba per Produk (harga jual − HPP) — unit ber-StoreSale ──
+            if (usesStoreSales && allData.productProfit && allData.productProfit.length > 0) {
+                // Sanitasi formula injection: nama produk bisa diawali = + @ -
+                const safe = (s: string) => ( /^[=+@-]/.test(s) ? `'${s}` : s);
+                const ppTotals = allData.productProfit.reduce(
+                    (acc, r) => ({ qty: acc.qty + r.qty, omzet: acc.omzet + r.omzet, hpp: acc.hpp + r.hpp, laba: acc.laba + r.laba }),
+                    { qty: 0, omzet: 0, hpp: 0, laba: 0 },
+                );
+                const ppRows: any[][] = [
+                    [orgHeader],
+                    [unitHeader],
+                    ["LABA PER PRODUK (HARGA JUAL − HPP)"],
+                    [periodHeader],
+                    [],
+                    ["Produk", "Qty Terjual", "Omzet (Harga Jual)", "HPP", "Laba", "Margin %"],
+                    ...allData.productProfit.map((r) => [
+                        safe(r.name),
+                        r.qty,
+                        { v: r.omzet, t: "n", z: fmtIDR },
+                        { v: r.hpp, t: "n", z: fmtIDR },
+                        { v: r.laba, t: "n", z: fmtIDR },
+                        { v: +(r.margin * 100).toFixed(2), t: "n", z: "0.00" },
+                    ]),
+                    [],
+                    ["TOTAL", ppTotals.qty, { v: ppTotals.omzet, t: "n", z: fmtIDR }, { v: ppTotals.hpp, t: "n", z: fmtIDR }, { v: ppTotals.laba, t: "n", z: fmtIDR }],
+                ];
+                const ws5 = XLSX.utils.aoa_to_sheet(ppRows);
+                ws5["!cols"] = [{ wch: 32 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
+                XLSX.utils.book_append_sheet(wb, ws5, "Laba per Produk");
+            }
 
             const safeName = unitInfo.label.replace(/[^a-zA-Z0-9]/g, "_");
             XLSX.writeFile(wb, `Laporan_${safeName}_${allData.periodLabel}.xlsx`);
@@ -992,6 +1042,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
 
     // ── Kalkulasi Bagi Hasil 50/50 (khusus cuci_mobil) ─────────────────────
     const isCuciMobil = unitType === "cuci_mobil";
+    // Sinkron dengan backend: unit-laporan.ts line ~264
+    const usesStoreSales = !["cuci_mobil", "simpan_pinjam", "investasi_modal_jp"].includes(unitType);
+    const productProfit = data?.productProfit ?? [];
     const isRestoUnit = ["resto", "resto_cafe", "coffe_latar", "cafe_lsp"].includes(unitType);
     const bagiHasilKaryawan = isCuciMobil && summary ? Math.floor(summary.totalPendapatan * 0.5) : 0;
     const bagianKoperasiKotor = isCuciMobil && summary ? summary.totalPendapatan - bagiHasilKaryawan : 0;
@@ -1170,10 +1223,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <BarChart2 className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Laba Bersih Est.</p>
-                            <p className={`text-lg font-bold tabular-nums ${summary && summary.laba >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.laba) : "-"}
+                            <p className="text-xs text-muted-foreground">{usesStoreSales ? "Laba Bersih" : "Laba Bersih Est."}</p>
+                            <p className={`text-lg font-bold tabular-nums ${summary && (usesStoreSales ? summary.netProfit : summary.laba) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(usesStoreSales ? summary.netProfit : summary.laba) : "-"}
                             </p>
+                            {usesStoreSales && summary && !isLoading && summary.totalHPP > 0 && (
+                                <p className="text-[10px] text-muted-foreground">setelah HPP {formatCurrency(summary.totalHPP)}</p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -1221,6 +1277,97 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <p className="font-bold">{formatCurrency(summary.potongGaji)}</p>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── Analisa Laba Bersih: harga jual − HPP (unit ber-StoreSale, mis. toko) ── */}
+            {usesStoreSales && summary && !isLoading && productProfit.length > 0 && (
+                <Card className="print:break-inside-avoid">
+                    <CardHeader className="pb-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <CardTitle className="text-sm">Analisa Laba Bersih — Harga Jual − HPP</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Laba kotor per produk (harga jual − HPP), lalu dikurangi write-off &amp; pengeluaran operasional
+                                </p>
+                            </div>
+                            {summary.totalPendapatan > 0 && (
+                                <Badge variant={summary.netProfit >= 0 ? "default" : "destructive"} className="tabular-nums">
+                                    Margin {((summary.netProfit / summary.totalPendapatan) * 100).toFixed(1)}%
+                                </Badge>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Waterfall ringkas */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="p-3 rounded-lg bg-muted/30 border">
+                                <p className="text-xs text-muted-foreground">Omzet Penjualan</p>
+                                <p className="font-bold tabular-nums">{formatCurrency(summary.totalPendapatan)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-muted/30 border">
+                                <p className="text-xs text-muted-foreground">HPP</p>
+                                <p className="font-bold tabular-nums text-red-600">−{formatCurrency(summary.totalHPP)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-muted/30 border">
+                                <p className="text-xs text-muted-foreground">Pengeluaran Ops.{summary.totalWriteOff > 0 ? " + Write-off" : ""}</p>
+                                <p className="font-bold tabular-nums text-red-600">−{formatCurrency(summary.totalPengeluaran + summary.totalWriteOff)}</p>
+                            </div>
+                            <div className={`p-3 rounded-lg border ${summary.netProfit >= 0 ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900" : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900"}`}>
+                                <p className="text-xs text-muted-foreground">Laba Bersih</p>
+                                <p className={`text-lg font-bold tabular-nums ${summary.netProfit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
+                                    {formatCurrency(summary.netProfit)}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Rincian per produk */}
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Produk</TableHead>
+                                        <TableHead className="text-right">Qty</TableHead>
+                                        <TableHead className="text-right">Omzet</TableHead>
+                                        <TableHead className="text-right">HPP</TableHead>
+                                        <TableHead className="text-right">Laba</TableHead>
+                                        <TableHead className="text-right">Margin</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {productProfit.map((r) => (
+                                        <TableRow key={r.productId} className="print:break-inside-avoid">
+                                            <TableCell className="font-medium max-w-[220px] truncate" title={r.name}>{r.name}</TableCell>
+                                            <TableCell className="text-right tabular-nums">{r.qty.toLocaleString("id-ID")}</TableCell>
+                                            <TableCell className="text-right tabular-nums">{formatCurrency(r.omzet)}</TableCell>
+                                            <TableCell className="text-right tabular-nums text-red-600">{formatCurrency(r.hpp)}</TableCell>
+                                            <TableCell className={`text-right tabular-nums font-medium ${r.laba >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
+                                                {formatCurrency(r.laba)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums text-muted-foreground">{(r.margin * 100).toFixed(1)}%</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter>
+                                    <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
+                                        <TableCell>TOTAL ({productProfit.length} produk)</TableCell>
+                                        <TableCell className="text-right tabular-nums">{productProfit.reduce((a, r) => a + r.qty, 0).toLocaleString("id-ID")}</TableCell>
+                                        <TableCell className="text-right tabular-nums">{formatCurrency(productProfit.reduce((a, r) => a + r.omzet, 0))}</TableCell>
+                                        <TableCell className="text-right tabular-nums text-red-600">{formatCurrency(productProfit.reduce((a, r) => a + r.hpp, 0))}</TableCell>
+                                        <TableCell className={`text-right tabular-nums ${productProfit.reduce((a, r) => a + r.laba, 0) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
+                                            {formatCurrency(productProfit.reduce((a, r) => a + r.laba, 0))}
+                                        </TableCell>
+                                        <TableCell />
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </div>
+                        {summary.takeawaySurchargeTotal > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                                Catatan: omzet per produk belum termasuk biaya takeaway {formatCurrency(summary.takeawaySurchargeTotal)} (tercatat di omzet total).
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             )}
@@ -1508,6 +1655,22 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         )}
                                         {!isCuciMobil && (
                                             <>
+                                                {usesStoreSales && summary.totalHPP > 0 && (
+                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={6} className="text-right">TOTAL HPP (HARGA POKOK PENJUALAN)</TableCell>
+                                                        <TableCell className="text-right tabular-nums text-red-600">
+                                                            ({formatCurrency(summary.totalHPP)})
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                                {usesStoreSales && summary.totalWriteOff > 0 && (
+                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
+                                                        <TableCell colSpan={6} className="text-right">WRITE-OFF STOK</TableCell>
+                                                        <TableCell className="text-right tabular-nums text-red-600">
+                                                            ({formatCurrency(summary.totalWriteOff)})
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
                                                 {summary.totalPengeluaran > 0 && (
                                                     <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
                                                         <TableCell colSpan={6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
@@ -1516,11 +1679,11 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
-                                                {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
+                                                {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0 || (usesStoreSales && summary.totalHPP > 0)) && (
                                                     <TableRow className="bg-primary/5 font-bold print:break-inside-avoid">
-                                                        <TableCell colSpan={6} className="text-right">LABA BERSIH ESTIMASI</TableCell>
-                                                        <TableCell className={`text-right tabular-nums font-bold ${summary.laba >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                                                            {formatCurrency(summary.laba)}
+                                                        <TableCell colSpan={6} className="text-right">{usesStoreSales ? "LABA BERSIH" : "LABA BERSIH ESTIMASI"}</TableCell>
+                                                        <TableCell className={`text-right tabular-nums font-bold ${(usesStoreSales ? summary.netProfit : summary.laba) >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                                            {formatCurrency(usesStoreSales ? summary.netProfit : summary.laba)}
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
@@ -1643,16 +1806,28 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             )}
                             {!isCuciMobil && (
                                 <>
+                                    {usesStoreSales && summary.totalHPP > 0 && (
+                                        <tr className="text-red-800">
+                                            <td className="py-1 text-right pr-4">TOTAL HPP (HARGA POKOK PENJUALAN)</td>
+                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalHPP)})</td>
+                                        </tr>
+                                    )}
+                                    {usesStoreSales && summary.totalWriteOff > 0 && (
+                                        <tr className="text-red-800">
+                                            <td className="py-1 text-right pr-4">WRITE-OFF STOK</td>
+                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalWriteOff)})</td>
+                                        </tr>
+                                    )}
                                     {summary.totalPengeluaran > 0 && (
                                         <tr className="text-red-800">
                                             <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
                                             <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalPengeluaran)})</td>
                                         </tr>
                                     )}
-                                    {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0) && (
+                                    {(summary.totalPengeluaran > 0 || summary.potonganSHUMember > 0 || (usesStoreSales && summary.totalHPP > 0)) && (
                                         <tr className="font-bold border-t-2 border-gray-600">
-                                            <td className="py-1.5 text-right pr-4">LABA BERSIH ESTIMASI</td>
-                                            <td className="py-1.5 text-right tabular-nums">{formatCurrency(summary.laba)}</td>
+                                            <td className="py-1.5 text-right pr-4">{usesStoreSales ? "LABA BERSIH" : "LABA BERSIH ESTIMASI"}</td>
+                                            <td className="py-1.5 text-right tabular-nums">{formatCurrency(usesStoreSales ? summary.netProfit : summary.laba)}</td>
                                         </tr>
                                     )}
                                 </>
