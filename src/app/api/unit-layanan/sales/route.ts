@@ -26,6 +26,13 @@ const UNIT_ABBR_TX: Record<string, string> = {
 const VALID_UNIT_TYPES = Object.keys(UNIT_ABBR_TX);
 const VALID_PAYMENT_METHODS = ["cash", "qris", "salary_cut", "credit"];
 
+/** Ditolak 409: transaksi identik baru saja dibuat (anti double-tap paralel). */
+class DupTransactionError extends Error {
+    constructor(public trxNo: string) {
+        super(`DUP:${trxNo}`);
+    }
+}
+
 async function generateTxNo(unitType: string, tx: any, date?: Date): Promise<string> {
     const abbr = UNIT_ABBR_TX[unitType] || unitType.substring(0, 2).toUpperCase();
     const d = date || new Date();
@@ -133,31 +140,11 @@ export async function POST(request: Request) {
         // Parse transaction date (backdate support for old transactions)
         let now = new Date();
         // ── Anti double-input: transaksi identik oleh kasir yang sama < 2 menit lalu ──
-        // (double-tap di perangkat lambat / retry jaringan). Cek-then-insert, bukan lock —
-        // ponytail: race window <1s antar-request paralel ditutup ref-lock di sisi kasir.
+        // (double-tap di perangkat lambat / retry jaringan). Cek dilakukan DI DALAM
+        // $transaction setelah advisory lock → atomik thd request paralel sekaligus
+        // menutup race generateTxNo (dua nota dapat seq sama / dua tx masuk).
         const dupWindow = new Date(Date.now() - 120_000);
         const plateTag = vehiclePlate ? `[PLAT:${String(vehiclePlate).trim().toUpperCase()}]` : null;
-        // Kunci natural: plat (cuci_mobil) atau member (salary_cut double-tap).
-        // Tanpa kunci → skip, hindari false-positive utk walk-in repeat unit lain.
-        const dup = (plateTag || memberId) ? await prisma.unitTransaction.findFirst({
-            where: {
-                unitType,
-                amount: totalAmount,
-                createdById: userId,
-                createdAt: { gte: dupWindow },
-                status: { not: "voided" },
-                ...(plateTag
-                    ? { notes: { contains: plateTag } }
-                    : { memberId: Number(memberId) }),
-            },
-            orderBy: { createdAt: "desc" },
-            select: { transactionNo: true },
-        }) : null;
-        if (dup) {
-            return NextResponse.json({
-                message: `Transaksi duplikat terdeteksi — transaksi identik baru saja dibuat (${dup.transactionNo}). Jika ini transaksi yang berbeda, tunggu 2 menit atau hubungi operator.`,
-            }, { status: 409 });
-        }
 
         if (transactionDate) {
             const parsed = new Date(transactionDate);
@@ -172,6 +159,29 @@ export async function POST(request: Request) {
 
         // ── INTERACTIVE TRANSACTION: Atomic multi-table operations ─────
         const ut = await prisma.$transaction(async (tx) => {
+            // Serialisasi request paralel unit yang sama (double-tap bersamaan)
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"unit-sale:" + unitType}))`;
+
+            // Kunci natural: plat (cuci_mobil) atau member (salary_cut double-tap).
+            // Tanpa kunci → skip, hindari false-positive utk walk-in repeat unit lain.
+            if (plateTag || memberId) {
+                const dup = await tx.unitTransaction.findFirst({
+                    where: {
+                        unitType,
+                        amount: totalAmount,
+                        createdById: userId,
+                        createdAt: { gte: dupWindow },
+                        status: { not: "voided" },
+                        ...(plateTag
+                            ? { notes: { contains: plateTag } }
+                            : { memberId: Number(memberId) }),
+                    },
+                    orderBy: { createdAt: "desc" },
+                    select: { transactionNo: true },
+                });
+                if (dup) throw new DupTransactionError(dup.transactionNo);
+            }
+
             const trxNo = await generateTxNo(unitType, tx, now);
 
             // 1. Create UnitTransaction
@@ -310,6 +320,11 @@ export async function POST(request: Request) {
             },
         }, { status: 201 });
     } catch (error) {
+        if (error instanceof DupTransactionError) {
+            return NextResponse.json({
+                message: `Transaksi duplikat terdeteksi — transaksi identik baru saja dibuat (${error.trxNo}). Jika ini transaksi yang berbeda, tunggu 2 menit atau hubungi operator.`,
+            }, { status: 409 });
+        }
         console.error("POST /api/unit-layanan/sales error:", error);
         return NextResponse.json({ message: "Gagal memproses transaksi kasir cepat" }, { status: 500 });
     }
