@@ -5,6 +5,7 @@ import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audi
 import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { shiftAccountBalance } from "@/lib/kas-bank-balance";
+import { buildUnitNotes } from "@/lib/services/unit-notes";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate, transactionDate } = body;
+        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate, customerPhone, transactionDate } = body;
 
         // Validasi input wajib
         if (!unitType || !amount || !paymentMethod) {
@@ -131,6 +132,33 @@ export async function POST(request: Request) {
 
         // Parse transaction date (backdate support for old transactions)
         let now = new Date();
+        // ── Anti double-input: transaksi identik oleh kasir yang sama < 2 menit lalu ──
+        // (double-tap di perangkat lambat / retry jaringan). Cek-then-insert, bukan lock —
+        // ponytail: race window <1s antar-request paralel ditutup ref-lock di sisi kasir.
+        const dupWindow = new Date(Date.now() - 120_000);
+        const plateTag = vehiclePlate ? `[PLAT:${String(vehiclePlate).trim().toUpperCase()}]` : null;
+        // Kunci natural: plat (cuci_mobil) atau member (salary_cut double-tap).
+        // Tanpa kunci → skip, hindari false-positive utk walk-in repeat unit lain.
+        const dup = (plateTag || memberId) ? await prisma.unitTransaction.findFirst({
+            where: {
+                unitType,
+                amount: totalAmount,
+                createdById: userId,
+                createdAt: { gte: dupWindow },
+                status: { not: "voided" },
+                ...(plateTag
+                    ? { notes: { contains: plateTag } }
+                    : { memberId: Number(memberId) }),
+            },
+            orderBy: { createdAt: "desc" },
+            select: { transactionNo: true },
+        }) : null;
+        if (dup) {
+            return NextResponse.json({
+                message: `Transaksi duplikat terdeteksi — transaksi identik baru saja dibuat (${dup.transactionNo}). Jika ini transaksi yang berbeda, tunggu 2 menit atau hubungi operator.`,
+            }, { status: 409 });
+        }
+
         if (transactionDate) {
             const parsed = new Date(transactionDate);
             if (isNaN(parsed.getTime())) {
@@ -158,7 +186,7 @@ export async function POST(request: Request) {
                     paymentMethod: method,
                     isPaid: method !== "salary_cut",
                     paidDate: method !== "salary_cut" ? now : null,
-                    notes: vehiclePlate ? `[PLAT:${vehiclePlate.trim().toUpperCase()}]` : null,
+                    notes: buildUnitNotes({ plate: vehiclePlate, phone: customerPhone, customerName }),
                     createdById: userId,
                 }
             });

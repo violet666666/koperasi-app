@@ -18,17 +18,27 @@ interface Product { id: number; sku: string; name: string; price: number; isServ
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
+interface CustomerLookup { phone: string; name: string | null; visitCount: number; lastVisit: string; plates: string[]; }
 
 export default function CuciMobilKasirPage() {
     const [products, setProducts] = React.useState<Product[]>([]);
     const [cart, setCart] = React.useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isProcessing, setIsProcessing] = React.useState(false);
-    
+    // Lock sinkron anti double-tap — state React bisa stale saat perangkat lambat
+    // (dua tap masuk sebelum re-render men-disable tombol).
+    const processingRef = React.useRef(false);
+
     // Cuci Mobil specific metadata
     const [vehiclePlate, setVehiclePlate] = React.useState("");
     const [washerName, setWasherName] = React.useState("");
     const [transactionDate, setTransactionDate] = React.useState("");
+
+    // Walk-in customer (No. HP + nama) — utk riwayat pelanggan carwash
+    const [customerPhone, setCustomerPhone] = React.useState("");
+    const [walkInName, setWalkInName] = React.useState("");
+    const [customerLookupInfo, setCustomerLookupInfo] = React.useState<CustomerLookup | null>(null);
+    const [isLookingUpCustomer, setIsLookingUpCustomer] = React.useState(false);
 
     // Payment state
     const [paymentAmount, setPaymentAmount] = React.useState("");
@@ -116,9 +126,28 @@ export default function CuciMobilKasirPage() {
         return () => clearTimeout(timer);
     }, [customerQuery, selectedCustomerObj]);
 
+    // Cari pelanggan lama saat no. HP diketik (≥ 8 digit, debounce 400ms)
+    const phoneDigits = customerPhone.replace(/\D/g, "");
     React.useEffect(() => {
-        async function fetchProducts() {
-            setIsLoading(true);
+        if (phoneDigits.length < 8) { setCustomerLookupInfo(null); return; }
+        const timer = setTimeout(async () => {
+            setIsLookingUpCustomer(true);
+            try {
+                const res = await fetch(`/api/unit-layanan/customer-lookup?phone=${phoneDigits}`);
+                const json = await res.json();
+                if (res.ok) {
+                    setCustomerLookupInfo(json.data);
+                    // Auto-isi nama utk pelanggan lama yang belum diisi manual
+                    if (json.data?.name) setWalkInName(prev => prev.trim() || json.data.name);
+                }
+            } catch { /* lookup bersifat best-effort */ }
+            finally { setIsLookingUpCustomer(false); }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [phoneDigits]);
+
+    React.useEffect(() => {
+        async function fetchProducts() {            setIsLoading(true);
             try {
                 const res = await fetch("/api/toko/products?unitType=cuci_mobil");
                 const json = await res.json();
@@ -190,6 +219,7 @@ export default function CuciMobilKasirPage() {
     }, [selectedMember, subtotal]);
 
     const processPayment = async (method: "cash" | "qris" | "salary_cut", memberOverride?: MemberResult) => {
+        if (processingRef.current) return; // anti double-tap di perangkat lambat
         if (cart.length === 0) { toast.error("Pilih layanan terlebih dahulu"); return; }
         const invalidItem = cart.find(item => !item.quantity || isNaN(item.quantity) || item.quantity <= 0);
         if (invalidItem) { toast.error(`Jumlah "${invalidItem.product.name}" tidak valid (harus > 0)`); return; }
@@ -202,6 +232,7 @@ export default function CuciMobilKasirPage() {
         const salaryMember = memberOverride || selectedMember;
         if (method === "salary_cut" && !salaryMember) { toast.error("Pilih anggota u/ potong gaji"); return; }
 
+        processingRef.current = true;
         setIsProcessing(true);
         try {
             const desc = cart.map(i => `${i.product.name} x${i.quantity}`).join(", ");
@@ -210,8 +241,9 @@ export default function CuciMobilKasirPage() {
                 amount: subtotal,
                 paymentMethod: method,
                 description: desc,
-                customerName: vehiclePlate || "Walk-in",
+                customerName: walkInName.trim() || vehiclePlate || "Walk-in",
                 vehiclePlate,
+                customerPhone: customerPhone.replace(/\D/g, "") || undefined,
             };
 
             // memberId: potong gaji WAJIB punya member, tunai/QRIS opsional
@@ -239,7 +271,7 @@ export default function CuciMobilKasirPage() {
                 notaNo: json.data.transactionNo,
                 tanggal: transactionDate ? new Date(transactionDate).toLocaleString("id-ID") : new Date().toLocaleString("id-ID"),
                 nrpNip: salaryMember?.nrp || selectedCustomerObj?.nrp || "-",
-                namaAnggota: salaryMember?.name || selectedCustomerObj?.name || customerQuery || "Umum",
+                namaAnggota: salaryMember?.name || selectedCustomerObj?.name || walkInName.trim() || customerQuery || "Umum",
                 kesatuan: "-",
                 keterangan: `Cuci Mobil [Nopol: ${vehiclePlate}] - Pencuci: ${washerName || "Tim"}`,
                 total: subtotal,
@@ -252,11 +284,12 @@ export default function CuciMobilKasirPage() {
             setShowReceipt(true);
 
             // Reset
-            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName(""); setTransactionDate(""); clearCustomer();
+            setCart([]); setPaymentAmount(""); setVehiclePlate(""); setWasherName(""); setTransactionDate("");
+            setCustomerPhone(""); setWalkInName(""); setCustomerLookupInfo(null); clearCustomer();
             setSelectedMember(null); setShowCreditDialog(false);
         } catch (error: any) {
             toast.error(error.message || "Gagal memproses transaksi");
-        } finally { setIsProcessing(false); }
+        } finally { processingRef.current = false; setIsProcessing(false); }
     };
 
     return (
@@ -281,29 +314,65 @@ export default function CuciMobilKasirPage() {
                                 <Car className="h-5 w-5" /> Data Kendaraan
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-4 grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>Nomor Polisi (Plat) <span className="text-red-500">*</span></Label>
-                                <Input placeholder="Contoh: N 1234 XY" className="uppercase font-mono text-lg tracking-wider"
-                                    value={vehiclePlate} onChange={e => setVehiclePlate(e.target.value.toUpperCase())} />
+                        <CardContent className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Nomor Polisi (Plat) <span className="text-red-500">*</span></Label>
+                                    <Input placeholder="Contoh: N 1234 XY" className="uppercase font-mono text-lg tracking-wider"
+                                        value={vehiclePlate} onChange={e => setVehiclePlate(e.target.value.toUpperCase())} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">
+                                        No. HP Pelanggan
+                                        {isLookingUpCustomer && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+                                    </Label>
+                                    <Input placeholder="08xx… — cek pelanggan lama" inputMode="numeric"
+                                        value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Nama Pelanggan</Label>
+                                    <Input placeholder="Opsional — terisi otomatis jika pelanggan lama"
+                                        value={walkInName} onChange={e => setWalkInName(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Nama Petugas Cuci (Washer)</Label>
+                                    <Input placeholder="Untuk perhitungan komisi..."
+                                        value={washerName} onChange={e => setWasherName(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">
+                                        <CalendarDays className="h-3.5 w-3.5" /> Tanggal Transaksi
+                                    </Label>
+                                    <Input type="date"
+                                        value={transactionDate}
+                                        onChange={e => setTransactionDate(e.target.value)}
+                                        max={new Date().toISOString().split("T")[0]} />
+                                    {!transactionDate && (
+                                        <p className="text-[11px] text-slate-400">Kosongkan = hari ini</p>
+                                    )}
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Nama Petugas Cuci (Washer)</Label>
-                                <Input placeholder="Untuk perhitungan komisi..."
-                                    value={washerName} onChange={e => setWasherName(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">
-                                    <CalendarDays className="h-3.5 w-3.5" /> Tanggal Transaksi
-                                </Label>
-                                <Input type="date"
-                                    value={transactionDate}
-                                    onChange={e => setTransactionDate(e.target.value)}
-                                    max={new Date().toISOString().split("T")[0]} />
-                                {!transactionDate && (
-                                    <p className="text-[11px] text-slate-400">Kosongkan = hari ini</p>
-                                )}
-                            </div>
+                            {phoneDigits.length >= 8 && (
+                                customerLookupInfo ? (
+                                    <div className="flex items-start gap-2.5 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900">
+                                        <User className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
+                                        <div>
+                                            <p className="font-semibold">
+                                                Pelanggan lama{customerLookupInfo.name ? `: ${customerLookupInfo.name}` : ""}
+                                                <span className="ml-2 font-normal text-blue-700">{customerLookupInfo.visitCount}× pernah cuci di sini</span>
+                                            </p>
+                                            <p className="text-xs text-blue-700 mt-0.5">
+                                                Terakhir {new Date(customerLookupInfo.lastVisit).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                                {customerLookupInfo.plates.length > 0 && ` • plat: ${customerLookupInfo.plates.join(", ")}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : !isLookingUpCustomer ? (
+                                    <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                        <User className="h-3.5 w-3.5" /> Belum pernah tercatat — pelanggan baru. Isi nama agar tersimpan di riwayat.
+                                    </p>
+                                ) : null
+                            )}
                         </CardContent>
                     </Card>
 
