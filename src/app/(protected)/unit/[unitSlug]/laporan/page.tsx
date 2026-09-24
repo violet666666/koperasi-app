@@ -1655,22 +1655,6 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         )}
                                         {!isCuciMobil && (
                                             <>
-                                                {usesStoreSales && summary.totalHPP > 0 && (
-                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
-                                                        <TableCell colSpan={6} className="text-right">TOTAL HPP (HARGA POKOK PENJUALAN)</TableCell>
-                                                        <TableCell className="text-right tabular-nums text-red-600">
-                                                            ({formatCurrency(summary.totalHPP)})
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {usesStoreSales && summary.totalWriteOff > 0 && (
-                                                    <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
-                                                        <TableCell colSpan={6} className="text-right">WRITE-OFF STOK</TableCell>
-                                                        <TableCell className="text-right tabular-nums text-red-600">
-                                                            ({formatCurrency(summary.totalWriteOff)})
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
                                                 {summary.totalPengeluaran > 0 && (
                                                     <TableRow className="bg-red-50/50 font-medium text-red-700 print:break-inside-avoid">
                                                         <TableCell colSpan={6} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
@@ -1806,18 +1790,6 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             )}
                             {!isCuciMobil && (
                                 <>
-                                    {usesStoreSales && summary.totalHPP > 0 && (
-                                        <tr className="text-red-800">
-                                            <td className="py-1 text-right pr-4">TOTAL HPP (HARGA POKOK PENJUALAN)</td>
-                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalHPP)})</td>
-                                        </tr>
-                                    )}
-                                    {usesStoreSales && summary.totalWriteOff > 0 && (
-                                        <tr className="text-red-800">
-                                            <td className="py-1 text-right pr-4">WRITE-OFF STOK</td>
-                                            <td className="py-1 text-right tabular-nums">({formatCurrency(summary.totalWriteOff)})</td>
-                                        </tr>
-                                    )}
                                     {summary.totalPengeluaran > 0 && (
                                         <tr className="text-red-800">
                                             <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
