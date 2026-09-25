@@ -86,6 +86,8 @@ export default function TokoProdukPage() {
     const [products, setProducts] = React.useState<Product[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState("");
+    // Debounce 300ms — jangan fetch per keystroke (pola sama dgn riwayat)
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
     const [totalProducts, setTotalProducts] = React.useState(0);
     const [page, setPage] = React.useState(1);
     const [apiStats, setApiStats] = React.useState<{ totalProducts: number; totalStock: number; totalValue: number; outOfStock: number; lowStock: number } | null>(null);
@@ -384,11 +386,17 @@ export default function TokoProdukPage() {
         return { total, totalStock, outOfStock, totalValue };
     }, [apiStats, products, totalProducts]);
 
+    // Debounce search input → fetch
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     // Fetch
     const fetchProducts = React.useCallback(async () => {
         try {
             const params = new URLSearchParams({ unitType: productUnitType, page: String(page), perPage: String(perPage) });
-            if (searchQuery) params.set("search", searchQuery);
+            if (debouncedSearch) params.set("search", debouncedSearch);
             if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
             const res = await fetch(`/api/toko/products?${params}`);
             if (!res.ok) throw new Error('Failed');
@@ -399,7 +407,7 @@ export default function TokoProdukPage() {
         } catch (error) {
             console.error("Failed to fetch products:", error);
         }
-    }, [productUnitType, page, searchQuery, filterCategory]);
+    }, [productUnitType, page, debouncedSearch, filterCategory]);
 
     React.useEffect(() => {
         setIsLoading(true);
@@ -415,7 +423,7 @@ export default function TokoProdukPage() {
     // Reset page when filters change
     React.useEffect(() => {
         setPage(1);
-    }, [searchQuery, filterCategory, filterStatus]);
+    }, [debouncedSearch, filterCategory, filterStatus]);
 
     // Export semua produk ke Excel — tanpa page/perPage, API balikin semua row (tanpa cap 200).
     // Mengikuti filter pencarian & kategori yang sedang aktif.
@@ -424,7 +432,7 @@ export default function TokoProdukPage() {
         setIsExporting(true);
         try {
             const params = new URLSearchParams({ unitType: productUnitType });
-            if (searchQuery) params.set("search", searchQuery);
+            if (debouncedSearch) params.set("search", debouncedSearch);
             if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
             const res = await fetch(`/api/toko/products?${params}`);
             if (!res.ok) throw new Error("Failed");

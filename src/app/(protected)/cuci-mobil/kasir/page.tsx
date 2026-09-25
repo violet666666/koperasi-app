@@ -359,7 +359,7 @@ export default function CuciMobilKasirPage() {
                             </div>
                             {lookupQuery && (
                                 customerLookupInfo ? (
-                                    <div className="flex items-start gap-2.5 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900">
+                                    <div aria-live="polite" className="flex items-start gap-2.5 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900">
                                         <User className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
                                         <div className="space-y-1.5">
                                             <p className="font-semibold">
@@ -500,7 +500,7 @@ export default function CuciMobilKasirPage() {
                                 <Input type="number" placeholder="Input uang cash..." value={paymentAmount}
                                     onChange={e => setPaymentAmount(e.target.value)} className="text-lg font-mono text-right border-slate-300" />
                                 {Number(paymentAmount) >= subtotal && subtotal > 0 && (
-                                    <p className="text-sm font-semibold text-emerald-600 text-right bg-emerald-50 p-2 rounded-md">
+                                    <p aria-live="polite" className="text-sm font-semibold text-emerald-600 text-right bg-emerald-50 p-2 rounded-md">
                                         Kembalian: {formatCurrency(change)}
                                     </p>
                                 )}

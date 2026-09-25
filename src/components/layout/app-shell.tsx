@@ -50,7 +50,7 @@ export function AppShell({
             {/* Main Content Area */}
             <div
                 className={cn(
-                    "flex flex-1 flex-col print:!pl-0",
+                    "flex min-w-0 flex-1 flex-col print:!pl-0",
                     sidebarCollapsed ? "lg:pl-16" : "lg:pl-64",
                     "transition-all duration-300"
                 )}
