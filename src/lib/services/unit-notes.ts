@@ -31,3 +31,20 @@ export function extractNoteTag(notes: string | null | undefined, tag: NoteTag): 
     const m = notes?.match(new RegExp(`\\[${tag}:([^\\]]*)\\]`));
     return m?.[1]?.trim() || null;
 }
+
+export type LookupMode = "phone" | "plate";
+
+/** Deteksi mode pencarian pelanggan: >= 8 digit → phone; ada huruf → plate (uppercase). */
+export function detectLookupQuery(raw: unknown): { mode: LookupMode; value: string } | null {
+    const q = String(raw ?? "").trim();
+    if (!q) return null;
+    const compact = q.replace(/[\s\-+.]/g, "");
+    const digits = normalizePhone(q);
+    if (/^\d+$/.test(compact)) {
+        // digit murni: phone valid atau ambigu (terlalu pendek) — jangan diperlakukan sbg plat
+        return digits.length >= 8 ? { mode: "phone", value: digits } : null;
+    }
+    const plate = q.toUpperCase();
+    if (plate.replace(/[^A-Z0-9]/g, "").length >= 3) return { mode: "plate", value: plate };
+    return null;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildUnitNotes, extractNoteTag, normalizePhone } from "../lib/services/unit-notes";
+import { buildUnitNotes, extractNoteTag, normalizePhone, detectLookupQuery } from "../lib/services/unit-notes";
 
 describe("unit-notes", () => {
     it("buildUnitNotes gabung PLAT+HP+NAMA; plat di-uppercase, phone digits-only", () => {
@@ -28,5 +28,21 @@ describe("unit-notes", () => {
     it("normalizePhone buang semua non-digit", () => {
         expect(normalizePhone("+62 812-3456.7890 w/a")).toBe("6281234567890");
         expect(normalizePhone(undefined)).toBe("");
+    });
+
+    describe("detectLookupQuery", () => {
+        it(">= 8 digit (dengan spasi/strip) → mode phone", () => {
+            expect(detectLookupQuery("0812-3456-7890")).toEqual({ mode: "phone", value: "081234567890" });
+            expect(detectLookupQuery("6281234567890")).toEqual({ mode: "phone", value: "6281234567890" });
+        });
+        it("ada huruf → mode plate, di-uppercase", () => {
+            expect(detectLookupQuery("n 1234 xy")).toEqual({ mode: "plate", value: "N 1234 XY" });
+            expect(detectLookupQuery("B9999ZZ")).toEqual({ mode: "plate", value: "B9999ZZ" });
+        });
+        it("terlalu pendek / kosong / digit < 8 → null", () => {
+            expect(detectLookupQuery("")).toBeNull();
+            expect(detectLookupQuery("12")).toBeNull();
+            expect(detectLookupQuery("1234567")).toBeNull();
+        });
     });
 });

@@ -12,13 +12,14 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Car, Search, Droplets, Banknote, CreditCard, Receipt, Loader2, Maximize, AlertTriangle, ShieldAlert, ShieldCheck, User, Trash2, Plus, Minus, X, CalendarDays } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
+import { detectLookupQuery } from "@/lib/services/unit-notes";
 import { generateRawText, ReceiptPrimkopol, type ReceiptData } from "@/components/patterns/receipt-primkopol";
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; }
 interface CartItem { product: Product; quantity: number; }
 interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
-interface CustomerLookup { phone: string; name: string | null; visitCount: number; lastVisit: string; plates: string[]; }
+interface CustomerLookup { mode: "phone" | "plate"; phone: string | null; name: string | null; visitCount: number; lastVisit: string; plates: string[]; }
 
 export default function CuciMobilKasirPage() {
     const [products, setProducts] = React.useState<Product[]>([]);
@@ -126,14 +127,16 @@ export default function CuciMobilKasirPage() {
         return () => clearTimeout(timer);
     }, [customerQuery, selectedCustomerObj]);
 
-    // Cari pelanggan lama saat no. HP diketik (≥ 8 digit, debounce 400ms)
-    const phoneDigits = customerPhone.replace(/\D/g, "");
+    // Cari pelanggan lama saat no. HP (≥ 8 digit) ATAU plat (ada huruf) diketik — debounce 400ms
+    const lookupQuery = detectLookupQuery(customerPhone);
+    const lookupMode = lookupQuery?.mode ?? null;
+    const lookupValue = lookupQuery?.value ?? null;
     React.useEffect(() => {
-        if (phoneDigits.length < 8) { setCustomerLookupInfo(null); return; }
+        if (!lookupMode || !lookupValue) { setCustomerLookupInfo(null); return; }
         const timer = setTimeout(async () => {
             setIsLookingUpCustomer(true);
             try {
-                const res = await fetch(`/api/unit-layanan/customer-lookup?phone=${phoneDigits}`);
+                const res = await fetch(`/api/unit-layanan/customer-lookup?q=${encodeURIComponent(lookupValue)}`);
                 const json = await res.json();
                 if (res.ok) {
                     setCustomerLookupInfo(json.data);
@@ -144,7 +147,7 @@ export default function CuciMobilKasirPage() {
             finally { setIsLookingUpCustomer(false); }
         }, 400);
         return () => clearTimeout(timer);
-    }, [phoneDigits]);
+    }, [lookupMode, lookupValue]);
 
     React.useEffect(() => {
         async function fetchProducts() {            setIsLoading(true);
@@ -243,7 +246,9 @@ export default function CuciMobilKasirPage() {
                 description: desc,
                 customerName: walkInName.trim() || vehiclePlate || "Walk-in",
                 vehiclePlate,
-                customerPhone: customerPhone.replace(/\D/g, "") || undefined,
+                // Cari via plat → field berisi plat; pakai HP pemilik hasil lookup agar tetap tersimpan
+                customerPhone: (lookupQuery?.mode === "plate" ? customerLookupInfo?.phone : null)
+                    || customerPhone.replace(/\D/g, "") || undefined,
             };
 
             // memberId: potong gaji WAJIB punya member, tunai/QRIS opsional
@@ -323,10 +328,10 @@ export default function CuciMobilKasirPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-1.5">
-                                        No. HP Pelanggan
+                                        Cari Pelanggan — No. HP atau Plat
                                         {isLookingUpCustomer && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
                                     </Label>
-                                    <Input placeholder="08xx… — cek pelanggan lama" inputMode="numeric"
+                                    <Input placeholder="08xx… atau N 1234 XY — cek pelanggan lama"
                                         value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
                                 </div>
                                 <div className="space-y-2">
@@ -352,24 +357,39 @@ export default function CuciMobilKasirPage() {
                                     )}
                                 </div>
                             </div>
-                            {phoneDigits.length >= 8 && (
+                            {lookupQuery && (
                                 customerLookupInfo ? (
                                     <div className="flex items-start gap-2.5 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900">
                                         <User className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
-                                        <div>
+                                        <div className="space-y-1.5">
                                             <p className="font-semibold">
                                                 Pelanggan lama{customerLookupInfo.name ? `: ${customerLookupInfo.name}` : ""}
                                                 <span className="ml-2 font-normal text-blue-700">{customerLookupInfo.visitCount}× pernah cuci di sini</span>
                                             </p>
-                                            <p className="text-xs text-blue-700 mt-0.5">
-                                                Terakhir {new Date(customerLookupInfo.lastVisit).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                                {customerLookupInfo.plates.length > 0 && ` • plat: ${customerLookupInfo.plates.join(", ")}`}
-                                            </p>
+                                            {customerLookupInfo.phone && (
+                                                <p className="text-xs text-blue-700">
+                                                    HP/WA: <span className="font-mono font-semibold">{customerLookupInfo.phone}</span>
+                                                    {" • "}terakhir {new Date(customerLookupInfo.lastVisit).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                                </p>
+                                            )}
+                                            {customerLookupInfo.plates.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                                    {customerLookupInfo.plates.map(p => (
+                                                        <button key={p} type="button" onClick={() => setVehiclePlate(p)}
+                                                            className="rounded-md border border-blue-300 bg-white px-2 py-1 font-mono text-xs font-semibold tracking-wide text-blue-800 transition-colors hover:bg-blue-100 active:bg-blue-200">
+                                                            {p}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ) : !isLookingUpCustomer ? (
                                     <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                                        <User className="h-3.5 w-3.5" /> Belum pernah tercatat — pelanggan baru. Isi nama agar tersimpan di riwayat.
+                                        <User className="h-3.5 w-3.5" />
+                                        {lookupQuery.mode === "phone"
+                                            ? "Belum pernah tercatat — pelanggan baru. Isi nama agar tersimpan di riwayat."
+                                            : "Plat belum pernah tercatat — kendaraan/pelanggan baru."}
                                     </p>
                                 ) : null
                             )}

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { extractNoteTag, normalizePhone } from "@/lib/services/unit-notes";
+import { extractNoteTag, detectLookupQuery } from "@/lib/services/unit-notes";
 
-// GET /api/unit-layanan/customer-lookup?phone=08123456
-// Cari pelanggan cuci mobil berdasarkan no. HP (prefix-match, min 8 digit).
-// Sumber: UnitTransaction.notes tag [HP:] — tanpa tabel/model baru.
+// GET /api/unit-layanan/customer-lookup?q=08123456|N 1234 XY
+// Cari pelanggan cuci mobil dua arah:
+// - No. HP (>= 8 digit, prefix-match) → nama, SEMUA plat, jumlah kunjungan, terakhir
+// - No. plat → pemilik (nama + no. HP) dari transaksi terakhir yang memakai plat itu
+// Sumber: UnitTransaction.notes tag [HP:]/[PLAT:]/[NAMA:] — tanpa tabel/model baru.
 export async function GET(request: Request) {
     try {
         const session = await auth();
@@ -18,40 +20,44 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const phone = normalizePhone(searchParams.get("phone"));
-        if (phone.length < 8) {
+        const parsed = detectLookupQuery(searchParams.get("q") ?? searchParams.get("phone"));
+        if (!parsed) {
             return NextResponse.json({ data: null });
         }
 
-        // Prefix-match: `[HP:0812` cocok utk [HP:081234567890] — memungkinkan suggest saat mengetik.
         const rows = await prisma.unitTransaction.findMany({
             where: {
                 unitType: "cuci_mobil",
                 status: { not: "voided" },
-                notes: { contains: `[HP:${phone}` },
+                notes: parsed.mode === "phone"
+                    ? { contains: `[HP:${parsed.value}` } // prefix-match utk suggest sambil mengetik
+                    : { contains: `[PLAT:${parsed.value}]` },
             },
             orderBy: { createdAt: "desc" },
             take: 500,
-            select: { notes: true, transactionDate: true, createdAt: true },
+            select: { notes: true, transactionDate: true },
         });
 
         if (rows.length === 0) {
             return NextResponse.json({ data: null });
         }
 
-        // Ambil no. HP lengkap dari baris terbaru (input bisa prefix).
-        const fullPhone = extractNoteTag(rows[0].notes, "HP") || phone;
+        // Identitas pelanggan diambil dari baris terbaru yang punya tag lengkap
+        const phone = parsed.mode === "phone" ? (extractNoteTag(rows[0].notes, "HP") || parsed.value)
+            : rows.map(r => extractNoteTag(r.notes, "HP")).find(Boolean) || null;
         const name = rows.map(r => extractNoteTag(r.notes, "NAMA")).find(Boolean) || null;
+
         const plates: string[] = [];
         for (const r of rows) {
             const p = extractNoteTag(r.notes, "PLAT");
             if (p && !plates.includes(p)) plates.push(p);
-            if (plates.length >= 3) break;
+            if (plates.length >= 10) break;
         }
 
         return NextResponse.json({
             data: {
-                phone: fullPhone,
+                mode: parsed.mode,
+                phone,
                 name,
                 visitCount: rows.length,
                 lastVisit: rows[0].transactionDate,
