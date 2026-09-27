@@ -102,7 +102,9 @@ export async function GET(request: Request) {
                 description: s.items?.map((i: any) => `${i.product?.name || "[Produk Dihapus]"} x${i.quantity}`).join(', ') || `Pembelian ${s.unitType || "Toko"}`,
                 transactionDate: s.createdAt,
                 createdAt: s.createdAt.toISOString(),
-                isPaid: s.paymentMethod !== "salary_cut",
+                // Potong-gaji lunas bila billing process sudah settle (metadata.isSettled)
+                // — sama dengan web /api/member-portal/transactions.
+                isPaid: s.paymentMethod !== "salary_cut" || s.metadata?.isSettled === true,
                 status: "completed",
                 paymentMethod: s.paymentMethod,
                 paymentMethodLabel: paymentLabels[s.paymentMethod] || s.paymentMethod,
