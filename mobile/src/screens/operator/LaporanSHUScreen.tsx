@@ -33,17 +33,25 @@ export default function LaporanSHUScreen({ navigation }: any) {
   // 0 = Semua Bulan, 1-12 = specific month
   const [selectedMonth, setSelectedMonth] = useState(0);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  // Detail pendapatan Simpan Pinjam (jasa, penalti pelunasan, dana resiko, denda)
+  const [spIncome, setSpIncome] = useState<any>(null);
+  const [showSpDetail, setShowSpDetail] = useState(false);
 
   const fetchSHU = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number> = { year: selectedYear };
       if (selectedMonth > 0) params.month = selectedMonth;
-      const res = await api.get(`/api/mobile/reports/shu-calculator`, { params });
-      setData(res.data.data);
+      const [shuRes, spRes] = await Promise.all([
+        api.get(`/api/mobile/reports/shu-calculator`, { params }),
+        api.get(`/api/mobile/reports/sp-income`, { params }).catch(() => null),
+      ]);
+      setData(shuRes.data.data);
+      setSpIncome(spRes?.data?.data || null);
     } catch (error) {
       log.warn("Error fetching shu:", error);
       setData(null);
+      setSpIncome(null);
     } finally {
       setLoading(false);
     }
@@ -223,6 +231,75 @@ export default function LaporanSHUScreen({ navigation }: any) {
                     <Text style={[styles.detailAmount, { color: "#10B981" }]}>{formatRupiah(item.amount)}</Text>
                   </View>
                 ))}
+              </View>
+            )}
+
+            {/* Detail Pendapatan Simpan Pinjam */}
+            {spIncome?.totals?.total > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🏦 Detail Pendapatan Simpan Pinjam</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Jasa Pinjaman (Bunga)</Text>
+                  <Text style={[styles.detailAmount, { color: "#10B981" }]}>{formatRupiah(spIncome.totals.jasa)}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Penalti Pelunasan Dipercepat</Text>
+                  <Text style={[styles.detailAmount, { color: "#10B981" }]}>{formatRupiah(spIncome.totals.penaltiPelunasan)}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Denda Keterlambatan</Text>
+                  <Text style={[styles.detailAmount, { color: "#10B981" }]}>{formatRupiah(spIncome.totals.denda)}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Dana Resiko (Admin Fee)</Text>
+                  <Text style={[styles.detailAmount, { color: "#10B981" }]}>{formatRupiah(spIncome.totals.danaResiko)}</Text>
+                </View>
+                <View style={[styles.detailRow, { borderTopWidth: 1, borderTopColor: "#e2e8f0", marginTop: 4, paddingTop: 8 }]}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#1e293b" }}>Total</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: C.primary }}>{formatRupiah(spIncome.totals.total)}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.spToggle}
+                  onPress={() => setShowSpDetail(v => !v)}
+                >
+                  <Text style={styles.spToggleText}>
+                    {showSpDetail ? "Sembunyikan" : "Lihat"} rincian transaksi ({spIncome.payments?.length || 0} angsuran, {spIncome.disbursements?.length || 0} pencairan)
+                  </Text>
+                  <Ionicons name={showSpDetail ? "chevron-up" : "chevron-down"} size={14} color={C.primary} />
+                </TouchableOpacity>
+
+                {showSpDetail && (
+                  <>
+                    {(spIncome.payments || []).map((p: any) => {
+                      const extra = (p.penaltiPelunasan || 0) + (p.denda || 0);
+                      if (!p.jasa && !extra) return null;
+                      return (
+                        <View key={`p-${p.id}`} style={styles.spRow}>
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.spName} numberOfLines={1}>{p.memberName}</Text>
+                            <Text style={styles.spMeta} numberOfLines={1}>
+                              {new Date(p.paymentDate).toLocaleDateString("id-ID")} · {p.loanNo}
+                              {p.paymentType === "early_settlement" ? " · pelunasan" : ""}
+                            </Text>
+                          </View>
+                          <Text style={styles.spAmount}>{formatRupiah(p.jasa + extra)}</Text>
+                        </View>
+                      );
+                    })}
+                    {(spIncome.disbursements || []).map((l: any) => (
+                      <View key={`l-${l.id}`} style={styles.spRow}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.spName} numberOfLines={1}>{l.memberName}</Text>
+                          <Text style={styles.spMeta} numberOfLines={1}>
+                            {new Date(l.disbursementDate).toLocaleDateString("id-ID")} · {l.loanNo} · dana resiko
+                          </Text>
+                        </View>
+                        <Text style={styles.spAmount}>{formatRupiah(l.danaResiko)}</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
               </View>
             )}
 
@@ -408,6 +485,18 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   detailLabel: { fontSize: 13, color: "#64748b", flex: 1, marginRight: 8 },
   detailAmount: { fontSize: 13, fontWeight: "600" },
+  spToggle: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
+    marginTop: 10, paddingVertical: 8, borderRadius: 8, backgroundColor: "#eff6ff",
+  },
+  spToggleText: { fontSize: 12, fontWeight: "600", color: C.primary },
+  spRow: {
+    flexDirection: "row", alignItems: "center", paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
+  },
+  spName: { fontSize: 13, fontWeight: "600", color: "#1e293b" },
+  spMeta: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
+  spAmount: { fontSize: 12, fontWeight: "700", color: "#10B981" },
 
   allocationCard: {
     backgroundColor: "#FFF",

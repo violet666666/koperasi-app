@@ -34,8 +34,11 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ message: 'Period tidak ditemukan' }, { status: 404 });
     }
 
-    const marked = period.billingItems.filter(i => i.isPaid).length;
-    const unpaid = period.billingItems.filter(i => !i.isPaid).length;
+    // BillingItem tidak punya kolom `isPaid` — field-nya `isMarkedPaid`.
+    // (Bug: dulu filter/map pakai i.isPaid → selalu undefined → mobile tak
+    // pernah menampilkan status lunas meski sudah diceklist di web /tagihan.)
+    const marked = period.billingItems.filter(i => i.isMarkedPaid).length;
+    const unpaid = period.billingItems.filter(i => !i.isMarkedPaid).length;
 
     return NextResponse.json({
       data: {
@@ -56,7 +59,8 @@ export async function GET(request: Request, { params }: Params) {
           memberName: item.memberName,
           unitType: item.unitType,
           amount: Number(item.amount),
-          isPaid: item.isPaid,
+          isPaid: item.isMarkedPaid,
+          isMarkedPaid: item.isMarkedPaid,
           paidAt: item.paidAt?.toISOString(),
           paidById: item.paidById ?? null,
         })),

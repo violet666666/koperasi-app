@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
@@ -13,6 +13,21 @@ const GREEN = '#16A34A';
 const GRAY = '#94A3B8';
 
 const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+
+type BillingItem = {
+  id: number;
+  memberId: number;
+  memberName: string;
+  unitType: string | null;
+  amount: number;
+  isPaid: boolean;
+  paidAt: string | null;
+};
+
+type PeriodDetail = {
+  period: { id: number; periodLabel: string; status: string; totalAmount: number; totalMembers: number };
+  items: BillingItem[];
+};
 
 type BillingPeriod = {
   id: number;
@@ -36,6 +51,7 @@ export default function TagihanScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [detailLoading, setDetailLoading] = useState<number | null>(null);
+  const [detail, setDetail] = useState<PeriodDetail | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -62,18 +78,7 @@ export default function TagihanScreen({ navigation }: any) {
     setDetailLoading(periodId);
     try {
       const res = await api.get(`/api/mobile/billing/${periodId}`);
-      const d = res.data.data;
-      const period = d.period;
-      const items = d.items || [];
-      const marked = items.filter((i: any) => i.isPaid).length;
-      const unpaid = items.filter((i: any) => !i.isPaid).length;
-      Alert.alert(
-        `Periode: ${period.periodLabel}`,
-        `Status: ${period.status}\nTotal: ${formatRp(period.totalAmount)}\n` +
-        `Anggota: ${period.totalMembers}\n` +
-        `Lunas: ${marked} | Belum: ${unpaid}`,
-        [{ text: 'OK' }],
-      );
+      setDetail(res.data.data || null);
     } catch (err) {
       log.error('Failed to load period detail:', err);
       Alert.alert('Error', 'Gagal memuat detail periode');
@@ -81,6 +86,20 @@ export default function TagihanScreen({ navigation }: any) {
       setDetailLoading(null);
     }
   };
+
+  const renderDetailItem = ({ item }: { item: BillingItem }) => (
+    <View style={styles.detailItemRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.detailItemName} numberOfLines={1}>{item.memberName || `Anggota #${item.memberId}`}</Text>
+        <Text style={styles.detailItemMeta} numberOfLines={1}>
+          {item.unitType ? item.unitType.replace(/_/g, ' ') : 'umum'} · {formatRp(item.amount)}
+        </Text>
+      </View>
+      <View style={[styles.badge, { backgroundColor: item.isPaid ? GREEN : GRAY }]}>
+        <Text style={styles.badgeText}>{item.isPaid ? 'Lunas' : 'Belum'}</Text>
+      </View>
+    </View>
+  );
 
   const statusBadge = (status: string) =>
     status === 'processed'
@@ -212,6 +231,39 @@ export default function TagihanScreen({ navigation }: any) {
           </View>
         }
       />
+
+      {/* Detail periode — daftar item + status ceklist lunas */}
+      <Modal
+        visible={!!detail}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDetail(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {detail ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{detail.period.periodLabel}</Text>
+                  <TouchableOpacity onPress={() => setDetail(null)}>
+                    <Ionicons name="close" size={24} color={C.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.modalMeta}>
+                  Total {formatRp(detail.period.totalAmount)} ·{' '}
+                  {detail.items.filter((i) => i.isPaid).length}/{detail.items.length} lunas
+                </Text>
+                <FlatList
+                  data={detail.items}
+                  keyExtractor={(i) => String(i.id)}
+                  renderItem={renderDetailItem}
+                  contentContainerStyle={{ paddingBottom: 16 }}
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -256,4 +308,15 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
   cardFooter: { fontSize: 11, color: C.mutedForeground },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: C.foreground, flex: 1, marginRight: 12 },
+  modalMeta: { fontSize: 12, color: C.mutedForeground, marginBottom: 12 },
+  detailItemRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  detailItemName: { fontSize: 14, fontWeight: '600', color: C.foreground },
+  detailItemMeta: { fontSize: 12, color: C.mutedForeground, marginTop: 2 },
 });
