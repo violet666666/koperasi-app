@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -75,7 +76,6 @@ const PER_PAGE = 50;
 
 // --- helpers --------------------------------------------------------------
 
-const formatRp = (n: number) => 'Rp ' + (Number(n || 0)).toLocaleString('id-ID');
 
 const formatDate = (d: string | Date | null | undefined) => {
   if (!d) return '-';

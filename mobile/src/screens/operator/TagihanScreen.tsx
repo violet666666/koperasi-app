@@ -1,18 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
-  ActivityIndicator, RefreshControl, Alert, Modal,
+  ActivityIndicator, RefreshControl, Alert, Modal, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import C from '../../lib/colors';
+import { formatRp, unitLabel } from '../../lib/constants';
 import { log } from '../../utils/log';
-
-const AMBER = '#F59E0B';
-const GREEN = '#16A34A';
-const GRAY = '#94A3B8';
-
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 type BillingItem = {
   id: number;
@@ -52,8 +47,16 @@ export default function TagihanScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [detailLoading, setDetailLoading] = useState<number | null>(null);
   const [detail, setDetail] = useState<PeriodDetail | null>(null);
+  // Gagal load ≠ data kosong — tampilkan error + retry, bukan list hampa.
+  const [listError, setListError] = useState(false);
+  const [detailError, setDetailError] = useState(false);
+  // Modal detail: cari anggota + filter belum, toggle tandai lunas (draft-only)
+  const [search, setSearch] = useState('');
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
+    setListError(false);
     try {
       const [curRes, riwayatRes] = await Promise.all([
         api.get('/api/mobile/billing/current'),
@@ -64,6 +67,7 @@ export default function TagihanScreen({ navigation }: any) {
       setRiwayat(riwayatRes.data.data || []);
     } catch (err) {
       log.error('Failed to load tagihan:', err);
+      setListError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,39 +78,105 @@ export default function TagihanScreen({ navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
+  const openDetail = (periodId: number) => {
+    setSearch('');
+    setShowUnpaidOnly(false);
+    setDetailError(false);
+    loadDetail(periodId);
+  };
+
   const loadDetail = async (periodId: number) => {
     setDetailLoading(periodId);
+    setDetailError(false);
     try {
       const res = await api.get(`/api/mobile/billing/${periodId}`);
       setDetail(res.data.data || null);
     } catch (err) {
       log.error('Failed to load period detail:', err);
-      Alert.alert('Error', 'Gagal memuat detail periode');
+      setDetailError(true);
     } finally {
       setDetailLoading(null);
     }
   };
 
-  const renderDetailItem = ({ item }: { item: BillingItem }) => (
-    <View style={styles.detailItemRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.detailItemName} numberOfLines={1}>{item.memberName || `Anggota #${item.memberId}`}</Text>
-        <Text style={styles.detailItemMeta} numberOfLines={1}>
-          {item.unitType ? item.unitType.replace(/_/g, ' ') : 'umum'} · {formatRp(item.amount)}
-        </Text>
+  const isDraft = detail?.period?.status === 'draft';
+
+  // Toggle isMarkedPaid — mirror web /tagihan (draft-only, di-enforce juga di server).
+  const toggleItem = (item: BillingItem) => {
+    const name = item.memberName || `Anggota #${item.memberId}`;
+    Alert.alert(
+      item.isPaid ? 'Batalkan Tanda Lunas' : 'Tandai Lunas',
+      item.isPaid ? `Batalkan tanda lunas ${name}?` : `Tandai lunas ${name}?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: item.isPaid ? 'Batalkan' : 'Tandai Lunas',
+          onPress: async () => {
+            if (!detail) return;
+            setTogglingId(item.id);
+            try {
+              const res = await api.post(
+                `/api/mobile/billing/${detail.period.id}/items/${item.id}/toggle`
+              );
+              const updated = res.data.data;
+              setDetail(prev => prev ? {
+                ...prev,
+                items: prev.items.map(i =>
+                  i.id === item.id
+                    ? { ...i, isPaid: !!updated.isMarkedPaid, paidAt: updated.paidAt || null }
+                    : i
+                ),
+              } : prev);
+            } catch (err) {
+              log.error('Failed to toggle billing item:', err);
+              Alert.alert('Error', 'Gagal menandai. Coba lagi.');
+            } finally {
+              setTogglingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderDetailItem = ({ item }: { item: BillingItem }) => {
+    const name = item.memberName || `Anggota #${item.memberId}`;
+    const badge = (
+      <View style={[styles.badge, { backgroundColor: item.isPaid ? C.success : C.warning }]}>
+        <Text style={styles.badgeText}>{item.isPaid ? 'Lunas' : 'Belum Lunas'}</Text>
       </View>
-      <View style={[styles.badge, { backgroundColor: item.isPaid ? GREEN : GRAY }]}>
-        <Text style={styles.badgeText}>{item.isPaid ? 'Lunas' : 'Belum'}</Text>
-      </View>
-    </View>
-  );
+    );
+    const body = (
+      <>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.detailItemName} numberOfLines={1}>{name}</Text>
+          <Text style={styles.detailItemMeta} numberOfLines={1}>
+            {item.unitType ? unitLabel(item.unitType) : 'umum'} · {formatRp(item.amount)}
+          </Text>
+        </View>
+        {togglingId === item.id ? <ActivityIndicator size="small" color={C.accent} /> : badge}
+      </>
+    );
+    if (!isDraft) return <View style={styles.detailItemRow}>{body}</View>;
+    return (
+      <TouchableOpacity
+        style={styles.detailItemRow}
+        activeOpacity={0.6}
+        disabled={togglingId === item.id}
+        onPress={() => toggleItem(item)}
+        accessibilityLabel={`Tandai lunas ${name}`}
+      >
+        {body}
+      </TouchableOpacity>
+    );
+  };
 
   const statusBadge = (status: string) =>
     status === 'processed'
-      ? { label: 'Selesai', bg: GREEN }
+      ? { label: 'Selesai', bg: C.success }
       : status === 'draft'
-      ? { label: 'Draft', bg: AMBER }
-      : { label: status, bg: GRAY };
+      ? { label: 'Draft', bg: C.warning }
+      : { label: status, bg: C.mutedForeground };
 
   const renderCurrentCard = () => {
     if (!current) return null;
@@ -115,7 +185,7 @@ export default function TagihanScreen({ navigation }: any) {
       <TouchableOpacity
         style={styles.currentCard}
         activeOpacity={0.7}
-        onPress={() => loadDetail(current.id)}
+        onPress={() => openDetail(current.id)}
       >
         <View style={styles.currentHeader}>
           <View>
@@ -141,7 +211,7 @@ export default function TagihanScreen({ navigation }: any) {
             <>
               <View style={styles.statDivider} />
               <View style={styles.currentStat}>
-                <Text style={[styles.currentStatValue, { color: AMBER }]}>{daysRemaining}</Text>
+                <Text style={[styles.currentStatValue, { color: C.warning }]}>{daysRemaining}</Text>
                 <Text style={styles.currentStatLabel}>Hari Lagi</Text>
               </View>
             </>
@@ -167,7 +237,7 @@ export default function TagihanScreen({ navigation }: any) {
         style={styles.card}
         activeOpacity={0.7}
         disabled={isLoading}
-        onPress={() => loadDetail(item.id)}
+        onPress={() => openDetail(item.id)}
       >
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
@@ -200,12 +270,44 @@ export default function TagihanScreen({ navigation }: any) {
     );
   }
 
+  // Gagal load total (tidak ada data lama utk ditampilkan) → error + retry
+  if (listError && !current && riwayat.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Ionicons name="cloud-offline-outline" size={48} color={C.mutedForeground} />
+        <Text style={{ color: C.mutedForeground, marginTop: 12, fontSize: 15, textAlign: 'center' }}>
+          Gagal memuat data. Periksa koneksi Anda.
+        </Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => { setLoading(true); loadData(); }}
+          accessibilityLabel="Coba lagi memuat data"
+        >
+          <Text style={styles.retryText}>Coba lagi</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Filter modal detail: cari nama + "Belum saja"
+  const filteredItems = (detail?.items || []).filter((i) => {
+    if (showUnpaidOnly && i.isPaid) return false;
+    const q = search.trim().toLowerCase();
+    if (q && !(i.memberName || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            accessibilityLabel="Kembali"
+          >
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 12 }}>
@@ -241,11 +343,28 @@ export default function TagihanScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {detail ? (
+            {detailError ? (
+              <View style={styles.modalError}>
+                <Ionicons name="cloud-offline-outline" size={40} color={C.mutedForeground} />
+                <Text style={styles.modalErrorText}>Gagal memuat detail periode</Text>
+                <TouchableOpacity
+                  style={styles.retryBtn}
+                  onPress={() => detail && loadDetail(detail.period.id)}
+                  accessibilityLabel="Coba lagi memuat detail periode"
+                >
+                  <Text style={styles.retryText}>Coba lagi</Text>
+                </TouchableOpacity>
+              </View>
+            ) : detail ? (
               <>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{detail.period.periodLabel}</Text>
-                  <TouchableOpacity onPress={() => setDetail(null)}>
+                  <TouchableOpacity
+                    onPress={() => setDetail(null)}
+                    style={styles.closeBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Tutup"
+                  >
                     <Ionicons name="close" size={24} color={C.mutedForeground} />
                   </TouchableOpacity>
                 </View>
@@ -253,14 +372,41 @@ export default function TagihanScreen({ navigation }: any) {
                   Total {formatRp(detail.period.totalAmount)} ·{' '}
                   {detail.items.filter((i) => i.isPaid).length}/{detail.items.length} lunas
                 </Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Cari nama anggota…"
+                  placeholderTextColor={C.mutedForeground}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                <TouchableOpacity
+                  style={[styles.modalChip, showUnpaidOnly && styles.modalChipActive]}
+                  onPress={() => setShowUnpaidOnly(v => !v)}
+                  accessibilityLabel="Filter hanya yang belum lunas"
+                >
+                  <Ionicons name="filter" size={13} color={showUnpaidOnly ? '#FFF' : C.primary} />
+                  <Text style={[styles.modalChipText, showUnpaidOnly && styles.modalChipTextActive]}>Belum saja</Text>
+                </TouchableOpacity>
+                {isDraft && (
+                  <Text style={styles.modalHint}>Ketuk item untuk menandai / membatalkan lunas</Text>
+                )}
                 <FlatList
-                  data={detail.items}
+                  data={filteredItems}
                   keyExtractor={(i) => String(i.id)}
                   renderItem={renderDetailItem}
                   contentContainerStyle={{ paddingBottom: 16 }}
+                  ListEmptyComponent={
+                    <Text style={{ color: C.mutedForeground, textAlign: 'center', paddingVertical: 24, fontSize: 13 }}>
+                      Tidak ada item yang cocok
+                    </Text>
+                  }
                 />
               </>
-            ) : null}
+            ) : (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={C.accent} />
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -275,7 +421,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
-  backBtn: { padding: 4 },
+  backBtn: { padding: 8, borderRadius: 8 },
   headerTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
   headerSub: { color: '#FFF', fontSize: 12, opacity: 0.7, marginTop: 2 },
   currentCard: {
@@ -312,7 +458,30 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: C.foreground, flex: 1, marginRight: 12 },
+  closeBtn: { padding: 8, borderRadius: 8 },
   modalMeta: { fontSize: 12, color: C.mutedForeground, marginBottom: 12 },
+  searchInput: {
+    backgroundColor: C.muted, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    fontSize: 13, color: C.foreground, marginBottom: 8,
+  },
+  modalChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+    backgroundColor: C.muted, borderWidth: 1, borderColor: 'transparent',
+    marginBottom: 4,
+  },
+  modalChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  modalChipText: { fontSize: 12, fontWeight: '600', color: C.primary },
+  modalChipTextActive: { color: '#FFF' },
+  modalHint: { fontSize: 11, color: C.mutedForeground, marginBottom: 8 },
+  modalError: { alignItems: 'center', paddingVertical: 40 },
+  modalErrorText: { fontSize: 14, color: C.mutedForeground, marginTop: 12, marginBottom: 4 },
+  modalLoading: { alignItems: 'center', paddingVertical: 40 },
+  retryBtn: {
+    marginTop: 16, backgroundColor: C.primary, borderRadius: 10,
+    paddingVertical: 10, paddingHorizontal: 24,
+  },
+  retryText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   detailItemRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: C.border,

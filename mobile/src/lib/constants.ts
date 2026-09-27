@@ -38,13 +38,33 @@ export function getMemberStatus(status: string) {
   return MEMBER_STATUS[status] || MEMBER_STATUS.active;
 }
 
+// Format mayoritas screen: signed (minus utk nilai negatif), NaN → 0.
+// Sebelumnya Math.abs — input yang pernah lewat sini selalu positif
+// (loan/savings amounts), jadi aman diubah ke signed.
 export const formatRp = (n: number | string) => {
   const num = typeof n === 'string' ? parseFloat(n) : n;
   if (isNaN(num)) return 'Rp 0';
-  return 'Rp ' + Math.abs(num).toLocaleString('id-ID');
+  return 'Rp ' + (num || 0).toLocaleString('id-ID');
 };
 
 export const formatDate = (d: string | null | undefined) => {
   if (!d) return '-';
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 };
+
+// ── Unit labels (canonical — mirror UNIT_LIST di LaporanUnitScreen / web UNIT_TYPES) ──
+export const UNIT_LABELS: Record<string, string> = {
+  toko: 'Toko',
+  cafe_lsp: 'Cafe LSP',
+  resto: 'Resto & Cafe',
+  cuci_mobil: 'Cuci Mobil',
+  barbershop: 'Barbershop',
+  fitness: 'Fitness',
+  playstation: 'Play Station',
+  fotocopy: 'Fotocopy',
+  laundry: 'Laundry',
+  haji_umrah: 'Haji & Umrah',
+};
+
+export const unitLabel = (key: string | null | undefined) =>
+  key ? UNIT_LABELS[key] || key.replace(/_/g, ' ') : '';

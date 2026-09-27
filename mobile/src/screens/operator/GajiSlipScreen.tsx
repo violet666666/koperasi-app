@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
@@ -8,7 +9,6 @@ import api from '../../lib/api';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function GajiSlipScreen({ route, navigation }: any) {
   const { periodId, periodName } = route?.params || {};

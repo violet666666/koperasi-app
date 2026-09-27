@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
@@ -50,7 +51,6 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: keyof typeof
   { value: 'lainnya', label: 'Lainnya', icon: 'ellipsis-horizontal-circle-outline' },
 ];
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 /** Today as YYYY-MM-DD (local), for the transactionDate default. */
 function todayISO(): string {

@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +7,6 @@ import api from '../../lib/api';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function AnggotaCardScreen({ navigation }: any) {
   const [data, setData] = useState<any>(null);

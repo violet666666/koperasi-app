@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
@@ -38,7 +39,6 @@ interface Application {
   rejectedAt: string | null;
 }
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 function statusBadge(status: string) {
   const map: Record<string, { bg: string; color: string; label: string }> = {

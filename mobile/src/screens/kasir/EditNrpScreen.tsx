@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
@@ -8,7 +9,6 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 interface SaleNoNrp {
   id: number;

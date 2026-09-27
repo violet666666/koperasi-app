@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
@@ -45,7 +46,6 @@ const paymentLabels: Record<string, string> = {
   qris: 'QRIS / E-Wallet',
 };
 
-const formatRp = (n: number) => 'Rp ' + Math.abs(n).toLocaleString('id-ID');
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 

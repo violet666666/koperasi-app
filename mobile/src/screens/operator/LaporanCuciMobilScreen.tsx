@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, FlatList, RefreshControl, StatusBar, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +38,6 @@ const PERIOD_FILTERS = [
   { key: 'month', label: 'Bulan Ini' },
 ];
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', {
   day: '2-digit', month: 'short', year: 'numeric'
 });

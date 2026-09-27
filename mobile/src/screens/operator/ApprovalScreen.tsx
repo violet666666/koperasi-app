@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
@@ -37,7 +38,6 @@ interface ApprovalItem {
   description?: string;
 }
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Label helpers ──────────────────────────────────────────────────────────
 function getRequestTypeLabel(type: RequestType): string {

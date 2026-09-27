@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
@@ -8,7 +9,6 @@ import api from '../../lib/api';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 const BULAN_LABEL = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];

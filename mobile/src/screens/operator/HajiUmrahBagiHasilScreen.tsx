@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
@@ -13,7 +14,6 @@ const GREEN = '#16A34A';
 const GRAY = '#94A3B8';
 const BLUE = '#0EA5E9';
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 type FilterChip = { label: string; value: string | null };
 const FILTER_CHIPS: FilterChip[] = [

@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TextInput, TouchableOpacity, Modal, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,6 @@ interface Product {
   costPrice?: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 export default function StokScreen({ navigation: navProp }: any) {
   const navHook = useNavigation<any>();

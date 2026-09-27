@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
@@ -71,7 +72,6 @@ type HajiUmrahTransaction = {
   createdBy: { id: number; name: string } | null;
 };
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 function formatDate(iso: string | null): string {
   if (!iso) return '-';

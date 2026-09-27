@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
@@ -62,7 +63,6 @@ type Member = {
   status: string;
 };
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 /** Validate YYYY-MM-DD (same check as HajiUmrahSetoranScreen). */
 function isValidISODate(s: string): boolean {

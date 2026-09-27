@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
@@ -8,7 +9,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import api from '../../lib/api';
 import C from '../../lib/colors';
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 interface Account {
   id: number;

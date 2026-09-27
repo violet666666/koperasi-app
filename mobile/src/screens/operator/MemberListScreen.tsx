@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,6 @@ interface Member {
   totalLoanOutstanding: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function MemberListScreen({ navigation: navProp }: any) {
   const navHook = useNavigation<any>();

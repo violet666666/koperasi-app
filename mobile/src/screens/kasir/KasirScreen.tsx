@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, StatusBar,
@@ -77,7 +78,6 @@ const PAPER_SIZES = [
 ] as const;
 type PaperSizeId = typeof PAPER_SIZES[number]['id'];
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function KasirScreen({ navigation: navProp }: any) {

@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -25,7 +26,6 @@ import { StorageManager } from '../../lib/storage';
 
 // --- helpers --------------------------------------------------------------
 
-const formatRp = (n: number) => 'Rp ' + (Number(n || 0)).toLocaleString('id-ID');
 
 const formatDate = (d: string | Date | null | undefined) => {
   if (!d) return '-';

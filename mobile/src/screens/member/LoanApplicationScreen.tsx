@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
@@ -27,7 +28,6 @@ interface Product {
   minTenor?: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 // ── Zod Schema (dibuat dinamis berdasarkan produk yang dipilih) ────────────
 const buildSchema = (product: Product | null) =>

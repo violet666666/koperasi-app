@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
@@ -40,7 +41,6 @@ interface CashBankAccount {
   currentBalance: number;
 }
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 // ── Zod Schema ─────────────────────────────────────────────────────────────
 const buildSchema = (product: Product | null, member: Member | null) =>

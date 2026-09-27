@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
@@ -10,7 +11,6 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { log } from '../../utils/log';
 
-const formatRp = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
 export default function SlipGajiScreen({ route, navigation }: any) {
   const { slipId, periodId } = route?.params || {};

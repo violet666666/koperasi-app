@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
@@ -10,7 +11,6 @@ import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
 import { log } from '../../utils/log';
 
-const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 const formatDate = (d: string) => new Date(d).toLocaleString('id-ID', {
   day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
 });

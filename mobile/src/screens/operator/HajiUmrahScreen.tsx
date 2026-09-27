@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar,
@@ -31,7 +32,6 @@ const FILTER_CHIPS: FilterChip[] = [
   { label: 'Umrah', value: 'tabungan_umrah' },
 ];
 
-const formatRp = (n: number) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
 export default function HajiUmrahScreen({ navigation }: any) {
   const [accounts, setAccounts] = useState<HajiUmrahAccount[]>([]);

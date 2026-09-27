@@ -1,3 +1,4 @@
+import { formatRp } from '../../lib/constants';
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -16,7 +17,6 @@ import { registerForPushNotificationsAsync } from "../../lib/notifications";
 import api from "../../lib/api";
 import C from "../../lib/colors";
 
-const formatRp = (n: number) => "Rp " + (n || 0).toLocaleString("id-ID");
 
 const CollapsibleSection = ({ title, children, defaultExpanded = false, icon }: { title: string, children: any, defaultExpanded?: boolean, icon: string }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
