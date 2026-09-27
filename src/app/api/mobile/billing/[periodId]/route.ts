@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: Params) {
           id: period.id,
           periodStart: period.periodStart?.toISOString(),
           periodEnd: period.periodEnd?.toISOString(),
-          periodLabel: period.periodLabel || `${period.periodStart?.getMonth()}/${period.periodStart?.getFullYear()}`,
+          periodLabel: period.periodLabel || `${(period.periodStart?.getMonth() ?? 0) + 1}/${period.periodStart?.getFullYear()}`,
           status: period.status,
           totalMembers: period.totalMembers ?? period.billingItems.length,
           totalAmount: Number(period.totalAmount ?? 0),
