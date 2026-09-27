@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, StatusBar, TextInput, TouchableOpacity, Modal, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import api from '../../lib/api';
 import { StorageManager } from '../../lib/storage';
 import C from '../../lib/colors';
@@ -28,6 +30,7 @@ export default function StokScreen({ navigation: navProp }: any) {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   // Stock-in modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -69,6 +72,42 @@ export default function StokScreen({ navigation: navProp }: any) {
 
   const onRefresh = async () => { setRefreshing(true); await loadData(search); setRefreshing(false); };
   const handleSearch = () => { loadData(search); };
+
+  // --- export CSV (client-side dari list yang sedang tampil, ikut filter cari) ---
+  const handleExportCsv = async () => {
+    if (products.length === 0) return;
+    setExporting(true);
+    try {
+      // Sanitasi formula injection + quote — konvensi sama dgn buildPiutangCSV (web).
+      const esc = (v: unknown) => {
+        const s = String(v ?? '');
+        if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
+      };
+      const header = ['SKU', 'Nama Produk', 'Kategori', 'Satuan', 'Harga Jual', 'HPP', 'Stok', 'Nilai Stok (HPP)'];
+      const rows = products.map((p) => [
+        p.sku, p.name, p.category, p.unit, p.price, p.costPrice ?? 0, p.stock,
+        (p.costPrice ?? 0) * p.stock,
+      ]);
+      const csv = [header, ...rows].map((r) => r.map(esc).join(',')).join('\n');
+      // SDK 55 expo-file-system: writeAsStringAsync deprecated — pakai File + Paths.
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const file = new File(Paths.cache, `stok-produk-${date}.csv`);
+      if (file.exists) file.delete();
+      file.write('﻿' + csv); // BOM agar Excel baca UTF-8
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', dialogTitle: 'Export Stok Produk' });
+      } else {
+        Alert.alert('Info', 'Fitur bagikan tidak tersedia di perangkat ini.');
+      }
+    } catch (err: any) {
+      log.error('Stok export error:', err);
+      Alert.alert('Gagal', err?.message || 'Export stok gagal');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openStockIn = (product: Product) => {
     setSelectedProduct(product);
@@ -144,6 +183,19 @@ export default function StokScreen({ navigation: navProp }: any) {
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
+          <TouchableOpacity
+            style={styles.searchBtn}
+            onPress={handleExportCsv}
+            disabled={exporting || loading || products.length === 0}
+            accessibilityLabel="Export stok ke CSV"
+            accessibilityRole="button"
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={C.primary} />
+            ) : (
+              <Ionicons name="download-outline" size={20} color={C.primary} />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
             <Ionicons name="search" size={20} color={C.primary} />
           </TouchableOpacity>

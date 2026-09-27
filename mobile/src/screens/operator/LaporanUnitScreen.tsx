@@ -154,6 +154,18 @@ type UnitLaporanOpsEntry = {
   paymentMethod: string | null;
 };
 
+// Laba per produk (harga jual − HPP) — mirror ProductProfitRow di
+// src/lib/services/product-profit.ts (helper sudah mengirimkannya).
+type ProductProfitRow = {
+  productId: number;
+  name: string;
+  qty: number;
+  omzet: number;
+  hpp: number;
+  laba: number;
+  margin: number;
+};
+
 type UnitLaporanResult = {
   unitType: string;
   unitSlug: string;
@@ -165,6 +177,7 @@ type UnitLaporanResult = {
   pagination: { page: number; perPage: number; total: number; totalPages: number };
   operationalExpenses: UnitLaporanOpsEntry[];
   operationalIncomes: UnitLaporanOpsEntry[];
+  productProfit?: ProductProfitRow[];
 };
 
 // --- component -----------------------------------------------------------
@@ -189,6 +202,7 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
   const [totalTx, setTotalTx] = useState(0);
   const [operationalExpenses, setOperationalExpenses] = useState<UnitLaporanOpsEntry[]>([]);
   const [operationalIncomes, setOperationalIncomes] = useState<UnitLaporanOpsEntry[]>([]);
+  const [productProfit, setProductProfit] = useState<ProductProfitRow[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -198,6 +212,7 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
   // Collapsible sections
   const [showExpenses, setShowExpenses] = useState(false);
   const [showIncomes, setShowIncomes] = useState(false);
+  const [showProductProfit, setShowProductProfit] = useState(false);
 
   // --- build query params for the current selection ---------------------
   const buildQuery = useCallback(
@@ -241,6 +256,7 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
           setTransactions(payload.transactions || []);
           setOperationalExpenses(payload.operationalExpenses || []);
           setOperationalIncomes(payload.operationalIncomes || []);
+          setProductProfit(payload.productProfit || []);
         } else {
           setTransactions((prev) => [...prev, ...(payload.transactions || [])]);
         }
@@ -253,6 +269,7 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
           setError(err?.message || 'Gagal memuat laporan unit.');
           setSummary(null);
           setTransactions([]);
+          setProductProfit([]);
         }
       } finally {
         if (mode === 'replace') setLoading(false);
@@ -432,7 +449,7 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
           <Text style={styles.sectionTitle}>Ringkasan</Text>
           <View style={styles.summaryGrid}>
             <SummaryCell label="Total Pendapatan" value={formatRp(summary.totalPendapatan)} color={C.primary} icon="trending-up" />
-            <SummaryCell label="Pengeluaran Ops" value={formatRp(summary.totalPengeluaran)} color={C.warning} icon="trending-down" />
+            <SummaryCell label="Pengeluaran" value={formatRp(summary.totalPengeluaran)} color={C.warning} icon="trending-down" />
             <SummaryCell label="Laba Bersih" value={formatRp(summary.laba)} color={C.success} icon="stats-chart" />
             <SummaryCell label="Jumlah Transaksi" value={String(summary.totalTransaksi)} color={C.info} icon="receipt" />
           </View>
@@ -540,12 +557,12 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
               <View style={styles.card}>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Total HPP</Text>
-                  <Text style={[styles.breakdownValue, { color: C.warning }]}>- {formatRp(summary.totalHPP)}</Text>
+                  <Text style={[styles.breakdownValue, { color: C.warning }]}>{formatRp(summary.totalHPP)}</Text>
                 </View>
                 {summary.totalWriteOff > 0 ? (
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Write-off Stock</Text>
-                    <Text style={[styles.breakdownValue, { color: C.destructive }]}>- {formatRp(summary.totalWriteOff)}</Text>
+                    <Text style={[styles.breakdownValue, { color: C.destructive }]}>{formatRp(summary.totalWriteOff)}</Text>
                   </View>
                 ) : null}
                 <View style={[styles.breakdownRow, { borderBottomWidth: 0 }]}>
@@ -555,6 +572,61 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
                   </Text>
                 </View>
               </View>
+
+              {/* Detail laba per produk (harga jual − HPP) */}
+              {productProfit.length > 0 ? (
+                <View style={{ marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={styles.collapseHeader}
+                    onPress={() => setShowProductProfit((v) => !v)}
+                  >
+                    <Text style={styles.sectionTitleInline}>
+                      Laba Bersih Penjualan per Produk ({productProfit.length})
+                    </Text>
+                    <Ionicons name={showProductProfit ? 'chevron-up' : 'chevron-down'} size={18} color={C.primary} />
+                  </TouchableOpacity>
+                  {showProductProfit ? (
+                    <View style={styles.card}>
+                      {productProfit.map((r) => (
+                        <View key={`pp-${r.productId}`} style={styles.ppRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.ppName} numberOfLines={2}>{r.name}</Text>
+                            <Text style={styles.ppQty}>{r.qty.toLocaleString('id-ID')} terjual</Text>
+                          </View>
+                          <View style={styles.ppNumbers}>
+                            <Text style={styles.ppLine}>Omzet  {formatRp(r.omzet)}</Text>
+                            <Text style={[styles.ppLine, { color: C.warning }]}>HPP  {formatRp(r.hpp)}</Text>
+                            <Text style={[styles.ppLaba, { color: r.laba >= 0 ? C.success : C.destructive }]}>
+                              Laba  {formatRp(r.laba)} ({(r.margin * 100).toFixed(1)}%)
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                      {(() => {
+                        const t = productProfit.reduce(
+                          (a, r) => ({ qty: a.qty + r.qty, omzet: a.omzet + r.omzet, hpp: a.hpp + r.hpp, laba: a.laba + r.laba }),
+                          { qty: 0, omzet: 0, hpp: 0, laba: 0 },
+                        );
+                        return (
+                          <View style={[styles.ppRow, styles.ppTotal]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.ppName}>TOTAL ({productProfit.length} produk)</Text>
+                              <Text style={styles.ppQty}>{t.qty.toLocaleString('id-ID')} terjual</Text>
+                            </View>
+                            <View style={styles.ppNumbers}>
+                              <Text style={[styles.ppLine, { fontWeight: 'bold' }]}>{formatRp(t.omzet)}</Text>
+                              <Text style={[styles.ppLine, { color: C.warning, fontWeight: 'bold' }]}>{formatRp(t.hpp)}</Text>
+                              <Text style={[styles.ppLaba, { color: t.laba >= 0 ? C.success : C.destructive }]}>
+                                {formatRp(t.laba)}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -836,6 +908,22 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   breakdownLabel: { flex: 1, fontSize: 13, color: C.foreground },
   breakdownValue: { fontSize: 13, fontWeight: '600', color: C.foreground },
+
+  // detail laba per produk (harga jual − HPP)
+  ppRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: C.border,
+  },
+  ppTotal: { borderBottomWidth: 0, backgroundColor: C.muted, borderRadius: 8, paddingHorizontal: 8 },
+  ppName: { fontSize: 13, fontWeight: '600', color: C.foreground },
+  ppQty: { fontSize: 11, color: C.mutedForeground, marginTop: 2 },
+  ppNumbers: { alignItems: 'flex-end', gap: 2 },
+  ppLine: { fontSize: 12, color: C.foreground, fontVariant: ['tabular-nums'] },
+  ppLaba: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   // transaction cards
   txCard: {
