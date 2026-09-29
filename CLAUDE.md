@@ -116,7 +116,7 @@ NODE_ENV           — development/production
 - **StoreSale** uses `saleNo`, `UnitTransaction` uses `transactionNo` for references
 - **`StoreSaleItem.subtotal` is the LINE TOTAL** (`unitPrice × quantity`), NOT a per-unit price — don't × `quantity` when summing omzet. `costPrice` IS per-unit (×qty for HPP). `StoreSale.totalAmount` = Σ subtotal + takeaway surcharge.
 - Column names are `snake_case` in DB (`@map`) but `camelCase` in Prisma models
-- `StoreSale.metadata` is JSON — void check uses `NOT: { metadata: { path: ["isVoided"], equals: true } }`
+- `StoreSale.metadata` is JSON — **NEVER exclude via `NOT: { metadata: { path: ["isVoided"], equals: true } }`**: Prisma compiles it to `NOT (metadata->>'isVoided' = 'true')`, so rows with NULL metadata or a missing key yield SQL NULL → silently excluded. Proven 2026-09-30: zeroed 16.060/16.300 sales (fix commit 38106749, proof script `scripts/diagnose-mobile-unit-visibility.ts`). 19 more sites in 8 files still carry the pattern (dashboard-stats, manajemen-unit, toko stats, shu-calculator, reports/shu) — suspected cause of toko-dashboard-zero + SHU under-count. Safe form: positive count (`total − count({AND:[{metadata:{path:["isVoided"],equals:true}}]})`) + JS-filter fetched rows.
 - Files stored as Base64 in DB (`UploadedFile`) — Vercel has read-only filesystem
 - `SystemSetting` is a singleton model (id defaults to "global")
 - **NEVER include SP-IMP/* loans in CashBankTransaction** — corrupts BRI balance
