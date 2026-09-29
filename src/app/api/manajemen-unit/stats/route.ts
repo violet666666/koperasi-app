@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { UNIT_TYPES, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { aggregateUnitStats, computeWIBBoundaries, type RawUnitStats } from "@/lib/services/manajemen-unit";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 export async function GET() {
   try {
@@ -59,7 +60,7 @@ export async function GET() {
               where: {
                 unitType: ssFilter as string,
                 createdAt: { gte: todayStartUTC },
-                NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                ...SALE_NOT_VOIDED,
               },
             }),
             // Today's unit transactions count — uses alias filter + @db.Date field
@@ -92,7 +93,7 @@ export async function GET() {
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: yesterdayStartUTC, lt: todayStartUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
         });
 

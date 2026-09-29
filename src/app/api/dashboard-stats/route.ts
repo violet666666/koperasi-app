@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 // In-memory cache for dashboard stats (60 second TTL)
 let cachedStats: { data: any; timestamp: number } | null = null;
@@ -79,7 +80,7 @@ export async function GET() {
                 _count: { _all: true },
                 where: {
                     createdAt: { gte: today, lt: tomorrow },
-                    NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+                    ...SALE_NOT_VOIDED,
                 },
             }),
 

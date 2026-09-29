@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 function toNum(d: Decimal | number | null | undefined): number {
     if (d === null || d === undefined) return 0;
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
                     createdAt: { gte: startDate, lte: endDate },
                     unitType: unitType,
                     ...(storeMethodFilter ? { paymentMethod: storeMethodFilter } : {}),
-                    NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+                    ...SALE_NOT_VOIDED,
                 },
                 select: {
                     saleNo: true,

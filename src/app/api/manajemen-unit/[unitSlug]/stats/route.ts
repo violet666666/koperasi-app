@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { slugToUnitType, getUnitLabel, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { computeUnitDetail, computeWIBBoundaries, type RawUnitDetail, computePeakHours, computeProfitFromItems } from "@/lib/services/manajemen-unit";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 export async function GET(
   request: Request,
@@ -74,7 +75,7 @@ export async function GET(
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: todayStartUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
         }),
         // Today service transactions — alias-aware + @db.Date
@@ -92,7 +93,7 @@ export async function GET(
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: twoWeeksAgoUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
           select: { createdAt: true, totalAmount: true },
         }),
@@ -113,7 +114,7 @@ export async function GET(
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: rangeStartUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
         }),
         // Payment method breakdown (UnitTransaction) — alias-aware, range-aware
@@ -137,7 +138,7 @@ export async function GET(
                 sale: {
                   unitType: ssFilter as string,
                   createdAt: { gte: rangeStartUTC },
-                  NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                  ...SALE_NOT_VOIDED,
                 },
               },
             })
@@ -150,7 +151,7 @@ export async function GET(
                 sale: {
                   unitType: ssFilter as string,
                   createdAt: { gte: todayStartUTC },
-                  NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+                  ...SALE_NOT_VOIDED,
                 },
               },
               select: {

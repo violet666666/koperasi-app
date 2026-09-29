@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { auth } from "@/lib/auth";
 import { GROUP_EXPENSE_CATEGORIES } from "@/lib/services/shu-calculator";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 function toNum(d: Decimal | number | null | undefined): number {
   if (d === null || d === undefined) return 0;
@@ -335,7 +336,7 @@ export async function GET(request: NextRequest) {
       const storeSales = await prisma.storeSale.findMany({
         where: {
           createdAt: { gte: startDate, lte: endDate },
-          NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+          ...SALE_NOT_VOIDED,
           ...(paymentMethod ? { paymentMethod } : {}),
         },
         select: {
@@ -423,7 +424,7 @@ export async function GET(request: NextRequest) {
         where: {
           sale: {
             createdAt: { gte: startDate, lte: endDate },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+            ...SALE_NOT_VOIDED,
           },
         },
         include: {

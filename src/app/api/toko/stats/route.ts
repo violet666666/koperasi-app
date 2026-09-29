@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 // GET /api/toko/stats - Dashboard stats from real data (filtered by unitType)
 export async function GET(request: Request) {
@@ -28,10 +29,10 @@ export async function GET(request: Request) {
         const unitFilter = unitType ? { unitType } : {};
         const productFilter = unitType ? { unitType, isActive: true, deletedAt: null } : { isActive: true, deletedAt: null };
 
-        // Shared filter: exclude voided sales via JSON path (same pattern as shu-calculator.ts)
+        // Shared filter: exclude voided sales (3VL-safe, see lib/sale-void-filter.ts)
         const notVoidedFilter = {
             ...unitFilter,
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
         };
 
         // ── Queries ──────────────────────────────────────────────────────────

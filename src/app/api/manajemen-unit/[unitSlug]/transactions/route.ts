@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { slugToUnitType, unitTypeFilter, storeSaleUnitTypeFilter } from "@/lib/constants/units";
 import { computeWIBBoundaries } from "@/lib/services/manajemen-unit";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
 export async function GET(
   request: Request,
@@ -56,7 +57,7 @@ export async function GET(
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: rangeStartUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
           select: {
             id: true,
@@ -81,7 +82,7 @@ export async function GET(
           where: {
             unitType: ssFilter as string,
             createdAt: { gte: rangeStartUTC },
-            NOT: { metadata: { path: ["isVoided"], equals: true } } as never,
+            ...SALE_NOT_VOIDED,
           },
         }),
       ]);

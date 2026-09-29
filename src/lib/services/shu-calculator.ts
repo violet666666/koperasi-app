@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { getCarwashBonusPerTx } from "./shu-settings";
 import { UNIT_TYPES, STORE_SALE_ALIASES, canonicalStoreUnitType } from "@/lib/constants/units";
+import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 import type { SPMonthlyItem, ExpenseGroup } from "@/app/(protected)/laporan/shu/_types";
 
 function toNum(d: Decimal | number | null | undefined): number {
@@ -291,7 +292,7 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
             where: {
                 sale: {
                     createdAt: { gte: startDate, lte: endDate },
-                    NOT: { metadata: { path: ["isVoided"], equals: true } } as any,
+                    ...SALE_NOT_VOIDED,
                 },
             },
             include: { product: { select: { costPrice: true } } },
@@ -357,11 +358,11 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 _sum: { amount: true }
             }),
             prisma.storeSale.aggregate({
-                where: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+                where: { createdAt: { gte: startDate, lte: endDate }, ...SALE_NOT_VOIDED },
                 _sum: { totalAmount: true }
             }),
             prisma.storeSaleItem.findMany({
-                where: { sale: { createdAt: { gte: startDate, lte: endDate }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any } },
+                where: { sale: { createdAt: { gte: startDate, lte: endDate }, ...SALE_NOT_VOIDED } },
                 include: { product: { select: { costPrice: true } } }
             }),
         ]);
@@ -607,18 +608,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         unitTxMember,
         unitTxNonMember,
     ] = await Promise.all([
-        // KNOWN BUG (deferred): NOT+path void filter drops key-less sales — same Prisma JSON NULL
-        // bug fixed in unitBreakdown above. memberRatio understated until separate spec. See
-        // docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2 (non-goals).
+        // Void filter kini 3VL-safe via SALE_NOT_VOIDED (lib/sale-void-filter.ts) —
+        // memberRatio/storeContrib tidak lagi kehilangan sale tanpa key isVoided.
+        // Konteks: docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2.
         prisma.storeSale.aggregate({
-            where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: { not: null }, ...SALE_NOT_VOIDED },
             _sum: { totalAmount: true }
         }),
-        // KNOWN BUG (deferred): NOT+path void filter drops key-less sales — same Prisma JSON NULL
-        // bug fixed in unitBreakdown above. memberRatio understated until separate spec. See
-        // docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2 (non-goals).
+        // Void filter kini 3VL-safe via SALE_NOT_VOIDED (lib/sale-void-filter.ts) —
+        // memberRatio/storeContrib tidak lagi kehilangan sale tanpa key isVoided.
+        // Konteks: docs/superpowers/specs/2026-06-30-laba-kotor-per-unit-design.md §2.
         prisma.storeSale.aggregate({
-            where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, NOT: { metadata: { path: ["isVoided"], equals: true } } as any },
+            where: { createdAt: { gte: startDate, lte: endDate }, memberId: null, ...SALE_NOT_VOIDED },
             _sum: { totalAmount: true }
         }),
         Promise.resolve({ _sum: { interestPortion: interestTotal } }),
