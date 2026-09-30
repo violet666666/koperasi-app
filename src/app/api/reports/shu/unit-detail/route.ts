@@ -166,6 +166,7 @@ export async function GET(request: NextRequest) {
                 "simpanan_wajib", "simpanan_sukarela", "angsuran_pokok",
                 "void_penjualan_toko", "void_unit_transaction", "pendapatan_unit",
                 "jasa_pinjaman", "penalti_pelunasan", "dana_resiko",
+                "hpp_toko", "belanja_aset", // sinkron shu-calculator.ts (pembelian stok → COGS; capex)
             ];
 
             // CB expense for this unit

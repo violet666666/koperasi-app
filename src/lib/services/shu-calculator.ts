@@ -56,6 +56,9 @@ const NON_EXPENSE_CATEGORIES = [
     "jasa_pinjaman",          // Income bukan expense
     "penalti_pelunasan",      // Income bukan expense
     "dana_resiko",            // Income bukan expense
+    "hpp_toko",               // Pembelian barang dagangan — beban diakui lewat COGS (soldItems) saat
+                              // penjualan; menghitung pembelian JUGA = dobel (sistem persediaan)
+    "belanja_aset",           // Capex/belanja modal — bukan beban operasional (parkir menunggu modul aset)
     // --- Dikecualikan dari SHU ---
     "lainnya",                // Pengeluaran non-operasional → tidak relevan untuk SHU per-anggota
 ];

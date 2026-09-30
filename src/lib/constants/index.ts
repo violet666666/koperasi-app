@@ -172,6 +172,7 @@ export const CASH_BANK_CATEGORIES = {
     biaya_operasional: { label: "Biaya Operasional", type: "out" },
     beban_unit: { label: "Beban Operasional Unit", type: "out" },
     hpp_toko: { label: "HPP / Pembelian Barang", type: "out" },
+    belanja_aset: { label: "Belanja Aset / Capex", type: "out" },
     hutang_mitra: { label: "Kewajiban Bagi Hasil Mitra", type: "out" },
     transfer: { label: "Transfer Antar Kas/Bank", type: "both" },
     lainnya: { label: "Lain-lain", type: "both" },
