@@ -1236,14 +1236,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <TrendingDown className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Total Pengeluaran</p>
-                            {/* Gabungan Operasional + Barang Dagangan + Aset (permintaan ajudan
-                                2026-09-30: satu angka, tanpa rincian terpisah di kartu).
-                                Akuntansi TIDAK berubah — totalPengeluaran/laba/SHU tetap
-                                operational-only, hpp_toko diakui via COGS. */}
+                            <p className="text-xs text-muted-foreground">Pengeluaran</p>
                             <p className="text-lg font-bold tabular-nums text-red-600">
-                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran + summary.totalPembelianStok + summary.totalBelanjaAset) : "-"}
+                                {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
                             </p>
+                            {!isLoading && summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                <p className="text-[10px] text-muted-foreground">
+                                    + Belanja Barang {formatCurrency(summary.totalPembelianStok)}
+                                    {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                </p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -1997,6 +1999,13 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     <TableCell className="print:hidden" />
                                     <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">
                                         TOTAL PENGELUARAN
+                                        {summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground">
+                                                Operasional {formatCurrency(summary.totalPengeluaran)}
+                                                {summary.totalPembelianStok > 0 && ` · Barang Dagangan ${formatCurrency(summary.totalPembelianStok)}`}
+                                                {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                            </span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums text-red-700 font-bold">
                                         {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
@@ -2015,6 +2024,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                 <td className="py-1 text-right pr-4">TOTAL PENGELUARAN</td>
                                 <td className="py-1 text-right tabular-nums text-red-800">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</td>
                             </tr>
+                            {summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                <tr className="text-xs text-gray-600">
+                                    <td className="py-0.5 text-right pr-4">
+                                        Operasional {formatCurrency(summary.totalPengeluaran)}
+                                        {summary.totalPembelianStok > 0 && ` · Barang Dagangan ${formatCurrency(summary.totalPembelianStok)}`}
+                                        {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                    </td>
+                                    <td />
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
