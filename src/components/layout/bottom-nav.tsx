@@ -11,7 +11,7 @@ import {
 } from "@/lib/constants/navigation";
 import { useAuth } from "@/lib/hooks";
 import { useSession } from "next-auth/react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import {
     Sheet,
     SheetContent,
@@ -28,6 +28,20 @@ export function BottomNav({ sidebarOpen = false }: BottomNavProps) {
     const pathname = usePathname();
     const [isMoreOpen, setIsMoreOpen] = React.useState(false);
     const [pendingCount, setPendingCount] = React.useState(0);
+    // Collapse/expand — preferensi user, persist di localStorage
+    const [collapsed, setCollapsed] = React.useState(false);
+
+    React.useEffect(() => {
+        try {
+            if (localStorage.getItem("bottom-nav-collapsed") === "1") setCollapsed(true);
+        } catch { /* private mode */ }
+    }, []);
+
+    const toggleCollapsed = () => {
+        const next = !collapsed;
+        setCollapsed(next);
+        try { localStorage.setItem("bottom-nav-collapsed", next ? "1" : "0"); } catch { /* private mode */ }
+    };
     const { user } = useAuth();
     const { data: session } = useSession();
 
@@ -52,7 +66,7 @@ export function BottomNav({ sidebarOpen = false }: BottomNavProps) {
     }
 
     const bottomBarItems = topLevelItems.slice(0, 4);
-    const shouldHideNav = sidebarOpen || isMoreOpen;
+    const shouldHideNav = sidebarOpen || isMoreOpen || collapsed;
 
     // Fetch pending approval count for badge
     React.useEffect(() => {
@@ -72,7 +86,13 @@ export function BottomNav({ sidebarOpen = false }: BottomNavProps) {
 
     return (
         <>
-            <div className="h-20 lg:hidden print:hidden" aria-hidden="true" />
+            <div
+                className={cn(
+                    "lg:hidden print:hidden transition-[height] duration-300",
+                    collapsed ? "h-0" : "h-20"
+                )}
+                aria-hidden="true"
+            />
             <nav
                 className={cn(
                     "fixed bottom-0 left-0 right-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden print:hidden transition-transform duration-300",
@@ -184,6 +204,27 @@ export function BottomNav({ sidebarOpen = false }: BottomNavProps) {
                     </Sheet>
                 </div>
             </nav>
+
+            {/* Handle collapse/expand — tap untuk tutup; saat tertutup jadi pill kecil di bawah */}
+            {!sidebarOpen && !isMoreOpen && (
+                <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label={collapsed ? "Tampilkan menu navigasi" : "Sembunyikan menu navigasi"}
+                    title={collapsed ? "Tampilkan menu" : "Sembunyikan menu"}
+                    className={cn(
+                        "fixed left-1/2 z-[101] flex h-7 w-16 -translate-x-1/2 items-center justify-center border bg-background/95 text-muted-foreground shadow-sm backdrop-blur transition-[bottom] duration-300 after:absolute after:-inset-y-2 after:inset-x-0 lg:hidden print:hidden",
+                        collapsed ? "rounded-full" : "rounded-t-lg border-b-0"
+                    )}
+                    style={{
+                        bottom: collapsed
+                            ? "max(env(safe-area-inset-bottom, 0px), 8px)"
+                            : "calc(4rem + max(env(safe-area-inset-bottom, 0px), 16px))",
+                    }}
+                >
+                    {collapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+            )}
         </>
     );
 }

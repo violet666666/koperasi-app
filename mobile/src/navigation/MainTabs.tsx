@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { StorageManager } from '../lib/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import C from '../lib/colors';
@@ -29,6 +29,10 @@ const Tab = createBottomTabNavigator();
 export default function MainTabs({ setToken }: { setToken: (t: string | null) => void }) {
   const [role, setRole] = useState<string>('member');
   const [unreadNotif, setUnreadNotif] = useState(0);
+  // Tab bar bisa disembunyikan user — preferensi persist di fast storage
+  const [tabHidden, setTabHidden] = useState<boolean>(
+    () => StorageManager.getFastBoolean('bottomTabHidden') === true
+  );
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -39,6 +43,12 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
       setRole(roleName || 'member');
     }
   }, []);
+
+  const toggleTabBar = () => {
+    const next = !tabHidden;
+    setTabHidden(next);
+    StorageManager.setFastItem('bottomTabHidden', next);
+  };
 
   const isOperator = ['operator', 'admin', 'admin_sp'].includes(role);
   const isKasir = role === 'kasir';
@@ -59,7 +69,8 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
   const bottomPadding = Math.max(insets.bottom, 12);
 
   return (
-    <Tab.Navigator
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: C.accent,
@@ -71,6 +82,7 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
           paddingBottom: bottomPadding,
           paddingTop: 8,
           height: 50 + bottomPadding,
+          ...(tabHidden ? { display: 'none' as const } : {}),
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ focused, color, size }) => {
@@ -132,6 +144,46 @@ export default function MainTabs({ setToken }: { setToken: (t: string | null) =>
       <Tab.Screen name="Profil">
         {() => <ProfileScreen setToken={setToken} />}
       </Tab.Screen>
-    </Tab.Navigator>
+      </Tab.Navigator>
+
+      {/* Handle sembunyi/tampilkan tab bar — pill kecil di atas bar; saat tersembunyi turun ke bawah */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: tabHidden ? Math.max(insets.bottom, 8) : 50 + bottomPadding + 6,
+          alignItems: 'center',
+          pointerEvents: 'box-none',
+        }}
+      >
+        <TouchableOpacity
+          onPress={toggleTabBar}
+          accessibilityLabel={tabHidden ? 'Tampilkan menu navigasi' : 'Sembunyikan menu navigasi'}
+          accessibilityRole="button"
+          style={{
+            width: 56,
+            height: 26,
+            borderRadius: 13,
+            backgroundColor: C.card,
+            borderWidth: 1,
+            borderColor: C.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOpacity: 0.12,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 4,
+          }}
+        >
+          <Ionicons
+            name={tabHidden ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={C.mutedForeground}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
