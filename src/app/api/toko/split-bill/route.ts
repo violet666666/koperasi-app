@@ -345,6 +345,7 @@ export async function POST(req: Request) {
                                 type: "in",
                                 category: "pendapatan_toko",
                                 amount: paymentAmount,
+                                journalId, // link ke jurnal 4201 — cegah dobel di merge CB non-journaled
                                 balanceBefore: before,
                                 balanceAfter: after,
                                 unitType: unitTypeVal,

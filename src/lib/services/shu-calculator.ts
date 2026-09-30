@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { getCarwashBonusPerTx } from "./shu-settings";
 import { UNIT_TYPES, STORE_SALE_ALIASES, canonicalStoreUnitType } from "@/lib/constants/units";
 import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
+import { extractTrailingRef, buildRefSet } from "@/lib/shu-ref-helpers";
 import type { SPMonthlyItem, ExpenseGroup } from "@/app/(protected)/laporan/shu/_types";
 
 function toNum(d: Decimal | number | null | undefined): number {
@@ -174,8 +175,18 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
         where: {
             journal: { transactionDate: { gte: startDate, lte: endDate }, isPosted: true },
         },
-        include: { account: { select: { code: true, name: true, type: true } } },
+        include: {
+            account: { select: { code: true, name: true, type: true } },
+            journal: { select: { description: true } },
+        },
     });
+
+    // Ref penjualan yang SUDAH terhitung via journal income — CB non-journaled
+    // dengan ref sama adalah transaksi yang sama → harus di-skip di income merge
+    // (dobel Rp604jt di 2026; bukti: scripts/diagnose-shu-journal-cb-doublecount.ts)
+    const journaledIncomeRefSet = buildRefSet(
+        journalLines.filter((l) => l.account.type === "income").map((l) => l.journal.description),
+    );
 
     let totalIncome = 0;
     let totalExpense = 0;
@@ -249,6 +260,9 @@ export async function calculateSystemSHU(year: number, month?: number | null) {
                 if (desc.includes(ref)) { isVoided = true; break; }
             }
             if (isVoided) return;
+            // Skip CB yang transaksinya sudah terhitung di journal income (anti dobel)
+            const cbRef = extractTrailingRef(desc);
+            if (cbRef && journaledIncomeRefSet.has(cbRef)) return;
             const cat = tx.category;
             cbIncomeByCategory[cat] = (cbIncomeByCategory[cat] || 0) + toNum(tx.amount);
         });

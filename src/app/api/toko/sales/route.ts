@@ -718,6 +718,7 @@ export async function POST(request: Request) {
                             balanceBefore: before,
                             balanceAfter: after,
                             unitType: unitType,
+                            journalId, // link ke jurnal 4201 — cegah dobel di merge CB non-journaled
                             description: `Penjualan ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now,
                             createdById: userId,

@@ -202,6 +202,7 @@ export async function POST(request: Request) {
             });
 
             // 2. Cash/Bank sync
+            let cashTxId: number | null = null;
             if (method === "cash" || method === "qris") {
                 const accountType = method === "cash" ? "cash" : "bank";
                 const targetAccount = await findUnitAccount(tx, unitType, accountType);
@@ -226,6 +227,7 @@ export async function POST(request: Request) {
                             createdById: userId,
                         },
                     });
+                    cashTxId = cashTx.id;
 
                     // Adjust subsequent running balances if backdated
                     const today = new Date();
@@ -292,6 +294,11 @@ export async function POST(request: Request) {
                             },
                         ],
                     });
+
+                    // Link CB ke jurnal — cegah dobel di merge CB non-journaled (SHU)
+                    if (cashTxId) {
+                        await tx.cashBankTransaction.update({ where: { id: cashTxId }, data: { journalId: journal.id } });
+                    }
                 }
             }
 

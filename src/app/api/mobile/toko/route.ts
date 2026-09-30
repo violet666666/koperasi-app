@@ -324,6 +324,7 @@ export async function POST(request: Request) {
                             transactionNo: `MB-${method === 'cash' ? 'KAS' : 'BNK'}-${Date.now().toString(36).toUpperCase()}`,
                             accountId: targetAccount.id, branchId: targetAccount.branchId,
                             type: "in", category: "pendapatan_toko", amount: totalAmount,
+                            journalId, // link ke jurnal 4201 — cegah dobel di merge CB non-journaled
                             balanceBefore: before, balanceAfter: after, unitType,
                             description: `Penjualan Mobile ${unitType} ${method === 'cash' ? 'Tunai' : 'QRIS'} - ${saleNo}`,
                             transactionDate: now, createdById: userId,
