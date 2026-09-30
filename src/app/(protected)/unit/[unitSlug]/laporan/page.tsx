@@ -107,6 +107,19 @@ const OPS_PAYMENT_METHODS = [
     { value: "lainnya", label: "Lainnya" },
 ] as const;
 
+// Jenis pengeluaran → kategori CB. Sinkron OPS_EXPENSE_CATEGORIES (constants/units).
+// operational masuk beban laba; hpp_toko diakui via HPP penjualan; belanja_aset = capex.
+const OPS_EXPENSE_CATEGORY_OPTIONS = [
+    { value: "operational", label: "Operasional (Beban Unit)" },
+    { value: "hpp_toko", label: "Belanja Barang / Bahan Dagangan" },
+    { value: "belanja_aset", label: "Belanja Aset / Peralatan" },
+] as const;
+
+const EXPENSE_CATEGORY_BADGE: Record<string, string> = {
+    hpp_toko: "Barang Dagangan",
+    belanja_aset: "Aset / Capex",
+};
+
 // ── Types ───────────────────────────────────────────────────────────────────
 interface LaporanTransaction {
     id: string;
@@ -136,6 +149,8 @@ interface LaporanSummary {
     counterCount: number;
     takeawaySurchargeTotal: number;
     totalPengeluaran: number;
+    totalPembelianStok: number; // kategori hpp_toko — diakui via HPP, bukan beban laba
+    totalBelanjaAset: number;   // kategori belanja_aset — capex
     totalPemasukan: number;
     potonganSHUMember: number;
     jumlahCuciAnggota: number;
@@ -171,6 +186,7 @@ interface OperationalExpense {
     amount: number;
     receiptImagePath?: string | null;
     paymentMethod?: string | null;
+    category?: string | null;
 }
 
 interface LaporanData {
@@ -250,6 +266,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
     const [expenseReceiptPreview, setExpenseReceiptPreview] = React.useState<string | null>(null);
     const [keepExistingReceipt, setKeepExistingReceipt] = React.useState(true);
     const [expensePaymentMethod, setExpensePaymentMethod] = React.useState("cash");
+    const [expenseCategory, setExpenseCategory] = React.useState("operational");
     const expenseFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Submit Laporan ke Operator
@@ -358,6 +375,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setExpenseDesc("");
         setExpenseDate(new Date().toISOString().split("T")[0]);
         setExpensePaymentMethod("cash");
+        setExpenseCategory("operational");
         clearExpenseFile();
         setShowExpenseDialog(true);
     };
@@ -368,6 +386,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         setExpenseDesc(exp.description);
         setExpenseDate(new Date(exp.date).toISOString().split("T")[0]);
         setExpensePaymentMethod(exp.paymentMethod || "cash");
+        setExpenseCategory(
+            exp.category === "hpp_toko" || exp.category === "belanja_aset" ? exp.category : "operational",
+        );
         setExpenseReceiptFile(null);
         setExpenseReceiptPreview(exp.receiptImagePath || null);
         setKeepExistingReceipt(true);
@@ -754,7 +775,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 ["LAPORAN PENGELUARAN OPERASIONAL"],
                 [periodHeader],
                 [],
-                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Metode", "Nominal"],
+                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Jenis", "Metode", "Nominal"],
             ];
 
             expData.forEach((exp, i) => {
@@ -763,6 +784,9 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
                     exp.transactionNo,
                     exp.description,
+                    exp.category === "hpp_toko" ? "Belanja Barang"
+                        : exp.category === "belanja_aset" ? "Belanja Aset"
+                        : "Operasional",
                     METHOD_LABEL[exp.paymentMethod || "cash"] || "Tunai",
                     { v: exp.amount, t: "n", z: fmtIDR },
                 ]);
@@ -770,15 +794,15 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             // Total row
             const totalExpense = expData.reduce((s, e) => s + e.amount, 0);
             expRows.push([]);
-            expRows.push(["", "", "", "TOTAL PENGELUARAN OPERASIONAL", "", { v: totalExpense, t: "n", z: fmtIDR }]);
+            expRows.push(["", "", "", "TOTAL PENGELUARAN (SEMUA JENIS)", "", "", { v: totalExpense, t: "n", z: fmtIDR }]);
 
             const ws2 = XLSX.utils.aoa_to_sheet(expRows);
-            ws2["!cols"] = [5, 14, 26, 35, 12, 18].map(w => ({ wch: w }));
+            ws2["!cols"] = [5, 14, 26, 35, 16, 12, 18].map(w => ({ wch: w }));
             ws2["!merges"] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
             ];
 
             // ── Sheet 3: Pemasukan Operasional ────────────────────────────
@@ -948,6 +972,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             formData.append("description", expenseDesc.trim());
             formData.append("transactionDate", expenseDate);
             formData.append("paymentMethod", expensePaymentMethod);
+            formData.append("expenseCategory", expenseCategory);
             if (expenseReceiptFile) {
                 formData.append("receipt", expenseReceiptFile);
             }
@@ -969,6 +994,7 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
             setExpenseAmount("");
             setExpenseDesc("");
             setExpenseDate(new Date().toISOString().split("T")[0]);
+            setExpenseCategory("operational");
             clearExpenseFile();
             fetchLaporan(page); // Refresh
         } catch (err: any) {
@@ -1214,6 +1240,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <p className="text-lg font-bold tabular-nums text-red-600">
                                 {isLoading ? <span className="block h-5 w-24 rounded-md bg-accent animate-pulse" /> : summary ? formatCurrency(summary.totalPengeluaran) : "-"}
                             </p>
+                            {!isLoading && summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                <p className="text-[10px] text-muted-foreground">
+                                    + Belanja Barang {formatCurrency(summary.totalPembelianStok)}
+                                    {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                </p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -1913,7 +1945,14 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                         <TableCell>
                                             <span className="font-mono text-xs text-muted-foreground">{exp.transactionNo}</span>
                                         </TableCell>
-                                        <TableCell className="text-sm">{exp.description}</TableCell>
+                                        <TableCell className="text-sm">
+                                            {exp.description}
+                                            {exp.category && EXPENSE_CATEGORY_BADGE[exp.category] && (
+                                                <Badge variant="secondary" className="ml-2 text-[10px] font-medium">
+                                                    {EXPENSE_CATEGORY_BADGE[exp.category]}
+                                                </Badge>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant="outline" className="text-xs gap-1">
                                                 {exp.paymentMethod === "qris" ? <QrCode className="h-3 w-3 text-blue-600" />
@@ -1958,7 +1997,16 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                             <TableFooter className="print:hidden">
                                 <TableRow className="bg-red-50 font-bold">
                                     <TableCell className="print:hidden" />
-                                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">TOTAL PENGELUARAN OPERASIONAL</TableCell>
+                                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-right">
+                                        TOTAL PENGELUARAN
+                                        {summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground">
+                                                Operasional {formatCurrency(summary.totalPengeluaran)}
+                                                {summary.totalPembelianStok > 0 && ` · Barang Dagangan ${formatCurrency(summary.totalPembelianStok)}`}
+                                                {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                            </span>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-right tabular-nums text-red-700 font-bold">
                                         {formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}
                                     </TableCell>
@@ -1973,9 +2021,19 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                     <table className="w-full">
                         <tbody>
                             <tr className="font-bold">
-                                <td className="py-1 text-right pr-4">TOTAL PENGELUARAN OPERASIONAL</td>
+                                <td className="py-1 text-right pr-4">TOTAL PENGELUARAN</td>
                                 <td className="py-1 text-right tabular-nums text-red-800">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</td>
                             </tr>
+                            {summary && (summary.totalPembelianStok > 0 || summary.totalBelanjaAset > 0) && (
+                                <tr className="text-xs text-gray-600">
+                                    <td className="py-0.5 text-right pr-4">
+                                        Operasional {formatCurrency(summary.totalPengeluaran)}
+                                        {summary.totalPembelianStok > 0 && ` · Barang Dagangan ${formatCurrency(summary.totalPembelianStok)}`}
+                                        {summary.totalBelanjaAset > 0 && ` · Aset ${formatCurrency(summary.totalBelanjaAset)}`}
+                                    </td>
+                                    <td />
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -2259,6 +2317,20 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Jenis Pengeluaran</Label>
+                            <Select value={expenseCategory} onValueChange={setExpenseCategory}>
+                                <SelectTrigger><SelectValue placeholder="Pilih jenis" /></SelectTrigger>
+                                <SelectContent>
+                                    {OPS_EXPENSE_CATEGORY_OPTIONS.map(c => (
+                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground">
+                                Belanja barang dagangan/bahan → "Belanja Barang" (dihitung via HPP, bukan beban dobel). Peralatan &amp; renovasi → "Belanja Aset".
+                            </p>
                         </div>
 
                         {/* Upload Foto Bukti */}

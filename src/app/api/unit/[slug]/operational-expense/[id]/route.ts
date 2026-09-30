@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAuditFromRequest } from "@/lib/audit-logger";
 import { isSameUnit } from "@/lib/unit-aliases";
+import { OPS_EXPENSE_CATEGORIES } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +157,9 @@ export async function PUT(
         let keepExistingReceipt = formData.get("keepExistingReceipt") === "true"; // flag khusus jika file tidak diganti
         const pm = String(formData.get("paymentMethod") || "cash");
         const paymentMethod = VALID_PAYMENT_METHODS.includes(pm) ? pm : "cash";
+        // Kategori opsional — kalau tidak dikirim, kategori lama dipertahankan
+        const ecRaw = String(formData.get("expenseCategory") || "");
+        const expenseCategory = (OPS_EXPENSE_CATEGORIES as readonly string[]).includes(ecRaw) ? ecRaw : null;
 
         if (!amount || amount <= 0) {
             return NextResponse.json({ message: "Nominal pengeluaran harus lebih dari 0." }, { status: 400 });
@@ -297,6 +301,7 @@ export async function PUT(
                     description: descWithMeta,
                     transactionDate: txDate,
                     paymentMethod,
+                    ...(expenseCategory ? { category: expenseCategory } : {}),
                     balanceBefore: newBalanceBefore,
                     balanceAfter: newBalanceAfter
                 }

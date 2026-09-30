@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAuditFromRequest } from "@/lib/audit-logger";
 import { isSameUnit } from "@/lib/unit-aliases";
-import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { storeSaleUnitTypeFilter, OPS_EXPENSE_CATEGORIES } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -59,13 +59,18 @@ export async function PATCH(
         }
 
         const txType = type === "expense" ? "out" : "in";
+        // Expense mencakup semua kategori pengeluaran unit (operational/hpp_toko/belanja_aset);
+        // income tetap hanya "operational".
+        const categoryFilter = type === "expense"
+            ? { in: [...OPS_EXPENSE_CATEGORIES] }
+            : "operational";
 
         // Verify all IDs belong to this unit's operational transactions (alias-aware)
         const transactions = await prisma.cashBankTransaction.findMany({
             where: {
                 id: { in: ids },
                 type: txType,
-                category: "operational",
+                category: categoryFilter,
                 unitType: storeSaleUnitTypeFilter(unitType),
             },
             select: { id: true, transactionNo: true },
@@ -83,7 +88,7 @@ export async function PATCH(
             where: {
                 id: { in: validIds },
                 type: txType,
-                category: "operational",
+                category: categoryFilter,
             },
             data: {
                 paymentMethod,

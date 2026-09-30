@@ -4,7 +4,7 @@ import { authWithMobile } from "@/lib/dual-auth";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isSameUnit } from "@/lib/unit-aliases";
-import { storeSaleUnitTypeFilter } from "@/lib/constants/units";
+import { storeSaleUnitTypeFilter, OPS_EXPENSE_CATEGORIES } from "@/lib/constants/units";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,7 @@ export async function POST(
         let description: string;
         let transactionDate: string | null = null;
         let paymentMethod: string = "cash";
+        let expenseCategory: string = "operational";
         let receiptImagePath: string | null = null;
 
         const contentType = request.headers.get("content-type") || "";
@@ -60,6 +61,8 @@ export async function POST(
             transactionDate = formData.get("transactionDate") as string | null;
             const pm = String(formData.get("paymentMethod") || "cash");
             if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
+            const ec = String(formData.get("expenseCategory") || "operational");
+            if ((OPS_EXPENSE_CATEGORIES as readonly string[]).includes(ec)) expenseCategory = ec;
             
             const receiptFile = formData.get("receipt") as File | null;
             if (receiptFile && receiptFile.size > 0) {
@@ -101,6 +104,7 @@ export async function POST(
             transactionDate = body.transactionDate || null;
             const pm = body.paymentMethod || "cash";
             if (VALID_PAYMENT_METHODS.includes(pm)) paymentMethod = pm;
+            if ((OPS_EXPENSE_CATEGORIES as readonly string[]).includes(body.expenseCategory)) expenseCategory = body.expenseCategory;
         }
 
         if (!amount || amount <= 0) {
@@ -142,7 +146,7 @@ export async function POST(
                     accountId: cashAccount.id,
                     branchId,
                     type: "out",
-                    category: "operational",
+                    category: expenseCategory,
                     amount: nominalAmount,
                     balanceBefore: before,
                     balanceAfter: after,
@@ -205,7 +209,9 @@ export async function GET(
         const expenses = await prisma.cashBankTransaction.findMany({
             where: {
                 type: "out",
-                category: "operational",
+                // Semua kategori pengeluaran unit — bukan hanya "operational"
+                // (pasca-reclassify, pembelian stok = hpp_toko, capex = belanja_aset)
+                category: { in: [...OPS_EXPENSE_CATEGORIES] },
                 unitType: storeSaleUnitTypeFilter(unitType),
             },
             orderBy: { transactionDate: "desc" },
@@ -229,6 +235,7 @@ export async function GET(
                     amount: Number(e.amount),
                     receiptImagePath,
                     paymentMethod: e.paymentMethod || null,
+                    category: e.category,
                 };
             }),
         });

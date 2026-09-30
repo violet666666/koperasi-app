@@ -107,6 +107,16 @@ export function storeSaleUnitTypeFilter(canonicalType: string): string | { in: s
 }
 
 /**
+ * Kategori CashBankTransaction type="out" yang tampil sebagai "Pengeluaran Operasional"
+ * di laporan unit (rincian + dialog catat pengeluaran).
+ * - operational    = beban operasional murni (masuk summary.totalPengeluaran / laba)
+ * - hpp_toko       = pembelian stok/barang dagangan — beban diakui via COGS saat penjualan,
+ *                    BUKAN di totalPengeluaran (sinkron NON_EXPENSE_CATEGORIES shu-calculator.ts)
+ * - belanja_aset   = capex, diparkir menunggu modul aset tetap
+ */
+export const OPS_EXPENSE_CATEGORIES = ["operational", "hpp_toko", "belanja_aset"] as const;
+
+/**
  * Map sebuah unitType StoreSale (mungkin alias) ke bentuk kanoniknya.
  * Alias (resto_cafe, coffe_latar → resto) di-roll-up. Null/undefined → "toko".
  * Unknown → dikembalikan apa adanya.
