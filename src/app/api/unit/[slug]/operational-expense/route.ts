@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { isSameUnit } from "@/lib/unit-aliases";
@@ -26,7 +26,7 @@ export async function POST(
     context: { params: Promise<{ slug: string }> }
 ) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
@@ -183,7 +183,7 @@ export async function GET(
     context: { params: Promise<{ slug: string }> }
 ) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

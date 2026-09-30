@@ -53,14 +53,19 @@ export const formatDate = (d: string | null | undefined) => {
 };
 
 // ── Unit labels (canonical — mirror UNIT_LIST di LaporanUnitScreen / web UNIT_TYPES) ──
+// Key alias DB (UNIT_TYPE_ALIASES web: resto_cafe/coffe_latar/play_station) wajib ikut,
+// else fallback memperlihatkan slug mentah ("resto cafe") di riwayat/laporan.
 export const UNIT_LABELS: Record<string, string> = {
   toko: 'Toko',
   cafe_lsp: 'Cafe LSP',
   resto: 'Resto & Cafe',
+  resto_cafe: 'Resto & Cafe',
+  coffe_latar: 'Resto & Cafe',
   cuci_mobil: 'Cuci Mobil',
   barbershop: 'Barbershop',
   fitness: 'Fitness',
   playstation: 'Play Station',
+  play_station: 'Play Station',
   fotocopy: 'Fotocopy',
   laundry: 'Laundry',
   haji_umrah: 'Haji & Umrah',

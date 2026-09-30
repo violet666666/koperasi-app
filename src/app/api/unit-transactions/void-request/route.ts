@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import crypto from "crypto";
 import { createNotification, getNotificationRecipients } from "@/lib/notifications";
 import { logAuditFromRequest } from "@/lib/audit-logger";
@@ -33,7 +33,7 @@ function generateVoidRequestNo(originalTxNo: string): string {
 
 export async function POST(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

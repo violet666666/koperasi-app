@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 
 // GET /api/loans/kompen/simulate — Simulasi kompen
 export async function GET(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
         const { searchParams } = new URL(request.url);

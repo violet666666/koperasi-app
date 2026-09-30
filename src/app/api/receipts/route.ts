@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 
 const ALLOWED_ROLES = ["operator", "admin", "admin_sp"];
 
 // GET /api/receipts - List receipts
 export async function GET(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 // POST /api/receipts - Create receipt draft
 export async function POST(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

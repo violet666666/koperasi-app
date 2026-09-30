@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import { createUnitTransactionSchema, paginationSchema } from "@/lib/validations";
 import { unitTypeFilter } from "@/lib/constants/units";
 import { AUTO_GENERATED_PIUTANG_PREFIX } from "@/lib/laporan-helpers";
@@ -83,7 +84,7 @@ function mapStoreSale(s: Record<string, unknown>) {
 // GET /api/unit-transactions - List unit transactions with server-side pagination
 export async function GET(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user || !ALLOWED_ROLES.includes(session.user.role)) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

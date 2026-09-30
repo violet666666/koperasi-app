@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import crypto from "crypto";
 import { sendPushNotification } from "@/lib/expo-push";
 import { logAuditFromRequest } from "@/lib/audit-logger";
@@ -31,7 +31,7 @@ const TX_OPTIONS = { maxWait: 30000, timeout: 60000 };
  */
 export async function POST(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

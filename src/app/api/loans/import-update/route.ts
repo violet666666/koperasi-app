@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import * as XLSX from "xlsx";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import { logAudit, extractRequestInfo, extractUserFromSession } from "@/lib/audit-logger";
 
 // Allow up to 5 minutes for large imports
@@ -12,7 +12,7 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
     try {
         // FIX #5: Auth check ONCE at top — never inside transactions
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
