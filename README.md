@@ -16,7 +16,7 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 
 ## ✨ Highlights
 
-- 📊 **160+ halaman & 90+ API endpoint** — fitur koperasi paling lengkap
+- 📊 **160+ halaman & 292 API endpoint** — fitur koperasi paling lengkap
 - 📱 **Mobile app native** (Android & iOS) dengan fitur paritas penuh
 - 🏦 **Akuntansi double-entry** — Jurnal, Buku Besar, Neraca, Laba Rugi
 - 💰 **SHU realtime** — Kalkulasi otomatis sesuai AD-ART Pasal 42
@@ -310,7 +310,7 @@ npx prisma studio
 | Metric | Count |
 |--------|-------|
 | Web Pages | 160+ |
-| API Endpoints | 120+ |
+| API Endpoints | 292 |
 | Mobile Screens | 65+ |
 | Database Models | 45 |
 | Total Routes | 250+ |
