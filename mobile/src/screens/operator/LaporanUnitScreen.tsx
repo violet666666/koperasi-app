@@ -120,6 +120,8 @@ type UnitLaporanSummary = {
   counterCount: number;
   takeawaySurchargeTotal: number;
   totalPengeluaran: number;
+  totalPembelianStok?: number; // kategori hpp_toko — bagian total pengeluaran, bukan beban laba
+  totalBelanjaAset?: number;   // kategori belanja_aset — capex
   totalPemasukan: number;
   potonganSHUMember: number;
   jumlahCuciAnggota: number;
@@ -449,7 +451,24 @@ export default function LaporanUnitScreen({ navigation: navProp }: any) {
           <Text style={styles.sectionTitle}>Ringkasan</Text>
           <View style={styles.summaryGrid}>
             <SummaryCell label="Total Pendapatan" value={formatRp(summary.totalPendapatan)} color={C.primary} icon="trending-up" />
-            <SummaryCell label="Pengeluaran" value={formatRp(summary.totalPengeluaran)} color={C.warning} icon="trending-down" />
+            <SummaryCell
+              label="Total Pengeluaran"
+              // Gabungan operasional + barang dagangan + aset (konsisten web);
+              // laba tetap operational-only (hpp via COGS).
+              value={formatRp(
+                summary.totalPengeluaran +
+                (summary.totalPembelianStok || 0) +
+                (summary.totalBelanjaAset || 0)
+              )}
+              subText={
+                (summary.totalPembelianStok || 0) + (summary.totalBelanjaAset || 0) > 0
+                  ? `Ops ${formatRp(summary.totalPengeluaran)} · Barang ${formatRp(summary.totalPembelianStok || 0)}` +
+                    ((summary.totalBelanjaAset || 0) > 0 ? ` · Aset ${formatRp(summary.totalBelanjaAset || 0)}` : '')
+                  : undefined
+              }
+              color={C.warning}
+              icon="trending-down"
+            />
             <SummaryCell label="Laba Bersih" value={formatRp(summary.laba)} color={C.success} icon="stats-chart" />
             <SummaryCell label="Jumlah Transaksi" value={String(summary.totalTransaksi)} color={C.info} icon="receipt" />
           </View>
@@ -785,11 +804,13 @@ function SummaryCell({
   value,
   color,
   icon,
+  subText,
 }: {
   label: string;
   value: string;
   color: string;
   icon: keyof typeof Ionicons.glyphMap | string;
+  subText?: string;
 }) {
   return (
     <View style={[styles.summaryCell, { borderLeftColor: color }]}>
@@ -798,6 +819,11 @@ function SummaryCell({
         <Ionicons name={icon as any} size={14} color={C.mutedForeground} />
       </View>
       <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      {subText ? (
+        <Text style={{ fontSize: 10, color: C.mutedForeground, marginTop: 2 }} numberOfLines={2}>
+          {subText}
+        </Text>
+      ) : null}
     </View>
   );
 }
