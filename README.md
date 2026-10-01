@@ -22,7 +22,7 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 - 💰 **SHU realtime** — Kalkulasi otomatis sesuai AD-ART Pasal 42
 - 🛒 **POS Kasir** — Toko retail dengan skema kredit potong gaji
 - 📄 **Import Excel** — Migrasi data anggota, pinjaman, Tunkin, Gaji
-- 🔐 **4 level role** — Operator, Admin, Kasir, Anggota
+- 🔐 **5 role** — Operator, Admin Unit, Admin SP, Kasir, Anggota (portal)
 - 📝 **Audit trail** — Logging aksi append-only dengan IP & User Agent
 
 ---
@@ -67,7 +67,7 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 - Pembayaran Tunai atau Kredit (Potong Gaji)
 - Manajemen stok & persediaan
 - Import produk massal
-- 8+ jenis unit: Toko, Resto, Cafe, Laundry, Fitness, Playstation, Cuci Mobil, Cafe LSP
+- 10 unit usaha: Toko, Resto & Cafe, Cafe LSP, Cuci Mobil, Barbershop, Fitness, Play Station, Fotocopy, Laundry, Haji & Umrah (lihat [Peta Fitur](#️-peta-fitur-unit--role))
 
 ### 📋 Tagihan Piutang (Billing Receivables)
 - Siklus penagihan bulanan (16 - 15) atau custom date range
@@ -92,6 +92,84 @@ Sistem manajemen koperasi digital yang komprehensif untuk **Koperasi PRIMKOPPOL 
 - Role-Based Access Control (4 level)
 - Audit Log append-only (IP, User Agent, diff sebelum/sesudah)
 - Konfirmasi "RESET-DATA" untuk operasi destruktif
+
+---
+
+## 🗺️ Peta Fitur: Unit × Role
+
+Sumber kebenaran navigasi: [`src/lib/constants/navigation.ts`](src/lib/constants/navigation.ts) (RBAC v2 — role + unitType), daftar unit: [`src/lib/constants/units.ts`](src/lib/constants/units.ts).
+
+### 1. Matriks Unit Usaha × Fitur (tampilan Admin unit)
+
+| Unit | POS Kasir | Shift | Produk/Menu/Layanan | Stok & Persediaan | Promo | Modifier | KDS / Antrian | Denah Meja | Laporan Unit | Insight | Fitur Khusus |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|------|
+| **Toko** (`toko`) | ✅ | ✅ | ✅ Produk + Harga | ✅ Persediaan + Stock Tracking + Batch | ✅ | — | — | — | ✅ | ✅ | Manajemen Kasir, Batch stok |
+| **Resto & Cafe** (`resto`) | ✅ | ✅ | ✅ Menu | ✅ + Opname | ✅ | ✅ | ✅ KDS | ✅ | ✅ | ✅ | Opname Stok, Website Settings |
+| **Cafe LSP** (`cafe_lsp`) | ✅ | ✅ | ✅ Menu | ✅ | ✅ | ✅ | ✅ KDS + Order Queue | — | ✅ | ✅ | Antrian order |
+| **Cuci Mobil** (`cuci_mobil`) | ✅ | — | ✅ Layanan | — | — | — | — | — | ✅ | — | — |
+| **Barbershop** (`barbershop`) | ✅ | — | ✅ Layanan | — | — | — | — | — | ✅ | — | — |
+| **Fitness** (`fitness`) | ✅ | — | ✅ Layanan | — | — | — | — | — | ✅ | — | — |
+| **Play Station** (`playstation`) | ✅ | ✅ | ✅ Produk & Jasa | — | — | — | — | — | ✅ | — | Pengaturan Console (timer rental) |
+| **Fotocopy** (`fotocopy`) | ✅ | — | ✅ Layanan | — | — | — | — | — | ✅ | — | — |
+| **Laundry** (`laundry`) | ✅ | — | ✅ Layanan | — | — | — | — | — | ✅ | — | — |
+| **Haji & Umrah** (`haji_umrah`) | — | — | ✅ Produk tabungan | — | — | — | — | — | ✅ (laporan H&U) | — | Tabungan, Talangan, Bagi Hasil |
+
+> Unit jasa (cuci mobil, barbershop, fitness, fotocopy, laundry) memakai navigasi generik `adminUnitNavigation` (POS + Kelola Layanan & Harga + Riwayat + Laporan + Approval). Halaman Laporan Unit (`/unit/[unitSlug]/laporan`) dibagi oleh SEMUA unit — perubahan berdampak ke semua unit.
+> Admin dengan unitType `simpan_pinjam` / `investasi_modal_jp` jatuh ke navigasi pusat (`mainNavigation`) dengan filter role.
+
+### 2. Matriks Role × Modul (Web)
+
+| Modul | Operator | Admin Unit | Admin SP | Kasir |
+|------|:---:|:---:|:---:|:---:|
+| Dashboard | ✅ | ✅ | ✅ | ✅ |
+| Anggota (Daftar/Kartu/Buku) | ✅ | — | ✅ | — |
+| Simpanan (Rekening/Transaksi/Rekap) | ✅ | — | ✅ | — |
+| Pinjaman (Pengajuan/Daftar/Angsuran/Jadwal/Jasa) | ✅ | — | ✅ | — |
+| Kas & Bank (Buku Kas/Kas/Bank/Transfer) | ✅ | —* | — | — |
+| Non Simpan Pinjam (Penerimaan/Pengeluaran) | ✅ | —* | — | — |
+| POS Unit (semua unit) | ✅ (via Transaksi Unit) | ✅ (unit sendiri) | — | ✅ (unit sendiri) |
+| Produk/Menu/Layanan & Stok | ✅ | ✅ (unit sendiri) | — | lihat produk (toko) |
+| Laporan Unit | ✅ | ✅ (unit sendiri) | — | — |
+| Insight Penjualan | ✅ | ✅ (toko/resto/cafe-lsp) | — | — |
+| Jurnal (Buku Besar/Umum/Penyesuaian) | ✅ | —* | ✅ | — |
+| Laporan Keuangan (Neraca/Laba Rugi/Arus Kas/SHU/Rekap/Faktur Potongan/Piutang Gabungan) | ✅ | —* | ✅ | — |
+| Gaji & Slip | ✅ | — | — | — |
+| Aset & Penyusutan | ✅ | —* | — | — |
+| Kwitansi | ✅ | ✅ | ✅ | — |
+| Tagihan Piutang (Rekap/Riwayat) | ✅ | — | — | — |
+| Tutup Buku & Alokasi SHU (Perhitungan/Distribusi) | ✅ | — | — | — |
+| Manajemen Unit & Dashboard Unit | ✅ | — | — | — |
+| Pengumuman | ✅ | — | ✅ | — |
+| Inbox Approval | ✅ | ✅ | ✅ | — |
+| Audit Log | ✅ | —* | — | — |
+| Master Data (8 submenu) + User Management + Profil Koperasi | ✅ | — | — | — |
+| Pengaturan / Profil Saya | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | — / ✅ |
+
+\* Hanya admin **pusat tanpa unitType** (fallback `mainNavigation`) — admin yang terikat unit tidak melihat modul ini.
+
+**Portal Anggota** (`/portal`, tanpa login backoffice): dashboard simpanan/pinjaman/tunkin/SHU/gaji, pengajuan pinjaman, faktur/tagihan sendiri, kartu anggota.
+
+### 3. Menu Kasir per Unit
+
+| Unit kasir | Menu |
+|------|------|
+| Toko | POS, Shift, Daftar Produk, Riwayat Penjualan |
+| Resto & Cafe | POS, Shift, Riwayat Penjualan |
+| Cafe LSP | POS, Order Queue (antrian), Shift, Riwayat |
+| Play Station | POS, Shift, Riwayat |
+| Barbershop / Fitness / Fotocopy / Laundry | POS, Riwayat |
+| Unit lain (cuci mobil, dll) | POS generik (`/unit/[unit]/kasir`), Riwayat |
+
+Kasir tidak punya akses Pengaturan sistem, Approval, maupun laporan keuangan.
+
+### 4. Mobile App per Role (68 screen, `mobile/src/screens/`)
+
+| Role | Jumlah | Screen utama |
+|------|:---:|------|
+| Operator | 49 | Dashboard, anggota, simpanan, pinjaman (pengajuan/angsuran/edit), kas-bank (4), jurnal, neraca/laba-rugi/arus-kas, SHU, tagihan, gaji, aset (3), approval, audit log, master data, kwitansi, kompen, Haji & Umrah (6), laporan unit, import data |
+| Kasir | 5 | POS, shift, stok, riwayat, edit NRP |
+| Anggota | 6 | Dashboard, simpanan, pinjaman + pengajuan, transaksi, slip gaji, kartu anggota |
+| Umum | 6 | Login, ganti password, profil, pengumuman (2), notifikasi, kwitansi viewer |
 
 ---
 
@@ -233,10 +311,10 @@ npx prisma studio
 |--------|-------|
 | Web Pages | 160+ |
 | API Endpoints | 120+ |
-| Mobile Screens | 40+ |
-| Database Models | 25+ |
+| Mobile Screens | 65+ |
+| Database Models | 45 |
 | Total Routes | 250+ |
-| Unit Usaha | 8+ |
+| Unit Usaha | 10 |
 
 ## 🤝 Contributing
 
