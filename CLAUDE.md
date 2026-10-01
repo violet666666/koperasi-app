@@ -103,10 +103,11 @@ NODE_ENV           — development/production
 ## Testing
 
 - **Unit:** Vitest + happy-dom (`src/__tests__/`, 23 files)
-- **E2E:** Playwright (`e2e/`, 8 spec files including haji-umrah)
+- **E2E:** Playwright (`e2e/`, 8 spec files including haji-umrah). Perlu dev server sendiri (`npm run dev` di :3000) + binary browser (`npx playwright install chromium` sekali per mesin).
 - **Test accounts:** See `akun-primkoppol.md`
-- **Pre-existing failing tests (NOT regressions):** `split-bill` (group-id `SB-` format), `batch-navigation` (cafe-lsp item count), `floor-plan`/`queue-system` (stale types). Prove a failure isn't yours with `git stash push <your files>` + retest before digging in.
-- **Pre-existing tsc errors (NOT regressions; `npm run build` still succeeds):** a handful from `api/mobile/toko/shifts/[id]` (Next.js async-params validator: `params: Promise`) + `prisma/seed-kas-bank-jatim.ts` + `prisma/seed-uat.ts`. `npx tsc --noEmit` surfaces them — ignore unless in a file you changed.
+- **Pre-existing failing tests (NOT regressions; baseline audit 2026-10-02):** Vitest 512/515 pass, 3 fail (`split-bill` group-id `SB-` format). E2E full suite ~99-102 pass / **31 fail stabil**: unit-insight (19), reporting (4), haji-umrah-bagi-hasil (3, termasuk 3.1 process/void), haji-umrah-portal (2), batch-pages (2: sidebar link `a[href="/resto/batch"]`), split-bill (1), floor-plan (1). Plus **~3 flaky** (haji-umrah-admin-setup sidebar-menu, bagi-hasil dryRun/void) — lulus saat rerun terisolasi; jangan buru-buru anggap regresi. Prove a failure isn't yours with `git stash push <your files>` + retest, atau rerun spec-nya sendirian, before digging in.
+- **Pre-existing tsc errors (NOT regressions; `npm run build` still succeeds):** ~177 error — terbesar `scripts/import-sp-juli.ts` (12), `api/toko/stock-tracking/compare` (10), `api/reports/shu/detail-transactions` (8), `prisma/seed-uat.ts` (6), `api/mobile/toko/history` (5), haji-umrah API routes (~20). `npx tsc --noEmit` surfaces them — ignore unless in a file you changed. Lint steady-state ~1758 problem (1241 err / 517 warn).
+- **Audit bulanan:** baseline + langkah ada di memory `audit-bulanan-baseline-2026-10` — 9 cek (build/lint/tsc/test/E2E/diagnose/SHU/deploy/smoke role+EAS).
 
 ## Gotchas
 
