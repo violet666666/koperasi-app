@@ -6,6 +6,7 @@ import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { canAccessUnit } from "@/lib/mobile-auth-scope";
+import { buildUnitNotes, extractNoteTag } from "@/lib/services/unit-notes";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { unitType, amount, paymentMethod, memberId, description, customerName } = body;
+        const { unitType, amount, paymentMethod, memberId, description, customerName, vehiclePlate, customerPhone } = body;
 
         if (!unitType || !amount || !paymentMethod) {
             return NextResponse.json({ message: "Data tidak lengkap: unitType, amount, paymentMethod wajib diisi" }, { status: 400 });
@@ -123,6 +124,15 @@ export async function POST(request: Request) {
 
         const now = new Date();
 
+        // Registry pelanggan nopol↔WA (parity kasir web): tag di notes agar
+        // terhubung dengan customer-lookup. Fallback ekstrak [PLAT:] dari
+        // description utk app mobile versi lama yang menempel tag di keterangan.
+        const notes = buildUnitNotes({
+            plate: vehiclePlate ?? extractNoteTag(typeof description === "string" ? description : null, "PLAT"),
+            phone: customerPhone ?? null,
+            customerName: customerName ?? null,
+        });
+
         // ── INTERACTIVE TRANSACTION: Atomic multi-table operations ─────
         const result = await prisma.$transaction(async (tx) => {
             const trxNo = await generateTxNoMobile(unitType, tx);
@@ -134,6 +144,7 @@ export async function POST(request: Request) {
                     memberId: memberId ? Number(memberId) : null,
                     unitType: unitType,
                     description: description || `Pembayaran ${unitType} (Mobile) - ${customerName || "Walk-in"}`,
+                    notes,
                     amount: totalAmount,
                     transactionDate: now,
                     paymentMethod: method,

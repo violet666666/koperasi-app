@@ -25,17 +25,22 @@ export async function GET(request: Request) {
             return NextResponse.json({ data: null });
         }
 
+        const needle = parsed.mode === "phone"
+            ? `[HP:${parsed.value}` // prefix-match utk suggest sambil mengetik
+            : `[PLAT:${parsed.value}]`;
         const rows = await prisma.unitTransaction.findMany({
             where: {
                 unitType: "cuci_mobil",
                 status: { not: "voided" },
-                notes: parsed.mode === "phone"
-                    ? { contains: `[HP:${parsed.value}` } // prefix-match utk suggest sambil mengetik
-                    : { contains: `[PLAT:${parsed.value}]` },
+                OR: [
+                    { notes: { contains: needle } },
+                    // App mobile lama menempel [PLAT:] di description (sebelum tag notes)
+                    { description: { contains: needle } },
+                ],
             },
             orderBy: { createdAt: "desc" },
             take: 500,
-            select: { notes: true, transactionDate: true },
+            select: { notes: true, description: true, transactionDate: true },
         });
 
         if (rows.length === 0) {
@@ -43,13 +48,13 @@ export async function GET(request: Request) {
         }
 
         // Identitas pelanggan diambil dari baris terbaru yang punya tag lengkap
-        const phone = parsed.mode === "phone" ? (extractNoteTag(rows[0].notes, "HP") || parsed.value)
-            : rows.map(r => extractNoteTag(r.notes, "HP")).find(Boolean) || null;
-        const name = rows.map(r => extractNoteTag(r.notes, "NAMA")).find(Boolean) || null;
+        const phone = parsed.mode === "phone" ? (extractNoteTag(rows[0].notes || rows[0].description, "HP") || parsed.value)
+            : rows.map(r => extractNoteTag(r.notes || r.description, "HP")).find(Boolean) || null;
+        const name = rows.map(r => extractNoteTag(r.notes || r.description, "NAMA")).find(Boolean) || null;
 
         const plates: string[] = [];
         for (const r of rows) {
-            const p = extractNoteTag(r.notes, "PLAT");
+            const p = extractNoteTag(r.notes || r.description, "PLAT");
             if (p && !plates.includes(p)) plates.push(p);
             if (plates.length >= 10) break;
         }

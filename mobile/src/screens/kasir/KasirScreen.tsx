@@ -104,6 +104,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   // ── S1-04: Plat Nomor Kendaraan (cuci mobil) ─────────────────────────
   const [vehiclePlate, setVehiclePlate] = useState('');
+  // No. HP pelanggan → tag [HP:] di notes (registry nopol↔WA, parity kasir web)
+  const [quickPhone, setQuickPhone] = useState('');
 
   // ── Ukuran Kertas Struk (default 58mm untuk thermal printer) ──────────
   const [paperSize, setPaperSize] = useState<PaperSizeId>('58mm');
@@ -199,6 +201,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
     setQuickCustomer('');
     setSelectedPackage('');
     setVehiclePlate('');
+    setQuickPhone('');
   };
 
   const handlePackageSelect = (pkg: ServicePackage) => {
@@ -264,14 +267,6 @@ export default function KasirScreen({ navigation: navProp }: any) {
 
   const total = isQuickSale ? Number(quickAmount) : cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
 
-  // ── S1-04: Build description with vehicle plate ─────────────────────
-  const buildQuickDesc = () => {
-    if (isCarwash && vehiclePlate.trim()) {
-      return `${quickDesc} [PLAT:${vehiclePlate.trim().toUpperCase()}]`;
-    }
-    return quickDesc;
-  };
-
   // ── API Checkouts ──────────────────────────────────────────────────────
   const performStandardCheckoutAPI = async (method: string, memberId: number | null) => {
     setProcessing(true);
@@ -315,8 +310,11 @@ export default function KasirScreen({ navigation: navProp }: any) {
         amount: Number(quickAmount),
         paymentMethod: method,
         memberId,
-        description: buildQuickDesc(),  // S1-04: include vehicle plate
-        customerName: quickCustomer
+        description: quickDesc,
+        customerName: quickCustomer,
+        // Plat + HP → tag [PLAT:]/[HP:] di notes (registry pelanggan, parity kasir web)
+        vehiclePlate: isCarwash ? vehiclePlate.trim() || undefined : undefined,
+        customerPhone: isCarwash ? quickPhone.replace(/\D/g, '') || undefined : undefined,
       });
 
       const printedDesc = quickDesc;
@@ -327,6 +325,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setQuickCustomer('');
       setSelectedPackage('');
       setVehiclePlate(''); // S1-04: reset plate
+      setQuickPhone('');
       memberModalRef.current?.dismiss();
       setMemberPiutang(null);
 
@@ -352,6 +351,10 @@ export default function KasirScreen({ navigation: navProp }: any) {
   };
 
   const handleCheckoutInit = (method: 'cash' | 'qris' | 'salary_cut') => {
+    if (isCarwash && !vehiclePlate.trim()) {
+      Toast.show({ type: 'error', text1: 'Plat Wajib Diisi', text2: 'Isi plat nomor kendaraan pelanggan.' });
+      return;
+    }
     if (!isQuickSale && cart.length === 0) return;
     if (isQuickSale && (!quickAmount || Number(quickAmount) <= 0)) {
       Toast.show({ type: 'error', text1: 'Nominal Kosong', text2: 'Masukkan nominal transaksi' });
@@ -633,6 +636,15 @@ export default function KasirScreen({ navigation: navProp }: any) {
                     onChangeText={(val) => setVehiclePlate(val.toUpperCase().slice(0, 12))}
                     autoCapitalize="characters"
                     maxLength={12}
+                  />
+                  <Text style={styles.label}>📱 No. HP Pelanggan (Opsional)</Text>
+                  <TextInput
+                    style={styles.inputForm}
+                    placeholder="Cth: 081234567890 — tersimpan di riwayat pelanggan"
+                    keyboardType="phone-pad"
+                    value={quickPhone}
+                    onChangeText={setQuickPhone}
+                    maxLength={16}
                   />
                 </>
               )}
