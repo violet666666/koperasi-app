@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildUnitNotes, extractNoteTag, normalizePhone, detectLookupQuery } from "../lib/services/unit-notes";
+import { buildUnitNotes, extractNoteTag, normalizePhone, detectLookupQuery, shouldUpdateMemberPhone } from "../lib/services/unit-notes";
 
 describe("unit-notes", () => {
     it("buildUnitNotes gabung PLAT+HP+NAMA; plat di-uppercase, phone digits-only", () => {
@@ -43,6 +43,21 @@ describe("unit-notes", () => {
             expect(detectLookupQuery("")).toBeNull();
             expect(detectLookupQuery("12")).toBeNull();
             expect(detectLookupQuery("1234567")).toBeNull();
+        });
+    });
+
+    describe("shouldUpdateMemberPhone (fill-if-empty)", () => {
+        it("anggota tanpa HP + HP valid → boleh update", () => {
+            expect(shouldUpdateMemberPhone(null, "0812-3456-7890")).toBe(true);
+            expect(shouldUpdateMemberPhone("", "6281234567890")).toBe(true);
+        });
+        it("anggota sudah punya HP → JANGAN pernah ditimpa dari POS", () => {
+            expect(shouldUpdateMemberPhone("081111111111", "0812-3456-7890")).toBe(false);
+        });
+        it("HP masuk tidak valid (< 8 / > 15 digit) → tidak update", () => {
+            expect(shouldUpdateMemberPhone(null, "1234567")).toBe(false);
+            expect(shouldUpdateMemberPhone(null, "1234567890123456")).toBe(false);
+            expect(shouldUpdateMemberPhone(null, "")).toBe(false);
         });
     });
 });

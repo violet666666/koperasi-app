@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authWithMobile } from "@/lib/dual-auth";
 import { extractNoteTag, detectLookupQuery } from "@/lib/services/unit-notes";
 
 // GET /api/unit-layanan/customer-lookup?q=08123456|N 1234 XY
@@ -8,9 +8,10 @@ import { extractNoteTag, detectLookupQuery } from "@/lib/services/unit-notes";
 // - No. HP (>= 8 digit, prefix-match) → nama, SEMUA plat, jumlah kunjungan, terakhir
 // - No. plat → pemilik (nama + no. HP) dari transaksi terakhir yang memakai plat itu
 // Sumber: UnitTransaction.notes tag [HP:]/[PLAT:]/[NAMA:] — tanpa tabel/model baru.
+// Dual-auth: dipanggil kasir web (cookie) DAN kasir mobile (Bearer JWT).
 export async function GET(request: Request) {
     try {
-        const session = await auth();
+        const session = await authWithMobile(request);
         if (!session?.user?.id) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }

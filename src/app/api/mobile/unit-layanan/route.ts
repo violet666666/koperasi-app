@@ -6,7 +6,7 @@ import { getPlafonPiutang } from "@/lib/plafon";
 import { findUnitAccount } from "@/lib/cash-bank";
 import { shiftAccountBalance } from "@/lib/kas-bank-balance";
 import { canAccessUnit } from "@/lib/mobile-auth-scope";
-import { buildUnitNotes, extractNoteTag } from "@/lib/services/unit-notes";
+import { buildUnitNotes, extractNoteTag, normalizePhone, shouldUpdateMemberPhone } from "@/lib/services/unit-notes";
 
 const UNIT_ABBR_TX: Record<string, string> = {
     cuci_mobil: "CM",
@@ -154,6 +154,18 @@ export async function POST(request: Request) {
                 }
             });
 
+            // 1b. Sync HP → profil anggota (fill-if-empty, atomic): hanya bila anggota
+            // belum punya HP — tidak pernah menimpa data pusat yang sudah ada.
+            let memberPhoneUpdated = false;
+            if (memberId && customerPhone && shouldUpdateMemberPhone(undefined, customerPhone)) {
+                const digits = normalizePhone(customerPhone);
+                const upd = await tx.member.updateMany({
+                    where: { id: Number(memberId), OR: [{ phone: null }, { phone: "" }] },
+                    data: { phone: digits },
+                });
+                memberPhoneUpdated = upd.count > 0;
+            }
+
             // 2. Cash/Bank sync
             let cashTxId: number | null = null;
             if (method === "cash" || method === "qris") {
@@ -235,7 +247,7 @@ export async function POST(request: Request) {
                 }
             }
 
-            return { unitTx, trxNo };
+            return { unitTx, trxNo, memberPhoneUpdated };
         }, { maxWait: 10000, timeout: 30000 });
 
         // Audit Log
@@ -256,6 +268,7 @@ export async function POST(request: Request) {
                 transactionNo: result.unitTx.transactionNo,
                 totalAmount: Number(result.unitTx.amount),
                 paymentMethod: method,
+                memberPhoneUpdated: result.memberPhoneUpdated,
             },
         }, { status: 201 });
     } catch (error) {

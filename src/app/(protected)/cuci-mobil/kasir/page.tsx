@@ -17,7 +17,7 @@ import { generateRawText, ReceiptPrimkopol, type ReceiptData } from "@/component
 
 interface Product { id: number; sku: string; name: string; price: number; isService: boolean; category?: string; }
 interface CartItem { product: Product; quantity: number; }
-interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; }
+interface MemberResult { id: number; memberNo: string; name: string; nrp?: string; phone?: string | null; }
 interface LimitValidation { allowed: boolean; sisaLimit: number; plafonPiutang: number; totalTagihan: number; reason?: string; }
 interface CustomerLookup { mode: "phone" | "plate"; phone: string | null; name: string | null; visitCount: number; lastVisit: string; plates: string[]; }
 
@@ -65,7 +65,11 @@ export default function CuciMobilKasirPage() {
     const [limitInfo, setLimitInfo] = React.useState<LimitValidation | null>(null);
     const [isValidatingLimit, setIsValidatingLimit] = React.useState(false);
 
-    const selectCustomer = (m: MemberResult) => { setSelectedCustomerObj(m); setCustomerQuery(m.name); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
+    const selectCustomer = (m: MemberResult) => {
+        setSelectedCustomerObj(m); setCustomerQuery(m.name); setCustomerSuggestions([]); setShowCustomerDropdown(false);
+        // Prefill HP terdaftar → ikut tersimpan di registry tanpa retyping
+        if (m.phone && !customerPhone.trim()) setCustomerPhone(m.phone);
+    };
     const clearCustomer = () => { setSelectedCustomerObj(null); setCustomerQuery(""); setCustomerSuggestions([]); setShowCustomerDropdown(false); };
 
     // Potong Gaji handler — langsung proses jika anggota sudah dipilih, buka dialog jika belum
@@ -127,8 +131,9 @@ export default function CuciMobilKasirPage() {
         return () => clearTimeout(timer);
     }, [customerQuery, selectedCustomerObj]);
 
-    // Cari pelanggan lama saat no. HP (≥ 8 digit) ATAU plat (ada huruf) diketik — debounce 400ms
-    const lookupQuery = detectLookupQuery(customerPhone);
+    // Cari pelanggan lama saat no. HP (≥ 8 digit) ATAU plat (ada huruf) diketik —
+    // di field "Cari Pelanggan" MAUPUN langsung dari field Plat Nomor — debounce 400ms
+    const lookupQuery = detectLookupQuery(customerPhone) ?? detectLookupQuery(vehiclePlate);
     const lookupMode = lookupQuery?.mode ?? null;
     const lookupValue = lookupQuery?.value ?? null;
     React.useEffect(() => {
@@ -271,6 +276,9 @@ export default function CuciMobilKasirPage() {
             if (!res.ok) throw new Error(json.message);
 
             toast.success(`Transaksi Cuci Mobil ${json.data.transactionNo} Berhasil!`);
+            if (json.data.memberPhoneUpdated) {
+                toast.info(`No. HP tersimpan ke profil anggota ${salaryMember?.name || selectedCustomerObj?.name || ""} (sebelumnya kosong).`);
+            }
 
             const receiptInfo: ReceiptData = {
                 notaNo: json.data.transactionNo,
@@ -539,7 +547,11 @@ export default function CuciMobilKasirPage() {
                         {memberResults.length > 0 && (
                             <div className="max-h-[150px] overflow-y-auto border rounded-md">
                                 {memberResults.map(m => (
-                                    <div key={m.id} className={`p-3 cursor-pointer hover:bg-slate-50 border-b last:border-0 ${selectedMember?.id === m.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""}`} onClick={() => setSelectedMember(m)}>
+                                    <div key={m.id} className={`p-3 cursor-pointer hover:bg-slate-50 border-b last:border-0 ${selectedMember?.id === m.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""}`} onClick={() => {
+                                        setSelectedMember(m);
+                                        // Prefill HP terdaftar → ikut tersimpan di registry tanpa retyping
+                                        if (m.phone && !customerPhone.trim()) setCustomerPhone(m.phone);
+                                    }}>
                                         <p className="font-semibold text-slate-800">{m.name}</p>
                                         <p className="text-xs text-slate-500">NRP: {m.nrp || "-"}</p>
                                     </div>

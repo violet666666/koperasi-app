@@ -48,7 +48,8 @@ async function getWatermarkBase64(): Promise<string | null> {
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product { id: number; sku: string; name: string; price: number; stock: number; unit: string; }
 interface CartItem { product: Product; quantity: number; }
-interface Member { id: number; name: string; nrp: string; category?: string; }
+interface Member { id: number; name: string; nrp: string; category?: string; phone?: string | null; }
+interface CustomerLookupInfo { name: string | null; phone: string | null; visitCount: number; lastVisit: string; plates: string[]; }
 interface ServicePackage { id: number; name: string; label: string; price: number; description?: string; }
 interface PiutangInfo {
   totalPlafon: number;
@@ -106,6 +107,9 @@ export default function KasirScreen({ navigation: navProp }: any) {
   const [vehiclePlate, setVehiclePlate] = useState('');
   // No. HP pelanggan → tag [HP:] di notes (registry nopol↔WA, parity kasir web)
   const [quickPhone, setQuickPhone] = useState('');
+  // Lookup pelanggan otomatis dari plat (registry dua arah, parity kasir web)
+  const [plateLookup, setPlateLookup] = useState<CustomerLookupInfo | null>(null);
+  const [isLookingUpPlate, setIsLookingUpPlate] = useState(false);
 
   // ── Ukuran Kertas Struk (default 58mm untuk thermal printer) ──────────
   const [paperSize, setPaperSize] = useState<PaperSizeId>('58mm');
@@ -147,6 +151,27 @@ export default function KasirScreen({ navigation: navProp }: any) {
       if (memberSearchDebounceRef.current) clearTimeout(memberSearchDebounceRef.current);
     };
   }, []);
+
+  // ── Lookup pelanggan dari field plat (cuci mobil) — debounce 500ms ──────
+  // Plat diketik → riwayat pelanggan muncul; HP pemilik auto-isi bila kolom
+  // HP masih kosong. Best-effort: gagal fetch = diam saja.
+  useEffect(() => {
+    if (!isCarwash) { setPlateLookup(null); return; }
+    const q = vehiclePlate.trim();
+    if (!/[A-Za-z]/.test(q) || q.replace(/[^A-Za-z0-9]/g, '').length < 3) { setPlateLookup(null); return; }
+    const timer = setTimeout(async () => {
+      setIsLookingUpPlate(true);
+      try {
+        const res = await api.get(`/api/unit-layanan/customer-lookup?q=${encodeURIComponent(q.toUpperCase())}`);
+        const info: CustomerLookupInfo | null = res.data?.data ?? null;
+        setPlateLookup(info);
+        if (info?.phone) setQuickPhone(prev => prev.trim() ? prev : info.phone!);
+      } catch (e) {
+        setPlateLookup(null);
+      } finally { setIsLookingUpPlate(false); }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [vehiclePlate, isCarwash]);
 
   // Flags for mode
   // JALUR 1 (unit-layanan / quick sale): cuci_mobil, barbershop, fotocopy
@@ -202,6 +227,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
     setSelectedPackage('');
     setVehiclePlate('');
     setQuickPhone('');
+    setPlateLookup(null);
   };
 
   const handlePackageSelect = (pkg: ServicePackage) => {
@@ -305,7 +331,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
     }
     setProcessing(true);
     try {
-      await api.post('/api/mobile/unit-layanan', {
+      const res = await api.post('/api/mobile/unit-layanan', {
         unitType,
         amount: Number(quickAmount),
         paymentMethod: method,
@@ -316,6 +342,9 @@ export default function KasirScreen({ navigation: navProp }: any) {
         vehiclePlate: isCarwash ? vehiclePlate.trim() || undefined : undefined,
         customerPhone: isCarwash ? quickPhone.replace(/\D/g, '') || undefined : undefined,
       });
+      if (res.data?.data?.memberPhoneUpdated) {
+        Toast.show({ type: 'success', text1: 'HP Tersimpan ke Anggota', text2: 'Profil anggota sebelumnya tanpa no. HP — kini terisi.' });
+      }
 
       const printedDesc = quickDesc;
       const printedTotal = Number(quickAmount);
@@ -326,6 +355,7 @@ export default function KasirScreen({ navigation: navProp }: any) {
       setSelectedPackage('');
       setVehiclePlate(''); // S1-04: reset plate
       setQuickPhone('');
+      setPlateLookup(null);
       memberModalRef.current?.dismiss();
       setMemberPiutang(null);
 
@@ -646,6 +676,34 @@ export default function KasirScreen({ navigation: navProp }: any) {
                     onChangeText={setQuickPhone}
                     maxLength={16}
                   />
+
+                  {/* Kartu riwayat pelanggan otomatis dari plat */}
+                  {(isLookingUpPlate || plateLookup) && (
+                    <View style={{ marginTop: 10, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 10, padding: 10 }}>
+                      {isLookingUpPlate ? (
+                        <Text style={{ fontSize: 12, color: '#1D4ED8' }}>Mencari riwayat pelanggan…</Text>
+                      ) : (
+                        <>
+                          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E3A8A' }}>
+                            👤 Pelanggan lama{plateLookup!.name ? `: ${plateLookup!.name}` : ''}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: '#1D4ED8', marginTop: 2 }}>
+                            {plateLookup!.phone ? `HP/WA: ${plateLookup!.phone} • ` : ''}{plateLookup!.visitCount}× pernah cuci di sini
+                          </Text>
+                          {plateLookup!.plates.length > 0 && (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                              {plateLookup!.plates.map(p => (
+                                <TouchableOpacity key={p} onPress={() => setVehiclePlate(p)}
+                                  style={{ backgroundColor: '#FFF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#1E40AF' }}>{p}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  )}
                 </>
               )}
 
@@ -940,6 +998,8 @@ export default function KasirScreen({ navigation: navProp }: any) {
                     <TouchableOpacity
                       style={styles.modalMemberItem}
                       onPress={async () => {
+                        // Prefill HP terdaftar anggota → ikut masuk registry tanpa retyping
+                        if (item.phone && !quickPhone.trim()) setQuickPhone(item.phone);
                         if (isSalaryCut) {
                           // S2-02: Fetch piutang info sebelum konfirmasi
                           setSelectedMemberId(item.id);

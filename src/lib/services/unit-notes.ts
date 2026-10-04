@@ -34,6 +34,18 @@ export function extractNoteTag(notes: string | null | undefined, tag: NoteTag): 
 
 export type LookupMode = "phone" | "plate";
 
+/**
+ * Kebijakan sync HP kasir → profil anggota (fill-if-empty): update HANYA bila
+ * anggota belum punya no. HP dan HP yang masuk valid (8–15 digit). Anggota yang
+ * sudah punya HP tidak pernah ditimpa dari POS — typo kasir tidak merusak data pusat.
+ */
+export function shouldUpdateMemberPhone(current: unknown, incoming: unknown): boolean {
+    const hasCurrent = String(current ?? "").trim().length > 0;
+    const digits = normalizePhone(incoming);
+    return !hasCurrent && digits.length >= 8 && digits.length <= 15;
+}
+
+
 /** Deteksi mode pencarian pelanggan: >= 8 digit → phone; ada huruf → plate (uppercase). */
 export function detectLookupQuery(raw: unknown): { mode: LookupMode; value: string } | null {
     const q = String(raw ?? "").trim();
