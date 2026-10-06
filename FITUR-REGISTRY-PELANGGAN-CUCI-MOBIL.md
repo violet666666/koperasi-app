@@ -44,10 +44,13 @@ Setiap transaksi cuci mobil menyimpan identitas pelanggan dalam bentuk tag pada 
 │          • Semua plat milik no. HP itu (klik = ganti plat) │
 │          └─ HP pemilik ikut tersimpan otomatis             │
 ├────────────────────────────────────────────────────────────┤
-│ 2. ATAU KETIK NO. HP / PLAT di "Cari Pelanggan"            │
+│ 2. ATAU KETIK NO. HP / PLAT di field "No. HP / WA          │
+│    Pelanggan" (tersimpan + cari otomatis)                  │
 │    └─ pencarian dua arah, jalan sambil mengetik            │
 │       • HP ≥ 8 digit → semua plat + statistik kunjungan    │
 │       • Plat → nama + HP pemilik                           │
+│       • Pelanggan baru → HP & nama terisi, otomatis        │
+│         tersimpan di riwayat saat transaksi                │
 ├────────────────────────────────────────────────────────────┤
 │ 3. PELANGGAN = ANGGOTA? Pilih anggotanya                   │
 │    └─ HP terdaftar anggota otomatis terisi ke field HP     │
@@ -59,6 +62,8 @@ Setiap transaksi cuci mobil menyimpan identitas pelanggan dalam bentuk tag pada 
 │ 5. STRUK THERMAL 58mm + data tersimpan:                    │
 │    riwayat unit · SHU per-unit · registry pelanggan        │
 │    · profil anggota (bila HP-nya masih kosong)             │
+│    Konfirmasi muncul: "HP tersimpan" / peringatan bila     │
+│    pelanggan umum diproses tanpa no. HP                    │
 └────────────────────────────────────────────────────────────┘
 ```
 

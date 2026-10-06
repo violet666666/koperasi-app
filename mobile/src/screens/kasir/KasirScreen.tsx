@@ -344,6 +344,14 @@ export default function KasirScreen({ navigation: navProp }: any) {
       });
       if (res.data?.data?.memberPhoneUpdated) {
         Toast.show({ type: 'success', text1: 'HP Tersimpan ke Anggota', text2: 'Profil anggota sebelumnya tanpa no. HP — kini terisi.' });
+      } else if (isCarwash && !memberId) {
+        // Pelanggan umum — umpan balik eksplisit agar kasir tahu HP-nya tercatat
+        const phoneValid = quickPhone.replace(/\D/g, '').length >= 8;
+        Toast.show({
+          type: phoneValid ? 'success' : 'warning',
+          text1: phoneValid ? 'HP Pelanggan Tersimpan' : 'Tanpa No. HP',
+          text2: phoneValid ? 'Kunjungan berikutnya dikenali otomatis.' : 'Pelanggan tidak masuk riwayat — isi kolom No. HP.',
+        });
       }
 
       const printedDesc = quickDesc;

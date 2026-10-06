@@ -244,6 +244,11 @@ export default function CuciMobilKasirPage() {
         setIsProcessing(true);
         try {
             const desc = cart.map(i => `${i.product.name} x${i.quantity}`).join(", ");
+            // HP efektif yang tersimpan: bila field berisi plat (mode plate), pakai HP
+            // pemilik hasil lookup; selain itu pakai yang diketik kasir.
+            const effectivePhone = (lookupQuery?.mode === "plate" ? customerLookupInfo?.phone : null)
+                || customerPhone.replace(/\D/g, "") || undefined;
+            const phoneValid = !!effectivePhone && effectivePhone.replace(/\D/g, "").length >= 8;
             const body: any = {
                 unitType: "cuci_mobil",
                 amount: subtotal,
@@ -251,9 +256,7 @@ export default function CuciMobilKasirPage() {
                 description: desc,
                 customerName: walkInName.trim() || vehiclePlate || "Walk-in",
                 vehiclePlate,
-                // Cari via plat → field berisi plat; pakai HP pemilik hasil lookup agar tetap tersimpan
-                customerPhone: (lookupQuery?.mode === "plate" ? customerLookupInfo?.phone : null)
-                    || customerPhone.replace(/\D/g, "") || undefined,
+                customerPhone: effectivePhone,
             };
 
             // memberId: potong gaji WAJIB punya member, tunai/QRIS opsional
@@ -278,6 +281,13 @@ export default function CuciMobilKasirPage() {
             toast.success(`Transaksi Cuci Mobil ${json.data.transactionNo} Berhasil!`);
             if (json.data.memberPhoneUpdated) {
                 toast.info(`No. HP tersimpan ke profil anggota ${salaryMember?.name || selectedCustomerObj?.name || ""} (sebelumnya kosong).`);
+            } else if (!salaryMember && !selectedCustomerObj) {
+                // Pelanggan umum — beri umpan balik eksplisit agar kasir tahu HP-nya tercatat
+                if (phoneValid) {
+                    toast.success("No. HP pelanggan umum tersimpan — kunjungan berikutnya dikenali otomatis.");
+                } else {
+                    toast.warning("Tanpa no. HP — pelanggan tidak masuk riwayat. Isi field HP agar tersimpan.");
+                }
             }
 
             const receiptInfo: ReceiptData = {
@@ -324,7 +334,7 @@ export default function CuciMobilKasirPage() {
                     <Card className="border-blue-100 shadow-sm">
                         <CardHeader className="bg-blue-50/50 pb-4 border-b">
                             <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
-                                <Car className="h-5 w-5" /> Data Kendaraan
+                                <Car className="h-5 w-5" /> Data Pelanggan & Kendaraan
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 space-y-4">
@@ -336,10 +346,10 @@ export default function CuciMobilKasirPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-1.5">
-                                        Cari Pelanggan — No. HP atau Plat
+                                        No. HP / WA Pelanggan — tersimpan + cari otomatis
                                         {isLookingUpCustomer && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
                                     </Label>
-                                    <Input placeholder="08xx… atau N 1234 XY — cek pelanggan lama"
+                                    <Input placeholder="08xx… atau N 1234 XY — pelanggan lama dikenali otomatis"
                                         value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
                                 </div>
                                 <div className="space-y-2">
@@ -396,7 +406,7 @@ export default function CuciMobilKasirPage() {
                                     <p className="text-xs text-slate-400 flex items-center gap-1.5">
                                         <User className="h-3.5 w-3.5" />
                                         {lookupQuery.mode === "phone"
-                                            ? "Belum pernah tercatat — pelanggan baru. Isi nama agar tersimpan di riwayat."
+                                            ? "Belum tercatat — pelanggan baru. No. HP & nama yang diisi otomatis tersimpan di riwayat."
                                             : "Plat belum pernah tercatat — kendaraan/pelanggan baru."}
                                     </p>
                                 ) : null
