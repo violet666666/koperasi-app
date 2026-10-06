@@ -118,6 +118,7 @@ profil anggota web · portal anggota · aplikasi mobile · registry cuci mobil.
 
 ## 7. Batasan & Catatan
 
+- **Nomor HP yang dulu tertinggal di field Nama tetap dikenali** — 117 transaksi lama (Sep–Okt 2026) mengetik HP ke field "Nama Pelanggan" → tersimpan `[NAMA:08xxx]`; pencarian HP & kartu pelanggan ikut membacanya (tanpa ubah data)
 - HP kurang dari 8 digit diabaikan (dianggap bukan nomor valid)
 - Registry khusus unit cuci mobil; unit lain menyusul bila diperlukan dengan pola yang sama
 - Nomor HP tidak ditampilkan ke sesama pelanggan — hanya untuk kasir/admin dalam sistem

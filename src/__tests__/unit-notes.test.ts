@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildUnitNotes, extractNoteTag, normalizePhone, detectLookupQuery, shouldUpdateMemberPhone } from "../lib/services/unit-notes";
+import { buildUnitNotes, extractNoteTag, extractPhoneFromTags, normalizePhone, detectLookupQuery, shouldUpdateMemberPhone } from "../lib/services/unit-notes";
 
 describe("unit-notes", () => {
     it("buildUnitNotes gabung PLAT+HP+NAMA; plat di-uppercase, phone digits-only", () => {
@@ -43,6 +43,22 @@ describe("unit-notes", () => {
             expect(detectLookupQuery("")).toBeNull();
             expect(detectLookupQuery("12")).toBeNull();
             expect(detectLookupQuery("1234567")).toBeNull();
+        });
+    });
+
+    describe("extractPhoneFromTags (fallback NAMA ber-digit)", () => {
+        it("tag [HP:] menang bila ada", () => {
+            expect(extractPhoneFromTags("[PLAT:N 1234 XY] [HP:081234567890] [NAMA:089900001111]")).toBe("081234567890");
+        });
+        it("HP tertinggal di [NAMA:] (kasir lama) → tetap terbaca sebagai HP", () => {
+            expect(extractPhoneFromTags("[PLAT:L 1724 ACU] [NAMA:082325630010]")).toBe("082325630010");
+            expect(extractPhoneFromTags("[PLAT:N 2662 YBB] [NAMA:08123486862 I'll]")).toBe("08123486862");
+        });
+        it("nama sungguhan / digit < 8 / kosong → null", () => {
+            expect(extractPhoneFromTags("[PLAT:N 1 B] [NAMA:Budi Santoso]")).toBeNull();
+            expect(extractPhoneFromTags("[NAMA:1234567]")).toBeNull();
+            expect(extractPhoneFromTags(null)).toBeNull();
+            expect(extractPhoneFromTags("[PLAT:B 9999 ZZ]")).toBeNull();
         });
     });
 

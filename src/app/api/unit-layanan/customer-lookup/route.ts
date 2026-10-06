@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { authWithMobile } from "@/lib/dual-auth";
-import { extractNoteTag, detectLookupQuery } from "@/lib/services/unit-notes";
+import { extractNoteTag, extractPhoneFromTags, detectLookupQuery, normalizePhone } from "@/lib/services/unit-notes";
 
 // GET /api/unit-layanan/customer-lookup?q=08123456|N 1234 XY
 // Cari pelanggan cuci mobil dua arah:
@@ -26,18 +26,21 @@ export async function GET(request: Request) {
             return NextResponse.json({ data: null });
         }
 
-        const needle = parsed.mode === "phone"
-            ? `[HP:${parsed.value}` // prefix-match utk suggest sambil mengetik
-            : `[PLAT:${parsed.value}]`;
+        // Phone mode cari di [HP:] DAN [NAMA:] — kasir lama mengetik no. HP ke
+        // field Nama (label HP dulu berkesan "hanya mencari"); 117 transaksi
+        // produksi Sep–Okt 2026 menyimpan HP sebagai [NAMA:08xxx].
+        const needles = parsed.mode === "phone"
+            ? [`[HP:${parsed.value}`, `[NAMA:${parsed.value}`] // prefix-match utk suggest sambil mengetik
+            : [`[PLAT:${parsed.value}]`];
         const rows = await prisma.unitTransaction.findMany({
             where: {
                 unitType: "cuci_mobil",
                 status: { not: "voided" },
-                OR: [
+                OR: needles.flatMap(needle => [
                     { notes: { contains: needle } },
                     // App mobile lama menempel [PLAT:] di description (sebelum tag notes)
                     { description: { contains: needle } },
-                ],
+                ]),
             },
             orderBy: { createdAt: "desc" },
             take: 500,
@@ -49,9 +52,10 @@ export async function GET(request: Request) {
         }
 
         // Identitas pelanggan diambil dari baris terbaru yang punya tag lengkap
-        const phone = parsed.mode === "phone" ? (extractNoteTag(rows[0].notes || rows[0].description, "HP") || parsed.value)
-            : rows.map(r => extractNoteTag(r.notes || r.description, "HP")).find(Boolean) || null;
-        const name = rows.map(r => extractNoteTag(r.notes || r.description, "NAMA")).find(Boolean) || null;
+        const phone = parsed.mode === "phone" ? (extractPhoneFromTags(rows[0].notes || rows[0].description) || parsed.value)
+            : rows.map(r => extractPhoneFromTags(r.notes || r.description)).find(Boolean) || null;
+        // Nama: tag NAMA yang BUKAN no. HP tertinggal (digit ≥8 = HP, lihat extractPhoneFromTags)
+        const name = rows.map(r => extractNoteTag(r.notes || r.description, "NAMA")).find(n => n && normalizePhone(n).length < 8) || null;
 
         const plates: string[] = [];
         for (const r of rows) {

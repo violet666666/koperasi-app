@@ -32,6 +32,19 @@ export function extractNoteTag(notes: string | null | undefined, tag: NoteTag): 
     return m?.[1]?.trim() || null;
 }
 
+/**
+ * HP pelanggan dari tag notes. Fallback [NAMA:]: 117 transaksi produksi
+ * (Sep–Okt 2026) mengetik no. HP ke field Nama (label HP dulu berkesan
+ * "hanya mencari") → tersimpan [NAMA:08xxx]. NAMA ber-digit ≥8 = HP efektif;
+ * nama sungguhan hampir tak mungkin memuat 8+ digit.
+ */
+export function extractPhoneFromTags(notes: string | null | undefined): string | null {
+    const hp = normalizePhone(extractNoteTag(notes, "HP"));
+    if (hp.length >= 8) return hp;
+    const digits = normalizePhone(extractNoteTag(notes, "NAMA"));
+    return digits.length >= 8 ? digits : null;
+}
+
 export type LookupMode = "phone" | "plate";
 
 /**
