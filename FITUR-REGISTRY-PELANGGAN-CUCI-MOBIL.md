@@ -31,7 +31,9 @@ Setiap transaksi cuci mobil menyimpan identitas pelanggan dalam bentuk tag pada 
 
 ---
 
-## 3. Alur Kasir Web (`/cuci-mobil/kasir`)
+## 3. Alur Kasir Web
+
+Berlaku di **dua halaman** (fitur sama): `/unit/cuci-mobil/kasir` (POS generik — dipakai harian) dan `/cuci-mobil/kasir` (POS katalog).
 
 ```
 ┌────────────────────────────────────────────────────────────┐
