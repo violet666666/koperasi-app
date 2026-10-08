@@ -125,7 +125,9 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
     }, []);
 
     // Registry pelanggan (cuci mobil): pencarian dua arah dari No. HP ATAU plat.
-    // Kartu "Pelanggan lama" muncul otomatis; HP pemilik ikut tersimpan saat bayar.
+    // Kartu "Pelanggan lama" muncul otomatis; data pelanggan (HP/nama/plat) ikut
+    // TERISI OTOMATIS ke kolom yang masih kosong — tidak pernah menimpa yang
+    // sudah diketik kasir. HP pemilik ikut tersimpan saat bayar.
     const lookupQuery = unitType === "cuci_mobil" ? (detectLookupQuery(customerPhone) ?? detectLookupQuery(vehiclePlate)) : null;
     React.useEffect(() => {
         if (!lookupQuery) { setCustomerLookupInfo(null); return; }
@@ -135,7 +137,17 @@ export default function DedicatedKasirPage({ params }: { params: Promise<{ unitS
                 const res = await fetch(`/api/unit-layanan/customer-lookup?q=${encodeURIComponent(lookupQuery.value)}`);
                 if (!res.ok) { setCustomerLookupInfo(null); return; }
                 const json = await res.json();
-                setCustomerLookupInfo(json.data ?? null);
+                const info = json.data ?? null;
+                setCustomerLookupInfo(info);
+                // Auto-fill kolom kosong: HP pemilik, nama, plat (bila cuma 1 —
+                // plat >1 biarkan kasir pilih via chip, jangan nebak salah mobil)
+                if (info) {
+                    let filled = false;
+                    if (info.phone && !customerPhone.trim()) { setCustomerPhone(info.phone); filled = true; }
+                    if (info.name && !selectedCustomerObj && !customerName.trim()) { setCustomerName(info.name); filled = true; }
+                    if (info.plates?.length === 1 && !vehiclePlate.trim()) { setVehiclePlate(info.plates[0]); filled = true; }
+                    if (filled) toast.info("Pelanggan lama dikenali — kolom kosong terisi otomatis.");
+                }
             } catch {
                 setCustomerLookupInfo(null);
             } finally {
