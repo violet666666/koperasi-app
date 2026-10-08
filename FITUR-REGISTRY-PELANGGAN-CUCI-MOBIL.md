@@ -35,6 +35,8 @@ Setiap transaksi cuci mobil menyimpan identitas pelanggan dalam bentuk tag pada 
 
 Berlaku di **dua halaman** (fitur sama): `/unit/cuci-mobil/kasir` (POS generik — dipakai harian) dan `/cuci-mobil/kasir` (POS katalog).
 
+> **Terisi otomatis:** begitu pelanggan dikenali (via plat atau HP), kolom yang masih kosong terisi sendiri — No. HP pemilik, nama, dan plat (bila pelanggan punya tepat satu plat; pemilik beberapa kendaraan memilih via chip). Yang sudah diketik kasir tidak pernah ditimpa.
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │ 1. KETIK PLAT NOMOR (wajib)                                │
