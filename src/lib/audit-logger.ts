@@ -11,6 +11,7 @@ export type AuditAction =
     | "LOGIN"
     | "LOGOUT"
     | "LOGIN_FAILED"
+    | "LOGIN_RATE_LIMITED"
     | "CREATE"
     | "UPDATE"
     | "DELETE"

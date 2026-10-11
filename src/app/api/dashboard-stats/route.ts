@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
 
@@ -9,6 +10,10 @@ const CACHE_TTL_MS = 60_000;
 // GET /api/dashboard-stats - Get aggregated dashboard statistics
 export async function GET() {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const nowMs = Date.now();
         if (cachedStats && (nowMs - cachedStats.timestamp) < CACHE_TTL_MS) {
             return NextResponse.json({ data: cachedStats.data, cached: true });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,10 @@ export const dynamic = "force-dynamic";
 // Query params: purpose, type, unitType, isActive, perPage
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const purpose   = searchParams.get("purpose")   ?? undefined;   // e.g. "simpanan", "operasional"
         const type      = searchParams.get("type")      ?? undefined;   // "cash" | "bank"
@@ -44,6 +49,10 @@ export async function GET(request: Request) {
 // POST /api/master/cash-bank — create new CashBankAccount
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const body = await request.json();
         const { code, name, type, bankName, accountNumber, branchId, glAccountId, unitType, unitTypes, purpose } = body;
 

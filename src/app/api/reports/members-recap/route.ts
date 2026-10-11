@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/reports/members-recap
@@ -6,6 +7,10 @@ import prisma from "@/lib/prisma";
 // Export: ?export=true returns ALL members (for Excel/PDF/Print)
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
 
@@ -95,7 +100,6 @@ export async function GET(request: Request) {
                     inactive: inactiveMembers,
                     resigned: resignedMembers,
                     pensiun: pensiunMembers,
-                    resigned: resignedMembers,
                 },
                 members: allMembers.map((m) => {
                     const fin = financials.get(m.id) ?? { totalSavings: 0, totalLoans: 0 };

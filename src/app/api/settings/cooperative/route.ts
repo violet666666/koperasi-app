@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function GET() {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         // Calculate dynamic stats
         const totalMembers = await prisma.member.count({
             where: { status: "active" }

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const q = searchParams.get("q");
 

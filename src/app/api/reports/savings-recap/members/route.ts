@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/reports/savings-recap/members - Per-member savings breakdown
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const branchId = searchParams.get("branchId");
         const page = parseInt(searchParams.get("page") || "1");

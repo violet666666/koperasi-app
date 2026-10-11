@@ -3,6 +3,13 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { signMobileToken } from "@/lib/jwt";
 import { logAudit } from "@/lib/audit-logger";
+import {
+    isLoginRateLimited,
+    recordLoginFailure,
+    clearLoginFailures,
+    loginRateKey,
+    remainingLockMs,
+} from "@/lib/login-rate-limit";
 
 // POST /api/mobile/login - Authenticate mobile app users using JWT
 export async function POST(request: Request) {
@@ -21,6 +28,27 @@ export async function POST(request: Request) {
             "unknown";
         const userAgent = request.headers.get("user-agent") || "unknown";
 
+        // Brute-force guard: blokir identifier+IP setelah >=5 gagal / 15 menit
+        const rlKey = loginRateKey(identifier, ipAddress);
+        if (isLoginRateLimited(rlKey)) {
+            await logAudit({
+                action: "LOGIN_RATE_LIMITED",
+                module: "Auth",
+                description: `Mobile login diblokir rate limiter untuk '${identifier}' dari ${ipAddress}`,
+                userName: identifier,
+                userRole: "unknown",
+                ipAddress,
+                userAgent,
+                status: "failed",
+                errorMessage: "Rate limited",
+            });
+            const retryIn = Math.ceil(remainingLockMs(rlKey) / 60000);
+            return NextResponse.json(
+                { message: `Terlalu banyak percobaan gagal. Coba lagi dalam ${retryIn} menit.` },
+                { status: 429 }
+            );
+        }
+
         const user = await prisma.user.findFirst({
             where: {
                 OR: [
@@ -35,6 +63,7 @@ export async function POST(request: Request) {
         });
 
         if (!user) {
+            recordLoginFailure(rlKey);
             await logAudit({
                 action: "LOGIN_FAILED",
                 module: "Auth",
@@ -56,6 +85,7 @@ export async function POST(request: Request) {
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
+            recordLoginFailure(rlKey);
             await logAudit({
                 userId: user.id,
                 action: "LOGIN_FAILED",
@@ -73,6 +103,7 @@ export async function POST(request: Request) {
         }
 
         // Log successful login
+        clearLoginFailures(rlKey);
         await logAudit({
             userId: user.id,
             action: "LOGIN",

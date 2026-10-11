@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { calculateSystemSHU } from "@/lib/services/shu-calculator";
 import { computeUnitGrossProfit } from "@/lib/services/shu-gross-profit";
 
@@ -8,6 +9,10 @@ import { computeUnitGrossProfit } from "@/lib/services/shu-gross-profit";
 // Export: ?export=true returns ALL members (for Excel/PDF/Print)
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
         const monthParam = searchParams.get("month"); // 1-12 or null/all

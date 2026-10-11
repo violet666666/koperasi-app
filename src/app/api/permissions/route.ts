@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/permissions
 export async function GET() {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const permissions = await prisma.permission.findMany({
             orderBy: [{ module: "asc" }, { name: "asc" }],
         });

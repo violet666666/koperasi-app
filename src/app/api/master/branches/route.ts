@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createBranchSchema, updateBranchSchema, paginationSchema } from "@/lib/validations";
 
 // GET /api/master/branches - List all branches
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const query = paginationSchema.parse({
             page: searchParams.get("page") || 1,
@@ -55,6 +60,10 @@ export async function GET(request: Request) {
 // POST /api/master/branches - Create new branch
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         // LOCKDOWN: PRIMKOPPOL LUMAJANG is a Single-Entity Cooperative.
         // We explicitly prevent creating new organizational branches, but allow Units.
         return NextResponse.json(

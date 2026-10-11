@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/pengumuman/[id]
@@ -7,6 +8,10 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const announcement = await prisma.announcement.findUnique({
             where: { id: parseInt(id) },
@@ -42,6 +47,10 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const body = await request.json();
 
@@ -87,6 +96,10 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp", "kasir"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         await prisma.announcement.update({
             where: { id: parseInt(id) },

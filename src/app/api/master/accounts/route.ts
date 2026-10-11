@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma, { prismaRead } from "@/lib/prisma";
 import { createAccountSchema, paginationSchema } from "@/lib/validations";
 import { getCached, invalidateCache } from "@/lib/cache";
@@ -6,6 +7,10 @@ import { getCached, invalidateCache } from "@/lib/cache";
 // GET /api/master/accounts - Chart of Accounts
 export async function GET(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const format = searchParams.get("format") || "flat"; // flat or tree
         const type = searchParams.get("type"); // filter by type
@@ -61,6 +66,10 @@ export async function GET(request: Request) {
 // POST /api/master/accounts
 export async function POST(request: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const body = await request.json();
         const data = createAccountSchema.parse(body);
 

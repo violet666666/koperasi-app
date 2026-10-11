@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { SALE_NOT_VOIDED } from "@/lib/sale-void-filter";
+import { auth } from "@/lib/auth";
 
 function toNum(d: Decimal | number | null | undefined): number {
     if (d === null || d === undefined) return 0;
@@ -14,6 +15,10 @@ function toNum(d: Decimal | number | null | undefined): number {
 //         paymentMethod (cash|qris|salary_cut|all), page, perPage
 export async function GET(request: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
         const monthParam = searchParams.get("month");

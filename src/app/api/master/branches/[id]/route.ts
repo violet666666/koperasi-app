@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { updateBranchSchema } from "@/lib/validations";
 
@@ -9,6 +10,10 @@ interface Params {
 // GET /api/master/branches/[id]
 export async function GET(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const branch = await prisma.branch.findUnique({
             where: { id: parseInt(id), deletedAt: null },
@@ -34,6 +39,10 @@ export async function GET(request: Request, { params }: Params) {
 // PUT /api/master/branches/[id]
 export async function PUT(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const body = await request.json();
         const data = updateBranchSchema.parse(body);
@@ -86,6 +95,10 @@ export async function PUT(request: Request, { params }: Params) {
 // DELETE /api/master/branches/[id] - Soft delete
 export async function DELETE(request: Request, { params }: Params) {
     try {
+        const session = await auth();
+        if (!session?.user || !["operator", "admin", "admin_sp"].includes(session.user.role)) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
         const { id } = await params;
         const branch = await prisma.branch.findUnique({
             where: { id: parseInt(id), deletedAt: null },

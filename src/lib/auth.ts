@@ -5,6 +5,12 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { logAudit } from "@/lib/audit-logger";
+import {
+    isLoginRateLimited,
+    recordLoginFailure,
+    clearLoginFailures,
+    loginRateKey,
+} from "@/lib/login-rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma) as Adapter,
@@ -24,10 +30,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
             async authorize(credentials, request) {
                 try {
-                    console.log("[Auth] Attempting login for:", credentials?.email);
-
                     if (!credentials?.email || !credentials?.password) {
-                        console.log("[Auth] Missing email or password");
+                        console.log("[Auth] Login failed: missing email or password");
                         return null;
                     }
 
@@ -39,6 +43,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         request?.headers?.get?.("x-real-ip") ||
                         "unknown";
                     const userAgent = request?.headers?.get?.("user-agent") || "unknown";
+
+                    // Brute-force guard: blokir identifier+IP setelah >=5 gagal / 15 menit
+                    const rlKey = loginRateKey(loginIdentifier, ipAddress);
+                    if (isLoginRateLimited(rlKey)) {
+                        await logAudit({
+                            action: "LOGIN_RATE_LIMITED",
+                            module: "Auth",
+                            description: `Login diblokir rate limiter untuk '${loginIdentifier}' dari ${ipAddress}`,
+                            userName: loginIdentifier,
+                            userRole: "unknown",
+                            ipAddress,
+                            userAgent,
+                            status: "failed",
+                            errorMessage: "Rate limited",
+                            metadata: { loginIdentifier },
+                        });
+                        return null;
+                    }
 
                     const user = await prisma.user.findFirst({
                         where: {
@@ -62,7 +84,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     });
 
                     if (!user) {
-                        console.log("[Auth] User not found:", loginIdentifier);
+                        console.log("[Auth] Login failed: user not found");
+                        recordLoginFailure(rlKey);
                         // Log failed login attempt (user not found)
                         await logAudit({
                             action: "LOGIN_FAILED",
@@ -80,7 +103,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     }
 
                     if (!user.isActive) {
-                        console.log("[Auth] User is inactive:", loginIdentifier);
+                        console.log("[Auth] Login failed: user inactive");
+                        recordLoginFailure(rlKey);
                         // Log failed login (inactive account)
                         await logAudit({
                             userId: user.id,
@@ -104,7 +128,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     );
 
                     if (!passwordMatch) {
-                        console.log("[Auth] Password mismatch for:", loginIdentifier);
+                        console.log("[Auth] Login failed: password mismatch");
+                        recordLoginFailure(rlKey);
                         // Log failed login (wrong password)
                         await logAudit({
                             userId: user.id,
@@ -122,7 +147,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         return null;
                     }
 
-                    console.log("[Auth] Login successful for:", loginIdentifier);
+                    console.log("[Auth] Login successful");
+                    clearLoginFailures(rlKey);
 
                     // Log successful login
                     await logAudit({
