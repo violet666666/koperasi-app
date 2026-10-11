@@ -24,6 +24,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx vitest run
+        env:
+          # PrismaClient constructor butuh URL valid (koneksi lazy) — 4 file test
+          # meng-import modul yang memuat client; test tidak query DB sungguhan.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
   tsc-ratchet:
     name: tsc ratchet (max 176 errors)
