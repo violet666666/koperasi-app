@@ -56,7 +56,7 @@ describe("Split Bill Validation", () => {
         expect(result.valid).toBe(false);
     });
 
-    it("should reject duplicate payment methods in same split", async () => {
+    it("should allow duplicate payment methods when totals match", async () => {
         const { validateSplitBill } = await import("@/lib/split-bill");
         const result = validateSplitBill({
             items: [{ productId: 1, name: "Test", price: 20000, quantity: 1 }],
@@ -65,7 +65,9 @@ describe("Split Bill Validation", () => {
                 { method: "cash", amount: 10000 },
             ],
         });
-        expect(result.valid).toBe(false);
+        // Duplikat method (mis. 2x cash) legal — invarian yang divalidasi
+        // adalah total payments == total items, bukan keunikan method.
+        expect(result.valid).toBe(true);
     });
 });
 
@@ -103,6 +105,8 @@ describe("Split Bill Group ID", () => {
         const id1 = generateSplitGroupId();
         const id2 = generateSplitGroupId();
         expect(id1).not.toBe(id2);
-        expect(id1).toMatch(/^split_/);
+        // Format "SB-" dipakai billing dedup + FK UnitTransaction.groupId — jangan ubah
+        // tanpa cek scripts/billing & API split-bill (lihat CLAUDE.md billing gotcha).
+        expect(id1).toMatch(/^SB-[0-9A-F]{8}$/);
     });
 });

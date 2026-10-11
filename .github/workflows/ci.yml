@@ -1,0 +1,48 @@
+# CI — signal regresi tanpa memblokir deploy Railway (deploy tetap jalan dari push).
+# Job build sengaja tidak ada: Railway build = gerbang build alami.
+# Baseline ratchet: TURUNKAN angka saat error berkurang; jangan naikkan tanpa alasan.
+name: CI
+
+on:
+  push:
+    branches: [railway-migration, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Vitest (unit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run
+
+  tsc-ratchet:
+    name: tsc ratchet (max 176 errors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check + ratchet
+        env:
+          TSC_BASELINE: 176 # hasil `npx tsc --noEmit | grep -c 'error TS'` per 2026-10-11
+        run: |
+          npx tsc --noEmit > tsc.log 2>&1 || true
+          COUNT=$(grep -c 'error TS' tsc.log || true)
+          echo "tsc errors: $COUNT (baseline $TSC_BASELINE)"
+          if [ "$COUNT" -gt "$TSC_BASELINE" ]; then
+            echo "::error::Error tsc naik: $COUNT > $TSC_BASELINE. Perbaiki error baru, atau (terakhir) naikkan TSC_BASELINE dengan alasan."
+            exit 1
+          fi

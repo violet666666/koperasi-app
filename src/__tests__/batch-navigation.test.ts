@@ -67,11 +67,13 @@ describe("Batch Navigation Config", () => {
         expect(opnameEntry).toBeUndefined();
     });
 
-    it("adminCafeLspNavigation should have exactly 7 items in CAFE & MENU group", async () => {
+    it("adminCafeLspNavigation should have exactly 8 items in CAFE & MENU group", async () => {
         const mod = await import("@/lib/constants/navigation");
         const cafeMenuGroup = mod.adminCafeLspNavigation.find((item: any) => item.title === "CAFE & MENU");
         expect(cafeMenuGroup).toBeDefined();
-        expect(cafeMenuGroup.items.length).toBe(7);
+        // 8 sejak Latar Cafe CMS (commit 2afaaca7) — update angka ini secara
+        // SENGAJA saat menambah/menghapus menu nav cafe-lsp.
+        expect(cafeMenuGroup.items.length).toBe(8);
     });
 
     it("adminRestoNavigation should have exactly 10 items in RESTO & MENU group", async () => {
